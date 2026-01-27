@@ -25,7 +25,7 @@ const PrivacyStep = ({ onNext }: PrivacyStepProps) => {
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold mb-2">Privacy</h1>
         <p className="opacity-70 text-sm">
-          A quick overview of how your privacy is protected with AlphaHuman
+          A quick overview of how your privacy is protected with AlphaHuman. AlphaHuman is built with privacy in mind.
         </p>
       </div>
 

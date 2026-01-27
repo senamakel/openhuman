@@ -68,7 +68,8 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold mb-2">Connect Accounts</h1>
         <p className="opacity-70 text-sm">
-          To get the most out of AlphaHuman, we need to connect at least one account to your assistant.
+          To get the most out of AlphaHuman, you need to connect at least one account to your assistant. The more
+          accounts you connect, the more powerful the intelligence will be.
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProgressIndicator from '../../components/ProgressIndicator';
+import FeaturesStep from './steps/FeaturesStep';
 import PrivacyStep from './steps/PrivacyStep';
 import AnalyticsStep from './steps/AnalyticsStep';
 import ConnectStep from './steps/ConnectStep';
@@ -9,7 +10,7 @@ import GetStartedStep from './steps/GetStartedStep';
 const Onboarding = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -32,15 +33,17 @@ const Onboarding = () => {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <PrivacyStep onNext={handleNext} />;
+        return <FeaturesStep onNext={handleNext} />;
       case 2:
-        return <AnalyticsStep onNext={handleNext} />;
+        return <PrivacyStep onNext={handleNext} />;
       case 3:
-        return <ConnectStep onNext={handleNext} />;
+        return <AnalyticsStep onNext={handleNext} />;
       case 4:
+        return <ConnectStep onNext={handleNext} />;
+      case 5:
         return <GetStartedStep onComplete={handleComplete} />;
       default:
-        return <PrivacyStep onNext={handleNext} />;
+        return <FeaturesStep onNext={handleNext} />;
     }
   };
 

@@ -96,11 +96,11 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
         ))}
       </div>
 
-      <div className="mt-4 p-4 bg-stone-800/50 rounded-xl border border-stone-700">
+      <div className="mt-4 p-4 bg-sage-500/10 rounded-xl border border-sage-500/30">
         <div className="flex items-start space-x-2">
           <div>
-            <p className="font-medium text-sm">🔒 Remember everything stays private!</p>
-            <p className="opacity-70 text-xs mt-1">AlphaHuman saves all data and credentials
+            <p className="font-medium text-sm">🔒 Remember everything stays private &amp; encrypted!</p>
+            <p className="opacity-70 text-xs mt-1">All data and credentials are stored
               locally and follows a strict zero-data retention policy so you won't have to worry about anything
               getting leaked.</p>
           </div>

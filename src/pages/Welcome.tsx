@@ -1,10 +1,8 @@
-import { useNavigate } from 'react-router-dom';
 import TypewriterGreeting from '../components/TypewriterGreeting';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { BACKEND_URL } from '../utils/config';
 
 const Welcome = () => {
-  const navigate = useNavigate();
   const greetings = [
     "Hello Satoshi! 👋",
     "Got Crypto, Anon? 👀",

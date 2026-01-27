@@ -26,12 +26,12 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
   const handleConnect = (provider: string) => {
     // In a real app, this would handle OAuth
     console.log(`Connecting to ${provider}`);
-    
+
     if (provider === 'telegram') {
       setIsTelegramModalOpen(true);
       return;
     }
-    
+
     // Don't auto-advance for coming soon items
     if (!connectOptions.find(opt => opt.id === provider)?.comingSoon) {
       onNext();
@@ -47,32 +47,32 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
     {
       id: 'google',
       name: 'Google',
-      description: 'Get insights from your emails, contacts and calendar events',
+      description: 'Manage emails, contacts and calendar events',
       icon: <GoogleIcon />,
     },
     {
       id: 'notion',
       name: 'Notion',
-      description: 'Read through tasks, documents and everything else in your Notion workspace',
+      description: 'Manage tasks, documents and everything else in your Notion',
       icon: <img src={NotionIcon} alt="Notion" className="w-5 h-5" />,
     },
     {
       id: 'telegram',
       name: 'Telegram',
-      description: 'Go through chats, automate messages and get insights from your conversations.',
+      description: 'Organize chats, automate messages and get insights.',
       icon: <img src={TelegramIcon} alt="Telegram" className="w-5 h-5" />,
     },
     {
       id: 'wallet',
       name: 'Web3 Wallet',
-      description: 'Trade the trenches while also managing your portfolio with deep insights.',
+      description: 'Trade the trenches in a safe and secure way.',
       icon: <img src={MetamaskIcon} alt="Metamask" className="w-5 h-5" />,
       comingSoon: true,
     },
     {
       id: 'exchange',
       name: 'Crypto Trading Exchanges',
-      description: 'Connect to your trading accounts to make trades and manage your portfolio with deep insights.',
+      description: 'Connect tand make trades with deep insights.',
       icon: <img src={BinanceIcon} alt="Binance" className="w-5 h-5" />,
       comingSoon: true,
     },
@@ -83,8 +83,7 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold mb-2">Connect Accounts</h1>
         <p className="opacity-70 text-sm">
-          To get the most out of AlphaHuman, you need to connect at least one account. The more
-          accounts you connect, the more powerful the intelligence will be.
+          The more accounts you connect, the more powerful the intelligence will be.
         </p>
       </div>
 
@@ -114,7 +113,7 @@ const ConnectStep = ({ onNext }: ConnectStepProps) => {
       <div className="mt-4 p-4 bg-sage-500/10 rounded-xl border border-sage-500/30">
         <div className="flex items-start space-x-2">
           <div>
-            <p className="font-medium text-sm">🔒 Remember everything stays private &amp; encrypted!</p>
+            <p className="font-medium text-sm">🔒 Remember everything is private &amp; encrypted!</p>
             <p className="opacity-70 text-xs mt-1">All data and credentials are stored
               locally and follows a strict zero-data retention policy so you won't have to worry about anything
               getting leaked.</p>

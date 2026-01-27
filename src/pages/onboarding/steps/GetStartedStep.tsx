@@ -18,57 +18,13 @@ const GetStartedStep = ({ onComplete }: GetStartedStepProps) => {
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold mb-2">You Are Ready, Soldier!</h1>
         <p className="opacity-70 text-sm">
-          Alright you're all set up, just message your assistant and you're ready to cook!
+          Alright you're all set up, just message your assistant and you're ready to cook! Remember to keep this tab open to keep the connection alive.
         </p>
       </div>
 
       <ConnectionIndicator
-        description="Your browser is now connected to the AlphaHuman AI Models. Keep this tab open to keep the connection alive."
+        description="Your browser is now connected to the AlphaHuman AI Models. Please keep this tab open."
       />
-
-      <div className="space-y-3 mb-4">
-        <div className="bg-stone-800/50 rounded-xl p-4 border border-stone-700">
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">1</span>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-1 text-sm">Open Telegram</h3>
-              <p className="opacity-70 text-xs">
-                Click the button below to open the AlphaHuman bot in Telegram
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-stone-800/50 rounded-xl p-4 border border-stone-700">
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">2</span>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-1 text-sm">Keep this tab open</h3>
-              <p className="opacity-70 text-xs">
-                Keep this tab open to keep the connection alive. You can message the assistant with the button below.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-stone-800/50 rounded-xl p-4 border border-stone-700">
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">3</span>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-1 text-sm">Start Messaging</h3>
-              <p className="opacity-70 text-xs">
-                Send a message to the bot to get started. Try asking about crypto prices, market trends, or anything about your chats!
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <button
         onClick={handleOpenTelegram}

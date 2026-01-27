@@ -17,7 +17,7 @@ const Welcome = () => {
   ];
 
   const handleTelegramLogin = () => {
-    navigate('/onboarding/step1');
+    navigate('/onboarding');
   };
 
   return (

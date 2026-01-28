@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -31,9 +32,10 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
   const [passwordHint, setPasswordHint] = useState<string | undefined>();
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrCodeExpires, setQrCodeExpires] = useState<number | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  
+
   // Store password promise resolver
   const passwordResolverRef = useRef<((password: string) => void) | null>(null);
 
@@ -107,7 +109,7 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
           setPasswordHint(hint);
           setCurrentStep('2fa');
           setIsAuthenticating(false);
-          
+
           // Wait for user to enter password
           return new Promise<string>((resolve) => {
             passwordResolverRef.current = resolve;
@@ -118,14 +120,14 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
           const errorMessage = err.message || 'Authentication error';
           setError(errorMessage);
           dispatch(setAuthError(errorMessage));
-          
+
           // Check if it's a cancellation
           if (errorMessage.includes('AUTH_USER_CANCEL') || errorMessage.includes('cancel')) {
             setCurrentStep('qr');
             setIsAuthenticating(false);
             return true; // Stop authentication
           }
-          
+
           return false; // Continue
         }
       );
@@ -145,13 +147,39 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
     }
   }, [dispatch, onComplete, onClose]);
 
+  // Update countdown timer every second and reload QR code on timeout
+  useEffect(() => {
+    if (!qrCodeExpires) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((qrCodeExpires * 1000 - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+      
+      // If timer reaches 0 and we're on QR step, reload the QR code
+      if (remaining === 0 && currentStep === 'qr' && !isAuthenticating) {
+        startQrCodeFlow();
+      }
+    };
+
+    // Update immediately
+    updateTimer();
+
+    // Update every second
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [qrCodeExpires, currentStep, isAuthenticating, startQrCodeFlow]);
+
   const handle2FASubmit = async () => {
     if (!password.trim() || !passwordResolverRef.current) return;
 
     try {
       setIsAuthenticating(true);
       setError(null);
-      
+
       // Resolve the password promise to continue authentication
       passwordResolverRef.current(password);
       passwordResolverRef.current = null;
@@ -188,14 +216,32 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md mx-4">
-        <div className="glass rounded-3xl p-8 shadow-large animate-fade-up">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center"
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999
+      }}
+    >
+      <div 
+        className="bg-black/90 shadow-large animate-fade-up max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col items-center justify-center rounded-3xl"
+        style={{
+          maxWidth: '56rem',
+          maxHeight: '90vh',
+          padding: 0
+        }}
+      >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-800/50 transition-colors"
+            className="absolute top-6 right-6 z-10 w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-800/50 transition-colors"
           >
             <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -203,14 +249,14 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
           </button>
 
           {currentStep === 'loading' ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+            <div className="text-center py-8 flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
               <p className="opacity-70">Initializing Telegram connection...</p>
             </div>
           ) : currentStep === 'error' ? (
             <>
               {/* Error Screen */}
-              <div className="text-center">
+              <div className="text-center flex flex-col items-center justify-center">
                 <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -237,9 +283,7 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
           ) : currentStep === 'qr' ? (
             <>
               {/* QR Code Screen */}
-              <div className="text-center">
-                <h2 className="text-2xl font-bold mb-6">Log in to Telegram by QR Code</h2>
-
+              <div className="text-center flex flex-col items-center justify-center w-full">
                 {/* QR Code Container */}
                 <div className="flex justify-center mb-8">
                   <div className="bg-white p-4 rounded-2xl shadow-large">
@@ -255,14 +299,6 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
                           fgColor="#000000"
                           className="w-full h-full"
                         />
-                        {/* Telegram logo overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-16 h-16 bg-[#0088CC] rounded-full flex items-center justify-center shadow-lg">
-                            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                            </svg>
-                          </div>
-                        </div>
                       </div>
                     ) : (
                       <div className="w-64 h-64 bg-gray-100 rounded-xl flex items-center justify-center">
@@ -279,9 +315,9 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
                   </div>
                 </div>
 
-                {qrCodeExpires && (
+                {qrCodeExpires && timeRemaining > 0 && (
                   <p className="text-xs opacity-70 mb-4">
-                    This code expires in {Math.max(0, Math.floor((qrCodeExpires * 1000 - Date.now()) / 1000))} seconds
+                    This code expires in {timeRemaining} seconds
                   </p>
                 )}
 
@@ -314,29 +350,12 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
                     <p className="opacity-90 text-sm">Point your phone at this screen to confirm login</p>
                   </div>
                 </div>
-
-                {/* Action buttons */}
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleBack}
-                    className="flex-1 py-2.5 px-4 bg-stone-800/50 hover:bg-stone-700/50 border border-stone-700 rounded-xl text-sm font-medium transition-all duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRetry}
-                    disabled={isAuthenticating}
-                    className="flex-1 py-2.5 px-4 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-all duration-200"
-                  >
-                    {isAuthenticating ? 'Connecting...' : 'Refresh QR Code'}
-                  </button>
-                </div>
               </div>
             </>
           ) : (
             <>
               {/* 2FA Screen */}
-              <div className="text-center">
+              <div className="text-center flex flex-col items-center justify-center w-full">
                 <h2 className="text-2xl font-bold mb-2">Enter Your Password</h2>
                 <p className="opacity-70 text-sm mb-6">
                   {passwordHint
@@ -389,9 +408,10 @@ const TelegramConnectionModal = ({ isOpen, onClose, onComplete }: TelegramConnec
             </>
           )}
         </div>
-      </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default TelegramConnectionModal;

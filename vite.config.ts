@@ -9,7 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [
     nodePolyfills({
-      include: ["buffer", "process", "util", "crypto", "stream"],
+      include: ["buffer", "process", "util", "os", "crypto", "stream"],
       globals: {
         Buffer: true,
         process: true,
@@ -39,5 +39,16 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+  resolve: {
+    alias: {
+      buffer: "buffer",
+      process: "process/browser",
+      util: "util",
+      os: "os-browserify/browser",
+    },
+  },
+  optimizeDeps: {
+    include: ["buffer", "process", "util", "os-browserify", "telegram"],
   },
 }));

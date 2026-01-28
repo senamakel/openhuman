@@ -114,13 +114,13 @@ const ConnectionsPanel = () => {
   const getConnectionStatus = (optionId: string) => {
     const isConnected = isAccountConnected(optionId);
     if (isConnected) {
-      return { label: 'Connected', className: 'bg-green-100 text-green-700 border-green-200' };
+      return { label: 'Connected', className: 'bg-green-500/20 text-green-400 border-green-500/30' };
     }
     const option = connectOptions.find(opt => opt.id === optionId);
     if (option?.comingSoon) {
-      return { label: 'Coming Soon', className: 'bg-gray-100 text-gray-600 border-gray-200' };
+      return { label: 'Coming Soon', className: 'bg-stone-500/20 text-stone-400 border-stone-500/30' };
     }
-    return { label: 'Not Connected', className: 'bg-red-50 text-red-600 border-red-200' };
+    return { label: 'Not Connected', className: 'bg-red-500/20 text-red-400 border-red-500/30' };
   };
 
   return (
@@ -128,8 +128,8 @@ const ConnectionsPanel = () => {
       <SettingsPanelLayout title="Connections" onBack={navigateBack}>
         <div className="p-6">
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Connected Services</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-lg font-semibold text-white mb-2">Connected Services</h3>
+            <p className="text-sm text-stone-400">
               Manage your connected accounts and services. Connect more accounts for better AI intelligence.
             </p>
           </div>
@@ -142,23 +142,30 @@ const ConnectionsPanel = () => {
               return (
                 <div
                   key={option.id}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+                  className="relative flex items-center justify-between p-3 bg-black/50 border border-stone-700 rounded-xl hover:bg-stone-800/30 transition-colors"
                 >
+                  {/* Connection status dot - top right corner */}
+                  {isConnected && !option.comingSoon && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-sage-500 rounded-full border-2 border-black/50"></div>
+                  )}
+
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <div className="flex-shrink-0">
                       {option.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 text-sm">{option.name}</h4>
-                      <p className="text-xs text-gray-500 truncate">{option.description}</p>
+                      <h4 className="font-medium text-white text-sm">{option.name}</h4>
+                      <p className="text-xs text-stone-400 truncate">{option.description}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-3">
-                    {/* Status badge */}
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${status.className}`}>
-                      {status.label}
-                    </span>
+                    {/* Coming Soon badge in original position */}
+                    {option.comingSoon && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full border bg-stone-500/20 text-stone-400 border-stone-500/30">
+                        Coming Soon
+                      </span>
+                    )}
 
                     {/* Action button */}
                     {!option.comingSoon && (
@@ -166,8 +173,8 @@ const ConnectionsPanel = () => {
                         onClick={() => handleConnect(option.id)}
                         className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                           isConnected
-                            ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
-                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                            ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
+                            : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
                         }`}
                       >
                         {isConnected ? 'Disconnect' : 'Connect'}
@@ -180,14 +187,14 @@ const ConnectionsPanel = () => {
           </div>
 
           {/* Security notice */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
             <div className="flex items-start space-x-2">
-              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <p className="font-medium text-blue-900 text-sm">🔒 Privacy & Security</p>
-                <p className="text-blue-800 text-xs mt-1">
+                <p className="font-medium text-blue-300 text-sm">🔒 Privacy & Security</p>
+                <p className="text-blue-200 text-xs mt-1">
                   All data and credentials are stored locally with zero-data retention policy.
                   Your information is encrypted and never shared with third parties.
                 </p>

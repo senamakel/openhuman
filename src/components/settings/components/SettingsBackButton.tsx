@@ -10,10 +10,10 @@ const SettingsBackButton = ({
   className = ''
 }: SettingsBackButtonProps) => {
   return (
-    <div className={`flex items-center p-4 border-b border-gray-100 ${className}`}>
+    <div className={`bg-black/30 border-b border-stone-700 p-6 ${className}`}>
       <button
         onClick={onClick}
-        className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 transition-colors duration-150"
+        className="flex items-center space-x-3 text-white hover:text-stone-300 transition-colors duration-150"
         aria-label="Go back"
       >
         <svg
@@ -29,7 +29,7 @@ const SettingsBackButton = ({
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        <span className="text-[15px] font-medium">{title}</span>
+        <span className="text-lg font-semibold">{title}</span>
       </button>
     </div>
   );

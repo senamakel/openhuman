@@ -15,9 +15,9 @@ const SettingsPanelLayout = ({
   className = ''
 }: SettingsPanelLayoutProps) => {
   return (
-    <div className={`bg-white rounded-2xl overflow-hidden ${className}`}>
+    <div className={`glass rounded-3xl overflow-hidden h-[600px] flex flex-col ${className}`}>
       <SettingsBackButton onClick={onBack} title={title} />
-      <div className="max-h-[70vh] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {children}
       </div>
     </div>

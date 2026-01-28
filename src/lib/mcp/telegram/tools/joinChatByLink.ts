@@ -3,6 +3,7 @@ import type { TelegramMCPContext } from '../types';
 import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { ResultWithChats } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'join_chat_by_link',
@@ -37,7 +38,7 @@ export async function joinChatByLink(
       return client.invoke(new Api.messages.ImportChatInvite({ hash }));
     });
 
-    const chatTitle = (result as any)?.chats?.[0]?.title ?? 'unknown';
+    const chatTitle = (result as unknown as ResultWithChats)?.chats?.[0]?.title ?? 'unknown';
     return { content: [{ type: 'text', text: `Joined chat: ${chatTitle}` }] };
   } catch (error) {
     return logAndFormatError(

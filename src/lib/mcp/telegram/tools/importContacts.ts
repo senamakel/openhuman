@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from "../../errorHandler";
 import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
 import bigInt from "big-integer";
+import type { ContactInput, ImportContactsResult } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "import_contacts",
@@ -48,7 +49,7 @@ export async function importContacts(
     }
 
     const inputContacts = contactsArg.map(
-      (c: any, i: number) =>
+      (c: ContactInput, i: number) =>
         new Api.InputPhoneContact({
           clientId: bigInt(i),
           phone: String(c.phone ?? ""),
@@ -65,7 +66,7 @@ export async function importContacts(
       );
     });
 
-    const imported = (result as any)?.imported?.length ?? 0;
+    const imported = (result as unknown as ImportContactsResult)?.imported?.length ?? 0;
     return {
       content: [
         {

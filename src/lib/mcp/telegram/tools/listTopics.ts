@@ -5,6 +5,7 @@ import { validateId } from '../../validation';
 import { getChatById } from '../telegramApi';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { ForumTopicsResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'list_topics',
@@ -42,12 +43,12 @@ export async function listTopics(
       );
     });
 
-    const topics = (result as any)?.topics;
+    const topics = (result as unknown as ForumTopicsResult)?.topics;
     if (!topics || !Array.isArray(topics) || topics.length === 0) {
       return { content: [{ type: 'text', text: 'No forum topics found.' }] };
     }
 
-    const lines = topics.map((t: any) => {
+    const lines = topics.map((t) => {
       return 'ID: ' + t.id + ' | ' + (t.title ?? 'Untitled');
     });
 

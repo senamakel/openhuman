@@ -3,6 +3,7 @@ import type { TelegramMCPContext } from "../types";
 import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { validateId } from '../../validation';
 import { getChatById, getMessages } from '../telegramApi';
+import type { MessageWithReplyMarkup, ReplyMarkupRow } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "list_inline_buttons",
@@ -35,7 +36,7 @@ export async function listInlineButtons(
     const messages = await getMessages(chatId, 200, 0);
     if (!messages) return { content: [{ type: 'text', text: 'No messages found.' }] };
 
-    const msg = messages.find((m) => String(m.id) === String(messageId)) as any;
+    const msg = messages.find((m) => String(m.id) === String(messageId)) as unknown as MessageWithReplyMarkup | undefined;
     if (!msg) return { content: [{ type: 'text', text: 'Message ' + messageId + ' not found in cache.' }], isError: true };
 
     if (!msg.replyMarkup || !msg.replyMarkup.rows) {
@@ -43,9 +44,9 @@ export async function listInlineButtons(
     }
 
     const lines: string[] = [];
-    msg.replyMarkup.rows.forEach((row: any, ri: number) => {
+    msg.replyMarkup.rows.forEach((row: ReplyMarkupRow, ri: number) => {
       if (row.buttons) {
-        row.buttons.forEach((btn: any, bi: number) => {
+        row.buttons.forEach((btn, bi: number) => {
           lines.push('Row ' + ri + ', Button ' + bi + ': "' + (btn.text ?? '?') + '"');
         });
       }

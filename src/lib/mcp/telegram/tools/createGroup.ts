@@ -3,6 +3,7 @@ import type { TelegramMCPContext } from "../types";
 import { ErrorCategory, logAndFormatError } from "../../errorHandler";
 import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
+import type { ResultWithChats } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "create_group",
@@ -52,7 +53,7 @@ export async function createGroup(
       return client.invoke(new Api.messages.CreateChat({ title, users }));
     });
 
-    const chatId = (result as any)?.chats?.[0]?.id ?? "unknown";
+    const chatId = (result as unknown as ResultWithChats)?.chats?.[0]?.id ?? "unknown";
     return {
       content: [
         { type: "text", text: `Group "${title}" created. Chat ID: ${chatId}` },

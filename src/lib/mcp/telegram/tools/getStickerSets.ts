@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
+import type { StickerSetsResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "get_sticker_sets",
@@ -22,12 +23,12 @@ export async function getStickerSets(
       return client.invoke(new Api.messages.GetAllStickers({ hash: bigInt(0) }));
     });
 
-    const sets = (result as any)?.sets;
+    const sets = (result as unknown as StickerSetsResult)?.sets;
     if (!sets || !Array.isArray(sets) || sets.length === 0) {
       return { content: [{ type: 'text', text: 'No sticker sets found.' }] };
     }
 
-    const lines = sets.map((s: any) => {
+    const lines = sets.map((s) => {
       return 'ID: ' + s.id + ' | ' + (s.title ?? 'Untitled') + ' (' + (s.count ?? 0) + ' stickers)';
     });
 

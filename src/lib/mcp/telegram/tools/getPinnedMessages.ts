@@ -6,6 +6,7 @@ import { validateId } from '../../validation';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
+import type { ApiMessage } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'get_pinned_messages',
@@ -53,7 +54,7 @@ export async function getPinnedMessages(
       );
 
       if ('messages' in result && Array.isArray(result.messages)) {
-        pinnedLines = result.messages.map((msg: any) => {
+        pinnedLines = (result.messages as unknown as ApiMessage[]).map((msg) => {
           const id = msg.id ?? '?';
           const text = msg.message ?? '[Media/No text]';
           const date = msg.date ? new Date(msg.date * 1000).toISOString() : 'unknown';
@@ -64,7 +65,7 @@ export async function getPinnedMessages(
       // Fallback: check cached messages for pinned flag
       const allMessages = await getMessages(chatId, 500, 0);
       if (allMessages) {
-        const pinned = allMessages.filter((m: any) => m.pinned);
+        const pinned = allMessages.filter((m) => (m as unknown as ApiMessage).pinned);
         pinnedLines = pinned.map((msg) => {
           const f = formatMessage(msg);
           return `ID: ${f.id} | Date: ${f.date} | ${f.text || '[Media/No text]'}`;

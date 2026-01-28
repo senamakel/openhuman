@@ -7,6 +7,7 @@ import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
 import { optNumber } from '../args';
+import type { AdminLogResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "get_recent_actions",
@@ -52,12 +53,12 @@ export async function getRecentActions(
       );
     });
 
-    const events = (result as any)?.events;
+    const events = (result as unknown as AdminLogResult)?.events;
     if (!events || !Array.isArray(events) || events.length === 0) {
       return { content: [{ type: 'text', text: 'No recent actions found.' }] };
     }
 
-    const lines = events.map((e: any) => {
+    const lines = events.map((e) => {
       const date = e.date ? new Date(e.date * 1000).toISOString() : 'unknown';
       const action = e.action?.className ?? 'unknown';
       return date + ' | ' + action;

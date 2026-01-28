@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
+import type { ApiUser } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'list_contacts',
@@ -26,7 +27,7 @@ export async function listContacts(
       return { content: [{ type: 'text', text: 'No contacts found.' }] };
     }
 
-    const lines = result.users.map((u: any) => {
+    const lines = result.users.map((u: ApiUser) => {
       const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Unknown';
       const username = u.username ? `@${u.username}` : '';
       const phone = u.phone ? `+${u.phone}` : '';

@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from "../../errorHandler";
 import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
 import bigInt from "big-integer";
+import type { ApiUser } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "export_contacts",
@@ -31,7 +32,7 @@ export async function exportContacts(
       return { content: [{ type: "text", text: "No contacts to export." }] };
     }
 
-    const contacts = result.users.map((u: any) => ({
+    const contacts = result.users.map((u: ApiUser) => ({
       id: String(u.id),
       firstName: u.firstName ?? "",
       lastName: u.lastName ?? "",

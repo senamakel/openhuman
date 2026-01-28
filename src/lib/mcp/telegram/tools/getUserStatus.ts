@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { validateId } from '../../validation';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { ApiUser } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'get_user_status',
@@ -36,7 +37,7 @@ export async function getUserStatus(
       return { content: [{ type: 'text', text: 'User ' + userId + ' not found.' }], isError: true };
     }
 
-    const user = result[0] as any;
+    const user = result[0] as unknown as ApiUser;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Unknown';
     let statusText = 'unknown';
 

@@ -3,6 +3,7 @@ import type { TelegramMCPContext } from "../types";
 import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { BotCommandInput } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "set_bot_commands",
@@ -27,7 +28,7 @@ export async function setBotCommands(
 
     const client = mtprotoService.getClient();
 
-    const botCommands = cmds.map((c: any) =>
+    const botCommands = cmds.map((c: BotCommandInput) =>
       new Api.BotCommand({ command: String(c.command ?? ''), description: String(c.description ?? '') }),
     );
 

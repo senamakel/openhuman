@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { validateId } from '../../validation';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { FullUserResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "get_bot_info",
@@ -32,8 +33,8 @@ export async function getBotInfo(
       );
     });
 
-    const fullUser = (result as any)?.fullUser;
-    const user = (result as any)?.users?.[0];
+    const fullUser = (result as unknown as FullUserResult)?.fullUser;
+    const user = (result as unknown as FullUserResult)?.users?.[0];
 
     if (!user) {
       return { content: [{ type: 'text', text: 'Bot not found: ' + botId }], isError: true };

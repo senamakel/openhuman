@@ -5,6 +5,7 @@ import { validateId } from '../../validation';
 import { getChatById } from '../telegramApi';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { UpdatesResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'get_message_reactions',
@@ -47,7 +48,7 @@ export async function getMessageReactions(
       );
     });
 
-    const updates = result as any;
+    const updates = result as unknown as UpdatesResult;
     if (!updates || !updates.updates || updates.updates.length === 0) {
       return { content: [{ type: 'text', text: 'No reactions found on message ' + messageId + '.' }] };
     }

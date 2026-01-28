@@ -7,6 +7,7 @@ import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
 import { optNumber } from "../args";
 import bigInt from "big-integer";
+import type { ApiUser } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "get_participants",
@@ -39,7 +40,7 @@ export async function getParticipants(
     const client = mtprotoService.getClient();
     const entity = chat.username ? chat.username : chat.id;
 
-    let participants: any[] = [];
+    let participants: ApiUser[] = [];
 
     if (chat.type === "channel" || chat.type === "supergroup") {
       const result = await mtprotoService.withFloodWaitHandling(async () => {
@@ -55,7 +56,7 @@ export async function getParticipants(
         );
       });
       if (result && "users" in result && Array.isArray(result.users)) {
-        participants = result.users;
+        participants = result.users as unknown as ApiUser[];
       }
     } else {
       const result = await mtprotoService.withFloodWaitHandling(async () => {
@@ -64,7 +65,7 @@ export async function getParticipants(
         );
       });
       if (result && "users" in result && Array.isArray(result.users)) {
-        participants = result.users;
+        participants = result.users as unknown as ApiUser[];
       }
     }
 
@@ -72,7 +73,7 @@ export async function getParticipants(
       return { content: [{ type: "text", text: "No participants found." }] };
     }
 
-    const lines = participants.map((u: any) => {
+    const lines = participants.map((u: ApiUser) => {
       const name =
         [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unknown";
       const username = u.username ? `@${u.username}` : "";

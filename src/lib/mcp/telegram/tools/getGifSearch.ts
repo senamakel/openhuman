@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import { optNumber } from '../args';
+import type { InlineBotResults } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "get_gif_search",
@@ -41,12 +42,12 @@ export async function getGifSearch(
       );
     });
 
-    const results = (result as any)?.results;
+    const results = (result as unknown as InlineBotResults)?.results;
     if (!results || !Array.isArray(results) || results.length === 0) {
       return { content: [{ type: 'text', text: 'No GIFs found for: ' + query }] };
     }
 
-    const lines = results.slice(0, limit).map((r: any, i: number) => {
+    const lines = results.slice(0, limit).map((r, i: number) => {
       const title = r.title ?? r.description ?? 'GIF ' + (i + 1);
       return (i + 1) + '. ' + title;
     });

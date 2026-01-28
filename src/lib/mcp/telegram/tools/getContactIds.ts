@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
+import type { ContactIdEntry } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'get_contact_ids',
@@ -26,7 +27,7 @@ export async function getContactIds(
       return { content: [{ type: 'text', text: 'No contact IDs found.' }] };
     }
 
-    const ids = result.map((c: any) => String(c.userId ?? c));
+    const ids = result.map((c: ContactIdEntry) => String(c.userId ?? c));
     return { content: [{ type: 'text', text: ids.length + ' contacts:\n' + ids.join('\n') }] };
   } catch (error) {
     return logAndFormatError(

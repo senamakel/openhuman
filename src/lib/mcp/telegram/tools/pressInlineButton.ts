@@ -5,6 +5,7 @@ import { validateId } from '../../validation';
 import { getChatById } from '../telegramApi';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { BotCallbackAnswer } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "press_inline_button",
@@ -51,7 +52,7 @@ export async function pressInlineButton(
       );
     });
 
-    const answer = (result as any)?.message ?? 'Button pressed (no response message).';
+    const answer = (result as unknown as BotCallbackAnswer)?.message ?? 'Button pressed (no response message).';
     return { content: [{ type: 'text', text: answer }] };
   } catch (error) {
     return logAndFormatError(

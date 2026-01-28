@@ -3,6 +3,7 @@ import type { TelegramMCPContext } from "../types";
 import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
+import type { PrivacyResult } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: "get_privacy_settings",
@@ -41,12 +42,12 @@ export async function getPrivacySettings(
       return client.invoke(new Api.account.GetPrivacy({ key }));
     });
 
-    const rules = (result as any)?.rules;
+    const rules = (result as unknown as PrivacyResult)?.rules;
     if (!rules || !Array.isArray(rules)) {
       return { content: [{ type: 'text', text: 'No privacy rules found for ' + keyStr + '.' }] };
     }
 
-    const lines = rules.map((r: any) => r.className ?? 'Unknown rule');
+    const lines = rules.map((r) => r.className ?? 'Unknown rule');
     return { content: [{ type: 'text', text: 'Privacy settings for ' + keyStr + ':\n' + lines.join('\n') }] };
   } catch (error) {
     return logAndFormatError(

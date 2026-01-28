@@ -4,6 +4,7 @@ import { ErrorCategory, logAndFormatError } from '../../errorHandler';
 import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import { optNumber } from '../args';
+import type { ApiUser } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'search_contacts',
@@ -38,7 +39,7 @@ export async function searchContacts(
       return { content: [{ type: 'text', text: `No contacts found for "${query}".` }] };
     }
 
-    const lines = result.users.map((u: any) => {
+    const lines = result.users.map((u: ApiUser) => {
       const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Unknown';
       const username = u.username ? `@${u.username}` : '';
       return `ID: ${u.id} | ${name} ${username}`.trim();

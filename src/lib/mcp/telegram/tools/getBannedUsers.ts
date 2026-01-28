@@ -7,6 +7,7 @@ import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
 import { optNumber } from "../args";
 import bigInt from "big-integer";
+import type { ApiUser } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "get_banned_users",
@@ -73,7 +74,7 @@ export async function getBannedUsers(
       return { content: [{ type: "text", text: "No banned users found." }] };
     }
 
-    const lines = result.users.map((u: any) => {
+    const lines = result.users.map((u: ApiUser) => {
       const name =
         [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unknown";
       const username = u.username ? `@${u.username}` : "";

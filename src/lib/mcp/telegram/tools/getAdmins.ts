@@ -6,6 +6,7 @@ import { getChatById } from "../telegramApi";
 import { mtprotoService } from "../../../../services/mtprotoService";
 import { Api } from "telegram";
 import bigInt from "big-integer";
+import type { ApiUser } from "../apiResultTypes";
 
 export const tool: MCPTool = {
   name: "get_admins",
@@ -36,7 +37,7 @@ export async function getAdmins(
     const client = mtprotoService.getClient();
     const entity = chat.username ? chat.username : chat.id;
 
-    let admins: any[] = [];
+    let admins: ApiUser[] = [];
 
     if (chat.type === "channel" || chat.type === "supergroup") {
       const result = await mtprotoService.withFloodWaitHandling(async () => {
@@ -52,7 +53,7 @@ export async function getAdmins(
         );
       });
       if (result && "users" in result && Array.isArray(result.users)) {
-        admins = result.users;
+        admins = result.users as unknown as ApiUser[];
       }
     } else {
       const result = await mtprotoService.withFloodWaitHandling(async () => {
@@ -61,7 +62,7 @@ export async function getAdmins(
         );
       });
       if (result && "users" in result && Array.isArray(result.users)) {
-        admins = result.users;
+        admins = result.users as unknown as ApiUser[];
       }
     }
 
@@ -69,7 +70,7 @@ export async function getAdmins(
       return { content: [{ type: "text", text: "No admins found." }] };
     }
 
-    const lines = admins.map((u: any) => {
+    const lines = admins.map((u: ApiUser) => {
       const name =
         [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unknown";
       const username = u.username ? `@${u.username}` : "";

@@ -6,6 +6,7 @@ import { mtprotoService } from '../../../../services/mtprotoService';
 import { Api } from 'telegram';
 import bigInt from 'big-integer';
 import { optNumber } from '../args';
+import type { ApiPhoto } from '../apiResultTypes';
 
 export const tool: MCPTool = {
   name: 'get_user_photos',
@@ -45,7 +46,7 @@ export async function getUserPhotos(
       return { content: [{ type: 'text', text: 'No photos found.' }] };
     }
 
-    const lines = result.photos.map((photo: any, i: number) => {
+    const lines = result.photos.map((photo: ApiPhoto, i: number) => {
       const date = photo.date ? new Date(photo.date * 1000).toISOString() : 'unknown';
       return 'Photo ' + (i + 1) + ': ID ' + photo.id + ' | Date: ' + date;
     });

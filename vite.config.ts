@@ -28,6 +28,9 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
+    allowedHosts: [
+      "frontend-runner-alphahuman-git-main-vezuresxyz.vercel.app",
+    ],
     hmr: host
       ? {
           protocol: "ws",

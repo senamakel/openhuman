@@ -17,11 +17,6 @@ pub const KEYCHAIN_SERVICE: &str = "AlphaHuman";
 /// Deep link scheme
 pub const DEEP_LINK_SCHEME: &str = "alphahuman";
 
-/// Socket.io reconnection settings
-pub const SOCKET_RECONNECT_ATTEMPTS: u32 = 5;
-pub const SOCKET_RECONNECT_DELAY_MS: u64 = 1000;
-pub const SOCKET_PING_INTERVAL_MS: u64 = 25000;
-
 /// Get the backend URL from environment or use default
 pub fn get_backend_url() -> String {
     env::var("BACKEND_URL").unwrap_or_else(|_| DEFAULT_BACKEND_URL.to_string())
@@ -30,9 +25,4 @@ pub fn get_backend_url() -> String {
 /// Get the Telegram widget auth URL
 pub fn get_telegram_widget_url() -> String {
     format!("{}/auth/telegram-widget?redirect={}://auth", get_backend_url(), DEEP_LINK_SCHEME)
-}
-
-/// Get the token exchange endpoint URL
-pub fn get_token_exchange_url() -> String {
-    format!("{}/auth/desktop-exchange", get_backend_url())
 }

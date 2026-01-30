@@ -4,8 +4,6 @@
  * Tracks pts/qts/seq state for the common update box and per-channel PTS.
  * Implements sorted queues for sequential update processing with gap detection
  * and automatic recovery via getDifference / getChannelDifference.
- *
- * Reference: Telegram-TT's src/api/gramjs/updates/updateManager.ts
  */
 
 import { Api } from "telegram/tl";
@@ -168,11 +166,12 @@ export class UpdateManager {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   processUpdate(update: any): void {
     // Combined updates (Updates / UpdatesCombined) contain seq
-    if (update instanceof Api.Updates || update instanceof Api.UpdatesCombined) {
+    if (
+      update instanceof Api.Updates ||
+      update instanceof Api.UpdatesCombined
+    ) {
       const seqStart =
-        update instanceof Api.UpdatesCombined
-          ? update.seqStart
-          : update.seq;
+        update instanceof Api.UpdatesCombined ? update.seqStart : update.seq;
       const seqEnd = update.seq;
 
       if (seqEnd > 0) {
@@ -232,7 +231,9 @@ export class UpdateManager {
       } else {
         // Gap detected — schedule recovery
         mcpWarn(
-          `SEQ gap: expected ${this.commonBoxState.seq + 1}, got ${item.seqStart}`,
+          `SEQ gap: expected ${this.commonBoxState.seq + 1}, got ${
+            item.seqStart
+          }`,
         );
         this.scheduleGapRecovery();
         break;
@@ -251,8 +252,7 @@ export class UpdateManager {
       return;
     }
 
-    const ptsCount =
-      typeof update.ptsCount === "number" ? update.ptsCount : 0;
+    const ptsCount = typeof update.ptsCount === "number" ? update.ptsCount : 0;
 
     // Determine if this is a channel-specific update
     const channelId = this.extractChannelId(update);
@@ -290,7 +290,7 @@ export class UpdateManager {
     const localPts =
       queueKey === "__common__"
         ? this.commonBoxState.pts
-        : (this.channelPtsById[queueKey] ?? 0);
+        : this.channelPtsById[queueKey] ?? 0;
 
     while (queue.length > 0) {
       const item = queue.peek()!;
@@ -340,7 +340,9 @@ export class UpdateManager {
 
     if (this.gapRecoveryAttempts >= MAX_GAP_RECOVERY_ATTEMPTS) {
       mcpWarn(
-        `Gap recovery: max attempts reached${channelId ? ` for channel ${channelId}` : ""}. Forcing full sync.`,
+        `Gap recovery: max attempts reached${
+          channelId ? ` for channel ${channelId}` : ""
+        }. Forcing full sync.`,
       );
       await this.forceSync(channelId);
       return;
@@ -415,7 +417,9 @@ export class UpdateManager {
 
     const pts = this.channelPtsById[channelId] ?? 0;
     if (pts === 0) {
-      mcpWarn(`getChannelDifference: no pts for channel ${channelId}, skipping`);
+      mcpWarn(
+        `getChannelDifference: no pts for channel ${channelId}, skipping`,
+      );
       return;
     }
 
@@ -458,9 +462,7 @@ export class UpdateManager {
 
       this.drainPtsQueue(channelId);
     } catch (error) {
-      mcpWarn(
-        `getChannelDifference failed for ${channelId}: ${error}`,
-      );
+      mcpWarn(`getChannelDifference failed for ${channelId}: ${error}`);
     }
   }
 
@@ -517,7 +519,10 @@ export class UpdateManager {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private applyDifference(diff: { newMessages: any[]; otherUpdates: any[] }): void {
+  private applyDifference(diff: {
+    newMessages: any[];
+    otherUpdates: any[];
+  }): void {
     for (const msg of diff.newMessages) {
       this.deliver(msg, "difference");
     }

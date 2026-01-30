@@ -49,6 +49,9 @@ const telegramVolatileTransform = createTransform<
         isLoadingThreads: telegramInitialState.isLoadingThreads,
         // Thread index is volatile — viewport/outlying state is runtime-only
         threadIndex: telegramInitialState.threadIndex,
+        // Sync state is volatile — must re-sync on reload
+        isSyncing: telegramInitialState.isSyncing,
+        isSynced: telegramInitialState.isSynced,
       };
     }
     return cleaned;

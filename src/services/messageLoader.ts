@@ -1,13 +1,12 @@
 /**
  * Smart Message Loading Service
  *
- * Implements Telegram-TT–style message fetching with:
+ * Implements message fetching with:
  * - Three-direction loading (Around, Backward, Forward)
  * - AbortController per chat/thread for request cancellation
  * - Batch ID fetching (up to 100 IDs per request)
  * - Budget preloading (two-pass: viewport first, buffer second)
  *
- * Reference: Telegram-TT's src/global/actions/api/messages.ts
  */
 
 import { Api } from "telegram/tl";
@@ -80,10 +79,7 @@ function getAbortKey(chatId: string, threadId?: string): string {
  * Cancel any in-flight message fetch for this chat/thread.
  * Call when user switches chats to prevent stale data.
  */
-export function cancelMessageFetch(
-  chatId: string,
-  threadId?: string,
-): void {
+export function cancelMessageFetch(chatId: string, threadId?: string): void {
   const key = getAbortKey(chatId, threadId);
   const existing = abortControllers.get(key);
   if (existing) {
@@ -237,7 +233,10 @@ export async function loadMessages(
     return messages;
   } catch (error) {
     if (controller.signal.aborted) return [];
-    console.error(`[MessageLoader] Failed to load messages for ${chatId}:`, error);
+    console.error(
+      `[MessageLoader] Failed to load messages for ${chatId}:`,
+      error,
+    );
     throw error;
   }
 }
@@ -310,9 +309,7 @@ export async function fetchMessagesByIds(
   // Process in batches of BATCH_FETCH_LIMIT
   for (let i = 0; i < messageIds.length; i += BATCH_FETCH_LIMIT) {
     const batch = messageIds.slice(i, i + BATCH_FETCH_LIMIT);
-    const inputIds = batch.map(
-      (id) => new Api.InputMessageID({ id }),
-    );
+    const inputIds = batch.map((id) => new Api.InputMessageID({ id }));
 
     try {
       const result = await mtprotoService.withFloodWaitHandling(async () => {
@@ -335,7 +332,9 @@ export async function fetchMessagesByIds(
       allMessages.push(...messages);
     } catch (error) {
       console.error(
-        `[MessageLoader] Batch fetch failed for ${chatId} (batch ${i / BATCH_FETCH_LIMIT}):`,
+        `[MessageLoader] Batch fetch failed for ${chatId} (batch ${
+          i / BATCH_FETCH_LIMIT
+        }):`,
         error,
       );
     }
@@ -417,7 +416,8 @@ function convertApiMessages(result: any, chatId: string): TelegramMessage[] {
     // Media
     if (msg.media && typeof msg.media === "object") {
       const media = msg.media as Record<string, unknown>;
-      const className = (media.constructor as { className?: string })?.className;
+      const className = (media.constructor as { className?: string })
+        ?.className;
       telegramMsg.media = {
         type: className ?? "unknown",
       };

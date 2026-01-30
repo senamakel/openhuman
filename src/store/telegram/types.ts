@@ -101,8 +101,15 @@ export interface TelegramState {
   phoneNumber: string | null;
   sessionString: string | null;
 
+  // Sync state
+  isSyncing: boolean;
+  isSynced: boolean;
+
   // User data
   currentUser: TelegramUser | null;
+
+  // Users map (all known users from chats/messages)
+  users: Record<string, TelegramUser>;
 
   // Chats
   chats: Record<string, TelegramChat>;
@@ -169,8 +176,13 @@ export const initialState: TelegramState = {
   phoneNumber: null,
   sessionString: null,
 
+  // Sync
+  isSyncing: false,
+  isSynced: false,
+
   // User
   currentUser: null,
+  users: {},
 
   // Chats
   chats: {},

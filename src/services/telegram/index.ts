@@ -1,0 +1,1 @@
+export { telegramSyncService } from "./syncService";

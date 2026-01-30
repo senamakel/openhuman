@@ -15,6 +15,13 @@ const telegramSlice = createSlice({
 });
 
 export const {
+  // Sync state
+  setSyncStatus,
+  setUsers,
+  addUsers,
+  replaceChats,
+  addChats,
+  // Connection / Auth
   setConnectionStatus,
   setConnectionError,
   setAuthStatus,

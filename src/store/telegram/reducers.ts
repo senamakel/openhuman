@@ -41,6 +41,91 @@ function ensureThreadIndex(
 }
 
 export const reducers = {
+  // ---------------------------------------------------------------------------
+  // Sync state
+  // ---------------------------------------------------------------------------
+
+  setSyncStatus: (
+    state: TelegramRootState,
+    action: PayloadAction<{
+      userId: string;
+      isSyncing?: boolean;
+      isSynced?: boolean;
+    }>,
+  ) => {
+    const u = ensureUser(state, action.payload.userId);
+    if (action.payload.isSyncing !== undefined)
+      u.isSyncing = action.payload.isSyncing;
+    if (action.payload.isSynced !== undefined)
+      u.isSynced = action.payload.isSynced;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Users map
+  // ---------------------------------------------------------------------------
+
+  setUsers: (
+    state: TelegramRootState,
+    action: PayloadAction<{
+      userId: string;
+      users: Record<string, TelegramUser>;
+    }>,
+  ) => {
+    ensureUser(state, action.payload.userId).users = action.payload.users;
+  },
+
+  addUsers: (
+    state: TelegramRootState,
+    action: PayloadAction<{
+      userId: string;
+      users: Record<string, TelegramUser>;
+    }>,
+  ) => {
+    const u = ensureUser(state, action.payload.userId);
+    Object.assign(u.users, action.payload.users);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Chats — replace (first batch) and append
+  // ---------------------------------------------------------------------------
+
+  replaceChats: (
+    state: TelegramRootState,
+    action: PayloadAction<{
+      userId: string;
+      chats: Record<string, TelegramChat>;
+      chatsOrder: string[];
+    }>,
+  ) => {
+    const u = ensureUser(state, action.payload.userId);
+    u.chats = action.payload.chats;
+    u.chatsOrder = action.payload.chatsOrder;
+  },
+
+  addChats: (
+    state: TelegramRootState,
+    action: PayloadAction<{
+      userId: string;
+      chats: Record<string, TelegramChat>;
+      appendOrder: string[];
+    }>,
+  ) => {
+    const u = ensureUser(state, action.payload.userId);
+    Object.assign(u.chats, action.payload.chats);
+    // Append new IDs that aren't already in order
+    const existing = new Set(u.chatsOrder);
+    for (const id of action.payload.appendOrder) {
+      if (!existing.has(id)) {
+        u.chatsOrder.push(id);
+        existing.add(id);
+      }
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Connection / Auth
+  // ---------------------------------------------------------------------------
+
   setConnectionStatus: (
     state: TelegramRootState,
     action: PayloadAction<{ userId: string; status: TelegramConnectionStatus }>,

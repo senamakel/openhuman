@@ -16,6 +16,7 @@ import {
 } from "../store/telegramSelectors";
 import { initializeTelegram, connectTelegram } from "../store/telegram";
 import { mtprotoService } from "../services/mtprotoService";
+import { telegramSyncService } from "../services/telegram";
 
 interface TelegramContextType {
   isAuthenticated: boolean;
@@ -179,6 +180,34 @@ const TelegramProvider = ({ children }: TelegramProviderProps) => {
     if (!mtprotoService.isReady()) return;
     checkConnection();
   }, [shouldSetupTelegram, isInitialized, connectionStatus, userId]);
+
+  // Start sync when connected and authenticated
+  useEffect(() => {
+    if (
+      !shouldSetupTelegram ||
+      !isInitialized ||
+      connectionStatus !== "connected" ||
+      !(isAuthenticated || hasSession) ||
+      !userId
+    ) {
+      return;
+    }
+
+    if (!mtprotoService.isReady()) return;
+
+    telegramSyncService.startSync(userId);
+
+    return () => {
+      telegramSyncService.stopSync();
+    };
+  }, [
+    shouldSetupTelegram,
+    isInitialized,
+    connectionStatus,
+    isAuthenticated,
+    hasSession,
+    userId,
+  ]);
 
   const checkConnection = async (): Promise<boolean> => {
     try {

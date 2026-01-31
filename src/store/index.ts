@@ -15,6 +15,7 @@ import authReducer from "./authSlice";
 import socketReducer from "./socketSlice";
 import userReducer from "./userSlice";
 import telegramReducer from "./telegram";
+import aiReducer from "./aiSlice";
 import { createLogger } from "redux-logger";
 import { IS_DEV } from "../utils/config";
 import type { TelegramRootState, TelegramState } from "./telegram/types";
@@ -67,11 +68,19 @@ const telegramPersistConfig = {
   transforms: [telegramVolatileTransform],
 };
 
+// Persist config for AI state (config only)
+const aiPersistConfig = {
+  key: "ai",
+  storage,
+  whitelist: ["config"],
+};
+
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 const persistedTelegramReducer = persistReducer(
   telegramPersistConfig,
   telegramReducer,
 );
+const persistedAiReducer = persistReducer(aiPersistConfig, aiReducer);
 
 export const store = configureStore({
   reducer: {
@@ -79,6 +88,7 @@ export const store = configureStore({
     socket: socketReducer,
     user: userReducer,
     telegram: persistedTelegramReducer,
+    ai: persistedAiReducer,
   },
   middleware: (getDefaultMiddleware) => {
     const middleware = getDefaultMiddleware({

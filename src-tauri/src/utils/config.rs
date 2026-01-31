@@ -2,7 +2,6 @@
 ///
 /// This module provides configuration values that can be
 /// overridden via environment variables at runtime.
-
 use std::env;
 
 /// Default backend URL (can be overridden via BACKEND_URL env var)
@@ -24,5 +23,9 @@ pub fn get_backend_url() -> String {
 
 /// Get the Telegram widget auth URL
 pub fn get_telegram_widget_url() -> String {
-    format!("{}/auth/telegram-widget?redirect={}://auth", get_backend_url(), DEEP_LINK_SCHEME)
+    format!(
+        "{}/auth/telegram-widget?redirect={}://auth",
+        get_backend_url(),
+        DEEP_LINK_SCHEME
+    )
 }

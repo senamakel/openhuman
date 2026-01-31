@@ -6,6 +6,7 @@ import { store, persistor } from "./store";
 import UserProvider from "./providers/UserProvider";
 import SocketProvider from "./providers/SocketProvider";
 import TelegramProvider from "./providers/TelegramProvider";
+import AIProvider from "./providers/AIProvider";
 import AppRoutes from "./AppRoutes";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
           <UserProvider>
             <SocketProvider>
               <TelegramProvider>
+                <AIProvider>
                 <Router>
                   <div className="relative min-h-screen">
                     <div className="pointer-events-none fixed inset-x-0 bottom-3 flex justify-center z-50">
@@ -27,6 +29,7 @@ function App() {
                     <AppRoutes />
                   </div>
                 </Router>
+                </AIProvider>
               </TelegramProvider>
             </SocketProvider>
           </UserProvider>

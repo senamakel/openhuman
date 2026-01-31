@@ -4,11 +4,7 @@ use tauri::AppHandle;
 
 /// Request the frontend to connect to the socket server
 #[tauri::command]
-pub fn socket_connect(
-    app: AppHandle,
-    backend_url: String,
-    token: String,
-) -> Result<(), String> {
+pub fn socket_connect(app: AppHandle, backend_url: String, token: String) -> Result<(), String> {
     // Set app handle for event emission
     SOCKET_SERVICE.set_app_handle(app);
 

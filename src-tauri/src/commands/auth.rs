@@ -44,7 +44,8 @@ pub async fn exchange_token(
     // Try to parse and store session
     if let Ok(exchange_response) = serde_json::from_value::<TokenExchangeResponse>(body.clone()) {
         // Store session securely
-        let _ = SESSION_SERVICE.store_session(&exchange_response.session_token, &exchange_response.user);
+        let _ = SESSION_SERVICE
+            .store_session(&exchange_response.session_token, &exchange_response.user);
     }
 
     Ok(body)

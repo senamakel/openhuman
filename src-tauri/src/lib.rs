@@ -8,11 +8,13 @@
 //! - Secure session storage
 //! - Native notifications
 
+mod ai;
 mod commands;
 mod models;
 mod services;
 mod utils;
 
+use ai::*;
 use commands::*;
 use services::socket_service::SOCKET_SERVICE;
 use tauri::{
@@ -62,7 +64,8 @@ fn toggle_main_window_visibility(app: &AppHandle) {
 // Setup system tray with menu
 #[cfg(desktop)]
 fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let show_hide_item = MenuItem::with_id(app, "show_hide", "Show/Hide Window", true, None::<&str>)?;
+    let show_hide_item =
+        MenuItem::with_id(app, "show_hide", "Show/Hide Window", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
     let menu = Menu::with_items(app, &[&show_hide_item, &quit_item])?;
@@ -192,6 +195,47 @@ pub fn run() {
             maximize_window,
             close_window,
             set_window_title,
+            // AI encryption commands
+            ai_init_encryption,
+            ai_encrypt,
+            ai_decrypt,
+            // AI memory filesystem commands
+            ai_memory_init,
+            ai_memory_upsert_file,
+            ai_memory_get_file,
+            ai_memory_upsert_chunk,
+            ai_memory_delete_chunks_by_path,
+            ai_memory_fts_search,
+            ai_memory_get_chunks,
+            ai_memory_get_all_embeddings,
+            ai_memory_cache_embedding,
+            ai_memory_get_cached_embedding,
+            ai_memory_set_meta,
+            ai_memory_get_meta,
+            // AI entity database commands
+            ai_entity_db_init,
+            ai_entity_upsert,
+            ai_entity_get,
+            ai_entity_get_by_source,
+            ai_entity_search,
+            ai_entity_list,
+            ai_entity_delete,
+            ai_entity_add_relation,
+            ai_entity_get_relations,
+            ai_entity_add_tag,
+            ai_entity_remove_tag,
+            ai_entity_get_by_tag,
+            // AI session commands
+            ai_sessions_init,
+            ai_sessions_load_index,
+            ai_sessions_update_index,
+            ai_sessions_append_transcript,
+            ai_sessions_read_transcript,
+            ai_sessions_delete,
+            ai_sessions_list,
+            ai_read_memory_file,
+            ai_write_memory_file,
+            ai_list_memory_files,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -15,6 +15,7 @@ import socketReducer from "./socketSlice";
 import userReducer from "./userSlice";
 import aiReducer from "./aiSlice";
 import skillsReducer from "./skillsSlice";
+import teamReducer from "./teamSlice";
 import { createLogger } from "redux-logger";
 import { IS_DEV } from "../utils/config";
 
@@ -50,6 +51,7 @@ export const store = configureStore({
     user: userReducer,
     ai: persistedAiReducer,
     skills: persistedSkillsReducer,
+    team: teamReducer,
   },
   middleware: (getDefaultMiddleware) => {
     const middleware = getDefaultMiddleware({

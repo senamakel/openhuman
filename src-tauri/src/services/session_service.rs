@@ -70,6 +70,7 @@ impl SessionService {
     }
 
     /// Get the current session
+    #[allow(dead_code)]
     pub fn get_session(&self) -> Option<Session> {
         self.cached_session.read().ok().and_then(|cache| {
             cache.as_ref().map(|s| Session {

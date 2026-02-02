@@ -25,7 +25,9 @@ function App() {
                           AlphaHuman is in early beta.
                         </div>
                       </div>
-                      <AppRoutes />
+                      <div className="pt-7">
+                        <AppRoutes />
+                      </div>
                     </div>
                   </Router>
                 </SkillProvider>

@@ -8,6 +8,9 @@ import PrivacyPanel from "./panels/PrivacyPanel";
 import ProfilePanel from "./panels/ProfilePanel";
 import AdvancedPanel from "./panels/AdvancedPanel";
 import BillingPanel from "./panels/BillingPanel";
+import TeamPanel from "./panels/TeamPanel";
+import TeamMembersPanel from "./panels/TeamMembersPanel";
+import TeamInvitesPanel from "./panels/TeamInvitesPanel";
 import { useSettingsNavigation } from "./hooks/useSettingsNavigation";
 
 const SettingsModal = () => {
@@ -31,6 +34,9 @@ const SettingsModal = () => {
         <Route path="/settings/profile" element={<ProfilePanel />} />
         <Route path="/settings/advanced" element={<AdvancedPanel />} />
         <Route path="/settings/billing" element={<BillingPanel />} />
+        <Route path="/settings/team" element={<TeamPanel />} />
+        <Route path="/settings/team/members" element={<TeamMembersPanel />} />
+        <Route path="/settings/team/invites" element={<TeamInvitesPanel />} />
       </Routes>
     </SettingsLayout>
   );

@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { clearUser } from "./userSlice";
+import { clearTeamState } from "./teamSlice";
 
 export interface AuthState {
   token: string | null;
@@ -48,6 +49,7 @@ export const clearToken = createAsyncThunk(
   async (_, { dispatch }) => {
     dispatch(authSlice.actions._clearToken());
     dispatch(clearUser());
+    dispatch(clearTeamState());
   },
 );
 

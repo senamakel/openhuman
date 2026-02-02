@@ -1,11 +1,13 @@
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
 
 /// Service for managing native notifications
+#[allow(dead_code)]
 pub struct NotificationService;
 
 impl NotificationService {
     /// Show a simple notification
+    #[allow(dead_code)]
     pub fn show(app: &AppHandle, title: &str, body: &str) -> Result<(), String> {
         app.notification()
             .builder()
@@ -16,6 +18,7 @@ impl NotificationService {
     }
 
     /// Show a notification with an icon
+    #[allow(dead_code)]
     pub fn show_with_icon(
         app: &AppHandle,
         title: &str,
@@ -32,6 +35,7 @@ impl NotificationService {
     }
 
     /// Show a notification for a new message
+    #[allow(dead_code)]
     pub fn show_message_notification(
         app: &AppHandle,
         sender: &str,
@@ -41,6 +45,7 @@ impl NotificationService {
     }
 
     /// Check if notifications are permitted
+    #[allow(dead_code)]
     pub fn is_permission_granted(app: &AppHandle) -> Result<bool, String> {
         app.notification()
             .permission_state()
@@ -49,6 +54,7 @@ impl NotificationService {
     }
 
     /// Request notification permission
+    #[allow(dead_code)]
     pub fn request_permission(app: &AppHandle) -> Result<bool, String> {
         app.notification()
             .request_permission()

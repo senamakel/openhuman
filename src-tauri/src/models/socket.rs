@@ -37,6 +37,7 @@ impl Default for SocketState {
 }
 
 /// Generic socket message wrapper
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SocketMessage {
     pub event: String,
@@ -44,6 +45,7 @@ pub struct SocketMessage {
 }
 
 /// MCP request structure (JSON-RPC 2.0)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpRequest {
     pub jsonrpc: String,
@@ -54,6 +56,7 @@ pub struct McpRequest {
 }
 
 /// MCP response structure (JSON-RPC 2.0)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpResponse {
     pub jsonrpc: String,
@@ -65,6 +68,7 @@ pub struct McpResponse {
 }
 
 /// MCP error structure
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpError {
     pub code: i32,

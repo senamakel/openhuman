@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// User session information
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// JWT session token
@@ -28,6 +29,7 @@ pub struct User {
 }
 
 /// Token exchange request payload
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct TokenExchangeRequest {
     pub token: String,
@@ -42,6 +44,7 @@ pub struct TokenExchangeResponse {
 }
 
 /// Auth error response from backend
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct AuthErrorResponse {
     pub success: bool,

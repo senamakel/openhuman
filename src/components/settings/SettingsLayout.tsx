@@ -47,7 +47,7 @@ const SettingsLayout = ({ children, onClose }: SettingsLayoutProps) => {
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-lg flex items-center justify-center p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -55,7 +55,7 @@ const SettingsLayout = ({ children, onClose }: SettingsLayoutProps) => {
     >
       <div
         ref={modalRef}
-        className="glass rounded-3xl shadow-large w-full max-w-[520px] h-[800px] overflow-hidden animate-slide-right focus:outline-none focus:ring-0"
+        className="bg-stone-900 rounded-3xl shadow-large w-full max-w-[520px] max-h-[90vh] overflow-hidden animate-slide-right focus:outline-none focus:ring-0"
         style={{
           animationDuration: "300ms",
           animationTimingFunction: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",

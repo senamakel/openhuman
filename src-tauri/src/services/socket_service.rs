@@ -18,9 +18,12 @@ use tauri::{AppHandle, Emitter};
 
 /// Events emitted to the frontend
 pub mod events {
+    #[allow(dead_code)]
     pub const SOCKET_CONNECTED: &str = "socket:connected";
+    #[allow(dead_code)]
     pub const SOCKET_DISCONNECTED: &str = "socket:disconnected";
     pub const SOCKET_ERROR: &str = "socket:error";
+    #[allow(dead_code)]
     pub const SOCKET_MESSAGE: &str = "socket:message";
     pub const SOCKET_STATE_CHANGED: &str = "socket:state_changed";
     pub const SOCKET_SHOULD_CONNECT: &str = "socket:should_connect";
@@ -63,6 +66,7 @@ impl SocketService {
     }
 
     /// Get current connection status
+    #[allow(dead_code)]
     pub fn get_status(&self) -> ConnectionStatus {
         *self.status.read()
     }
@@ -153,6 +157,7 @@ impl SocketService {
     }
 
     /// Get stored connection parameters for reconnection
+    #[allow(dead_code)]
     pub fn get_connection_params(&self) -> Option<(String, String)> {
         let backend_url = self.backend_url.read().clone();
         let token = self.auth_token.read().clone();

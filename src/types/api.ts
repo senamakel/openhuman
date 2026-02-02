@@ -64,6 +64,7 @@ export interface User {
   username?: string;
   languageCode?: string;
   waitlist?: string;
+  activeTeamId?: string;
 }
 
 // Billing types

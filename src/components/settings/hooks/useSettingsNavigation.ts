@@ -8,7 +8,10 @@ export type SettingsRoute =
   | "privacy"
   | "profile"
   | "advanced"
-  | "billing";
+  | "billing"
+  | "team"
+  | "team-members"
+  | "team-invites";
 
 interface SettingsNavigationHook {
   currentRoute: SettingsRoute;
@@ -24,6 +27,9 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
   // Determine current settings route from URL
   const getCurrentRoute = (): SettingsRoute => {
     const path = location.pathname;
+    if (path.includes("/settings/team/members")) return "team-members";
+    if (path.includes("/settings/team/invites")) return "team-invites";
+    if (path.includes("/settings/team")) return "team";
     if (path.includes("/settings/connections")) return "connections";
     if (path.includes("/settings/messaging")) return "messaging";
     if (path.includes("/settings/privacy")) return "privacy";
@@ -49,6 +55,11 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
   const navigateBack = useCallback(() => {
     if (currentRoute === "home") {
       navigate("/home");
+    } else if (
+      currentRoute === "team-members" ||
+      currentRoute === "team-invites"
+    ) {
+      navigate("/settings/team");
     } else {
       navigate("/settings");
     }

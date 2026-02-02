@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
 import { fetchCurrentUser } from "../store/userSlice";
+import { fetchTeams } from "../store/teamSlice";
 import { clearToken } from "../store/authSlice";
 
 /**
@@ -14,7 +15,9 @@ const UserProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!token) return;
     dispatch(fetchCurrentUser()).then((result) => {
-      if (fetchCurrentUser.rejected.match(result)) {
+      if (fetchCurrentUser.fulfilled.match(result)) {
+        dispatch(fetchTeams());
+      } else if (fetchCurrentUser.rejected.match(result)) {
         dispatch(clearToken());
       }
     });

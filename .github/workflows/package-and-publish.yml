@@ -217,7 +217,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -225,7 +225,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src-tauri/target
-          key: ${{ runner.os }}-cargo-target-${{ matrix.settings.platform }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-target-${{ matrix.settings.platform }}-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-target-${{ matrix.settings.platform }}-
 
@@ -281,7 +281,6 @@ jobs:
           VITE_TELEGRAM_API_HASH: ${{ secrets.VITE_TELEGRAM_API_HASH }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_SKILLS_GITHUB_REPO: ${{ vars.VITE_SKILLS_GITHUB_REPO }}
-          VITE_SKILLS_GITHUB_TOKEN: ${{ secrets.VITE_SKILLS_GITHUB_TOKEN }}
           VITE_DEBUG: ${{ vars.VITE_DEBUG }}
 
       - name: Build, package and publish
@@ -305,6 +304,7 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.releaseId }}
           owner: ${{ steps.repository-info.outputs.owner }}
           repo: ${{ steps.repository-info.outputs.repo }}
+          githubToken: ${{ github.token }}
 
       - name: Get file info
         id: file-info

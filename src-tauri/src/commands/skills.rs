@@ -65,7 +65,6 @@ fn now_epoch_secs() -> u64 {
 async fn fetch_remote_commit_sha(
     repo: &str,
     branch: &str,
-    github_token: Option<&str>,
 ) -> Result<String, String> {
     let url = format!(
         "https://api.github.com/repos/{}/commits/{}",
@@ -73,18 +72,10 @@ async fn fetch_remote_commit_sha(
     );
 
     let client = reqwest::Client::new();
-    let mut request = client
+    let response = client
         .get(&url)
         .header("User-Agent", "AlphaHuman-Desktop")
-        .header("Accept", "application/vnd.github.sha");
-
-    if let Some(token) = github_token {
-        if !token.is_empty() {
-            request = request.header("Authorization", format!("Bearer {}", token));
-        }
-    }
-
-    let response = request
+        .header("Accept", "application/vnd.github.sha")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch latest commit: {}", e))?;
@@ -322,10 +313,9 @@ pub async fn skill_read_catalog() -> Result<serde_json::Value, String> {
 
 /// Download and extract the skills repository from GitHub (no git required).
 ///
-/// Fetches the repo as a tarball via the GitHub API, extracts it to
-/// `~/.alphahuman/skills/`. Pass `github_token` for private repositories.
-/// Optionally override `repo` (default: `alphahumanxyz/skills`) and
-/// `branch` (default: `main`).
+/// Fetches the public repo as a tarball via the GitHub API, extracts it to
+/// `~/.alphahuman/skills/`. Optionally override `repo` (default:
+/// `alphahumanxyz/skills`) and `branch` (default: `main`).
 ///
 /// After a successful sync, saves the commit SHA and timestamp to
 /// `~/.alphahuman/skills-sync.json` for future update checks.
@@ -333,17 +323,15 @@ pub async fn skill_read_catalog() -> Result<serde_json::Value, String> {
 pub async fn skill_sync_repo(
     repo: Option<String>,
     branch: Option<String>,
-    github_token: Option<String>,
 ) -> Result<(), String> {
     let repo = repo.unwrap_or_else(|| SKILLS_GITHUB_REPO.to_string());
     let branch = branch.unwrap_or_else(|| SKILLS_GITHUB_BRANCH.to_string());
-    let token_ref = github_token.as_deref();
 
     let data_dir = crate::ai::encryption::get_data_dir()?;
     let skills_dir = data_dir.join("skills");
 
     // Fetch the latest commit SHA so we can record it after sync
-    let commit_sha = fetch_remote_commit_sha(&repo, &branch, token_ref).await?;
+    let commit_sha = fetch_remote_commit_sha(&repo, &branch).await?;
 
     // Download tarball from GitHub API
     let url = format!(
@@ -354,18 +342,10 @@ pub async fn skill_sync_repo(
     log::info!("Syncing skills from {} (commit {})", url, &commit_sha[..8.min(commit_sha.len())]);
 
     let client = reqwest::Client::new();
-    let mut request = client
+    let response = client
         .get(&url)
         .header("User-Agent", "AlphaHuman-Desktop")
-        .header("Accept", "application/vnd.github+json");
-
-    if let Some(token) = token_ref {
-        if !token.is_empty() {
-            request = request.header("Authorization", format!("Bearer {}", token));
-        }
-    }
-
-    let response = request
+        .header("Accept", "application/vnd.github+json")
         .send()
         .await
         .map_err(|e| format!("Failed to download skills repo: {}", e))?;
@@ -472,7 +452,6 @@ pub async fn skill_catalog_exists() -> Result<bool, String> {
 pub async fn skill_check_for_updates(
     repo: Option<String>,
     branch: Option<String>,
-    github_token: Option<String>,
     force: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let repo = repo.unwrap_or_else(|| SKILLS_GITHUB_REPO.to_string());
@@ -497,12 +476,7 @@ pub async fn skill_check_for_updates(
     }
 
     // Fetch latest commit SHA from GitHub
-    let remote_sha = fetch_remote_commit_sha(
-        &repo,
-        &branch,
-        github_token.as_deref(),
-    )
-    .await?;
+    let remote_sha = fetch_remote_commit_sha(&repo, &branch).await?;
 
     // Update last_checked_at regardless of whether an update is needed
     meta.last_checked_at = Some(now);

@@ -16,7 +16,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { skillManager } from '../lib/skills/manager';
 import type { SkillManifest } from '../lib/skills/types';
 import { useAppSelector } from '../store/hooks';
-import { IS_DEV, SKILLS_GITHUB_REPO, SKILLS_GITHUB_TOKEN } from '../utils/config';
+import { IS_DEV, SKILLS_GITHUB_REPO } from '../utils/config';
 
 // ---------------------------------------------------------------------------
 // Helpers (all lazy-import @tauri-apps/api/core to avoid loading before IPC)
@@ -30,7 +30,7 @@ async function discoverSkills(): Promise<SkillManifest[]> {
 
 async function syncSkillsFromGithub(): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('skill_sync_repo', { repo: SKILLS_GITHUB_REPO, githubToken: SKILLS_GITHUB_TOKEN });
+  await invoke('skill_sync_repo', { repo: SKILLS_GITHUB_REPO });
 }
 
 async function catalogExists(): Promise<boolean> {
@@ -53,7 +53,6 @@ async function checkForUpdates(): Promise<UpdateCheckResult> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<UpdateCheckResult>('skill_check_for_updates', {
     repo: SKILLS_GITHUB_REPO,
-    githubToken: SKILLS_GITHUB_TOKEN,
   });
 }
 

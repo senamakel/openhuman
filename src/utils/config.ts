@@ -15,4 +15,3 @@ export const IS_DEV = Boolean(import.meta.env.DEV) || import.meta.env.MODE === '
 
 export const SKILLS_GITHUB_REPO = import.meta.env.VITE_SKILLS_GITHUB_REPO || 'alphahumanxyz/skills';
 
-export const SKILLS_GITHUB_TOKEN = import.meta.env.VITE_SKILLS_GITHUB_TOKEN || undefined;

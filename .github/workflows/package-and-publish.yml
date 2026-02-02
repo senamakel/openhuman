@@ -209,6 +209,11 @@ jobs:
 
             core.setOutput("json", configJson);
 
+      - name: Build frontend
+        run: yarn build
+        env:
+          NODE_ENV: production
+
       - name: Build, package and publish
         uses: tauri-apps/tauri-action@v0
         id: build-tauri

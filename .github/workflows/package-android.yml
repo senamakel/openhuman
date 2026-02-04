@@ -120,6 +120,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          submodules: true
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref }}
 
       - name: Setup Node.js 24.x
@@ -168,6 +169,22 @@ jobs:
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install --frozen-lockfile
+
+      - name: Cache skills node modules
+        id: skills-yarn-cache
+        uses: actions/cache@v4
+        with:
+          path: skills/node_modules
+          key: ${{ runner.os }}-skills-${{ hashFiles('skills/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-skills-
+
+      - name: Install skills dependencies
+        if: steps.skills-yarn-cache.outputs.cache-hit != 'true'
+        run: cd skills && yarn install --frozen-lockfile
+
+      - name: Build skills
+        run: cd skills && yarn build
 
       - name: Build frontend
         run: yarn build

@@ -63,6 +63,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
+    // TDLib is desktop-only - Android uses MTProto via frontend JavaScript
+    // MediaPipe LLM Inference API for on-device AI
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

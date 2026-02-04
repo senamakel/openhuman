@@ -18,6 +18,10 @@ class MainActivity : TauriActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // Initialize MediaPipe LLM Bridge with application context
+        MediaPipeLlmBridge.initialize(this)
+
         requestNotificationPermissionAndStart()
     }
 

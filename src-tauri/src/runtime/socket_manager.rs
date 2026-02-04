@@ -8,19 +8,27 @@
 //! - Non-MCP server events forwarded to running skills AND to the frontend
 //! - Connection state emitted to the frontend via Tauri events
 //! - Automatic reconnection with exponential backoff
+//!
+//! Note: On Android, the Rust Socket.io client is not available due to
+//! native-tls/OpenSSL build complexity. The frontend uses its own Socket.io
+//! connection instead.
 
 use std::sync::Arc;
 
-use futures_util::FutureExt;
 use parking_lot::RwLock;
-use rust_socketio::{
-    asynchronous::{Client, ClientBuilder},
-    Event, Payload,
-};
 use serde_json::json;
 use tauri::{AppHandle, Emitter};
 
 use crate::models::socket::{ConnectionStatus, SocketState};
+
+// rust_socketio only available on non-Android platforms
+#[cfg(not(target_os = "android"))]
+use futures_util::FutureExt;
+#[cfg(not(target_os = "android"))]
+use rust_socketio::{
+    asynchronous::{Client, ClientBuilder},
+    Event, Payload,
+};
 
 // SkillRegistry only available on desktop (V8/deno_core required)
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -57,9 +65,14 @@ struct SharedState {
 /// app backgrounding. On desktop, handles MCP `listTools`/`toolCall` directly
 /// via the [`SkillRegistry`], and forwards other server events to running
 /// skills and to the frontend.
+///
+/// Note: On Android, this is a stub implementation. The frontend uses its own
+/// Socket.io connection instead.
 pub struct SocketManager {
     shared: Arc<SharedState>,
     /// The active `rust_socketio` async client (if connected).
+    /// Not available on Android due to native-tls/OpenSSL build complexity.
+    #[cfg(not(target_os = "android"))]
     client: tokio::sync::Mutex<Option<Client>>,
 }
 
@@ -73,6 +86,7 @@ impl SocketManager {
                 status: RwLock::new(ConnectionStatus::Disconnected),
                 socket_id: RwLock::new(None),
             }),
+            #[cfg(not(target_os = "android"))]
             client: tokio::sync::Mutex::new(None),
         }
     }
@@ -135,6 +149,7 @@ impl SocketManager {
             .auth(json!({"token": token}))
             .reconnect(true)
             .max_reconnect_attempts(0) // unlimited
+            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
             // --- Connection established ---
             .on("connect", move |_payload, _client: Client| {
                 let shared = Arc::clone(&s_connect);
@@ -262,14 +277,34 @@ impl SocketManager {
         Ok(())
     }
 
-    /// Connect to the server with the given URL and auth token (mobile version).
+    /// Connect to the server with the given URL and auth token (Android stub).
+    /// On Android, the Rust Socket.io client is not available due to
+    /// native-tls/OpenSSL build complexity. The frontend should use its own
+    /// Socket.io connection instead.
+    #[cfg(target_os = "android")]
+    pub async fn connect(&self, url: &str, _token: &str) -> Result<(), String> {
+        log::info!(
+            "[socket-mgr] Android stub - Rust Socket.io not available. URL: {}",
+            url
+        );
+        log::info!("[socket-mgr] Frontend should use its own Socket.io connection on Android.");
+
+        // Mark as disconnected - frontend handles its own connection
+        *self.shared.status.write() = ConnectionStatus::Disconnected;
+        Self::emit_state_change(&self.shared);
+
+        // Return Ok so the app doesn't fail - socket is handled by frontend on Android
+        Ok(())
+    }
+
+    /// Connect to the server with the given URL and auth token (iOS version).
     /// MCP skill handlers are not available on mobile.
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(target_os = "ios")]
     pub async fn connect(&self, url: &str, token: &str) -> Result<(), String> {
         // Disconnect existing connection first
         self.disconnect().await?;
 
-        log::info!("[socket-mgr] Connecting to {} (mobile)", url);
+        log::info!("[socket-mgr] Connecting to {} (iOS)", url);
 
         // Update status
         *self.shared.status.write() = ConnectionStatus::Connecting;
@@ -288,6 +323,7 @@ impl SocketManager {
             .auth(json!({"token": token}))
             .reconnect(true)
             .max_reconnect_attempts(0) // unlimited
+            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
             // --- Connection established ---
             .on("connect", move |_payload, _client: Client| {
                 let shared = Arc::clone(&s_connect);
@@ -390,6 +426,7 @@ impl SocketManager {
     }
 
     /// Disconnect from the server.
+    #[cfg(not(target_os = "android"))]
     pub async fn disconnect(&self) -> Result<(), String> {
         let mut client_guard = self.client.lock().await;
         if let Some(client) = client_guard.take() {
@@ -401,7 +438,17 @@ impl SocketManager {
         Ok(())
     }
 
+    /// Disconnect from the server (Android stub).
+    #[cfg(target_os = "android")]
+    pub async fn disconnect(&self) -> Result<(), String> {
+        *self.shared.status.write() = ConnectionStatus::Disconnected;
+        *self.shared.socket_id.write() = None;
+        Self::emit_state_change(&self.shared);
+        Ok(())
+    }
+
     /// Emit an event through the Rust socket to the server.
+    #[cfg(not(target_os = "android"))]
     pub async fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String> {
         let client_guard = self.client.lock().await;
         if let Some(ref client) = *client_guard {
@@ -413,6 +460,12 @@ impl SocketManager {
         } else {
             Err("Not connected".to_string())
         }
+    }
+
+    /// Emit an event through the Rust socket to the server (Android stub).
+    #[cfg(target_os = "android")]
+    pub async fn emit(&self, _event: &str, _data: serde_json::Value) -> Result<(), String> {
+        Err("Rust Socket.io not available on Android. Use frontend socket.".to_string())
     }
 
     // -----------------------------------------------------------------------
@@ -600,10 +653,11 @@ impl Default for SocketManager {
 }
 
 // ---------------------------------------------------------------------------
-// Payload helpers
+// Payload helpers (not needed on Android)
 // ---------------------------------------------------------------------------
 
 /// Extract the first JSON value from a Socket.io payload.
+#[cfg(not(target_os = "android"))]
 fn extract_json(payload: &Payload) -> Option<serde_json::Value> {
     match payload {
         Payload::Text(values) => values.first().cloned(),
@@ -613,6 +667,7 @@ fn extract_json(payload: &Payload) -> Option<serde_json::Value> {
 }
 
 /// Extract a human-readable string from a Socket.io payload.
+#[cfg(not(target_os = "android"))]
 fn extract_text(payload: &Payload) -> String {
     match payload {
         Payload::Text(values) => values

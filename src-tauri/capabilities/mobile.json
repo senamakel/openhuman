@@ -7,8 +7,6 @@
     "core:default",
     "opener:default",
     "deep-link:default",
-    "shell:default",
-    "shell:allow-spawn",
-    "shell:allow-open"
+    "os:default"
   ]
 }

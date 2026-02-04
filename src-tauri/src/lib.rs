@@ -304,6 +304,11 @@ pub fn run() {
                     });
                 let skills_data_dir = data_dir.join("skills");
 
+                // Initialize local model service (for skills to use)
+                let model_dir = data_dir.join("models");
+                services::llama::LLAMA_MANAGER.set_data_dir(model_dir);
+                log::info!("[runtime] Local model service initialized");
+
                 match runtime::v8_engine::RuntimeEngine::new(skills_data_dir) {
                     Ok(engine) => {
                         engine.set_app_handle(app.handle().clone());
@@ -334,9 +339,27 @@ pub fn run() {
                 }
             }
 
-            #[cfg(any(target_os = "android", target_os = "ios"))]
+            #[cfg(target_os = "android")]
             {
-                log::info!("[runtime] V8 runtime disabled on mobile platform");
+                log::info!("[runtime] V8 runtime disabled on Android");
+
+                // Initialize local model service for Android
+                let data_dir = app
+                    .path()
+                    .app_data_dir()
+                    .unwrap_or_else(|_| {
+                        dirs::home_dir()
+                            .unwrap_or_else(|| std::path::PathBuf::from("."))
+                            .join(".alphahuman")
+                    });
+                let model_dir = data_dir.join("models");
+                services::llama::LLAMA_MANAGER.set_data_dir(model_dir);
+                log::info!("[runtime] Local model service initialized for Android");
+            }
+
+            #[cfg(target_os = "ios")]
+            {
+                log::info!("[runtime] V8 runtime and local model disabled on iOS");
             }
 
             // Store SocketManager as Tauri state
@@ -450,6 +473,13 @@ pub fn run() {
                     tdlib_receive,
                     tdlib_destroy,
                     tdlib_is_available,
+                    // Model commands (local LLM)
+                    model_is_available,
+                    model_get_status,
+                    model_ensure_loaded,
+                    model_generate,
+                    model_summarize,
+                    model_unload,
                 ]
             }
             #[cfg(not(desktop))]
@@ -531,6 +561,13 @@ pub fn run() {
                     tdlib_receive,
                     tdlib_destroy,
                     tdlib_is_available,
+                    // Model commands (local LLM)
+                    model_is_available,
+                    model_get_status,
+                    model_ensure_loaded,
+                    model_generate,
+                    model_summarize,
+                    model_unload,
                 ]
             }
         })

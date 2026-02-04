@@ -135,6 +135,7 @@ impl SocketManager {
             .auth(json!({"token": token}))
             .reconnect(true)
             .max_reconnect_attempts(0) // unlimited
+            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
             // --- Connection established ---
             .on("connect", move |_payload, _client: Client| {
                 let shared = Arc::clone(&s_connect);
@@ -288,6 +289,7 @@ impl SocketManager {
             .auth(json!({"token": token}))
             .reconnect(true)
             .max_reconnect_attempts(0) // unlimited
+            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
             // --- Connection established ---
             .on("connect", move |_payload, _client: Client| {
                 let shared = Arc::clone(&s_connect);

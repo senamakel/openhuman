@@ -79,6 +79,11 @@ extension!(
         op_tdlib_receive,
         op_tdlib_destroy,
         op_tdlib_is_available,
+        // Model ops (local LLM inference)
+        op_model_is_available,
+        op_model_get_status,
+        op_model_generate,
+        op_model_summarize,
     ],
     state = |state| {
         // State will be initialized when runtime is created
@@ -1179,6 +1184,53 @@ async fn op_tdlib_destroy(
 
     crate::services::tdlib::TDLIB_MANAGER
         .destroy()
+        .await
+        .map_err(|e| deno_core::error::generic_error(e))
+}
+
+// ============================================================================
+// Model Ops (local LLM inference)
+// ============================================================================
+
+/// Check if local model API is available (desktop only).
+#[op2(fast)]
+fn op_model_is_available() -> bool {
+    true
+}
+
+/// Get model status (loading, ready, error).
+#[op2]
+#[serde]
+fn op_model_get_status() -> serde_json::Value {
+    let status = crate::services::llama::LLAMA_MANAGER.get_status();
+    serde_json::to_value(status).unwrap_or_default()
+}
+
+/// Generate text from prompt (async, blocking inference on thread pool).
+#[op2(async)]
+#[string]
+async fn op_model_generate(
+    #[string] prompt: String,
+    #[serde] config: serde_json::Value,
+) -> Result<String, deno_core::error::AnyError> {
+    let cfg: crate::services::llama::GenerateConfig =
+        serde_json::from_value(config).unwrap_or_default();
+
+    crate::services::llama::LLAMA_MANAGER
+        .generate(&prompt, cfg)
+        .await
+        .map_err(|e| deno_core::error::generic_error(e))
+}
+
+/// Summarize text (async).
+#[op2(async)]
+#[string]
+async fn op_model_summarize(
+    #[string] text: String,
+    max_tokens: u32,
+) -> Result<String, deno_core::error::AnyError> {
+    crate::services::llama::LLAMA_MANAGER
+        .summarize(&text, max_tokens)
         .await
         .map_err(|e| deno_core::error::generic_error(e))
 }

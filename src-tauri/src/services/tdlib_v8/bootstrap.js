@@ -912,4 +912,78 @@ globalThis.tdlib = {
   },
 };
 
+// ============================================================================
+// Model Bridge API (local LLM inference)
+// ============================================================================
+
+globalThis.__model = {
+  isAvailable: function () {
+    try {
+      return typeof Deno?.core?.ops?.op_model_is_available === 'function'
+        ? Deno.core.ops.op_model_is_available()
+        : false;
+    } catch (e) {
+      return false;
+    }
+  },
+  getStatus: function () {
+    return Deno.core.ops.op_model_get_status();
+  },
+  generate: async function (prompt, configJson) {
+    return await Deno.core.ops.op_model_generate(prompt, configJson);
+  },
+  summarize: async function (text, maxTokens) {
+    return await Deno.core.ops.op_model_summarize(text, maxTokens);
+  },
+};
+
+globalThis.model = {
+  /**
+   * Check if local model is available (desktop only).
+   * @returns {boolean}
+   */
+  isAvailable: function () {
+    return __model.isAvailable();
+  },
+
+  /**
+   * Get model status.
+   * @returns {{ available: boolean, loaded: boolean, loading: boolean, downloadProgress?: number, error?: string, modelPath?: string }}
+   */
+  getStatus: function () {
+    return __model.getStatus();
+  },
+
+  /**
+   * Generate text from a prompt.
+   * @param {string} prompt - Input prompt
+   * @param {object} [options] - Generation options
+   * @param {number} [options.maxTokens=2048] - Max output tokens
+   * @param {number} [options.temperature=0.7] - Sampling temperature
+   * @param {number} [options.topP=0.9] - Top-p sampling
+   * @returns {Promise<string>}
+   */
+  generate: async function (prompt, options) {
+    var config = {
+      max_tokens: (options && options.maxTokens) || 2048,
+      temperature: (options && options.temperature) || 0.7,
+      top_p: (options && options.topP) || 0.9,
+    };
+    return await __model.generate(prompt, config);
+  },
+
+  /**
+   * Summarize text locally.
+   * @param {string} text - Text to summarize
+   * @param {object} [options] - Options
+   * @param {number} [options.maxTokens=500] - Target summary length
+   * @returns {Promise<string>}
+   */
+  summarize: async function (text, options) {
+    var maxTokens = (options && options.maxTokens) || 500;
+    return await __model.summarize(text, maxTokens);
+  },
+};
+
+console.log('[bootstrap] Model API initialized');
 console.log('[bootstrap] V8 browser APIs initialized');

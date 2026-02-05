@@ -2,18 +2,34 @@ import type { RootState } from './index';
 
 const PENDING_USER = '__pending__';
 
-function selectCurrentUserId(state: RootState): string {
-  return state.user.user?._id ?? PENDING_USER;
+/**
+ * Derive the socket user ID from the JWT token — must match the key used
+ * by tauriSocket.ts and socketService.ts when writing to byUser[].
+ */
+function selectSocketUserId(state: RootState): string {
+  const token = state.auth.token;
+  if (!token) return PENDING_USER;
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return PENDING_USER;
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payloadJson = atob(payloadBase64);
+    const payload = JSON.parse(payloadJson);
+    return payload.tgUserId || payload.userId || payload.sub || PENDING_USER;
+  } catch {
+    return PENDING_USER;
+  }
 }
 
 export const selectSocketStatus = (state: RootState) => {
-  const userId = selectCurrentUserId(state);
+  const userId = selectSocketUserId(state);
   const userState = state.socket.byUser[userId];
   return userState?.status ?? 'disconnected';
 };
 
 export const selectSocketId = (state: RootState): string | null => {
-  const userId = selectCurrentUserId(state);
+  const userId = selectSocketUserId(state);
   const userState = state.socket.byUser[userId];
   return userState?.socketId ?? null;
 };

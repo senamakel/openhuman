@@ -10,19 +10,19 @@ on:
         description: "Publish to release (requires main branch)"
         type: boolean
         default: false
-        push:
-          branches:
-            - develop
-        workflow_run:
-          workflows: ["Version Bump"]
-          types:
-            - completed
-          branches:
-            - main
-        pull_request:
-          branches:
-            - main
-            - develop
+  push:
+    branches:
+      - develop
+  workflow_run:
+    workflows: ["Version Bump"]
+    types:
+      - completed
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - develop
 
 env:
   IS_PR: ${{ github.event_name == 'pull_request' }}

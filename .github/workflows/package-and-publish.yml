@@ -14,7 +14,7 @@ on:
     branches:
       - develop
   workflow_run:
-    workflows: ['Version Bump']
+    workflows: ["Version Bump"]
     types:
       - completed
     branches:
@@ -169,15 +169,15 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-            target: 'aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            target: 'x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-            target: ''
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
+          - platform: "ubuntu-22.04"
+            args: ""
+            target: ""
     runs-on: ${{ matrix.settings.platform }}
     steps:
       - name: Checkout
@@ -197,7 +197,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.x
-          cache: 'yarn'
+          cache: "yarn"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -318,134 +318,14 @@ jobs:
           # macOS 10.15+ required for std::filesystem used by llama.cpp
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.settings.platform == 'macos-latest' && '10.15' || '' }}
         with:
-          args: '-c ${{ steps.config-overrides.outputs.json }} ${{ matrix.settings.args }}'
+          args: "-c ${{ steps.config-overrides.outputs.json }} ${{ matrix.settings.args }}"
           includeDebug: ${{ needs.get-version.outputs.should-publish == '' && inputs.forceRelease != 'true' }}
           includeRelease: ${{ needs.get-version.outputs.should-publish != '' || inputs.forceRelease == 'true' }}
-          # Don't let tauri-action upload for macOS - we need to bundle TDLib first and recreate the DMG
-          # For non-macOS platforms, upload directly via tauri-action
-          releaseId: ${{ matrix.settings.platform != 'macos-latest' && needs.create-release.outputs.releaseId || '' }}
+          # TDLib dylibs are now bundled natively via build.rs + tauri.conf.json macOS.frameworks
+          # No post-build scripts needed - Tauri bundler handles copying and signing
+          releaseId: ${{ needs.create-release.outputs.releaseId }}
           owner: alphahumanxyz
           repo: alphahuman
-
-      # Bundle TDLib dylib into macOS app (fixes "Library not loaded" crash)
-      - name: Bundle TDLib for macOS
-        if: matrix.settings.platform == 'macos-latest'
-        run: |
-          TARGET="${{ matrix.settings.target }}"
-          echo "Bundling TDLib for target: $TARGET"
-          chmod +x ./src-tauri/scripts/bundle-tdlib-macos.sh
-          ./src-tauri/scripts/bundle-tdlib-macos.sh release "$TARGET"
-
-      # Re-sign the app after modifying the bundle (required for notarization)
-      - name: Re-sign macOS app after TDLib bundling
-        if: matrix.settings.platform == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          TARGET="${{ matrix.settings.target }}"
-          echo "Re-signing for target: $TARGET"
-
-          if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "No signing identity or certificate provided, skipping re-sign"
-            exit 0
-          fi
-
-          # Import certificate into a temporary keychain (same approach as tauri-action)
-          KEYCHAIN_PATH="$RUNNER_TEMP/tdlib-signing.keychain-db"
-          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
-
-          # Create and configure keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Import certificate
-          CERT_PATH="$RUNNER_TEMP/certificate.p12"
-          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
-          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          rm "$CERT_PATH"
-
-          # Add keychain to search list
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Find app bundle in target-specific or default location
-          if [ -n "$TARGET" ]; then
-            APP_BUNDLE=$(find "src-tauri/target/$TARGET/release/bundle/macos" -name "*.app" -type d 2>/dev/null | head -1)
-          fi
-          if [ -z "$APP_BUNDLE" ]; then
-            APP_BUNDLE=$(find "src-tauri/target/release/bundle/macos" -name "*.app" -type d 2>/dev/null | head -1)
-          fi
-
-          if [ -n "$APP_BUNDLE" ]; then
-            echo "Re-signing app bundle: $APP_BUNDLE"
-            # Sign the bundled dylibs first
-            for dylib in "$APP_BUNDLE/Contents/Frameworks/"*.dylib; do
-              if [ -f "$dylib" ]; then
-                echo "Signing: $dylib"
-                codesign --force --options runtime --sign "$APPLE_SIGNING_IDENTITY" "$dylib"
-              fi
-            done
-            # Re-sign the entire app bundle
-            codesign --force --deep --options runtime --sign "$APPLE_SIGNING_IDENTITY" "$APP_BUNDLE"
-            echo "App re-signed successfully"
-
-            # Verify signature
-            codesign --verify --verbose=2 "$APP_BUNDLE" || echo "Warning: Signature verification had issues"
-          else
-            echo "Warning: No app bundle found to re-sign"
-          fi
-
-          # Cleanup keychain
-          security delete-keychain "$KEYCHAIN_PATH" || true
-
-      # Re-create DMG after TDLib bundling (the original DMG was created before bundling)
-      - name: Recreate DMG with bundled TDLib
-        if: matrix.settings.platform == 'macos-latest'
-        run: |
-          TARGET="${{ matrix.settings.target }}"
-          echo "Recreating DMG for target: $TARGET"
-
-          # Tauri v2 puts .app in bundle/macos/ and .dmg in bundle/dmg/
-          if [ -n "$TARGET" ]; then
-            BASE_BUNDLE_DIR="src-tauri/target/$TARGET/release/bundle"
-          else
-            BASE_BUNDLE_DIR="src-tauri/target/release/bundle"
-          fi
-
-          MACOS_DIR="$BASE_BUNDLE_DIR/macos"
-          DMG_DIR="$BASE_BUNDLE_DIR/dmg"
-
-          APP_BUNDLE=$(find "$MACOS_DIR" -name "*.app" -type d 2>/dev/null | head -1)
-          if [ -z "$APP_BUNDLE" ]; then
-            echo "Error: No app bundle found in $MACOS_DIR"
-            exit 1
-          fi
-
-          APP_NAME=$(basename "$APP_BUNDLE" .app)
-
-          # Find the original DMG in bundle/dmg/ (NOT bundle/macos/)
-          ORIGINAL_DMG=$(find "$DMG_DIR" -name "*.dmg" -type f 2>/dev/null | head -1)
-          if [ -z "$ORIGINAL_DMG" ]; then
-            echo "Warning: No original DMG found in $DMG_DIR, skipping DMG recreation"
-            exit 0
-          fi
-
-          echo "Recreating DMG with bundled TDLib..."
-          echo "App bundle: $APP_BUNDLE"
-          echo "Original DMG: $ORIGINAL_DMG"
-
-          # Remove the old DMG
-          rm -f "$ORIGINAL_DMG"
-
-          # Create new DMG with the updated app bundle
-          DMG_NAME=$(basename "$ORIGINAL_DMG")
-          hdiutil create -volname "$APP_NAME" -srcfolder "$APP_BUNDLE" -ov -format UDZO "$DMG_DIR/$DMG_NAME"
-
-          echo "DMG recreated successfully: $DMG_DIR/$DMG_NAME"
-          ls -la "$DMG_DIR/$DMG_NAME"
 
       - name: Get file info
         id: file-info
@@ -521,127 +401,6 @@ jobs:
         with:
           name: ${{ steps.file-info.outputs.filename }}
           path: ${{ steps.file-info.outputs.path }}/${{ steps.file-info.outputs.filename }}
-
-  # package-android:
-  #   name: Build and package Android APK
-  #   needs: [get-version, check-version, create-release]
-  #   if: ${{ !failure() && !cancelled() && needs.check-version.outputs.should-skip != 'true' }}
-  #   environment: ${{ github.ref == 'refs/heads/main' && 'Production' || '' }}
-  #   runs-on: ubuntu-22.04
-  #   permissions:
-  #     contents: write
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 1
-  #         ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref }}
-
-  #     - name: Setup Node.js 24.x
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 24.x
-  #         cache: 'yarn'
-
-  #     - name: Install Rust stable
-  #       uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-
-  #     - name: Setup Java 17
-  #       uses: actions/setup-java@v4
-  #       with:
-  #         distribution: 'temurin'
-  #         java-version: '17'
-
-  #     - name: Setup Android SDK
-  #       uses: android-actions/setup-android@v3
-
-  #     - name: Install Android NDK
-  #       run: sdkmanager --install "ndk;27.0.12077973"
-
-  #     - name: Set NDK path
-  #       run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
-
-  #     - name: Cache node modules
-  #       id: yarn-cache
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: node_modules
-  #         key: ${{ runner.os }}-build-${{ hashFiles('**/yarn.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-build-
-
-  #     - name: Install dependencies
-  #       if: steps.yarn-cache.outputs.cache-hit != 'true'
-  #       run: yarn install --frozen-lockfile
-
-  #     - name: Build frontend
-  #       run: yarn build
-  #       env:
-  #         NODE_ENV: production
-  #         VITE_BACKEND_URL: ${{ vars.VITE_BACKEND_URL }}
-  #         VITE_TELEGRAM_BOT_USERNAME: ${{ secrets.VITE_TELEGRAM_BOT_USERNAME }}
-  #         VITE_TELEGRAM_BOT_ID: ${{ secrets.VITE_TELEGRAM_BOT_ID }}
-  #         VITE_TELEGRAM_API_ID: ${{ secrets.VITE_TELEGRAM_API_ID }}
-  #         VITE_TELEGRAM_API_HASH: ${{ secrets.VITE_TELEGRAM_API_HASH }}
-  #         VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-  #         VITE_SKILLS_GITHUB_REPO: ${{ vars.VITE_SKILLS_GITHUB_REPO }}
-  #         VITE_DEBUG: ${{ vars.VITE_DEBUG }}
-
-  #     - name: Initialize Tauri Android
-  #       run: npx tauri android init
-
-  #     - name: Decode keystore
-  #       if: needs.get-version.outputs.should-publish != ''
-  #       env:
-  #         ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
-  #       run: |
-  #         echo "$ANDROID_KEYSTORE" | base64 --decode > ${{ github.workspace }}/release.jks
-
-  #     - name: Build Android APK (signed)
-  #       if: needs.get-version.outputs.should-publish != ''
-  #       env:
-  #         BASE_URL: ${{ vars.BASE_URL }}
-  #         ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release.jks
-  #         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-  #         ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-  #         ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-  #       run: npx tauri android build --apk
-
-  #     - name: Build Android APK (unsigned)
-  #       if: needs.get-version.outputs.should-publish == ''
-  #       env:
-  #         BASE_URL: ${{ vars.BASE_URL }}
-  #       run: npx tauri android build --apk
-
-  #     - name: Find APK
-  #       id: find-apk
-  #       run: |
-  #         APK_PATH=$(find gen/android -name '*.apk' -type f | head -1)
-  #         if [ -z "$APK_PATH" ]; then
-  #           echo "No APK found"
-  #           exit 1
-  #         fi
-  #         APK_FILENAME=$(basename "$APK_PATH")
-  #         echo "path=$APK_PATH" >> $GITHUB_OUTPUT
-  #         echo "filename=$APK_FILENAME" >> $GITHUB_OUTPUT
-
-  #     - name: Upload APK artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: android-apk
-  #         path: ${{ steps.find-apk.outputs.path }}
-
-  #     - name: Upload APK to release
-  #       if: needs.get-version.outputs.should-publish != ''
-  #       env:
-  #         RELEASE_ID: ${{ needs.create-release.outputs.releaseId }}
-  #       run: |
-  #         curl -X POST -H "Authorization: Bearer $XGH_TOKEN" \
-  #           -H "Content-Type: application/octet-stream" \
-  #           --data-binary "@${{ steps.find-apk.outputs.path }}" \
-  #           "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=${{ steps.find-apk.outputs.filename }}"
 
   publish-release:
     runs-on: ubuntu-latest

@@ -1,7 +1,8 @@
-//! SocketManager — persistent Rust-native Socket.io connection.
+//! SocketManager — persistent Rust-native Socket.io connection via WebSocket.
 //!
-//! Manages the Socket.io connection from Rust (not the WebView),
-//! ensuring it survives app backgrounding on all platforms.
+//! Implements Engine.IO v4 and Socket.IO v4 protocols directly over WebSocket
+//! using `tokio-tungstenite` with `rustls` TLS. This avoids the macOS
+//! SecureTransport (`native-tls`) TLS errors that occurred with `tf-rust-socketio`.
 //!
 //! Responsibilities:
 //! - MCP `listTools` / `toolCall` handled directly via the SkillRegistry (desktop only)
@@ -9,9 +10,7 @@
 //! - Connection state emitted to the frontend via Tauri events
 //! - Automatic reconnection with exponential backoff
 //!
-//! Note: On Android, the Rust Socket.io client is not available due to
-//! native-tls/OpenSSL build complexity. The frontend uses its own Socket.io
-//! connection instead.
+//! Note: On Android, this is a stub. The frontend handles its own Socket.io connection.
 
 use std::sync::Arc;
 
@@ -21,16 +20,16 @@ use tauri::{AppHandle, Emitter};
 
 use crate::models::socket::{ConnectionStatus, SocketState};
 
-// rust_socketio only available on non-Android platforms
+// WebSocket-based Socket.IO client (desktop + iOS)
 #[cfg(not(target_os = "android"))]
-use futures_util::FutureExt;
-#[cfg(not(target_os = "android"))]
-use rust_socketio::{
-    asynchronous::{Client, ClientBuilder},
-    Event, Payload,
+use {
+    futures_util::{SinkExt, StreamExt},
+    tokio::sync::{mpsc, watch},
+    tokio::time::{Duration, Instant},
+    tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage},
 };
 
-// SkillRegistry only available on desktop (V8/deno_core required)
+// SkillRegistry only available on desktop
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::runtime::skill_registry::SkillRegistry;
 
@@ -44,7 +43,7 @@ pub mod events {
 }
 
 // ---------------------------------------------------------------------------
-// Shared state accessible from Socket.io event callbacks
+// Shared state
 // ---------------------------------------------------------------------------
 
 struct SharedState {
@@ -56,24 +55,40 @@ struct SharedState {
 }
 
 // ---------------------------------------------------------------------------
+// WebSocket stream type alias (desktop + iOS)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_os = "android"))]
+type WsStream = tokio_tungstenite::WebSocketStream<
+    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+>;
+
+// ---------------------------------------------------------------------------
+// Connection outcome (desktop + iOS)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_os = "android"))]
+enum ConnectionOutcome {
+    /// Clean shutdown requested.
+    Shutdown,
+    /// Was connected then lost (reset backoff on reconnect).
+    Lost(String),
+    /// Failed during handshake (keep growing backoff).
+    Failed(String),
+}
+
+// ---------------------------------------------------------------------------
 // SocketManager
 // ---------------------------------------------------------------------------
 
-/// Persistent Socket.io connection manager.
-///
-/// Runs the Socket.io client in Rust (not the WebView) so it survives
-/// app backgrounding. On desktop, handles MCP `listTools`/`toolCall` directly
-/// via the [`SkillRegistry`], and forwards other server events to running
-/// skills and to the frontend.
-///
-/// Note: On Android, this is a stub implementation. The frontend uses its own
-/// Socket.io connection instead.
 pub struct SocketManager {
     shared: Arc<SharedState>,
-    /// The active `rust_socketio` async client (if connected).
-    /// Not available on Android due to native-tls/OpenSSL build complexity.
     #[cfg(not(target_os = "android"))]
-    client: tokio::sync::Mutex<Option<Client>>,
+    emit_tx: tokio::sync::Mutex<Option<mpsc::UnboundedSender<String>>>,
+    #[cfg(not(target_os = "android"))]
+    shutdown_tx: tokio::sync::Mutex<Option<watch::Sender<bool>>>,
+    #[cfg(not(target_os = "android"))]
+    loop_handle: tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl SocketManager {
@@ -87,7 +102,11 @@ impl SocketManager {
                 socket_id: RwLock::new(None),
             }),
             #[cfg(not(target_os = "android"))]
-            client: tokio::sync::Mutex::new(None),
+            emit_tx: tokio::sync::Mutex::new(None),
+            #[cfg(not(target_os = "android"))]
+            shutdown_tx: tokio::sync::Mutex::new(None),
+            #[cfg(not(target_os = "android"))]
+            loop_handle: tokio::sync::Mutex::new(None),
         }
     }
 
@@ -118,319 +137,45 @@ impl SocketManager {
     }
 
     // -----------------------------------------------------------------------
-    // Connection lifecycle
+    // Connection lifecycle (desktop + iOS)
     // -----------------------------------------------------------------------
 
-    /// Connect to the server with the given URL and auth token.
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(target_os = "android"))]
     pub async fn connect(&self, url: &str, token: &str) -> Result<(), String> {
-        // Disconnect existing connection first
         self.disconnect().await?;
 
         log::info!("[socket-mgr] Connecting to {}", url);
 
-        // Update status
         *self.shared.status.write() = ConnectionStatus::Connecting;
         Self::emit_state_change(&self.shared);
 
-        // Prepare shared-state references for the callback closures.
-        // Each `.on()` handler gets its own Arc clone.
-        let s_connect = Arc::clone(&self.shared);
-        let s_message = Arc::clone(&self.shared);
-        let s_ready = Arc::clone(&self.shared);
-        let s_disconnect = Arc::clone(&self.shared);
-        let s_error = Arc::clone(&self.shared);
-        let s_list_tools = Arc::clone(&self.shared);
-        let s_tool_call = Arc::clone(&self.shared);
-        let s_any = Arc::clone(&self.shared);
+        let (emit_tx, emit_rx) = mpsc::unbounded_channel::<String>();
+        let internal_tx = emit_tx.clone();
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-        let client = ClientBuilder::new(url)
-            .namespace("/")
-            .auth(json!({"token": token}))
-            .reconnect(true)
-            .max_reconnect_attempts(0) // unlimited
-            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
-            // --- Connection established ---
-            .on("connect", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_connect);
-                async move {
-                    log::info!("[socket-mgr] Connected (connect event)");
-                    *shared.status.write() = ConnectionStatus::Connected;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // rust_socketio v0.6 emits "message" for the namespace connect ack
-            .on("message", move |payload, _client: Client| {
-                let shared = Arc::clone(&s_message);
-                async move {
-                    log::info!("[socket-mgr] Connected (message/ack)");
-                    // Only transition to connected if we're still connecting
-                    let current = *shared.status.read();
-                    if current != ConnectionStatus::Connected {
-                        *shared.status.write() = ConnectionStatus::Connected;
-                        Self::emit_state_change(&shared);
-                    }
-                    // Try to extract socket_id from the message payload
-                    if let Payload::Text(values) = &payload {
-                        if let Some(val) = values.first() {
-                            if let Some(sid) = val.get("sid").and_then(|v| v.as_str()) {
-                                *shared.socket_id.write() = Some(sid.to_string());
-                                Self::emit_state_change(&shared);
-                            }
-                        }
-                    }
-                }
-                .boxed()
-            })
-            // --- Server ready (auth successful) ---
-            .on("ready", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_ready);
-                async move {
-                    log::info!("[socket-mgr] Server ready — auth successful");
-                    *shared.status.write() = ConnectionStatus::Connected;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- Disconnected ---
-            .on("close", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_disconnect);
-                async move {
-                    log::info!("[socket-mgr] Disconnected");
-                    *shared.status.write() = ConnectionStatus::Disconnected;
-                    *shared.socket_id.write() = None;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- Error ---
-            .on("error", move |payload, _client: Client| {
-                let shared = Arc::clone(&s_error);
-                async move {
-                    let msg = extract_text(&payload);
-                    log::error!("[socket-mgr] Error: {}", msg);
-                    *shared.status.write() = ConnectionStatus::Error;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- MCP: list tools ---
-            .on("mcp:listTools", move |payload, client: Client| {
-                let shared = Arc::clone(&s_list_tools);
-                async move {
-                    Self::handle_mcp_list_tools(&shared, &payload, &client).await;
-                }
-                .boxed()
-            })
-            // --- MCP: tool call ---
-            .on("mcp:toolCall", move |payload, client: Client| {
-                let shared = Arc::clone(&s_tool_call);
-                async move {
-                    Self::handle_mcp_tool_call(&shared, &payload, &client).await;
-                }
-                .boxed()
-            })
-            // --- Catch-all: forward other events to skills + frontend ---
-            .on_any(move |event: Event, payload: Payload, _client: Client| {
-                let shared = Arc::clone(&s_any);
-                // Extract event name synchronously before entering async block
-                let event_name = match &event {
-                    Event::Custom(name) => name.clone(),
-                    other => other.to_string(),
-                };
-                async move {
-                    log::debug!("[socket-mgr] on_any event: {}", event_name);
+        *self.emit_tx.lock().await = Some(emit_tx);
+        *self.shutdown_tx.lock().await = Some(shutdown_tx);
 
-                    // Skip events that already have specific handlers
-                    match event_name.as_str() {
-                        "connect" | "ready" | "close" | "disconnect" | "error" | "message"
-                        | "mcp:listTools" | "mcp:toolCall" => return,
-                        _ => {}
-                    }
+        let url = url.to_string();
+        let token = token.to_string();
+        let shared = Arc::clone(&self.shared);
 
-                    let data = extract_json(&payload).unwrap_or(serde_json::Value::Null);
+        let handle = tokio::spawn(async move {
+            ws_loop(url, token, shared, emit_rx, shutdown_rx, internal_tx).await;
+        });
 
-                    // Forward to running skills
-                    let registry = shared.registry.read().clone();
-                    if let Some(registry) = registry {
-                        registry.broadcast_event(&event_name, data.clone()).await;
-                    }
-
-                    // Forward to frontend
-                    Self::emit_server_event(&shared, &event_name, data);
-                }
-                .boxed()
-            })
-            .connect()
-            .await
-            .map_err(|e| {
-                log::error!("[socket-mgr] Connection error: {e}");
-                format!("Socket connection failed: {e}")
-            })?;
-
-        log::info!("[socket-mgr] ClientBuilder.connect() returned successfully");
-
-        // Store the client
-        *self.client.lock().await = Some(client);
-
+        *self.loop_handle.lock().await = Some(handle);
         Ok(())
     }
 
-    /// Connect to the server with the given URL and auth token (Android stub).
-    /// On Android, the Rust Socket.io client is not available due to
-    /// native-tls/OpenSSL build complexity. The frontend should use its own
-    /// Socket.io connection instead.
-    #[cfg(target_os = "android")]
-    pub async fn connect(&self, url: &str, _token: &str) -> Result<(), String> {
-        log::info!(
-            "[socket-mgr] Android stub - Rust Socket.io not available. URL: {}",
-            url
-        );
-        log::info!("[socket-mgr] Frontend should use its own Socket.io connection on Android.");
-
-        // Mark as disconnected - frontend handles its own connection
-        *self.shared.status.write() = ConnectionStatus::Disconnected;
-        Self::emit_state_change(&self.shared);
-
-        // Return Ok so the app doesn't fail - socket is handled by frontend on Android
-        Ok(())
-    }
-
-    /// Connect to the server with the given URL and auth token (iOS version).
-    /// MCP skill handlers are not available on mobile.
-    #[cfg(target_os = "ios")]
-    pub async fn connect(&self, url: &str, token: &str) -> Result<(), String> {
-        // Disconnect existing connection first
-        self.disconnect().await?;
-
-        log::info!("[socket-mgr] Connecting to {} (iOS)", url);
-
-        // Update status
-        *self.shared.status.write() = ConnectionStatus::Connecting;
-        Self::emit_state_change(&self.shared);
-
-        // Prepare shared-state references for the callback closures.
-        let s_connect = Arc::clone(&self.shared);
-        let s_message = Arc::clone(&self.shared);
-        let s_ready = Arc::clone(&self.shared);
-        let s_disconnect = Arc::clone(&self.shared);
-        let s_error = Arc::clone(&self.shared);
-        let s_any = Arc::clone(&self.shared);
-
-        let client = ClientBuilder::new(url)
-            .namespace("/")
-            .auth(json!({"token": token}))
-            .reconnect(true)
-            .max_reconnect_attempts(0) // unlimited
-            .transport_type(rust_socketio::TransportType::WebsocketUpgrade)
-            // --- Connection established ---
-            .on("connect", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_connect);
-                async move {
-                    log::info!("[socket-mgr] Connected (connect event)");
-                    *shared.status.write() = ConnectionStatus::Connected;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // rust_socketio v0.6 emits "message" for the namespace connect ack
-            .on("message", move |payload, _client: Client| {
-                let shared = Arc::clone(&s_message);
-                async move {
-                    log::info!("[socket-mgr] Connected (message/ack)");
-                    let current = *shared.status.read();
-                    if current != ConnectionStatus::Connected {
-                        *shared.status.write() = ConnectionStatus::Connected;
-                        Self::emit_state_change(&shared);
-                    }
-                    if let Payload::Text(values) = &payload {
-                        if let Some(val) = values.first() {
-                            if let Some(sid) = val.get("sid").and_then(|v| v.as_str()) {
-                                *shared.socket_id.write() = Some(sid.to_string());
-                                Self::emit_state_change(&shared);
-                            }
-                        }
-                    }
-                }
-                .boxed()
-            })
-            // --- Server ready (auth successful) ---
-            .on("ready", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_ready);
-                async move {
-                    log::info!("[socket-mgr] Server ready — auth successful");
-                    *shared.status.write() = ConnectionStatus::Connected;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- Disconnected ---
-            .on("close", move |_payload, _client: Client| {
-                let shared = Arc::clone(&s_disconnect);
-                async move {
-                    log::info!("[socket-mgr] Disconnected");
-                    *shared.status.write() = ConnectionStatus::Disconnected;
-                    *shared.socket_id.write() = None;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- Error ---
-            .on("error", move |payload, _client: Client| {
-                let shared = Arc::clone(&s_error);
-                async move {
-                    let msg = extract_text(&payload);
-                    log::error!("[socket-mgr] Error: {}", msg);
-                    *shared.status.write() = ConnectionStatus::Error;
-                    Self::emit_state_change(&shared);
-                }
-                .boxed()
-            })
-            // --- Catch-all: forward events to frontend (no skills on mobile) ---
-            .on_any(move |event: Event, payload: Payload, _client: Client| {
-                let shared = Arc::clone(&s_any);
-                let event_name = match &event {
-                    Event::Custom(name) => name.clone(),
-                    other => other.to_string(),
-                };
-                async move {
-                    log::debug!("[socket-mgr] on_any event: {}", event_name);
-
-                    // Skip events that already have specific handlers
-                    match event_name.as_str() {
-                        "connect" | "ready" | "close" | "disconnect" | "error" | "message" => return,
-                        _ => {}
-                    }
-
-                    let data = extract_json(&payload).unwrap_or(serde_json::Value::Null);
-
-                    // Forward to frontend only (no skill registry on mobile)
-                    Self::emit_server_event(&shared, &event_name, data);
-                }
-                .boxed()
-            })
-            .connect()
-            .await
-            .map_err(|e| {
-                log::error!("[socket-mgr] Connection error: {e}");
-                format!("Socket connection failed: {e}")
-            })?;
-
-        log::info!("[socket-mgr] ClientBuilder.connect() returned successfully");
-
-        // Store the client
-        *self.client.lock().await = Some(client);
-
-        Ok(())
-    }
-
-    /// Disconnect from the server.
     #[cfg(not(target_os = "android"))]
     pub async fn disconnect(&self) -> Result<(), String> {
-        let mut client_guard = self.client.lock().await;
-        if let Some(client) = client_guard.take() {
-            let _ = client.disconnect().await;
+        if let Some(tx) = self.shutdown_tx.lock().await.take() {
+            let _ = tx.send(true);
+        }
+        self.emit_tx.lock().await.take();
+        if let Some(handle) = self.loop_handle.lock().await.take() {
+            let _ = tokio::time::timeout(Duration::from_secs(5), handle).await;
         }
         *self.shared.status.write() = ConnectionStatus::Disconnected;
         *self.shared.socket_id.write() = None;
@@ -438,41 +183,51 @@ impl SocketManager {
         Ok(())
     }
 
-    /// Disconnect from the server (Android stub).
-    #[cfg(target_os = "android")]
-    pub async fn disconnect(&self) -> Result<(), String> {
-        *self.shared.status.write() = ConnectionStatus::Disconnected;
-        *self.shared.socket_id.write() = None;
-        Self::emit_state_change(&self.shared);
-        Ok(())
-    }
-
-    /// Emit an event through the Rust socket to the server.
     #[cfg(not(target_os = "android"))]
     pub async fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String> {
-        let client_guard = self.client.lock().await;
-        if let Some(ref client) = *client_guard {
-            client
-                .emit(event, data)
-                .await
-                .map_err(|e| format!("Failed to emit '{}': {e}", event))?;
-            Ok(())
+        if let Some(ref tx) = *self.emit_tx.lock().await {
+            let payload =
+                serde_json::to_string(&json!([event, data])).map_err(|e| format!("{e}"))?;
+            let msg = format!("42{}", payload);
+            tx.send(msg)
+                .map_err(|_| "Socket not connected".to_string())
         } else {
             Err("Not connected".to_string())
         }
     }
 
-    /// Emit an event through the Rust socket to the server (Android stub).
+    // -----------------------------------------------------------------------
+    // Android stubs
+    // -----------------------------------------------------------------------
+
+    #[cfg(target_os = "android")]
+    pub async fn connect(&self, url: &str, _token: &str) -> Result<(), String> {
+        log::info!(
+            "[socket-mgr] Android stub — frontend handles socket. URL: {}",
+            url
+        );
+        *self.shared.status.write() = ConnectionStatus::Disconnected;
+        Self::emit_state_change(&self.shared);
+        Ok(())
+    }
+
+    #[cfg(target_os = "android")]
+    pub async fn disconnect(&self) -> Result<(), String> {
+        *self.shared.status.write() = ConnectionStatus::Disconnected;
+        *self.shared.socket_id.write() = None;
+        Self::emit_state_change(&self.shared);
+        Ok(())
+    }
+
     #[cfg(target_os = "android")]
     pub async fn emit(&self, _event: &str, _data: serde_json::Value) -> Result<(), String> {
-        Err("Rust Socket.io not available on Android. Use frontend socket.".to_string())
+        Err("Rust Socket.io not available on Android".to_string())
     }
 
     // -----------------------------------------------------------------------
     // Tauri event helpers
     // -----------------------------------------------------------------------
 
-    /// Emit a socket state change event to the frontend.
     fn emit_state_change(shared: &SharedState) {
         if let Some(ref app) = *shared.app_handle.read() {
             let state = SocketState {
@@ -484,164 +239,12 @@ impl SocketManager {
         }
     }
 
-    /// Emit a forwarded server event to the frontend.
     fn emit_server_event(shared: &SharedState, event_name: &str, data: serde_json::Value) {
         if let Some(ref app) = *shared.app_handle.read() {
             let _ = app.emit(
                 events::SERVER_EVENT,
                 json!({ "event": event_name, "data": data }),
             );
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // MCP protocol handlers (desktop only)
-    // -----------------------------------------------------------------------
-
-    /// Handle `mcp:listTools` — return all tools from all running skills.
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    async fn handle_mcp_list_tools(shared: &SharedState, payload: &Payload, client: &Client) {
-        let request_id = match extract_json(payload) {
-            Some(data) => data
-                .get("requestId")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            None => None,
-        };
-
-        let request_id = match request_id {
-            Some(id) => id,
-            None => {
-                log::warn!("[socket-mgr] mcp:listTools missing requestId");
-                return;
-            }
-        };
-
-        log::info!("[socket-mgr] mcp:listTools (requestId={})", request_id);
-
-        // Clone the Arc to avoid holding the parking_lot lock across await
-        let registry = shared.registry.read().clone();
-        let tools: Vec<serde_json::Value> = if let Some(registry) = registry {
-            registry
-                .all_tools()
-                .into_iter()
-                .map(|(skill_id, tool)| {
-                    json!({
-                        "name": format!("{}__{}", skill_id, tool.name),
-                        "description": tool.description,
-                        "inputSchema": tool.input_schema,
-                    })
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        log::info!(
-            "[socket-mgr] mcp:listToolsResponse — {} tools",
-            tools.len()
-        );
-
-        if let Err(e) = client
-            .emit(
-                "mcp:listToolsResponse",
-                json!({ "requestId": request_id, "tools": tools }),
-            )
-            .await
-        {
-            log::error!("[socket-mgr] Failed to emit listToolsResponse: {e}");
-        }
-    }
-
-    /// Handle `mcp:toolCall` — parse `skillId__toolName` and execute.
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    async fn handle_mcp_tool_call(shared: &SharedState, payload: &Payload, client: &Client) {
-        let data = match extract_json(payload) {
-            Some(d) => d,
-            None => {
-                log::warn!("[socket-mgr] mcp:toolCall — invalid payload");
-                return;
-            }
-        };
-
-        let request_id = data
-            .get("requestId")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let tool_call = data.get("toolCall");
-        let full_name = tool_call
-            .and_then(|tc| tc.get("name"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let arguments = tool_call
-            .and_then(|tc| tc.get("arguments"))
-            .cloned()
-            .unwrap_or(json!({}));
-
-        if request_id.is_empty() || full_name.is_empty() {
-            log::warn!("[socket-mgr] mcp:toolCall — missing requestId or tool name");
-            return;
-        }
-
-        log::info!(
-            "[socket-mgr] mcp:toolCall {} (requestId={})",
-            full_name,
-            request_id
-        );
-
-        // Parse "skillId__toolName" (double underscore separator)
-        let result = match full_name.find("__") {
-            Some(idx) => {
-                let skill_id = &full_name[..idx];
-                let tool_name = &full_name[idx + 2..];
-
-                // Clone Arc to avoid holding lock across await
-                let registry = shared.registry.read().clone();
-                if let Some(registry) = registry {
-                    match registry.call_tool(skill_id, tool_name, arguments).await {
-                        Ok(tool_result) => json!({
-                            "content": tool_result.content,
-                            "isError": tool_result.is_error,
-                        }),
-                        Err(e) => json!({
-                            "content": [{"type": "text", "text": e}],
-                            "isError": true,
-                        }),
-                    }
-                } else {
-                    json!({
-                        "content": [{"type": "text", "text": "Skill runtime not available"}],
-                        "isError": true,
-                    })
-                }
-            }
-            None => {
-                json!({
-                    "content": [{"type": "text", "text": format!(
-                        "Invalid tool name: {}. Expected format: skillId__toolName",
-                        full_name
-                    )}],
-                    "isError": true,
-                })
-            }
-        };
-
-        log::info!(
-            "[socket-mgr] mcp:toolCallResponse {} (requestId={})",
-            full_name,
-            request_id
-        );
-
-        if let Err(e) = client
-            .emit(
-                "mcp:toolCallResponse",
-                json!({ "requestId": request_id, "result": result }),
-            )
-            .await
-        {
-            log::error!("[socket-mgr] Failed to emit toolCallResponse: {e}");
         }
     }
 }
@@ -652,29 +255,628 @@ impl Default for SocketManager {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Payload helpers (not needed on Android)
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// WebSocket Engine.IO/Socket.IO implementation (desktop + iOS)
+// ===========================================================================
 
-/// Extract the first JSON value from a Socket.io payload.
 #[cfg(not(target_os = "android"))]
-fn extract_json(payload: &Payload) -> Option<serde_json::Value> {
-    match payload {
-        Payload::Text(values) => values.first().cloned(),
-        #[allow(unreachable_patterns)]
-        _ => None,
+async fn ws_loop(
+    url: String,
+    token: String,
+    shared: Arc<SharedState>,
+    mut emit_rx: mpsc::UnboundedReceiver<String>,
+    mut shutdown_rx: watch::Receiver<bool>,
+    internal_tx: mpsc::UnboundedSender<String>,
+) {
+    let mut backoff = Duration::from_millis(1000);
+    let max_backoff = Duration::from_secs(30);
+
+    loop {
+        if *shutdown_rx.borrow() {
+            break;
+        }
+
+        log::info!("[socket-mgr] Attempting connection...");
+        *shared.status.write() = ConnectionStatus::Connecting;
+        SocketManager::emit_state_change(&shared);
+
+        let outcome = run_connection(
+            &url,
+            &token,
+            &shared,
+            &mut emit_rx,
+            &mut shutdown_rx,
+            &internal_tx,
+        )
+        .await;
+
+        match outcome {
+            ConnectionOutcome::Shutdown => {
+                log::info!("[socket-mgr] Clean shutdown");
+                break;
+            }
+            ConnectionOutcome::Lost(reason) => {
+                log::warn!("[socket-mgr] Connection lost: {}", reason);
+                backoff = Duration::from_millis(1000); // reset on established-then-lost
+            }
+            ConnectionOutcome::Failed(reason) => {
+                log::error!("[socket-mgr] Connection failed: {}", reason);
+                // keep growing backoff
+            }
+        }
+
+        *shared.status.write() = ConnectionStatus::Disconnected;
+        *shared.socket_id.write() = None;
+        SocketManager::emit_state_change(&shared);
+
+        if *shutdown_rx.borrow() {
+            break;
+        }
+
+        log::info!("[socket-mgr] Reconnecting in {:?}...", backoff);
+        tokio::select! {
+            _ = tokio::time::sleep(backoff) => {}
+            _ = shutdown_rx.changed() => {
+                if *shutdown_rx.borrow() { break; }
+            }
+        }
+        backoff = (backoff * 2).min(max_backoff);
+    }
+
+    log::info!("[socket-mgr] WebSocket loop exiting");
+    *shared.status.write() = ConnectionStatus::Disconnected;
+    *shared.socket_id.write() = None;
+    SocketManager::emit_state_change(&shared);
+}
+
+/// Run a single WebSocket connection through handshake and event loop.
+#[cfg(not(target_os = "android"))]
+async fn run_connection(
+    url: &str,
+    token: &str,
+    shared: &Arc<SharedState>,
+    emit_rx: &mut mpsc::UnboundedReceiver<String>,
+    shutdown_rx: &mut watch::Receiver<bool>,
+    internal_tx: &mpsc::UnboundedSender<String>,
+) -> ConnectionOutcome {
+    // 1. Build WebSocket URL
+    let ws_url = build_ws_url(url);
+    log::info!("[socket-mgr] WS URL: {}", ws_url);
+
+    // 2. Connect via WebSocket (uses rustls TLS for wss://)
+    // Auth is passed in the Socket.IO CONNECT packet, not HTTP headers.
+    let (ws_stream, _response) = match connect_async(&ws_url).await {
+        Ok(r) => r,
+        Err(e) => return ConnectionOutcome::Failed(format!("WebSocket connect: {e}")),
+    };
+
+    log::info!("[socket-mgr] WebSocket connected, starting handshake");
+    let (mut ws_write, mut ws_read) = ws_stream.split();
+
+    // 4. Read Engine.IO OPEN packet
+    let open_data = match tokio::time::timeout(Duration::from_secs(10), read_eio_open(&mut ws_read))
+        .await
+    {
+        Ok(Ok(data)) => data,
+        Ok(Err(e)) => return ConnectionOutcome::Failed(format!("EIO OPEN: {e}")),
+        Err(_) => return ConnectionOutcome::Failed("Timeout waiting for EIO OPEN".into()),
+    };
+
+    let ping_interval = open_data
+        .get("pingInterval")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(25000);
+    let ping_timeout_ms = open_data
+        .get("pingTimeout")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(20000);
+    let eio_sid = open_data
+        .get("sid")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
+    log::info!(
+        "[socket-mgr] EIO OPEN: sid={}, ping={}ms, timeout={}ms",
+        eio_sid,
+        ping_interval,
+        ping_timeout_ms
+    );
+
+    // 5. Send Socket.IO CONNECT with auth
+    let connect_payload = json!({"token": token});
+    let connect_msg = format!("40{}", serde_json::to_string(&connect_payload).unwrap());
+    if let Err(e) = ws_write
+        .send(WsMessage::Text(connect_msg.into()))
+        .await
+    {
+        return ConnectionOutcome::Failed(format!("Send SIO CONNECT: {e}"));
+    }
+
+    // 6. Read Socket.IO CONNECT ACK
+    let ack_data =
+        match tokio::time::timeout(Duration::from_secs(10), read_sio_connect_ack(&mut ws_read))
+            .await
+        {
+            Ok(Ok(data)) => data,
+            Ok(Err(e)) => return ConnectionOutcome::Failed(format!("SIO CONNECT: {e}")),
+            Err(_) => {
+                return ConnectionOutcome::Failed("Timeout waiting for SIO CONNECT ACK".into())
+            }
+        };
+
+    let sio_sid = ack_data
+        .get("sid")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    log::info!("[socket-mgr] SIO CONNECT ACK: sid={:?}", sio_sid);
+
+    // 7. Update state: Connected
+    *shared.status.write() = ConnectionStatus::Connected;
+    *shared.socket_id.write() = sio_sid;
+    SocketManager::emit_state_change(shared);
+
+    // 8. Main event loop
+    let timeout_duration = Duration::from_millis(ping_interval + ping_timeout_ms + 5000);
+    let mut deadline = Instant::now() + timeout_duration;
+
+    loop {
+        tokio::select! {
+            msg = ws_read.next() => {
+                match msg {
+                    Some(Ok(WsMessage::Text(text))) => {
+                        deadline = Instant::now() + timeout_duration;
+                        handle_eio_message(&text, internal_tx, shared);
+                    }
+                    Some(Ok(WsMessage::Ping(data))) => {
+                        let _ = ws_write.send(WsMessage::Pong(data)).await;
+                    }
+                    Some(Ok(WsMessage::Close(_))) => {
+                        log::info!("[socket-mgr] Server closed WebSocket");
+                        return ConnectionOutcome::Lost("Server closed connection".into());
+                    }
+                    Some(Err(e)) => {
+                        return ConnectionOutcome::Lost(format!("WebSocket error: {e}"));
+                    }
+                    None => {
+                        return ConnectionOutcome::Lost("WebSocket stream ended".into());
+                    }
+                    _ => {} // Binary, Pong, Frame
+                }
+            }
+            // Outgoing events from SocketManager::emit() or MCP handlers
+            outgoing = emit_rx.recv() => {
+                match outgoing {
+                    Some(msg) => {
+                        if let Err(e) = ws_write.send(WsMessage::Text(msg.into())).await {
+                            return ConnectionOutcome::Lost(format!("Send failed: {e}"));
+                        }
+                    }
+                    None => {
+                        // Channel closed (disconnect requested)
+                        let _ = ws_write.send(WsMessage::Close(None)).await;
+                        return ConnectionOutcome::Shutdown;
+                    }
+                }
+            }
+            // Ping timeout — server stopped sending pings
+            _ = tokio::time::sleep_until(deadline) => {
+                log::warn!("[socket-mgr] Ping timeout ({}ms)", ping_interval + ping_timeout_ms + 5000);
+                return ConnectionOutcome::Lost("Ping timeout".into());
+            }
+            // Shutdown signal
+            _ = shutdown_rx.changed() => {
+                if *shutdown_rx.borrow() {
+                    log::info!("[socket-mgr] Shutdown signal received");
+                    let _ = ws_write.send(WsMessage::Close(None)).await;
+                    return ConnectionOutcome::Shutdown;
+                }
+            }
+        }
     }
 }
 
-/// Extract a human-readable string from a Socket.io payload.
+// ---------------------------------------------------------------------------
+// Handshake helpers
+// ---------------------------------------------------------------------------
+
+/// Read the Engine.IO OPEN packet (type 0) from the WebSocket.
+/// Format: `0{"sid":"...","upgrades":[],"pingInterval":25000,"pingTimeout":20000}`
 #[cfg(not(target_os = "android"))]
-fn extract_text(payload: &Payload) -> String {
-    match payload {
-        Payload::Text(values) => values
-            .first()
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| "unknown".to_string()),
-        #[allow(unreachable_patterns)]
-        _ => "unknown".to_string(),
+async fn read_eio_open(
+    ws_read: &mut futures_util::stream::SplitStream<WsStream>,
+) -> Result<serde_json::Value, String> {
+    loop {
+        match ws_read.next().await {
+            Some(Ok(WsMessage::Text(text))) => {
+                let s: &str = &text;
+                if let Some(json_str) = s.strip_prefix('0') {
+                    return serde_json::from_str(json_str)
+                        .map_err(|e| format!("Parse EIO OPEN JSON: {e}"));
+                }
+                log::debug!(
+                    "[socket-mgr] Skipping non-OPEN packet: {}",
+                    &s[..s.len().min(40)]
+                );
+            }
+            Some(Ok(_)) => continue,
+            Some(Err(e)) => return Err(format!("WS error during handshake: {e}")),
+            None => return Err("WebSocket closed before OPEN".into()),
+        }
     }
+}
+
+/// Read the Socket.IO CONNECT ACK (type 40) from the WebSocket.
+/// Format: `40{"sid":"..."}` or `44{"message":"error"}` for connect error.
+#[cfg(not(target_os = "android"))]
+async fn read_sio_connect_ack(
+    ws_read: &mut futures_util::stream::SplitStream<WsStream>,
+) -> Result<serde_json::Value, String> {
+    loop {
+        match ws_read.next().await {
+            Some(Ok(WsMessage::Text(text))) => {
+                let s: &str = &text;
+                // Engine.IO MESSAGE (4) + Socket.IO CONNECT (0)
+                if let Some(json_str) = s.strip_prefix("40") {
+                    if json_str.is_empty() {
+                        return Ok(json!({}));
+                    }
+                    return serde_json::from_str(json_str)
+                        .map_err(|e| format!("Parse CONNECT ACK: {e}"));
+                }
+                // Engine.IO MESSAGE (4) + Socket.IO CONNECT_ERROR (4)
+                if let Some(json_str) = s.strip_prefix("44") {
+                    let err: serde_json::Value =
+                        serde_json::from_str(json_str).unwrap_or(json!({"message": "unknown"}));
+                    let msg = err
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Connect error");
+                    return Err(format!("Socket.IO connect error: {msg}"));
+                }
+                // Engine.IO PING (2) — respond via log, can't write from here
+                if s.starts_with('2') {
+                    log::debug!("[socket-mgr] EIO ping during handshake (will respond after)");
+                    continue;
+                }
+                log::debug!(
+                    "[socket-mgr] Skipping packet during SIO handshake: {}",
+                    &s[..s.len().min(40)]
+                );
+            }
+            Some(Ok(_)) => continue,
+            Some(Err(e)) => return Err(format!("WS error during SIO handshake: {e}")),
+            None => return Err("WebSocket closed before CONNECT ACK".into()),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Message handling
+// ---------------------------------------------------------------------------
+
+/// Handle an incoming Engine.IO text message.
+#[cfg(not(target_os = "android"))]
+fn handle_eio_message(
+    text: &str,
+    emit_tx: &mpsc::UnboundedSender<String>,
+    shared: &Arc<SharedState>,
+) {
+    if text.is_empty() {
+        return;
+    }
+
+    match text.as_bytes()[0] {
+        b'2' => {
+            // Engine.IO PING → respond with PONG
+            let _ = emit_tx.send("3".to_string());
+        }
+        b'3' => {
+            // Engine.IO PONG — ignore (server responding to our ping)
+        }
+        b'4' => {
+            // Engine.IO MESSAGE → contains Socket.IO packet
+            if text.len() > 1 {
+                handle_sio_packet(&text[1..], emit_tx, shared);
+            }
+        }
+        b'1' => {
+            log::info!("[socket-mgr] Engine.IO CLOSE from server");
+        }
+        b'6' => {
+            // Engine.IO NOOP
+        }
+        _ => {
+            log::debug!(
+                "[socket-mgr] Unknown EIO packet: {}",
+                &text[..text.len().min(30)]
+            );
+        }
+    }
+}
+
+/// Handle a Socket.IO packet (after stripping the Engine.IO '4' prefix).
+#[cfg(not(target_os = "android"))]
+fn handle_sio_packet(
+    text: &str,
+    emit_tx: &mpsc::UnboundedSender<String>,
+    shared: &Arc<SharedState>,
+) {
+    if text.is_empty() {
+        return;
+    }
+
+    match text.as_bytes()[0] {
+        b'2' => {
+            // Socket.IO EVENT: 2["eventName", data]
+            // May have ACK id: 2<id>["eventName", data]
+            if let Some((event_name, data)) = parse_sio_event(&text[1..]) {
+                handle_sio_event(&event_name, data, emit_tx, shared);
+            } else {
+                log::warn!(
+                    "[socket-mgr] Failed to parse SIO EVENT: {}",
+                    &text[..text.len().min(80)]
+                );
+            }
+        }
+        b'0' => {
+            // Socket.IO CONNECT (re-ack during reconnection) — update state
+            log::debug!("[socket-mgr] SIO CONNECT re-ack");
+            if text.len() > 1 {
+                if let Ok(data) = serde_json::from_str::<serde_json::Value>(&text[1..]) {
+                    if let Some(sid) = data.get("sid").and_then(|v| v.as_str()) {
+                        *shared.socket_id.write() = Some(sid.to_string());
+                        SocketManager::emit_state_change(shared);
+                    }
+                }
+            }
+        }
+        b'1' => {
+            // Socket.IO DISCONNECT
+            log::info!("[socket-mgr] SIO DISCONNECT from server");
+            *shared.status.write() = ConnectionStatus::Disconnected;
+            *shared.socket_id.write() = None;
+            SocketManager::emit_state_change(shared);
+        }
+        b'4' => {
+            // Socket.IO CONNECT_ERROR
+            let error_str = if text.len() > 1 { &text[1..] } else { "unknown" };
+            log::error!("[socket-mgr] SIO CONNECT_ERROR: {}", error_str);
+        }
+        _ => {
+            log::debug!(
+                "[socket-mgr] Unknown SIO packet type: {}",
+                &text[..text.len().min(30)]
+            );
+        }
+    }
+}
+
+/// Handle a Socket.IO event by name.
+#[cfg(not(target_os = "android"))]
+fn handle_sio_event(
+    event_name: &str,
+    data: serde_json::Value,
+    emit_tx: &mpsc::UnboundedSender<String>,
+    shared: &Arc<SharedState>,
+) {
+    match event_name {
+        "ready" => {
+            log::info!("[socket-mgr] Server ready — auth successful");
+            *shared.status.write() = ConnectionStatus::Connected;
+            SocketManager::emit_state_change(shared);
+        }
+        "error" => {
+            log::error!("[socket-mgr] Server error event: {}", data);
+            *shared.status.write() = ConnectionStatus::Error;
+            SocketManager::emit_state_change(shared);
+        }
+        // MCP handlers — desktop only
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        "mcp:listTools" => {
+            let shared = Arc::clone(shared);
+            let tx = emit_tx.clone();
+            tokio::spawn(async move {
+                handle_mcp_list_tools(&shared, data, &tx).await;
+            });
+        }
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        "mcp:toolCall" => {
+            let shared = Arc::clone(shared);
+            let tx = emit_tx.clone();
+            tokio::spawn(async move {
+                handle_mcp_tool_call(&shared, data, &tx).await;
+            });
+        }
+        _ => {
+            // Forward to skills (desktop only) and frontend
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let shared_clone = Arc::clone(shared);
+                let event_owned = event_name.to_string();
+                let data_clone = data.clone();
+                tokio::spawn(async move {
+                    let registry = shared_clone.registry.read().clone();
+                    if let Some(registry) = registry {
+                        registry.broadcast_event(&event_owned, data_clone).await;
+                    }
+                });
+            }
+
+            SocketManager::emit_server_event(shared, event_name, data);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MCP protocol handlers (desktop only)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+async fn handle_mcp_list_tools(
+    shared: &SharedState,
+    data: serde_json::Value,
+    emit_tx: &mpsc::UnboundedSender<String>,
+) {
+    let request_id = match data.get("requestId").and_then(|v| v.as_str()) {
+        Some(id) => id.to_string(),
+        None => {
+            log::warn!("[socket-mgr] mcp:listTools missing requestId");
+            return;
+        }
+    };
+
+    log::info!("[socket-mgr] mcp:listTools (requestId={})", request_id);
+
+    let registry = shared.registry.read().clone();
+    let tools: Vec<serde_json::Value> = if let Some(registry) = registry {
+        registry
+            .all_tools()
+            .into_iter()
+            .map(|(skill_id, tool)| {
+                json!({
+                    "name": format!("{}__{}", skill_id, tool.name),
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema,
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    log::info!(
+        "[socket-mgr] mcp:listToolsResponse — {} tools",
+        tools.len()
+    );
+
+    emit_via_channel(
+        emit_tx,
+        "mcp:listToolsResponse",
+        json!({ "requestId": request_id, "tools": tools }),
+    );
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+async fn handle_mcp_tool_call(
+    shared: &SharedState,
+    data: serde_json::Value,
+    emit_tx: &mpsc::UnboundedSender<String>,
+) {
+    let request_id = data
+        .get("requestId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let tool_call = data.get("toolCall");
+    let full_name = tool_call
+        .and_then(|tc| tc.get("name"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let arguments = tool_call
+        .and_then(|tc| tc.get("arguments"))
+        .cloned()
+        .unwrap_or(json!({}));
+
+    if request_id.is_empty() || full_name.is_empty() {
+        log::warn!("[socket-mgr] mcp:toolCall — missing requestId or tool name");
+        return;
+    }
+
+    log::info!(
+        "[socket-mgr] mcp:toolCall {} (requestId={})",
+        full_name,
+        request_id
+    );
+
+    let result = match full_name.find("__") {
+        Some(idx) => {
+            let skill_id = &full_name[..idx];
+            let tool_name = &full_name[idx + 2..];
+
+            let registry = shared.registry.read().clone();
+            if let Some(registry) = registry {
+                match registry.call_tool(skill_id, tool_name, arguments).await {
+                    Ok(tool_result) => json!({
+                        "content": tool_result.content,
+                        "isError": tool_result.is_error,
+                    }),
+                    Err(e) => json!({
+                        "content": [{"type": "text", "text": e}],
+                        "isError": true,
+                    }),
+                }
+            } else {
+                json!({
+                    "content": [{"type": "text", "text": "Skill runtime not available"}],
+                    "isError": true,
+                })
+            }
+        }
+        None => {
+            json!({
+                "content": [{"type": "text", "text": format!(
+                    "Invalid tool name: {}. Expected format: skillId__toolName",
+                    full_name
+                )}],
+                "isError": true,
+            })
+        }
+    };
+
+    log::info!(
+        "[socket-mgr] mcp:toolCallResponse {} (requestId={})",
+        full_name,
+        request_id
+    );
+
+    emit_via_channel(
+        emit_tx,
+        "mcp:toolCallResponse",
+        json!({ "requestId": request_id, "result": result }),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Utility functions
+// ---------------------------------------------------------------------------
+
+/// Convert an HTTP(S) URL to a WebSocket URL with Engine.IO parameters.
+#[cfg(not(target_os = "android"))]
+fn build_ws_url(url: &str) -> String {
+    let base = url.trim_end_matches('/');
+    let ws_base = if base.starts_with("https://") {
+        base.replacen("https://", "wss://", 1)
+    } else if base.starts_with("http://") {
+        base.replacen("http://", "ws://", 1)
+    } else {
+        base.to_string()
+    };
+    format!("{}/socket.io/?EIO=4&transport=websocket", ws_base)
+}
+
+/// Send a Socket.IO event through the emit channel.
+/// Formats: `42["eventName", data]`
+#[cfg(not(target_os = "android"))]
+fn emit_via_channel(
+    tx: &mpsc::UnboundedSender<String>,
+    event: &str,
+    data: serde_json::Value,
+) {
+    let payload = serde_json::to_string(&json!([event, data])).unwrap_or_default();
+    let msg = format!("42{}", payload);
+    if let Err(e) = tx.send(msg) {
+        log::error!("[socket-mgr] emit_via_channel failed: {e}");
+    }
+}
+
+/// Parse a Socket.IO EVENT payload: `["eventName", data]` or `<ackId>["eventName", data]`.
+#[cfg(not(target_os = "android"))]
+fn parse_sio_event(text: &str) -> Option<(String, serde_json::Value)> {
+    // Find the start of the JSON array (skip optional ACK id digits)
+    let json_start = text.find('[')?;
+    let json_str = &text[json_start..];
+    let arr: Vec<serde_json::Value> = serde_json::from_str(json_str).ok()?;
+    let event_name = arr.first()?.as_str()?.to_string();
+    let data = arr.get(1).cloned().unwrap_or(serde_json::Value::Null);
+    Some((event_name, data))
 }

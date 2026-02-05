@@ -179,14 +179,20 @@ impl TdLibManager {
             let poll_handle = tokio::spawn(async move {
                 loop {
                     if !state_clone.is_active.load(Ordering::SeqCst) {
+                        log::info!("[tdlib] Receive loop exiting (shutdown signalled)");
                         break;
                     }
 
-                    // Use spawn_blocking for the blocking TDLib receive call
-                    let receive_result = tokio::task::spawn_blocking(|| {
-                        // Use a short timeout to be more responsive
-                        // Note: tdlib_rs::receive() uses 2.0s internally, but that's OK
-                        // because we're in spawn_blocking and won't block the async runtime
+                    // Clone the Arc so we can check is_active inside
+                    // spawn_blocking *before* entering the 2-second blocking
+                    // td_receive() FFI call.  This minimises the window where
+                    // a process-exit could tear down TDLib state while we're
+                    // inside the C++ code.
+                    let state_for_recv = state_clone.clone();
+                    let receive_result = tokio::task::spawn_blocking(move || {
+                        if !state_for_recv.is_active.load(Ordering::SeqCst) {
+                            return None;
+                        }
                         tdlib_rs::receive()
                     })
                     .await;
@@ -502,6 +508,13 @@ impl TdLibManager {
 
         log::info!("[tdlib] Client destroyed");
         Ok(())
+    }
+
+    /// Signal the TDLib worker to stop (non-async, safe to call from any context).
+    /// This is used during app exit to prevent the receive loop from crashing
+    /// when TDLib's C++ static destructors run during process shutdown.
+    pub fn signal_shutdown(&self) {
+        self.state.is_active.store(false, Ordering::SeqCst);
     }
 
     /// Check if the client is active.

@@ -144,7 +144,8 @@ pub struct SkillConfig {
     pub skill_id: String,
     pub name: String,
     pub entry_point: String,
-    /// Memory limit in bytes. Default: 64 MB.
+    /// Memory limit in bytes. Default: 256 MB.
+    /// Skills can override this in their manifest.json.
     #[serde(default = "default_memory_limit")]
     pub memory_limit: usize,
     /// Whether this skill should auto-start on app launch.
@@ -153,7 +154,7 @@ pub struct SkillConfig {
 }
 
 fn default_memory_limit() -> usize {
-    64 * 1024 * 1024 // 64 MB
+    256 * 1024 * 1024 // 256 MB
 }
 
 /// Events emitted from the runtime to the frontend via Tauri.

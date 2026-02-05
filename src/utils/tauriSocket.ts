@@ -37,10 +37,14 @@ export async function connectRustSocket(token: string): Promise<void> {
   if (!isTauri()) return;
 
   try {
+    console.log('[TauriSocket] Connecting Rust socket to', BACKEND_URL);
     await invoke('runtime_socket_connect', { token, url: BACKEND_URL });
-    console.log('[TauriSocket] Rust socket connecting');
+    console.log('[TauriSocket] Rust socket connect call succeeded');
   } catch (error) {
     console.error('[TauriSocket] Failed to connect Rust socket:', error);
+    // Ensure Redux status reflects the failure
+    const uid = getSocketUserId();
+    store.dispatch(setStatusForUser({ userId: uid, status: 'disconnected' }));
   }
 }
 

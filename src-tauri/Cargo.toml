@@ -30,7 +30,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # HTTP client (rustls for cross-platform TLS support including Android)
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full", "sync"] }
@@ -74,13 +74,8 @@ chrono = { version = "0.4", features = ["serde"] }
 # Cron expression parsing for scheduled skill tasks
 cron = "0.12"
 
-# Persistent Socket.io client (Rust-native, survives app backgrounding)
-# Note: Using default native-tls on desktop, but we'll handle Android separately
+# Stream/Sink utilities for WebSocket and HTTP streaming
 futures-util = "0.3"
-
-# Desktop/iOS use native-tls for Socket.io
-[target.'cfg(not(target_os = "android"))'.dependencies]
-rust_socketio = { version = "0.6", features = ["async"] }
 
 # Android uses a simpler approach - no persistent Socket.io (use web socket from frontend)
 [target.'cfg(target_os = "android")'.dependencies]
@@ -91,11 +86,16 @@ android_logger = "0.14"
 keyring = "3"
 tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
-# V8 JavaScript runtime (via deno_core - powers Deno)
+
+# QuickJS JavaScript runtime (via quickjs-rs)
 # Only available on desktop - prebuilt binaries don't exist for Android/iOS
-deno_core = "0.314"
-# TDLib Rust bindings (desktop only - downloads prebuilt TDLib library)
+rquickjs = { version = "0.11", features = ["futures", "macro", "loader", "parallel"] }
+
+# TDLib Rust bindings (desktop only - downloads prebuilt TDLib for linking)
+# On macOS, the bundled dylib is replaced with a source-built version (see build.rs)
+# to ensure macOS 10.15 deployment target compatibility.
 tdlib-rs = { version = "1.2", features = ["download-tdlib"] }
+
 # Local LLM inference - desktop only (llama.cpp requires native C++ compilation)
 # Disable default features (including openmp) to avoid cross-compilation issues
 # on macOS where Homebrew installs ARM64-only OpenMP libraries
@@ -103,7 +103,7 @@ llama-cpp-2 = { version = "0.1", default-features = false }
 encoding_rs = "0.8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.build-dependencies]
-# TDLib build configuration
+# TDLib build configuration (download-tdlib for all desktop platforms)
 tdlib-rs = { version = "1.2", features = ["download-tdlib"] }
 
 [features]

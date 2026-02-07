@@ -134,10 +134,11 @@ jobs:
         run: |
           echo "Creating draft release for tag: $TAG_NAME"
           echo "Repository: $PUBLISH_REPO"
+          RELEASE_BODY="See the assets below to download this version."
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Authorization: Bearer $XGH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            -d '{"tag_name": "'"$TAG_NAME"'", "name": "'"$RELEASE_NAME"'", "draft": true}' \
+            -d '{"tag_name": "'"$TAG_NAME"'", "name": "'"$RELEASE_NAME"'", "draft": true, "body": "'"$RELEASE_BODY"'"}' \
             "https://api.github.com/repos/$PUBLISH_REPO/releases")
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')

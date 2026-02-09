@@ -225,152 +225,137 @@ const BillingPanel = () => {
             </button>
           </div>
 
-          {/* ── Plan tier cards ───────────────────────────────────── */}
-          <div className="space-y-2 px-4">
-            {PLANS.map(plan => {
-              const isCurrent = plan.tier === currentTier;
-              const isUpgrade = checkIsUpgrade(plan.tier, currentTier);
-              const savings = annualSavings(plan, billingInterval);
-              const isThisPurchasing = isPurchasing && purchasingTier === plan.tier;
+          <div className="max-w-md mx-auto">
+            {/* ── Plan tier cards ───────────────────────────────────── */}
+            <div className="space-y-2 px-4">
+              {PLANS.map(plan => {
+                const isCurrent = plan.tier === currentTier;
+                const isUpgrade = checkIsUpgrade(plan.tier, currentTier);
+                const savings = annualSavings(plan, billingInterval);
+                const isThisPurchasing = isPurchasing && purchasingTier === plan.tier;
 
-              return (
-                <div
-                  key={plan.tier}
-                  className={`rounded-2xl border p-3 transition-all ${
-                    isCurrent
-                      ? 'border-primary-500/40 bg-primary-500/5'
-                      : 'border-stone-700/50 bg-stone-800/40'
-                  }`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-semibold text-white">{plan.name}</h4>
-                        {/* Features inline with title */}
-                        {plan.features.map(f => (
-                          <span key={f.text} className="text-xs text-stone-300">
-                            <span className="text-stone-500 mx-1">•</span>
-                            {f.text}
+                return (
+                  <div
+                    key={plan.tier}
+                    className={`rounded-2xl border p-3 transition-all ${
+                      isCurrent
+                        ? 'border-primary-500/40 bg-primary-500/5'
+                        : 'border-stone-700/50 bg-stone-800/40'
+                    }`}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-semibold text-white">{plan.name}</h4>
+                          {/* Features inline with title */}
+                          {plan.features.map(f => (
+                            <span key={f.text} className="text-xs text-stone-300">
+                              <span className="text-stone-500 mx-1">•</span>
+                              {f.text}
+                            </span>
+                          ))}
+                          {isCurrent && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-primary-500/20 text-primary-400 border border-primary-500/30">
+                              Current
+                            </span>
+                          )}
+                          {savings && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-sage-500/20 text-sage-400 border border-sage-500/30">
+                              Save {savings}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-baseline gap-1">
+                          <span className="text-xl font-bold text-white">
+                            {displayPrice(plan, billingInterval)}
                           </span>
-                        ))}
-                        {isCurrent && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-primary-500/20 text-primary-400 border border-primary-500/30">
-                            Current
-                          </span>
-                        )}
-                        {savings && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-sage-500/20 text-sage-400 border border-sage-500/30">
-                            Save {savings}%
-                          </span>
-                        )}
+                          {plan.tier !== 'FREE' && (
+                            <span className="text-xs text-stone-400">/mo</span>
+                          )}
+                          {plan.tier !== 'FREE' && billingInterval === 'annual' && (
+                            <span className="text-xs text-stone-500 ml-1">
+                              (billed ${plan.annualPrice}/yr)
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex items-baseline gap-1">
-                        <span className="text-xl font-bold text-white">
-                          {displayPrice(plan, billingInterval)}
-                        </span>
-                        {plan.tier !== 'FREE' && (
-                          <span className="text-xs text-stone-400">/mo</span>
-                        )}
-                        {plan.tier !== 'FREE' && billingInterval === 'annual' && (
-                          <span className="text-xs text-stone-500 ml-1">
-                            (billed ${plan.annualPrice}/yr)
-                          </span>
-                        )}
-                      </div>
+
+                      {/* Action button */}
+                      {isUpgrade && (
+                        <button
+                          onClick={() => handleUpgrade(plan.tier)}
+                          disabled={isPurchasing}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 ${
+                            isPurchasing
+                              ? 'bg-stone-700/40 text-stone-500 cursor-not-allowed'
+                              : 'bg-primary-500 hover:bg-primary-600 text-white'
+                          }`}>
+                          {isThisPurchasing ? 'Waiting...' : 'Upgrade'}
+                        </button>
+                      )}
                     </div>
-
-                    {/* Action button */}
-                    {isUpgrade && (
-                      <button
-                        onClick={() => handleUpgrade(plan.tier)}
-                        disabled={isPurchasing}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-shrink-0 ${
-                          isPurchasing
-                            ? 'bg-stone-700/40 text-stone-500 cursor-not-allowed'
-                            : 'bg-primary-500 hover:bg-primary-600 text-white'
-                        }`}>
-                        {isThisPurchasing ? 'Waiting...' : 'Upgrade'}
-                      </button>
-                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ── Purchasing overlay message ────────────────────────── */}
-          {isPurchasing && (
-            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 mx-4">
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4 text-amber-400 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                <p className="text-xs text-amber-300">
-                  Waiting for payment confirmation... Complete checkout in the browser window that
-                  opened.
-                </p>
-              </div>
+                );
+              })}
             </div>
-          )}
 
-          {/* ── Pay with crypto toggle ────────────────────────────── */}
-          <div className="flex items-center justify-between rounded-xl bg-stone-800/40 border border-stone-700/40 p-3 mx-4">
-            <div>
-              <p className="text-xs font-medium text-white">Pay with Crypto</p>
-              <p className="text-[11px] text-stone-400 mt-0.5">
-                You can choose to pay annually using crypto
-              </p>
-            </div>
-            <button
-              onClick={() => setPaymentMethod(m => (m === 'card' ? 'crypto' : 'card'))}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                paymentMethod === 'crypto' ? 'bg-primary-500' : 'bg-stone-600'
-              }`}
-              role="switch"
-              aria-checked={paymentMethod === 'crypto'}>
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  paymentMethod === 'crypto' ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* ── Upgrade benefits ───────────────────────────────────── */}
-          <div className="px-4 pb-4 pt-2">
-            <div className="rounded-xl bg-gradient-to-br from-primary-500/10 to-sage-500/10 border border-primary-500/20 p-4">
-              <h3 className="text-sm font-semibold text-white mb-2">Why upgrade?</h3>
-              <ul className="space-y-1.5 text-xs text-stone-300">
-                <li className="flex items-start gap-2">
+            {/* ── Purchasing overlay message ────────────────────────── */}
+            {isPurchasing && (
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 mx-4">
+                <div className="flex items-center gap-2">
                   <svg
-                    className="w-4 h-4 text-sage-400 flex-shrink-0 mt-0.5"
+                    className="w-4 h-4 text-amber-400 animate-spin"
                     fill="none"
-                    stroke="currentColor"
                     viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
-                  <span>Unlock higher daily limits for more AI interactions</span>
-                </li>
-                {currentTier === 'FREE' && (
+                  <p className="text-xs text-amber-300">
+                    Waiting for payment confirmation... Complete checkout in the browser window that
+                    opened.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Pay with crypto toggle ────────────────────────────── */}
+            <div className="flex items-center justify-between rounded-xl bg-stone-800/40 border border-stone-700/40 p-3 mx-4">
+              <div>
+                <p className="text-xs font-medium text-white">Pay with Crypto</p>
+                <p className="text-[11px] text-stone-400 mt-0.5">
+                  You can choose to pay annually using crypto
+                </p>
+              </div>
+              <button
+                onClick={() => setPaymentMethod(m => (m === 'card' ? 'crypto' : 'card'))}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  paymentMethod === 'crypto' ? 'bg-primary-500' : 'bg-stone-600'
+                }`}
+                role="switch"
+                aria-checked={paymentMethod === 'crypto'}>
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    paymentMethod === 'crypto' ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* ── Upgrade benefits ───────────────────────────────────── */}
+            <div className="px-4 pb-4 pt-2">
+              <div className="rounded-xl bg-gradient-to-br from-primary-500/10 to-sage-500/10 border border-primary-500/20 p-4">
+                <h3 className="text-sm font-semibold text-white mb-2">Why upgrade?</h3>
+                <ul className="space-y-1.5 text-xs text-stone-300">
                   <li className="flex items-start gap-2">
                     <svg
                       className="w-4 h-4 text-sage-400 flex-shrink-0 mt-0.5"
@@ -384,12 +369,29 @@ const BillingPanel = () => {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    <span>
-                      Save up to 20% with annual plans and never worry about hitting limits
-                    </span>
+                    <span>Unlock higher daily limits for more AI interactions</span>
                   </li>
-                )}
-              </ul>
+                  {currentTier === 'FREE' && (
+                    <li className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-sage-400 flex-shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span>
+                        Save up to 20% with annual plans and never worry about hitting limits
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
         </div>

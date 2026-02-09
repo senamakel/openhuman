@@ -29,8 +29,9 @@ tauri-plugin-os = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# HTTP client (rustls for cross-platform TLS support including Android)
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream"] }
+# HTTP client: rustls for cross-platform TLS (Android), native-tls for desktop skill HTTP
+# (some APIs/CDNs use TLS configs that rustls can't negotiate — native-tls uses OS TLS stack)
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "native-tls", "stream"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full", "sync"] }
@@ -92,12 +93,6 @@ rquickjs = { version = "0.11", features = ["futures", "macro", "loader", "parall
 # On macOS, the bundled dylib is replaced with a source-built version (see build.rs)
 # to ensure macOS 10.15 deployment target compatibility.
 tdlib-rs = { version = "1.2", features = ["download-tdlib"] }
-
-# Local LLM inference - desktop only (llama.cpp requires native C++ compilation)
-# Disable default features (including openmp) to avoid cross-compilation issues
-# on macOS where Homebrew installs ARM64-only OpenMP libraries
-llama-cpp-2 = { version = "0.1", default-features = false }
-encoding_rs = "0.8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.build-dependencies]
 # TDLib build configuration (download-tdlib for all desktop platforms)

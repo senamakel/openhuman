@@ -7,10 +7,8 @@
 //! - `ops_storage` — IndexedDB, DB bridge, Store bridge
 //! - `ops_state`   — published state, filesystem data
 //! - `ops_tdlib`   — TDLib (Telegram) integration
-//! - `ops_model`   — local LLM inference
 
 mod ops_core;
-mod ops_model;
 mod ops_net;
 mod ops_state;
 mod ops_storage;
@@ -44,7 +42,6 @@ pub fn register_ops(
     ops_storage::register(ctx, &ops, storage, skill_context.clone())?;
     ops_state::register(ctx, &ops, skill_state, skill_context.clone())?;
     ops_tdlib::register(ctx, &ops, skill_context.clone())?;
-    ops_model::register(ctx, &ops)?;
 
     globals.set("__ops", ops)?;
     Ok(())

@@ -294,11 +294,6 @@ pub fn run() {
                     });
                 let skills_data_dir = data_dir.join("skills");
 
-                // Initialize local model service (for skills to use)
-                let model_dir = data_dir.join("models");
-                services::llama::LLAMA_MANAGER.set_data_dir(model_dir);
-                log::info!("[runtime] Local model service initialized");
-
                 match runtime::qjs_engine::RuntimeEngine::new(skills_data_dir) {
                     Ok(engine) => {
                         engine.set_app_handle(app.handle().clone());
@@ -338,12 +333,12 @@ pub fn run() {
 
             #[cfg(target_os = "android")]
             {
-                log::info!("[runtime] QuickJS runtime and local model disabled on Android");
+                log::info!("[runtime] QuickJS runtime disabled on Android");
             }
 
             #[cfg(target_os = "ios")]
             {
-                log::info!("[runtime] QuickJS runtime and local model disabled on iOS");
+                log::info!("[runtime] QuickJS runtime disabled on iOS");
             }
 
             // Store SocketManager as Tauri state
@@ -457,18 +452,9 @@ pub fn run() {
                     tdlib_receive,
                     tdlib_destroy,
                     tdlib_is_available,
-                    // Model commands (local LLM)
-                    model_is_available,
-                    model_get_status,
-                    model_ensure_loaded,
-                    model_start_download,
-                    model_generate,
+                    // Model commands (backend API proxy)
                     model_summarize,
-                    model_unload,
-                    // Android MediaPipe LLM commands
-                    model_get_recommended,
-                    model_list_downloaded,
-                    model_load_path,
+                    model_generate,
                 ]
             }
             #[cfg(not(desktop))]
@@ -550,18 +536,9 @@ pub fn run() {
                     tdlib_receive,
                     tdlib_destroy,
                     tdlib_is_available,
-                    // Model commands (local LLM / MediaPipe)
-                    model_is_available,
-                    model_get_status,
-                    model_ensure_loaded,
-                    model_start_download,
-                    model_generate,
+                    // Model commands (backend API proxy)
                     model_summarize,
-                    model_unload,
-                    // Android MediaPipe LLM commands
-                    model_get_recommended,
-                    model_list_downloaded,
-                    model_load_path,
+                    model_generate,
                 ]
             }
         })

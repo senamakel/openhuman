@@ -4,10 +4,12 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import DefaultRedirect from './components/DefaultRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
-import SettingsModal from './components/settings/SettingsModal';
+import Agents from './pages/Agents';
+import Conversations from './pages/Conversations';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Onboarding from './pages/onboarding/Onboarding';
+import Settings from './pages/Settings';
 import Welcome from './pages/Welcome';
 import { selectIsOnboarded } from './store/authSelectors';
 import { useAppSelector } from './store/hooks';
@@ -85,12 +87,32 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Settings modal routes - protected */}
+        {/* Conversations */}
+        <Route
+          path="/conversations"
+          element={
+            <ProtectedRoute requireAuth={true}>
+              <Conversations />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Agents */}
+        <Route
+          path="/agents"
+          element={
+            <ProtectedRoute requireAuth={true}>
+              <Agents />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Settings - rendered as page content */}
         <Route
           path="/settings/*"
           element={
             <ProtectedRoute requireAuth={true}>
-              <HomeRoute />
+              <Settings />
             </ProtectedRoute>
           }
         />
@@ -98,9 +120,6 @@ const AppRoutes = () => {
         {/* Default redirect based on auth status */}
         <Route path="*" element={<DefaultRedirect />} />
       </Routes>
-
-      {/* Settings Modal - renders over existing content when on settings routes */}
-      <SettingsModal />
     </>
   );
 };

@@ -807,12 +807,12 @@ globalThis.data = {
 // OAuth Bridge API (credential management and authenticated proxy)
 // ============================================================================
 (function () {
-  var __oauthCredential = null;
+  globalThis.__oauthCredential = null;
 
   globalThis.oauth = {
     /** Get the current OAuth credential, or null if not connected. */
     getCredential: function () {
-      return __oauthCredential;
+      return globalThis.__oauthCredential;
     },
 
     /**
@@ -820,7 +820,7 @@ globalThis.data = {
      * Path is relative to manifest's apiBaseUrl.
      */
     fetch: function (path, options) {
-      if (!__oauthCredential) {
+      if (!globalThis.__oauthCredential) {
         return {
           status: 401,
           headers: {},
@@ -828,9 +828,9 @@ globalThis.data = {
         };
       }
       var backendUrl = __platform.env('BACKEND_URL') || 'https://api.alphahuman.xyz';
-      var jwtToken = __platform.env('JWT_TOKEN') || '';
+      var jwtToken = __ops.get_session_token() || '';
       var cleanPath = path.charAt(0) === '/' ? path.slice(1) : path;
-      var proxyUrl = backendUrl + '/proxy/by-id/' + __oauthCredential.credentialId + '/' + cleanPath;
+      var proxyUrl = backendUrl + '/proxy/by-id/' + globalThis.__oauthCredential.credentialId + '/' + cleanPath;
       var method = (options && options.method) || 'GET';
       var headers = { 'Content-Type': 'application/json' };
       if (jwtToken) {
@@ -856,7 +856,7 @@ globalThis.data = {
       if (__oauthCredential) {
         try {
           var backendUrl = __platform.env('BACKEND_URL') || 'https://api.alphahuman.xyz';
-          var jwtToken = __platform.env('JWT_TOKEN') || '';
+          var jwtToken = __ops.get_session_token() || '';
           var revokeOpts = JSON.stringify({
             method: 'DELETE',
             headers: {
@@ -979,75 +979,68 @@ globalThis.tdlib = {
 };
 
 // ============================================================================
-// Model Bridge API (local LLM inference)
+// Model Bridge API (routes to cloud backend)
 // ============================================================================
-
-globalThis.__model = {
-  isAvailable: function () {
-    try {
-      return typeof __ops?.model_is_available === 'function'
-        ? __ops.model_is_available()
-        : false;
-    } catch (e) {
-      return false;
-    }
-  },
-  getStatus: function () {
-    return __ops.model_get_status();
-  },
-  generate: async function (prompt, configJson) {
-    return await __ops.model_generate(prompt, configJson);
-  },
-  summarize: async function (text, maxTokens) {
-    return await __ops.model_summarize(text, maxTokens);
-  },
-};
 
 globalThis.model = {
   /**
-   * Check if local model is available (desktop only).
-   * @returns {boolean}
-   */
-  isAvailable: function () {
-    return __model.isAvailable();
-  },
-
-  /**
-   * Get model status.
-   * @returns {{ available: boolean, loaded: boolean, loading: boolean, downloadProgress?: number, error?: string, modelPath?: string }}
-   */
-  getStatus: function () {
-    return __model.getStatus();
-  },
-
-  /**
-   * Generate text from a prompt.
+   * Generate text from a prompt via the backend API.
    * @param {string} prompt - Input prompt
    * @param {object} [options] - Generation options
    * @param {number} [options.maxTokens=2048] - Max output tokens
    * @param {number} [options.temperature=0.7] - Sampling temperature
-   * @param {number} [options.topP=0.9] - Top-p sampling
-   * @returns {Promise<string>}
+   * @returns {string}
    */
-  generate: async function (prompt, options) {
-    var config = {
-      max_tokens: (options && options.maxTokens) || 2048,
-      temperature: (options && options.temperature) || 0.7,
-      top_p: (options && options.topP) || 0.9,
-    };
-    return await __model.generate(prompt, config);
+  generate: function (prompt, options) {
+    var backendUrl = __platform.env('BACKEND_URL') || 'https://api.alphahuman.xyz';
+    var jwtToken = __ops.get_session_token() || '';
+    var body = { prompt: prompt };
+    if (options && options.maxTokens) body.maxTokens = options.maxTokens;
+    if (options && options.temperature) body.temperature = options.temperature;
+    var result = __net.fetch(backendUrl + '/api/ai/generate', JSON.stringify({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + jwtToken,
+      },
+      body: JSON.stringify(body),
+      timeout: 30000,
+    }));
+    var parsed = JSON.parse(result);
+    if (parsed.status >= 400) {
+      throw new Error('Backend returned ' + parsed.status + ': ' + parsed.body);
+    }
+    var data = JSON.parse(parsed.body);
+    return data.text || '';
   },
 
   /**
-   * Summarize text locally.
+   * Summarize text via the backend API.
    * @param {string} text - Text to summarize
    * @param {object} [options] - Options
    * @param {number} [options.maxTokens=500] - Target summary length
-   * @returns {Promise<string>}
+   * @returns {string}
    */
-  summarize: async function (text, options) {
-    var maxTokens = (options && options.maxTokens) || 500;
-    return await __model.summarize(text, maxTokens);
+  summarize: function (text, options) {
+    var backendUrl = __platform.env('BACKEND_URL') || 'https://api.alphahuman.xyz';
+    var jwtToken = __ops.get_session_token() || '';
+    var body = { text: text };
+    if (options && options.maxTokens) body.maxTokens = options.maxTokens;
+    var result = __net.fetch(backendUrl + '/api/ai/summarize', JSON.stringify({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + jwtToken,
+      },
+      body: JSON.stringify(body),
+      timeout: 30000,
+    }));
+    var parsed = JSON.parse(result);
+    if (parsed.status >= 400) {
+      throw new Error('Backend returned ' + parsed.status + ': ' + parsed.body);
+    }
+    var data = JSON.parse(parsed.body);
+    return data.summary || '';
   },
 };
 

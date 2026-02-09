@@ -11,6 +11,3 @@ pub mod quickjs_libs;
 #[cfg(desktop)]
 pub mod notification_service;
 
-// Local LLM inference - desktop only (llama.cpp requires native C++ compilation)
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-pub mod llama;

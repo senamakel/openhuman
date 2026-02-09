@@ -10,8 +10,9 @@ import { type ReactNode, useEffect, useRef } from 'react';
 
 import { skillManager } from '../lib/skills/manager';
 import type { SkillManifest } from '../lib/skills/types';
+import { buildManualSentryEvent, enqueueError } from '../services/errorReportQueue';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { setSkillState } from '../store/skillsSlice';
+import { setSkillError, setSkillState } from '../store/skillsSlice';
 import { DEV_AUTO_LOAD_SKILL, IS_DEV } from '../utils/config';
 
 // ---------------------------------------------------------------------------
@@ -62,18 +63,51 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
-    listen<{ skillId: string; state: Record<string, unknown> }>(
-      'skill-state-changed',
+    listen<{ skillId: string; state: Record<string, unknown> }>('skill-state-changed', event => {
+      const { skillId, state: newState } = event.payload;
+      dispatch(setSkillState({ skillId, state: newState }));
+    })
+      .then(fn => {
+        unlisten = fn;
+      })
+      .catch(err => {
+        console.error('[SkillProvider] Failed to listen for skill-state-changed:', err);
+      });
+
+    return () => {
+      unlisten?.();
+    };
+  }, [dispatch]);
+
+  // Listen for skill runtime errors and surface them in the error notification
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    listen<{ skill_id: string; status: string; error?: string; name?: string }>(
+      'runtime:skill-status-changed',
       event => {
-        const { skillId, state: newState } = event.payload;
-        dispatch(setSkillState({ skillId, state: newState }));
+        const { skill_id, status, error, name } = event.payload;
+        if (status === 'error' && error) {
+          dispatch(setSkillError({ skillId: skill_id, error }));
+          enqueueError({
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            source: 'skill',
+            title: `Skill Error: ${name ?? skill_id}`,
+            message: error,
+            sentryEvent: buildManualSentryEvent(
+              { type: 'SkillRuntimeError', value: error },
+              { skill_id, ...(name ? { skill_name: name } : {}) }
+            ),
+          });
+        }
       }
     )
       .then(fn => {
         unlisten = fn;
       })
       .catch(err => {
-        console.error('[SkillProvider] Failed to listen for skill-state-changed:', err);
+        console.error('[SkillProvider] Failed to listen for runtime:skill-status-changed:', err);
       });
 
     return () => {

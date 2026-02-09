@@ -100,7 +100,6 @@ const Home = () => {
 
             {/* Skills Grid */}
             <SkillsGrid />
-
           </div>
         </div>
       </div>

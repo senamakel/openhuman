@@ -482,6 +482,9 @@ async fn handle_message(
                     let params_str = serde_json::to_string(&params).unwrap_or_else(|_| "{}".to_string());
                     handle_js_call(ctx, "onOAuthComplete", &params_str).await
                 }
+                "skill/ping" => {
+                    handle_js_call(ctx, "onPing", "{}").await
+                }
                 "oauth/revoked" => {
                     // Clear credential: set to empty string so it's clearly "disconnected"
                     let clear_code = r#"(function() {

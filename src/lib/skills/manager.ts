@@ -15,6 +15,7 @@ import type {
   SetupResult,
   SkillToolDefinition,
   SkillOptionDefinition,
+  PingResult,
 } from "./types";
 import { store } from "../../store";
 import {
@@ -31,6 +32,8 @@ import {
 
 class SkillManager {
   private runtimes = new Map<string, SkillRuntime>();
+  private pingIntervalId: ReturnType<typeof setInterval> | null = null;
+  static PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Get skill-specific load parameters (e.g., session data for Telegram)
@@ -130,6 +133,10 @@ class SkillManager {
       const tools = await runtime.listTools();
       store.dispatch(setSkillTools({ skillId, tools }));
       store.dispatch(setSkillStatus({ skillId, status: "ready" }));
+      // Fire an initial ping (non-blocking)
+      this.pingSkill(skillId).catch((err) => {
+        console.warn(`[SkillManager] Initial ping failed for ${skillId}:`, err);
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       store.dispatch(setSkillError({ skillId, error: msg }));
@@ -337,6 +344,7 @@ class SkillManager {
    * Stop all running skills.
    */
   async stopAll(): Promise<void> {
+    this.stopPingLoop();
     const ids = Array.from(this.runtimes.keys());
     await Promise.all(ids.map((id) => this.stopSkill(id)));
   }
@@ -379,6 +387,97 @@ class SkillManager {
       }
     } catch (err) {
       console.error(`Error reloading skill ${skillId}:`, err);
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Ping / health-check
+  // -----------------------------------------------------------------------
+
+  /**
+   * Start the periodic ping loop. Call once after skills are started.
+   */
+  startPingLoop(): void {
+    if (this.pingIntervalId) return;
+    this.pingIntervalId = setInterval(() => {
+      this.pingAllSkills().catch((err) => {
+        console.error("[SkillManager] Ping loop error:", err);
+      });
+    }, SkillManager.PING_INTERVAL_MS);
+  }
+
+  /**
+   * Stop the periodic ping loop.
+   */
+  stopPingLoop(): void {
+    if (this.pingIntervalId) {
+      clearInterval(this.pingIntervalId);
+      this.pingIntervalId = null;
+    }
+  }
+
+  /**
+   * Ping all ready skills in parallel and handle results.
+   */
+  private async pingAllSkills(): Promise<void> {
+    const entries: [string, SkillRuntime][] = [];
+    for (const [id, runtime] of this.runtimes) {
+      const status = this.getSkillStatus(id);
+      if (status === "ready" && runtime.isRunning) {
+        entries.push([id, runtime]);
+      }
+    }
+    if (entries.length === 0) return;
+
+    await Promise.allSettled(
+      entries.map(([id]) => this.pingSkill(id)),
+    );
+  }
+
+  /**
+   * Ping a single skill and interpret the result.
+   * - null / ok:true → healthy, no-op
+   * - ok:false, errorType:"auth" → stop skill + set error
+   * - ok:false, errorType:"network" → update connection_status to error (keep running)
+   */
+  private async pingSkill(skillId: string): Promise<void> {
+    const runtime = this.runtimes.get(skillId);
+    if (!runtime || !runtime.isRunning) return;
+
+    let result: PingResult | null;
+    try {
+      result = await runtime.ping();
+    } catch (err) {
+      console.warn(`[SkillManager] Ping RPC failed for ${skillId}:`, err);
+      return;
+    }
+
+    // null means onPing is not implemented → treat as healthy
+    if (!result || result.ok) return;
+
+    console.warn(
+      `[SkillManager] Ping failed for ${skillId}: ${result.errorType} — ${result.errorMessage}`,
+    );
+
+    if (result.errorType === "auth") {
+      store.dispatch(
+        setSkillError({ skillId, error: result.errorMessage ?? "Auth error" }),
+      );
+      await this.stopSkill(skillId);
+    } else {
+      // Network error — update state but keep skill running
+      const currentState =
+        store.getState().skills.skillStates[skillId] ?? {};
+      store.dispatch(
+        setSkillState({
+          skillId,
+          state: {
+            ...currentState,
+            connection_status: "error",
+            connection_error: result.errorMessage ?? "Connection error",
+          },
+        }),
+      );
     }
   }
 

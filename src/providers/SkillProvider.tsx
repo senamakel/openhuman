@@ -160,6 +160,7 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
         // Discover skills from the QuickJS runtime engine
         const manifests = await discoverSkills();
         await registerAndStart(manifests);
+        skillManager.startPingLoop();
       } catch (err) {
         console.error('[SkillProvider] Failed to discover skills:', err);
       }
@@ -168,6 +169,7 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
     init();
 
     return () => {
+      skillManager.stopPingLoop();
       skillManager.stopAll().catch(console.error);
       initRef.current = false;
     };

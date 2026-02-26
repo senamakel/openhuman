@@ -51,8 +51,12 @@ const SectionCard: React.FC<SectionCardProps> = ({
         onClick={handleToggle}
       >
         <div className="flex items-center gap-3">
-          <div className={`flex-shrink-0 ${priorityIconColors[priority]}`}>
-            {React.cloneElement(icon, { className: 'h-5 w-5' } as any)}
+          <div className={`flex-shrink-0 ${priorityIconColors[priority]} ${loading ? 'relative' : ''}`}>
+            {loading ? (
+              <div className="h-5 w-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              React.cloneElement(icon, { className: 'h-5 w-5' } as any)
+            )}
           </div>
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-semibold text-white font-display">{title}</h3>
@@ -60,7 +64,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
               <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
             )}
             {loading && (
-              <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <span className="text-sm text-gray-400 ml-2">Loading...</span>
             )}
           </div>
         </div>

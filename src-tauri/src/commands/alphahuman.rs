@@ -86,10 +86,24 @@ pub fn alphahuman_decrypt_secret(
 
 async fn load_alphahuman_config() -> Result<Config, String> {
     log::info!("[alphahuman:cmd] load_config called");
-    Config::load_or_init().await.map_err(|e| {
-        log::error!("[alphahuman:cmd] load config failed: {}", e);
-        e.to_string()
-    })
+
+    // Add timeout protection and proper error handling to prevent runtime panics
+    let timeout_duration = std::time::Duration::from_secs(30);
+
+    match tokio::time::timeout(timeout_duration, Config::load_or_init()).await {
+        Ok(Ok(config)) => {
+            log::info!("[alphahuman:cmd] config loaded successfully");
+            Ok(config)
+        }
+        Ok(Err(e)) => {
+            log::error!("[alphahuman:cmd] load config failed: {}", e);
+            Err(e.to_string())
+        }
+        Err(_) => {
+            log::error!("[alphahuman:cmd] load config timed out after 30 seconds");
+            Err("Config loading timed out".to_string())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

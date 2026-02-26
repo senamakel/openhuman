@@ -12,6 +12,7 @@ pub mod manifest;
 pub mod preferences;
 pub mod socket_manager;
 pub mod types;
+pub mod utils;
 
 // QuickJS modules - desktop only (not available on Android/iOS)
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

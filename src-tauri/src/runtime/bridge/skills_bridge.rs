@@ -54,21 +54,28 @@ pub fn call_tool(
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
 
     std::thread::spawn(move || {
-        // Create a mini single-threaded Tokio runtime for the async call.
-        // We can't reuse the main runtime because we're on an OS thread
-        // outside it, and block_in_place would conflict with V8.
-        let rt = match tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-        {
-            Ok(rt) => rt,
-            Err(e) => {
-                let _ = tx.send(Err(format!("Failed to create runtime: {e}")));
-                return;
-            }
-        };
+        // Try to use existing runtime first, fallback to creating new one if needed
+        let arguments_clone = arguments.clone();
+        let runtime_result = tokio::runtime::Handle::try_current()
+            .map(|handle| {
+                // Use existing runtime by blocking on it
+                handle.block_on(async { registry.call_tool(&target, &tool, arguments).await })
+            })
+            .or_else(|_| {
+                // Only create new runtime if we're not in an async context
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| format!("Failed to create runtime: {e}"))
+                    .map(|rt| {
+                        rt.block_on(async { registry.call_tool(&target, &tool, arguments_clone).await })
+                    })
+            });
 
-        let result = rt.block_on(async { registry.call_tool(&target, &tool, arguments).await });
+        let result = match runtime_result {
+            Ok(tool_result) => tool_result,
+            Err(e) => Err(e),
+        };
 
         let _ = tx.send(result);
     });

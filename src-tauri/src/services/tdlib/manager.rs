@@ -250,18 +250,45 @@ impl TdLibManager {
     fn worker_loop(
         client_id: i32,
         state: Arc<ClientState>,
-        mut request_rx: mpsc::Receiver<TdRequest>,
+        request_rx: mpsc::Receiver<TdRequest>,
         data_dir: PathBuf,
     ) {
         log::info!("[tdlib] Worker loop started for client {}", client_id);
 
-        // Create a tokio runtime for async operations
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime for TDLib worker");
+        // Try to use existing runtime first, fallback to creating new one if needed
+        // This prevents runtime dropping conflicts when spawned from async contexts
+        let runtime_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            log::info!("[tdlib] Using existing runtime handle");
+            // Use existing runtime by spawning the async work
+            Ok(handle.block_on(Self::async_worker_loop(client_id, state.clone(), request_rx, data_dir.clone())))
+        } else {
+            log::info!("[tdlib] Creating new runtime for TDLib worker");
+            // Only create new runtime if we're not in an async context
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| {
+                    log::error!("[tdlib] Failed to create runtime: {}", e);
+                    e
+                })
+                .map(|rt| {
+                    rt.block_on(Self::async_worker_loop(client_id, state, request_rx, data_dir))
+                })
+        };
 
-        rt.block_on(async {
+        match runtime_result {
+            Ok(_) => log::info!("[tdlib] Worker loop completed for client {}", client_id),
+            Err(e) => log::error!("[tdlib] Worker loop failed for client {}: {}", client_id, e),
+        }
+    }
+
+    /// Async portion of the worker loop - extracted to avoid runtime conflicts
+    async fn async_worker_loop(
+        client_id: i32,
+        state: Arc<ClientState>,
+        mut request_rx: mpsc::Receiver<TdRequest>,
+        _data_dir: PathBuf,
+    ) {
             // Spawn a separate task to poll TDLib updates
             // This runs in spawn_blocking since tdlib_rs::receive() is a blocking call
             let state_clone = state.clone();
@@ -327,7 +354,6 @@ impl TdLibManager {
 
             // Clean up the poll task
             poll_handle.abort();
-        });
 
         log::info!("[tdlib] Worker loop exited for client {}", client_id);
     }

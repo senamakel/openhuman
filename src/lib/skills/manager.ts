@@ -100,6 +100,12 @@ class SkillManager {
       if (setupRequired) {
         store.dispatch(setSkillStatus({ skillId, status: "setup_required" }));
       } else {
+        // Mark setup as complete for skills that don't require a setup flow.
+        // Without this, deriveConnectionStatus("ready", false, undefined) returns
+        // "connecting" even after the skill is fully running.
+        if (!skillState?.setupComplete) {
+          store.dispatch(setSkillSetupComplete({ skillId, complete: true }));
+        }
         // Re-inject persisted OAuth credential if available
         const oauthCred = skillState?.oauthCredential;
         if (oauthCred) {

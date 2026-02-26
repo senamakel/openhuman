@@ -6,6 +6,7 @@ import { deriveConnectionStatus, useSkillConnectionStatus } from '../lib/skills/
 import type { SkillConnectionStatus } from '../lib/skills/types';
 import { useAppSelector } from '../store/hooks';
 import { IS_DEV } from '../utils/config';
+import SelfEvolveModal from './skills/SelfEvolveModal';
 import {
   DefaultIcon,
   SKILL_ICONS,
@@ -106,6 +107,7 @@ export default function SkillsGrid() {
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [selfEvolveOpen, setSelfEvolveOpen] = useState(false);
   const [setupModalOpen, setSetupModalOpen] = useState(false);
   const [managementModalOpen, setManagementModalOpen] = useState(false);
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
@@ -117,6 +119,56 @@ export default function SkillsGrid() {
   // Get Redux state for sorting
   const skillsState = useAppSelector(state => state.skills.skills);
   const skillStates = useAppSelector(state => state.skills.skillStates);
+
+  // Load skills from the unified registry (covers both alphahuman and openclaw types).
+  // Extracted so it can be called after skill creation (e.g. from SelfEvolveModal).
+  const refreshSkills = async () => {
+    try {
+      // Try unified registry first — it merges both skill types.
+      const entries = await invoke<Array<Record<string, unknown>>>('unified_list_skills');
+
+      const processed: SkillListEntry[] = entries
+        .filter(e => {
+          const id = e.id as string;
+          if (id.includes('_')) {
+            console.warn(
+              `Skill "${id}" contains underscore and will be skipped. Skill IDs cannot contain underscores.`
+            );
+            return false;
+          }
+          return true;
+        })
+        .map(normalizeUnifiedEntry)
+        .filter(s => IS_DEV || !s.ignoreInProduction);
+
+      setSkillsList(processed);
+    } catch {
+      // Fallback to legacy runtime_discover_skills if unified registry isn't available.
+      try {
+        const manifests = await invoke<Array<Record<string, unknown>>>('runtime_discover_skills');
+        const processed: SkillListEntry[] = manifests
+          .filter(m => !(m.id as string).includes('_'))
+          .map(m => {
+            const setup = m.setup as Record<string, unknown> | undefined;
+            return {
+              id: m.id as string,
+              name: (m.name as string) || (m.id as string),
+              description: (m.description as string) || '',
+              icon: SKILL_ICONS[m.id as string],
+              ignoreInProduction: (m.ignoreInProduction as boolean) ?? false,
+              hasSetup: !!(setup && setup.required),
+              skill_type: 'alphahuman' as const,
+            };
+          })
+          .filter(s => IS_DEV || !s.ignoreInProduction);
+        setSkillsList(processed);
+      } catch (err) {
+        console.warn('Could not load skills:', err);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Detect mobile platform
@@ -130,57 +182,8 @@ export default function SkillsGrid() {
       }
     };
     detectMobile();
-
-    // Load skills from the unified registry (covers both alphahuman and openclaw types).
-    const loadSkills = async () => {
-      try {
-        // Try unified registry first — it merges both skill types.
-        const entries = await invoke<Array<Record<string, unknown>>>('unified_list_skills');
-
-        const processed: SkillListEntry[] = entries
-          .filter(e => {
-            const id = e.id as string;
-            if (id.includes('_')) {
-              console.warn(
-                `Skill "${id}" contains underscore and will be skipped. Skill IDs cannot contain underscores.`
-              );
-              return false;
-            }
-            return true;
-          })
-          .map(normalizeUnifiedEntry)
-          .filter(s => IS_DEV || !s.ignoreInProduction);
-
-        setSkillsList(processed);
-      } catch {
-        // Fallback to legacy runtime_discover_skills if unified registry isn't available.
-        try {
-          const manifests = await invoke<Array<Record<string, unknown>>>('runtime_discover_skills');
-          const processed: SkillListEntry[] = manifests
-            .filter(m => !(m.id as string).includes('_'))
-            .map(m => {
-              const setup = m.setup as Record<string, unknown> | undefined;
-              return {
-                id: m.id as string,
-                name: (m.name as string) || (m.id as string),
-                description: (m.description as string) || '',
-                icon: SKILL_ICONS[m.id as string],
-                ignoreInProduction: (m.ignoreInProduction as boolean) ?? false,
-                hasSetup: !!(setup && setup.required),
-                skill_type: 'alphahuman' as const,
-              };
-            })
-            .filter(s => IS_DEV || !s.ignoreInProduction);
-          setSkillsList(processed);
-        } catch (err) {
-          console.warn('Could not load skills:', err);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSkills();
+    refreshSkills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sort skills by connection status (connected first)
@@ -258,52 +261,70 @@ export default function SkillsGrid() {
       <div className="animate-fade-up mt-4 mb-8 relative">
         <div className="flex items-center justify-between mb-3 px-1">
           <h3 className="text-sm font-semibold text-white opacity-80">Available Skills</h3>
-          <button
-            onClick={async e => {
-              e.stopPropagation();
-              setGenerating(true);
-              try {
-                await invoke('unified_generate_skill', {
-                  spec: {
-                    name: `generated-demo-${Date.now()}`,
-                    description: 'Auto-generated skill demonstrating the unified registry',
-                    skill_type: 'alphahuman',
-                    tool_code:
-                      "return { message: `Hello from generated skill! args=${JSON.stringify(args)}` };",
-                  },
-                });
-                // Reload the list so the new skill appears.
-                const entries =
-                  await invoke<Array<Record<string, unknown>>>('unified_list_skills');
-                const refreshed: SkillListEntry[] = entries
-                  .filter(e => !(e.id as string).includes('_'))
-                  .map(normalizeUnifiedEntry)
-                  .filter(s => IS_DEV || !s.ignoreInProduction);
-                setSkillsList(refreshed);
-              } catch (err) {
-                console.warn('Failed to generate skill:', err);
-              } finally {
-                setGenerating(false);
-              }
-            }}
-            className="text-xs text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1 disabled:opacity-50"
-            disabled={generating}>
-            {generating ? (
-              <span className="opacity-60">Generating…</span>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Generate
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Auto-Generate button — opens the self-evolving skill modal */}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                setSelfEvolveOpen(true);
+              }}
+              className="text-xs text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1">
+              {/* Sparkle / robot icon */}
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 3l1.5 4.5L11 9l-4.5 1.5L5 15l-1.5-4.5L-1 9l4.5-1.5L5 3zM19 11l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"
+                />
+              </svg>
+              Auto-Generate
+            </button>
+            {/* Generate button — quick scaffold */}
+            <button
+              onClick={async e => {
+                e.stopPropagation();
+                setGenerating(true);
+                try {
+                  await invoke('unified_generate_skill', {
+                    spec: {
+                      name: `generated-demo-${Date.now()}`,
+                      description: 'Auto-generated skill demonstrating the unified registry',
+                      skill_type: 'alphahuman',
+                      tool_code:
+                        "return { message: `Hello from generated skill! args=${JSON.stringify(args)}` };",
+                    },
+                  });
+                  await refreshSkills();
+                } catch (err) {
+                  console.warn('Failed to generate skill:', err);
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+              className="text-xs text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+              disabled={generating}>
+              {generating ? (
+                <span className="opacity-60">Generating…</span>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Generate
+                </>
+              )}
+            </button>
+          </div>
         </div>
         <div
           className="glass rounded-xl overflow-hidden skills-table-container relative cursor-pointer"
@@ -361,6 +382,14 @@ export default function SkillsGrid() {
             setSetupModalOpen(false);
             setActiveSkillId(null);
           }}
+        />
+      )}
+
+      {/* Self-Evolve modal */}
+      {selfEvolveOpen && (
+        <SelfEvolveModal
+          onClose={() => setSelfEvolveOpen(false)}
+          onSkillCreated={refreshSkills}
         />
       )}
 

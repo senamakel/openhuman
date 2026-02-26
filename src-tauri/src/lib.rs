@@ -19,7 +19,10 @@ mod unified_skills;
 mod utils;
 
 use ai::*;
-use commands::unified_skills::{unified_execute_skill, unified_generate_skill, unified_list_skills};
+use commands::unified_skills::{
+    unified_execute_skill, unified_generate_skill, unified_list_skills,
+    unified_self_evolve_skill,
+};
 use commands::*;
 use services::socket_service::SOCKET_SERVICE;
 use std::path::PathBuf;
@@ -764,6 +767,7 @@ pub fn run() {
                     unified_list_skills,
                     unified_execute_skill,
                     unified_generate_skill,
+                    unified_self_evolve_skill,
                 ]
             }
             #[cfg(not(desktop))]
@@ -880,6 +884,7 @@ pub fn run() {
                     unified_list_skills,
                     unified_execute_skill,
                     unified_generate_skill,
+                    unified_self_evolve_skill,
                 ]
             }
         })

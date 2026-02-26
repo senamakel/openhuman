@@ -8,6 +8,7 @@
 
 use crate::runtime::types::{UnifiedSkillEntry, UnifiedSkillResult};
 use crate::unified_skills::GenerateSkillSpec;
+use crate::unified_skills::self_evolve::{SelfEvolveRequest, SelfEvolveResult};
 use std::sync::Arc;
 use tauri::State;
 
@@ -62,6 +63,38 @@ mod desktop {
         let registry = UnifiedSkillRegistry::new(Arc::clone(&engine));
         registry.generate(spec).await
     }
+
+    /// Self-evolving skill generation.
+    ///
+    /// Uses an LLM to generate QuickJS skill code, tests it in an isolated
+    /// QuickJS context, and iterates until the skill passes or the iteration
+    /// budget is exhausted.  Emits `skill:evolve:progress` events after each
+    /// iteration.
+    #[tauri::command]
+    pub async fn unified_self_evolve_skill(
+        engine: State<'_, Arc<RuntimeEngine>>,
+        app: tauri::AppHandle,
+        request: SelfEvolveRequest,
+    ) -> Result<SelfEvolveResult, String> {
+        use crate::unified_skills::self_evolve::SkillEvolver;
+        use tauri::Emitter;
+
+        let registry = Arc::new(UnifiedSkillRegistry::new(Arc::clone(&engine)));
+        let evolver = SkillEvolver::new(registry);
+        let app_clone = app.clone();
+
+        evolver
+            .evolve(request, move |iteration, passed| {
+                let _ = app_clone.emit(
+                    "skill:evolve:progress",
+                    serde_json::json!({
+                        "iteration": iteration,
+                        "passed": passed,
+                    }),
+                );
+            })
+            .await
+    }
 }
 
 // =============================================================================
@@ -92,6 +125,13 @@ mod mobile {
     ) -> Result<UnifiedSkillEntry, String> {
         Err("Skill generation is not available on mobile platforms.".to_string())
     }
+
+    #[tauri::command]
+    pub async fn unified_self_evolve_skill(
+        _request: SelfEvolveRequest,
+    ) -> Result<SelfEvolveResult, String> {
+        Err("Self-evolving skills are not available on mobile platforms.".to_string())
+    }
 }
 
 // =============================================================================
@@ -99,7 +139,13 @@ mod mobile {
 // =============================================================================
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-pub use desktop::{unified_execute_skill, unified_generate_skill, unified_list_skills};
+pub use desktop::{
+    unified_execute_skill, unified_generate_skill, unified_list_skills,
+    unified_self_evolve_skill,
+};
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
-pub use mobile::{unified_execute_skill, unified_generate_skill, unified_list_skills};
+pub use mobile::{
+    unified_execute_skill, unified_generate_skill, unified_list_skills,
+    unified_self_evolve_skill,
+};

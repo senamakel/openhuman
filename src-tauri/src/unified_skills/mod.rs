@@ -9,7 +9,10 @@
 //! [`UnifiedSkillResult`] on execution, regardless of their underlying type.
 
 pub mod generator;
+pub mod llm_generator;
 pub mod openclaw_executor;
+pub mod self_evolve;
+pub mod skill_tester;
 
 use crate::alphahuman::skills::{load_skills, Skill};
 use crate::runtime::qjs_engine::RuntimeEngine;
@@ -35,6 +38,11 @@ pub struct GenerateSkillSpec {
     pub markdown_content: Option<String>,
     /// For openclaw skills: shell command written into SKILL.toml as a tool.
     pub shell_command: Option<String>,
+    /// Complete LLM-generated `index.js` source.  When present,
+    /// `generator::generate_alphahuman` writes this directly to disk instead
+    /// of building from the default template.
+    #[serde(default)]
+    pub full_index_js: Option<String>,
 }
 
 /// The unified skill registry wrapping the QuickJS engine and openclaw loader.
@@ -45,6 +53,17 @@ pub struct UnifiedSkillRegistry {
 impl UnifiedSkillRegistry {
     pub fn new(engine: Arc<RuntimeEngine>) -> Self {
         Self { engine }
+    }
+
+    /// Return the resolved skills source directory (where alphahuman skill
+    /// directories are stored).
+    pub fn skills_dir(&self) -> Result<PathBuf, String> {
+        self.engine.skills_source_dir()
+    }
+
+    /// Return a clone of the inner `RuntimeEngine` Arc.
+    pub fn engine(&self) -> Arc<RuntimeEngine> {
+        Arc::clone(&self.engine)
     }
 
     /// List all skills from both subsystems.
@@ -179,8 +198,9 @@ impl UnifiedSkillRegistry {
                 // Rediscover so the new skill appears in subsequent list_all() calls.
                 let _ = self.engine.discover_skills().await;
 
-                // Return the entry for the newly generated skill.
+                // Start the skill in the QuickJS runtime so call_tool() can execute it.
                 let id = sanitize_id(&spec.name);
+                let _ = self.engine.start_skill(&id).await;
                 Ok(UnifiedSkillEntry {
                     id,
                     name: spec.name,

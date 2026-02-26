@@ -10,8 +10,16 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// Generate an alphahuman (QuickJS) skill at `<skills_dir>/<sanitized_name>/`.
-/// Returns the path of the created skill directory.
-pub async fn generate_alphahuman(spec: &GenerateSkillSpec, skills_dir: &Path) -> Result<PathBuf, String> {
+///
+/// Returns the list of file paths that were written (manifest.json + index.js).
+///
+/// When `spec.full_index_js` is `Some`, its content is written directly to
+/// `index.js` instead of using the default template.  This allows the
+/// self-evolve loop to persist LLM-generated code verbatim.
+pub async fn generate_alphahuman(
+    spec: &GenerateSkillSpec,
+    skills_dir: &Path,
+) -> Result<Vec<PathBuf>, String> {
     let dir_name = sanitize_id(&spec.name);
     if dir_name.is_empty() {
         return Err(format!(
@@ -41,18 +49,24 @@ pub async fn generate_alphahuman(spec: &GenerateSkillSpec, skills_dir: &Path) ->
         .await
         .map_err(|e| format!("Failed to write manifest.json: {e}"))?;
 
-    // Write index.js
-    let tool_code = spec.tool_code.as_deref().unwrap_or(
-        "return { result: 'Generated skill executed successfully', args };",
-    );
-    let tool_fn_name = sanitize_fn_name(&spec.name);
+    // Write index.js — use full LLM-generated source when available,
+    // otherwise build from the minimal template.
+    let index_path = skill_dir.join("index.js");
+    let index_js_content: String = if let Some(full) = spec.full_index_js.as_deref() {
+        full.to_string()
+    } else {
+        let tool_code = spec.tool_code.as_deref().unwrap_or(
+            "return { result: 'Generated skill executed successfully', args };",
+        );
+        let tool_fn_name = sanitize_fn_name(&spec.name);
+        build_index_js(&tool_fn_name, &spec.description, tool_code)
+    };
 
-    let index_js = build_index_js(&tool_fn_name, &spec.description, tool_code);
-    tokio::fs::write(skill_dir.join("index.js"), index_js)
+    tokio::fs::write(&index_path, index_js_content)
         .await
         .map_err(|e| format!("Failed to write index.js: {e}"))?;
 
-    Ok(skill_dir)
+    Ok(vec![manifest_path, index_path])
 }
 
 /// Generate an openclaw (SKILL.md/TOML) skill in `~/.alphahuman/workspace/skills/<name>/`.
@@ -146,26 +160,25 @@ fn build_index_js(tool_fn: &str, description: &str, tool_code: &str) -> String {
 
     format!(
         r#"// Auto-generated alphahuman skill
-const tools = [
+tools = [
   {{
     name: "{tool_fn}",
     description: {desc},
-    inputSchema: {{
+    input_schema: {{
       type: "object",
       properties: {{
         args: {{ type: "object", description: "Optional arguments" }}
       }}
+    }},
+    execute: async function(args) {{
+      {tool_code}
     }}
   }}
 ];
 
-async function init() {{}}
+function init() {{}}
 
-async function start() {{}}
-
-async function {tool_fn}(args) {{
-  {tool_code}
-}}
+function start() {{}}
 "#,
         tool_fn = tool_fn,
         desc = desc_json,

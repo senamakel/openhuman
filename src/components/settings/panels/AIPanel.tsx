@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { loadSoul } from '../../../lib/ai/soul/loader';
+import { loadSoul, clearSoulCache } from '../../../lib/ai/soul/loader';
 import type { SoulConfig } from '../../../lib/ai/soul/types';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -22,6 +22,22 @@ const AIPanel = () => {
       setSoulConfig(config);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load SOUL configuration';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshSoulConfig = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Clear cache to force fresh load from GitHub/bundled source
+      clearSoulCache();
+      const config = await loadSoul();
+      setSoulConfig(config);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to refresh SOUL configuration';
       setError(message);
     } finally {
       setLoading(false);
@@ -105,11 +121,11 @@ const AIPanel = () => {
               </div>
 
               <button
-                onClick={loadSoulPreview}
+                onClick={refreshSoulConfig}
                 className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 disabled={loading}
               >
-                Refresh SOUL Configuration
+                {loading ? 'Refreshing...' : 'Refresh SOUL Configuration'}
               </button>
             </div>
           )}

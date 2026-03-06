@@ -15,6 +15,7 @@ import { useIntelligenceStats } from '../hooks/useIntelligenceStats';
 import { deriveConnectionStatus, useSkillConnectionStatus } from '../lib/skills/hooks';
 import { skillManager } from '../lib/skills/manager';
 import { updateToolsDocumentation } from '../lib/tools/auto-update';
+import { forceToolsCacheRefresh } from '../lib/tools/file-watcher';
 import type { SkillConnectionStatus, SkillHostConnectionState } from '../lib/skills/types';
 import { useAppSelector } from '../store/hooks';
 import { IS_DEV } from '../utils/config';
@@ -277,6 +278,11 @@ export default function Intelligence() {
       console.log('🚀 Intelligence Page: Calling updateToolsDocumentation...');
       await updateToolsDocumentation();
       console.log('✅ Intelligence Page: TOOLS.md update completed successfully');
+
+      // Force cache refresh to immediately reflect changes in UI
+      console.log('🔄 Intelligence Page: Forcing tools cache refresh...');
+      await forceToolsCacheRefresh();
+      console.log('✅ Intelligence Page: Tools cache refreshed successfully');
     } catch (error) {
       console.error('❌ Intelligence Page: Failed to update TOOLS.md:', error);
     }

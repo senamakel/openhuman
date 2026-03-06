@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { loadAIConfig, refreshSoul, refreshTools, refreshAll } from '../../../lib/ai/loader';
+import { useToolsUpdates } from '../../../hooks/useToolsUpdates';
 import type { AIConfig } from '../../../lib/ai/types';
 import type { SoulConfig } from '../../../lib/ai/soul/types';
 import type { ToolsConfig } from '../../../lib/ai/tools/types';
@@ -13,9 +14,20 @@ const AIPanel = () => {
   const [refreshingComponent, setRefreshingComponent] = useState<'soul' | 'tools' | 'all' | null>(null);
   const [error, setError] = useState<string>('');
 
+  // Listen for tools updates and refresh AI config
+  const toolsUpdateTimestamp = useToolsUpdates();
+
   useEffect(() => {
     loadAIPreview();
   }, []);
+
+  // Auto-refresh when tools are updated
+  useEffect(() => {
+    if (toolsUpdateTimestamp > 0) {
+      console.log('🔄 AIPanel: Tools updated detected, refreshing AI config...');
+      loadAIPreview();
+    }
+  }, [toolsUpdateTimestamp]);
 
   const loadAIPreview = async () => {
     setLoading(true);

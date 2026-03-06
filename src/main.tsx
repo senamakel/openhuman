@@ -8,6 +8,7 @@ import './index.css';
 import './polyfills';
 import { initSentry } from './services/analytics';
 import { setupDesktopDeepLinkListener } from './utils/desktopDeepLinkListener';
+import { startToolsFileWatcher } from './lib/tools/file-watcher';
 
 // Initialize Sentry early (before React renders)
 initSentry();
@@ -16,6 +17,9 @@ initSentry();
 setupDesktopDeepLinkListener().catch(err => {
   console.error('[DeepLink] setup error:', err);
 });
+
+// Start file watcher for automatic TOOLS.md cache invalidation
+startToolsFileWatcher();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

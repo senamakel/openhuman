@@ -6,6 +6,8 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { clearToolsCache } from '../ai/tools/loader';
+import { forceToolsCacheRefresh } from './file-watcher';
 
 // Prevent excessive updates - limit to once per 10 seconds
 let lastUpdateTime = 0;
@@ -92,6 +94,17 @@ export async function updateToolsDocumentation(): Promise<void> {
     }
 
     console.log('✅ SUCCESS: TOOLS.md updated successfully!');
+
+    // Clear tools cache and force immediate refresh with new data
+    console.log('🗑️ Clearing tools cache and refreshing with new data...');
+    await forceToolsCacheRefresh();
+
+    // Manually dispatch tools-updated event to ensure UI updates
+    console.log('📡 Dispatching tools-updated event for UI components...');
+    window.dispatchEvent(new CustomEvent('tools-updated', {
+      detail: { timestamp: Date.now() }
+    }));
+
     console.log(`📄 Final result: ${toolsResponse.length} tools from ${Object.keys(toolsBySkill).length} skills`);
     console.log('=== AUTO-UPDATE TOOLS.md COMPLETE ===');
   } catch (error) {

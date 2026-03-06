@@ -10,7 +10,7 @@ import type {
   ToolsCacheEntry
 } from './types';
 
-const TOOLS_GITHUB_URL = 'https://raw.githubusercontent.com/alphahumanxyz/alphahuman/refs/heads/main/ai/TOOLS.md';
+// GitHub URL removed - always use bundled file updated by auto-update system
 const TOOLS_CACHE_KEY = 'alphahuman.tools.cache';
 const TOOLS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
 const CACHE_VERSION = '1.0.0';
@@ -18,11 +18,10 @@ const CACHE_VERSION = '1.0.0';
 let cachedToolsConfig: ToolsConfig | null = null;
 
 /**
- * Load TOOLS.md with caching and fallback strategy:
+ * Load TOOLS.md with caching strategy:
  * 1. Try in-memory cache
  * 2. Try localStorage cache (with TTL)
- * 3. Try GitHub remote
- * 4. Fallback to bundled TOOLS.md
+ * 3. Use bundled TOOLS.md (always fresh from auto-updates)
  */
 export async function loadTools(): Promise<ToolsConfig> {
   // 1. Memory cache
@@ -47,19 +46,9 @@ export async function loadTools(): Promise<ToolsConfig> {
     // Ignore cache errors
   }
 
-  let raw: string;
-  let isDefault = false;
-
-  try {
-    // 3. GitHub remote
-    const response = await fetch(TOOLS_GITHUB_URL);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    raw = await response.text();
-  } catch {
-    // 4. Fallback to bundled
-    raw = toolsMd;
-    isDefault = true;
-  }
+  // 3. Always use bundled TOOLS.md (updated by auto-update system)
+  const raw = toolsMd;
+  const isDefault = false; // Not a fallback since it's the auto-generated file
 
   const config = parseTools(raw, isDefault);
 

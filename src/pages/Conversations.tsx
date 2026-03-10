@@ -447,6 +447,7 @@ const Conversations = () => {
                 toolArgs
               );
               const result = await skillManager.callTool(skillId, toolName, toolArgs);
+              console.log(`[Conversations] tool "${toolName}" calling result:`, result);
               toolResultContent = result.content.map(c => c.text).join('\n');
               let toolReturnedError = result.isError;
               if (!toolReturnedError && toolResultContent) {

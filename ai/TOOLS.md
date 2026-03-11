@@ -73,10 +73,9 @@ This skill provides 1 tool for gmail integration.
 **Description**: Send an email via Gmail
 
 **Parameters**:
-- **to** (string) **(required)**: Recipient email address
-- **subject** (string) **(required)**: Email subject line
 - **body** (string) **(required)**: Email body content
-- **attachments** (array): File attachments
+- **subject** (string) **(required)**: Email subject line
+- **to** (string) **(required)**: Recipient email address
 
 **Usage Context**: Available in all environments
 
@@ -85,9 +84,9 @@ This skill provides 1 tool for gmail integration.
 {
   "tool": "send_email",
   "parameters": {
-    "to": "example_to",
+    "body": "example_body",
     "subject": "example_subject",
-    "body": "example_body"
+    "to": "example_to"
   }
 }
 ```
@@ -105,10 +104,9 @@ This skill provides 1 tool for notion integration.
 **Description**: Create a new page in Notion workspace
 
 **Parameters**:
+- **content** (array): Page content blocks
 - **parent_id** (string) **(required)**: Parent database or page ID
 - **title** (string) **(required)**: Page title
-- **content** (array): Page content blocks
-- **properties** (object): Page properties for database pages
 
 **Usage Context**: Available in all environments
 
@@ -117,9 +115,9 @@ This skill provides 1 tool for notion integration.
 {
   "tool": "create_page",
   "parameters": {
+    "content": [],
     "parent_id": "example_parent_id",
-    "title": "example_title",
-    "content": []
+    "title": "example_title"
   }
 }
 ```
@@ -139,7 +137,7 @@ This skill provides 2 tools for telegram integration.
 **Parameters**:
 - **chat_id** (string) **(required)**: Telegram chat ID or username
 - **message** (string) **(required)**: Message text to send
-- **parse_mode** (string): Message formatting mode Options: `HTML`, `Markdown`
+- **parse_mode** (string): Message formatting mode
 
 **Usage Context**: Available in all environments
 
@@ -150,7 +148,7 @@ This skill provides 2 tools for telegram integration.
   "parameters": {
     "chat_id": "example_chat_id",
     "message": "example_message",
-    "parse_mode": "HTML"
+    "parse_mode": "example_parse_mode"
   }
 }
 ```
@@ -163,8 +161,7 @@ This skill provides 2 tools for telegram integration.
 
 **Parameters**:
 - **chat_id** (string) **(required)**: Telegram chat ID or username
-- **limit** (number): Number of messages to retrieve (max 100)
-- **offset** (number): Offset for pagination
+- **limit** (number): Number of messages to retrieve
 
 **Usage Context**: Available in all environments
 
@@ -174,8 +171,7 @@ This skill provides 2 tools for telegram integration.
   "tool": "get_chat_history",
   "parameters": {
     "chat_id": "example_chat_id",
-    "limit": 10,
-    "offset": 10
+    "limit": 10
   }
 }
 ```
@@ -277,7 +273,7 @@ Tools are provided by Skills, which are JavaScript modules running in a secure V
 - Total Tools: 4
 - Active Skills: 3
 - Categories: 6
-- Last Updated: 2026-03-11T12:05:59.019Z
+- Last Updated: 2026-03-11T23:23:47.633Z
 
 *This file was automatically generated at build time from the V8 skills runtime.*
 *For the most up-to-date information, regenerate this file by running `yarn tools:generate`.*

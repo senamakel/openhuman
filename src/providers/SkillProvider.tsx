@@ -12,7 +12,10 @@ import {
   type GmailStateForSync,
   syncGmailMetadataToBackend,
 } from '../lib/gmail/services/metadataSync';
-import { syncNotionMetadataToBackend } from '../lib/notion/services/metadataSync';
+import {
+  type NotionStateForSync,
+  syncNotionMetadataToBackend,
+} from '../lib/notion/services/metadataSync';
 import { skillManager } from '../lib/skills/manager';
 import type { SkillManifest } from '../lib/skills/types';
 import { buildManualSentryEvent, enqueueError } from '../services/errorReportQueue';
@@ -106,41 +109,33 @@ function syncGmailStateToSlice(
   syncGmailMetadataToBackend(gmailState as GmailStateForSync);
 }
 
-/** Sync pages and summaries from notion skill state into notionSlice. */
+/** Sync profile, pages, and summaries from notion skill state into notionSlice and backend metadata. */
 function syncNotionStateToSlice(
   notionState: Record<string, unknown> | undefined,
   dispatch: ReturnType<typeof useAppDispatch>
 ): void {
   if (!notionState || typeof notionState !== 'object') return;
-  if (Array.isArray(notionState.pages)) {
-    dispatch(setNotionPages(notionState.pages as NotionPageSummary[]));
-  }
-  if (Array.isArray(notionState.summaries)) {
-    dispatch(setNotionSummaries(notionState.summaries as NotionSummary[]));
-  }
-}
+  const profile =
+    notionState.profile !== undefined && notionState.profile != null
+      ? (notionState.profile as NotionUserProfile)
+      : null;
+  const pages = Array.isArray(notionState.pages) ? (notionState.pages as NotionPageSummary[]) : [];
+  const summaries = Array.isArray(notionState.summaries)
+    ? (notionState.summaries as NotionSummary[])
+    : [];
 
-async function syncNotionUserOnConnect(dispatch: ReturnType<typeof useAppDispatch>): Promise<void> {
-  try {
-    const toolResult = await skillManager.callTool('notion', 'get-user', { user_id: 'me' });
-    if (!toolResult || toolResult.isError || toolResult.content.length === 0) {
-      return;
-    }
-    const first = toolResult.content[0];
-    const raw = first?.text;
-    if (!raw) return;
+  // Update profile in notionSlice if present
+  dispatch(setNotionProfile(profile));
 
-    const parsed = JSON.parse(raw) as NotionUserProfile | { error?: string };
-    if ('error' in parsed && parsed.error) {
-      return;
-    }
-
-    const profile = parsed as NotionUserProfile;
-    dispatch(setNotionProfile(profile));
-    syncNotionMetadataToBackend(profile);
-  } catch (e) {
-    console.error('[SkillProvider] Failed to call Notion get-user tool after connect:', e);
+  if (pages.length > 0) {
+    dispatch(setNotionPages(pages));
   }
+  if (summaries.length > 0) {
+    dispatch(setNotionSummaries(summaries));
+  }
+
+  const stateForSync: NotionStateForSync = { profile, pages, summaries };
+  syncNotionMetadataToBackend(stateForSync);
 }
 
 export default function SkillProvider({ children }: { children: ReactNode }) {
@@ -149,7 +144,6 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
   const skillStates = useAppSelector(state => state.skills.skillStates);
   const dispatch = useAppDispatch();
   const initRef = useRef(false);
-  const lastNotionConnectionStatusRef = useRef<string | undefined>(undefined);
 
   // Keep gmailSlice in sync with skills.skillStates.gmail (event handler + rehydration)
   const gmailSkillState = skillStates?.gmail as Record<string, unknown> | undefined;
@@ -163,19 +157,6 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!notionSkillState) return;
     syncNotionStateToSlice(notionSkillState, dispatch);
-  }, [notionSkillState, dispatch]);
-
-  // When Notion connection_status transitions to "connected", fetch the current user
-  // via the notion get-user tool, store it in notionSlice, and sync metadata to backend.
-  useEffect(() => {
-    if (!notionSkillState || typeof notionSkillState !== 'object') return;
-    const connectionStatus = notionSkillState.connection_status as string | undefined;
-    const prev = lastNotionConnectionStatusRef.current;
-    lastNotionConnectionStatusRef.current = connectionStatus;
-
-    if (connectionStatus === 'connected' && prev !== 'connected') {
-      void syncNotionUserOnConnect(dispatch);
-    }
   }, [notionSkillState, dispatch]);
 
   // Listen for skill state changes emitted from the Rust runtime event loop

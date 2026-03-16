@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { billingApi } from '../../../services/api/billingApi';
+import {
+  type CreditBalance,
+  type TeamUsage,
+  creditsApi,
+} from '../../../services/api/creditsApi';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { fetchCurrentUser } from '../../../store/userSlice';
 import type { PlanTier } from '../../../types/api';
@@ -31,7 +36,12 @@ const BillingPanel = () => {
   const currentTier: PlanTier = activeTeam?.team.subscription?.plan ?? 'FREE';
   const hasActive = activeTeam?.team.subscription?.hasActiveSubscription ?? false;
   const planExpiry = activeTeam?.team.subscription?.planExpiry;
-  const usage = user?.usage;
+
+  // Credits & usage state
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [teamUsage, setTeamUsage] = useState<TeamUsage | null>(null);
+  const [isLoadingCredits, setIsLoadingCredits] = useState(false);
+  const [isToppingUp, setIsToppingUp] = useState(false);
 
   // Local state
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
@@ -43,9 +53,18 @@ const BillingPanel = () => {
   const pollStartRef = useRef<number>(0);
   const timeoutRef = useRef<number | null>(null);
 
-  // Fetch current plan on mount
+  // Fetch current plan, credits balance, and team usage on mount
   useEffect(() => {
     billingApi.getCurrentPlan().catch(console.error);
+
+    setIsLoadingCredits(true);
+    Promise.all([creditsApi.getBalance(), creditsApi.getTeamUsage()])
+      .then(([balance, usage]) => {
+        setCreditBalance(balance);
+        setTeamUsage(usage);
+      })
+      .catch(console.error)
+      .finally(() => setIsLoadingCredits(false));
   }, []);
 
   // When crypto is selected, force annual
@@ -102,7 +121,6 @@ const BillingPanel = () => {
     currentTierRef.current = currentTier;
   }, [currentTier]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollStartRef.current = Date.now();
@@ -162,6 +180,18 @@ const BillingPanel = () => {
     }
   };
 
+  const handleTopUp = async (amountUsd: number) => {
+    setIsToppingUp(true);
+    try {
+      const result = await creditsApi.topUp(amountUsd, 'stripe');
+      await openUrl(result.url);
+    } catch (err) {
+      console.error('Top-up failed:', err);
+    } finally {
+      setIsToppingUp(false);
+    }
+  };
+
   // ── JSX ─────────────────────────────────────────────────────────────
   return (
     <div className="overflow-hidden flex flex-col">
@@ -174,40 +204,22 @@ const BillingPanel = () => {
       {/* <div className="flex items-center justify-between max-w-md mx-auto"> */}
       <div className="overflow-y-auto">
         <div className="space-y-2">
-          <div className="max-w-md mt-4 mx-auto">
-            <div className="p-2.5">
+          <div className="max-w-md mt-4 mx-auto px-4 space-y-3">
+            {/* ── Current Plan Header ───────────────────────────────── */}
+            <div className="rounded-2xl border border-stone-700/50 bg-stone-800/40 p-3">
               <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-sm font-semibold text-white">
-                  Your Current Plan {currentTier}
+                  Current Plan — {currentTier}
                 </h3>
-                {usage && (
-                  <span className="text-xs text-stone-400">
-                    {Math.round((usage.spentThisCycleUsd / usage.cycleBudgetUsd) * 100)}% used
-                  </span>
-                )}
-              </div>
-
-              {hasActive && (
-                <div className="flex items-center justify-between mb-1.5">
-                  {planExpiry && (
-                    <p className="text-xs text-stone-400">
-                      Renews{' '}
-                      {new Date(planExpiry).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  )}
+                {hasActive && (
                   <button
                     onClick={handleManageSubscription}
                     className="text-xs text-primary-400 hover:text-primary-300 font-medium transition-colors">
-                    Manage Subscription
+                    Manage
                   </button>
-                </div>
-              )}
-              {/* Renewal date (for non-active subscriptions) */}
-              {!hasActive && planExpiry && (
+                )}
+              </div>
+              {planExpiry && (
                 <p className="text-xs text-stone-400 mb-1.5">
                   Renews{' '}
                   {new Date(planExpiry).toLocaleDateString('en-US', {
@@ -217,19 +229,95 @@ const BillingPanel = () => {
                   })}
                 </p>
               )}
-              {usage && (
-                <div className="h-1.5 bg-stone-700/60 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-300 bg-primary-500"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (usage.spentThisCycleUsd / usage.cycleBudgetUsd) * 100
-                      )}%`,
-                    }}
-                  />
-                </div>
+            </div>
+
+            {/* ── Inference Budget (Team Usage) ─────────────────────── */}
+            <div className="rounded-2xl border border-stone-700/50 bg-stone-800/40 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-white">Inference Budget</h3>
+                {isLoadingCredits && (
+                  <span className="text-[10px] text-stone-500">Loading…</span>
+                )}
+                {teamUsage && !isLoadingCredits && (
+                  <span className="text-xs text-stone-400">
+                    ${teamUsage.remainingUsd.toFixed(2)} / ${teamUsage.cycleBudgetUsd.toFixed(2)} remaining
+                  </span>
+                )}
+              </div>
+              {teamUsage ? (
+                <>
+                  <div className="h-1.5 bg-stone-700/60 rounded-full overflow-hidden mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        teamUsage.remainingUsd <= 0
+                          ? 'bg-coral-500'
+                          : teamUsage.remainingUsd / teamUsage.cycleBudgetUsd < 0.2
+                          ? 'bg-amber-500'
+                          : 'bg-primary-500'
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (teamUsage.remainingUsd / teamUsage.cycleBudgetUsd) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-stone-500">
+                      Daily usage: ${teamUsage.dailyUsage.toFixed(3)}
+                    </span>
+                    <span className="text-[11px] text-stone-500">
+                      {((teamUsage.totalInputTokensThisCycle + teamUsage.totalOutputTokensThisCycle) / 1000).toFixed(1)}k tokens this cycle
+                    </span>
+                  </div>
+                  {teamUsage.remainingUsd <= 0 && (
+                    <p className="text-[11px] text-coral-400 mt-1.5">
+                      Budget exhausted — top up your credits to continue using AI features.
+                    </p>
+                  )}
+                </>
+              ) : isLoadingCredits ? (
+                <div className="h-1.5 w-full rounded-full bg-stone-700/60 animate-pulse" />
+              ) : (
+                <p className="text-xs text-stone-500">Unable to load usage data</p>
               )}
+            </div>
+
+            {/* ── Credits Balance & Top-up ──────────────────────────── */}
+            <div className="rounded-2xl border border-stone-700/50 bg-stone-800/40 p-3">
+              <h3 className="text-sm font-semibold text-white mb-2">Credits Balance</h3>
+              {creditBalance ? (
+                <div className="space-y-1.5 mb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-stone-400">General credits</span>
+                    <span className="text-xs font-medium text-white">
+                      ${creditBalance.balanceUsd.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-stone-400">Top-up credits</span>
+                    <span className="text-xs font-medium text-white">
+                      ${creditBalance.topUpBalanceUsd.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ) : isLoadingCredits ? (
+                <div className="space-y-1.5 mb-3">
+                  <div className="h-3 w-full rounded bg-stone-700/60 animate-pulse" />
+                  <div className="h-3 w-3/4 rounded bg-stone-700/60 animate-pulse" />
+                </div>
+              ) : (
+                <p className="text-xs text-stone-500 mb-3">Unable to load balance</p>
+              )}
+              <div className="flex gap-2">
+                {[5, 10, 25].map(amount => (
+                  <button
+                    key={amount}
+                    onClick={() => handleTopUp(amount)}
+                    disabled={isToppingUp}
+                    className="flex-1 py-1.5 rounded-lg bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 text-xs font-medium border border-primary-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isToppingUp ? '…' : `+$${amount}`}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

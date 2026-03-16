@@ -1,25 +1,38 @@
 import type { ApiResponse } from '../../types/api';
 import { apiClient } from '../apiClient';
 
-interface CreditBalance {
-  balance: number;
-  currency: string;
+export interface CreditBalance {
+  balanceUsd: number;
+  topUpBalanceUsd: number;
 }
 
-interface CreditTransaction {
+export interface TeamUsage {
+  remainingUsd: number;
+  cycleBudgetUsd: number;
+  dailyUsage: number;
+  totalInputTokensThisCycle: number;
+  totalOutputTokensThisCycle: number;
+}
+
+export interface TopUpResult {
+  url: string;
+  gatewayTransactionId: string;
+  amountUsd: number;
+  gateway: string;
+}
+
+export interface CreditTransaction {
   id: string;
-  amount: number;
-  type: 'credit' | 'debit';
-  description: string;
+  type: 'EARN' | 'SPEND';
+  action: string;
+  amountUsd: number;
+  balanceAfterUsd: number;
   createdAt: string;
-  // Add other fields based on backend schema
 }
 
-interface PaginatedTransactions {
+export interface PaginatedTransactions {
   transactions: CreditTransaction[];
-  totalCount: number;
-  page: number;
-  limit: number;
+  total: number;
 }
 
 /**
@@ -27,11 +40,35 @@ interface PaginatedTransactions {
  */
 export const creditsApi = {
   /**
-   * Get the current user's credit balance
+   * Get the current user's credit balance (general + top-up)
    * GET /credits/balance
    */
   getBalance: async (): Promise<CreditBalance> => {
-    const response = await apiClient.get<ApiResponse<CreditBalance>>('/credits/balance');
+    const response = await apiClient.get<ApiResponse<CreditBalance>>('/payments/credits/balance');
+    return response.data;
+  },
+
+  /**
+   * Get team inference budget usage for the current billing cycle
+   * GET /teams/me/usage
+   */
+  getTeamUsage: async (): Promise<TeamUsage> => {
+    const response = await apiClient.get<ApiResponse<TeamUsage>>('/teams/me/usage');
+    return response.data;
+  },
+
+  /**
+   * Start a top-up (get Stripe or Coinbase payment URL)
+   * POST /credits/top-up
+   */
+  topUp: async (
+    amountUsd: number,
+    gateway: 'stripe' | 'coinbase' = 'stripe'
+  ): Promise<TopUpResult> => {
+    const response = await apiClient.post<ApiResponse<TopUpResult>>('/payments/credits/top-up', {
+      amountUsd,
+      gateway,
+    });
     return response.data;
   },
 
@@ -39,9 +76,9 @@ export const creditsApi = {
    * Get paginated credit transaction history
    * GET /credits/transactions
    */
-  getTransactions: async (page = 1, limit = 50): Promise<PaginatedTransactions> => {
+  getTransactions: async (limit = 20, offset = 0): Promise<PaginatedTransactions> => {
     const response = await apiClient.get<ApiResponse<PaginatedTransactions>>(
-      `/credits/transactions?page=${page}&limit=${limit}`
+      `/credits/transactions?limit=${limit}&offset=${offset}`
     );
     return response.data;
   },

@@ -18,6 +18,7 @@ import {
   type ModelInfo,
   type Tool,
 } from '../services/api/inferenceApi';
+import { type TeamUsage, creditsApi } from '../services/api/creditsApi';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { NotionPageSummary, NotionSummary, NotionUserProfile } from '../store/notionSlice';
 import {
@@ -141,6 +142,10 @@ const Conversations = () => {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  // Budget state
+  const [teamUsage, setTeamUsage] = useState<TeamUsage | null>(null);
+  const [isLoadingBudget, setIsLoadingBudget] = useState(false);
+
   const isDragging = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastPanelWidthRef = useRef(panelWidth);
@@ -217,6 +222,18 @@ const Conversations = () => {
         // Keep default model on failure
       })
       .finally(() => setIsLoadingModels(false));
+  }, []);
+
+  // Fetch inference budget on mount
+  useEffect(() => {
+    setIsLoadingBudget(true);
+    creditsApi
+      .getTeamUsage()
+      .then(data => setTeamUsage(data))
+      .catch(() => {
+        // Budget unavailable — silently ignore
+      })
+      .finally(() => setIsLoadingBudget(false));
   }, []);
 
   // Remove thread fetching - threads are now loaded from Redux persist
@@ -995,6 +1012,34 @@ const Conversations = () => {
 
               {/* Message Input */}
               <div className="flex-shrink-0 border-t border-white/10 px-4 py-3">
+                {/* Budget depleted banner — show top-up CTA */}
+                {teamUsage && teamUsage.remainingUsd <= 0 && (
+                  <div className="mb-3 p-3 rounded-xl bg-coral-500/10 border border-coral-500/20 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg
+                        className="w-4 h-4 text-coral-400 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <p className="text-xs text-coral-300 truncate">
+                        Daily inference budget exhausted. Top up to continue.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/settings/billing')}
+                      className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
+                      Top Up
+                    </button>
+                  </div>
+                )}
+
                 {/* Show warning if another thread is active */}
                 {activeThreadId && activeThreadId !== selectedThreadId && (
                   <div className="mb-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
@@ -1004,7 +1049,7 @@ const Conversations = () => {
                     </p>
                   </div>
                 )}
-                {/* Model selector */}
+                {/* Model selector + budget indicator */}
                 <div className="flex items-center gap-2 mb-2">
                   {isLoadingModels ? (
                     <span className="text-xs text-stone-600">Loading models…</span>
@@ -1030,6 +1075,48 @@ const Conversations = () => {
                       </select>
                     </>
                   )}
+                  <div className="flex-1" />
+                  {/* Budget indicator — circular */}
+                  {(isLoadingBudget || teamUsage) && (() => {
+                    const size = 22;
+                    const r = 9;
+                    const circ = 2 * Math.PI * r;
+                    const pct = teamUsage
+                      ? Math.min(1, teamUsage.remainingUsd / teamUsage.cycleBudgetUsd)
+                      : 0;
+                    const dash = pct * circ;
+                    return (
+                      <div className="flex items-center gap-1.5" title={teamUsage ? `$${teamUsage.remainingUsd.toFixed(2)} of $${teamUsage.cycleBudgetUsd.toFixed(2)} remaining` : 'Loading budget…'}>
+                        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+                          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" />
+                          {teamUsage ? (
+                            <circle
+                              cx={size / 2} cy={size / 2} r={r}
+                              fill="none" stroke="currentColor" strokeWidth="2.5"
+                              strokeDasharray={`${dash} ${circ}`}
+                              strokeLinecap="round"
+                              className={pct < 0.2 ? 'text-amber-500' : 'text-primary-500'}
+                              style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                            />
+                          ) : (
+                            <circle
+                              cx={size / 2} cy={size / 2} r={r}
+                              fill="none" stroke="currentColor" strokeWidth="2.5"
+                              strokeDasharray={`${circ * 0.25} ${circ}`}
+                              strokeLinecap="round"
+                              className="text-stone-600 animate-spin origin-center"
+                              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+                            />
+                          )}
+                        </svg>
+                        {teamUsage && (
+                          <span className="text-[10px] text-stone-500">
+                            ${teamUsage.remainingUsd.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {sendError && (
                   <div className="flex items-center justify-between mb-2">

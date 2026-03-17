@@ -191,7 +191,7 @@ impl QjsSkillInstance {
                 }
 
                 // Load bootstrap
-                let bootstrap_code = include_str!("../services/quickjs-libs/bootstrap.js");
+                let bootstrap_code = include_str!("../services/quickjs_libs/bootstrap.js");
                 if let Err(e) = js_ctx.eval::<rquickjs::Value, _>(bootstrap_code) {
                     let detail = format_js_exception(&js_ctx, &e);
                     return Err(format!("Bootstrap failed: {detail}"));
@@ -383,7 +383,7 @@ async fn run_event_loop(
                 let new_map: HashMap<String, serde_json::Value> = ops
                     .data
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .map(|(k, v): (&String, &serde_json::Value)| (k.clone(), v.clone()))
                     .collect();
                 state.write().published_state = new_map.clone();
 

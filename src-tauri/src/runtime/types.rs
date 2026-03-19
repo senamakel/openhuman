@@ -133,7 +133,7 @@ pub struct ToolDefinition {
     /// Human-readable description.
     pub description: String,
     /// JSON Schema for the tool's input parameters.
-    #[serde(default)]
+    #[serde(default, rename = "inputSchema")]
     pub input_schema: serde_json::Value,
 }
 

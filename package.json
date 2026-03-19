@@ -12,6 +12,8 @@
     "compile": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri",
+    "macos:build:intel": "source scripts/load-dotenv.sh && tauri build --bundles app dmg --target x86_64-apple-darwin",
+    "macos:build:intel:debug": "yarn macos:build:intel --debug",
     "macos:build:debug": "yarn macos:build:release --debug",
     "macos:build:release": "source scripts/load-dotenv.sh && tauri build --bundles app dmg",
     "macos:build:sign:release": "source scripts/load-env.sh && tauri build --bundles app dmg",

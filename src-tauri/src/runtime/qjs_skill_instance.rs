@@ -827,7 +827,7 @@ fn extract_tools(js_ctx: &rquickjs::Ctx<'_>, state: &Arc<RwLock<SkillState>>) {
                 return {
                     name: t.name || "",
                     description: t.description || "",
-                    input_schema: t.inputSchema || t.input_schema || {}
+                    inputSchema: t.inputSchema || t.input_schema || {}
                 };
             }));
         })()

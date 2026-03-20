@@ -14,8 +14,6 @@ import SkillSetupModal from '../components/skills/SkillSetupModal';
 import { deriveConnectionStatus, useSkillConnectionStatus } from '../lib/skills/hooks';
 import { skillManager } from '../lib/skills/manager';
 import type { SkillConnectionStatus, SkillHostConnectionState } from '../lib/skills/types';
-import { updateToolsDocumentation } from '../lib/tools/auto-update';
-import { forceToolsCacheRefresh } from '../lib/tools/file-watcher';
 import { useAppSelector } from '../store/hooks';
 import { IS_DEV } from '../utils/config';
 
@@ -171,7 +169,6 @@ export default function Skills() {
 
   // Modal state
   const [setupModalOpen, setSetupModalOpen] = useState(false);
-  const [managementModalOpen, setManagementModalOpen] = useState(false);
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [activeSkillName, setActiveSkillName] = useState('');
   const [activeSkillDescription, setActiveSkillDescription] = useState('');
@@ -254,16 +251,6 @@ export default function Skills() {
     setSetupModalOpen(true);
   };
 
-  // Test function to manually update TOOLS.md
-  const handleUpdateTools = async () => {
-    try {
-      await updateToolsDocumentation();
-      await forceToolsCacheRefresh();
-    } catch (error) {
-      console.error('Failed to update TOOLS.md:', error);
-    }
-  };
-
   return (
     <div className="min-h-full relative">
       <div className="relative z-10 min-h-full flex flex-col">
@@ -276,22 +263,8 @@ export default function Skills() {
 
             {/* Active Skills */}
             <div className="animate-fade-up" style={{ animationDelay: '100ms' }}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <h2 className="text-sm font-semibold text-white opacity-80">Active Skills</h2>
-                <div className="flex items-center gap-3">
-                  {IS_DEV && (
-                    <button
-                      onClick={handleUpdateTools}
-                      className="text-xs text-sage-400 hover:text-sage-300 transition-colors">
-                      Update TOOLS.md
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setManagementModalOpen(true)}
-                    className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
-                    Manage Skills
-                  </button>
-                </div>
               </div>
 
               {skillsLoading ? (
@@ -335,95 +308,6 @@ export default function Skills() {
         />
       )}
 
-      {/* Skills Management Modal */}
-      {managementModalOpen && (
-        <ManagementModal
-          skills={sortedSkillsList}
-          onClose={() => setManagementModalOpen(false)}
-          onOpenSetup={openSkillSetup}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Management Modal (reused from SkillsGrid pattern) ─────────────────────
-
-function ManagementModal({
-  skills,
-  onClose,
-  onOpenSetup,
-}: {
-  skills: SkillListEntry[];
-  onClose: () => void;
-  onOpenSetup: (skill: SkillListEntry) => void;
-}) {
-  const skillsState = useAppSelector(state => state.skills.skills);
-  const skillStates = useAppSelector(state => state.skills.skillStates);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fade-in"
-      onClick={onClose}>
-      <div
-        className="bg-stone-900 rounded-2xl max-w-2xl w-full max-h-[80vh] shadow-large border border-stone-700/50 flex flex-col overflow-hidden animate-slide-up"
-        onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-stone-700/50 flex-shrink-0 bg-stone-900">
-          <h2 className="text-xl font-semibold text-white">Manage Skills</h2>
-          <button onClick={onClose} className="text-stone-400 hover:text-white transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        {/* Content */}
-        <div className="overflow-y-auto flex-1 p-6 pt-4">
-          <div className="space-y-2">
-            {skills.map(skill => {
-              const skillState = skillsState[skill.id];
-              const stateData = skillStates[skill.id];
-              const connectionStatus: SkillConnectionStatus = deriveConnectionStatus(
-                skillState?.status,
-                skillState?.setupComplete,
-                stateData
-              );
-              const statusDisplay = STATUS_DISPLAY[connectionStatus] || STATUS_DISPLAY.offline;
-
-              return (
-                <div
-                  key={skill.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-stone-800/30 border border-stone-700/30 hover:bg-stone-800/50 transition-colors">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-8 h-8 flex items-center justify-center text-white opacity-70 flex-shrink-0">
-                      {skill.icon || <DefaultIcon />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-white">{skill.name}</div>
-                        <span className={`text-xs ${statusDisplay.color}`}>
-                          {statusDisplay.text}
-                        </span>
-                      </div>
-                      <div className="text-xs text-stone-400">{skill.description}</div>
-                    </div>
-                  </div>
-                  <SkillActionButton
-                    skill={skill}
-                    connectionStatus={connectionStatus}
-                    onOpenModal={() => onOpenSetup(skill)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

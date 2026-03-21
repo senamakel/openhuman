@@ -169,13 +169,20 @@ export async function setWindowTitle(title: string): Promise<void> {
  * Redux Persist rehydration.
  */
 export async function syncMemoryClientToken(token: string): Promise<void> {
-  console.debug('[memory] syncMemoryClientToken: entry (token_present=%s, is_tauri=%s)', !!token, isTauri());
+  console.debug(
+    '[memory] syncMemoryClientToken: entry (token_present=%s, is_tauri=%s)',
+    !!token,
+    isTauri()
+  );
   if (!isTauri() || !token) {
     console.debug('[memory] syncMemoryClientToken: exit — skipped (not Tauri or empty token)');
     return;
   }
   try {
-    console.debug('[memory] syncMemoryClientToken: payload → init_memory_client { jwtToken: <redacted, len=%d> }', token.length);
+    console.debug(
+      '[memory] syncMemoryClientToken: payload → init_memory_client { jwtToken: <redacted, len=%d> }',
+      token.length
+    );
     await invoke('init_memory_client', { jwtToken: token });
     console.info('[memory] syncMemoryClientToken: exit — ok');
   } catch (err) {

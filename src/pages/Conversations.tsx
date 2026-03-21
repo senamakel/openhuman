@@ -12,13 +12,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { injectAll } from '../lib/ai/injector';
 import type { Message } from '../lib/ai/providers/interface';
 import { skillManager } from '../lib/skills/manager';
+import { creditsApi, type TeamUsage } from '../services/api/creditsApi';
 import {
   type ChatMessage,
   inferenceApi,
   type ModelInfo,
   type Tool,
 } from '../services/api/inferenceApi';
-import { type TeamUsage, creditsApi } from '../services/api/creditsApi';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { NotionPageSummary, NotionSummary, NotionUserProfile } from '../store/notionSlice';
 import {
@@ -386,6 +386,23 @@ const Conversations = () => {
       } catch (injectionError) {
         console.warn('⚠️ SOUL + TOOLS injection failed in Conversations page:', injectionError);
         // Continue with original message
+      }
+
+      // Prepend recalled memory context from TinyHumans Master node
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const recalledContext = await invoke<string | null>('recall_memory', {
+          skillId: 'conversations',
+          integrationId: selectedThreadId,
+          maxChunks: 10,
+        });
+        if (recalledContext) {
+          processedUserContent = `[MEMORY_CONTEXT]\n${recalledContext}\n[/MEMORY_CONTEXT]\n\n${processedUserContent}`;
+          console.log('✅ Memory recall injected into prompt');
+        }
+      } catch (recallError) {
+        console.warn('⚠️ Memory recall skipped:', recallError);
+        // Non-fatal — continue without recalled context
       }
 
       // Prepend Notion workspace context if connected
@@ -1077,46 +1094,73 @@ const Conversations = () => {
                   )}
                   <div className="flex-1" />
                   {/* Budget indicator — circular */}
-                  {(isLoadingBudget || teamUsage) && (() => {
-                    const size = 22;
-                    const r = 9;
-                    const circ = 2 * Math.PI * r;
-                    const pct = teamUsage
-                      ? Math.min(1, teamUsage.remainingUsd / teamUsage.cycleBudgetUsd)
-                      : 0;
-                    const dash = pct * circ;
-                    return (
-                      <div className="flex items-center gap-1.5" title={teamUsage ? `$${teamUsage.remainingUsd.toFixed(2)} of $${teamUsage.cycleBudgetUsd.toFixed(2)} remaining` : 'Loading budget…'}>
-                        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-                          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" />
-                          {teamUsage ? (
+                  {(isLoadingBudget || teamUsage) &&
+                    (() => {
+                      const size = 22;
+                      const r = 9;
+                      const circ = 2 * Math.PI * r;
+                      const pct = teamUsage
+                        ? Math.min(1, teamUsage.remainingUsd / teamUsage.cycleBudgetUsd)
+                        : 0;
+                      const dash = pct * circ;
+                      return (
+                        <div
+                          className="flex items-center gap-1.5"
+                          title={
+                            teamUsage
+                              ? `$${teamUsage.remainingUsd.toFixed(2)} of $${teamUsage.cycleBudgetUsd.toFixed(2)} remaining`
+                              : 'Loading budget…'
+                          }>
+                          <svg
+                            width={size}
+                            height={size}
+                            viewBox={`0 0 ${size} ${size}`}
+                            className="-rotate-90">
                             <circle
-                              cx={size / 2} cy={size / 2} r={r}
-                              fill="none" stroke="currentColor" strokeWidth="2.5"
-                              strokeDasharray={`${dash} ${circ}`}
-                              strokeLinecap="round"
-                              className={pct < 0.2 ? 'text-amber-500' : 'text-primary-500'}
-                              style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                              cx={size / 2}
+                              cy={size / 2}
+                              r={r}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              className="text-white/10"
                             />
-                          ) : (
-                            <circle
-                              cx={size / 2} cy={size / 2} r={r}
-                              fill="none" stroke="currentColor" strokeWidth="2.5"
-                              strokeDasharray={`${circ * 0.25} ${circ}`}
-                              strokeLinecap="round"
-                              className="text-stone-600 animate-spin origin-center"
-                              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-                            />
+                            {teamUsage ? (
+                              <circle
+                                cx={size / 2}
+                                cy={size / 2}
+                                r={r}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeDasharray={`${dash} ${circ}`}
+                                strokeLinecap="round"
+                                className={pct < 0.2 ? 'text-amber-500' : 'text-primary-500'}
+                                style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                              />
+                            ) : (
+                              <circle
+                                cx={size / 2}
+                                cy={size / 2}
+                                r={r}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeDasharray={`${circ * 0.25} ${circ}`}
+                                strokeLinecap="round"
+                                className="text-stone-600 animate-spin origin-center"
+                                style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+                              />
+                            )}
+                          </svg>
+                          {teamUsage && (
+                            <span className="text-[10px] text-stone-500">
+                              ${teamUsage.remainingUsd.toFixed(2)}
+                            </span>
                           )}
-                        </svg>
-                        {teamUsage && (
-                          <span className="text-[10px] text-stone-500">
-                            ${teamUsage.remainingUsd.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                        </div>
+                      );
+                    })()}
                 </div>
                 {sendError && (
                   <div className="flex items-center justify-between mb-2">

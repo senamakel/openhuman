@@ -330,7 +330,7 @@ async fn run_event_loop(
         //    messages (events, pings, etc.) but queue any new CallTool.
         match rx.try_recv() {
             Ok(msg) => {
-                let should_stop = handle_message(rt, ctx, msg, state, skill_id, &mut pending_tool, app_handle).await;
+                let should_stop = handle_message(rt, ctx, msg, state, skill_id, &mut pending_tool, app_handle, ops_state).await;
                 if should_stop {
                     break;
                 }
@@ -447,6 +447,7 @@ async fn handle_message(
     skill_id: &str,
     pending_tool: &mut Option<PendingToolCall>,
     app_handle: Option<&tauri::AppHandle>,
+    ops_state: &Arc<RwLock<qjs_ops::SkillState>>,
 ) -> bool {
     match msg {
         SkillMessage::CallTool { tool_name, arguments, reply } => {
@@ -553,12 +554,13 @@ async fn handle_message(
             }
         }
         SkillMessage::Rpc { method, params, reply } => {
-            // Resolve the optional memory client once for this RPC call
-            let memory_client_opt: Option<crate::memory::MemoryClientRef> =
-                app_handle.and_then(|ah| {
-                    ah.try_state::<Option<crate::memory::MemoryClientRef>>()
-                        .and_then(|s: tauri::State<'_, Option<crate::memory::MemoryClientRef>>| s.inner().clone())
-                });
+            // Resolve the optional memory client once for this RPC call.                                                                                                 
+            // State is registered as MemoryState(Mutex<Option<MemoryClientRef>>), not                                                                             
+            // Option<MemoryClientRef> directly, so we must use the newtype wrapper. 
+            let memory_client_opt = app_handle.and_then(|ah| {
+                ah.try_state::<crate::commands::memory::MemoryState>()
+                   .and_then(|s| s.0.lock().ok().and_then(|g| g.clone()))
+            });
 
             let result = match method.as_str() {
                 "oauth/complete" => {
@@ -582,8 +584,11 @@ async fn handle_message(
                     let params_str = serde_json::to_string(&params).unwrap_or_else(|_| "{}".to_string());
                     let result = handle_js_call(rt, ctx, "onOAuthComplete", &params_str).await;
 
-                    // Fire-and-forget: persist returned payload to TinyHumans memory
-                    if let Ok(ref payload) = result {
+                    // Fire-and-forget: persist published ops state to TinyHumans memory.
+                    // Skills publish data via state.set()/setPartial() into ops_state.data,
+                    // not as the return value of onOAuthComplete() (which is typically undefined).
+                    let state_snapshot = ops_state.read().data.clone();
+                    if !state_snapshot.is_empty() {
                         if let Some(client) = memory_client_opt.clone() {
                             let skill = skill_id.to_string();
                             let integration_id = params
@@ -591,8 +596,10 @@ async fn handle_message(
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("unknown")
                                 .to_string();
-                            let content = serde_json::to_string_pretty(payload)
-                                .unwrap_or_else(|_| payload.to_string());
+                            let content = serde_json::to_string_pretty(
+                                &serde_json::Value::Object(state_snapshot),
+                            )
+                            .unwrap_or_else(|_| "{}".to_string());
                             let title = format!("{} OAuth sync — {}", skill, integration_id);
                             tokio::spawn(async move {
                                 if let Err(e) = client
@@ -614,13 +621,21 @@ async fn handle_message(
                 }
                 "skill/sync" => {
                     let result = handle_js_call(rt, ctx, "onSync", "{}").await;
-
-                    // Fire-and-forget: persist sync payload to TinyHumans memory
-                    if let Ok(ref payload) = result {
+                    // Fire-and-forget: persist published ops state to TinyHumans memory.
+                    // Skills publish data via state.set()/setPartial() into ops_state.data,
+                    // not as the return value of onSync() (which is typically undefined).
+                    let state_snapshot = ops_state.read().data.clone();
+                    log::info!(
+                        "[memory] store_skill_sync: payload → state_snapshot={:?}",
+                        state_snapshot
+                    );
+                    if !state_snapshot.is_empty() {
                         if let Some(client) = memory_client_opt.clone() {
                             let skill = skill_id.to_string();
-                            let content = serde_json::to_string_pretty(payload)
-                                .unwrap_or_else(|_| payload.to_string());
+                            let content = serde_json::to_string_pretty(
+                                &serde_json::Value::Object(state_snapshot),
+                            )
+                            .unwrap_or_else(|_| "{}".to_string());
                             let title = format!("{} periodic sync", skill);
                             tokio::spawn(async move {
                                 if let Err(e) = client

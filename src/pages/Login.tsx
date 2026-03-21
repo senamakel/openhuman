@@ -28,7 +28,7 @@ const Login = () => {
 
         dispatch(setToken(jwtToken));
         console.info('[memory] Login: dispatching syncMemoryClientToken after setToken');
-        void syncMemoryClientToken(jwtToken);
+        await syncMemoryClientToken(jwtToken);
         navigate('/onboarding/', { replace: true });
       } catch (err) {
         if (!cancelled) {

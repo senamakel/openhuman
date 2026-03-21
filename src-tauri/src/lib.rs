@@ -797,6 +797,7 @@ pub fn run() {
                     // Memory commands (TinyHumans Neocortex)
                     init_memory_client,
                     memory_query,
+                    recall_memory,
                 ]
             }
             #[cfg(not(desktop))]
@@ -916,6 +917,7 @@ pub fn run() {
                     // Memory commands (TinyHumans Neocortex)
                     init_memory_client,
                     memory_query,
+                    recall_memory,
                 ]
             }
         })

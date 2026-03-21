@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 use tinyhumansai::{
-    DeleteMemoryParams, InsertMemoryParams, QueryMemoryParams, TinyHumanConfig,
-    TinyHumanMemoryClient,
+    DeleteMemoryParams, InsertMemoryParams, QueryMemoryParams, RecallMemoryParams,
+    TinyHumanConfig, TinyHumanMemoryClient,
 };
 
 /// Shared, cloneable handle to the memory client.
@@ -21,15 +21,23 @@ impl MemoryClient {
     /// Construct from a JWT token (sourced from `authSlice.token` in the Redux store).
     /// Returns `None` if the token is empty or client construction fails.
     pub fn from_token(jwt_token: String) -> Option<Self> {
-        log::debug!("[memory] from_token: entry (token_len={})", jwt_token.trim().len());
+        log::info!("[memory] from_token: entry (token_len={})", jwt_token.trim().len());
         if jwt_token.trim().is_empty() {
             log::warn!("[memory] from_token: exit — token is empty, returning None");
             return None;
         }
-        let base_url = std::env::var("TINYHUMANS_BASE_URL")
-            .unwrap_or_else(|_| "https://api.tinyhumans.ai".to_string());
-        log::debug!("[memory] from_token: constructing client (base_url={base_url})");
-        let config = TinyHumanConfig::new(jwt_token).with_base_url(base_url);
+        let config = match std::env::var("ALPHAHUMAN_BASE_URL")
+            .or_else(|_| std::env::var("TINYHUMANS_BASE_URL"))
+        {
+            Ok(base_url) => {
+                log::info!("[memory] from_token: constructing client (base_url={base_url})");
+                TinyHumanConfig::new(jwt_token).with_base_url(base_url)
+            }
+            Err(_) => {
+                log::warn!("[memory] from_token: constructing client (base_url=<sdk default>)");
+                TinyHumanConfig::new(jwt_token)
+            }
+        };
         match TinyHumanMemoryClient::new(config) {
             Ok(inner) => {
                 log::info!("[memory] from_token: exit — client created successfully");
@@ -58,6 +66,7 @@ impl MemoryClient {
             "[memory] store_skill_sync: payload → namespace={namespace} | title={title} | content={}",
             content
         );
+        log::info!("[memory] insert_memory: calling SDK (namespace={namespace}, title={title:?})");
         let result = self.inner
             .insert_memory(InsertMemoryParams {
                 title: title.to_string(),
@@ -66,8 +75,13 @@ impl MemoryClient {
                 ..Default::default()
             })
             .await
-            .map(|_| ())
-            .map_err(|e| format!("Memory insert failed: {e}"));
+            .map(|_| {
+                log::info!("[memory] insert_memory: success (namespace={namespace}, title={title:?})");
+            })
+            .map_err(|e| {
+                log::warn!("[memory] insert_memory: SDK error — kind={:?} msg={e}", classify_insert_error(&e));
+                format!("Memory insert failed: {e}")
+            });
         match &result {
             Ok(()) => log::info!("[memory] store_skill_sync: exit — ok (namespace={namespace})"),
             Err(e) => log::warn!("[memory] store_skill_sync: exit — error (namespace={namespace}): {e}"),
@@ -93,7 +107,7 @@ impl MemoryClient {
             .query_memory(QueryMemoryParams {
                 query: query.to_string(),
                 namespace: Some(namespace.clone()),
-                max_chunks: Some(max_chunks),
+                max_chunks: Some(f64::from(max_chunks)),
                 ..Default::default()
             })
             .await
@@ -103,6 +117,37 @@ impl MemoryClient {
             })?;
         let response = res.data.response.unwrap_or_default();
         log::info!("[memory] query_skill_context: exit — ok (namespace={namespace}, response_len={})", response.len());
+        Ok(response)
+    }
+
+    /// Recall context from the Master memory node for a given namespace.
+    /// Returns the synthesised `response` string, or `None` if the server returned nothing.
+    pub async fn recall_skill_context(
+        &self,
+        skill_id: &str,
+        integration_id: &str,
+        max_chunks: u32,
+    ) -> Result<Option<String>, String> {
+        let namespace = format!("skill:{skill_id}:{integration_id}");
+        log::info!(
+            "[memory] recall_skill_context: entry (namespace={namespace}, max_chunks={max_chunks})"
+        );
+        let res = self
+            .inner
+            .recall_memory(RecallMemoryParams {
+                namespace: Some(namespace.clone()),
+                max_chunks: Some(f64::from(max_chunks)),
+            })
+            .await
+            .map_err(|e| {
+                log::warn!("[memory] recall_skill_context: exit — error (namespace={namespace}): {e}");
+                format!("Memory recall failed: {e}")
+            })?;
+        let response = res.data.response;
+        log::info!(
+            "[memory] recall_skill_context: exit — ok (namespace={namespace}, has_response={})",
+            response.is_some()
+        );
         Ok(response)
     }
 
@@ -127,6 +172,23 @@ impl MemoryClient {
             Err(e) => log::warn!("[memory] clear_skill_memory: exit — error (namespace={namespace}): {e}"),
         }
         result
+    }
+}
+
+fn classify_insert_error(e: &tinyhumansai::TinyHumanError) -> &'static str {
+    let msg = e.to_string();
+    if msg.contains("dns") || msg.contains("resolve") || msg.contains("lookup") {
+        "dns_failure"
+    } else if msg.contains("tls") || msg.contains("certificate") || msg.contains("ssl") {
+        "tls_failure"
+    } else if msg.contains("Connection refused") || msg.contains("connection refused") {
+        "connection_refused"
+    } else if msg.contains("timed out") || msg.contains("deadline") {
+        "timeout"
+    } else if msg.contains("error sending request") {
+        "transport_error"
+    } else {
+        "other"
     }
 }
 

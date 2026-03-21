@@ -27,10 +27,10 @@ function App() {
         <PersistGate
           loading={null}
           persistor={persistor}
-          onBeforeLift={() => {
+          onBeforeLift={async () => {
             const token = store.getState().auth.token;
             console.info('[memory] PersistGate onBeforeLift: token_present=%s', !!token);
-            if (token) void syncMemoryClientToken(token);
+            if (token) await syncMemoryClientToken(token);
           }}>
           <UserProvider>
             <SocketProvider>

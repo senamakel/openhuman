@@ -8457,10 +8457,11 @@ dependencies = [
 
 [[package]]
 name = "tinyhumansai"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7a88dba7fe194a507d0351c5f8b5cd8518fb30f8307dd788333f9715f51c44e"
+checksum = "691a096ecaaeec23ac7bbcfb276058de9d4aff1c574ee074125d5e5080e17b7d"
 dependencies = [
+ "log",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

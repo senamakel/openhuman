@@ -14,9 +14,9 @@ import SkillSetupModal from '../components/skills/SkillSetupModal';
 import { deriveConnectionStatus, useSkillConnectionStatus } from '../lib/skills/hooks';
 import { skillManager } from '../lib/skills/manager';
 import type { SkillConnectionStatus, SkillHostConnectionState } from '../lib/skills/types';
-import { deriveSkillSyncUiState } from './skillsSyncUi';
 import { useAppSelector } from '../store/hooks';
 import { IS_DEV } from '../utils/config';
+import { deriveSkillSyncUiState } from './skillsSyncUi';
 
 /** Format large numbers: 1200 → "1.2K", 1200000 → "1.2M" */
 function formatNumber(n: number): string {
@@ -53,7 +53,10 @@ function SkillCard({ skill, onSetup }: SkillCardProps) {
     | (SkillHostConnectionState & Record<string, unknown>)
     | undefined;
   const [manualSyncing, setManualSyncing] = useState(false);
-  const syncUi = useMemo(() => deriveSkillSyncUiState(skill.id, skillState), [skill.id, skillState]);
+  const syncUi = useMemo(
+    () => deriveSkillSyncUiState(skill.id, skillState),
+    [skill.id, skillState]
+  );
   const isSyncing = manualSyncing || syncUi.isSyncing;
 
   const handleSync = async (e: React.MouseEvent) => {
@@ -212,10 +215,11 @@ export default function Skills() {
         }
 
         const manifests = await invoke<Array<Record<string, unknown>>>('runtime_discover_skills');
+        const ALLOWED_SKILLS = new Set(['gmail', 'notion']);
         const validManifests = manifests.filter(m => {
           const id = m.id as string;
           if (id.includes('_')) return false;
-          return true;
+          return ALLOWED_SKILLS.has(id);
         });
 
         const processed: SkillListEntry[] = validManifests
@@ -300,11 +304,7 @@ export default function Skills() {
               ) : (
                 <div className="space-y-2">
                   {sortedSkillsList.map(skill => (
-                    <SkillCard
-                      key={skill.id}
-                      skill={skill}
-                      onSetup={() => openSkillSetup(skill)}
-                    />
+                    <SkillCard key={skill.id} skill={skill} onSetup={() => openSkillSetup(skill)} />
                   ))}
                 </div>
               )}
@@ -326,7 +326,6 @@ export default function Skills() {
           }}
         />
       )}
-
     </div>
   );
 }

@@ -583,50 +583,7 @@ async fn handle_message(
                     }).await;
                     log::info!("[skill:{}] OAuth credential set and persisted to store", skill_id);
                     let params_str = serde_json::to_string(&params).unwrap_or_else(|_| "{}".to_string());
-                    let result = handle_js_call(rt, ctx, "onOAuthComplete", &params_str).await;
-
-                    // Fire-and-forget: persist published ops state to TinyHumans memory.
-                    // Skills publish data via state.set()/setPartial() into ops_state.data,
-                    // not as the return value of onOAuthComplete() (which is typically undefined).
-                    let state_snapshot = ops_state.read().data.clone();
-                    if !state_snapshot.is_empty() {
-                        if let Some(client) = memory_client_opt.clone() {
-                            let skill = skill_id.to_string();
-                            let integration_id = params
-                                .get("integrationId")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown")
-                                .to_string();
-                            let content = serde_json::to_string_pretty(
-                                &serde_json::Value::Object(state_snapshot),
-                            )
-                            .unwrap_or_else(|_| "{}".to_string());
-                            let title = format!("{} OAuth sync — {}", skill, integration_id);
-                            tokio::spawn(async move {
-                                if let Err(e) = client
-                                    .store_skill_sync(
-                                        &skill,
-                                        &integration_id,
-                                        &title,
-                                        &content,
-                                        None,
-                                        None,
-                                        None,
-                                        None,
-                                        None,
-                                        None,
-                                    )
-                                    .await
-                                {
-                                    log::warn!("[memory] store_skill_sync failed: {e}");
-                                } else {
-                                    log::info!("[memory] Stored sync for {}:{}", skill, integration_id);
-                                }
-                            });
-                        }
-                    }
-
-                    result
+                    handle_js_call(rt, ctx, "onOAuthComplete", &params_str).await
                 }
                 "skill/ping" => {
                     handle_js_call(rt, ctx, "onPing", "{}").await

@@ -2,46 +2,47 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    maybe_override_tauri_config_for_tests();
+    maybe_override_tauri_config_for_local_builds();
     tauri_build::build();
 }
 
-fn maybe_override_tauri_config_for_tests() {
+fn maybe_override_tauri_config_for_local_builds() {
     let profile = env::var("PROFILE").unwrap_or_default();
     let skip_resources = env::var("TAURI_SKIP_RESOURCES").is_ok() || profile == "test";
-    if !skip_resources {
-        return;
-    }
-
+    let is_release = profile == "release";
     let manifest_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set"));
-    let config_path = manifest_dir.join("tauri.conf.json");
-    let Ok(raw) = std::fs::read_to_string(&config_path) else {
-        println!("cargo:warning=Failed to read tauri.conf.json; keeping default config");
+    let tdlib_framework_path = manifest_dir.join("libraries/libtdjson.1.8.29.dylib");
+    let skip_missing_frameworks = !is_release && !tdlib_framework_path.exists();
+
+    if !skip_resources && !skip_missing_frameworks {
         return;
-    };
-
-    let mut value: serde_json::Value = match serde_json::from_str(&raw) {
-        Ok(value) => value,
-        Err(err) => {
-            println!("cargo:warning=Failed to parse tauri.conf.json: {err}");
-            return;
-        }
-    };
-
-    if let Some(bundle) = value.get_mut("bundle").and_then(|b| b.as_object_mut()) {
-        bundle.insert("resources".to_string(), serde_json::Value::Array(Vec::new()));
     }
 
-    let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| ".".into());
-    let override_path = PathBuf::from(out_dir).join("tauri.conf.test.json");
-    if std::fs::write(&override_path, serde_json::to_string_pretty(&value).unwrap_or(raw)).is_ok()
-    {
-        env::set_var("TAURI_CONFIG", &override_path);
-        println!(
-            "cargo:warning=TAURI resources disabled for test build (using {})",
-            override_path.display()
-        );
+    let mut merge_config = serde_json::json!({});
+    if skip_resources {
+        merge_config["bundle"]["resources"] = serde_json::json!([]);
+    }
+    if skip_missing_frameworks {
+        merge_config["bundle"]["macOS"]["frameworks"] = serde_json::json!([]);
+    }
+
+    match serde_json::to_string(&merge_config) {
+        Ok(json) => {
+            env::set_var("TAURI_CONFIG", json);
+            if skip_resources {
+                println!("cargo:warning=TAURI resources disabled for local build");
+            }
+            if skip_missing_frameworks {
+                println!(
+                    "cargo:warning=TAURI macOS frameworks disabled because {} is missing",
+                    tdlib_framework_path.display()
+                );
+            }
+        }
+        Err(err) => {
+            println!("cargo:warning=Failed to serialize TAURI_CONFIG override: {err}");
+        }
     }
 }
 

@@ -7,14 +7,15 @@
 use std::sync::Arc;
 use tinyhumansai::{
     DeleteMemoryParams, InsertMemoryParams, Priority, QueryMemoryParams, RecallMemoryParams,
-    SourceType, TinyHumanConfig, TinyHumanMemoryClient,
+    SourceType, TinyHumanConfig, TinyHumansMemoryClient,
 };
+use uuid::Uuid;
 
 /// Shared, cloneable handle to the memory client.
 pub type MemoryClientRef = Arc<MemoryClient>;
 
 pub struct MemoryClient {
-    inner: TinyHumanMemoryClient,
+    inner: TinyHumansMemoryClient,
 }
 
 impl MemoryClient {
@@ -38,7 +39,7 @@ impl MemoryClient {
                 TinyHumanConfig::new(jwt_token)
             }
         };
-        match TinyHumanMemoryClient::new(config) {
+        match TinyHumansMemoryClient::new(config) {
             Ok(inner) => {
                 log::info!("[memory] from_token: exit — client created successfully");
                 Some(Self { inner })
@@ -52,7 +53,9 @@ impl MemoryClient {
 
     /// Store a skill data-sync result.
     ///
-    /// Namespace pattern: `skill:{skill_id}:{integration_id}`
+    /// Inserts the document then polls `ingestion_job_status` every 30 s until
+    /// the job reaches `completed` (or `failed`/`error`). Returns only after the
+    /// ingestion job is confirmed complete.
     pub async fn store_skill_sync(
         &self,
         skill_id: &str,
@@ -66,15 +69,23 @@ impl MemoryClient {
         updated_at: Option<f64>,
         document_id: Option<String>,
     ) -> Result<(), String> {
-        let namespace = format!("skill:{skill_id}:{integration_id}");
-        log::info!("[memory] store_skill_sync: entry (namespace={namespace}, title={title:?}, content_len={})", content.len());
-        log::debug!(
-            "[memory] store_skill_sync: payload → namespace={namespace} | title={title} | content={}",
-            content
+        let namespace = skill_id.to_string();
+        log::info!(
+            "[memory] store_skill_sync: entry (namespace={namespace}, title={title:?}, content_len={})",
+            content.len()
         );
-        log::info!("[memory] insert_memory: calling SDK (namespace={namespace}, title={title:?})");
-        let result = self.inner
+
+        let document_id_final = document_id.unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        log::info!(
+            "[memory] insert_memory: calling SDK (namespace={namespace}, title={title:?}), content_len={}",
+            content.len()
+        );
+
+        let insert_resp = self
+            .inner
             .insert_memory(InsertMemoryParams {
+                document_id: Some(document_id_final),
                 title: title.to_string(),
                 content: content.to_string(),
                 namespace: namespace.clone(),
@@ -83,33 +94,97 @@ impl MemoryClient {
                 priority,
                 created_at,
                 updated_at,
-                document_id,
                 ..Default::default()
             })
             .await
-            .map(|_| {
-                log::info!("[memory] insert_memory: success (namespace={namespace}, title={title:?})");
-            })
             .map_err(|e| {
-                log::warn!("[memory] insert_memory: SDK error — kind={:?} msg={e}", classify_insert_error(&e));
+                log::warn!(
+                    "[memory] insert_memory: SDK error — kind={:?} msg={e}",
+                    classify_insert_error(&e)
+                );
                 format!("Memory insert failed: {e}")
-            });
-        match &result {
-            Ok(()) => log::info!("[memory] store_skill_sync: exit — ok (namespace={namespace})"),
-            Err(e) => log::warn!("[memory] store_skill_sync: exit — error (namespace={namespace}): {e}"),
+            })?;
+
+        log::info!(
+            "[memory] insert_memory: accepted (namespace={namespace}, status={:?}, job_id={:?})",
+            insert_resp.data.status,
+            insert_resp.data.job_id
+        );
+
+        // If the API returned a job_id, poll until the job completes.
+        if let Some(job_id) = insert_resp.data.job_id {
+            log::info!("[memory] ingestion job queued (job_id={job_id}), polling every 30s...");
+
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+
+                match self.inner.ingestion_job_status(&job_id).await {
+                    Ok(status_resp) => {
+                        let state = status_resp
+                            .data
+                            .state
+                            .as_deref()
+                            .unwrap_or("unknown");
+
+                        log::info!(
+                            "[memory] ingestion job status: job_id={job_id}, state={state}, \
+                             attempts={:?}, completed_at={:?}",
+                            status_resp.data.attempts,
+                            status_resp.data.completed_at
+                        );
+
+                        match state {
+                            "completed" => {
+                                log::info!(
+                                    "[memory] ingestion job completed (job_id={job_id}, namespace={namespace})"
+                                );
+                                break;
+                            }
+                            "failed" | "error" => {
+                                let err_msg = status_resp
+                                    .data
+                                    .error
+                                    .unwrap_or_else(|| format!("job state={state}"));
+                                log::warn!(
+                                    "[memory] ingestion job failed: job_id={job_id}, error={err_msg}"
+                                );
+                                log::warn!(
+                                    "[memory] store_skill_sync: exit — ingestion failed (namespace={namespace})"
+                                );
+                                return Err(format!("Ingestion job failed: {err_msg}"));
+                            }
+                            _ => {
+                                // pending / processing / queued — keep waiting
+                                log::info!(
+                                    "[memory] ingestion job still in progress (state={state}), waiting 30s..."
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "[memory] ingestion job status poll error (job_id={job_id}): {e} — retrying in 30s"
+                        );
+                    }
+                }
+            }
+        } else {
+            log::info!("[memory] no job_id returned — insert assumed synchronous, proceeding");
         }
-        result
+
+        log::info!("[memory] store_skill_sync: exit — ok (namespace={namespace})");
+        Ok(())
     }
 
     /// Query relevant context for a skill integration (RAG).
     pub async fn query_skill_context(
         &self,
         skill_id: &str,
-        integration_id: &str,
+        _integration_id: &str,
         query: &str,
         max_chunks: u32,
     ) -> Result<String, String> {
-        let namespace = format!("skill:{skill_id}:{integration_id}");
+        let namespace = skill_id.to_string();
         log::info!("[memory] query_skill_context: entry (namespace={namespace}, max_chunks={max_chunks}, query={query:?})");
         log::debug!(
             "[memory] query_skill_context: payload → namespace={namespace} | max_chunks={max_chunks} | query={query}"
@@ -137,10 +212,10 @@ impl MemoryClient {
     pub async fn recall_skill_context(
         &self,
         skill_id: &str,
-        integration_id: &str,
+        _integration_id: &str,
         max_chunks: u32,
     ) -> Result<Option<String>, String> {
-        let namespace = format!("skill:{skill_id}:{integration_id}");
+        let namespace = skill_id.to_string();
         log::info!(
             "[memory] recall_skill_context: entry (namespace={namespace}, max_chunks={max_chunks})"
         );
@@ -187,7 +262,7 @@ impl MemoryClient {
     }
 }
 
-fn classify_insert_error(e: &tinyhumansai::TinyHumanError) -> &'static str {
+fn classify_insert_error(e: &tinyhumansai::TinyHumansError) -> &'static str {
     let msg = e.to_string();
     if msg.contains("dns") || msg.contains("resolve") || msg.contains("lookup") {
         "dns_failure"
@@ -248,6 +323,7 @@ mod tests {
                 integration_id,
                 "Gmail OAuth sync — test@alphahuman.dev",
                 &serde_json::to_string_pretty(&dummy_content).unwrap(),
+                None,
                 None,
                 None,
                 None,

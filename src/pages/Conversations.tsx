@@ -18,8 +18,18 @@ import {
   type ModelInfo,
   type Tool,
 } from '../services/api/inferenceApi';
+import {
+  chatCancel,
+  chatSend,
+  subscribeChatEvents,
+  useRustChat,
+  type ChatToolCallEvent,
+  type ChatToolResultEvent,
+} from '../services/chatService';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { NotionPageSummary, NotionSummary, NotionUserProfile } from '../store/notionSlice';
+import { store } from '../store';
+import { BACKEND_URL } from '../utils/config';
 import {
   addInferenceResponse,
   addMessageLocal,
@@ -141,6 +151,17 @@ const Conversations = () => {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [activeToolCall, setActiveToolCall] = useState<{ name: string; args: unknown } | null>(
+    null
+  );
+  const rustChat = useRustChat();
+
+  // Ref to track selectedThreadId inside event callbacks without re-subscribing
+  const selectedThreadIdRef = useRef(selectedThreadId);
+  useEffect(() => {
+    selectedThreadIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
   // Budget state
   const [teamUsage, setTeamUsage] = useState<TeamUsage | null>(null);
   const [isLoadingBudget, setIsLoadingBudget] = useState(false);
@@ -288,6 +309,78 @@ const Conversations = () => {
     }
   }, [inputValue, sendError]);
 
+  // Subscribe to Rust chat events when running in Tauri.
+  // Registered ONCE (deps: [rustChat]) — uses refs for values that change.
+  useEffect(() => {
+    if (!rustChat) return;
+
+    let cleanup: (() => void) | null = null;
+    let mounted = true;
+
+    subscribeChatEvents({
+      onToolCall: (event: ChatToolCallEvent) => {
+        if (event.thread_id !== selectedThreadIdRef.current) return;
+        setActiveToolCall({ name: event.tool_name, args: event.args });
+      },
+      onToolResult: (event: ChatToolResultEvent) => {
+        if (event.thread_id !== selectedThreadIdRef.current) return;
+        setActiveToolCall(null);
+      },
+      onDone: event => {
+        // Guard against duplicate dispatch (React StrictMode double-fires effects in dev)
+        const currentState = store.getState() as {
+          thread: { messagesByThreadId: Record<string, ThreadMessage[]> };
+        };
+        const threadMessages = currentState.thread.messagesByThreadId[event.thread_id] || [];
+        const lastMsg = threadMessages[threadMessages.length - 1];
+        if (lastMsg?.sender === 'agent' && lastMsg?.content === event.full_response) {
+          return; // Already added — skip duplicate
+        }
+
+        dispatch(addInferenceResponse({ content: event.full_response, threadId: event.thread_id }));
+        setIsSending(false);
+        setActiveToolCall(null);
+        dispatch(setActiveThread(null));
+      },
+      onError: event => {
+        if (event.thread_id !== selectedThreadIdRef.current) return;
+        if (event.error_type !== 'cancelled') {
+          setSendError(event.message);
+        }
+        setIsSending(false);
+        setActiveToolCall(null);
+        dispatch(setActiveThread(null));
+
+        // Remove the optimistic user message on error
+        dispatch((innerDispatch, getState) => {
+          const state = getState() as {
+            thread: { messagesByThreadId: Record<string, ThreadMessage[]> };
+          };
+          const persistedMessages = state.thread.messagesByThreadId[event.thread_id] || [];
+          const lastUserIdx = [...persistedMessages]
+            .reverse()
+            .findIndex(m => m.sender === 'user');
+          if (lastUserIdx !== -1) {
+            const actualIdx = persistedMessages.length - 1 - lastUserIdx;
+            const updated = persistedMessages.filter((_, i) => i !== actualIdx);
+            innerDispatch(updateMessagesForThread({ threadId: event.thread_id, messages: updated }));
+            if (event.thread_id === selectedThreadIdRef.current) {
+              innerDispatch(setSelectedThread(event.thread_id));
+            }
+          }
+        });
+      },
+    }).then(fn => {
+      if (mounted) cleanup = fn;
+    });
+
+    return () => {
+      mounted = false;
+      cleanup?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rustChat]);
+
   const handleSelectThread = (threadId: string) => {
     if (threadId === selectedThreadId) return;
     navigate(`/conversations/${threadId}`, { replace: true });
@@ -321,49 +414,14 @@ const Conversations = () => {
     }
   };
 
-  const handleSendMessage = async (text?: string) => {
-    const trimmed = text ?? inputValue.trim();
-    if (!trimmed || !selectedThreadId || isSending) return;
-
-    // Check if another thread is already sending
-    if (activeThreadId && activeThreadId !== selectedThreadId) {
-      return; // Block sending from non-active threads
-    }
-
-    // Store the original thread ID to ensure response goes to correct thread
-    const sendingThreadId = selectedThreadId;
-
-    // Create stable user message and persist immediately
-    const userMessage: ThreadMessage = {
-      id: `msg_${Date.now()}_${Math.random()}`,
-      content: trimmed,
-      type: 'text',
-      extraMetadata: {},
-      sender: 'user',
-      createdAt: new Date().toISOString(),
-    };
-
-    // Immediately persist user message to both current view and persistent storage
-    dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage }));
-
-    // Update current view if this is the selected thread
-    if (sendingThreadId === selectedThreadId) {
-      // Message is already added to persistent storage, reload current view
-      dispatch(setSelectedThread(sendingThreadId));
-    }
-
-    // Snapshot history for AI request (excluding the just-added user message since we'll add it manually)
-    const historySnapshot = messages.filter(
-      m => !m.id.startsWith('optimistic-') && m.id !== userMessage.id
-    );
-
-    setInputValue('');
-    setSendError(null);
-    setIsSending(true);
-
-    // Set this thread as active
-    dispatch(setActiveThread(sendingThreadId));
-
+  // Web fallback: the original orchestration logic, preserved exactly as-is.
+  // Called when not running in Tauri.
+  const handleSendMessageWeb = async (
+    sendingThreadId: string,
+    trimmed: string,
+    userMessage: ThreadMessage,
+    historySnapshot: ThreadMessage[]
+  ) => {
     // Safety-net timeout: force-clear loading states if everything hangs
     const OVERALL_TIMEOUT_MS = 240_000;
     const safetyTimeout = setTimeout(() => {
@@ -387,7 +445,7 @@ const Conversations = () => {
         const { invoke } = await import('@tauri-apps/api/core');
         const recalledContext = await invoke<string | null>('recall_memory', {
           skillId: 'conversations',
-          integrationId: selectedThreadId,
+          integrationId: sendingThreadId,
           maxChunks: 10,
         });
         if (recalledContext) {
@@ -519,7 +577,10 @@ const Conversations = () => {
                 skillManager.callTool(skillId, toolName, toolArgs),
                 new Promise<never>((_, reject) =>
                   setTimeout(
-                    () => reject(new Error(`Tool "${toolName}" timed out after ${TOOL_TIMEOUT_MS / 1000}s`)),
+                    () =>
+                      reject(
+                        new Error(`Tool "${toolName}" timed out after ${TOOL_TIMEOUT_MS / 1000}s`)
+                      ),
                     TOOL_TIMEOUT_MS
                   )
                 ),
@@ -575,17 +636,19 @@ const Conversations = () => {
     } catch (err) {
       // Remove the user message from persistent storage on error
       // We'll use a thunk-like approach to access current state
-      dispatch((dispatch, getState) => {
+      dispatch((innerDispatch, getState) => {
         const state = getState() as {
           thread: { messagesByThreadId: Record<string, ThreadMessage[]> };
         };
         const persistedMessages = state.thread.messagesByThreadId[sendingThreadId] || [];
         const currentMessages = persistedMessages.filter(m => m.id !== userMessage.id);
-        dispatch(updateMessagesForThread({ threadId: sendingThreadId, messages: currentMessages }));
+        innerDispatch(
+          updateMessagesForThread({ threadId: sendingThreadId, messages: currentMessages })
+        );
 
         // Also remove from current view if this is the selected thread
         if (sendingThreadId === selectedThreadId) {
-          dispatch(setSelectedThread(sendingThreadId));
+          innerDispatch(setSelectedThread(sendingThreadId));
         }
       });
 
@@ -599,6 +662,96 @@ const Conversations = () => {
     } finally {
       clearTimeout(safetyTimeout);
       setIsSending(false);
+    }
+  };
+
+  const handleSendMessage = async (text?: string) => {
+    const trimmed = text ?? inputValue.trim();
+    if (!trimmed || !selectedThreadId || isSending) return;
+
+    // Check if another thread is already sending
+    if (activeThreadId && activeThreadId !== selectedThreadId) {
+      return; // Block sending from non-active threads
+    }
+
+    // Store the original thread ID to ensure response goes to correct thread
+    const sendingThreadId = selectedThreadId;
+
+    // Create stable user message and persist immediately
+    const userMessage: ThreadMessage = {
+      id: `msg_${Date.now()}_${Math.random()}`,
+      content: trimmed,
+      type: 'text',
+      extraMetadata: {},
+      sender: 'user',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Immediately persist user message to both current view and persistent storage
+    dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage }));
+
+    // Update current view if this is the selected thread
+    if (sendingThreadId === selectedThreadId) {
+      // Message is already added to persistent storage, reload current view
+      dispatch(setSelectedThread(sendingThreadId));
+    }
+
+    // Snapshot history for AI request (excluding the just-added user message since we'll add it manually)
+    const historySnapshot = messages.filter(
+      m => !m.id.startsWith('optimistic-') && m.id !== userMessage.id
+    );
+
+    setInputValue('');
+    setSendError(null);
+    setIsSending(true);
+
+    // Set this thread as active
+    dispatch(setActiveThread(sendingThreadId));
+
+    if (rustChat) {
+      // ── Rust path ────────────────────────────────────────────────────────
+      try {
+        const chatMessages = historySnapshot.map(m => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.content,
+        }));
+
+        const notionCtx = buildNotionContext(
+          notionProfile,
+          notionPages,
+          notionSummaries,
+          notionWorkspaceName
+        );
+
+        const authToken = (store.getState() as { auth: { token: string | null } }).auth.token;
+        if (!authToken) {
+          setSendError('Not authenticated');
+          setIsSending(false);
+          dispatch(setActiveThread(null));
+          return;
+        }
+
+        await chatSend({
+          threadId: sendingThreadId,
+          message: trimmed,
+          model: selectedModel,
+          authToken,
+          backendUrl: BACKEND_URL,
+          messages: chatMessages,
+          notionContext: notionCtx,
+        });
+
+        // setIsSending(false) and setActiveThread(null) happen in the onDone/onError event handlers
+      } catch (err) {
+        // invoke() itself failed (the chat loop reports errors via events)
+        const msg = err instanceof Error ? err.message : String(err);
+        setSendError(msg);
+        setIsSending(false);
+        dispatch(setActiveThread(null));
+      }
+    } else {
+      // ── Web fallback (existing orchestration logic) ───────────────────────
+      await handleSendMessageWeb(sendingThreadId, trimmed, userMessage, historySnapshot);
     }
   };
 
@@ -1008,6 +1161,24 @@ const Conversations = () => {
                             <span className="w-1.5 h-1.5 rounded-full bg-stone-500 animate-bounce [animation-delay:300ms]" />
                           </div>
                         </div>
+                      </div>
+                    )}
+                    {/* Tool call indicator — shown when Rust backend is executing a tool */}
+                    {activeToolCall && isSending && (
+                      <div className="flex items-center gap-2 px-1 py-1 text-xs text-stone-400">
+                        <span className="animate-pulse">Running tool: {activeToolCall.name}</span>
+                      </div>
+                    )}
+                    {/* Cancel button — shown when Rust backend is processing */}
+                    {isSending && rustChat && (
+                      <div className="flex justify-start px-1">
+                        <button
+                          onClick={() => {
+                            if (selectedThreadId) void chatCancel(selectedThreadId);
+                          }}
+                          className="text-xs text-stone-400 hover:text-stone-200 transition-colors">
+                          Cancel
+                        </button>
                       </div>
                     )}
                     <div ref={messagesEndRef} />

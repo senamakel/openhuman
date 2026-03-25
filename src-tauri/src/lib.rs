@@ -23,6 +23,7 @@ mod unified_skills;
 mod utils;
 
 use ai::*;
+use commands::chat::ChatState;
 use commands::unified_skills::{
     unified_execute_skill, unified_generate_skill, unified_list_skills, unified_self_evolve_skill,
 };
@@ -688,6 +689,11 @@ pub fn run() {
             app.manage(commands::memory::MemoryState(std::sync::Mutex::new(None)));
             log::info!("[memory] Memory state registered — awaiting JWT from frontend");
 
+            // Initialize ChatState for managing in-flight conversation requests
+            let chat_state = std::sync::Arc::new(ChatState::new());
+            app.manage(chat_state);
+            log::info!("[chat] ChatState registered");
+
             // Store SocketManager as Tauri state
             app.manage(socket_mgr.clone());
 
@@ -839,6 +845,9 @@ pub fn run() {
                     init_memory_client,
                     memory_query,
                     recall_memory,
+                    // Chat commands (agentic conversation loop)
+                    chat_send,
+                    chat_cancel,
                 ]
             }
             #[cfg(not(desktop))]
@@ -960,6 +969,9 @@ pub fn run() {
                     init_memory_client,
                     memory_query,
                     recall_memory,
+                    // Chat commands (agentic conversation loop)
+                    chat_send,
+                    chat_cancel,
                 ]
             }
         })

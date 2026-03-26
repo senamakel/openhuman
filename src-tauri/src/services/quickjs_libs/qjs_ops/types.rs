@@ -125,18 +125,8 @@ pub const ALLOWED_ENV_VARS: &[&str] = &[
     "VITE_BACKEND_URL",
     "BACKEND_URL",
     "JWT_TOKEN",
-    "VITE_TELEGRAM_BOT_USERNAME",
-    "VITE_TELEGRAM_BOT_ID",
     "NODE_ENV",
 ];
-
-pub fn check_telegram_skill(skill_id: &str) -> Result<(), String> {
-    if skill_id != "telegram" {
-        Err("TDLib operations only available in telegram skill".to_string())
-    } else {
-        Ok(())
-    }
-}
 
 /// Sanitize error message for use with QuickJS/rquickjs.
 /// Some messages (e.g. from SQLite "Invalid symbol 45, offset 19") can trigger

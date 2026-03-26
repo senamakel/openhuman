@@ -3,7 +3,7 @@ name: Update Changelog
 on:
   push:
     branches:
-      - develop
+      - main
 
 permissions:
   contents: write
@@ -155,7 +155,7 @@ jobs:
           while i < len(lines):
               line = lines[i]
               output_lines.append(line)
-              
+
               # Check if this is the [Unreleased] header line
               if line.strip() == "## [Unreleased]":
                   # Find the end of the [Unreleased] section (next ## header or end of file)
@@ -169,7 +169,7 @@ jobs:
                   inserted = True
                   # Continue with remaining lines
                   continue
-              
+
               i += 1
 
           # If [Unreleased] not found, prepend

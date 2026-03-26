@@ -212,10 +212,6 @@ Set in `.env` (Vite exposes `VITE_*` prefixed vars):
 | Variable                     | Purpose                                                             |
 | ---------------------------- | ------------------------------------------------------------------- |
 | `VITE_BACKEND_URL`           | Backend API URL (default: `http://localhost:5005`)                  |
-| `VITE_TELEGRAM_API_ID`       | Telegram MTProto API ID                                             |
-| `VITE_TELEGRAM_API_HASH`     | Telegram MTProto API hash                                           |
-| `VITE_TELEGRAM_BOT_USERNAME` | Telegram bot username                                               |
-| `VITE_TELEGRAM_BOT_ID`       | Telegram bot numeric ID                                             |
 | `VITE_SENTRY_DSN`            | Sentry DSN for error reporting (optional)                           |
 | `VITE_DEBUG`                 | Debug mode flag                                                     |
 | `ALPHAHUMAN_DAEMON_INTERNAL` | Force internal daemon mode (default: false, uses external services) |

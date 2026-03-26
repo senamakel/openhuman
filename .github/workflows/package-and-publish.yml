@@ -291,7 +291,7 @@ jobs:
           VITE_DEBUG: ${{ vars.VITE_DEBUG }}
 
       - name: Build, package and publish
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         id: build-tauri
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}

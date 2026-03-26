@@ -173,12 +173,6 @@ Environment variable access with defaults.
 // Backend URL
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.example.com';
 
-// Telegram configuration
-export const TELEGRAM_API_ID = import.meta.env.VITE_TELEGRAM_API_ID;
-export const TELEGRAM_API_HASH = import.meta.env.VITE_TELEGRAM_API_HASH;
-export const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME;
-export const TELEGRAM_BOT_ID = import.meta.env.VITE_TELEGRAM_BOT_ID;
-
 // Debug mode
 export const DEBUG = import.meta.env.VITE_DEBUG === 'true';
 ```

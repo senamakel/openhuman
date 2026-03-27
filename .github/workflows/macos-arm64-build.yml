@@ -102,7 +102,7 @@ jobs:
           WITH_UPDATER: 'true'
           MACOSX_DEPLOYMENT_TARGET: '10.15'
         with:
-          args: -c ${{ steps.config-overrides.outputs.json }} --target aarch64-apple-darwin
+          args: -c ${{ steps.config-overrides.outputs.json }} --target aarch64-apple-darwin -- -- --bin OpenHuman
           includeDebug: false
           includeRelease: true
           includeUpdaterJson: false

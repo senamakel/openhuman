@@ -27,12 +27,10 @@ required-features = ["tools-discovery-bin"]
 [[bin]]
 name = "openhuman-core"
 path = "src/bin/openhuman-core.rs"
-required-features = ["openhuman-core-bin"]
 
 [[bin]]
 name = "openhuman-cli"
 path = "src/bin/openhuman-cli.rs"
-required-features = ["openhuman-cli-bin"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -188,8 +186,6 @@ custom-protocol = ["tauri/custom-protocol"]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
 tools-discovery-bin = []
-openhuman-core-bin = []
-openhuman-cli-bin = []
 
 # OpenHuman feature flags
 hardware = ["dep:nusb", "dep:tokio-serial"]

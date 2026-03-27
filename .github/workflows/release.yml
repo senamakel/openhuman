@@ -313,10 +313,9 @@ jobs:
           WITH_UPDATER: 'true'
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.settings.platform == 'macos-latest' && '10.15' || '' }}
         with:
-          # Keep only the app binary in the .app bundle by default.
-          # Helper bins (openhuman-tools-discovery/openhuman-core/openhuman-cli)
-          # are feature-gated in Cargo.toml to prevent unsigned subcomponents
-          # from breaking macOS codesign during release packaging.
+          # `openhuman-tools-discovery` is feature-gated in Cargo.toml so it
+          # does not get bundled into release app packages and break macOS
+          # codesign as an unsigned subcomponent.
           args: -c ${{ steps.config-overrides.outputs.json }} ${{ matrix.settings.args }}
           includeDebug: false
           includeRelease: true

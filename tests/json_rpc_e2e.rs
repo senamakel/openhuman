@@ -215,7 +215,7 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
 
     write_min_config(&openhuman_home, &mock_origin);
 
-    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router()).await;
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
 
     tokio::time::sleep(Duration::from_millis(100)).await;

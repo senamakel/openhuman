@@ -105,6 +105,19 @@ export async function triggerDeepLink(url: string): Promise<void> {
  * @returns {Promise<void>}
  */
 export function triggerAuthDeepLink(token: string): Promise<void> {
+  const envBypassToken = (process.env.OPENHUMAN_E2E_AUTH_BYPASS_TOKEN || '').trim();
+  if (envBypassToken) {
+    return triggerDeepLink(
+      `openhuman://auth?token=${encodeURIComponent(envBypassToken)}&key=auth`
+    );
+  }
+
+  const authBypassEnabled = (process.env.OPENHUMAN_E2E_AUTH_BYPASS || '').trim() === '1';
+  if (authBypassEnabled) {
+    const userId = (process.env.OPENHUMAN_E2E_AUTH_BYPASS_USER_ID || 'e2e-user').trim();
+    return triggerAuthDeepLinkBypass(userId || 'e2e-user');
+  }
+
   return triggerDeepLink(`openhuman://auth?token=${encodeURIComponent(token)}`);
 }
 

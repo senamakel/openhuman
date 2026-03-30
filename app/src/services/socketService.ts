@@ -2,8 +2,8 @@ import { isTauri as coreIsTauri, invoke } from '@tauri-apps/api/core';
 import debug from 'debug';
 import { io, Socket } from 'socket.io-client';
 
-import { MCPTool, MCPToolCall, SocketIOMCPTransportImpl } from '../lib/mcp';
-import { skillManager, syncToolsToBackend } from '../lib/skills';
+import { SocketIOMCPTransportImpl } from '../lib/mcp';
+import { syncToolsToBackend } from '../lib/skills';
 import { store } from '../store';
 import { upsertChannelConnection } from '../store/channelConnectionsSlice';
 import { resetForUser, setSocketIdForUser, setStatusForUser } from '../store/socketSlice';

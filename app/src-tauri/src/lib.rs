@@ -461,8 +461,8 @@ pub fn run() {
     builder
         // Setup
         .setup(move |app| {
-            // Register deep link handlers (Windows/Linux)
-            #[cfg(any(windows, target_os = "linux"))]
+            // Register deep link handlers on desktop platforms.
+            #[cfg(desktop)]
             {
                 app.deep_link().register_all()?;
             }

@@ -1,11 +1,13 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{header, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{extract::Request, Json, Router};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
+use tokio_stream::StreamExt;
 
 use crate::core::all;
 use crate::core::types::{AppState, RpcError, RpcFailure, RpcRequest, RpcSuccess};
@@ -90,6 +92,7 @@ pub fn build_core_http_router() -> Router {
         .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/schema", get(schema_handler))
+        .route("/events", get(events_handler))
         .route("/rpc", post(rpc_handler))
         .fallback(not_found_handler)
         .layer(middleware::from_fn(cors_middleware))
@@ -136,6 +139,34 @@ async fn schema_handler(State(_state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, Json(build_http_schema_dump())).into_response()
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct EventsQuery {
+    client_id: String,
+}
+
+async fn events_handler(
+    Query(query): Query<EventsQuery>,
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let client_id = query.client_id;
+    let rx = crate::openhuman::web_channel::subscribe_web_channel_events();
+    let stream = tokio_stream::wrappers::BroadcastStream::new(rx).filter_map(move |item| {
+        let event = match item {
+            Ok(ev) => ev,
+            Err(_) => return None,
+        };
+        if event.client_id != client_id {
+            return None;
+        }
+        let data = match serde_json::to_string(&event) {
+            Ok(data) => data,
+            Err(_) => return None,
+        };
+        Some(Ok(Event::default().event(event.event).data(data)))
+    });
+
+    Sse::new(stream).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(10)))
+}
+
 async fn root_handler() -> impl IntoResponse {
     (
         StatusCode::OK,
@@ -145,6 +176,7 @@ async fn root_handler() -> impl IntoResponse {
             "endpoints": {
                 "health": "/health",
                 "schema": "/schema",
+                "events": "/events?client_id=<id>",
                 "rpc": "/rpc"
             },
             "usage": {

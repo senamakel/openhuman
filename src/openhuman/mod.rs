@@ -36,4 +36,5 @@ pub mod tools;
 pub mod tray;
 pub mod tunnel;
 pub mod util;
+pub mod web_channel;
 pub mod workspace;

@@ -288,14 +288,13 @@ async fn write_ai_config_file(filename: String, content: String) -> Result<bool,
         return Err("Invalid filename: path traversal not allowed".to_string());
     }
 
-    let ai_dir = utils::dev_paths::repo_ai_prompts_dir(&current_dir)
-        .unwrap_or_else(|| {
-            current_dir
-                .join("src")
-                .join("openhuman")
-                .join("agent")
-                .join("prompts")
-        });
+    let ai_dir = utils::dev_paths::repo_ai_prompts_dir(&current_dir).unwrap_or_else(|| {
+        current_dir
+            .join("src")
+            .join("openhuman")
+            .join("agent")
+            .join("prompts")
+    });
     let file_path = ai_dir.join(&filename);
 
     // Ensure ai directory exists
@@ -323,14 +322,12 @@ async fn watch_daemon_health_rpc(app_handle: AppHandle) {
     loop {
         interval.tick().await;
 
-        match crate::core_rpc::call::<serde_json::Value>("openhuman.health_snapshot", json!({})).await
+        match crate::core_rpc::call::<serde_json::Value>("openhuman.health_snapshot", json!({}))
+            .await
         {
             Ok(raw_payload) => {
                 // RpcOutcome may be wrapped as {"result": {...}, "logs": [...]}; normalize to snapshot.
-                let snapshot = raw_payload
-                    .get("result")
-                    .cloned()
-                    .unwrap_or(raw_payload);
+                let snapshot = raw_payload.get("result").cloned().unwrap_or(raw_payload);
 
                 if last_snapshot.as_ref() != Some(&snapshot) {
                     if let Err(e) = app_handle.emit("openhuman:health", &snapshot) {
@@ -581,6 +578,8 @@ pub fn run() {
                     openhuman_service_stop,
                     openhuman_service_status,
                     openhuman_service_uninstall,
+                    chat_send,
+                    chat_cancel,
                 ]
             }
         })

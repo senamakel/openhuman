@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, RunEvent};
 use tokio::time::{interval, Duration};
 
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(desktop)]
 use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Demo command - can be removed in production

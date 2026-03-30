@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
-import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
+import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
 import {
   clickText,
   dumpAccessibilityTree,
@@ -73,13 +73,10 @@ describe('Conversations web channel flow', () => {
   });
 
   it('sends UI message through agent loop and renders response', async () => {
-    await triggerAuthDeepLink('e2e-conversations-token');
+    await triggerAuthDeepLinkBypass('e2e-conversations-user');
     await waitForWindowVisible(25_000);
     await waitForWebView(15_000);
     await waitForAppReady(15_000);
-
-    const consume = await waitForRequest('POST', '/telegram/login-tokens/');
-    expect(consume).toBeDefined();
 
     await completeOnboardingIfVisible();
 

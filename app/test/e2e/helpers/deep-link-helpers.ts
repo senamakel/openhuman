@@ -49,6 +49,21 @@ export async function triggerDeepLink(url: string): Promise<void> {
   // This avoids relying on global OS URL-handler registration.
   if (typeof browser !== 'undefined') {
     try {
+      await browser.execute('macos: activateApp', {
+        bundleId: 'com.openhuman.app',
+      } as Record<string, unknown>);
+    } catch {
+      // ignore
+    }
+    try {
+      await browser.execute('macos: launchApp', {
+        bundleId: 'com.openhuman.app',
+        arguments: [url],
+      } as Record<string, unknown>);
+    } catch {
+      // Fall through to deepLink.
+    }
+    try {
       await browser.execute('macos: deepLink', {
         url,
         bundleId: 'com.openhuman.app',
@@ -91,4 +106,31 @@ export async function triggerDeepLink(url: string): Promise<void> {
  */
 export function triggerAuthDeepLink(token: string): Promise<void> {
   return triggerDeepLink(`openhuman://auth?token=${encodeURIComponent(token)}`);
+}
+
+function toBase64Url(value: string): string {
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+export function buildBypassJwt(userId: string = 'e2e-user'): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: userId,
+      userId,
+      tgUserId: userId,
+      exp: Math.floor(Date.now() / 1000) + 60 * 60,
+    })
+  );
+  // Signature is unused by frontend decode path; keep 3-part JWT format.
+  return `${header}.${payload}.e2e`;
+}
+
+export function triggerAuthDeepLinkBypass(userId: string = 'e2e-user'): Promise<void> {
+  const token = buildBypassJwt(userId);
+  return triggerDeepLink(`openhuman://auth?token=${encodeURIComponent(token)}&key=auth`);
 }

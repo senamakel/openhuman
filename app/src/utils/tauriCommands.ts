@@ -1344,36 +1344,44 @@ export async function openhumanServiceInstall(): Promise<CommandResponse<Service
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ServiceStatus>>({ method: 'openhuman.service_install' });
+  return await invoke<CommandResponse<ServiceStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.service_install', params: {} },
+  });
 }
 
 export async function openhumanServiceStart(): Promise<CommandResponse<ServiceStatus>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ServiceStatus>>({ method: 'openhuman.service_start' });
+  return await invoke<CommandResponse<ServiceStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.service_start', params: {} },
+  });
 }
 
 export async function openhumanServiceStop(): Promise<CommandResponse<ServiceStatus>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ServiceStatus>>({ method: 'openhuman.service_stop' });
+  return await invoke<CommandResponse<ServiceStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.service_stop', params: {} },
+  });
 }
 
 export async function openhumanServiceStatus(): Promise<CommandResponse<ServiceStatus>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ServiceStatus>>({ method: 'openhuman.service_status' });
+  return await invoke<CommandResponse<ServiceStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.service_status', params: {} },
+  });
 }
 
 export async function openhumanServiceUninstall(): Promise<CommandResponse<ServiceStatus>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ServiceStatus>>({
-    method: 'openhuman.service_uninstall',
+  return await invoke<CommandResponse<ServiceStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.service_uninstall', params: {} },
   });
 }
 
@@ -1381,8 +1389,8 @@ export async function openhumanAgentServerStatus(): Promise<CommandResponse<Agen
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<AgentServerStatus>>({
-    method: 'openhuman.agent_server_status',
+  return await invoke<CommandResponse<AgentServerStatus>>('core_rpc_relay', {
+    request: { method: 'openhuman.agent_server_status', params: {} },
   });
 }
 

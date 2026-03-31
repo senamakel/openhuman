@@ -80,21 +80,12 @@ jobs:
 
       - name: Run clippy (core crate)
         run: cargo clippy -p openhuman
-        env:
-          RUSTC_WRAPPER: sccache
-          SCCACHE_GHA_ENABLED: "true"
 
       - name: Test core crate (openhuman)
         run: cargo test -p openhuman
-        env:
-          RUSTC_WRAPPER: sccache
-          SCCACHE_GHA_ENABLED: "true"
 
       - name: Build sidecar core binary
         run: cargo build --profile ci --target x86_64-unknown-linux-gnu --bin openhuman-core
-        env:
-          RUSTC_WRAPPER: sccache
-          SCCACHE_GHA_ENABLED: "true"
 
       - name: Stage sidecar for Tauri shell tests
         run: |
@@ -104,45 +95,3 @@ jobs:
 
       - name: Test Tauri shell (OpenHuman)
         run: cargo test --manifest-path app/src-tauri/Cargo.toml
-        env:
-          RUSTC_WRAPPER: sccache
-          SCCACHE_GHA_ENABLED: "true"
-
-  # e2e-macos:
-  #   name: E2E (macOS / Appium)
-  #   runs-on: macos-latest
-  #   timeout-minutes: 90
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 1
-  #         submodules: recursive
-
-  #     - name: Setup Node.js 24.x
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 24.x
-  #         cache: "yarn"
-
-  #     - name: Install Rust (rust-toolchain.toml)
-  #       uses: dtolnay/rust-toolchain@1.93.0
-
-  #     - name: Install dependencies
-  #       run: yarn install --frozen-lockfile
-
-  #     - name: Ensure .env exists for E2E build
-  #       run: |
-  #         touch .env
-  #         touch app/.env
-
-  #     - name: Install Appium and mac2 driver
-  #       run: |
-  #         npm install -g appium
-  #         appium driver install mac2
-
-  #     - name: Build E2E app bundle
-  #       run: yarn workspace openhuman-app test:e2e:build
-
-  #     - name: Run all E2E flows
-  #       run: yarn workspace openhuman-app test:e2e:all:flows

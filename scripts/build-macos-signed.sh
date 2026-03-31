@@ -155,44 +155,21 @@ fi
 echo
 echo "App bundle: $APP_PATH"
 
-# ── Re-sign sidecar binaries inside the .app with hardened runtime ───
+# ── Re-sign entire .app with hardened runtime (deep) ─────────────────
 # Tauri signs sidecars during bundling but may not apply --options runtime
 # or entitlements, which Apple notarization requires on ALL executables.
+# A single --deep --force pass re-signs everything atomically: the main
+# binary, all sidecars, frameworks, and the outer seal.
 ENTITLEMENTS="app/src-tauri/entitlements.sidecar.plist"
 
 echo
-echo "Re-signing binaries inside the .app with hardened runtime..."
-# Sign all executables in Contents/MacOS except the main app binary
-MAIN_EXECUTABLE="$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleExecutable 2>/dev/null || echo "OpenHuman")"
+echo "Contents of .app bundle:"
+ls -la "$APP_PATH/Contents/MacOS/"
+ls -la "$APP_PATH/Contents/Frameworks/" 2>/dev/null || true
 
-for bin in "$APP_PATH/Contents/MacOS/"*; do
-  [[ -f "$bin" && -x "$bin" ]] || continue
-  BASENAME="$(basename "$bin")"
-  if [[ "$BASENAME" == "$MAIN_EXECUTABLE" ]]; then
-    continue  # main binary — will be re-signed with the whole .app
-  fi
-  echo "  Re-signing sidecar: $BASENAME"
-  codesign --force --options runtime \
-    --entitlements "$ENTITLEMENTS" \
-    --sign "$APPLE_SIGNING_IDENTITY" \
-    --timestamp \
-    "$bin"
-  codesign --verify --strict --verbose=1 "$bin"
-done
-
-# Also sign any frameworks/dylibs inside the bundle
-for lib in "$APP_PATH/Contents/Frameworks/"*.dylib "$APP_PATH/Contents/Frameworks/"*.framework; do
-  [[ -e "$lib" ]] || continue
-  echo "  Re-signing framework: $(basename "$lib")"
-  codesign --force --options runtime \
-    --sign "$APPLE_SIGNING_IDENTITY" \
-    --timestamp \
-    "$lib"
-done
-
-# Re-sign the entire .app so the seal covers the updated sidecar signatures
-echo "  Re-signing .app bundle..."
-codesign --force --options runtime \
+echo
+echo "Re-signing .app with --deep --force --options runtime..."
+codesign --deep --force --options runtime \
   --entitlements "$ENTITLEMENTS" \
   --sign "$APPLE_SIGNING_IDENTITY" \
   --timestamp \
@@ -202,13 +179,6 @@ echo
 echo "Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 echo "Signature OK."
-
-# Verify sidecar specifically
-SIDECAR="$(find "$APP_PATH/Contents/MacOS" -name 'openhuman*' ! -name "$MAIN_EXECUTABLE" 2>/dev/null | head -1)"
-if [[ -n "$SIDECAR" ]]; then
-  echo "Verifying sidecar hardened runtime..."
-  codesign -d --verbose=4 "$SIDECAR" 2>&1 | grep -E 'flags|runtime' || true
-fi
 
 # ── Notarize ──────────────────────────────────────────────────────────
 if $SKIP_NOTARIZE; then

@@ -525,51 +525,19 @@ jobs:
           rm -f "$CERT_FILE"
           echo "Signing identity imported into $KEYCHAIN"
 
-          echo "=== Re-signing binaries inside $APP_PATH with hardened runtime ==="
+          echo "=== Re-signing entire .app with hardened runtime (deep) ==="
 
-          # Determine main executable name from Info.plist
-          MAIN_EXE="$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleExecutable 2>/dev/null || echo "OpenHuman")"
+          # List what's inside for diagnostics
+          echo "Contents/MacOS:"
+          ls -la "$APP_PATH/Contents/MacOS/"
+          echo "Contents/Resources (openhuman):"
+          ls -la "$APP_PATH/Contents/Resources/"openhuman-* 2>/dev/null || echo "  (none)"
+          echo "Contents/Frameworks:"
+          ls -la "$APP_PATH/Contents/Frameworks/" 2>/dev/null || echo "  (none)"
 
-          # Re-sign every executable in Contents/MacOS except the main binary
-          for bin in "$APP_PATH/Contents/MacOS/"*; do
-            [ -f "$bin" ] && [ -x "$bin" ] || continue
-            BASENAME="$(basename "$bin")"
-            if [ "$BASENAME" = "$MAIN_EXE" ]; then
-              continue
-            fi
-            echo "  Re-signing sidecar: $BASENAME"
-            codesign --force --options runtime \
-              --entitlements "$ENTITLEMENTS" \
-              --sign "$APPLE_SIGNING_IDENTITY" \
-              --timestamp \
-              "$bin"
-            codesign --verify --strict --verbose=1 "$bin"
-          done
-
-          # Also re-sign sidecars that land in Contents/Resources (Tauri may place them here)
-          for bin in "$APP_PATH/Contents/Resources/"openhuman-*; do
-            [ -f "$bin" ] || continue
-            echo "  Re-signing resource sidecar: $(basename "$bin")"
-            codesign --force --options runtime \
-              --entitlements "$ENTITLEMENTS" \
-              --sign "$APPLE_SIGNING_IDENTITY" \
-              --timestamp \
-              "$bin"
-          done
-
-          # Re-sign frameworks/dylibs
-          for lib in "$APP_PATH/Contents/Frameworks/"*.dylib "$APP_PATH/Contents/Frameworks/"*.framework; do
-            [ -e "$lib" ] || continue
-            echo "  Re-signing framework: $(basename "$lib")"
-            codesign --force --options runtime \
-              --sign "$APPLE_SIGNING_IDENTITY" \
-              --timestamp \
-              "$lib"
-          done
-
-          # Re-sign the entire .app so the seal covers updated signatures
-          echo "  Re-signing .app bundle..."
-          codesign --force --options runtime \
+          # Single --deep --force pass re-signs everything atomically:
+          # the main binary, all sidecars, frameworks, and the outer seal.
+          codesign --deep --force --options runtime \
             --entitlements "$ENTITLEMENTS" \
             --sign "$APPLE_SIGNING_IDENTITY" \
             --timestamp \

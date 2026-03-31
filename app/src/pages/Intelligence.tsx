@@ -366,9 +366,7 @@ export default function Intelligence() {
                     <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
                       <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
                     </div>
-                    <h2 className="text-lg font-semibold text-white mb-2">
-                      Analyzing your data…
-                    </h2>
+                    <h2 className="text-lg font-semibold text-white mb-2">Analyzing your data…</h2>
                     <p className="text-stone-400 text-sm">
                       The conscious loop is reviewing your connected skills
                     </p>
@@ -399,9 +397,7 @@ export default function Intelligence() {
                     ) : usingMemoryData ? (
                       <>
                         <h2 className="text-lg font-semibold text-white mb-2">All caught up!</h2>
-                        <p className="text-stone-400 text-sm">
-                          No actionable items at the moment.
-                        </p>
+                        <p className="text-stone-400 text-sm">No actionable items at the moment.</p>
                       </>
                     ) : (
                       <>
@@ -444,9 +440,7 @@ export default function Intelligence() {
                             <div
                               key={item.id}
                               className="animate-fade-up"
-                              style={{
-                                animationDelay: `${groupIndex * 50 + itemIndex * 25}ms`,
-                              }}>
+                              style={{ animationDelay: `${groupIndex * 50 + itemIndex * 25}ms` }}>
                               <ActionableCard
                                 item={item}
                                 onComplete={handleComplete}
@@ -487,7 +481,8 @@ export default function Intelligence() {
                 </div>
                 <h2 className="text-lg font-semibold text-white mb-2">Subconscious</h2>
                 <p className="text-stone-400 text-sm mb-1">
-                  Background pattern recognition and latent connections across your data.
+                  OpenHuman will constantly have subconscious thoughts based on all the information
+                  it has access to and the activity you have engaged with it in.
                 </p>
                 <p className="text-xs text-stone-500">Coming soon</p>
               </div>
@@ -517,7 +512,9 @@ export default function Intelligence() {
                 </div>
                 <h2 className="text-lg font-semibold text-white mb-2">Dreams</h2>
                 <p className="text-stone-400 text-sm mb-1">
-                  Creative synthesis and speculative projections generated while you sleep.
+                  Twice everyday, OpenHuman will generate a dream (or a summary) based on everything
+                  that has happened in your life today. These dreams re then indexed and can be used
+                  to influence OpenHuman's behavior.
                 </p>
                 <p className="text-xs text-stone-500">Coming soon</p>
               </div>

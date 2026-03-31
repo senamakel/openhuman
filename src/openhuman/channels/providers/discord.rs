@@ -272,9 +272,7 @@ impl Channel for DiscordChannel {
                 }
             }
         });
-        write
-            .send(Message::Text(identify.to_string()))
-            .await?;
+        write.send(Message::Text(identify.to_string())).await?;
 
         tracing::info!("Discord: connected and identified");
 

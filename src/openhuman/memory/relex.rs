@@ -435,9 +435,11 @@ async fn resolve_bundle_dir(model_name: &str) -> Option<PathBuf> {
     }
 
     if uses_default_bundle(model_name)
-        && ensure_managed_bundle(&managed_dir).await.is_ok() && bundle_complete(&managed_dir) {
-            return Some(managed_dir);
-        }
+        && ensure_managed_bundle(&managed_dir).await.is_ok()
+        && bundle_complete(&managed_dir)
+    {
+        return Some(managed_dir);
+    }
 
     None
 }

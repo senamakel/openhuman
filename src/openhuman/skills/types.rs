@@ -23,7 +23,6 @@ pub enum SkillStatus {
     Error,
 }
 
-
 /// Messages sent to a skill instance's message loop.
 #[derive(Debug)]
 pub enum SkillMessage {

@@ -21,7 +21,6 @@ pub enum ExtractionMode {
     Chunk,
 }
 
-
 impl ExtractionMode {
     fn as_str(self) -> &'static str {
         match self {

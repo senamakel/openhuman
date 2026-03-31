@@ -13,7 +13,6 @@ pub enum ConnectionStatus {
     Error,
 }
 
-
 /// Socket connection state emitted to frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SocketState {

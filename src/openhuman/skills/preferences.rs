@@ -121,10 +121,17 @@ impl PreferencesStore {
         self.cache.read().clone()
     }
 
-    /// Resolve whether a skill should start, considering user preference and manifest default.
+    /// Resolve whether a skill should start, considering user preference,
+    /// setup completion, and manifest default.
+    ///
+    /// A skill with `setup_complete = true` always starts — the user explicitly
+    /// went through setup/OAuth, so the intent is to have it running.
+    /// Otherwise fall back to the explicit `enabled` preference, then the manifest default.
     pub fn resolve_should_start(&self, skill_id: &str, manifest_auto_start: bool) -> bool {
-        match self.is_enabled(skill_id) {
-            Some(enabled) => enabled,
+        let pref = self.cache.read().get(skill_id).cloned();
+        match pref {
+            Some(p) if p.setup_complete => true,
+            Some(p) => p.enabled,
             None => manifest_auto_start,
         }
     }

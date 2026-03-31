@@ -19,6 +19,15 @@ pub struct ObservabilityConfig {
     /// Sentry DSN for error reporting. Overridden by `OPENHUMAN_SENTRY_DSN` env var.
     #[serde(default)]
     pub sentry_dsn: Option<String>,
+
+    /// Whether anonymized analytics and error reporting is enabled.
+    /// Defaults to `true`. Users can disable via settings or CLI.
+    #[serde(default = "default_analytics_enabled")]
+    pub analytics_enabled: bool,
+}
+
+fn default_analytics_enabled() -> bool {
+    true
 }
 
 impl Default for ObservabilityConfig {
@@ -28,6 +37,7 @@ impl Default for ObservabilityConfig {
             otel_endpoint: None,
             otel_service_name: None,
             sentry_dsn: None,
+            analytics_enabled: true,
         }
     }
 }

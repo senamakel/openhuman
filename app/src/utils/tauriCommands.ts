@@ -1065,6 +1065,29 @@ export async function openhumanUpdateScreenIntelligenceSettings(
   });
 }
 
+export async function openhumanUpdateAnalyticsSettings(
+  update: { enabled?: boolean }
+): Promise<CommandResponse<ConfigSnapshot>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+    method: 'openhuman.update_analytics_settings',
+    params: update,
+  });
+}
+
+export async function openhumanGetAnalyticsSettings(): Promise<
+  CommandResponse<{ enabled: boolean }>
+> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<{ enabled: boolean }>>({
+    method: 'openhuman.get_analytics_settings',
+  });
+}
+
 export async function openhumanGetRuntimeFlags(): Promise<CommandResponse<RuntimeFlags>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');

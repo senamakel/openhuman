@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context, Result};
 use futures_util::TryStreamExt;
+#[cfg(target_os = "windows")]
 use glob::glob;
 use ndarray::{Array, Array2, Array3, Array4, Ix2, Ix3, Ix4};
 use ort::{
@@ -482,6 +483,7 @@ fn model_file_path(bundle_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+#[allow(unused_variables)]
 fn ensure_ort_dylib_path(bundle_dir: &Path) {
     if env::var_os("ORT_DYLIB_PATH").is_some() {
         return;

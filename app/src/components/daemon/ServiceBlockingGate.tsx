@@ -177,8 +177,8 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
       <div className="w-full max-w-xl rounded-2xl border border-white/15 bg-black/30 p-6 space-y-4">
         <h1 className="text-xl font-semibold">OpenHuman Service Required</h1>
         <p className="text-sm text-white/70">
-          The desktop service must be installed and running before the app can continue.
-          Use the buttons below to set up or restart the service.
+          The desktop service must be installed and running before the app can continue. Use the
+          buttons below to set up or restart the service.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -239,9 +239,7 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
               void runOperation('Starting service', () => openhumanServiceStart());
             }}
             className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-green-600 hover:bg-green-500 text-white cursor-pointer">
-            {isOperating && operatingLabel === 'Starting service'
-              ? 'Starting...'
-              : 'Start Service'}
+            {isOperating && operatingLabel === 'Starting service' ? 'Starting...' : 'Start Service'}
           </button>
 
           <button

@@ -1542,9 +1542,7 @@ export async function openhumanServiceStart(): Promise<CommandResponse<ServiceSt
     throw new Error('Not running in Tauri');
   }
   try {
-    return await callCoreRpc<CommandResponse<ServiceStatus>>({
-      method: 'openhuman.service_start',
-    });
+    return await callCoreRpc<CommandResponse<ServiceStatus>>({ method: 'openhuman.service_start' });
   } catch {
     const raw = await invoke<string>('service_start_direct');
     return parseServiceCliOutput(raw);

@@ -61,8 +61,7 @@ where
         let runtime_result = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|e| format!("Failed to create runtime: {}", e))
-            .and_then(|rt| Ok(rt.block_on(future)));
+            .map_err(|e| format!("Failed to create runtime: {}", e)).map(|rt| rt.block_on(future));
 
         let result = match runtime_result {
             Ok(value) => Ok(value),

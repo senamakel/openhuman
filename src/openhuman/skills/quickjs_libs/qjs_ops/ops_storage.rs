@@ -22,7 +22,7 @@ pub fn register<'js>(
             Function::new(
                 ctx.clone(),
                 move |name: String, version: u32| -> rquickjs::Result<String> {
-                    let result = s.open_database(&name, version).map_err(|e| js_err(e))?;
+                    let result = s.open_database(&name, version).map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -44,7 +44,7 @@ pub fn register<'js>(
         ops.set(
             "idb_delete_database",
             Function::new(ctx.clone(), move |name: String| -> rquickjs::Result<()> {
-                s.delete_database(&name).map_err(|e| js_err(e))
+                s.delete_database(&name).map_err(js_err)
             }),
         )?;
     }
@@ -64,7 +64,7 @@ pub fn register<'js>(
                     let key_path = opts["keyPath"].as_str();
                     let auto_increment = opts["autoIncrement"].as_bool().unwrap_or(false);
                     s.create_object_store(&db_name, &store_name, key_path, auto_increment)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -78,7 +78,7 @@ pub fn register<'js>(
                 ctx.clone(),
                 move |db_name: String, store_name: String| -> rquickjs::Result<()> {
                     s.delete_object_store(&db_name, &store_name)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -98,7 +98,7 @@ pub fn register<'js>(
                         serde_json::from_str(&key).map_err(|e| js_err(e.to_string()))?;
                     let result = s
                         .get(&db_name, &store_name, &key_val)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -121,7 +121,7 @@ pub fn register<'js>(
                     let value_val: serde_json::Value =
                         serde_json::from_str(&value).map_err(|e| js_err(e.to_string()))?;
                     s.put(&db_name, &store_name, &key_val, &value_val)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -137,7 +137,7 @@ pub fn register<'js>(
                     let key_val: serde_json::Value =
                         serde_json::from_str(&key).map_err(|e| js_err(e.to_string()))?;
                     s.delete(&db_name, &store_name, &key_val)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -150,7 +150,7 @@ pub fn register<'js>(
             Function::new(
                 ctx.clone(),
                 move |db_name: String, store_name: String| -> rquickjs::Result<()> {
-                    s.clear(&db_name, &store_name).map_err(|e| js_err(e))
+                    s.clear(&db_name, &store_name).map_err(js_err)
                 },
             ),
         )?;
@@ -168,7 +168,7 @@ pub fn register<'js>(
                       -> rquickjs::Result<String> {
                     let result = s
                         .get_all(&db_name, &store_name, count)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -187,7 +187,7 @@ pub fn register<'js>(
                       -> rquickjs::Result<String> {
                     let result = s
                         .get_all_keys(&db_name, &store_name, count)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -201,7 +201,7 @@ pub fn register<'js>(
             Function::new(
                 ctx.clone(),
                 move |db_name: String, store_name: String| -> rquickjs::Result<u32> {
-                    s.count(&db_name, &store_name).map_err(|e| js_err(e))
+                    s.count(&db_name, &store_name).map_err(js_err)
                 },
             ),
         )?;
@@ -226,7 +226,7 @@ pub fn register<'js>(
                     };
                     let rows = s
                         .skill_db_exec(&sc.skill_id, &sql, &params)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     Ok(rows as i64)
                 },
             ),
@@ -248,7 +248,7 @@ pub fn register<'js>(
                     };
                     let result = s
                         .skill_db_get(&sc.skill_id, &sql, &params)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -270,7 +270,7 @@ pub fn register<'js>(
                     };
                     let result = s
                         .skill_db_all(&sc.skill_id, &sql, &params)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -285,7 +285,7 @@ pub fn register<'js>(
             Function::new(
                 ctx.clone(),
                 move |key: String| -> rquickjs::Result<String> {
-                    let result = s.skill_kv_get(&sc.skill_id, &key).map_err(|e| js_err(e))?;
+                    let result = s.skill_kv_get(&sc.skill_id, &key).map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -303,7 +303,7 @@ pub fn register<'js>(
                     let value: serde_json::Value =
                         serde_json::from_str(&value_json).map_err(|e| js_err(e.to_string()))?;
                     s.skill_kv_set(&sc.skill_id, &key, &value)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -323,7 +323,7 @@ pub fn register<'js>(
                 move |key: String| -> rquickjs::Result<String> {
                     let result = s
                         .skill_store_get(&sc.skill_id, &key)
-                        .map_err(|e| js_err(e))?;
+                        .map_err(js_err)?;
                     serde_json::to_string(&result).map_err(|e| js_err(e.to_string()))
                 },
             ),
@@ -341,7 +341,7 @@ pub fn register<'js>(
                     let value: serde_json::Value =
                         serde_json::from_str(&value_json).map_err(|e| js_err(e.to_string()))?;
                     s.skill_store_set(&sc.skill_id, &key, &value)
-                        .map_err(|e| js_err(e))
+                        .map_err(js_err)
                 },
             ),
         )?;
@@ -354,7 +354,7 @@ pub fn register<'js>(
             "store_delete",
             Function::new(ctx.clone(), move |key: String| -> rquickjs::Result<()> {
                 s.skill_store_delete(&sc.skill_id, &key)
-                    .map_err(|e| js_err(e))
+                    .map_err(js_err)
             }),
         )?;
     }
@@ -365,7 +365,7 @@ pub fn register<'js>(
         ops.set(
             "store_keys",
             Function::new(ctx.clone(), move || -> rquickjs::Result<String> {
-                let keys = s.skill_store_keys(&sc.skill_id).map_err(|e| js_err(e))?;
+                let keys = s.skill_store_keys(&sc.skill_id).map_err(js_err)?;
                 serde_json::to_string(&keys).map_err(|e| js_err(e.to_string()))
             }),
         )?;

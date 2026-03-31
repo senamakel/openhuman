@@ -6,6 +6,12 @@ use crate::openhuman::tools::{Tool, ToolResult};
 
 pub struct SkillsCallTool;
 
+impl Default for SkillsCallTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SkillsCallTool {
     pub fn new() -> Self {
         Self

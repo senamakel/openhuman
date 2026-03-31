@@ -434,11 +434,10 @@ async fn resolve_bundle_dir(model_name: &str) -> Option<PathBuf> {
         return Some(bundle_dir);
     }
 
-    if uses_default_bundle(model_name) {
-        if ensure_managed_bundle(&managed_dir).await.is_ok() && bundle_complete(&managed_dir) {
+    if uses_default_bundle(model_name)
+        && ensure_managed_bundle(&managed_dir).await.is_ok() && bundle_complete(&managed_dir) {
             return Some(managed_dir);
         }
-    }
 
     None
 }
@@ -507,7 +506,6 @@ fn ensure_ort_dylib_path(bundle_dir: &Path) {
         let runtime_lib = candidate.join(ORT_DYLIB_FILE_NAME);
         if runtime_lib.exists() {
             env::set_var("ORT_DYLIB_PATH", runtime_lib);
-            return;
         }
     }
 
@@ -790,8 +788,8 @@ fn decode_entity_spans(
 ) -> Vec<DecodedSpan> {
     let mut spans = Vec::new();
     let num_words = tokens.len();
-    let width_count = logits.shape().get(2).copied().unwrap_or_default() as usize;
-    let class_count = logits.shape().get(3).copied().unwrap_or_default() as usize;
+    let width_count = logits.shape().get(2).copied().unwrap_or_default();
+    let class_count = logits.shape().get(3).copied().unwrap_or_default();
 
     for start in 0..num_words {
         let actual_max_width = max_width

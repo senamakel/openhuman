@@ -1141,7 +1141,7 @@ impl Provider for OpenAiCompatibleProvider {
                     && c.message
                         .tool_calls
                         .as_ref()
-                        .map_or(false, |t| !t.is_empty())
+                        .is_some_and(|t| !t.is_empty())
                 {
                     serde_json::to_string(&c.message)
                         .unwrap_or_else(|_| c.message.effective_content())
@@ -1248,7 +1248,7 @@ impl Provider for OpenAiCompatibleProvider {
                     && c.message
                         .tool_calls
                         .as_ref()
-                        .map_or(false, |t| !t.is_empty())
+                        .is_some_and(|t| !t.is_empty())
                 {
                     serde_json::to_string(&c.message)
                         .unwrap_or_else(|_| c.message.effective_content())

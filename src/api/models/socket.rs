@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 /// Socket connection status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ConnectionStatus {
+    #[default]
     Disconnected,
     Connecting,
     Connected,
@@ -11,11 +13,6 @@ pub enum ConnectionStatus {
     Error,
 }
 
-impl Default for ConnectionStatus {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
 
 /// Socket connection state emitted to frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]

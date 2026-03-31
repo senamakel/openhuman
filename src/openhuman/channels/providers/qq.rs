@@ -264,7 +264,7 @@ impl Channel for QQChannel {
             }
         });
         write
-            .send(Message::Text(identify.to_string().into()))
+            .send(Message::Text(identify.to_string()))
             .await?;
 
         tracing::info!("QQ: connected and identified");
@@ -290,7 +290,7 @@ impl Channel for QQChannel {
                     let d = if sequence >= 0 { json!(sequence) } else { json!(null) };
                     let hb = json!({"op": 1, "d": d});
                     if write
-                        .send(Message::Text(hb.to_string().into()))
+                        .send(Message::Text(hb.to_string()))
                         .await
                         .is_err()
                     {
@@ -322,7 +322,7 @@ impl Channel for QQChannel {
                             let d = if sequence >= 0 { json!(sequence) } else { json!(null) };
                             let hb = json!({"op": 1, "d": d});
                             if write
-                                .send(Message::Text(hb.to_string().into()))
+                                .send(Message::Text(hb.to_string()))
                                 .await
                                 .is_err()
                             {

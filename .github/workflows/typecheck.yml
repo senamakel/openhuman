@@ -63,7 +63,7 @@ jobs:
     name: Rust Quality (fmt + clippy)
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tinyhumansai/openhuman/ci-runner@sha256:ea53feffddf7a01d337ba95fe5a3631ae0ca5c5eab003810d4423820fa40ed3f
+      image: ghcr.io/tinyhumansai/openhuman/ci-runner:rust-1.93.0
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

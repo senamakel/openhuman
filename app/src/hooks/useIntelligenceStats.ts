@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { callCoreRpc } from '../services/coreRpcClient';
 import type { AIStatus } from '../store/aiSlice';
 import { useAppSelector } from '../store/hooks';
-import { type GraphRelation, aiListMemoryFiles, memoryGraphQuery } from '../utils/tauriCommands';
+import { aiListMemoryFiles, type GraphRelation, memoryGraphQuery } from '../utils/tauriCommands';
 
 interface SessionEntry {
   sessionId: string;

@@ -395,9 +395,16 @@ async fn handle_message(
                     // Persist credential to disk so it survives restarts
                     let cred_path = data_dir.join("oauth_credential.json");
                     if let Err(e) = std::fs::write(&cred_path, &cred_json) {
-                        log::error!("[skill:{}] Failed to persist OAuth credential: {e}", skill_id);
+                        log::error!(
+                            "[skill:{}] Failed to persist OAuth credential: {e}",
+                            skill_id
+                        );
                     } else {
-                        log::info!("[skill:{}] OAuth credential persisted to {}", skill_id, cred_path.display());
+                        log::info!(
+                            "[skill:{}] OAuth credential persisted to {}",
+                            skill_id,
+                            cred_path.display()
+                        );
                     }
                     let params_str =
                         serde_json::to_string(&params).unwrap_or_else(|_| "{}".to_string());
@@ -456,7 +463,10 @@ async fn handle_message(
                     // Remove persisted credential file
                     let cred_path = data_dir.join("oauth_credential.json");
                     let _ = std::fs::remove_file(&cred_path);
-                    log::info!("[skill:{}] OAuth credential cleared from store and disk", skill_id);
+                    log::info!(
+                        "[skill:{}] OAuth credential cleared from store and disk",
+                        skill_id
+                    );
 
                     // Fire-and-forget: delete memory for this integration
                     if let Some(client) = memory_client_opt {

@@ -113,6 +113,10 @@ pub(crate) async fn restore_oauth_credential(
         .await;
 
     if restored {
-        log::info!("[skill:{}] Restored OAuth credential from {}", skill_id, cred_path.display());
+        log::info!(
+            "[skill:{}] Restored OAuth credential from {}",
+            skill_id,
+            cred_path.display()
+        );
     }
 }

@@ -407,7 +407,15 @@ async fn handle_message(
                         .unwrap_or(200) as u16;
                     let resp_headers: HashMap<String, String> = response_val
                         .get("headers")
-                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .map(|v| match serde_json::from_value(v.clone()) {
+                            Ok(h) => h,
+                            Err(e) => {
+                                log::warn!(
+                                    "[skill] Failed to parse webhook response headers: {e}, raw: {v}"
+                                );
+                                HashMap::new()
+                            }
+                        })
                         .unwrap_or_default();
                     let resp_body = response_val
                         .get("body")

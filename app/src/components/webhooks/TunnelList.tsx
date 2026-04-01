@@ -25,15 +25,19 @@ export default function TunnelList({
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
+    setActionError(null);
     try {
       await onCreateTunnel(newName.trim(), newDesc.trim() || undefined);
       setNewName('');
       setNewDesc('');
       setShowCreate(false);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create tunnel');
     } finally {
       setCreating(false);
     }
@@ -98,6 +102,18 @@ export default function TunnelList({
         </div>
       )}
 
+      {/* Error display */}
+      {actionError && (
+        <div className="p-3 rounded-lg bg-coral-50 text-coral-700 text-sm flex items-center justify-between">
+          <span>{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-coral-500 hover:text-coral-700 text-xs ml-2">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Tunnel list */}
       {tunnels.length === 0 && !loading && (
         <p className="text-sm text-stone-500 text-center py-8">
@@ -115,6 +131,7 @@ export default function TunnelList({
               registration={reg}
               webhookUrl={webhookUrl(tunnel.uuid)}
               onDelete={() => onDeleteTunnel(tunnel.id)}
+              onError={setActionError}
             />
           );
         })}
@@ -129,10 +146,11 @@ interface TunnelCardProps {
   tunnel: Tunnel;
   registration?: TunnelRegistration;
   webhookUrl: string;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
+  onError: (msg: string) => void;
 }
 
-function TunnelCard({ tunnel, registration, webhookUrl, onDelete }: TunnelCardProps) {
+function TunnelCard({ tunnel, registration, webhookUrl, onDelete, onError }: TunnelCardProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -150,6 +168,8 @@ function TunnelCard({ tunnel, registration, webhookUrl, onDelete }: TunnelCardPr
     setDeleting(true);
     try {
       await onDelete();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Failed to delete tunnel');
     } finally {
       setDeleting(false);
     }

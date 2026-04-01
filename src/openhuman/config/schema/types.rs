@@ -104,6 +104,9 @@ pub struct Config {
 
     #[serde(default)]
     pub local_ai: LocalAiConfig,
+
+    #[serde(default)]
+    pub learning: LearningConfig,
 }
 
 impl Default for Config {
@@ -148,6 +151,7 @@ impl Default for Config {
             hardware: HardwareConfig::default(),
             local_ai: LocalAiConfig::default(),
             query_classification: QueryClassificationConfig::default(),
+            learning: LearningConfig::default(),
         }
     }
 }

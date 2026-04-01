@@ -805,6 +805,25 @@ async fn handle_webhook_request(
         Ok(r) => r,
         Err(e) => {
             log::error!("[socket-mgr] Failed to parse webhook:request payload: {e}");
+            // Try to extract correlationId so we can send a 400 back
+            let cid = data
+                .get("correlationId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            emit_via_channel(
+                emit_tx,
+                "webhook:response",
+                json!({
+                    "correlationId": cid,
+                    "statusCode": 400,
+                    "headers": {},
+                    "body": base64_encode(&format!(
+                        "{{\"error\":\"Bad request: {}\"}}",
+                        e.to_string().replace('"', "\\\"")
+                    )),
+                }),
+            );
             return;
         }
     };
@@ -929,28 +948,8 @@ async fn handle_webhook_request(
 /// Base64-encode a string (for webhook response bodies).
 /// Uses the `STANDARD` alphabet (A-Z, a-z, 0-9, +, /) with `=` padding.
 fn base64_encode(input: &str) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let bytes = input.as_bytes();
-    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
-    for chunk in bytes.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        out.push(ALPHABET[((triple >> 18) & 0x3F) as usize] as char);
-        out.push(ALPHABET[((triple >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 {
-            out.push(ALPHABET[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(ALPHABET[(triple & 0x3F) as usize] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(input.as_bytes())
 }
 
 // ---------------------------------------------------------------------------

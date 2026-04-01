@@ -377,7 +377,7 @@ impl SkillRegistry {
 
         sender
             .send(SkillMessage::WebhookRequest {
-                correlation_id: correlation_id.clone(),
+                correlation_id,
                 method,
                 path,
                 headers,

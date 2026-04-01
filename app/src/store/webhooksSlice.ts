@@ -67,7 +67,7 @@ const webhooksSlice = createSlice({
     addActivity: (state, action: PayloadAction<WebhookActivityEntry>) => {
       state.activity.unshift(action.payload);
       if (state.activity.length > MAX_ACTIVITY_ENTRIES) {
-        state.activity = state.activity.slice(0, MAX_ACTIVITY_ENTRIES);
+        state.activity.splice(MAX_ACTIVITY_ENTRIES);
       }
     },
     setLoading: (state, action: PayloadAction<boolean>) => {

@@ -1,7 +1,7 @@
 //! Webhook router — maps tunnel UUIDs to owning skills with isolation enforcement.
 
 use super::types::TunnelRegistration;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -48,8 +48,15 @@ impl WebhookRouter {
                         HashMap::new()
                     }
                 },
-                Err(_) => {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     debug!("[webhooks] No persisted routes file at {:?}", path);
+                    HashMap::new()
+                }
+                Err(e) => {
+                    error!(
+                        "[webhooks] Failed to read persisted routes at {:?}: {}",
+                        path, e
+                    );
                     HashMap::new()
                 }
             }
@@ -194,13 +201,15 @@ impl WebhookRouter {
             return;
         };
 
-        let routes = match self.routes.read() {
-            Ok(r) => r,
-            Err(_) => return,
-        };
-
-        let persisted = PersistedRoutes {
-            registrations: routes.values().cloned().collect(),
+        // Clone routes under the lock, then release before doing I/O.
+        let persisted = {
+            let routes = match self.routes.read() {
+                Ok(r) => r,
+                Err(_) => return,
+            };
+            PersistedRoutes {
+                registrations: routes.values().cloned().collect(),
+            }
         };
 
         if let Some(parent) = path.parent() {

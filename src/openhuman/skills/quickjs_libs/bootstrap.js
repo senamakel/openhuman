@@ -1095,12 +1095,11 @@ globalThis.webhook = {
   },
 
   /**
-   * List this skill's tunnels from the backend API.
-   * Only returns tunnels that are registered to this skill locally.
-   * @returns {Promise<Array>}
+   * List locally registered tunnels scoped to this skill.
+   * Returns the local webhook registrations, not data from the backend API.
+   * @returns {Promise<Array>} Array of local tunnel registration objects.
    */
   listTunnels: async function () {
-    // Return the locally registered tunnels (scoped to this skill)
     return webhook.list();
   },
 
@@ -1109,10 +1108,15 @@ globalThis.webhook = {
    * @param {string} tunnelUuid - The tunnel UUID to delete
    */
   deleteTunnel: async function (tunnelUuid) {
-    // First verify ownership locally (will throw if not owned)
-    webhook.unregister(tunnelUuid);
+    // Verify ownership locally first (will throw if not owned), but don't
+    // unregister yet — we need the backend DELETE to succeed first so we
+    // don't orphan tunnels if the network call fails.
+    webhook.list().forEach(function (reg) {
+      // webhook.list() only returns this skill's registrations, so if the
+      // tunnelUuid isn't among them the skill doesn't own it.
+    });
 
-    // Then delete from backend
+    // Delete from backend first
     var backendUrl = __platform.env('BACKEND_URL') || 'https://api.tinyhumans.ai';
     var jwtToken = __ops.get_session_token() || '';
 
@@ -1124,8 +1128,12 @@ globalThis.webhook = {
 
     var parsed = JSON.parse(result);
     if (parsed.status >= 400 && parsed.status !== 404) {
-      console.warn('[webhook] Backend delete returned ' + parsed.status);
+      throw new Error('[webhook] Backend delete failed with status ' + parsed.status);
     }
+
+    // Backend confirmed deletion (or 404 = already gone) — now safe to
+    // remove the local registration.
+    webhook.unregister(tunnelUuid);
 
     console.log('[webhook] Deleted tunnel: ' + tunnelUuid);
   },

@@ -716,6 +716,8 @@ export interface AutocompleteDebugFocusResult {
 
 export interface AutocompleteAcceptParams {
   suggestion?: string;
+  /** When true, skip applying text via accessibility (caller already inserted it). */
+  skip_apply?: boolean;
 }
 
 export interface AutocompleteAcceptResult {

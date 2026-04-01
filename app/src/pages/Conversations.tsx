@@ -69,21 +69,13 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 function getInlineCompletionSuffix(input: string, suggestion: string): string {
-  const normalizedInput = input;
-  const normalizedSuggestion = suggestion;
-
-  if (!normalizedInput || !normalizedSuggestion) {
-    return '';
+  if (!input || !suggestion) return '';
+  // If backend returns full string (starts with input), extract the suffix portion.
+  if (suggestion.startsWith(input)) {
+    const suffix = suggestion.slice(input.length);
+    return suffix || '';
   }
-
-  if (normalizedSuggestion === normalizedInput) {
-    return '';
-  }
-
-  if (normalizedSuggestion.startsWith(normalizedInput)) {
-    return normalizedSuggestion.slice(normalizedInput.length);
-  }
-
+  // Suggestion doesn't start with current input — it's stale; discard it.
   return '';
 }
 
@@ -153,6 +145,7 @@ const Conversations = () => {
   const lastSpokenMessageIdRef = useRef<string | null>(null);
   const autocompleteDebounceRef = useRef<number | null>(null);
   const autocompleteRequestSeqRef = useRef(0);
+  const sendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getAudioExtension = (mimeType: string): string => {
     const lower = mimeType.toLowerCase();
@@ -383,6 +376,10 @@ const Conversations = () => {
             ),
           };
         });
+        if (sendingTimeoutRef.current) {
+          clearTimeout(sendingTimeoutRef.current);
+          sendingTimeoutRef.current = null;
+        }
 
         // Fire-and-forget: auto-react to the user's message
         const pending = pendingReactionRef.current.get(event.thread_id);
@@ -439,6 +436,10 @@ const Conversations = () => {
       },
       onError: event => {
         if (event.thread_id !== selectedThreadIdRef.current) return;
+        if (sendingTimeoutRef.current) {
+          clearTimeout(sendingTimeoutRef.current);
+          sendingTimeoutRef.current = null;
+        }
         setIsSending(false);
         setToolTimelineByThread(prev => {
           const existing = prev[event.thread_id] ?? [];
@@ -571,6 +572,14 @@ const Conversations = () => {
     setInputValue('');
     setSendError(null);
     setIsSending(true);
+    // Safety: auto-clear isSending if no response arrives within 120s
+    if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
+    sendingTimeoutRef.current = setTimeout(() => {
+      console.warn('[chat] safety timeout: clearing isSending after 120s with no response');
+      setIsSending(false);
+      dispatch(setActiveThread(null));
+      sendingTimeoutRef.current = null;
+    }, 120_000);
     setToolTimelineByThread(prev => ({ ...prev, [sendingThreadId]: [] }));
     dispatch(setActiveThread(sendingThreadId));
 
@@ -635,6 +644,10 @@ const Conversations = () => {
       // setIsSending(false) and setActiveThread(null) happen in the onDone/onError event handlers
     } catch (err) {
       // Chat loop errors are emitted via socket events; this catch handles emit-level failures.
+      if (sendingTimeoutRef.current) {
+        clearTimeout(sendingTimeoutRef.current);
+        sendingTimeoutRef.current = null;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       setSendError(msg);
       setIsSending(false);
@@ -799,11 +812,33 @@ const Conversations = () => {
       setInputValue(prev => prev + inlineSuffix);
       setInlineSuggestionValue('');
       if (isTauri()) {
-        void openhumanAutocompleteAccept({ suggestion: inputValue + inlineSuffix }).catch(() => {
+        void openhumanAutocompleteAccept({
+          suggestion: inputValue + inlineSuffix,
+          skip_apply: true,
+        }).catch(() => {
           // Keep local UX smooth even if accept RPC fails.
         });
       }
       return;
+    }
+
+    if (e.key === 'ArrowRight' && inlineSuffix.length > 0) {
+      const textarea = e.currentTarget;
+      if (
+        textarea.selectionStart === inputValue.length &&
+        textarea.selectionEnd === inputValue.length
+      ) {
+        e.preventDefault();
+        setInputValue(prev => prev + inlineSuffix);
+        setInlineSuggestionValue('');
+        if (isTauri()) {
+          void openhumanAutocompleteAccept({
+            suggestion: inputValue + inlineSuffix,
+            skip_apply: true,
+          }).catch(() => {});
+        }
+        return;
+      }
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1272,7 +1307,7 @@ const Conversations = () => {
               <div className="relative flex-1 rounded-xl border border-white/10 bg-white/5 focus-within:ring-1 focus-within:ring-primary-500/50 focus-within:border-primary-500/50 transition-all">
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-normal">
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-normal font-sans">
                   <span className="invisible">{inputValue}</span>
                   <span className="text-stone-500/50">{inlineCompletionSuffix}</span>
                 </div>
@@ -1283,7 +1318,7 @@ const Conversations = () => {
                   placeholder="Type a message..."
                   rows={1}
                   disabled={isSending || !rustChat}
-                  className="relative z-10 w-full resize-none border-0 bg-transparent px-4 py-2.5 text-sm placeholder:text-stone-500 focus:outline-none focus:ring-0 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative z-10 w-full resize-none border-0 bg-transparent px-4 py-2.5 text-sm leading-normal whitespace-pre-wrap break-words font-sans placeholder:text-stone-500 focus:outline-none focus:ring-0 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <button

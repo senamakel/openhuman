@@ -83,6 +83,8 @@ pub struct AutocompleteDebugFocusResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutocompleteAcceptParams {
     pub suggestion: Option<String>,
+    /// When true, skip applying text via accessibility (caller already inserted it).
+    pub skip_apply: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -316,23 +318,51 @@ impl AutocompleteEngine {
                 let _ = engine.try_reject_via_escape().await;
                 let _ = engine.try_accept_via_tab().await;
                 if last_refresh.elapsed() >= Duration::from_millis(debounce_ms) {
-                    if let Err(err) = engine.refresh(None).await {
-                        let error_message = {
+                    let refresh_result =
+                        time::timeout(Duration::from_secs(15), engine.refresh(None)).await;
+                    match refresh_result {
+                        Ok(Err(err)) => {
+                            let error_message = {
+                                let mut state = engine.inner.lock().await;
+                                state.phase = "error".to_string();
+                                state.last_error = Some(err);
+                                state.updated_at_ms = Some(Utc::now().timestamp_millis());
+                                state.last_error.clone()
+                            };
+                            if let Some(error_message) = error_message {
+                                let app_lower = engine
+                                    .inner
+                                    .lock()
+                                    .await
+                                    .app_name
+                                    .clone()
+                                    .unwrap_or_default()
+                                    .to_lowercase();
+                                if !app_lower.contains("openhuman") {
+                                    show_overflow_badge(
+                                        "error",
+                                        None,
+                                        Some(&error_message),
+                                        None,
+                                        None,
+                                    );
+                                }
+                            }
+                        }
+                        Ok(Ok(())) => {
                             let mut state = engine.inner.lock().await;
-                            state.phase = "error".to_string();
-                            state.last_error = Some(err);
-                            state.updated_at_ms = Some(Utc::now().timestamp_millis());
-                            state.last_error.clone()
-                        };
-                        if let Some(error_message) = error_message {
-                            show_overflow_badge("error", None, Some(&error_message), None, None);
+                            if state.phase == "error" {
+                                state.phase = "idle".to_string();
+                            }
+                            state.last_error = None;
                         }
-                    } else {
-                        let mut state = engine.inner.lock().await;
-                        if state.phase == "error" {
+                        Err(_elapsed) => {
+                            log::warn!("[autocomplete] refresh timed out after 15s, skipping");
+                            let mut state = engine.inner.lock().await;
                             state.phase = "idle".to_string();
+                            state.suggestion = None;
+                            state.updated_at_ms = Some(Utc::now().timestamp_millis());
                         }
-                        state.last_error = None;
                     }
                     last_refresh = Instant::now();
                 }
@@ -349,6 +379,10 @@ impl AutocompleteEngine {
         state.phase = "idle".to_string();
         state.last_escape_down = false;
         state.last_overlay_signature = None;
+        state.last_error = None;
+        state.suggestion = None;
+        state.context = String::new();
+        state.app_name = None;
         if let Some(task) = state.task.take() {
             task.abort();
         }
@@ -409,11 +443,15 @@ impl AutocompleteEngine {
             });
         }
 
+        let should_apply = !params.skip_apply.unwrap_or(false);
+
         {
             let mut state = self.inner.lock().await;
             state.phase = "accepting".to_string();
         }
-        apply_text_to_focused_field(&cleaned)?;
+        if should_apply {
+            apply_text_to_focused_field(&cleaned)?;
+        }
         {
             let mut state = self.inner.lock().await;
             state.suggestion = None;
@@ -421,7 +459,9 @@ impl AutocompleteEngine {
             state.updated_at_ms = Some(Utc::now().timestamp_millis());
             state.last_overlay_signature = None;
         }
-        show_overflow_badge("accepted", Some(&cleaned), None, None, None);
+        if should_apply {
+            show_overflow_badge("accepted", Some(&cleaned), None, None, None);
+        }
 
         // Persist acceptance for personalisation (fire-and-forget).
         // Dual-write: KV (UI list) + local docs (semantic search).
@@ -449,7 +489,7 @@ impl AutocompleteEngine {
 
         Ok(AutocompleteAcceptResult {
             accepted: true,
-            applied: true,
+            applied: should_apply,
             value: Some(cleaned),
             reason: None,
         })
@@ -522,6 +562,7 @@ impl AutocompleteEngine {
     }
 
     async fn refresh(&self, context_override: Option<String>) -> Result<(), String> {
+        let is_in_app = context_override.is_some();
         let config = Config::load_or_init()
             .await
             .map_err(|e| format!("failed to load config: {e}"))?;
@@ -538,7 +579,7 @@ impl AutocompleteEngine {
 
         let focused = if let Some(context) = context_override {
             FocusedTextContext {
-                app_name: None,
+                app_name: Some("OpenHuman".to_string()),
                 role: None,
                 text: context,
                 selected_text: None,
@@ -548,7 +589,7 @@ impl AutocompleteEngine {
         } else {
             let focused = focused_text_context_verbose()?;
             if let Some(err) = focused.raw_error.as_deref() {
-                if is_no_text_candidate_error(err) {
+                if is_no_text_candidate_error(err) || err.contains("ERROR:-1728") {
                     let mut state = self.inner.lock().await;
                     state.app_name = focused.app_name;
                     state.context = String::new();
@@ -566,6 +607,19 @@ impl AutocompleteEngine {
         };
 
         let app_lower = focused.app_name.clone().unwrap_or_default().to_lowercase();
+
+        // When OpenHuman itself is focused AND this is the background engine loop,
+        // skip AX-based refresh — the in-app React polling handles suggestions.
+        // When is_in_app (context_override provided), we still want inference to run.
+        if !is_in_app && app_lower.contains("openhuman") {
+            let mut state = self.inner.lock().await;
+            state.app_name = focused.app_name;
+            state.phase = "idle".to_string();
+            state.last_error = None;
+            state.updated_at_ms = Some(Utc::now().timestamp_millis());
+            return Ok(());
+        }
+
         let is_terminalish = is_terminal_app(focused.app_name.as_deref())
             || looks_like_terminal_buffer(&focused.text);
         let focused_text = if is_terminalish {
@@ -598,6 +652,21 @@ impl AutocompleteEngine {
             state.phase = "idle".to_string();
             state.updated_at_ms = Some(Utc::now().timestamp_millis());
             return Ok(());
+        }
+
+        // Short-circuit: if context AND frontmost app unchanged and we already have a suggestion, skip inference.
+        {
+            let mut state = self.inner.lock().await;
+            if state.context == context
+                && state.app_name == focused.app_name
+                && state.suggestion.is_some()
+            {
+                log::debug!("[autocomplete] context unchanged, returning cached suggestion");
+                return Ok(());
+            }
+            // Refresh metadata so try_accept_via_tab() sees current values
+            state.app_name = focused.app_name.clone();
+            state.updated_at_ms = Some(Utc::now().timestamp_millis());
         }
 
         {
@@ -671,7 +740,7 @@ impl AutocompleteEngine {
             app_name.as_deref().unwrap_or_default(),
             suggestion
         );
-        if state.last_overlay_signature.as_deref() != Some(ready_signature.as_str()) {
+        if !is_in_app && state.last_overlay_signature.as_deref() != Some(ready_signature.as_str()) {
             state.last_overlay_signature = Some(ready_signature);
             drop(state);
             show_overflow_badge(
@@ -695,6 +764,16 @@ impl AutocompleteEngine {
             let mut state = self.inner.lock().await;
             state.last_tab_down = false;
             return Ok(());
+        }
+
+        // Skip AX-based Tab accept when OpenHuman itself is focused —
+        // the in-app React handler manages insertion directly.
+        {
+            let state = self.inner.lock().await;
+            let app = state.app_name.as_deref().unwrap_or_default().to_lowercase();
+            if app.contains("openhuman") {
+                return Ok(());
+            }
         }
 
         let is_down = is_tab_key_down();
@@ -724,7 +803,19 @@ impl AutocompleteEngine {
                     state.updated_at_ms = Some(Utc::now().timestamp_millis());
                     state.last_overlay_signature = None;
                 }
-                show_overflow_badge("accepted", Some(&cleaned), None, None, None);
+                {
+                    let app_lower = self
+                        .inner
+                        .lock()
+                        .await
+                        .app_name
+                        .clone()
+                        .unwrap_or_default()
+                        .to_lowercase();
+                    if !app_lower.contains("openhuman") {
+                        show_overflow_badge("accepted", Some(&cleaned), None, None, None);
+                    }
+                }
 
                 // Persist acceptance for personalisation (fire-and-forget).
                 // Dual-write: KV (UI list) + local docs (semantic search).
@@ -773,7 +864,17 @@ impl AutocompleteEngine {
             }
         };
         if let Some(value) = rejected {
-            show_overflow_badge("rejected", Some(&value), None, None, None);
+            let app_lower = self
+                .inner
+                .lock()
+                .await
+                .app_name
+                .clone()
+                .unwrap_or_default()
+                .to_lowercase();
+            if !app_lower.contains("openhuman") {
+                show_overflow_badge("rejected", Some(&value), None, None, None);
+            }
         }
         Ok(())
     }

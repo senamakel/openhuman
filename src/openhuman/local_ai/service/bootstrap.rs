@@ -42,7 +42,13 @@ impl LocalAiService {
             }),
             bootstrap_lock: tokio::sync::Mutex::new(()),
             last_memory_summary_at: parking_lot::Mutex::new(None),
-            http: reqwest::Client::new(),
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|e| {
+                    log::warn!("[local_ai] reqwest client build failed, falling back to default client: {e}");
+                    reqwest::Client::new()
+                }),
         }
     }
 

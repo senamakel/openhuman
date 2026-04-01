@@ -63,7 +63,10 @@ pub async fn voice_transcribe(
         .await
         .map_err(|e| e.to_string())?;
 
-    debug!("{LOG_PREFIX} transcription completed, text length={}", output.text.len());
+    debug!(
+        "{LOG_PREFIX} transcription completed, text length={}",
+        output.text.len()
+    );
 
     Ok(RpcOutcome::single_log(
         VoiceSpeechResult::from(output),
@@ -181,10 +184,7 @@ mod tests {
             normalize_extension(Some(".WebM".to_string())).unwrap(),
             "webm"
         );
-        assert_eq!(
-            normalize_extension(Some("OGG".to_string())).unwrap(),
-            "ogg"
-        );
+        assert_eq!(normalize_extension(Some("OGG".to_string())).unwrap(), "ogg");
         assert_eq!(
             normalize_extension(Some("  .WAV  ".to_string())).unwrap(),
             "wav"
@@ -193,14 +193,8 @@ mod tests {
 
     #[test]
     fn normalize_extension_accepts_alphanumeric() {
-        assert_eq!(
-            normalize_extension(Some("m4a".to_string())).unwrap(),
-            "m4a"
-        );
-        assert_eq!(
-            normalize_extension(Some("mp3".to_string())).unwrap(),
-            "mp3"
-        );
+        assert_eq!(normalize_extension(Some("m4a".to_string())).unwrap(), "m4a");
+        assert_eq!(normalize_extension(Some("mp3".to_string())).unwrap(), "mp3");
     }
 
     #[test]

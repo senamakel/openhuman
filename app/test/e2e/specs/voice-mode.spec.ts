@@ -12,14 +12,12 @@
  *
  * The mock server runs on http://127.0.0.1:18473
  */
-
 import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
 import {
   clickText,
   dumpAccessibilityTree,
   textExists,
-  waitForText,
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';

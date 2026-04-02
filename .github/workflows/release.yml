@@ -620,32 +620,32 @@ jobs:
             }
             core.info('All required installer assets are present.');
 
-      - name: Promote Docker image from staging to release tags
-        env:
-          REGISTRY: ghcr.io
-          IMAGE_NAME: tinyhumansai/openhuman-core
-          TAG: ${{ needs.prepare-release.outputs.tag }}
-        run: |
-          # Log in to GHCR
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      # - name: Promote Docker image from staging to release tags
+      #   env:
+      #     REGISTRY: ghcr.io
+      #     IMAGE_NAME: tinyhumansai/openhuman-core
+      #     TAG: ${{ needs.prepare-release.outputs.tag }}
+      #   run: |
+      #     # Log in to GHCR
+      #     echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-          STAGING="${REGISTRY}/${IMAGE_NAME}:staging-${TAG}"
-          VERSIONED="${REGISTRY}/${IMAGE_NAME}:${TAG}"
-          LATEST="${REGISTRY}/${IMAGE_NAME}:latest"
+      #     STAGING="${REGISTRY}/${IMAGE_NAME}:staging-${TAG}"
+      #     VERSIONED="${REGISTRY}/${IMAGE_NAME}:${TAG}"
+      #     LATEST="${REGISTRY}/${IMAGE_NAME}:latest"
 
-          echo "Promoting ${STAGING} → ${VERSIONED}, ${LATEST}"
-          docker buildx imagetools create --tag "${VERSIONED}" --tag "${LATEST}" "${STAGING}"
+      #     echo "Promoting ${STAGING} → ${VERSIONED}, ${LATEST}"
+      #     docker buildx imagetools create --tag "${VERSIONED}" --tag "${LATEST}" "${STAGING}"
 
-      - name: Append Docker pull instructions to release notes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.prepare-release.outputs.tag }}
-          IMAGE_NAME: tinyhumansai/openhuman-core
-        run: |
-          gh release view "${TAG}" --repo tinyhumansai/openhuman --json body -q .body > /tmp/body.md
-          printf '\n---\n\n### Docker\n\n```\ndocker pull ghcr.io/%s:%s\ndocker run -p 7788:7788 --env-file .env ghcr.io/%s:%s\n```\n' \
-            "${IMAGE_NAME}" "${TAG}" "${IMAGE_NAME}" "${TAG}" >> /tmp/body.md
-          gh release edit "${TAG}" --repo tinyhumansai/openhuman --notes-file /tmp/body.md
+      # - name: Append Docker pull instructions to release notes
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     TAG: ${{ needs.prepare-release.outputs.tag }}
+      #     IMAGE_NAME: tinyhumansai/openhuman-core
+      #   run: |
+      #     gh release view "${TAG}" --repo tinyhumansai/openhuman --json body -q .body > /tmp/body.md
+      #     printf '\n---\n\n### Docker\n\n```\ndocker pull ghcr.io/%s:%s\ndocker run -p 7788:7788 --env-file .env ghcr.io/%s:%s\n```\n' \
+      #       "${IMAGE_NAME}" "${TAG}" "${IMAGE_NAME}" "${TAG}" >> /tmp/body.md
+      #     gh release edit "${TAG}" --repo tinyhumansai/openhuman --notes-file /tmp/body.md
 
       - name: Publish release
         uses: actions/github-script@v7

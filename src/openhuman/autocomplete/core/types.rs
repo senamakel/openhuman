@@ -1,6 +1,13 @@
 use crate::openhuman::config::AutocompleteConfig;
 use serde::{Deserialize, Serialize};
 
+// Re-export platform types from the accessibility middleware.
+pub(crate) use crate::openhuman::accessibility::ElementBounds;
+pub(crate) use crate::openhuman::accessibility::FocusedTextContext;
+
+/// Type alias for backwards compatibility within this module.
+pub(crate) type FocusedElementBounds = ElementBounds;
+
 pub(crate) const MAX_SUGGESTION_CHARS: usize = 64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,22 +101,4 @@ pub struct AutocompleteSetStyleParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutocompleteSetStyleResult {
     pub config: AutocompleteConfig,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FocusedTextContext {
-    pub(crate) app_name: Option<String>,
-    pub(crate) role: Option<String>,
-    pub(crate) text: String,
-    pub(crate) selected_text: Option<String>,
-    pub(crate) raw_error: Option<String>,
-    pub(crate) bounds: Option<FocusedElementBounds>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct FocusedElementBounds {
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) width: i32,
-    pub(crate) height: i32,
 }

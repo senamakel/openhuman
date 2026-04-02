@@ -7,24 +7,25 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{self, Duration};
 
-use super::capture::{capture_screen_image_ref_for_context, foreground_context, now_ms};
-use super::context::AppContext;
+use crate::openhuman::accessibility::{
+    capture_screen_image_ref_for_context, detect_permissions, foreground_context, permission_to_str,
+    AppContext, PermissionKind, PermissionState, PermissionStatus,
+};
+#[cfg(target_os = "macos")]
+use crate::openhuman::accessibility::{
+    open_macos_privacy_pane, request_accessibility_access, request_screen_recording_access,
+};
 use super::helpers::{
-    generate_suggestions, parse_vision_summary_output, persist_vision_summary,
+    generate_suggestions, now_ms, parse_vision_summary_output, persist_vision_summary,
     push_ephemeral_frame, push_ephemeral_vision_summary, truncate_tail, validate_input_action,
 };
 use super::limits::{MAX_CONTEXT_CHARS, MAX_SUGGESTION_CHARS};
-use super::permissions::{detect_permissions, permission_to_str};
-#[cfg(target_os = "macos")]
-use super::permissions::{
-    open_macos_privacy_pane, request_accessibility_access, request_screen_recording_access,
-};
 use super::types::{
     AccessibilityFeatures, AccessibilityStatus, AppContextInfo, AutocompleteCommitParams,
     AutocompleteCommitResult, AutocompleteSuggestParams, AutocompleteSuggestResult, CaptureFrame,
     CaptureImageRefResult, CaptureNowResult, CaptureTestResult, InputActionParams,
-    InputActionResult, PermissionKind, PermissionState, PermissionStatus, SessionStatus,
-    StartSessionParams, VisionFlushResult, VisionRecentResult, VisionSummary,
+    InputActionResult, SessionStatus, StartSessionParams, VisionFlushResult, VisionRecentResult,
+    VisionSummary,
 };
 
 struct SessionRuntime {

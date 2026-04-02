@@ -1,6 +1,6 @@
 //! Overflow badge, overlay display, and macOS notifications.
 //!
-//! Overlay rendering is delegated to the unified Swift helper process (helper.rs).
+//! Overlay rendering is delegated to the shared `accessibility` middleware module.
 
 #[cfg(target_os = "macos")]
 use chrono::Utc;
@@ -9,8 +9,8 @@ use once_cell::sync::Lazy;
 #[cfg(target_os = "macos")]
 use std::sync::Mutex as StdMutex;
 
+use crate::openhuman::accessibility::{self, ElementBounds};
 use super::text::truncate_tail;
-use super::types::FocusedElementBounds;
 
 #[cfg(target_os = "macos")]
 static LAST_OVERFLOW_BADGE: Lazy<StdMutex<Option<(String, i64)>>> =
@@ -22,7 +22,7 @@ pub(super) fn show_overflow_badge(
     suggestion: Option<&str>,
     error: Option<&str>,
     app_name: Option<&str>,
-    anchor_bounds: Option<&FocusedElementBounds>,
+    anchor_bounds: Option<&ElementBounds>,
 ) {
     #[cfg(target_os = "macos")]
     {
@@ -52,19 +52,19 @@ pub(super) fn show_overflow_badge(
             if let Some(suggestion_text) = suggestion {
                 // Use anchor bounds if available, otherwise pass zero bounds
                 // (the unified helper will fall back to mouse cursor position).
-                let fallback_bounds = FocusedElementBounds {
+                let fallback_bounds = ElementBounds {
                     x: 0,
                     y: 0,
                     width: 0,
                     height: 0,
                 };
                 let bounds = anchor_bounds.unwrap_or(&fallback_bounds);
-                if overlay_helper_show(bounds, suggestion_text).is_ok() {
+                if accessibility::show_overlay(bounds, suggestion_text, 1100).is_ok() {
                     return;
                 }
             }
         } else {
-            let _ = overlay_helper_hide();
+            let _ = accessibility::hide_overlay();
         }
 
         // Notification fallback when overlay helper fails
@@ -121,35 +121,7 @@ fn escape_osascript_text(raw: &str) -> String {
         .replace(['\n', '\r'], " ")
 }
 
-/// Show overlay via the unified Swift helper.
-#[cfg(target_os = "macos")]
-fn overlay_helper_show(bounds: &FocusedElementBounds, text: &str) -> Result<(), String> {
-    let message = serde_json::json!({
-        "type": "show",
-        "x": bounds.x,
-        "y": bounds.y,
-        "w": bounds.width,
-        "h": bounds.height,
-        "text": truncate_tail(text, 96),
-        "ttl_ms": 1100
-    });
-    super::helper::helper_send_fire_and_forget(&message)
-}
-
-/// Hide overlay via the unified Swift helper.
-#[cfg(target_os = "macos")]
-fn overlay_helper_hide() -> Result<(), String> {
-    let message = serde_json::json!({"type": "hide"});
-    super::helper::helper_send_fire_and_forget(&message)
-}
-
-/// Quit the unified helper process.
-#[cfg(target_os = "macos")]
+/// Quit the overlay helper process.
 pub(super) fn overlay_helper_quit() -> Result<(), String> {
-    super::helper::helper_quit()
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(super) fn overlay_helper_quit() -> Result<(), String> {
-    Ok(())
+    accessibility::quit_overlay()
 }

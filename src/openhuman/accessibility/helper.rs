@@ -118,7 +118,7 @@ fn ensure_helper_running() -> Result<(), String> {
         {
             return Ok(()); // Still running
         }
-        log::debug!("[autocomplete] unified helper exited, restarting");
+        log::debug!("[accessibility] unified helper exited, restarting");
         *guard = None;
     }
 
@@ -144,13 +144,13 @@ fn ensure_helper_running() -> Result<(), String> {
         stdin,
         stdout: BufReader::new(stdout),
     });
-    log::debug!("[autocomplete] unified helper started");
+    log::debug!("[accessibility] unified helper started");
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn ensure_helper_binary() -> Result<PathBuf, String> {
-    let cache_dir = std::env::temp_dir().join("openhuman-autocomplete-helper");
+    let cache_dir = std::env::temp_dir().join("openhuman-accessibility-helper");
     fs::create_dir_all(&cache_dir).map_err(|e| format!("failed to create cache dir: {e}"))?;
     let source_path = cache_dir.join("unified_helper.swift");
     let binary_path = cache_dir.join("unified_helper_bin");
@@ -167,7 +167,7 @@ fn ensure_helper_binary() -> Result<PathBuf, String> {
 
     let needs_compile = needs_write || !binary_path.exists();
     if needs_compile {
-        log::debug!("[autocomplete] compiling unified Swift helper");
+        log::debug!("[accessibility] compiling unified Swift helper");
         let output = Command::new("xcrun")
             .args([
                 "swiftc",
@@ -207,7 +207,7 @@ fn ensure_helper_binary() -> Result<PathBuf, String> {
                 }
             ));
         }
-        log::debug!("[autocomplete] unified helper compiled successfully");
+        log::debug!("[accessibility] unified helper compiled successfully");
     }
 
     Ok(binary_path)

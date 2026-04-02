@@ -1,4 +1,4 @@
-//! Screen capture via platform-native tools.
+//! Timestamp helper and screen capture via platform-native tools.
 
 use super::types::AppContext;
 
@@ -104,8 +104,13 @@ pub fn capture_screen_image_ref_for_context(
                 .status();
             match sips_status {
                 Ok(s) if s.success() => {
-                    let resized = std::fs::read(&tmp_path)
-                        .map_err(|e| format!("failed to read resized screenshot: {e}"))?;
+                    let resized = match std::fs::read(&tmp_path) {
+                        Ok(bytes) => bytes,
+                        Err(e) => {
+                            let _ = std::fs::remove_file(&tmp_path);
+                            return Err(format!("failed to read resized screenshot: {e}"));
+                        }
+                    };
                     let _ = std::fs::remove_file(&tmp_path);
                     tracing::debug!("[accessibility] resized to {} bytes", resized.len());
                     if resized.len() > MAX_SCREENSHOT_BYTES {

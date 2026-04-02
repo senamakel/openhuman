@@ -130,15 +130,16 @@ impl AutocompleteEngine {
         state.task = Some(tokio::spawn(async move {
             let mut last_refresh = Instant::now() - Duration::from_millis(debounce_ms);
             loop {
-                {
+                let current_debounce_ms = {
                     let state = engine.inner.lock().await;
                     if !state.running {
                         break;
                     }
-                }
+                    state.debounce_ms
+                };
                 let _ = engine.try_reject_via_escape().await;
                 let _ = engine.try_accept_via_tab().await;
-                if last_refresh.elapsed() >= Duration::from_millis(debounce_ms) {
+                if last_refresh.elapsed() >= Duration::from_millis(current_debounce_ms) {
                     let refresh_result =
                         time::timeout(Duration::from_secs(15), engine.refresh(None)).await;
                     match refresh_result {
@@ -276,9 +277,20 @@ impl AutocompleteEngine {
                 let state = self.inner.lock().await;
                 (state.app_name.clone(), state.target_role.clone())
             };
-            #[cfg(target_os = "macos")]
-            validate_focused_target(expected_app.as_deref(), expected_role.as_deref())?;
-            apply_text_to_focused_field(&cleaned)?;
+            let apply_result = (|| -> Result<(), String> {
+                #[cfg(target_os = "macos")]
+                validate_focused_target(expected_app.as_deref(), expected_role.as_deref())?;
+                apply_text_to_focused_field(&cleaned)?;
+                Ok(())
+            })();
+            if let Err(e) = apply_result {
+                let mut state = self.inner.lock().await;
+                state.suggestion = None;
+                state.phase = "idle".to_string();
+                state.updated_at_ms = Some(Utc::now().timestamp_millis());
+                state.last_overlay_signature = None;
+                return Err(e);
+            }
         }
         {
             let mut state = self.inner.lock().await;
@@ -482,11 +494,12 @@ impl AutocompleteEngine {
             return Ok(());
         }
 
-        // Short-circuit: if context AND frontmost app unchanged and we already have a suggestion, skip inference.
+        // Short-circuit: if context, frontmost app, AND role unchanged and we already have a suggestion, skip inference.
         {
             let mut state = self.inner.lock().await;
             if state.context == context
                 && state.app_name == focused.app_name
+                && state.target_role == focused.role
                 && state.suggestion.is_some()
             {
                 log::debug!("[autocomplete] context unchanged, returning cached suggestion");
@@ -494,6 +507,7 @@ impl AutocompleteEngine {
             }
             // Refresh metadata so try_accept_via_tab() sees current values
             state.app_name = focused.app_name.clone();
+            state.target_role = focused.role.clone();
             state.updated_at_ms = Some(Utc::now().timestamp_millis());
         }
 
@@ -541,8 +555,7 @@ impl AutocompleteEngine {
                 &merged_examples,
                 Some(36),
             )
-            .await
-            .unwrap_or_default();
+            .await?;
 
         let suggestion = sanitize_suggestion(&generated);
         let app_name = focused.app_name.clone();

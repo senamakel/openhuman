@@ -1,4 +1,4 @@
-//! Screen capture utilities.
+//! Timestamp helper (`now_ms`) for the screen intelligence engine.
 
 use chrono::Utc;
 

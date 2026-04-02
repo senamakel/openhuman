@@ -868,8 +868,22 @@ impl AccessibilityEngine {
             .ok_or_else(|| "frame has no image payload".to_string())?;
 
         // ── Compress & resize before sending to the LLM ─────────────────
+        tracing::trace!(
+            "[screen_intelligence] compress_screenshot: input image_ref len={}",
+            image_ref.len()
+        );
         let compressed = super::image_processing::compress_screenshot(&image_ref, None, None)
             .map_err(|e| format!("image compression failed: {e}"))?;
+        tracing::trace!(
+            "[screen_intelligence] compress_screenshot: {}x{} -> {}x{}, {} -> {} bytes; vision_image_ref len={}",
+            compressed.original_dimensions.0,
+            compressed.original_dimensions.1,
+            compressed.final_dimensions.0,
+            compressed.final_dimensions.1,
+            compressed.original_bytes,
+            compressed.compressed_bytes,
+            compressed.data_uri.len()
+        );
         let vision_image_ref = compressed.data_uri;
 
         let config = Config::load_or_init()

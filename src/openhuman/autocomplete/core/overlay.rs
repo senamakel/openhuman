@@ -58,7 +58,15 @@ pub(super) fn show_overflow_badge(
                     width: 0,
                     height: 0,
                 };
-                let bounds = anchor_bounds.unwrap_or(&fallback_bounds);
+                let bounds = if anchor_bounds.is_some() {
+                    anchor_bounds.unwrap()
+                } else {
+                    log::debug!(
+                        "[autocomplete] overlay: no anchor bounds, falling back to zero bounds (mouse cursor); suggestion={:?}",
+                        truncate_tail(suggestion_text, 40)
+                    );
+                    &fallback_bounds
+                };
                 if accessibility::show_overlay(bounds, suggestion_text, 1100).is_ok() {
                     return;
                 }

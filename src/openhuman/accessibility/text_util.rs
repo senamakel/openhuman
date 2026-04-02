@@ -23,5 +23,14 @@ pub fn parse_ax_number(raw: &str) -> Option<i32> {
         return None;
     }
     let cleaned = trimmed.replace(',', ".");
-    cleaned.parse::<f64>().ok().map(|v| v.round() as i32)
+    cleaned.parse::<f64>().ok().and_then(|v| {
+        if !v.is_finite() {
+            return None;
+        }
+        let rounded = v.round();
+        if rounded < i32::MIN as f64 || rounded > i32::MAX as f64 {
+            return None;
+        }
+        Some(rounded as i32)
+    })
 }

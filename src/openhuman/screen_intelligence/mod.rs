@@ -4,7 +4,6 @@ pub mod ops;
 mod schemas;
 
 mod capture;
-mod context;
 mod engine;
 mod helpers;
 mod image_processing;

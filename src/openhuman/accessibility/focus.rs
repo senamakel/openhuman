@@ -27,6 +27,13 @@ pub fn focused_text_context() -> Result<FocusedTextContext, String> {
 #[cfg(target_os = "macos")]
 pub fn focused_text_context_verbose() -> Result<FocusedTextContext, String> {
     match focused_text_via_helper() {
+        Ok(ctx) if ctx.raw_error.is_some() => {
+            log::debug!(
+                "[accessibility] helper returned raw_error={:?}, falling back to osascript",
+                ctx.raw_error
+            );
+            focused_text_via_osascript()
+        }
         Ok(ctx) => Ok(ctx),
         Err(helper_err) => {
             log::debug!(
@@ -345,11 +352,10 @@ pub fn validate_focused_target(
             }
             if let (Some(expected), Some(actual)) = (expected_role, ctx.role.as_deref()) {
                 if expected != actual {
-                    log::debug!(
-                        "[accessibility] target role changed from '{}' to '{}', proceeding anyway",
-                        expected,
-                        actual
-                    );
+                    return Err(format!(
+                        "target role changed from '{}' to '{}', aborting insertion",
+                        expected, actual
+                    ));
                 }
             }
             Ok(())
@@ -387,9 +393,14 @@ pub fn parse_foreground_output(stdout: &str) -> Option<AppContext> {
         _ => None,
     };
 
+    let app = app.filter(|s| !s.is_empty());
+    let title = title.filter(|s| !s.is_empty());
+    if app.is_none() && title.is_none() && bounds.is_none() {
+        return None;
+    }
     Some(AppContext {
-        app_name: app.filter(|s| !s.is_empty()),
-        window_title: title.filter(|s| !s.is_empty()),
+        app_name: app,
+        window_title: title,
         bounds,
     })
 }

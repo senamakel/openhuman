@@ -1,5 +1,23 @@
 //! Terminal app detection and context extraction.
 
+/// Known terminal application name substrings (lowercase).
+/// Extend this list to support additional terminal emulators.
+pub const TERMINAL_NAMES: &[&str] = &[
+    "terminal",
+    "iterm",
+    "wezterm",
+    "warp",
+    "alacritty",
+    "kitty",
+    "ghostty",
+    "hyper",
+    "rio",
+    "tabby",
+    "wave",
+    "contour",
+    "foot",
+];
+
 pub fn is_text_role(role: Option<&str>) -> bool {
     matches!(
         role.unwrap_or_default(),
@@ -9,19 +27,7 @@ pub fn is_text_role(role: Option<&str>) -> bool {
 
 pub fn is_terminal_app(app_name: Option<&str>) -> bool {
     let app = app_name.unwrap_or_default().to_ascii_lowercase();
-    [
-        "terminal",
-        "iterm",
-        "wezterm",
-        "warp",
-        "alacritty",
-        "kitty",
-        "ghostty",
-        "hyper",
-        "rio",
-    ]
-    .iter()
-    .any(|needle| app.contains(needle))
+    TERMINAL_NAMES.iter().any(|needle| app.contains(needle))
 }
 
 pub fn looks_like_terminal_buffer(text: &str) -> bool {

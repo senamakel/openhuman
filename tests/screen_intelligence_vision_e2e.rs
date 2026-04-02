@@ -122,7 +122,10 @@ async fn vision_pipeline_compress_parse_persist() {
     // ── Step 1: Generate a 1920x1080 screenshot ─────────────────────
     let image_ref = make_test_png_uri(1920, 1080);
     let original_b64_len = image_ref.len();
-    assert!(original_b64_len > 10_000, "test image should be non-trivial");
+    assert!(
+        original_b64_len > 10_000,
+        "test image should be non-trivial"
+    );
 
     // ── Step 2: Compress (same logic as image_processing module) ─────
     let b64_payload = image_ref
@@ -164,7 +167,10 @@ async fn vision_pipeline_compress_parse_persist() {
     let mock_llm_response = r#"{"ui_state": "code editor with terminal", "key_text": "fn main() { println!(\"hello\"); }", "actionable_notes": "User is editing Rust code in a split-pane layout", "confidence": 0.91}"#;
     let summary = mock_vision_summary(&frame, mock_llm_response);
 
-    assert_eq!(summary["ui_state"].as_str().unwrap(), "code editor with terminal");
+    assert_eq!(
+        summary["ui_state"].as_str().unwrap(),
+        "code editor with terminal"
+    );
     assert!((summary["confidence"].as_f64().unwrap() - 0.91).abs() < 0.01);
 
     // ── Step 4: Persist to memory ───────────────────────────────────
@@ -192,7 +198,9 @@ async fn vision_pipeline_compress_parse_persist() {
         .list_documents(Some("background"))
         .await
         .expect("list_documents");
-    let docs = result_json["documents"].as_array().expect("documents array");
+    let docs = result_json["documents"]
+        .as_array()
+        .expect("documents array");
     assert!(!docs.is_empty(), "should find the persisted vision summary");
     let found = docs.iter().any(|d| d["key"].as_str() == Some(&key));
     assert!(found, "should find document by key: {key}");
@@ -208,9 +216,24 @@ async fn multiple_vision_summaries_persist_and_query() {
     let mem = open_test_memory(tmp.path());
 
     let scenarios = vec![
-        ("Safari", "GitHub PR Review", 0.88, "User reviewing pull request diffs"),
-        ("VSCode", "main.rs - editor", 0.92, "Rust code editing with LSP diagnostics"),
-        ("Terminal", "cargo test output", 0.85, "Test results showing 19 passed"),
+        (
+            "Safari",
+            "GitHub PR Review",
+            0.88,
+            "User reviewing pull request diffs",
+        ),
+        (
+            "VSCode",
+            "main.rs - editor",
+            0.92,
+            "Rust code editing with LSP diagnostics",
+        ),
+        (
+            "Terminal",
+            "cargo test output",
+            0.85,
+            "Test results showing 19 passed",
+        ),
     ];
 
     for (i, (app, window, confidence, notes)) in scenarios.iter().enumerate() {
@@ -249,7 +272,9 @@ async fn multiple_vision_summaries_persist_and_query() {
         .list_documents(Some("background"))
         .await
         .expect("list_documents");
-    let docs = result_json["documents"].as_array().expect("documents array");
+    let docs = result_json["documents"]
+        .as_array()
+        .expect("documents array");
     assert_eq!(
         docs.len(),
         3,
@@ -265,8 +290,14 @@ fn malformed_llm_response_handled_gracefully() {
     let broken = "Sorry, I cannot analyze this image due to unclear content.";
     let summary = mock_vision_summary(&frame, broken);
 
-    assert_eq!(summary["ui_state"].as_str().unwrap(), "UI state unavailable");
-    assert!(summary["actionable_notes"].as_str().unwrap().contains("Sorry"));
+    assert_eq!(
+        summary["ui_state"].as_str().unwrap(),
+        "UI state unavailable"
+    );
+    assert!(summary["actionable_notes"]
+        .as_str()
+        .unwrap()
+        .contains("Sorry"));
     assert!((summary["confidence"].as_f64().unwrap() - 0.66).abs() < 0.01);
 }
 
@@ -274,12 +305,12 @@ fn malformed_llm_response_handled_gracefully() {
 #[test]
 fn compression_handles_various_sizes() {
     let sizes = vec![
-        (64, 64),       // tiny
-        (800, 600),     // small desktop
-        (1920, 1080),   // full HD
-        (3840, 2160),   // 4K
-        (100, 2000),    // tall narrow
-        (3000, 50),     // wide short
+        (64, 64),     // tiny
+        (800, 600),   // small desktop
+        (1920, 1080), // full HD
+        (3840, 2160), // 4K
+        (100, 2000),  // tall narrow
+        (3000, 50),   // wide short
     ];
 
     let max_dim = 1024u32;
@@ -299,15 +330,24 @@ fn compression_handles_various_sizes() {
             let nw = (w as f64 * scale).round() as u32;
             let nh = (h as f64 * scale).round() as u32;
             let resized = img.resize_exact(nw, nh, FilterType::Lanczos3);
-            assert!(resized.width() <= max_dim, "resized width exceeds max for {w}x{h}");
-            assert!(resized.height() <= max_dim, "resized height exceeds max for {w}x{h}");
+            assert!(
+                resized.width() <= max_dim,
+                "resized width exceeds max for {w}x{h}"
+            );
+            assert!(
+                resized.height() <= max_dim,
+                "resized height exceeds max for {w}x{h}"
+            );
 
             let rgb = resized.to_rgb8();
             let mut buf: Vec<u8> = Vec::new();
             let enc = JpegEncoder::new_with_quality(&mut buf, 72);
             rgb.write_with_encoder(enc)
                 .unwrap_or_else(|e| panic!("JPEG encode failed for {w}x{h}: {e}"));
-            assert!(!buf.is_empty(), "JPEG output should not be empty for {w}x{h}");
+            assert!(
+                !buf.is_empty(),
+                "JPEG output should not be empty for {w}x{h}"
+            );
         }
     }
 }
@@ -360,8 +400,13 @@ async fn vision_summary_upsert_is_idempotent() {
         .list_documents(Some("background"))
         .await
         .expect("list_documents");
-    let docs = result_json["documents"].as_array().expect("documents array");
-    let matching: Vec<_> = docs.iter().filter(|d| d["key"].as_str() == Some(&key)).collect();
+    let docs = result_json["documents"]
+        .as_array()
+        .expect("documents array");
+    let matching: Vec<_> = docs
+        .iter()
+        .filter(|d| d["key"].as_str() == Some(&key))
+        .collect();
     assert_eq!(
         matching.len(),
         1,

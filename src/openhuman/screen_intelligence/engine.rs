@@ -7,14 +7,6 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{self, Duration};
 
-use crate::openhuman::accessibility::{
-    capture_screen_image_ref_for_context, detect_permissions, foreground_context, permission_to_str,
-    AppContext, PermissionKind, PermissionState, PermissionStatus,
-};
-#[cfg(target_os = "macos")]
-use crate::openhuman::accessibility::{
-    open_macos_privacy_pane, request_accessibility_access, request_screen_recording_access,
-};
 use super::capture::now_ms;
 use super::helpers::{
     generate_suggestions, parse_vision_summary_output, persist_vision_summary,
@@ -27,6 +19,14 @@ use super::types::{
     CaptureImageRefResult, CaptureNowResult, CaptureTestResult, InputActionParams,
     InputActionResult, SessionStatus, StartSessionParams, VisionFlushResult, VisionRecentResult,
     VisionSummary,
+};
+use crate::openhuman::accessibility::{
+    capture_screen_image_ref_for_context, detect_permissions, foreground_context,
+    permission_to_str, AppContext, PermissionKind, PermissionState, PermissionStatus,
+};
+#[cfg(target_os = "macos")]
+use crate::openhuman::accessibility::{
+    open_macos_privacy_pane, request_accessibility_access, request_screen_recording_access,
 };
 
 struct SessionRuntime {

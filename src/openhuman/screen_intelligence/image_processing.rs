@@ -349,11 +349,7 @@ mod tests {
         let width = 1920u32;
         let height = 1080u32;
         let img: RgbImage = ImageBuffer::from_fn(width, height, |x, y| {
-            Rgb([
-                (x % 256) as u8,
-                (y % 256) as u8,
-                ((x + y) % 256) as u8,
-            ])
+            Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
         });
         let mut png_bytes: Vec<u8> = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);

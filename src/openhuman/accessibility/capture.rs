@@ -118,10 +118,7 @@ pub fn capture_screen_image_ref_for_context(
                 }
                 Ok(s) => {
                     let _ = std::fs::remove_file(&tmp_path);
-                    tracing::debug!(
-                        "[accessibility] sips failed with status: {:?}",
-                        s.code()
-                    );
+                    tracing::debug!("[accessibility] sips failed with status: {:?}", s.code());
                     return Err(
                         "captured screenshot exceeds size limit and downscale failed".to_string(),
                     );

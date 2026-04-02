@@ -9,8 +9,8 @@ use once_cell::sync::Lazy;
 #[cfg(target_os = "macos")]
 use std::sync::Mutex as StdMutex;
 
-use crate::openhuman::accessibility::{self, ElementBounds};
 use super::text::truncate_tail;
+use crate::openhuman::accessibility::{self, ElementBounds};
 
 #[cfg(target_os = "macos")]
 static LAST_OVERFLOW_BADGE: Lazy<StdMutex<Option<(String, i64)>>> =

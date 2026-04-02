@@ -15,8 +15,9 @@ use crate::openhuman::accessibility::{
 use crate::openhuman::accessibility::{
     open_macos_privacy_pane, request_accessibility_access, request_screen_recording_access,
 };
+use super::capture::now_ms;
 use super::helpers::{
-    generate_suggestions, now_ms, parse_vision_summary_output, persist_vision_summary,
+    generate_suggestions, parse_vision_summary_output, persist_vision_summary,
     push_ephemeral_frame, push_ephemeral_vision_summary, truncate_tail, validate_input_action,
 };
 use super::limits::{MAX_CONTEXT_CHARS, MAX_SUGGESTION_CHARS};

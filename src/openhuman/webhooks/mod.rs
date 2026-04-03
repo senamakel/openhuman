@@ -19,3 +19,6 @@ pub use types::{
     WebhookDebugLogListResult, WebhookDebugLogsClearedResult, WebhookDebugRegistrationsResult,
     WebhookRequest, WebhookResponseData,
 };
+
+#[cfg(test)]
+mod tests;

@@ -97,26 +97,54 @@ impl WebhookRouter {
         tunnel_name: Option<String>,
         backend_tunnel_id: Option<String>,
     ) -> Result<(), String> {
+        self.register_target(
+            tunnel_uuid,
+            "skill",
+            skill_id,
+            tunnel_name,
+            backend_tunnel_id,
+        )
+    }
+
+    /// Register a built-in echo webhook target for ad-hoc testing.
+    pub fn register_echo(
+        &self,
+        tunnel_uuid: &str,
+        tunnel_name: Option<String>,
+        backend_tunnel_id: Option<String>,
+    ) -> Result<(), String> {
+        self.register_target(tunnel_uuid, "echo", "echo", tunnel_name, backend_tunnel_id)
+    }
+
+    fn register_target(
+        &self,
+        tunnel_uuid: &str,
+        target_kind: &str,
+        skill_id: &str,
+        tunnel_name: Option<String>,
+        backend_tunnel_id: Option<String>,
+    ) -> Result<(), String> {
         let mut routes = self.routes.write().map_err(|e| e.to_string())?;
 
         if let Some(existing) = routes.get(tunnel_uuid) {
-            if existing.skill_id != skill_id {
+            if existing.skill_id != skill_id || existing.target_kind != target_kind {
                 return Err(format!(
-                    "Tunnel {} is already owned by skill '{}'; skill '{}' cannot register it",
-                    tunnel_uuid, existing.skill_id, skill_id
+                    "Tunnel {} is already owned by {} '{}'; {} '{}' cannot register it",
+                    tunnel_uuid, existing.target_kind, existing.skill_id, target_kind, skill_id
                 ));
             }
         }
 
         debug!(
-            "[webhooks] Registering tunnel {} → skill '{}'",
-            tunnel_uuid, skill_id
+            "[webhooks] Registering tunnel {} → {} '{}'",
+            tunnel_uuid, target_kind, skill_id
         );
 
         routes.insert(
             tunnel_uuid.to_string(),
             TunnelRegistration {
                 tunnel_uuid: tunnel_uuid.to_string(),
+                target_kind: target_kind.to_string(),
                 skill_id: skill_id.to_string(),
                 tunnel_name,
                 backend_tunnel_id,
@@ -189,7 +217,13 @@ impl WebhookRouter {
             .read()
             .ok()?
             .get(tunnel_uuid)
+            .filter(|registration| registration.target_kind == "skill")
             .map(|r| r.skill_id.clone())
+    }
+
+    /// Look up the full registration for a tunnel UUID.
+    pub fn registration(&self, tunnel_uuid: &str) -> Option<TunnelRegistration> {
+        self.routes.read().ok()?.get(tunnel_uuid).cloned()
     }
 
     /// List tunnels owned by a specific skill (for the skill JS API).

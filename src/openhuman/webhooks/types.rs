@@ -53,6 +53,9 @@ pub struct WebhookResponseData {
 pub struct TunnelRegistration {
     /// Tunnel UUID (from the backend).
     pub tunnel_uuid: String,
+    /// Registration target kind (`skill`, `channel`, or `echo`).
+    #[serde(default = "default_webhook_target_kind")]
+    pub target_kind: String,
     /// Skill ID that owns and handles this tunnel.
     pub skill_id: String,
     /// Human-readable tunnel name (optional, for display).
@@ -61,6 +64,10 @@ pub struct TunnelRegistration {
     /// Backend MongoDB `_id` for CRUD operations.
     #[serde(default)]
     pub backend_tunnel_id: Option<String>,
+}
+
+fn default_webhook_target_kind() -> String {
+    "skill".to_string()
 }
 
 /// Entry in the webhook activity log, emitted to the frontend via Tauri events.

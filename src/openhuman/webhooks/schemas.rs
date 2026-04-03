@@ -11,11 +11,25 @@ struct WebhookListLogsParams {
     limit: Option<usize>,
 }
 
+#[derive(Debug, Deserialize)]
+struct WebhookRegisterEchoParams {
+    tunnel_uuid: String,
+    tunnel_name: Option<String>,
+    backend_tunnel_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WebhookUnregisterEchoParams {
+    tunnel_uuid: String,
+}
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("list_registrations"),
         schemas("list_logs"),
         schemas("clear_logs"),
+        schemas("register_echo"),
+        schemas("unregister_echo"),
     ]
 }
 
@@ -32,6 +46,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("clear_logs"),
             handler: handle_clear_logs,
+        },
+        RegisteredController {
+            schema: schemas("register_echo"),
+            handler: handle_register_echo,
+        },
+        RegisteredController {
+            schema: schemas("unregister_echo"),
+            handler: handle_unregister_echo,
         },
     ]
 }
@@ -65,6 +87,44 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output("result", "Webhook log clear result.")],
         },
+        "register_echo" => ControllerSchema {
+            namespace: "webhooks",
+            function: "register_echo",
+            description: "Register a built-in echo webhook target for a tunnel UUID.",
+            inputs: vec![
+                FieldSchema {
+                    name: "tunnel_uuid",
+                    ty: TypeSchema::String,
+                    comment: "Tunnel UUID from the backend.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tunnel_name",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional human-readable tunnel name.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "backend_tunnel_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional backend tunnel id.",
+                    required: false,
+                },
+            ],
+            outputs: vec![json_output("result", "Updated webhook registrations.")],
+        },
+        "unregister_echo" => ControllerSchema {
+            namespace: "webhooks",
+            function: "unregister_echo",
+            description: "Unregister a built-in echo webhook target for a tunnel UUID.",
+            inputs: vec![FieldSchema {
+                name: "tunnel_uuid",
+                ty: TypeSchema::String,
+                comment: "Tunnel UUID from the backend.",
+                required: true,
+            }],
+            outputs: vec![json_output("result", "Updated webhook registrations.")],
+        },
         _ => ControllerSchema {
             namespace: "webhooks",
             function: "unknown",
@@ -93,6 +153,27 @@ fn handle_list_logs(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_clear_logs(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async { to_json(crate::openhuman::webhooks::ops::clear_logs().await?) })
+}
+
+fn handle_register_echo(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let payload = deserialize_params::<WebhookRegisterEchoParams>(params)?;
+        to_json(
+            crate::openhuman::webhooks::ops::register_echo(
+                &payload.tunnel_uuid,
+                payload.tunnel_name,
+                payload.backend_tunnel_id,
+            )
+            .await?,
+        )
+    })
+}
+
+fn handle_unregister_echo(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let payload = deserialize_params::<WebhookUnregisterEchoParams>(params)?;
+        to_json(crate::openhuman::webhooks::ops::unregister_echo(&payload.tunnel_uuid).await?)
+    })
 }
 
 fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {

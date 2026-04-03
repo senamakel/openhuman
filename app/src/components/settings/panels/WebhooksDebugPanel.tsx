@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getCoreHttpBaseUrl } from '../../../services/coreRpcClient';
+import { BACKEND_URL } from '../../../utils/config';
 import {
   openhumanWebhooksClearLogs,
+  openhumanWebhooksListLogs,
+  openhumanWebhooksListRegistrations,
   type WebhookDebugEvent,
   type WebhookDebugLogEntry,
   type WebhookDebugRegistration,
-  openhumanWebhooksListLogs,
-  openhumanWebhooksListRegistrations,
 } from '../../../utils/tauriCommands';
-import { BACKEND_URL } from '../../../utils/config';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { PrimaryButton } from './components/ActionPanel';
@@ -59,15 +59,17 @@ const WebhooksDebugPanel = () => {
         openhumanWebhooksListRegistrations(),
         openhumanWebhooksListLogs(LOG_LIMIT),
       ]);
-      setRegistrations(registrationsResponse.result.registrations);
-      setLogs(logsResponse.result.logs);
+      setRegistrations(registrationsResponse.result.result.registrations);
+      setLogs(logsResponse.result.result.logs);
       setSelectedCorrelationId(current =>
-        current && logsResponse.result.logs.some(log => log.correlation_id === current)
+        current && logsResponse.result.result.logs.some(log => log.correlation_id === current)
           ? current
-          : logsResponse.result.logs[0]?.correlation_id ?? null
+          : (logsResponse.result.result.logs[0]?.correlation_id ?? null)
       );
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load webhook debug data');
+      setError(
+        loadError instanceof Error ? loadError.message : 'Failed to load webhook debug data'
+      );
     } finally {
       setLoading(false);
     }
@@ -167,14 +169,16 @@ const WebhooksDebugPanel = () => {
               Clear Logs
             </PrimaryButton>
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700">
-              Registered: <span className="font-semibold text-stone-900">{registrations.length}</span>
+              Registered:{' '}
+              <span className="font-semibold text-stone-900">{registrations.length}</span>
             </div>
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700">
               Captured: <span className="font-semibold text-stone-900">{logs.length}</span>
             </div>
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700">
               Live:{' '}
-              <span className={isLive ? 'font-semibold text-sage-700' : 'font-semibold text-stone-500'}>
+              <span
+                className={isLive ? 'font-semibold text-sage-700' : 'font-semibold text-stone-500'}>
                 {isLive ? 'connected' : 'disconnected'}
               </span>
             </div>
@@ -224,8 +228,13 @@ const WebhooksDebugPanel = () => {
                       </div>
                       <div className="text-xs text-stone-500">{registration.tunnel_uuid}</div>
                     </div>
-                    <div className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
-                      {registration.skill_id}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-stone-100 px-3 py-1 font-medium text-stone-700">
+                        {registration.target_kind}
+                      </span>
+                      <span className="rounded-full bg-stone-100 px-3 py-1 font-medium text-stone-700">
+                        {registration.skill_id}
+                      </span>
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-stone-600">
@@ -291,7 +300,9 @@ const WebhooksDebugPanel = () => {
                     <div className="mt-1 text-xs text-stone-500">
                       {entry.tunnel_name} {entry.skill_id ? `• ${entry.skill_id}` : '• unrouted'}
                     </div>
-                    <div className="mt-1 text-xs text-stone-500">{formatDateTime(entry.updated_at)}</div>
+                    <div className="mt-1 text-xs text-stone-500">
+                      {formatDateTime(entry.updated_at)}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -317,14 +328,20 @@ const WebhooksDebugPanel = () => {
 
                   <div className="grid gap-2 text-sm text-stone-700">
                     <div>
-                      Tunnel: <span className="font-medium text-stone-900">{selectedLog.tunnel_name}</span>
+                      Tunnel:{' '}
+                      <span className="font-medium text-stone-900">{selectedLog.tunnel_name}</span>
                     </div>
                     <div>
                       Tunnel UUID:{' '}
-                      <span className="font-mono text-xs text-stone-900">{selectedLog.tunnel_uuid}</span>
+                      <span className="font-mono text-xs text-stone-900">
+                        {selectedLog.tunnel_uuid}
+                      </span>
                     </div>
                     <div>
-                      Skill: <span className="font-medium text-stone-900">{selectedLog.skill_id || 'unrouted'}</span>
+                      Skill:{' '}
+                      <span className="font-medium text-stone-900">
+                        {selectedLog.skill_id || 'unrouted'}
+                      </span>
                     </div>
                     <div>Received: {formatDateTime(selectedLog.timestamp)}</div>
                     <div>Updated: {formatDateTime(selectedLog.updated_at)}</div>
@@ -336,11 +353,26 @@ const WebhooksDebugPanel = () => {
                     </div>
                   )}
 
-                  <PayloadBlock title="Request Headers" value={prettyJson(selectedLog.request_headers)} />
-                  <PayloadBlock title="Query Params" value={prettyJson(selectedLog.request_query)} />
-                  <PayloadBlock title="Request Body" value={decodeBase64Preview(selectedLog.request_body) || '[empty]'} />
-                  <PayloadBlock title="Response Headers" value={prettyJson(selectedLog.response_headers)} />
-                  <PayloadBlock title="Response Body" value={decodeBase64Preview(selectedLog.response_body) || '[empty]'} />
+                  <PayloadBlock
+                    title="Request Headers"
+                    value={prettyJson(selectedLog.request_headers)}
+                  />
+                  <PayloadBlock
+                    title="Query Params"
+                    value={prettyJson(selectedLog.request_query)}
+                  />
+                  <PayloadBlock
+                    title="Request Body"
+                    value={decodeBase64Preview(selectedLog.request_body) || '[empty]'}
+                  />
+                  <PayloadBlock
+                    title="Response Headers"
+                    value={prettyJson(selectedLog.response_headers)}
+                  />
+                  <PayloadBlock
+                    title="Response Body"
+                    value={decodeBase64Preview(selectedLog.response_body) || '[empty]'}
+                  />
                   {selectedLog.raw_payload != null && (
                     <PayloadBlock title="Raw Payload" value={prettyJson(selectedLog.raw_payload)} />
                   )}
@@ -357,7 +389,9 @@ const WebhooksDebugPanel = () => {
 function PayloadBlock({ title, value }: { title: string; value: string }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</div>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
+        {title}
+      </div>
       <pre className="max-h-56 overflow-auto rounded-lg border border-stone-200 bg-stone-950 p-3 text-xs text-stone-100 whitespace-pre-wrap break-words">
         {value}
       </pre>

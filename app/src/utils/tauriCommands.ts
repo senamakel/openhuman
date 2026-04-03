@@ -297,6 +297,7 @@ export async function memoryClearNamespace(
 
 export interface WebhookDebugRegistration {
   tunnel_uuid: string;
+  target_kind: string;
   skill_id: string;
   tunnel_name: string | null;
   backend_tunnel_id: string | null;
@@ -331,23 +332,23 @@ export interface WebhookDebugEvent {
 }
 
 export async function openhumanWebhooksListRegistrations(): Promise<
-  CommandResponse<{ registrations: WebhookDebugRegistration[] }>
+  CommandResponse<{ result: { registrations: WebhookDebugRegistration[] } }>
 > {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<{ registrations: WebhookDebugRegistration[] }>>({
-    method: 'openhuman.webhooks_list_registrations',
-  });
+  return await callCoreRpc<
+    CommandResponse<{ result: { registrations: WebhookDebugRegistration[] } }>
+  >({ method: 'openhuman.webhooks_list_registrations' });
 }
 
-export async function openhumanWebhooksListLogs(limit = 100): Promise<
-  CommandResponse<{ logs: WebhookDebugLogEntry[] }>
-> {
+export async function openhumanWebhooksListLogs(
+  limit = 100
+): Promise<CommandResponse<{ result: { logs: WebhookDebugLogEntry[] } }>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<{ logs: WebhookDebugLogEntry[] }>>({
+  return await callCoreRpc<CommandResponse<{ result: { logs: WebhookDebugLogEntry[] } }>>({
     method: 'openhuman.webhooks_list_logs',
     params: { limit },
   });

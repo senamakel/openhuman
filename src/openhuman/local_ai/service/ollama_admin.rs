@@ -6,7 +6,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::local_ai::install::{find_system_ollama_binary, run_ollama_install_script};
 use crate::openhuman::local_ai::model_ids;
 use crate::openhuman::local_ai::ollama_api::{
-    OllamaModelTag, OllamaPullEvent, OllamaPullRequest, OllamaTagsResponse, OLLAMA_BASE_URL,
+    OllamaModelTag, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest, OllamaTagsResponse,
+    OLLAMA_BASE_URL,
 };
 use crate::openhuman::local_ai::paths::{find_workspace_ollama_binary, workspace_ollama_binary};
 
@@ -375,6 +376,7 @@ impl LocalAiService {
             let mut pending = String::new();
             let mut stream_error: Option<String> = None;
             let started_at = std::time::Instant::now();
+            let mut progress = OllamaPullProgress::default();
             let mut observed_bytes = false;
             while let Some(item) = stream.next().await {
                 let chunk = match item {
@@ -399,8 +401,9 @@ impl LocalAiService {
                         return Err(format!("ollama pull error: {err}"));
                     }
 
-                    let completed = event.completed.unwrap_or(0);
-                    let total = event.total;
+                    progress.observe(&event);
+                    let completed = progress.aggregate_downloaded();
+                    let total = progress.aggregate_total();
                     let elapsed = started_at.elapsed().as_secs_f64().max(0.001);
                     let speed_bps = (completed as f64 / elapsed).round().max(0.0) as u64;
                     let eta_seconds = total.and_then(|t| {

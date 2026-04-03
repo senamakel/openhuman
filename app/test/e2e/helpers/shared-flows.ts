@@ -15,6 +15,7 @@ import {
   waitForWebView,
   waitForWindowVisible,
 } from './element-helpers';
+import { supportsExecuteScript } from './platform';
 
 // ---------------------------------------------------------------------------
 // Generic helpers
@@ -75,29 +76,85 @@ export async function clickFirstMatch(candidates, timeout = 5_000) {
 // Navigation helpers (JS hash-based — icon-only sidebar buttons)
 // ---------------------------------------------------------------------------
 
+/** Appium Mac2 cannot run W3C Execute Script in WKWebView — use sidebar labels instead. */
+const HASH_TO_SIDEBAR_LABEL = {
+  '/skills': 'Skills',
+  '/home': 'Home',
+  '/conversations': 'Conversations',
+  '/settings': 'Settings',
+  '/intelligence': 'Intelligence',
+};
+
 export async function navigateViaHash(hash) {
-  try {
-    await browser.execute(h => {
-      window.location.hash = h;
-    }, hash);
-    await browser.pause(2_000);
-    const currentHash = await browser.execute(() => window.location.hash);
-    console.log(`[E2E] Navigated to ${hash} (current: ${currentHash})`);
-  } catch (err) {
-    console.log(`[E2E] Hash navigation to ${hash} failed:`, err);
+  const normalized = String(hash).replace(/\/$/, '') || hash;
+
+  if (supportsExecuteScript()) {
+    try {
+      await browser.execute(h => {
+        window.location.hash = h;
+      }, hash);
+      await browser.pause(2_000);
+      const currentHash = await browser.execute(() => window.location.hash);
+      console.log(`[E2E] Navigated to ${hash} (current: ${currentHash})`);
+    } catch (err) {
+      console.log(`[E2E] Hash navigation to ${hash} failed:`, err);
+    }
+    return;
   }
+
+  // Appium Mac2 — Settings → Billing (nested route)
+  if (normalized === '/settings/billing') {
+    try {
+      await clickText('Settings', 12_000);
+      await browser.pause(1_500);
+      const sub = await clickFirstMatch(['Billing & Usage', 'Billing'], 12_000);
+      if (!sub) {
+        throw new Error('Mac2: could not find Billing / Billing & Usage after opening Settings');
+      }
+      await browser.pause(2_000);
+      console.log(`[E2E] Mac2 navigated to ${hash} via Settings → ${sub}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`[E2E] Mac2: failed to navigate to ${hash}: ${msg}`);
+    }
+    return;
+  }
+
+  const label = HASH_TO_SIDEBAR_LABEL[normalized];
+  if (label) {
+    try {
+      await clickText(label, 12_000);
+      await browser.pause(2_000);
+      console.log(`[E2E] Mac2 sidebar navigation to ${hash} via "${label}"`);
+    } catch (err) {
+      console.log(`[E2E] Mac2 sidebar navigation to ${hash} failed:`, err);
+    }
+    return;
+  }
+
+  throw new Error(
+    `[E2E] Mac2: no sidebar mapping for hash "${hash}". Extend HASH_TO_SIDEBAR_LABEL or add a branch in navigateViaHash.`
+  );
 }
 
 export async function navigateToHome() {
   await navigateViaHash('/home');
   const homeText = await waitForHomePage(10_000);
   if (!homeText) {
-    try {
-      await browser.execute(() => {
-        window.location.hash = '/home';
-      });
-    } catch {
-      /* ignore */
+    if (supportsExecuteScript()) {
+      try {
+        await browser.execute(() => {
+          window.location.hash = '/home';
+        });
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        await clickText('Home', 8_000);
+      } catch {
+        /* ignore */
+      }
     }
     await browser.pause(2_000);
     await waitForHomePage(10_000);
@@ -127,29 +184,35 @@ export async function navigateToBilling() {
     return;
   }
 
-  // Fallback
-  const currentHash = await browser.execute(() => window.location.hash);
-  console.log(`[E2E] Billing content not found. Current hash: ${currentHash}`);
+  console.log('[E2E] Billing content not found after initial navigation; running fallback');
 
   await navigateViaHash('/settings');
   await browser.pause(3_000);
 
-  const clicked = await browser.execute(() => {
-    const allText = document.querySelectorAll('*');
-    for (const el of allText) {
-      const text = el.textContent?.trim() || '';
-      if (
-        (text === 'Billing & Usage' || text === 'Billing') &&
-        el.closest('button, [role="button"], a, [class*="MenuItem"]')
-      ) {
-        (el.closest('button, [role="button"], a, [class*="MenuItem"]') as HTMLElement).click();
-        return 'clicked';
+  if (supportsExecuteScript()) {
+    const currentHash = await browser.execute(() => window.location.hash);
+    console.log(`[E2E] Billing fallback: current hash ${currentHash}`);
+
+    const clicked = await browser.execute(() => {
+      const allText = document.querySelectorAll('*');
+      for (const el of allText) {
+        const text = el.textContent?.trim() || '';
+        if (
+          (text === 'Billing & Usage' || text === 'Billing') &&
+          el.closest('button, [role="button"], a, [class*="MenuItem"]')
+        ) {
+          (el.closest('button, [role="button"], a, [class*="MenuItem"]') as HTMLElement).click();
+          return 'clicked';
+        }
       }
-    }
-    window.location.hash = '/settings/billing';
-    return 'hash-fallback';
-  });
-  console.log(`[E2E] Billing fallback: ${clicked}`);
+      window.location.hash = '/settings/billing';
+      return 'hash-fallback';
+    });
+    console.log(`[E2E] Billing fallback: ${clicked}`);
+  } else {
+    const sub = await clickFirstMatch(['Billing & Usage', 'Billing'], 10_000);
+    console.log(`[E2E] Billing fallback (Mac2): clicked ${sub}`);
+  }
   await browser.pause(3_000);
 
   // Verify billing actually loaded after fallback
@@ -158,7 +221,10 @@ export async function navigateToBilling() {
     (await textExists('FREE')) ||
     (await textExists('Upgrade'));
   if (!finalCheck) {
-    const finalHash = await browser.execute(() => window.location.hash);
+    let finalHash = '';
+    if (supportsExecuteScript()) {
+      finalHash = await browser.execute(() => window.location.hash);
+    }
     const tree = await dumpAccessibilityTree();
     console.log(`[E2E] Billing verification failed after fallback. Hash: ${finalHash}`);
     console.log(`[E2E] Accessibility tree:\n`, tree.slice(0, 4000));

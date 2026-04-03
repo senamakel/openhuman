@@ -12,8 +12,8 @@ import {
   setLoading,
   setRegistrations,
   setTunnels,
+  type WebhookActivityEntry,
 } from '../store/webhooksSlice';
-import type { WebhookActivityEntry } from '../store/webhooksSlice';
 import {
   openhumanWebhooksListLogs,
   openhumanWebhooksListRegistrations,

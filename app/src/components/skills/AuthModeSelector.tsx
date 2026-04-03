@@ -4,6 +4,7 @@
  * For managed mode, clicking immediately triggers the OAuth flow.
  */
 
+import type { ReactElement } from "react";
 import type { AuthMode } from "../../lib/skills/types.ts";
 
 interface AuthModeSelectorProps {
@@ -12,7 +13,7 @@ interface AuthModeSelectorProps {
   disabled?: boolean;
 }
 
-const MODE_ICONS: Record<string, (props: { className: string }) => JSX.Element> = {
+const MODE_ICONS: Record<string, (props: { className: string }) => ReactElement> = {
   managed: ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path

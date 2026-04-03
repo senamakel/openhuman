@@ -295,6 +295,73 @@ export async function memoryClearNamespace(
   return response.result;
 }
 
+export interface WebhookDebugRegistration {
+  tunnel_uuid: string;
+  skill_id: string;
+  tunnel_name: string | null;
+  backend_tunnel_id: string | null;
+}
+
+export interface WebhookDebugLogEntry {
+  correlation_id: string;
+  tunnel_id: string;
+  tunnel_uuid: string;
+  tunnel_name: string;
+  method: string;
+  path: string;
+  skill_id: string | null;
+  status_code: number | null;
+  timestamp: number;
+  updated_at: number;
+  request_headers: Record<string, unknown>;
+  request_query: Record<string, string>;
+  request_body: string;
+  response_headers: Record<string, string>;
+  response_body: string;
+  stage: string;
+  error_message: string | null;
+  raw_payload?: unknown;
+}
+
+export interface WebhookDebugEvent {
+  event_type: string;
+  timestamp: number;
+  correlation_id?: string | null;
+  tunnel_uuid?: string | null;
+}
+
+export async function openhumanWebhooksListRegistrations(): Promise<
+  CommandResponse<{ registrations: WebhookDebugRegistration[] }>
+> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<{ registrations: WebhookDebugRegistration[] }>>({
+    method: 'openhuman.webhooks_list_registrations',
+  });
+}
+
+export async function openhumanWebhooksListLogs(limit = 100): Promise<
+  CommandResponse<{ logs: WebhookDebugLogEntry[] }>
+> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<{ logs: WebhookDebugLogEntry[] }>>({
+    method: 'openhuman.webhooks_list_logs',
+    params: { limit },
+  });
+}
+
+export async function openhumanWebhooksClearLogs(): Promise<CommandResponse<{ cleared: number }>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<{ cleared: number }>>({
+    method: 'openhuman.webhooks_clear_logs',
+  });
+}
+
 /** A single entity returned in the structured retrieval context. */
 export interface MemoryRetrievalEntity {
   id?: string;

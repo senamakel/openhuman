@@ -81,3 +81,72 @@ pub struct WebhookActivityEntry {
     /// Unix timestamp in milliseconds.
     pub timestamp: u64,
 }
+
+/// Full webhook debug log entry retained for developer inspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDebugLogEntry {
+    /// Correlation ID of the request.
+    pub correlation_id: String,
+    /// Backend tunnel ID.
+    pub tunnel_id: String,
+    /// Tunnel UUID.
+    pub tunnel_uuid: String,
+    /// Tunnel name.
+    pub tunnel_name: String,
+    /// HTTP method.
+    pub method: String,
+    /// Request path.
+    pub path: String,
+    /// Owning skill if known.
+    pub skill_id: Option<String>,
+    /// Most recent response status code, if available.
+    pub status_code: Option<u16>,
+    /// Unix timestamp in milliseconds when the request was first seen.
+    pub timestamp: u64,
+    /// Unix timestamp in milliseconds for the latest update.
+    pub updated_at: u64,
+    /// Request headers as forwarded from the backend.
+    #[serde(default)]
+    pub request_headers: HashMap<String, serde_json::Value>,
+    /// Query parameters.
+    #[serde(default)]
+    pub request_query: HashMap<String, String>,
+    /// Base64-encoded request body.
+    #[serde(default)]
+    pub request_body: String,
+    /// Response headers returned by the skill/core.
+    #[serde(default)]
+    pub response_headers: HashMap<String, String>,
+    /// Base64-encoded response body.
+    #[serde(default)]
+    pub response_body: String,
+    /// Current lifecycle stage.
+    pub stage: String,
+    /// Error detail when capture or routing failed.
+    pub error_message: Option<String>,
+    /// Raw payload snapshot for malformed webhook events.
+    pub raw_payload: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDebugRegistrationsResult {
+    pub registrations: Vec<TunnelRegistration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDebugLogListResult {
+    pub logs: Vec<WebhookDebugLogEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDebugLogsClearedResult {
+    pub cleared: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookDebugEvent {
+    pub event_type: String,
+    pub timestamp: u64,
+    pub correlation_id: Option<String>,
+    pub tunnel_uuid: Option<String>,
+}

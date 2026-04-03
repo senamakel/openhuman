@@ -4,55 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import ConnectionIndicator from '../components/ConnectionIndicator';
 import { useUser } from '../hooks/useUser';
 import {
-  isTauri,
-  type LocalAiStatus,
-  openhumanLocalAiDownload,
-  openhumanLocalAiStatus,
-} from '../utils/tauriCommands';
-
-const progressFromStatus = (status: LocalAiStatus | null): number => {
-  if (!status) return 0;
-  if (typeof status.download_progress === 'number') {
-    return Math.max(0, Math.min(1, status.download_progress));
-  }
-  switch (status.state) {
-    case 'ready':
-      return 1;
-    case 'loading':
-      return 0.92;
-    case 'downloading':
-      return 0.25;
-    case 'installing':
-      return 0.1;
-    case 'idle':
-      return 0;
-    default:
-      return 0;
-  }
-};
-
-const formatBytes = (bytes?: number | null): string => {
-  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1024) return `${Math.round(bytes)} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let value = bytes / 1024;
-  let unit = units[0];
-  for (let i = 1; i < units.length && value >= 1024; i += 1) {
-    value /= 1024;
-    unit = units[i];
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`;
-};
-
-const formatEta = (etaSeconds?: number | null): string => {
-  if (typeof etaSeconds !== 'number' || !Number.isFinite(etaSeconds) || etaSeconds <= 0) {
-    return '';
-  }
-  const mins = Math.floor(etaSeconds / 60);
-  const secs = etaSeconds % 60;
-  if (mins <= 0) return `${secs}s`;
-  return `${mins}m ${secs.toString().padStart(2, '0')}s`;
-};
+  bootstrapLocalAiWithRecommendedPreset,
+  ensureRecommendedLocalAiPresetIfNeeded,
+  triggerLocalAiAssetBootstrap,
+} from '../utils/localAiBootstrap';
+import { formatBytes, formatEta, progressFromStatus } from '../utils/localAiHelpers';
+import { isTauri, type LocalAiStatus, openhumanLocalAiStatus } from '../utils/tauriCommands';
 
 const Home = () => {
   const { user } = useUser();
@@ -61,6 +18,10 @@ const Home = () => {
   const [localAiStatus, setLocalAiStatus] = useState<LocalAiStatus | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const autoRetryDoneRef = useRef(false);
+  const initialBootstrapHandledRef = useRef(false);
+  const initialBootstrapInFlightRef = useRef(false);
+  const initialBootstrapPendingDownloadRef = useRef(false);
+  const initialBootstrapAttemptsRef = useRef(0);
 
   // Get greeting based on time
   const getGreeting = () => {
@@ -75,21 +36,103 @@ const Home = () => {
     navigate('/conversations');
   };
 
+  const refreshLocalAiStatus = async () => {
+    const status = await openhumanLocalAiStatus();
+    setLocalAiStatus(status.result);
+    return status.result;
+  };
+
+  const runManualBootstrap = async (force: boolean) => {
+    setDownloadBusy(true);
+    try {
+      await bootstrapLocalAiWithRecommendedPreset(
+        force,
+        force ? '[Home re-bootstrap]' : '[Home manual bootstrap]'
+      );
+      await refreshLocalAiStatus();
+    } catch (error) {
+      console.warn('[Home] manual Local AI bootstrap failed:', error);
+    } finally {
+      setDownloadBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!isTauri()) return;
+    const MAX_INITIAL_BOOTSTRAP_ATTEMPTS = 3;
     let mounted = true;
     const load = async () => {
       try {
         const status = await openhumanLocalAiStatus();
         if (mounted) {
           setLocalAiStatus(status.result);
+
           // Auto-retry bootstrap once if Ollama is degraded (install/server issue).
           if (status.result?.state === 'degraded' && !autoRetryDoneRef.current) {
             autoRetryDoneRef.current = true;
-            void openhumanLocalAiDownload(true).catch(() => {});
+            console.debug('[Home] local AI is degraded; scheduling a one-time re-bootstrap');
+            void bootstrapLocalAiWithRecommendedPreset(true, '[Home degraded auto-retry]').catch(
+              error => {
+                autoRetryDoneRef.current = false;
+                console.warn('[Home] degraded local AI re-bootstrap failed:', error);
+              }
+            );
+          }
+
+          if (
+            status.result?.state === 'idle' &&
+            !initialBootstrapHandledRef.current &&
+            !initialBootstrapInFlightRef.current
+          ) {
+            initialBootstrapInFlightRef.current = true;
+            console.debug('[Home] local AI is idle; checking first-run preset selection');
+            void ensureRecommendedLocalAiPresetIfNeeded('[Home first-run]')
+              .then(async preset => {
+                const shouldTriggerBootstrap =
+                  !preset.hadSelectedTier || initialBootstrapPendingDownloadRef.current;
+
+                if (!shouldTriggerBootstrap) {
+                  console.debug(
+                    '[Home] skipping automatic first-run bootstrap because a tier is already selected'
+                  );
+                  initialBootstrapHandledRef.current = true;
+                  return;
+                }
+
+                initialBootstrapPendingDownloadRef.current = true;
+                console.debug(
+                  '[Home] selected recommended preset for first-run bootstrap',
+                  JSON.stringify({
+                    recommendedTier: preset.recommendedTier,
+                    hadSelectedTier: preset.hadSelectedTier,
+                  })
+                );
+                await triggerLocalAiAssetBootstrap(false, '[Home first-run]');
+                initialBootstrapPendingDownloadRef.current = false;
+                initialBootstrapHandledRef.current = true;
+                initialBootstrapAttemptsRef.current = 0;
+              })
+              .catch(error => {
+                initialBootstrapAttemptsRef.current += 1;
+                const attempts = initialBootstrapAttemptsRef.current;
+                if (attempts >= MAX_INITIAL_BOOTSTRAP_ATTEMPTS) {
+                  initialBootstrapPendingDownloadRef.current = false;
+                  initialBootstrapHandledRef.current = true;
+                  console.warn(
+                    '[Home] first-run local AI bootstrap failed permanently; stopping retries',
+                    { attempts, error }
+                  );
+                  return;
+                }
+                console.warn('[Home] first-run local AI bootstrap failed:', error);
+              })
+              .finally(() => {
+                initialBootstrapInFlightRef.current = false;
+              });
           }
         }
-      } catch {
+      } catch (error) {
+        console.warn('[Home] failed to load local AI status:', error);
         if (mounted) setLocalAiStatus(null);
       }
     };
@@ -234,31 +277,13 @@ const Home = () => {
 
                 <div className="mt-2 flex items-center gap-2">
                   <button
-                    onClick={async () => {
-                      setDownloadBusy(true);
-                      try {
-                        await openhumanLocalAiDownload(false);
-                        const status = await openhumanLocalAiStatus();
-                        setLocalAiStatus(status.result);
-                      } finally {
-                        setDownloadBusy(false);
-                      }
-                    }}
+                    onClick={() => void runManualBootstrap(false)}
                     disabled={downloadBusy}
                     className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700 disabled:opacity-60">
                     {downloadBusy ? 'Working...' : 'Bootstrap'}
                   </button>
                   <button
-                    onClick={async () => {
-                      setDownloadBusy(true);
-                      try {
-                        await openhumanLocalAiDownload(true);
-                        const status = await openhumanLocalAiStatus();
-                        setLocalAiStatus(status.result);
-                      } finally {
-                        setDownloadBusy(false);
-                      }
-                    }}
+                    onClick={() => void runManualBootstrap(true)}
                     disabled={downloadBusy}
                     className="rounded-md border border-stone-600 px-2.5 py-1.5 text-[11px] font-medium text-stone-200 hover:border-stone-500 disabled:opacity-60">
                     Re-bootstrap

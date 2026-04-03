@@ -1491,6 +1491,7 @@ export interface PresetsResponse {
   presets: ModelPresetResult[];
   recommended_tier: string;
   current_tier: string;
+  selected_tier?: string | null;
   device: DeviceProfileResult;
 }
 

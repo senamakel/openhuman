@@ -77,7 +77,7 @@ const tabs = [
         />
       </svg>
     ),
-  }, 
+  },
   {
     id: 'settings',
     label: 'Settings',

@@ -11,7 +11,11 @@ interface TunnelListProps {
   onCreateTunnel: (name: string, description?: string) => Promise<Tunnel>;
   onDeleteTunnel: (id: string) => Promise<void>;
   onRefresh: () => Promise<void>;
-  onRegisterEcho: (tunnelUuid: string, tunnelName?: string, backendTunnelId?: string) => Promise<void>;
+  onRegisterEcho: (
+    tunnelUuid: string,
+    tunnelName?: string,
+    backendTunnelId?: string
+  ) => Promise<void>;
   onUnregisterEcho: (tunnelUuid: string) => Promise<void>;
 }
 

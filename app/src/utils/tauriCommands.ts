@@ -391,10 +391,7 @@ export async function openhumanWebhooksUnregisterEcho(
   }
   return await callCoreRpc<
     CommandResponse<{ result: { registrations: WebhookDebugRegistration[] } }>
-  >({
-    method: 'openhuman.webhooks_unregister_echo',
-    params: { tunnel_uuid: tunnelUuid },
-  });
+  >({ method: 'openhuman.webhooks_unregister_echo', params: { tunnel_uuid: tunnelUuid } });
 }
 
 /** A single entity returned in the structured retrieval context. */

@@ -36,9 +36,7 @@ export default function Webhooks() {
           <h2 className="text-xl font-semibold text-stone-900">Webhooks</h2>
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${
-              coreConnected
-                ? 'bg-sage-100 text-sage-700'
-                : 'bg-stone-100 text-stone-500'
+              coreConnected ? 'bg-sage-100 text-sage-700' : 'bg-stone-100 text-stone-500'
             }`}>
             <span
               className={`w-1.5 h-1.5 rounded-full ${

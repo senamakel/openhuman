@@ -1,8 +1,8 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { getCoreHttpBaseUrl } from '../services/coreRpcClient';
 import { tunnelsApi } from '../services/api/tunnelsApi';
+import { getCoreHttpBaseUrl } from '../services/coreRpcClient';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   addActivity,
@@ -67,9 +67,16 @@ export function useWebhooks() {
       for (const entry of logs.reverse()) {
         dispatch(addActivity(logToActivity(entry)));
       }
-      log('Loaded %d registrations, %d logs from core', regsResponse.result.result.registrations.length, logs.length);
+      log(
+        'Loaded %d registrations, %d logs from core',
+        regsResponse.result.result.registrations.length,
+        logs.length
+      );
     } catch (err) {
-      log('Core RPC not available (registrations/logs): %s', err instanceof Error ? err.message : err);
+      log(
+        'Core RPC not available (registrations/logs): %s',
+        err instanceof Error ? err.message : err
+      );
     }
   }, [dispatch]);
 
@@ -178,7 +185,11 @@ export function useWebhooks() {
   const registerEcho = useCallback(
     async (tunnelUuid: string, tunnelName?: string, backendTunnelId?: string) => {
       try {
-        const response = await openhumanWebhooksRegisterEcho(tunnelUuid, tunnelName, backendTunnelId);
+        const response = await openhumanWebhooksRegisterEcho(
+          tunnelUuid,
+          tunnelName,
+          backendTunnelId
+        );
         dispatch(setRegistrations(response.result.result.registrations));
         log('Registered echo for tunnel %s', tunnelUuid);
       } catch (err) {

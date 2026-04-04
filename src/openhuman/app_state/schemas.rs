@@ -56,7 +56,10 @@ pub fn app_state_schemas(function: &str) -> ControllerSchema {
             function: "update_local_state",
             description: "Update core-owned local app state persisted under the workspace.",
             inputs: vec![
-                optional_json("encryptionKey", "Set or clear the locally stored encryption key."),
+                optional_json(
+                    "encryptionKey",
+                    "Set or clear the locally stored encryption key.",
+                ),
                 optional_json(
                     "primaryWalletAddress",
                     "Set or clear the locally stored wallet address.",
@@ -89,7 +92,11 @@ pub fn app_state_schemas(function: &str) -> ControllerSchema {
 }
 
 fn handle_snapshot(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { crate::openhuman::app_state::snapshot().await?.into_cli_compatible_json() })
+    Box::pin(async move {
+        crate::openhuman::app_state::snapshot()
+            .await?
+            .into_cli_compatible_json()
+    })
 }
 
 fn handle_update_local_state(params: Map<String, Value>) -> ControllerFuture {

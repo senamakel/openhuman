@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-import { useCoreState } from './CoreStateProvider';
 import { useDaemonLifecycle } from '../hooks/useDaemonLifecycle';
 import { socketService } from '../services/socketService';
 import { IS_DEV } from '../utils/config';
+import { useCoreState } from './CoreStateProvider';
 
 /**
  * SocketProvider manages the socket connection based on JWT token.

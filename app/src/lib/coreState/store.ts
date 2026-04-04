@@ -40,21 +40,12 @@ export interface CoreState {
 }
 
 const emptySnapshot: CoreAppSnapshot = {
-  auth: {
-    isAuthenticated: false,
-    userId: null,
-    user: null,
-    profileId: null,
-  },
+  auth: { isAuthenticated: false, userId: null, user: null, profileId: null },
   sessionToken: null,
   currentUser: null,
   onboardingCompleted: false,
   analyticsEnabled: false,
-  localState: {
-    encryptionKey: null,
-    primaryWalletAddress: null,
-    onboardingTasks: null,
-  },
+  localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
 };
 
 let currentState: CoreState = {

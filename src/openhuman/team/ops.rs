@@ -280,7 +280,10 @@ pub async fn switch_team(config: &Config, team_id: &str) -> Result<RpcOutcome<Va
     let team_id = normalize_id(team_id, "teamId")?;
     let path = build_api_path(&["teams", &team_id, "switch"])?;
     let data = get_authed_value(config, Method::POST, &path, Some(json!({}))).await?;
-    Ok(RpcOutcome::single_log(data, "active team switched via backend"))
+    Ok(RpcOutcome::single_log(
+        data,
+        "active team switched via backend",
+    ))
 }
 
 pub async fn leave_team(config: &Config, team_id: &str) -> Result<RpcOutcome<Value>, String> {

@@ -46,14 +46,13 @@ export async function updateCoreLocalState(params: {
     updatedAtMs?: number;
   } | null;
 }): Promise<void> {
-  await callCoreRpc({
-    method: 'openhuman.app_state_update_local_state',
-    params,
-  });
+  await callCoreRpc({ method: 'openhuman.app_state_update_local_state', params });
 }
 
 export async function listTeams(): Promise<TeamWithRole[]> {
-  const response = await callCoreRpc<{ result: TeamWithRole[] }>({ method: 'openhuman.team_list_teams' });
+  const response = await callCoreRpc<{ result: TeamWithRole[] }>({
+    method: 'openhuman.team_list_teams',
+  });
   return response.result;
 }
 

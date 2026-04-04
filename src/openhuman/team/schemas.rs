@@ -176,14 +176,20 @@ pub fn team_schemas(function: &str) -> ControllerSchema {
             function: "get_team",
             description: "Fetch a single team.",
             inputs: vec![required_string("teamId", "Team id.")],
-            outputs: vec![json_output("result", "Raw team object returned by GET /teams/:teamId.")],
+            outputs: vec![json_output(
+                "result",
+                "Raw team object returned by GET /teams/:teamId.",
+            )],
         },
         "team_create_team" => ControllerSchema {
             namespace: "team",
             function: "create_team",
             description: "Create a team.",
             inputs: vec![required_string("name", "Team name.")],
-            outputs: vec![json_output("result", "Raw team object returned by POST /teams.")],
+            outputs: vec![json_output(
+                "result",
+                "Raw team object returned by POST /teams.",
+            )],
         },
         "team_update_team" => ControllerSchema {
             namespace: "team",
@@ -193,14 +199,20 @@ pub fn team_schemas(function: &str) -> ControllerSchema {
                 required_string("teamId", "Team id."),
                 optional_string("name", "Updated team name."),
             ],
-            outputs: vec![json_output("result", "Raw team object returned by PUT /teams/:teamId.")],
+            outputs: vec![json_output(
+                "result",
+                "Raw team object returned by PUT /teams/:teamId.",
+            )],
         },
         "team_delete_team" => ControllerSchema {
             namespace: "team",
             function: "delete_team",
             description: "Delete a team.",
             inputs: vec![required_string("teamId", "Team id.")],
-            outputs: vec![json_output("result", "Delete result returned by DELETE /teams/:teamId.")],
+            outputs: vec![json_output(
+                "result",
+                "Delete result returned by DELETE /teams/:teamId.",
+            )],
         },
         "team_switch_team" => ControllerSchema {
             namespace: "team",
@@ -227,7 +239,10 @@ pub fn team_schemas(function: &str) -> ControllerSchema {
             function: "join_team",
             description: "Join a team using an invite code.",
             inputs: vec![required_string("code", "Invite code.")],
-            outputs: vec![json_output("result", "Raw team object returned by POST /teams/join.")],
+            outputs: vec![json_output(
+                "result",
+                "Raw team object returned by POST /teams/join.",
+            )],
         },
         "team_create_invite" => ControllerSchema {
             namespace: "team",

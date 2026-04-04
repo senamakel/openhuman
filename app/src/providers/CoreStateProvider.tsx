@@ -8,6 +8,13 @@ import {
   useState,
 } from 'react';
 
+import {
+  type CoreAppSnapshot,
+  type CoreOnboardingTasks,
+  type CoreState,
+  getCoreStateSnapshot,
+  setCoreStateSnapshot,
+} from '../lib/coreState/store';
 import { syncAnalyticsConsent } from '../services/analytics';
 import {
   fetchCoreAppSnapshot,
@@ -16,13 +23,6 @@ import {
   listTeams,
   updateCoreLocalState,
 } from '../services/coreStateApi';
-import {
-  type CoreAppSnapshot,
-  type CoreOnboardingTasks,
-  type CoreState,
-  getCoreStateSnapshot,
-  setCoreStateSnapshot,
-} from '../lib/coreState/store';
 import {
   openhumanUpdateAnalyticsSettings,
   setOnboardingCompleted,
@@ -48,7 +48,9 @@ interface CoreStateContextValue extends CoreState {
 
 const CoreStateContext = createContext<CoreStateContextValue | null>(null);
 
-function normalizeSnapshot(result: Awaited<ReturnType<typeof fetchCoreAppSnapshot>>): CoreAppSnapshot {
+function normalizeSnapshot(
+  result: Awaited<ReturnType<typeof fetchCoreAppSnapshot>>
+): CoreAppSnapshot {
   return {
     auth: result.auth,
     sessionToken: result.sessionToken,
@@ -76,12 +78,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
   const refresh = useCallback(async () => {
     const snapshot = normalizeSnapshot(await fetchCoreAppSnapshot());
-    commitState(previous => ({
-      ...previous,
-      isBootstrapping: false,
-      isReady: true,
-      snapshot,
-    }));
+    commitState(previous => ({ ...previous, isBootstrapping: false, isReady: true, snapshot }));
     syncAnalyticsConsent(snapshot.analyticsEnabled);
   }, [commitState]);
 
@@ -191,12 +188,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       teamInvitesById: {},
       snapshot: {
         ...previous.snapshot,
-        auth: {
-          isAuthenticated: false,
-          userId: null,
-          user: null,
-          profileId: null,
-        },
+        auth: { isAuthenticated: false, userId: null, user: null, profileId: null },
         sessionToken: null,
         currentUser: null,
         onboardingCompleted: false,

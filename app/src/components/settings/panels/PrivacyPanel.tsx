@@ -1,5 +1,5 @@
-import { syncAnalyticsConsent } from '../../../services/analytics';
 import { useCoreState } from '../../../providers/CoreStateProvider';
+import { syncAnalyticsConsent } from '../../../services/analytics';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 

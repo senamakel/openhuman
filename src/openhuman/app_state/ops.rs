@@ -71,8 +71,12 @@ pub struct StoredAppStatePatch {
 
 fn app_state_path(config: &Config) -> Result<PathBuf, String> {
     let state_dir = config.workspace_dir.join("state");
-    fs::create_dir_all(&state_dir)
-        .map_err(|e| format!("failed to create workspace state dir {}: {e}", state_dir.display()))?;
+    fs::create_dir_all(&state_dir).map_err(|e| {
+        format!(
+            "failed to create workspace state dir {}: {e}",
+            state_dir.display()
+        )
+    })?;
     Ok(state_dir.join(APP_STATE_FILENAME))
 }
 
@@ -82,8 +86,8 @@ fn load_stored_app_state(config: &Config) -> Result<StoredAppState, String> {
         return Ok(StoredAppState::default());
     }
 
-    let raw = fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let raw =
+        fs::read_to_string(&path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
     serde_json::from_str::<StoredAppState>(&raw)
         .map_err(|e| format!("failed to parse {}: {e}", path.display()))
 }
@@ -131,7 +135,10 @@ async fn fetch_current_user(config: &Config, token: &str) -> Result<Option<Value
     debug!("{LOG_PREFIX} GET /telegram/me -> {}", status);
 
     if !status.is_success() {
-        warn!("{LOG_PREFIX} current user fetch failed: {} {}", status, text);
+        warn!(
+            "{LOG_PREFIX} current user fetch failed: {} {}",
+            status, text
+        );
         return Ok(None);
     }
 

@@ -18,7 +18,7 @@ const TeamInvitesPanel = () => {
   const currentTeamId = isInManagementContext ? teamId : user?.activeTeamId;
   const currentTeam = teams.find(t => t.team._id === currentTeamId);
   const isAdmin = currentTeam?.role.toUpperCase() === 'ADMIN';
-  const invites = currentTeamId ? teamInvitesById[currentTeamId] ?? [] : [];
+  const invites = currentTeamId ? (teamInvitesById[currentTeamId] ?? []) : [];
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);

@@ -44,8 +44,7 @@ export const teamApi = {
   createInvite: async (
     teamId: string,
     opts?: { maxUses?: number; expiresInDays?: number }
-  ): Promise<TeamInvite> =>
-    rpcResult('openhuman.team_create_invite', { teamId, ...opts }),
+  ): Promise<TeamInvite> => rpcResult('openhuman.team_create_invite', { teamId, ...opts }),
 
   getInvites: async (teamId: string): Promise<TeamInvite[]> =>
     rpcResult('openhuman.team_list_invites', { teamId }),

@@ -12,20 +12,20 @@ import {
 } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 
+import type { User } from '../types/api';
+import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
+import { IS_DEV } from '../utils/config';
 import accessibilityReducer from './accessibilitySlice';
 import aiReducer from './aiSlice';
+import type { AuthState } from './authSlice';
 import channelConnectionsReducer from './channelConnectionsSlice';
 import daemonReducer from './daemonSlice';
 import dictationReducer from './dictationSlice';
+import type { IntelligenceState } from './intelligenceSlice';
 import inviteReducer from './inviteSlice';
 import socketReducer from './socketSlice';
 import threadReducer from './threadSlice';
 import webhooksReducer from './webhooksSlice';
-import { IS_DEV } from '../utils/config';
-import type { AuthState } from './authSlice';
-import type { IntelligenceState } from './intelligenceSlice';
-import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
-import type { User } from '../types/api';
 
 // Persist config for AI state (config only)
 const aiPersistConfig = { key: 'ai', storage, whitelist: ['config'] };
@@ -87,11 +87,7 @@ type RuntimeRootState = ReturnType<typeof store.getState>;
 
 type LegacyRootState = {
   auth: AuthState;
-  user: {
-    user: User | null;
-    isLoading: boolean;
-    error: string | null;
-  };
+  user: { user: User | null; isLoading: boolean; error: string | null };
   team: {
     teams: TeamWithRole[];
     members: TeamMember[];

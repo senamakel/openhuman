@@ -21,7 +21,7 @@ const TeamMembersPanel = () => {
   const currentTeamId = isInManagementContext ? teamId : user?.activeTeamId;
   const currentTeam = teams.find(t => t.team._id === currentTeamId);
   const isAdmin = currentTeam?.role.toUpperCase() === 'ADMIN';
-  const members = currentTeamId ? teamMembersById[currentTeamId] ?? [] : [];
+  const members = currentTeamId ? (teamMembersById[currentTeamId] ?? []) : [];
 
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);

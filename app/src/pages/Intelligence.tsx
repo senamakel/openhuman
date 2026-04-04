@@ -330,9 +330,7 @@ export default function Intelligence() {
                   </div>
                   <select
                     value={sourceFilter}
-                    onChange={e =>
-                      setSourceFilter(e.target.value as ActionableItemSource | 'all')
-                    }
+                    onChange={e => setSourceFilter(e.target.value as ActionableItemSource | 'all')}
                     className="px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg text-stone-900 focus:outline-none focus:border-primary-500/50 transition-colors">
                     <option value="all">All Sources</option>
                     <option value="email">Email</option>

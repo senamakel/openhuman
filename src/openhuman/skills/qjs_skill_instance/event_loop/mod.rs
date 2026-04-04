@@ -172,7 +172,10 @@ pub(crate) async fn run_event_loop(
             }
             Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {
-                log::info!("[skill:{}] Message channel disconnected, stopping", skill_id);
+                log::info!(
+                    "[skill:{}] Message channel disconnected, stopping",
+                    skill_id
+                );
                 break;
             }
         }
@@ -302,7 +305,11 @@ async fn handle_message(
             arguments,
             reply,
         } => {
-            log::info!("[skill:{}] event_loop: CallTool '{}' received", skill_id, tool_name);
+            log::info!(
+                "[skill:{}] event_loop: CallTool '{}' received",
+                skill_id,
+                tool_name
+            );
 
             restore_oauth_credential(ctx, skill_id, data_dir).await;
             restore_auth_credential(ctx, skill_id, data_dir).await;

@@ -225,8 +225,7 @@ mod tests {
 
     #[test]
     fn is_javascript_unknown_runtime() {
-        let m =
-            SkillManifest::from_json(r#"{"id":"t","name":"T","runtime":"python"}"#).unwrap();
+        let m = SkillManifest::from_json(r#"{"id":"t","name":"T","runtime":"python"}"#).unwrap();
         assert!(!m.is_javascript());
     }
 
@@ -238,10 +237,7 @@ mod tests {
 
     #[test]
     fn supports_current_platform_empty_vec() {
-        let m = SkillManifest::from_json(
-            r#"{"id":"t","name":"T","platforms":[]}"#,
-        )
-        .unwrap();
+        let m = SkillManifest::from_json(r#"{"id":"t","name":"T","platforms":[]}"#).unwrap();
         assert!(m.supports_current_platform());
     }
 

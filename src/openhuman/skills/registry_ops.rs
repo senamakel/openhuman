@@ -7,8 +7,7 @@ use super::registry_cache::{
     registry_url, tag_categories, write_cache,
 };
 use super::registry_types::{
-    AvailableSkillEntry, InstalledSkillInfo, RegistrySkillEntry,
-    RemoteSkillRegistry,
+    AvailableSkillEntry, InstalledSkillInfo, RegistrySkillEntry, RemoteSkillRegistry,
 };
 
 /// Fetch the skill registry. Supports both remote HTTP URLs and local file paths.

@@ -52,7 +52,10 @@ pub(crate) fn read_cache(workspace_dir: &Path) -> Option<CachedRegistry> {
     serde_json::from_str(&content).ok()
 }
 
-pub(crate) fn write_cache(workspace_dir: &Path, registry: &RemoteSkillRegistry) -> Result<(), String> {
+pub(crate) fn write_cache(
+    workspace_dir: &Path,
+    registry: &RemoteSkillRegistry,
+) -> Result<(), String> {
     let cached = CachedRegistry {
         fetched_at: chrono::Utc::now().to_rfc3339(),
         registry: registry.clone(),

@@ -8,12 +8,9 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
-use crate::openhuman::{
-    memory::MemoryClientRef,
-    skills::quickjs_libs::qjs_ops,
-};
+use crate::openhuman::{memory::MemoryClientRef, skills::quickjs_libs::qjs_ops};
 
-use super::{MemoryWriteJob, persist_state_to_memory};
+use super::{persist_state_to_memory, MemoryWriteJob};
 use crate::openhuman::skills::qjs_skill_instance::js_handlers::{
     handle_js_call, handle_js_void_call,
 };
@@ -45,7 +42,10 @@ pub(crate) async fn handle_oauth_complete(
 
     let cred_path = data_dir.join("oauth_credential.json");
     if let Err(e) = std::fs::write(&cred_path, &cred_json) {
-        log::error!("[skill:{}] Failed to persist OAuth credential: {e}", skill_id);
+        log::error!(
+            "[skill:{}] Failed to persist OAuth credential: {e}",
+            skill_id
+        );
     } else {
         log::info!(
             "[skill:{}] OAuth credential persisted to {}",
@@ -128,7 +128,9 @@ pub(crate) async fn handle_auth_complete(
     // Build managed-mode bridge code (inject into oauth globals too)
     let managed_bridge = if is_managed {
         let creds_json = serde_json::to_string(
-            params.get("credentials").unwrap_or(&serde_json::Value::Null),
+            params
+                .get("credentials")
+                .unwrap_or(&serde_json::Value::Null),
         )
         .unwrap_or_else(|_| "null".to_string());
         format!(
@@ -166,7 +168,10 @@ pub(crate) async fn handle_auth_complete(
     // Persist auth credential to disk
     let cred_path = data_dir.join("auth_credential.json");
     if let Err(e) = std::fs::write(&cred_path, &cred_json) {
-        log::error!("[skill:{}] Failed to persist auth credential: {e}", skill_id);
+        log::error!(
+            "[skill:{}] Failed to persist auth credential: {e}",
+            skill_id
+        );
     } else {
         log::info!(
             "[skill:{}] Auth credential persisted to {}",
@@ -178,7 +183,9 @@ pub(crate) async fn handle_auth_complete(
     // For managed mode, also persist as oauth_credential.json for backward compat
     if is_managed {
         let oauth_cred_json = serde_json::to_string(
-            params.get("credentials").unwrap_or(&serde_json::Value::Null),
+            params
+                .get("credentials")
+                .unwrap_or(&serde_json::Value::Null),
         )
         .unwrap_or_else(|_| "null".to_string());
         let oauth_path = data_dir.join("oauth_credential.json");

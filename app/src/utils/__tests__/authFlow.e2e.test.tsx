@@ -84,6 +84,9 @@ describe('Auth flow e2e (binary + OAuth callback)', () => {
     await waitFor(() => expect(mockStoreSession).toHaveBeenCalledWith('jwt-from-core', { id: '' }));
 
     const requests = getRequestLog() as Array<{ method: string; url: string }>;
+    expect(requests.some(req => req.method === 'GET' && req.url.startsWith('/auth/me'))).toBe(
+      false
+    );
     expect(requests.some(req => req.method === 'GET' && req.url.startsWith('/telegram/me'))).toBe(
       false
     );

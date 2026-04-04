@@ -1,7 +1,9 @@
+import { BACKEND_URL } from '../../utils/config';
+
 const DEFAULT_BACKEND_URL = 'https://api.tinyhumans.ai';
 
 function normalizedBackendUrl(baseUrl?: string): string {
-  const value = (baseUrl || DEFAULT_BACKEND_URL).trim();
+  const value = (baseUrl || BACKEND_URL || DEFAULT_BACKEND_URL).trim();
   return value.replace(/\/+$/, '');
 }
 

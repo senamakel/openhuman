@@ -147,13 +147,18 @@ pub async fn create_tunnel(
     if name.is_empty() {
         return Err("name is required".to_string());
     }
-    let body = serde_json::json!({
-        "name": name,
-        "description": description.and_then(|v| {
-            let t = v.trim().to_string();
-            (!t.is_empty()).then_some(t)
-        }),
-    });
+    let mut body_map = serde_json::Map::new();
+    body_map.insert(
+        "name".to_string(),
+        serde_json::Value::String(name.to_string()),
+    );
+    if let Some(desc) = description {
+        let desc = desc.trim().to_string();
+        if !desc.is_empty() {
+            body_map.insert("description".to_string(), serde_json::Value::String(desc));
+        }
+    }
+    let body = serde_json::Value::Object(body_map);
     let data = get_authed_value(config, Method::POST, "/webhooks/core", Some(body)).await?;
     Ok(RpcOutcome::single_log(data, "webhook tunnel created"))
 }

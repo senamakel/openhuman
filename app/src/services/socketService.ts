@@ -226,7 +226,7 @@ class SocketService {
           patch: {
             status: payload.status,
             lastError: payload.lastError,
-            capabilities: payload.capabilities ?? [],
+            ...(payload.capabilities !== undefined && { capabilities: payload.capabilities }),
           },
         })
       );

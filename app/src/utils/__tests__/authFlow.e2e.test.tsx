@@ -87,6 +87,9 @@ describe('Auth flow e2e (binary + OAuth callback)', () => {
     expect(requests.some(req => req.method === 'GET' && req.url.startsWith('/auth/me'))).toBe(
       false
     );
+    expect(requests.some(req => req.method === 'GET' && req.url.startsWith('/telegram/me'))).toBe(
+      false
+    );
   });
 
   it('consumes OAuth login token from deep link and updates auth token + redirect', async () => {

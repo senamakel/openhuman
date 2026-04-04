@@ -77,6 +77,7 @@ const MessagingPanel = () => {
   const [error, setError] = useState<string | null>(null);
   const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
   const [fieldValues, setFieldValues] = useState<Record<string, Record<string, string>>>({});
+  const [pendingInstruction, setPendingInstruction] = useState<Record<string, string>>({});
 
   const recommendedRoute = useMemo(() => {
     const channel = channelConnections.defaultMessagingChannel;
@@ -145,24 +146,43 @@ const MessagingPanel = () => {
           (channel === 'discord' && spec.mode === 'oauth');
 
         if (isManagedLinkFlow) {
-          const link = await createChannelLinkToken(channel);
-          const launchUrl = buildManagedChannelLaunchUrl(channel, link.token, link.launchUrl);
-          const instruction = buildManagedChannelInstruction(channel, link.token, launchUrl);
+          try {
+            const link = await createChannelLinkToken(channel);
+            const launchUrl = buildManagedChannelLaunchUrl(channel, link.token, link.launchUrl);
+            const instruction = buildManagedChannelInstruction(channel, link.token, launchUrl);
 
-          dispatch(
-            upsertChannelConnection({
-              channel,
-              authMode: spec.mode,
-              patch: { status: 'connecting', lastError: instruction },
-            })
-          );
+            dispatch(
+              upsertChannelConnection({
+                channel,
+                authMode: spec.mode,
+                patch: { status: 'connecting' },
+              })
+            );
 
-          if (launchUrl) {
-            try {
-              await openUrl(launchUrl);
-            } catch {
-              // Leave the instruction in state even if opening the URL fails.
+            setPendingInstruction(prev => ({ ...prev, [key]: instruction }));
+
+            if (launchUrl) {
+              try {
+                await openUrl(launchUrl);
+              } catch {
+                // Opening the URL failed — include the URL so the user can copy it manually.
+                setPendingInstruction(prev => ({
+                  ...prev,
+                  [key]: `${instruction} (URL: ${launchUrl})`,
+                }));
+              }
             }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            dispatch(
+              setChannelConnectionStatus({
+                channel,
+                authMode: spec.mode,
+                status: 'error',
+                lastError: msg,
+              })
+            );
+            throw e;
           }
           return;
         }
@@ -173,16 +193,17 @@ const MessagingPanel = () => {
         });
 
         if (result.status === 'pending_auth' && result.auth_action) {
+          const instruction = result.message ?? `Initiate ${result.auth_action} flow`;
+
           dispatch(
             upsertChannelConnection({
               channel,
               authMode: spec.mode,
-              patch: {
-                status: 'connecting',
-                lastError: result.message ?? `Initiate ${result.auth_action} flow`,
-              },
+              patch: { status: 'connecting' },
             })
           );
+
+          setPendingInstruction(prev => ({ ...prev, [key]: instruction }));
 
           if (result.auth_action.includes('oauth')) {
             try {
@@ -199,6 +220,12 @@ const MessagingPanel = () => {
           }
           return;
         }
+
+        setPendingInstruction(prev => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
 
         dispatch(
           upsertChannelConnection({
@@ -302,6 +329,8 @@ const MessagingPanel = () => {
                     const connection = channelConnections.connections[channelId]?.[spec.mode];
                     const status: ChannelConnectionStatus = connection?.status ?? 'disconnected';
 
+                    const instruction = pendingInstruction[compositeKey];
+
                     return (
                       <div
                         key={spec.mode}
@@ -314,6 +343,9 @@ const MessagingPanel = () => {
                             <p className="text-xs text-stone-500 mt-1">{spec.description}</p>
                             {connection?.lastError && (
                               <p className="text-xs text-coral-300 mt-1">{connection.lastError}</p>
+                            )}
+                            {instruction && (
+                              <p className="text-xs text-primary-500 mt-1">{instruction}</p>
                             )}
                           </div>
                           <ChannelStatusBadge status={status} />

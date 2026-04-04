@@ -358,11 +358,17 @@ fn handle_update_tunnel(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<WebhookUpdateTunnelParams>(params)?;
-        let body = serde_json::json!({
-            "name": payload.name,
-            "description": payload.description,
-            "isActive": payload.is_active,
-        });
+        let mut body = serde_json::Map::new();
+        if let Some(name) = payload.name {
+            body.insert("name".to_string(), Value::String(name));
+        }
+        if let Some(desc) = payload.description {
+            body.insert("description".to_string(), Value::String(desc));
+        }
+        if let Some(active) = payload.is_active {
+            body.insert("isActive".to_string(), Value::Bool(active));
+        }
+        let body = Value::Object(body);
         to_json(
             crate::openhuman::webhooks::ops::update_tunnel(&config, payload.id.trim(), body)
                 .await?,

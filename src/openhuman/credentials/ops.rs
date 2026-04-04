@@ -171,12 +171,16 @@ pub async fn auth_create_channel_link_token(
     if channel.is_empty() {
         return Err("channel is required".to_string());
     }
+    let channel = channel.to_lowercase();
+    if !matches!(channel.as_str(), "telegram" | "discord") {
+        return Err(format!("unsupported channel: {channel}"));
+    }
 
     let api_url = effective_api_url(&config.api_url);
     let token = get_session_token(config)?.ok_or_else(|| "session JWT required".to_string())?;
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     let payload = client
-        .create_channel_link_token(channel, &token)
+        .create_channel_link_token(&channel, &token)
         .await
         .map_err(|e| e.to_string())?;
 

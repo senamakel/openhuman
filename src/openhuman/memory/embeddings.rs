@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::env;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -89,6 +90,38 @@ impl FastembedEmbedding {
             fastembed::InitOptions::new(self.resolve_model()).with_show_download_progress(false),
         )
         .map_err(|e| anyhow::anyhow!("fastembed init failed for {}: {e}", self.model))
+    }
+}
+
+fn unwind_payload_to_string(payload: Box<dyn std::any::Any + Send>) -> String {
+    match payload.downcast::<String>() {
+        Ok(message) => *message,
+        Err(payload) => match payload.downcast::<&'static str>() {
+            Ok(message) => (*message).to_string(),
+            Err(_) => "unknown panic payload".to_string(),
+        },
+    }
+}
+
+fn guard_fastembed<T, F>(phase: &str, model: &str, op: F) -> anyhow::Result<T>
+where
+    F: FnOnce() -> anyhow::Result<T>,
+{
+    match catch_unwind(AssertUnwindSafe(op)) {
+        Ok(result) => result,
+        Err(payload) => {
+            let panic_message = unwind_payload_to_string(payload);
+            tracing::warn!(
+                target: "openhuman::memory::embeddings",
+                model,
+                phase,
+                panic_message = %panic_message,
+                "[memory.embeddings] fastembed operation panicked"
+            );
+            Err(anyhow::anyhow!(
+                "fastembed {phase} panicked for {model}: {panic_message}"
+            ))
+        }
     }
 }
 
@@ -194,25 +227,36 @@ impl EmbeddingProvider for FastembedEmbedding {
             ensure_fastembed_ort_dylib_path();
             let mut guard = state.lock();
             if matches!(*guard, FastembedState::Uninitialized) {
-                match fastembed::TextEmbedding::try_new(
-                    fastembed::InitOptions::new(
-                        fastembed::EmbeddingModel::from_str(&provider)
-                            .unwrap_or(fastembed::EmbeddingModel::BGESmallENV15),
+                match guard_fastembed("init", &provider, || {
+                    fastembed::TextEmbedding::try_new(
+                        fastembed::InitOptions::new(
+                            fastembed::EmbeddingModel::from_str(&provider)
+                                .unwrap_or(fastembed::EmbeddingModel::BGESmallENV15),
+                        )
+                        .with_show_download_progress(false),
                     )
-                    .with_show_download_progress(false),
-                ) {
+                    .map_err(|err| anyhow::anyhow!("fastembed init failed for {provider}: {err}"))
+                }) {
                     Ok(model) => *guard = FastembedState::Ready(model),
                     Err(err) => {
-                        let message = format!("fastembed init failed for {provider}: {err}");
+                        let message = err.to_string();
+                        tracing::debug!(
+                            target: "openhuman::memory::embeddings",
+                            provider,
+                            error = %message,
+                            "[memory.embeddings] fastembed initialization unavailable"
+                        );
                         *guard = FastembedState::Failed(message.clone());
                     }
                 }
             }
 
             match &mut *guard {
-                FastembedState::Ready(model) => model
-                    .embed(items, None)
-                    .map_err(|e| anyhow::anyhow!("fastembed embed failed: {e}")),
+                FastembedState::Ready(model) => guard_fastembed("embed", &provider, || {
+                    model
+                        .embed(items, None)
+                        .map_err(|e| anyhow::anyhow!("fastembed embed failed: {e}"))
+                }),
                 FastembedState::Failed(message) => Err(anyhow::anyhow!(message.clone())),
                 FastembedState::Uninitialized => {
                     Err(anyhow::anyhow!("fastembed provider did not initialize"))
@@ -377,6 +421,7 @@ pub fn default_local_embedding_provider() -> Arc<dyn EmbeddingProvider> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::anyhow;
 
     #[test]
     fn noop_name() {
@@ -460,6 +505,26 @@ mod tests {
         let p = default_local_embedding_provider();
         assert_eq!(p.name(), "fastembed");
         assert_eq!(p.dimensions(), DEFAULT_FASTEMBED_DIMENSIONS);
+    }
+
+    #[test]
+    fn guard_fastembed_converts_panics_into_errors() {
+        let err = guard_fastembed("init", "BGESmallENV15", || -> anyhow::Result<()> {
+            panic!("boom");
+        })
+        .expect_err("panic should be converted into an error");
+
+        assert!(err.to_string().contains("panicked for BGESmallENV15: boom"));
+    }
+
+    #[test]
+    fn guard_fastembed_preserves_regular_errors() {
+        let err = guard_fastembed("embed", "BGESmallENV15", || -> anyhow::Result<()> {
+            Err(anyhow!("regular failure"))
+        })
+        .expect_err("regular errors should pass through");
+
+        assert_eq!(err.to_string(), "regular failure");
     }
 
     #[test]

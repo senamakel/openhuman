@@ -144,6 +144,97 @@ pub async fn get_current_plan(config: &Config) -> Result<RpcOutcome<Value>, Stri
     ))
 }
 
+pub async fn get_balance(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(config, Method::GET, "/payments/credits/balance", None).await?;
+    Ok(RpcOutcome::single_log(data, "credit balance fetched"))
+}
+
+pub async fn get_transactions(
+    config: &Config,
+    limit: Option<u64>,
+    offset: Option<u64>,
+) -> Result<RpcOutcome<Value>, String> {
+    let limit = limit.unwrap_or(20);
+    let offset = offset.unwrap_or(0);
+    let path = format!("/payments/credits/transactions?limit={limit}&offset={offset}");
+    let data = get_authed_value(config, Method::GET, &path, None).await?;
+    Ok(RpcOutcome::single_log(data, "credit transactions fetched"))
+}
+
+pub async fn get_auto_recharge(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(config, Method::GET, "/payments/credits/auto-recharge", None).await?;
+    Ok(RpcOutcome::single_log(data, "auto recharge settings fetched"))
+}
+
+pub async fn update_auto_recharge(
+    config: &Config,
+    payload: Value,
+) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(
+        config,
+        Method::PATCH,
+        "/payments/credits/auto-recharge",
+        Some(payload),
+    )
+    .await?;
+    Ok(RpcOutcome::single_log(data, "auto recharge settings updated"))
+}
+
+pub async fn get_cards(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(
+        config,
+        Method::GET,
+        "/payments/credits/auto-recharge/cards",
+        None,
+    )
+    .await?;
+    Ok(RpcOutcome::single_log(data, "saved cards fetched"))
+}
+
+pub async fn create_setup_intent(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(
+        config,
+        Method::POST,
+        "/payments/credits/auto-recharge/cards/setup-intent",
+        None,
+    )
+    .await?;
+    Ok(RpcOutcome::single_log(data, "setup intent created"))
+}
+
+pub async fn update_card(
+    config: &Config,
+    payment_method_id: &str,
+    payload: Value,
+) -> Result<RpcOutcome<Value>, String> {
+    let payment_method_id = payment_method_id.trim();
+    if payment_method_id.is_empty() {
+        return Err("paymentMethodId is required".to_string());
+    }
+    let path = format!(
+        "/payments/credits/auto-recharge/cards/{}",
+        urlencoding::encode(payment_method_id)
+    );
+    let data = get_authed_value(config, Method::PATCH, &path, Some(payload)).await?;
+    Ok(RpcOutcome::single_log(data, "saved card updated"))
+}
+
+pub async fn delete_card(
+    config: &Config,
+    payment_method_id: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let payment_method_id = payment_method_id.trim();
+    if payment_method_id.is_empty() {
+        return Err("paymentMethodId is required".to_string());
+    }
+    let path = format!(
+        "/payments/credits/auto-recharge/cards/{}",
+        urlencoding::encode(payment_method_id)
+    );
+    let data = get_authed_value(config, Method::DELETE, &path, None).await?;
+    Ok(RpcOutcome::single_log(data, "saved card deleted"))
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PurchasePlanBody<'a> {

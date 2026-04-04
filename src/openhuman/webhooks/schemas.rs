@@ -23,6 +23,17 @@ struct WebhookUnregisterEchoParams {
     tunnel_uuid: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct WebhookCreateTunnelParams {
+    name: String,
+    description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WebhookTunnelIdParams {
+    id: String,
+}
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("list_registrations"),
@@ -30,6 +41,10 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("clear_logs"),
         schemas("register_echo"),
         schemas("unregister_echo"),
+        schemas("list_tunnels"),
+        schemas("create_tunnel"),
+        schemas("delete_tunnel"),
+        schemas("get_bandwidth"),
     ]
 }
 
@@ -54,6 +69,22 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("unregister_echo"),
             handler: handle_unregister_echo,
+        },
+        RegisteredController {
+            schema: schemas("list_tunnels"),
+            handler: handle_list_tunnels,
+        },
+        RegisteredController {
+            schema: schemas("create_tunnel"),
+            handler: handle_create_tunnel,
+        },
+        RegisteredController {
+            schema: schemas("delete_tunnel"),
+            handler: handle_delete_tunnel,
+        },
+        RegisteredController {
+            schema: schemas("get_bandwidth"),
+            handler: handle_get_bandwidth,
         },
     ]
 }
@@ -125,6 +156,52 @@ pub fn schemas(function: &str) -> ControllerSchema {
             }],
             outputs: vec![json_output("result", "Updated webhook registrations.")],
         },
+        "list_tunnels" => ControllerSchema {
+            namespace: "webhooks",
+            function: "list_tunnels",
+            description: "List backend-managed webhook tunnels for the current user.",
+            inputs: vec![],
+            outputs: vec![json_output("result", "Webhook tunnel list.")],
+        },
+        "create_tunnel" => ControllerSchema {
+            namespace: "webhooks",
+            function: "create_tunnel",
+            description: "Create a backend-managed webhook tunnel.",
+            inputs: vec![
+                FieldSchema {
+                    name: "name",
+                    ty: TypeSchema::String,
+                    comment: "Tunnel name.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "description",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional tunnel description.",
+                    required: false,
+                },
+            ],
+            outputs: vec![json_output("result", "Created webhook tunnel.")],
+        },
+        "delete_tunnel" => ControllerSchema {
+            namespace: "webhooks",
+            function: "delete_tunnel",
+            description: "Delete a backend-managed webhook tunnel.",
+            inputs: vec![FieldSchema {
+                name: "id",
+                ty: TypeSchema::String,
+                comment: "Backend tunnel id.",
+                required: true,
+            }],
+            outputs: vec![json_output("result", "Delete webhook tunnel result.")],
+        },
+        "get_bandwidth" => ControllerSchema {
+            namespace: "webhooks",
+            function: "get_bandwidth",
+            description: "Fetch the remaining webhook bandwidth budget.",
+            inputs: vec![],
+            outputs: vec![json_output("result", "Webhook bandwidth payload.")],
+        },
         _ => ControllerSchema {
             namespace: "webhooks",
             function: "unknown",
@@ -173,6 +250,43 @@ fn handle_unregister_echo(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WebhookUnregisterEchoParams>(params)?;
         to_json(crate::openhuman::webhooks::ops::unregister_echo(&payload.tunnel_uuid).await?)
+    })
+}
+
+fn handle_list_tunnels(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
+        to_json(crate::openhuman::webhooks::ops::list_tunnels(&config).await?)
+    })
+}
+
+fn handle_create_tunnel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
+        let payload = deserialize_params::<WebhookCreateTunnelParams>(params)?;
+        to_json(
+            crate::openhuman::webhooks::ops::create_tunnel(
+                &config,
+                payload.name.trim(),
+                payload.description,
+            )
+            .await?,
+        )
+    })
+}
+
+fn handle_delete_tunnel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
+        let payload = deserialize_params::<WebhookTunnelIdParams>(params)?;
+        to_json(crate::openhuman::webhooks::ops::delete_tunnel(&config, payload.id.trim()).await?)
+    })
+}
+
+fn handle_get_bandwidth(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
+        to_json(crate::openhuman::webhooks::ops::get_bandwidth(&config).await?)
     })
 }
 

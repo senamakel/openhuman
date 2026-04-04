@@ -212,6 +212,14 @@ async fn get_authed_value(
     authed_request(&client, &base, &token, method, path, body).await
 }
 
+pub async fn get_usage(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    let data = get_authed_value(config, Method::GET, "/teams/me/usage", None).await?;
+    Ok(RpcOutcome::single_log(
+        data,
+        "team usage fetched from backend",
+    ))
+}
+
 pub async fn list_members(config: &Config, team_id: &str) -> Result<RpcOutcome<Value>, String> {
     let team_id = normalize_id(team_id, "teamId")?;
     let path = build_api_path(&["teams", &team_id, "members"])?;

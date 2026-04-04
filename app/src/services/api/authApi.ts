@@ -1,7 +1,6 @@
 import { base64ToBytes, encryptIntegrationTokens } from '../../utils/integrationTokensCrypto';
-import type { ApiResponse } from '../../types/api';
 import { callCoreRpc } from '../coreRpcClient';
-import { apiClient } from '../apiClient';
+import { callCoreCommand } from '../coreCommandClient';
 
 interface IntegrationTokensResponse {
   success: boolean;
@@ -102,11 +101,9 @@ export async function fetchIntegrationTokens(
 export async function createChannelLinkToken(
   channel: LinkableChannel
 ): Promise<ChannelLinkTokenResult> {
-  const response = await apiClient.post<ApiResponse<RawChannelLinkTokenData>>(
-    `/auth/channels/${channel}/link-token`
-  );
-
-  const data = response.data;
+  const data = await callCoreCommand<RawChannelLinkTokenData>('openhuman.auth_create_channel_link_token', {
+    channel,
+  });
   const token =
     typeof data?.token === 'string'
       ? data.token

@@ -1,5 +1,5 @@
 import type { ApiResponse } from '../../types/api';
-import { apiClient } from '../apiClient';
+import { callCoreCommand } from '../coreCommandClient';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,41 +35,36 @@ export interface UpdateTunnelRequest {
 export const tunnelsApi = {
   /** POST /webhooks/core — create a new webhook tunnel */
   createTunnel: async (body: CreateTunnelRequest): Promise<Tunnel> => {
-    const response = await apiClient.post<ApiResponse<Tunnel>>('/webhooks/core', body);
-    return response.data;
+    return await callCoreCommand<Tunnel>('openhuman.webhooks_create_tunnel', body);
   },
 
   /** GET /webhooks/core — list user's webhook tunnels */
   getTunnels: async (): Promise<Tunnel[]> => {
-    const response = await apiClient.get<ApiResponse<Tunnel[]>>('/webhooks/core');
-    return response.data;
+    return await callCoreCommand<Tunnel[]>('openhuman.webhooks_list_tunnels');
   },
 
   /** GET /webhooks/core/bandwidth — get remaining webhook bandwidth budget */
   getBandwidthUsage: async (): Promise<TunnelBandwidthUsage> => {
-    const response = await apiClient.get<ApiResponse<TunnelBandwidthUsage>>(
-      '/webhooks/core/bandwidth'
+    return await callCoreCommand<TunnelBandwidthUsage>(
+      'openhuman.webhooks_get_bandwidth'
     );
-    return response.data;
   },
 
   /** GET /webhooks/core/:tunnelId — get a specific webhook tunnel by its internal ID. */
   getTunnel: async (tunnelId: string): Promise<Tunnel> => {
-    const response = await apiClient.get<ApiResponse<Tunnel>>(`/webhooks/core/${tunnelId}`);
-    return response.data;
+    return await callCoreCommand<Tunnel>('openhuman.webhooks_get_tunnel', { id: tunnelId });
   },
 
   /** PATCH /webhooks/core/:tunnelId — update a webhook tunnel by its internal ID. */
   updateTunnel: async (tunnelId: string, body: UpdateTunnelRequest): Promise<Tunnel> => {
-    const response = await apiClient.patch<ApiResponse<Tunnel>>(
-      `/webhooks/core/${tunnelId}`,
-      body
-    );
-    return response.data;
+    return await callCoreCommand<Tunnel>('openhuman.webhooks_update_tunnel', {
+      id: tunnelId,
+      ...body,
+    });
   },
 
   /** DELETE /webhooks/core/:tunnelId — delete a webhook tunnel by its internal ID. */
   deleteTunnel: async (tunnelId: string): Promise<void> => {
-    await apiClient.delete<ApiResponse<unknown>>(`/webhooks/core/${tunnelId}`);
+    await callCoreCommand<unknown>('openhuman.webhooks_delete_tunnel', { id: tunnelId });
   },
 };

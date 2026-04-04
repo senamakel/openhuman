@@ -21,9 +21,8 @@ fn build_backend_reqwest_client() -> Result<Client> {
         .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))
 }
 
-fn parse_settings_response_json(text: &str) -> Result<Value> {
-    let v: Value =
-        serde_json::from_str(text).with_context(|| format!("parse /settings JSON: {text}"))?;
+fn parse_api_response_json(text: &str) -> Result<Value> {
+    let v: Value = serde_json::from_str(text).with_context(|| format!("parse API JSON: {text}"))?;
     let Some(obj) = v.as_object() else {
         return Ok(v);
     };
@@ -34,7 +33,7 @@ fn parse_settings_response_json(text: &str) -> Result<Value> {
                 .or_else(|| obj.get("error"))
                 .and_then(|x| x.as_str())
                 .unwrap_or("request unsuccessful");
-            anyhow::bail!("/settings failed: {msg}");
+            anyhow::bail!("API request failed: {msg}");
         }
         if let Some(data) = obj.get("data") {
             if !data.is_null() {
@@ -86,8 +85,8 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-pub fn user_id_from_settings_payload(settings: &Value) -> Option<String> {
-    user_id_from_profile_payload(settings)
+pub fn user_id_from_auth_me_payload(payload: &Value) -> Option<String> {
+    user_id_from_profile_payload(payload)
 }
 
 /// JSON body returned by the backend after OAuth connect starts.
@@ -249,12 +248,7 @@ impl BackendOAuthClient {
         if !status.is_success() {
             anyhow::bail!("GET /auth/me failed ({status}): {text}");
         }
-        parse_settings_response_json(&text)
-    }
-
-    /// Backward-compatible alias retained while older call sites are migrated.
-    pub async fn fetch_settings(&self, bearer_jwt: &str) -> Result<Value> {
-        self.fetch_current_user(bearer_jwt).await
+        parse_api_response_json(&text)
     }
 
     /// `POST /telegram/login-tokens/:token/consume` — exchange a one-time login token for a JWT.
@@ -332,7 +326,7 @@ impl BackendOAuthClient {
             anyhow::bail!("create channel link token failed ({status}): {text}");
         }
 
-        parse_settings_response_json(&text)
+        parse_api_response_json(&text)
     }
 
     /// Generic authenticated JSON request helper for backend API routes that
@@ -373,7 +367,7 @@ impl BackendOAuthClient {
             );
         }
 
-        parse_settings_response_json(&text)
+        parse_api_response_json(&text)
     }
 
     /// `GET /auth/integrations`

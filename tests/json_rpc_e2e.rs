@@ -566,7 +566,7 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
         "unexpected auth state shape: {state_body}"
     );
 
-    // --- auth: store session (validates JWT via mock GET /settings) ---
+    // --- auth: store session (validates JWT via mock GET /auth/me) ---
     let store = post_json_rpc(
         &rpc_base,
         4,

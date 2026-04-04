@@ -222,7 +222,7 @@ async fn fetch_current_user(config: &Config, token: &str) -> Result<Option<Value
     let client = build_client()?;
     let base = resolve_base(config)?;
     let url = base
-        .join("telegram/me")
+        .join("auth/me")
         .map_err(|e| format!("build URL failed: {e}"))?;
     let response = client
         .request(Method::GET, url.clone())
@@ -236,7 +236,7 @@ async fn fetch_current_user(config: &Config, token: &str) -> Result<Option<Value
         .await
         .map_err(|e| format!("failed to read backend response body: {e}"))?;
 
-    debug!("{LOG_PREFIX} GET /telegram/me -> {}", status);
+    debug!("{LOG_PREFIX} GET /auth/me -> {}", status);
 
     if !status.is_success() {
         warn!(

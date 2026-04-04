@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import { teamApi } from '../../../services/api/teamApi';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchMembers } from '../../../store/teamSlice';
 import type { TeamMember, TeamRole } from '../../../types/team';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -14,19 +13,20 @@ const TeamMembersPanel = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const location = useLocation();
   const { navigateBack } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
-  const { teams, members, isLoadingMembers } = useAppSelector(state => state.team);
+  const { snapshot, teams, teamMembersById, refreshTeamMembers } = useCoreState();
+  const user = snapshot.currentUser;
 
   // Check if we're in team management context (has teamId in URL)
   const isInManagementContext = location.pathname.includes('/team/manage/');
   const currentTeamId = isInManagementContext ? teamId : user?.activeTeamId;
   const currentTeam = teams.find(t => t.team._id === currentTeamId);
   const isAdmin = currentTeam?.role.toUpperCase() === 'ADMIN';
+  const members = currentTeamId ? teamMembersById[currentTeamId] ?? [] : [];
 
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
   // Confirmation modals state
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
@@ -37,8 +37,10 @@ const TeamMembersPanel = () => {
   } | null>(null);
 
   useEffect(() => {
-    if (currentTeamId) dispatch(fetchMembers(currentTeamId));
-  }, [currentTeamId, dispatch]);
+    if (!currentTeamId) return;
+    setIsLoadingMembers(true);
+    void refreshTeamMembers(currentTeamId).finally(() => setIsLoadingMembers(false));
+  }, [currentTeamId, refreshTeamMembers]);
 
   const handleChangeRole = (member: TeamMember, newRole: TeamRole) => {
     if (!currentTeamId || member.role === newRole) return;
@@ -56,7 +58,7 @@ const TeamMembersPanel = () => {
 
     try {
       await teamApi.changeMemberRole(currentTeamId, member.user._id, newRole);
-      dispatch(fetchMembers(currentTeamId));
+      await refreshTeamMembers(currentTeamId);
       setRoleChangeConfirmation(null);
     } catch (err) {
       setError(
@@ -82,7 +84,7 @@ const TeamMembersPanel = () => {
 
     try {
       await teamApi.removeMember(currentTeamId, memberToRemove.user._id);
-      dispatch(fetchMembers(currentTeamId));
+      await refreshTeamMembers(currentTeamId);
       setMemberToRemove(null);
     } catch (err) {
       setError(

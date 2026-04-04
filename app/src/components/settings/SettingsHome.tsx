@@ -1,30 +1,27 @@
 import { useState } from 'react';
 
 import { skillManager } from '../../lib/skills/manager';
+import { useCoreState } from '../../providers/CoreStateProvider';
 import { persistor } from '../../store';
-import { clearToken } from '../../store/authSlice';
-import { useAppDispatch } from '../../store/hooks';
-import { setOnboardingCompleted, logout as tauriLogout } from '../../utils/tauriCommands';
 import SettingsHeader from './components/SettingsHeader';
 import SettingsMenuItem from './components/SettingsMenuItem';
 import { useSettingsNavigation } from './hooks/useSettingsNavigation';
 
 const SettingsHome = () => {
   const { navigateToSettings } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
+  const { clearSession, setOnboardingCompletedFlag } = useCoreState();
   const [showLogoutAndClearModal, setShowLogoutAndClearModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
-    await dispatch(clearToken());
     try {
-      await setOnboardingCompleted(false);
+      await setOnboardingCompletedFlag(false);
     } catch (err) {
       console.warn('[Settings] Failed to clear onboarding_completed in config:', err);
     }
     try {
-      await tauriLogout();
+      await clearSession();
     } catch (err) {
       console.warn('[Settings] Rust logout failed:', err);
     }
@@ -32,14 +29,13 @@ const SettingsHome = () => {
   };
 
   const clearAllAppData = async () => {
-    await dispatch(clearToken());
     try {
-      await setOnboardingCompleted(false);
+      await setOnboardingCompletedFlag(false);
     } catch (err) {
       console.warn('[Settings] Failed to clear onboarding_completed in config:', err);
     }
     try {
-      await tauriLogout();
+      await clearSession();
     } catch (err) {
       console.warn('[Settings] Rust logout failed during clearAllAppData:', err);
     }

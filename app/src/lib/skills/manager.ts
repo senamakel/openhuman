@@ -6,6 +6,7 @@
  */
 
 import { callCoreRpc } from "../../services/coreRpcClient";
+import { getCoreStateSnapshot, patchCoreStateSnapshot } from "../../lib/coreState/store";
 import { SkillRuntime } from "./runtime";
 import { emitSkillStateChange } from "./skillEvents";
 import {
@@ -23,8 +24,6 @@ import type {
   SkillToolDefinition,
   SkillOptionDefinition,
 } from "./types";
-import { store } from "../../store";
-import { setPrimaryWalletAddressForUser } from "../../store/authSlice";
 import {
   runtimeSkillDataDir,
   runtimeSkillDataRead,
@@ -45,10 +44,7 @@ class SkillManager {
     const params: Record<string, unknown> = {};
 
     if (skillId === "wallet") {
-      const state = store.getState();
-      const userId = state.user.user?._id;
-      const primaryAddress =
-        userId && state.auth.primaryWalletAddressByUser?.[userId];
+      const primaryAddress = getCoreStateSnapshot().snapshot.localState.primaryWalletAddress;
       if (primaryAddress) {
         params.walletAddress = primaryAddress;
       }
@@ -493,12 +489,18 @@ class SkillManager {
    * sends load params so the skill receives onLoad({ walletAddress }).
    */
   async setWalletAddress(address: string): Promise<void> {
-    const state = store.getState();
-    const userId = state.user.user?._id;
-    if (!userId) {
-      return;
-    }
-    store.dispatch(setPrimaryWalletAddressForUser({ userId, address }));
+    await callCoreRpc({
+      method: "openhuman.app_state_update_local_state",
+      params: { primaryWalletAddress: address },
+    });
+    patchCoreStateSnapshot({
+      snapshot: {
+        localState: {
+          ...getCoreStateSnapshot().snapshot.localState,
+          primaryWalletAddress: address,
+        },
+      },
+    });
     const runtime = this.runtimes.get("wallet");
     if (runtime?.isRunning) {
       await runtime.load({ walletAddress: address });

@@ -1,8 +1,7 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { skillManager } from '../../../lib/skills/manager';
-import { setEncryptionKeyForUser } from '../../../store/authSlice';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import {
   deriveAesKeyFromMnemonic,
   deriveEvmAddressFromMnemonic,
@@ -18,9 +17,9 @@ const BIP39_IMPORT_LENGTHS = [12, 15, 18, 21, 24] as const;
 const IMPORT_SLOTS_INITIAL = MNEMONIC_GENERATE_WORD_COUNT;
 
 const RecoveryPhrasePanel = () => {
-  const dispatch = useAppDispatch();
   const { navigateBack } = useSettingsNavigation();
-  const user = useAppSelector(state => state.user.user);
+  const { snapshot, setEncryptionKey } = useCoreState();
+  const user = snapshot.currentUser;
 
   const [mode, setMode] = useState<'generate' | 'import'>('generate');
   const [copied, setCopied] = useState(false);
@@ -184,7 +183,7 @@ const RecoveryPhrasePanel = () => {
         setError('User not loaded. Please sign in again or refresh the page.');
         return;
       }
-      dispatch(setEncryptionKeyForUser({ userId: user._id, key: aesKey }));
+      await setEncryptionKey(aesKey);
       await skillManager.setWalletAddress(walletAddress);
       setSuccess(true);
     } catch (e) {

@@ -1,8 +1,7 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { skillManager } from '../../../lib/skills/manager';
-import { setEncryptionKeyForUser } from '../../../store/authSlice';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import {
   deriveAesKeyFromMnemonic,
   deriveEvmAddressFromMnemonic,
@@ -22,8 +21,8 @@ interface MnemonicStepProps {
 }
 
 const MnemonicStep = ({ onNext, onBack: _onBack }: MnemonicStepProps) => {
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
+  const { snapshot, setEncryptionKey } = useCoreState();
+  const user = snapshot.currentUser;
   const [mode, setMode] = useState<'generate' | 'import'>('generate');
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -164,7 +163,7 @@ const MnemonicStep = ({ onNext, onBack: _onBack }: MnemonicStepProps) => {
         setError('User not loaded. Please sign in again or refresh the page.');
         return;
       }
-      dispatch(setEncryptionKeyForUser({ userId: user._id, key: aesKey }));
+      await setEncryptionKey(aesKey);
       await skillManager.setWalletAddress(walletAddress);
       await onNext();
     } catch (e) {

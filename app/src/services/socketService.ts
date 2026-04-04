@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 
 import { SocketIOMCPTransportImpl } from '../lib/mcp';
 import { skillManager, syncToolsToBackend } from '../lib/skills';
+import { getCoreStateSnapshot } from '../lib/coreState/store';
 import { store } from '../store';
 import { upsertChannelConnection } from '../store/channelConnectionsSlice';
 import { resetForUser, setSocketIdForUser, setStatusForUser } from '../store/socketSlice';
@@ -74,7 +75,7 @@ function isChannelConnectionUpdatePayload(value: unknown): value is ChannelConne
 }
 
 function getSocketUserId(): string {
-  const token = store.getState().auth.token;
+  const token = getCoreStateSnapshot().snapshot.sessionToken;
   if (!token) return '__pending__';
 
   try {

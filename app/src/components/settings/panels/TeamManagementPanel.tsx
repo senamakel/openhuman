@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import { teamApi } from '../../../services/api/teamApi';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchTeams } from '../../../store/teamSlice';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const TeamManagementPanel = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const { navigateBack, navigateToSettings } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const { teams } = useAppSelector(state => state.team);
+  const { teams, refreshTeams } = useCoreState();
 
   const teamEntry = teams.find(t => t.team._id === teamId);
   const isAdmin = teamEntry?.role.toUpperCase() === 'ADMIN';
@@ -26,9 +24,9 @@ const TeamManagementPanel = () => {
 
   useEffect(() => {
     if (teams.length === 0) {
-      dispatch(fetchTeams());
+      void refreshTeams();
     }
-  }, [dispatch, teams.length]);
+  }, [refreshTeams, teams.length]);
 
   // Redirect if user doesn't have admin access to this team
   useEffect(() => {
@@ -50,7 +48,7 @@ const TeamManagementPanel = () => {
     setError(null);
     try {
       await teamApi.updateTeam(teamId, { name: editTeamName.trim() });
-      dispatch(fetchTeams());
+      await refreshTeams();
       setIsEditModalOpen(false);
     } catch (err) {
       setError(
@@ -69,6 +67,7 @@ const TeamManagementPanel = () => {
     setError(null);
     try {
       await teamApi.deleteTeam(teamId);
+      await refreshTeams();
       navigateBack(); // Navigate back after deletion
     } catch (err) {
       setError(

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
 import { ActionableCard } from '../components/intelligence/ActionableCard';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
@@ -17,8 +16,6 @@ import {
 } from '../hooks/useIntelligenceSocket';
 import { useIntelligenceStats } from '../hooks/useIntelligenceStats';
 import { useScreenIntelligenceItems } from '../hooks/useScreenIntelligenceItems';
-import type { RootState } from '../store';
-import { setSearchFilter, setSourceFilter } from '../store/intelligenceSlice';
 import type {
   ActionableItem,
   ActionableItemSource,
@@ -30,14 +27,12 @@ import type {
 type IntelligenceTab = 'memory' | 'subconscious' | 'dreams';
 
 export default function Intelligence() {
-  const dispatch = useDispatch();
   const { aiStatus } = useIntelligenceStats();
 
   const [activeTab, setActiveTab] = useState<IntelligenceTab>('memory');
-
-  // Redux state
-  const intelligenceState = useSelector((state: RootState) => state.intelligence);
-  const { filters } = intelligenceState;
+  const [sourceFilter, setSourceFilter] = useState<ActionableItemSource | 'all'>('all');
+  const [priorityFilter] = useState<'critical' | 'important' | 'normal' | 'all'>('all');
+  const [searchFilter, setSearchFilter] = useState('');
 
   // Conscious memory items (real data from the background analysis loop)
   const {
@@ -96,11 +91,11 @@ export default function Intelligence() {
   const filteredItems = useMemo(() => {
     const activeItems = items.filter(item => item.status === 'active');
     return filterItems(activeItems, {
-      source: filters.source,
-      priority: filters.priority,
-      searchTerm: filters.search,
+      source: sourceFilter,
+      priority: priorityFilter,
+      searchTerm: searchFilter,
     });
-  }, [items, filters.source, filters.priority, filters.search]);
+  }, [items, priorityFilter, searchFilter, sourceFilter]);
 
   const timeGroups = useMemo(() => groupItemsByTime(filteredItems), [filteredItems]);
   const stats = useMemo(() => getItemStats(filteredItems), [filteredItems]);
@@ -328,15 +323,15 @@ export default function Intelligence() {
                     <input
                       type="text"
                       placeholder="Search actionable items..."
-                      value={filters.search}
-                      onChange={e => dispatch(setSearchFilter(e.target.value))}
+                      value={searchFilter}
+                      onChange={e => setSearchFilter(e.target.value)}
                       className="w-full px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-none focus:border-primary-500/50 transition-colors"
                     />
                   </div>
                   <select
-                    value={filters.source}
+                    value={sourceFilter}
                     onChange={e =>
-                      dispatch(setSourceFilter(e.target.value as ActionableItemSource | 'all'))
+                      setSourceFilter(e.target.value as ActionableItemSource | 'all')
                     }
                     className="px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg text-stone-900 focus:outline-none focus:border-primary-500/50 transition-colors">
                     <option value="all">All Sources</option>
@@ -389,7 +384,7 @@ export default function Intelligence() {
                         />
                       </svg>
                     </div>
-                    {filters.search || filters.source !== 'all' ? (
+                    {searchFilter || sourceFilter !== 'all' ? (
                       <>
                         <h2 className="text-lg font-semibold text-stone-900 mb-2">No matches</h2>
                         <p className="text-stone-400 text-sm">

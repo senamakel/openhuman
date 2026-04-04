@@ -10,11 +10,10 @@ import DictationOverlay from './components/dictation/DictationOverlay';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
 import OnboardingOverlay from './components/OnboardingOverlay';
+import CoreStateProvider from './providers/CoreStateProvider';
 import SocketProvider from './providers/SocketProvider';
-import UserProvider from './providers/UserProvider';
 import { tagErrorSource } from './services/errorReportQueue';
 import { persistor, store } from './store';
-import { syncMemoryClientToken } from './utils/tauriCommands';
 
 function App() {
   return (
@@ -26,18 +25,8 @@ function App() {
         tagErrorSource(eventId, 'react', componentStack);
       }}>
       <Provider store={store}>
-        <PersistGate
-          loading={null}
-          persistor={persistor}
-          onBeforeLift={() => {
-            const token = store.getState().auth.token;
-            console.info('[memory] PersistGate onBeforeLift: token_present=%s', !!token);
-            if (token) {
-              // Do not block initial render on core/memory availability.
-              void syncMemoryClientToken(token);
-            }
-          }}>
-          <UserProvider>
+        <PersistGate loading={null} persistor={persistor}>
+          <CoreStateProvider>
             <SocketProvider>
               <Router>
                 <ServiceBlockingGate>
@@ -53,7 +42,7 @@ function App() {
                 </ServiceBlockingGate>
               </Router>
             </SocketProvider>
-          </UserProvider>
+          </CoreStateProvider>
         </PersistGate>
       </Provider>
     </Sentry.ErrorBoundary>

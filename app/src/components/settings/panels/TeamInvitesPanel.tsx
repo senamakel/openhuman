@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import { teamApi } from '../../../services/api/teamApi';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchInvites } from '../../../store/teamSlice';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
@@ -11,27 +10,30 @@ const TeamInvitesPanel = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const location = useLocation();
   const { navigateBack } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
-  const { teams, invites, isLoadingInvites } = useAppSelector(state => state.team);
+  const { snapshot, teams, teamInvitesById, refreshTeamInvites } = useCoreState();
+  const user = snapshot.currentUser;
 
   // Check if we're in team management context (has teamId in URL)
   const isInManagementContext = location.pathname.includes('/team/manage/');
   const currentTeamId = isInManagementContext ? teamId : user?.activeTeamId;
   const currentTeam = teams.find(t => t.team._id === currentTeamId);
   const isAdmin = currentTeam?.role.toUpperCase() === 'ADMIN';
+  const invites = currentTeamId ? teamInvitesById[currentTeamId] ?? [] : [];
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
 
   // Confirmation modal state
   const [inviteToRevoke, setInviteToRevoke] = useState<{ id: string; code: string } | null>(null);
 
   useEffect(() => {
-    if (currentTeamId) dispatch(fetchInvites(currentTeamId));
-  }, [currentTeamId, dispatch]);
+    if (!currentTeamId) return;
+    setIsLoadingInvites(true);
+    void refreshTeamInvites(currentTeamId).finally(() => setIsLoadingInvites(false));
+  }, [currentTeamId, refreshTeamInvites]);
 
   const handleGenerate = async () => {
     if (!currentTeamId) return;
@@ -39,7 +41,7 @@ const TeamInvitesPanel = () => {
     setError(null);
     try {
       await teamApi.createInvite(currentTeamId);
-      dispatch(fetchInvites(currentTeamId));
+      await refreshTeamInvites(currentTeamId);
     } catch (err) {
       setError(
         err && typeof err === 'object' && 'error' in err
@@ -74,7 +76,7 @@ const TeamInvitesPanel = () => {
 
     try {
       await teamApi.revokeInvite(currentTeamId, inviteToRevoke.id);
-      dispatch(fetchInvites(currentTeamId));
+      await refreshTeamInvites(currentTeamId);
       setInviteToRevoke(null);
     } catch (err) {
       setError(

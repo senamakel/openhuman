@@ -1,6 +1,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useCoreState } from '../providers/CoreStateProvider';
 import { tunnelsApi } from '../services/api/tunnelsApi';
 import { getCoreHttpBaseUrl } from '../services/coreRpcClient';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -45,11 +46,12 @@ function logToActivity(entry: WebhookDebugLogEntry): WebhookActivityEntry {
  * - Subscribes to SSE /events/webhooks for real-time activity updates
  */
 export function useWebhooks() {
+  const { snapshot } = useCoreState();
   const dispatch = useAppDispatch();
   const { tunnels, registrations, activity, loading, error } = useAppSelector(
     state => state.webhooks
   );
-  const token = useAppSelector(state => state.auth.token);
+  const token = snapshot.sessionToken;
   const [coreConnected, setCoreConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 

@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { useCoreState } from '../providers/CoreStateProvider';
 import { useAppSelector } from '../store/hooks';
 
 const tabs = [
@@ -104,7 +105,8 @@ const tabs = [
 const BottomTabBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const token = useAppSelector(state => state.auth.token);
+  const { snapshot } = useCoreState();
+  const token = snapshot.sessionToken;
 
   const conversationsUnreadCount = useAppSelector(state => {
     const { threads, lastViewedAt } = state.thread;

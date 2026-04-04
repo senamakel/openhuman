@@ -1,32 +1,17 @@
 import { syncAnalyticsConsent } from '../../../services/analytics';
-import { setAnalyticsForUser } from '../../../store/authSlice';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { isTauri, openhumanUpdateAnalyticsSettings } from '../../../utils/tauriCommands';
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const PrivacyPanel = () => {
   const { navigateBack } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
-  const analyticsEnabled = useAppSelector(state => {
-    const userId = state.user.user?._id;
-    if (!userId) return false;
-    return state.auth.isAnalyticsEnabledByUser[userId] !== false;
-  });
+  const { snapshot, setAnalyticsEnabled } = useCoreState();
+  const analyticsEnabled = snapshot.analyticsEnabled;
 
-  const handleToggleAnalytics = () => {
-    if (!user?._id) return;
+  const handleToggleAnalytics = async () => {
     const newValue = !analyticsEnabled;
-    dispatch(setAnalyticsForUser({ userId: user._id, enabled: newValue }));
     syncAnalyticsConsent(newValue);
-
-    // Sync to core config so the Rust process also respects the setting
-    if (isTauri()) {
-      openhumanUpdateAnalyticsSettings({ enabled: newValue }).catch(() => {
-        /* best-effort */
-      });
-    }
+    await setAnalyticsEnabled(newValue);
   };
 
   return (

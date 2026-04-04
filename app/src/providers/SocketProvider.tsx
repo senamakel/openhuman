@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
 
+import { useCoreState } from './CoreStateProvider';
 import { useDaemonLifecycle } from '../hooks/useDaemonLifecycle';
 import { socketService } from '../services/socketService';
-import { store } from '../store';
-import { useAppSelector } from '../store/hooks';
 import { IS_DEV } from '../utils/config';
 
 /**
@@ -12,7 +11,8 @@ import { IS_DEV } from '../utils/config';
  * for both desktop and web.
  */
 const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const token = useAppSelector(state => state.auth.token);
+  const { snapshot } = useCoreState();
+  const token = snapshot.sessionToken;
   const previousTokenRef = useRef<string | null>(null);
 
   // Keep daemon lifecycle management for desktop health/recovery.
@@ -54,12 +54,12 @@ const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // Cleanup on unmount only
   useEffect(() => {
     return () => {
-      const currentToken = store.getState().auth.token;
+      const currentToken = snapshot.sessionToken;
       if (!currentToken) {
         socketService.disconnect();
       }
     };
-  }, []);
+  }, [snapshot.sessionToken]);
 
   return <>{children}</>;
 };

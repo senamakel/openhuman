@@ -13,6 +13,7 @@
 
 pub mod about_app;
 pub mod accessibility;
+pub mod app_state;
 pub mod agent;
 pub mod approval;
 pub mod autocomplete;

@@ -3,11 +3,9 @@ import { createPortal } from 'react-dom';
 
 import ProgressIndicator from '../../components/ProgressIndicator';
 import { useUser } from '../../hooks/useUser';
+import { useCoreState } from '../../providers/CoreStateProvider';
 import { userApi } from '../../services/api/userApi';
-import { setOnboardedForUser, setOnboardingTasksForUser } from '../../store/authSlice';
-import { useAppDispatch } from '../../store/hooks';
 import { bootstrapLocalAiWithRecommendedPreset } from '../../utils/localAiBootstrap';
-import { setOnboardingCompleted } from '../../utils/tauriCommands';
 import LocalAIStep from './steps/LocalAIStep';
 import ScreenPermissionsStep from './steps/ScreenPermissionsStep';
 import SkillsStep from './steps/SkillsStep';
@@ -30,8 +28,8 @@ interface OnboardingDraft {
 const LOCAL_AI_ERROR_DISMISS_MS = 10_000;
 
 const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
-  const dispatch = useAppDispatch();
-  const { user } = useUser();
+  useUser();
+  const { setOnboardingCompletedFlag, setOnboardingTasks } = useCoreState();
   const [currentStep, setCurrentStep] = useState(0);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const retryInFlightRef = useRef(false);
@@ -108,21 +106,14 @@ const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
   const handleSkillsNext = async (connectedSources: string[]) => {
     setDraft(prev => ({ ...prev, connectedSources }));
 
-    // Persist onboarding tasks
-    if (user?._id) {
-      dispatch(
-        setOnboardingTasksForUser({
-          userId: user._id,
-          tasks: {
-            accessibilityPermissionGranted: draft.accessibilityPermissionGranted,
-            localModelConsentGiven: draft.localModelConsentGiven,
-            localModelDownloadStarted: draft.localModelDownloadStarted,
-            enabledTools: draft.enabledTools,
-            connectedSources,
-          },
-        })
-      );
-    }
+    await setOnboardingTasks({
+      accessibilityPermissionGranted: draft.accessibilityPermissionGranted,
+      localModelConsentGiven: draft.localModelConsentGiven,
+      localModelDownloadStarted: draft.localModelDownloadStarted,
+      enabledTools: draft.enabledTools,
+      connectedSources,
+      updatedAtMs: Date.now(),
+    });
 
     // Notify backend (best-effort — don't block onboarding completion)
     try {
@@ -131,14 +122,9 @@ const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
       console.warn('[onboarding] Failed to notify backend of onboarding completion');
     }
 
-    // Mark onboarded in Redux (belt-and-suspenders alongside config)
-    if (user?._id) {
-      dispatch(setOnboardedForUser({ userId: user._id, value: true }));
-    }
-
     // Write onboarding_completed to core config (source of truth)
     try {
-      await setOnboardingCompleted(true);
+      await setOnboardingCompletedFlag(true);
     } catch {
       console.warn('[onboarding] Failed to persist onboarding_completed to core config');
     }

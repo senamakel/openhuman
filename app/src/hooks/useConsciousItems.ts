@@ -15,10 +15,9 @@
  */
 import { listen } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
 
+import { getCoreStateSnapshot } from '../lib/coreState/store';
 import { getBackendUrl } from '../services/backendUrl';
-import type { RootState } from '../store';
 import type {
   ActionableItem,
   ActionableItemPriority,
@@ -143,7 +142,7 @@ export interface UseConsciousItemsResult {
 }
 
 export function useConsciousItems(): UseConsciousItemsResult {
-  const authToken = useSelector((state: RootState) => state.auth.token);
+  const authToken = getCoreStateSnapshot().snapshot.sessionToken;
 
   const [items, setItems] = useState<ActionableItem[]>([]);
   const [loading, setLoading] = useState(false);

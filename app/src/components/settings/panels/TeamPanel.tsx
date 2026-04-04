@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import { teamApi } from '../../../services/api/teamApi';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchTeams } from '../../../store/teamSlice';
-import { fetchCurrentUser } from '../../../store/userSlice';
 import type { TeamWithRole } from '../../../types/team';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const TeamPanel = () => {
   const { navigateBack, navigateToTeamManagement } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
-  const { teams, isLoading } = useAppSelector(state => state.team);
+  const { snapshot, teams, refresh, refreshTeams } = useCoreState();
+  const user = snapshot.currentUser;
+  const isLoading = false;
 
   const [newTeamName, setNewTeamName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -28,8 +26,8 @@ const TeamPanel = () => {
   const activeTeamId = user?.activeTeamId;
 
   useEffect(() => {
-    dispatch(fetchTeams());
-  }, [dispatch]);
+    void refreshTeams();
+  }, [refreshTeams]);
 
   const handleCreateTeam = async () => {
     const name = newTeamName.trim();
@@ -39,7 +37,7 @@ const TeamPanel = () => {
     try {
       await teamApi.createTeam(name);
       setNewTeamName('');
-      dispatch(fetchTeams());
+      await refreshTeams();
     } catch (err) {
       setError(
         err && typeof err === 'object' && 'error' in err
@@ -59,8 +57,7 @@ const TeamPanel = () => {
     try {
       await teamApi.joinTeam(code);
       setJoinCode('');
-      await dispatch(fetchCurrentUser());
-      dispatch(fetchTeams());
+      await Promise.all([refresh(), refreshTeams()]);
     } catch (err) {
       setError(
         err && typeof err === 'object' && 'error' in err
@@ -78,8 +75,7 @@ const TeamPanel = () => {
     setError(null);
     try {
       await teamApi.switchTeam(teamId);
-      await dispatch(fetchCurrentUser());
-      dispatch(fetchTeams());
+      await Promise.all([refresh(), refreshTeams()]);
     } catch (err) {
       setError(
         err && typeof err === 'object' && 'error' in err
@@ -104,8 +100,7 @@ const TeamPanel = () => {
 
     try {
       await teamApi.leaveTeam(teamToLeave.team._id);
-      await dispatch(fetchCurrentUser());
-      dispatch(fetchTeams());
+      await Promise.all([refresh(), refreshTeams()]);
       setTeamToLeave(null);
     } catch (err) {
       setError(

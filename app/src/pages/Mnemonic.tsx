@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import LottieAnimation from '../components/LottieAnimation';
 import { skillManager } from '../lib/skills/manager';
-import { setEncryptionKeyForUser } from '../store/authSlice';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { useCoreState } from '../providers/CoreStateProvider';
 import {
   deriveAesKeyFromMnemonic,
   deriveEvmAddressFromMnemonic,
@@ -20,8 +19,8 @@ const IMPORT_SLOTS_INITIAL = MNEMONIC_GENERATE_WORD_COUNT;
 
 const Mnemonic = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
+  const { snapshot, setEncryptionKey } = useCoreState();
+  const user = snapshot.currentUser;
   const [mode, setMode] = useState<'generate' | 'import'>('generate');
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -167,7 +166,7 @@ const Mnemonic = () => {
         console.error('[Mnemonic] Cannot save encryption key: user not loaded');
         return;
       }
-      dispatch(setEncryptionKeyForUser({ userId: user._id, key: aesKey }));
+      await setEncryptionKey(aesKey);
       await skillManager.setWalletAddress(walletAddress);
       navigate('/home');
     } catch (e) {

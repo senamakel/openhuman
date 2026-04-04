@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useCoreState } from '../../../providers/CoreStateProvider';
 import { billingApi } from '../../../services/api/billingApi';
 import {
   type AutoRechargeSettings,
@@ -8,8 +9,6 @@ import {
   type SavedCard,
   type TeamUsage,
 } from '../../../services/api/creditsApi';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchCurrentUser } from '../../../store/userSlice';
 import type { PlanTier } from '../../../types/api';
 import { openUrl } from '../../../utils/openUrl';
 import SettingsHeader from '../components/SettingsHeader';
@@ -44,9 +43,8 @@ function cardBrandLabel(brand: string) {
 // ── Component ───────────────────────────────────────────────────────────
 const BillingPanel = () => {
   const { navigateBack } = useSettingsNavigation();
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(state => state.user.user);
-  const { teams } = useAppSelector(state => state.team);
+  const { snapshot, teams, refresh } = useCoreState();
+  const user = snapshot.currentUser;
 
   // Active team context
   const activeTeamId = user?.activeTeamId;
@@ -271,7 +269,7 @@ const BillingPanel = () => {
       } catch (e) {
         console.error('Failed to fetch current plan after payment', e);
       }
-      dispatch(fetchCurrentUser());
+      await refresh();
 
       // Auto-hide the success banner after 5 s
       timeoutRef.current = window.setTimeout(() => setPaymentConfirmed(false), 5_000);
@@ -285,7 +283,7 @@ const BillingPanel = () => {
         timeoutRef.current = null;
       }
     };
-  }, [dispatch]);
+  }, [refresh]);
 
   // ── Poll for plan change after checkout ─────────────────────────────
   const currentTierRef = useRef(currentTier);
@@ -309,7 +307,7 @@ const BillingPanel = () => {
       try {
         const plan = await billingApi.getCurrentPlan();
         if (plan.hasActiveSubscription && plan.plan !== currentTierRef.current) {
-          dispatch(fetchCurrentUser());
+          await refresh();
           setIsPurchasing(false);
           setPurchasingTier(null);
           if (pollRef.current) clearInterval(pollRef.current);
@@ -318,7 +316,7 @@ const BillingPanel = () => {
         // Ignore polling errors
       }
     }, 5_000);
-  }, [dispatch]);
+  }, [refresh]);
 
   // ── Purchase handlers ───────────────────────────────────────────────
   const handleUpgrade = async (tier: PlanTier) => {

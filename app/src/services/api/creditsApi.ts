@@ -138,10 +138,7 @@ export const creditsApi = {
     amountUsd: number,
     gateway: 'stripe' | 'coinbase' = 'stripe'
   ): Promise<TopUpResult> => {
-    return await callCoreCommand<TopUpResult>('openhuman.billing_top_up', {
-      amountUsd,
-      gateway,
-    });
+    return await callCoreCommand<TopUpResult>('openhuman.billing_top_up', { amountUsd, gateway });
   },
 
   /**
@@ -162,9 +159,7 @@ export const creditsApi = {
    * GET /payments/credits/auto-recharge
    */
   getAutoRecharge: async (): Promise<AutoRechargeSettings> => {
-    return await callCoreCommand<AutoRechargeSettings>(
-      'openhuman.billing_get_auto_recharge'
-    );
+    return await callCoreCommand<AutoRechargeSettings>('openhuman.billing_get_auto_recharge');
   },
 
   /**
@@ -172,10 +167,9 @@ export const creditsApi = {
    * PATCH /payments/credits/auto-recharge
    */
   updateAutoRecharge: async (payload: AutoRechargeUpdatePayload): Promise<AutoRechargeSettings> => {
-    return await callCoreCommand<AutoRechargeSettings>(
-      'openhuman.billing_update_auto_recharge',
-      { payload }
-    );
+    return await callCoreCommand<AutoRechargeSettings>('openhuman.billing_update_auto_recharge', {
+      payload,
+    });
   },
 
   /**
@@ -192,9 +186,7 @@ export const creditsApi = {
    * POST /payments/credits/auto-recharge/cards/setup-intent
    */
   createSetupIntent: async (): Promise<SetupIntentData> => {
-    return await callCoreCommand<SetupIntentData>(
-      'openhuman.billing_create_setup_intent'
-    );
+    return await callCoreCommand<SetupIntentData>('openhuman.billing_create_setup_intent');
   },
 
   /**
@@ -213,8 +205,6 @@ export const creditsApi = {
    * DELETE /payments/credits/auto-recharge/cards/:paymentMethodId
    */
   deleteCard: async (paymentMethodId: string): Promise<CardsData> => {
-    return await callCoreCommand<CardsData>('openhuman.billing_delete_card', {
-      paymentMethodId,
-    });
+    return await callCoreCommand<CardsData>('openhuman.billing_delete_card', { paymentMethodId });
   },
 };

@@ -54,7 +54,9 @@ interface ChannelConnectionUpdatedEvent {
   capabilities?: string[];
 }
 
-function normalizeChannelConnectionUpdatePayload(value: unknown): ChannelConnectionUpdatedEvent | null {
+function normalizeChannelConnectionUpdatePayload(
+  value: unknown
+): ChannelConnectionUpdatedEvent | null {
   if (!value || typeof value !== 'object') return null;
 
   const obj = value as Record<string, unknown>;

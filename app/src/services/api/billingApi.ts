@@ -17,9 +17,7 @@ export const billingApi = {
    * GET /payments/stripe/currentPlan
    */
   getCurrentPlan: async (): Promise<CurrentPlanData> => {
-    return await callCoreCommand<CurrentPlanData>(
-      'openhuman.billing_get_current_plan'
-    );
+    return await callCoreCommand<CurrentPlanData>('openhuman.billing_get_current_plan');
   },
 
   /**
@@ -27,9 +25,7 @@ export const billingApi = {
    * POST /payments/stripe/purchasePlan
    */
   purchasePlan: async (plan: PlanIdentifier): Promise<PurchasePlanData> => {
-    return await callCoreCommand<PurchasePlanData>('openhuman.billing_purchase_plan', {
-      plan,
-    });
+    return await callCoreCommand<PurchasePlanData>('openhuman.billing_purchase_plan', { plan });
   },
 
   /**
@@ -48,9 +44,9 @@ export const billingApi = {
     plan: PlanTier,
     interval: 'annual' = 'annual'
   ): Promise<CoinbaseChargeData> => {
-    return await callCoreCommand<CoinbaseChargeData>(
-      'openhuman.billing_create_coinbase_charge',
-      { plan, interval }
-    );
+    return await callCoreCommand<CoinbaseChargeData>('openhuman.billing_create_coinbase_charge', {
+      plan,
+      interval,
+    });
   },
 };

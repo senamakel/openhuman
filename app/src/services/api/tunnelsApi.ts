@@ -47,9 +47,7 @@ export const tunnelsApi = {
 
   /** GET /webhooks/core/bandwidth — get remaining webhook bandwidth budget */
   getBandwidthUsage: async (): Promise<TunnelBandwidthUsage> => {
-    return await callCoreCommand<TunnelBandwidthUsage>(
-      'openhuman.webhooks_get_bandwidth'
-    );
+    return await callCoreCommand<TunnelBandwidthUsage>('openhuman.webhooks_get_bandwidth');
   },
 
   /** GET /webhooks/core/:tunnelId — get a specific webhook tunnel by its internal ID. */

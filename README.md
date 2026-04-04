@@ -41,7 +41,9 @@ irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/instal
 
 OpenHuman is an open-source agentic assistant that is designed to integrate with you in your daily life. Here's what makes OpenHuman special:
 
-- **One subscription, many providers** — You only need to one account to get access to many agentic APIs (AI Models, Search, Webhooks/Tunnels and other 3rd party APIs etc..), simplifying the experience to get a powerful agent going.
+- **Simple, UI-first** — A **clean** desktop experience and short onboarding paths so you can go from install to a **working agent in a few clicks**, without a config-first setup. You don't need a terminal to run OpenHuman.
+
+- **One subscription, many providers** — You only need **one** account to get access to many agentic APIs (AI Models, Search, Webhooks/Tunnels and other 3rd party APIs etc..), simplifying the experience to get a powerful agent going.
 
 - **Rich Skills** — Plug into **Gmail**, **Slack**, **Notion**, and the rest of your stack via **rich, feature-backed skills**. Connections are typically **one click** through setup wizards instead of wiring APIs by hand. Workflow data is kept **on device**, **encrypted locally**, and treated as **yours**: encryption and sensitive context stay **on your machine**. **Webhooks** give **instant feedback** into the agent when external systems or skills emit events, so the loop stays tight without constant polling.
 

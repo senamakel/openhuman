@@ -30,7 +30,7 @@ deletes the tunnel unless told to keep it.
 Options:
   --keep                 Keep the backend tunnel and local echo registration
   --name <name>          Tunnel name override
-  --path <path>          Request path suffix to send after /webhooks/<uuid>
+  --path <path>          Request path suffix to send after /webhooks/ingress/<uuid>
   --method <method>      HTTP method to send (default: POST)
   --payload <json>       Raw JSON payload string to send
   -h, --help             Show this help
@@ -162,7 +162,7 @@ REGISTER_PARAMS="$(
 )"
 rpc_call "openhuman.webhooks_register_echo" "$REGISTER_PARAMS" >/dev/null
 
-WEBHOOK_URL="${BACKEND_URL%/}/webhooks/${TUNNEL_UUID}${HOOK_PATH}"
+WEBHOOK_URL="${BACKEND_URL%/}/webhooks/ingress/${TUNNEL_UUID}${HOOK_PATH}"
 echo "Triggering: ${HOOK_METHOD} ${WEBHOOK_URL}"
 
 RESPONSE_BODY_FILE="$(mktemp)"

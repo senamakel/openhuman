@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { buildWebhookIngressUrl } from '../../../lib/webhooks/urls';
 import { getCoreHttpBaseUrl } from '../../../services/coreRpcClient';
+import { tunnelsApi } from '../../../services/api/tunnelsApi';
 import { BACKEND_URL } from '../../../utils/config';
 import {
   openhumanWebhooksClearLogs,
@@ -242,7 +242,7 @@ const WebhooksDebugPanel = () => {
                     <div>
                       Target URL:{' '}
                       <span className="font-mono text-stone-900">
-                        {buildWebhookIngressUrl(registration.tunnel_uuid, fallbackBackendUrl)}
+                        {tunnelsApi.ingressUrl(fallbackBackendUrl, registration.tunnel_uuid)}
                       </span>
                     </div>
                     {registration.backend_tunnel_id && (

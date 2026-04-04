@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import { buildWebhookIngressUrl } from '../../lib/webhooks/urls';
 import type { Tunnel } from '../../services/api/tunnelsApi';
+import { tunnelsApi } from '../../services/api/tunnelsApi';
 import type { TunnelRegistration } from '../../store/webhooksSlice';
 import { BACKEND_URL } from '../../utils/config';
 
@@ -54,7 +54,8 @@ export default function TunnelList({
 
   const getRegistration = (uuid: string) => registrations.find(r => r.tunnel_uuid === uuid);
 
-  const webhookUrl = (uuid: string) => buildWebhookIngressUrl(uuid, BACKEND_URL);
+  const webhookUrl = (uuid: string) =>
+    tunnelsApi.ingressUrl(BACKEND_URL || 'https://api.tinyhumans.ai', uuid);
 
   return (
     <div className="space-y-4">

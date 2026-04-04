@@ -1,5 +1,8 @@
 import { callCoreCommand } from '../coreCommandClient';
 
+const WEBHOOKS_CORE_BASE = '/webhooks/core';
+const WEBHOOKS_INGRESS_BASE = '/webhooks/ingress';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface Tunnel {
@@ -66,4 +69,7 @@ export const tunnelsApi = {
   deleteTunnel: async (tunnelId: string): Promise<void> => {
     await callCoreCommand<unknown>('openhuman.webhooks_delete_tunnel', { id: tunnelId });
   },
+
+  ingressUrl: (backendUrl: string, tunnelUuid: string): string =>
+    `${backendUrl.replace(/\/$/, '')}${WEBHOOKS_INGRESS_BASE}/${tunnelUuid}`,
 };

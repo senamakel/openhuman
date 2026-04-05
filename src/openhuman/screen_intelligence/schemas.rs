@@ -96,14 +96,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "request_permissions" => ControllerSchema {
             namespace: "screen_intelligence",
             function: "request_permissions",
-            description: "Request required accessibility permissions.",
+            description:
+                "Request accessibility automation permissions without prompting for screen recording.",
             inputs: vec![],
             outputs: vec![json_output("permissions", "Permission status payload.")],
         },
         "request_permission" => ControllerSchema {
             namespace: "screen_intelligence",
             function: "request_permission",
-            description: "Request one accessibility permission.",
+            description: "Request one permission such as accessibility, input monitoring, or screen recording.",
             inputs: vec![FieldSchema {
                 name: "permission",
                 ty: TypeSchema::String,

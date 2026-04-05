@@ -90,7 +90,7 @@ pub async fn accessibility_request_permissions() -> Result<RpcOutcome<Permission
         .await?;
     Ok(RpcOutcome::single_log(
         permissions,
-        "accessibility permissions requested",
+        "accessibility automation permissions requested",
     ))
 }
 

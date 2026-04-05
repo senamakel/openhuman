@@ -277,8 +277,6 @@ impl AccessibilityEngine {
             });
         }
 
-        self.request_permission(PermissionKind::ScreenRecording)
-            .await?;
         self.request_permission(PermissionKind::Accessibility)
             .await?;
         self.request_permission(PermissionKind::InputMonitoring)
@@ -286,7 +284,7 @@ impl AccessibilityEngine {
 
         let mut state = self.inner.lock().await;
         state.permissions = detect_permissions();
-        state.last_event = Some("permissions_requested".to_string());
+        state.last_event = Some("permissions_requested:accessibility,input_monitoring".to_string());
         Ok(state.permissions.clone())
     }
 

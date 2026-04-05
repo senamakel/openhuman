@@ -9,11 +9,11 @@ pub mod schemas;
 pub mod store;
 pub mod traits;
 
-pub use ingestion_queue::{IngestionJob, IngestionQueue};
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, MemoryIngestionConfig,
     MemoryIngestionRequest, MemoryIngestionResult, DEFAULT_GLINER_RELEX_MODEL,
 };
+pub use ingestion_queue::{IngestionJob, IngestionQueue};
 pub use ops as rpc;
 pub use ops::*;
 pub use rpc_models::*;

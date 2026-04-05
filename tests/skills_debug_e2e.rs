@@ -196,7 +196,11 @@ async fn skill_full_lifecycle() {
         .try_init();
 
     let skills_dir = require_skills_dir!();
-    let skill_id = select_skill_id(&skills_dir, "SKILL_DEBUG_ID", &["server-ping", "gmail", "notion"]);
+    let skill_id = select_skill_id(
+        &skills_dir,
+        "SKILL_DEBUG_ID",
+        &["server-ping", "gmail", "notion"],
+    );
     let tmp = tempdir().expect("tempdir");
     let data_dir = tmp.path().join("skills_data");
     std::fs::create_dir_all(&data_dir).expect("create data_dir");
@@ -611,7 +615,11 @@ async fn skill_rapid_start_stop() {
         .try_init();
 
     let skills_dir = require_skills_dir!();
-    let skill_id = select_skill_id(&skills_dir, "SKILL_DEBUG_ID", &["server-ping", "gmail", "notion"]);
+    let skill_id = select_skill_id(
+        &skills_dir,
+        "SKILL_DEBUG_ID",
+        &["server-ping", "gmail", "notion"],
+    );
     let tmp = tempdir().expect("tempdir");
     let data_dir = tmp.path().join("skills_data");
     std::fs::create_dir_all(&data_dir).unwrap();

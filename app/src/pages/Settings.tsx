@@ -229,7 +229,7 @@ const aiSettingsItems = [
 
 const Settings = () => {
   return (
-    <div className="h-full overflow-y-auto bg-[#F5F5F5] p-4 pt-6">
+    <div className="app-dotted-canvas h-full overflow-y-auto p-4 pt-6">
       <div
         className="max-w-2xl mx-auto bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden flex flex-col min-h-0"
         style={{ maxHeight: 'calc(100vh - 7rem)' }}>

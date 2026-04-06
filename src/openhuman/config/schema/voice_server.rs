@@ -3,7 +3,21 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::voice::hotkey::ActivationMode;
+/// Activation mode for the voice server hotkey.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum VoiceActivationMode {
+    /// Single press toggles recording on/off.
+    Tap,
+    /// Hold to record, release to stop.
+    Push,
+}
+
+impl Default for VoiceActivationMode {
+    fn default() -> Self {
+        Self::Tap
+    }
+}
 
 /// Configuration for the voice dictation server.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -18,7 +32,7 @@ pub struct VoiceServerConfig {
 
     /// Activation mode: "tap" (toggle) or "push" (hold-to-record).
     #[serde(default)]
-    pub activation_mode: ActivationMode,
+    pub activation_mode: VoiceActivationMode,
 
     /// Skip LLM post-processing for transcriptions.
     #[serde(default)]
@@ -43,7 +57,7 @@ impl Default for VoiceServerConfig {
         Self {
             auto_start: false,
             hotkey: default_hotkey(),
-            activation_mode: ActivationMode::default(),
+            activation_mode: VoiceActivationMode::default(),
             skip_cleanup: false,
             min_duration_secs: default_min_duration(),
         }

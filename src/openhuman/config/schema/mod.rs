@@ -61,6 +61,6 @@ pub use tools::{
     SecretsConfig, WebSearchConfig,
 };
 mod voice_server;
-pub use voice_server::VoiceServerConfig;
+pub use voice_server::{VoiceActivationMode, VoiceServerConfig};
 mod types;
 pub use types::*;

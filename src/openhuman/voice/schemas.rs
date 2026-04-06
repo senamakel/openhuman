@@ -252,6 +252,7 @@ fn handle_voice_tts(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+
 fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         use crate::openhuman::voice::hotkey::ActivationMode;
@@ -275,7 +276,10 @@ fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {
                 );
                 ActivationMode::Tap
             }
-            None => config.voice_server.activation_mode,
+            None => match config.voice_server.activation_mode {
+                crate::openhuman::config::VoiceActivationMode::Push => ActivationMode::Push,
+                crate::openhuman::config::VoiceActivationMode::Tap => ActivationMode::Tap,
+            },
         };
 
         let skip_cleanup = params
@@ -331,6 +335,7 @@ fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+
 fn handle_voice_server_stop(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         if let Some(server) = crate::openhuman::voice::server::try_global_server() {
@@ -351,6 +356,7 @@ fn handle_voice_server_stop(_params: Map<String, Value>) -> ControllerFuture {
         }
     })
 }
+
 
 fn handle_voice_server_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {

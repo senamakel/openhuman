@@ -75,7 +75,7 @@ pub fn start_recording() -> Result<RecordingHandle, String> {
 
     debug!(
         "{LOG_PREFIX} recording config: rate={source_sample_rate} channels={source_channels} format={:?}",
-        config.sample_format
+        config.sample_format()
     );
 
     let stop_flag = Arc::new(AtomicBool::new(false));
@@ -89,7 +89,7 @@ pub fn start_recording() -> Result<RecordingHandle, String> {
         )));
     let samples_writer = samples.clone();
 
-    let sample_format = config.sample_format;
+    let sample_format = config.sample_format();
     let stream_config: StreamConfig = config.into();
 
     // Build the cpal stream.

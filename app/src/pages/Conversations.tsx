@@ -4,7 +4,6 @@ import Markdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 
 import { type ChatSendError, chatSendError } from '../chat/chatSendError';
-import { useLocalModelStatus } from '../hooks/useLocalModelStatus';
 import { creditsApi, type TeamUsage } from '../services/api/creditsApi';
 import {
   chatCancel,
@@ -29,12 +28,10 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
-import { getSegmentDelay, segmentMessage } from '../utils/messageSegmentation';
 import {
   isTauri,
   openhumanAutocompleteAccept,
   openhumanAutocompleteCurrent,
-  openhumanLocalAiShouldReact,
   openhumanVoiceStatus,
   openhumanVoiceTranscribeBytes,
   openhumanVoiceTts,
@@ -140,14 +137,7 @@ const Conversations = () => {
     Record<string, ToolTimelineEntry[]>
   >({});
   const rustChat = useRustChat();
-  const isLocalModelActive = useLocalModelStatus();
-  const isLocalModelActiveRef = useRef(isLocalModelActive);
-  const [isDelivering, setIsDelivering] = useState(false);
-  const deliveryActiveRef = useRef(false);
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
-  const defaultChannelType = useAppSelector(
-    state => state.channelConnections?.defaultMessagingChannel ?? 'web'
-  );
   const pendingReactionRef = useRef<
     Map<string, { msgId: string; content: string; threadId: string }>
   >(new Map());
@@ -156,10 +146,6 @@ const Conversations = () => {
   useEffect(() => {
     selectedThreadIdRef.current = selectedThreadId;
   }, [selectedThreadId]);
-
-  useEffect(() => {
-    isLocalModelActiveRef.current = isLocalModelActive;
-  }, [isLocalModelActive]);
 
   const [teamUsage, setTeamUsage] = useState<TeamUsage | null>(null);
   const [isLoadingBudget, setIsLoadingBudget] = useState(false);
@@ -304,7 +290,6 @@ const Conversations = () => {
 
   useEffect(() => {
     return () => {
-      deliveryActiveRef.current = false;
       mediaRecorderRef.current?.stop();
       mediaStreamRef.current?.getTracks().forEach(track => track.stop());
       replyAudioRef.current?.pause();
@@ -961,7 +946,7 @@ const Conversations = () => {
                   </div>
                 </div>
               ))}
-              {((activeThreadId === selectedThreadId && isSending) || isDelivering) && (
+              {activeThreadId === selectedThreadId && isSending && (
                 <div className="flex justify-start">
                   <div className="bg-stone-200/80 rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-1">

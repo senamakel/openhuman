@@ -168,7 +168,9 @@ fn run_read(args: &[String]) -> Result<()> {
         let params = crate::openhuman::text_input::ReadFieldParams {
             include_bounds: Some(opts.include_bounds),
         };
-        let outcome = crate::openhuman::text_input::rpc::read_field(params).await.map_err(|e| anyhow::anyhow!(e))?;
+        let outcome = crate::openhuman::text_input::rpc::read_field(params)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         println!(
             "{}",
             serde_json::to_string_pretty(&outcome.value)
@@ -206,7 +208,9 @@ fn run_insert(args: &[String]) -> Result<()> {
             expected_app: None,
             expected_role: None,
         };
-        let outcome = crate::openhuman::text_input::rpc::insert_text(params).await.map_err(|e| anyhow::anyhow!(e))?;
+        let outcome = crate::openhuman::text_input::rpc::insert_text(params)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         if outcome.value.inserted {
             eprintln!("  Text inserted successfully.");
         } else {
@@ -248,7 +252,9 @@ fn run_ghost(args: &[String]) -> Result<()> {
             ttl_ms: Some(opts.ttl_ms),
             bounds: None,
         };
-        let outcome = crate::openhuman::text_input::rpc::show_ghost(params).await.map_err(|e| anyhow::anyhow!(e))?;
+        let outcome = crate::openhuman::text_input::rpc::show_ghost(params)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         if outcome.value.shown {
             eprintln!("  Ghost text shown (ttl={}ms).", opts.ttl_ms);
         } else {
@@ -279,7 +285,9 @@ fn run_dismiss(args: &[String]) -> Result<()> {
         .build()?;
 
     rt.block_on(async {
-        let outcome = crate::openhuman::text_input::rpc::dismiss_ghost().await.map_err(|e| anyhow::anyhow!(e))?;
+        let outcome = crate::openhuman::text_input::rpc::dismiss_ghost()
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         if outcome.value.dismissed {
             eprintln!("  Ghost text dismissed.");
         }

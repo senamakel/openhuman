@@ -14,6 +14,10 @@ mod heartbeat_cron;
 mod identity_cost;
 mod learning;
 mod load;
+pub use load::{
+    clear_active_user, default_root_openhuman_dir, read_active_user_id, user_openhuman_dir,
+    write_active_user_id,
+};
 mod local_ai;
 mod observability;
 mod orchestrator;
@@ -22,6 +26,7 @@ mod routes;
 mod runtime;
 mod storage_memory;
 mod tools;
+mod update;
 
 pub use accessibility::ScreenIntelligenceConfig;
 pub use agent::{AgentConfig, DelegateAgentConfig};
@@ -58,5 +63,6 @@ pub use tools::{
     BrowserComputerUseConfig, BrowserConfig, ComposioConfig, HttpRequestConfig, IntegrationToggle,
     IntegrationsConfig, MultimodalConfig, SecretsConfig, WebSearchConfig,
 };
+pub use update::UpdateConfig;
 mod types;
 pub use types::*;

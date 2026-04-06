@@ -12,7 +12,7 @@
 //!
 //! The backend handles Parallel API keys, billing, and rate limiting.
 
-use super::{IntegrationClient, ToolScope};
+use super::IntegrationClient;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -95,10 +95,6 @@ pub struct ParallelSearchTool {
 impl ParallelSearchTool {
     pub fn new(client: Arc<IntegrationClient>) -> Self {
         Self { client }
-    }
-
-    pub fn scope(&self) -> ToolScope {
-        ToolScope::All
     }
 }
 
@@ -275,10 +271,6 @@ impl ParallelExtractTool {
     pub fn new(client: Arc<IntegrationClient>) -> Self {
         Self { client }
     }
-
-    pub fn scope(&self) -> ToolScope {
-        ToolScope::All
-    }
 }
 
 /// Maximum characters of full_content to include per URL in tool output.
@@ -440,6 +432,7 @@ impl Tool for ParallelExtractTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::integrations::ToolScope;
 
     fn test_client() -> Arc<IntegrationClient> {
         Arc::new(IntegrationClient::new("http://test".into(), "tok".into()))

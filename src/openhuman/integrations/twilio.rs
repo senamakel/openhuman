@@ -35,10 +35,6 @@ impl TwilioCallTool {
     pub fn new(client: Arc<IntegrationClient>) -> Self {
         Self { client }
     }
-
-    pub fn scope(&self) -> ToolScope {
-        ToolScope::CliRpcOnly
-    }
 }
 
 #[async_trait]
@@ -83,8 +79,8 @@ impl Tool for TwilioCallTool {
         PermissionLevel::Execute
     }
 
-    fn scope(&self) -> crate::openhuman::tools::traits::ToolScope {
-        crate::openhuman::tools::traits::ToolScope::CliRpcOnly
+    fn scope(&self) -> ToolScope {
+        ToolScope::CliRpcOnly
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {

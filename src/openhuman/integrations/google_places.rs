@@ -12,7 +12,7 @@
 //!
 //! The backend handles Google API keys, billing, and rate limiting.
 
-use super::{IntegrationClient, ToolScope};
+use super::IntegrationClient;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -93,10 +93,6 @@ pub struct GooglePlacesSearchTool {
 impl GooglePlacesSearchTool {
     pub fn new(client: Arc<IntegrationClient>) -> Self {
         Self { client }
-    }
-
-    pub fn scope(&self) -> ToolScope {
-        ToolScope::All
     }
 }
 
@@ -208,10 +204,6 @@ impl GooglePlacesDetailsTool {
     pub fn new(client: Arc<IntegrationClient>) -> Self {
         Self { client }
     }
-
-    pub fn scope(&self) -> ToolScope {
-        ToolScope::All
-    }
 }
 
 #[async_trait]
@@ -312,6 +304,7 @@ impl Tool for GooglePlacesDetailsTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::integrations::ToolScope;
 
     fn test_client() -> Arc<IntegrationClient> {
         Arc::new(IntegrationClient::new("http://test".into(), "tok".into()))

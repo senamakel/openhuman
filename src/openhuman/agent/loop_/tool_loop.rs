@@ -289,16 +289,16 @@ pub(crate) async fn run_tool_call_loop(
                 }
             }
 
-            let tool_found = find_tool(tools_registry, &call.name).is_some();
+            let tool_opt = find_tool(tools_registry, &call.name);
             tracing::debug!(
                 iteration,
                 tool = call.name.as_str(),
-                found = tool_found,
+                found = tool_opt.is_some(),
                 "[agent_loop] executing tool"
             );
 
             // Scope check: CliRpcOnly tools cannot run in the autonomous agent loop.
-            if let Some(tool) = find_tool(tools_registry, &call.name) {
+            if let Some(tool) = tool_opt {
                 if tool.scope() == ToolScope::CliRpcOnly {
                     tracing::warn!(
                         iteration,
@@ -319,7 +319,7 @@ pub(crate) async fn run_tool_call_loop(
                 }
             }
 
-            let result = if let Some(tool) = find_tool(tools_registry, &call.name) {
+            let result = if let Some(tool) = tool_opt {
                 let tool_deadline =
                     crate::openhuman::tool_timeout::tool_execution_timeout_duration();
                 let timeout_secs = crate::openhuman::tool_timeout::tool_execution_timeout_secs();

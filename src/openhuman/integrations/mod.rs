@@ -53,7 +53,7 @@ pub struct IntegrationPricingEntry {
 pub struct BackendResponse<T> {
     #[allow(dead_code)]
     pub success: bool,
-    pub data: T,
+    pub data: Option<T>,
     #[serde(default)]
     #[allow(dead_code)]
     pub error: Option<String>,
@@ -122,7 +122,9 @@ impl IntegrationClient {
                 .unwrap_or_else(|| "unknown backend error".into());
             anyhow::bail!("Backend error for POST {}: {}", url, msg);
         }
-        Ok(envelope.data)
+        envelope
+            .data
+            .ok_or_else(|| anyhow::anyhow!("Backend returned success but no data for POST {}", url))
     }
 
     /// GET from a backend endpoint and parse the response `data` field.
@@ -155,7 +157,9 @@ impl IntegrationClient {
                 .unwrap_or_else(|| "unknown backend error".into());
             anyhow::bail!("Backend error for GET {}: {}", url, msg);
         }
-        Ok(envelope.data)
+        envelope
+            .data
+            .ok_or_else(|| anyhow::anyhow!("Backend returned success but no data for GET {}", url))
     }
 
     /// Fetch and cache pricing info from the backend. Returns a default
@@ -218,7 +222,15 @@ mod tests {
         let json = r#"{"success": true, "data": {"foo": 42}}"#;
         let resp: BackendResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
         assert!(resp.success);
-        assert_eq!(resp.data["foo"], 42);
+        assert_eq!(resp.data.unwrap()["foo"], 42);
+    }
+
+    #[test]
+    fn backend_response_without_data() {
+        let json = r#"{"success": true}"#;
+        let resp: BackendResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+        assert!(resp.success);
+        assert!(resp.data.is_none());
     }
 
     #[test]

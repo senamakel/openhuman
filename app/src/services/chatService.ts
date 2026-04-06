@@ -1,6 +1,12 @@
 /**
- * Chat Service — Socket.IO-first chat transport for desktop and web.
+ * Chat Service — RPC-based chat transport.
+ *
+ * Chat messages are SENT via core RPC (`openhuman.channel_web_chat`).
+ * Responses and events stream back over the existing Socket.IO connection
+ * (tool_call, tool_result, chat_done, chat_error) via the web-channel
+ * event bridge in the Rust core.
  */
+import { callCoreRpc } from './coreRpcClient';
 import { socketService } from './socketService';
 
 export interface ChatToolCallEvent {
@@ -89,20 +95,51 @@ export interface ChatSendParams {
   model: string;
 }
 
+/**
+ * Send a chat message via core RPC.
+ *
+ * The Rust core spawns the agent loop asynchronously and streams events
+ * (tool_call, tool_result, chat_done, chat_error) back over the socket
+ * connection using the `client_id` (socket ID) for routing.
+ */
 export async function chatSend(params: ChatSendParams): Promise<void> {
-  if (!socketService.isConnected()) {
-    throw new Error('Socket not connected');
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  if (!clientId) {
+    throw new Error('Socket not connected — no client ID for event routing');
   }
 
-  const payload = { thread_id: params.threadId, message: params.message, model: params.model };
-
-  socketService.emit('chat:start', payload);
+  await callCoreRpc({
+    method: 'openhuman.channel_web_chat',
+    params: {
+      client_id: clientId,
+      thread_id: params.threadId,
+      message: params.message,
+      model_override: params.model,
+    },
+  });
 }
 
+/**
+ * Cancel an in-flight chat request via core RPC.
+ */
 export async function chatCancel(threadId: string): Promise<boolean> {
-  if (!socketService.isConnected()) return false;
-  socketService.emit('chat:cancel', { thread_id: threadId });
-  return true;
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  if (!clientId) return false;
+
+  try {
+    await callCoreRpc({
+      method: 'openhuman.channel_web_cancel',
+      params: {
+        client_id: clientId,
+        thread_id: threadId,
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function useRustChat(): boolean {

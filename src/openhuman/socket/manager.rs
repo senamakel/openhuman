@@ -17,7 +17,6 @@ use tokio::sync::{mpsc, watch};
 use tokio::time::Duration;
 
 use crate::api::models::socket::{ConnectionStatus, SocketState};
-use crate::openhuman::skills::skill_registry::SkillRegistry;
 use crate::openhuman::webhooks::WebhookRouter;
 
 use super::ws_loop::ws_loop;
@@ -46,8 +45,6 @@ pub fn global_socket_manager() -> Option<&'static Arc<SocketManager>> {
 
 /// State shared between the `SocketManager` handle and the background loop.
 pub(super) struct SharedState {
-    /// Registry for looking up skills and calling tools (MCP).
-    pub(super) registry: RwLock<Option<Arc<SkillRegistry>>>,
     /// Router for delivering incoming webhooks to skills.
     pub(super) webhook_router: RwLock<Option<Arc<WebhookRouter>>>,
     /// Current connection status.
@@ -82,7 +79,6 @@ impl SocketManager {
         log::debug!("[socket] SocketManager created (disconnected)");
         Self {
             shared: Arc::new(SharedState {
-                registry: RwLock::new(None),
                 webhook_router: RwLock::new(None),
                 status: RwLock::new(ConnectionStatus::Disconnected),
                 socket_id: RwLock::new(None),
@@ -91,12 +87,6 @@ impl SocketManager {
             shutdown_tx: tokio::sync::Mutex::new(None),
             loop_handle: tokio::sync::Mutex::new(None),
         }
-    }
-
-    /// Set the skill registry for MCP tool handling.
-    pub fn set_registry(&self, registry: Arc<SkillRegistry>) {
-        log::debug!("[socket] SkillRegistry attached");
-        *self.shared.registry.write() = Some(registry);
     }
 
     /// Set the webhook router for skill-targeted webhook delivery.
@@ -183,22 +173,6 @@ impl SocketManager {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Tool sync — notify backend of current skill/tool state
-    // -----------------------------------------------------------------------
-
-    /// Emit `tool:sync` with the current skill/tool state.
-    ///
-    /// Called automatically on reconnect and should be called manually after
-    /// any skill lifecycle changes (start/stop).
-    pub async fn sync_tools(&self) {
-        let payload = super::event_handlers::build_tool_sync_payload(&self.shared);
-        if let Some(payload) = payload {
-            if let Err(e) = self.emit("tool:sync", payload).await {
-                log::debug!("[socket] tool:sync emit failed: {e}");
-            }
-        }
-    }
 }
 
 impl Default for SocketManager {

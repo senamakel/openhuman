@@ -679,8 +679,6 @@ pub async fn bootstrap_skill_runtime() {
 
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());
-    socket_mgr.set_registry(engine.registry());
-    engine.set_socket_manager(socket_mgr.clone());
     set_global_socket_manager(socket_mgr);
     log::info!("[socket] SocketManager initialized and registered globally");
 

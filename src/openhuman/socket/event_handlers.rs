@@ -1,8 +1,7 @@
 //! Socket.IO event routing and protocol handlers.
 //!
 //! Dispatches incoming Socket.IO events to the appropriate handler:
-//! MCP tool calls, webhook tunnel requests, channel inbound messages,
-//! or generic skill broadcast.
+//! webhook tunnel requests, channel inbound messages, or generic event logging.
 
 use std::sync::Arc;
 
@@ -10,7 +9,6 @@ use serde_json::json;
 use tokio::sync::mpsc;
 
 use crate::api::models::socket::ConnectionStatus;
-use crate::openhuman::skills::types::{SkillSnapshot, SkillStatus, ToolCallOrigin};
 use crate::openhuman::webhooks::WebhookRequest;
 
 use super::manager::{emit_server_event, emit_state_change, SharedState};
@@ -31,29 +29,11 @@ pub(super) fn handle_sio_event(
             log::info!("[socket] Server ready — auth successful");
             *shared.status.write() = ConnectionStatus::Connected;
             emit_state_change(shared);
-
-            // Sync current tool state to backend on connect/reconnect
-            sync_tools_via_channel(emit_tx, shared);
         }
         "error" => {
             log::error!("[socket] Server error event: {}", data);
             *shared.status.write() = ConnectionStatus::Error;
             emit_state_change(shared);
-        }
-        // MCP handlers
-        "mcp:listTools" => {
-            let shared = Arc::clone(shared);
-            let tx = emit_tx.clone();
-            tokio::spawn(async move {
-                handle_mcp_list_tools(&shared, data, &tx).await;
-            });
-        }
-        "mcp:toolCall" => {
-            let shared = Arc::clone(shared);
-            let tx = emit_tx.clone();
-            tokio::spawn(async move {
-                handle_mcp_tool_call(&shared, data, &tx).await;
-            });
         }
         // Webhook tunnel — route to owning skill and relay response
         "webhook:request" => {
@@ -70,152 +50,9 @@ pub(super) fn handle_sio_event(
             });
         }
         _ => {
-            // Forward to skills and frontend
-            {
-                let shared_clone = Arc::clone(shared);
-                let event_owned = event_name.to_string();
-                let data_clone = data.clone();
-                tokio::spawn(async move {
-                    let registry = shared_clone.registry.read().clone();
-                    if let Some(registry) = registry {
-                        registry.broadcast_event(&event_owned, data_clone).await;
-                    }
-                });
-            }
-
             emit_server_event(shared, event_name, data);
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// MCP protocol handlers
-// ---------------------------------------------------------------------------
-
-/// Handle `mcp:listTools` — return all tools from all running skills.
-async fn handle_mcp_list_tools(
-    shared: &SharedState,
-    data: serde_json::Value,
-    emit_tx: &mpsc::UnboundedSender<String>,
-) {
-    let request_id = match data.get("requestId").and_then(|v| v.as_str()) {
-        Some(id) => id.to_string(),
-        None => {
-            log::warn!("[socket] mcp:listTools missing requestId");
-            return;
-        }
-    };
-
-    log::info!("[socket] mcp:listTools (requestId={})", request_id);
-
-    let registry = shared.registry.read().clone();
-    let tools: Vec<serde_json::Value> = if let Some(registry) = registry {
-        registry
-            .all_tools()
-            .into_iter()
-            .map(|(skill_id, tool)| {
-                json!({
-                    "name": format!("{}__{}", skill_id, tool.name),
-                    "description": tool.description,
-                    "inputSchema": tool.input_schema,
-                })
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    log::info!("[socket] mcp:listToolsResponse — {} tools", tools.len());
-
-    emit_via_channel(
-        emit_tx,
-        "mcp:listToolsResponse",
-        json!({ "requestId": request_id, "tools": tools }),
-    );
-}
-
-/// Handle `mcp:toolCall` — dispatch to the owning skill.
-async fn handle_mcp_tool_call(
-    shared: &SharedState,
-    data: serde_json::Value,
-    emit_tx: &mpsc::UnboundedSender<String>,
-) {
-    let request_id = data
-        .get("requestId")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    let tool_call = data.get("toolCall");
-    let full_name = tool_call
-        .and_then(|tc| tc.get("name"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let arguments = tool_call
-        .and_then(|tc| tc.get("arguments"))
-        .cloned()
-        .unwrap_or(json!({}));
-
-    if request_id.is_empty() || full_name.is_empty() {
-        log::warn!("[socket] mcp:toolCall — missing requestId or tool name");
-        return;
-    }
-
-    log::info!(
-        "[socket] mcp:toolCall {} (requestId={})",
-        full_name,
-        request_id
-    );
-
-    let result = match full_name.find("__") {
-        Some(idx) => {
-            let skill_id = &full_name[..idx];
-            let tool_name = &full_name[idx + 2..];
-
-            let registry = shared.registry.read().clone();
-            if let Some(registry) = registry {
-                match registry
-                    .call_tool_scoped(ToolCallOrigin::External, skill_id, tool_name, arguments)
-                    .await
-                {
-                    Ok(tool_result) => json!({
-                        "content": tool_result.content,
-                        "isError": tool_result.is_error,
-                    }),
-                    Err(e) => json!({
-                        "content": [{"type": "text", "text": e}],
-                        "isError": true,
-                    }),
-                }
-            } else {
-                json!({
-                    "content": [{"type": "text", "text": "Skill runtime not available"}],
-                    "isError": true,
-                })
-            }
-        }
-        None => {
-            json!({
-                "content": [{"type": "text", "text": format!(
-                    "Invalid tool name: {}. Expected format: skillId__toolName",
-                    full_name
-                )}],
-                "isError": true,
-            })
-        }
-    };
-
-    log::info!(
-        "[socket] mcp:toolCallResponse {} (requestId={})",
-        full_name,
-        request_id
-    );
-
-    emit_via_channel(
-        emit_tx,
-        "mcp:toolCallResponse",
-        json!({ "requestId": request_id, "result": result }),
-    );
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +156,8 @@ async fn handle_webhook_request(
             let sid = registration.skill_id.clone();
             log::debug!("[socket] webhook:request routed to skill '{}'", sid);
 
-            let registry = shared.registry.read().clone();
+            let registry = crate::openhuman::skills::global_engine()
+                .map(|e| e.registry());
             match registry {
                 Some(registry) => {
                     let result = registry
@@ -615,63 +453,6 @@ pub(super) fn emit_via_channel(
     let msg = format!("42{}", payload);
     if let Err(e) = tx.send(msg) {
         log::error!("[socket] emit_via_channel failed: {e}");
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tool sync helpers
-// ---------------------------------------------------------------------------
-
-/// Derive a unified connection status string from a skill snapshot.
-fn derive_connection_status(snap: &SkillSnapshot) -> &'static str {
-    match snap.status {
-        SkillStatus::Error => "error",
-        SkillStatus::Pending | SkillStatus::Stopped => "offline",
-        SkillStatus::Initializing => "connecting",
-        SkillStatus::Stopping => "disconnected",
-        SkillStatus::Running => {
-            let conn = snap.state.get("connection_status").and_then(|v| v.as_str());
-            let auth = snap.state.get("auth_status").and_then(|v| v.as_str());
-
-            match (conn, auth) {
-                (Some("error"), _) | (_, Some("error")) => "error",
-                (Some("connected"), Some("authenticated")) => "connected",
-                (Some("connecting"), _) | (_, Some("authenticating")) => "connecting",
-                (Some("connected"), Some("not_authenticated")) => "not_authenticated",
-                (Some("disconnected"), _) => "disconnected",
-                _ => "connected",
-            }
-        }
-    }
-}
-
-/// Build the `tool:sync` payload by aggregating tools and status from all skills.
-pub(super) fn build_tool_sync_payload(shared: &SharedState) -> Option<serde_json::Value> {
-    let registry = shared.registry.read().clone()?;
-    let skills = registry.list_skills();
-    let tools: Vec<serde_json::Value> = skills
-        .iter()
-        .map(|snap| {
-            let status = derive_connection_status(snap);
-            let tool_names: Vec<String> = snap.tools.iter().map(|t| t.name.clone()).collect();
-            json!({
-                "skillId": snap.skill_id,
-                "name": snap.name,
-                "status": status,
-                "tools": tool_names,
-            })
-        })
-        .collect();
-    Some(json!({ "tools": tools }))
-}
-
-/// Emit `tool:sync` synchronously via the provided emit channel.
-pub(super) fn sync_tools_via_channel(
-    emit_tx: &mpsc::UnboundedSender<String>,
-    shared: &SharedState,
-) {
-    if let Some(payload) = build_tool_sync_payload(shared) {
-        emit_via_channel(emit_tx, "tool:sync", payload);
     }
 }
 

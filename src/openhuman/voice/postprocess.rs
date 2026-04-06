@@ -20,8 +20,11 @@ nothing else.";
 
 /// Clean up raw transcription text using a local LLM.
 ///
-/// Returns the cleaned text on success, or the original raw text if the
-/// LLM is unavailable or cleanup fails (graceful degradation).
+/// Automatically enables cleanup when the local LLM is downloaded and
+/// ready (`state == "ready"`), even if `voice_llm_cleanup_enabled` is
+/// not explicitly set. Returns the cleaned text on success, or the
+/// original raw text if the LLM is unavailable or cleanup fails
+/// (graceful degradation).
 pub async fn cleanup_transcription(
     config: &Config,
     raw_text: &str,
@@ -31,13 +34,27 @@ pub async fn cleanup_transcription(
         return raw_text.to_string();
     }
 
-    if !config.local_ai.voice_llm_cleanup_enabled {
-        debug!("{LOG_PREFIX} LLM cleanup disabled in config");
+    let service = local_ai::global(config);
+    let llm_state = service.status.lock().state.clone();
+    let llm_ready = matches!(llm_state.as_str(), "ready" | "degraded");
+
+    // Enable cleanup when:
+    // 1. Explicitly enabled in config (default: true), OR
+    // 2. The local LLM is already downloaded and ready.
+    let should_cleanup = config.local_ai.voice_llm_cleanup_enabled || llm_ready;
+
+    if !should_cleanup {
+        debug!("{LOG_PREFIX} LLM cleanup skipped: config disabled and LLM not ready (state={llm_state})");
+        return raw_text.to_string();
+    }
+
+    if !llm_ready {
+        debug!("{LOG_PREFIX} LLM cleanup enabled but LLM not ready (state={llm_state}), skipping");
         return raw_text.to_string();
     }
 
     debug!(
-        "{LOG_PREFIX} cleaning up transcription ({} chars, context={})",
+        "{LOG_PREFIX} cleaning up transcription ({} chars, context={}, llm_state={llm_state})",
         raw_text.len(),
         conversation_context.is_some()
     );
@@ -51,8 +68,6 @@ pub async fn cleanup_transcription(
         }
         _ => raw_text.to_string(),
     };
-
-    let service = local_ai::global(config);
 
     let result: Result<String, String> = service
         .inference(config, CLEANUP_SYSTEM_PROMPT, &prompt, Some(512), true)

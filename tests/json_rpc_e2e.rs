@@ -1303,7 +1303,8 @@ fn write_test_skill(workspace: &Path, skill_id: &str) {
     )
     .expect("write manifest");
 
-    // Minimal JS skill that exports one tool: "echo"
+    // Minimal JS skill that exports one tool: "echo" and a deterministic onSync
+    // payload so we can assert sync → working-memory extraction end to end.
     let js = r#"
         globalThis.__skill = {
             name: "E2E Runtime Skill",
@@ -1331,6 +1332,18 @@ fn write_test_skill(workspace: &Path, skill_id: &str) {
             }
         }
 
+        async function onSync() {
+            if (globalThis.state && typeof globalThis.state.set === "function") {
+                globalThis.state.set("sync_payload", {
+                    preferences: { writing_style: "prefers concise updates", language: "English" },
+                    goals: ["Ship e2e integration"],
+                    constraints: ["No meetings after 3pm"],
+                    projects: [{ name: "Atlas" }]
+                });
+            }
+            return { status: "ok", synced: true };
+        }
+
         init();
     "#;
     std::fs::write(skill_dir.join("index.js"), js).expect("write index.js");
@@ -1347,6 +1360,9 @@ async fn json_rpc_skills_runtime_start_tools_call_stop() {
 
     let _home_guard = EnvVarGuard::set_to_path("HOME", home);
     let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);
+    // Ensure working-memory extraction is not disabled by an ambient env var so
+    // the assertions below are deterministic regardless of the host environment.
+    let _wm_guard = EnvVarGuard::unset("OPENHUMAN_SKILLS_WORKING_MEMORY_ENABLED");
 
     // Write a minimal skill to the workspace
     write_test_skill(&workspace, "e2e-runtime");
@@ -1486,9 +1502,58 @@ async fn json_rpc_skills_runtime_start_tools_call_stop() {
         json!({"skill_id": "e2e-runtime"}),
     )
     .await;
-    // skills_sync now routes through "skill/sync" → onSync().  The e2e skill
-    // does not export onSync, so handle_js_call returns null (no error).
     let _sync_result = assert_no_jsonrpc_error(&sync, "skills_sync");
+
+    // 5a. Poll until the async memory worker has written working-memory docs into
+    // the global namespace, instead of relying on a fixed sleep.
+    let poll_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let (docs_result, docs_arr) = loop {
+        let docs = post_json_rpc(
+            &rpc_base,
+            241,
+            "openhuman.memory_list_documents",
+            json!({"namespace":"global"}),
+        )
+        .await;
+        let arr = {
+            let result = assert_no_jsonrpc_error(&docs, "memory_list_documents");
+            result
+                .get("documents")
+                .or_else(|| result.get("data").and_then(|d| d.get("documents")))
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+        };
+        let has_summary = arr.iter().any(|doc| {
+            doc.get("key").and_then(Value::as_str) == Some("working.user.e2e-runtime.summary")
+        });
+        if has_summary {
+            break (docs, arr);
+        }
+        assert!(
+            tokio::time::Instant::now() < poll_deadline,
+            "Timeout waiting for working.user.e2e-runtime.summary to appear. docs={docs}"
+        );
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    };
+
+    let wm_keys: Vec<String> = docs_arr
+        .iter()
+        .filter_map(|doc| doc.get("key").and_then(Value::as_str))
+        .filter(|key| key.starts_with("working.user.e2e-runtime."))
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(
+        !wm_keys.is_empty(),
+        "Expected working memory docs after skills_sync, found none. docs={docs_result}"
+    );
+    assert!(
+        wm_keys
+            .iter()
+            .any(|key| key == "working.user.e2e-runtime.summary"),
+        "Expected summary working-memory key. keys={wm_keys:?}"
+    );
 
     // 6. Stop the skill
     let stop = post_json_rpc(

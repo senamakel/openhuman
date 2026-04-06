@@ -34,8 +34,8 @@ import {
   type LocalAiChatMessage,
   openhumanAutocompleteAccept,
   openhumanAutocompleteCurrent,
-  openhumanLocalAiChat,
   openhumanLocalAiAnalyzeSentiment,
+  openhumanLocalAiChat,
   openhumanLocalAiShouldReact,
   openhumanLocalAiShouldSendGif,
   openhumanLocalAiTenorSearch,
@@ -624,12 +624,7 @@ const Conversations = () => {
         if (!gifUrl) return;
 
         console.debug('[conversations:gif] sending gif:', picked.title || picked.id);
-        dispatch(
-          addInferenceResponse({
-            content: gifUrl,
-            threadId,
-          })
-        );
+        dispatch(addInferenceResponse({ content: gifUrl, threadId }));
       })
       .catch(err => {
         console.debug('[conversations:gif] failed:', err);

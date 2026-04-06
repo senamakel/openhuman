@@ -194,10 +194,7 @@ pub async fn tenor_search(
 
     // The backend wraps results in { success, data: { results, next, costUsd } }.
     // Extract the inner data.
-    let data = raw
-        .get("data")
-        .cloned()
-        .unwrap_or_else(|| raw.clone());
+    let data = raw.get("data").cloned().unwrap_or_else(|| raw.clone());
 
     let result: TenorSearchResult = serde_json::from_value(data).map_err(|e| {
         tracing::debug!(error = %e, "[local_ai:gif] failed to parse tenor response");

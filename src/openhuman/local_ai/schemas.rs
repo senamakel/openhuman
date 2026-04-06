@@ -962,11 +962,8 @@ fn handle_local_ai_analyze_sentiment(params: Map<String, Value>) -> ControllerFu
         let p = deserialize_params::<LocalAiAnalyzeSentimentParams>(params)?;
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::openhuman::local_ai::sentiment::local_ai_analyze_sentiment(
-                &config,
-                &p.message,
-            )
-            .await?,
+            crate::openhuman::local_ai::sentiment::local_ai_analyze_sentiment(&config, &p.message)
+                .await?,
         )
     })
 }
@@ -991,12 +988,8 @@ fn handle_local_ai_tenor_search(params: Map<String, Value>) -> ControllerFuture 
         let p = deserialize_params::<LocalAiTenorSearchParams>(params)?;
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::openhuman::local_ai::gif_decision::tenor_search(
-                &config,
-                &p.query,
-                p.limit,
-            )
-            .await?,
+            crate::openhuman::local_ai::gif_decision::tenor_search(&config, &p.query, p.limit)
+                .await?,
         )
     })
 }

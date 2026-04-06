@@ -97,7 +97,10 @@ pub async fn local_ai_analyze_sentiment(
         confidence = result.confidence,
         "[local_ai:sentiment] analysis complete"
     );
-    Ok(RpcOutcome::single_log(result, "sentiment analysis completed"))
+    Ok(RpcOutcome::single_log(
+        result,
+        "sentiment analysis completed",
+    ))
 }
 
 /// Parse the model's 3-word response into a `SentimentResult`.

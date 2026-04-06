@@ -286,6 +286,65 @@ Skills runtime uses **QuickJS** (`rquickjs`) in **`src/openhuman/skills/`** (e.g
 - Keep adapters generic: do not add domain-specific logic to `src/core/cli.rs` or `src/core/jsonrpc.rs`.
 - Remove migrated method branches from `src/rpc/dispatch.rs` once registry coverage is in place.
 
+### Event bus (`src/openhuman/event_bus/`)
+
+A typed pub/sub event bus for **decoupled cross-module communication**. Modules publish `DomainEvent` variants instead of calling each other directly; subscribers react without importing the publisher's internals.
+
+**When to use the event bus:** Use events when a module needs to _notify_ other modules of something that happened (fire-and-forget). Do **not** use events for request/response flows where the caller needs a return value — use direct function calls or RPC for those.
+
+**Core types** (all in `src/openhuman/event_bus/`):
+
+| Type | File | Purpose |
+|------|------|---------|
+| `DomainEvent` | `events.rs` | `#[non_exhaustive]` enum — all cross-module events live here, grouped by domain |
+| `EventBus` | `bus.rs` | Cloneable handle backed by `tokio::sync::broadcast`. `publish()`, `subscribe()`, `on()` |
+| `EventHandler` | `subscriber.rs` | Async trait with optional `domains()` filter for selective subscription |
+| `SubscriptionHandle` | `subscriber.rs` | RAII handle — subscriber task is cancelled on drop |
+| `TracingSubscriber` | `tracing.rs` | Built-in debug logger for all events (registered at startup) |
+
+**Global access:** `event_bus::init_global(capacity)` initializes a global singleton (called once at startup). Modules that cannot receive the bus via parameters use `event_bus::publish_global(event)` to publish and `event_bus::global()` to subscribe.
+
+**Adding events for a new domain:**
+
+1. Add variants to `DomainEvent` in `events.rs` (prefix with domain name, e.g. `BillingInvoiceCreated { ... }`).
+2. Add the domain string to the `domain()` match arm.
+3. Create a `bus.rs` file **inside your domain module** (e.g. `src/openhuman/billing/bus.rs`) for subscriber implementations — each domain owns its handlers.
+4. Register subscribers in startup (e.g. `channels/runtime/startup.rs`) or wherever the bus is initialized.
+5. Publish events with `event_bus::publish_global(DomainEvent::YourEvent { ... })` or via a held `EventBus` instance.
+
+**Example — publishing:**
+```rust
+use crate::openhuman::event_bus::{publish_global, DomainEvent};
+
+publish_global(DomainEvent::CronDeliveryRequested {
+    job_id: job.id.clone(),
+    channel: "telegram".into(),
+    target: "chat-123".into(),
+    output: "Job completed".into(),
+});
+```
+
+**Example — subscribing (trait-based, in `<domain>/bus.rs`):**
+```rust
+use crate::openhuman::event_bus::{DomainEvent, EventHandler};
+use async_trait::async_trait;
+
+pub struct MyDomainSubscriber { /* dependencies */ }
+
+#[async_trait]
+impl EventHandler for MyDomainSubscriber {
+    fn name(&self) -> &str { "my_domain::handler" }
+    fn domains(&self) -> Option<&[&str]> { Some(&["cron"]) } // filter by domain
+    async fn handle(&self, event: &DomainEvent) {
+        if let DomainEvent::CronJobCompleted { job_id, success } = event {
+            // react to the event
+        }
+    }
+}
+```
+
+**Convention:** Name the handler struct `<Purpose>Subscriber` (e.g. `CronDeliverySubscriber`) and the `name()` return value `"<domain>::<purpose>"` for grep-friendly tracing output.
+
 ---
 
 ## App theme & design system

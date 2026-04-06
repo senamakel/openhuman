@@ -211,16 +211,12 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // Dictation hotkey events → broadcast to all connected clients.
     tokio::spawn(async move {
-        let mut rx =
-            crate::openhuman::voice::dictation_listener::subscribe_dictation_events();
+        let mut rx = crate::openhuman::voice::dictation_listener::subscribe_dictation_events();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                    log::warn!(
-                        "[socketio] dropped {} dictation events due to lag",
-                        skipped
-                    );
+                    log::warn!("[socketio] dropped {} dictation events due to lag", skipped);
                     continue;
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,

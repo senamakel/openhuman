@@ -171,10 +171,7 @@ mod tests {
 
     #[test]
     fn normalize_preserves_structure() {
-        assert_eq!(
-            normalize_hotkey_for_rdev("Alt+Shift+F5"),
-            "alt+shift+f5"
-        );
+        assert_eq!(normalize_hotkey_for_rdev("Alt+Shift+F5"), "alt+shift+f5");
     }
 
     #[test]

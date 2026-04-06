@@ -34,8 +34,8 @@ pub use schema::{
     ProxyScope, QueryClassificationConfig, ReflectionSource, ReliabilityConfig,
     ResourceLimitsConfig, RuntimeConfig, SandboxBackend, SandboxConfig, SchedulerConfig,
     ScreenIntelligenceConfig, SecretsConfig, SecurityConfig, SlackConfig, StorageConfig,
-    StorageProviderConfig, StorageProviderSection, StreamMode, TelegramConfig, WebSearchConfig,
-    VoiceActivationMode, VoiceServerConfig, WebhookConfig, DEFAULT_MODEL, MODEL_AGENTIC_V1,
+    StorageProviderConfig, StorageProviderSection, StreamMode, TelegramConfig, VoiceActivationMode,
+    VoiceServerConfig, WebSearchConfig, WebhookConfig, DEFAULT_MODEL, MODEL_AGENTIC_V1,
     MODEL_CODING_V1, MODEL_REASONING_V1,
 };
 pub use schemas::{

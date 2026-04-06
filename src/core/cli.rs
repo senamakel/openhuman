@@ -58,7 +58,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "screen-intelligence" => {
             crate::core::screen_intelligence_cli::run_screen_intelligence_command(&args[1..])
         }
-        
+
         "voice" | "dictate" => run_voice_server_command(&args[1..]),
         namespace => run_namespace_command(namespace, &args[1..], &grouped),
     }

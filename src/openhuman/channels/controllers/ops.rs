@@ -336,50 +336,49 @@ pub async fn telegram_login_start(
 
 /// Step 2: Check whether the user has completed the Telegram link (clicked /start).
 ///
+/// Polls `GET /auth/me` and checks whether the user profile now has a `telegramId`.
 /// The frontend should poll this until `linked` becomes `true`.
 /// On success, stores a `channel:telegram:managed_dm` credential marker locally.
 pub async fn telegram_login_check(
     config: &Config,
-    link_token: &str,
+    _link_token: &str,
 ) -> Result<RpcOutcome<TelegramLoginCheckResult>, String> {
-    let link_token = link_token.trim();
-    if link_token.is_empty() {
-        return Err("linkToken is required".to_string());
-    }
-
     let api_url = effective_api_url(&config.api_url);
     let jwt = get_session_token(config)?.ok_or_else(|| "session JWT required".to_string())?;
 
-    log::debug!(
-        "[telegram-login] checking link status for token {}…",
-        &link_token[..link_token.len().min(8)]
-    );
+    log::debug!("[telegram-login] checking if user profile has telegramId via GET /auth/me");
 
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
-    let status_payload = client
-        .check_channel_link_status("telegram", link_token, &jwt)
+    let user_payload = client
+        .fetch_current_user(&jwt)
         .await
-        .map_err(|e| format!("failed to check link status: {e}"))?;
+        .map_err(|e| format!("failed to fetch user profile: {e}"))?;
 
-    // Expected shape: { "linked": true/false, ... }
-    let linked = status_payload
-        .get("linked")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    // Check if the user now has a telegramId set.
+    let telegram_id = user_payload
+        .get("telegramId")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            user_payload
+                .get("telegram_id")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+        });
 
-    log::debug!("[telegram-login] link status: linked={}", linked);
+    let linked = telegram_id.is_some();
+
+    log::debug!(
+        "[telegram-login] user profile telegramId: {:?}, linked={}",
+        telegram_id,
+        linked
+    );
 
     if linked {
         // Store a credential marker so `channel_status` reports connected.
         let provider_key = credential_provider("telegram", ChannelAuthMode::ManagedDm);
 
-        // Extract Telegram user ID if the backend provides it.
-        let telegram_user_id = status_payload
-            .get("telegramUserId")
-            .or_else(|| status_payload.get("telegram_user_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
+        let telegram_user_id = telegram_id.unwrap_or("").to_string();
 
         let mut fields_map = serde_json::Map::new();
         fields_map.insert("linked".to_string(), Value::Bool(true));
@@ -411,7 +410,7 @@ pub async fn telegram_login_check(
     Ok(RpcOutcome::new(
         TelegramLoginCheckResult {
             linked,
-            details: if linked { Some(status_payload) } else { None },
+            details: if linked { Some(user_payload) } else { None },
         },
         vec![],
     ))

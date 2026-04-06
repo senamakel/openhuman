@@ -34,8 +34,8 @@ pub use schema::{
     ReflectionSource, ReliabilityConfig, ResourceLimitsConfig, RuntimeConfig, SandboxBackend,
     SandboxConfig, SchedulerConfig, ScreenIntelligenceConfig, SecretsConfig, SecurityConfig,
     SlackConfig, StorageConfig, StorageProviderConfig, StorageProviderSection, StreamMode,
-    TelegramConfig, UpdateConfig, WebSearchConfig, WebhookConfig, DEFAULT_MODEL,
-    MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+    TelegramConfig, UpdateConfig, WebSearchConfig, WebhookConfig, DEFAULT_MODEL, MODEL_AGENTIC_V1,
+    MODEL_CODING_V1, MODEL_REASONING_V1,
 };
 pub use schema::{
     clear_active_user, default_root_openhuman_dir, read_active_user_id, user_openhuman_dir,

@@ -97,9 +97,7 @@ pub fn is_outdated(running: &str, target: &str) -> bool {
     match (parse(running), parse(target)) {
         (Some(r), Some(t)) => r < t,
         _ => {
-            log::warn!(
-                "[core-update] could not parse versions running={running} target={target}"
-            );
+            log::warn!("[core-update] could not parse versions running={running} target={target}");
             false
         }
     }
@@ -246,8 +244,7 @@ async fn download_binary(url: &str, dest: &PathBuf) -> Result<(), String> {
         let mut file = std::fs::File::create(&tmp).map_err(|e| format!("create temp file: {e}"))?;
         file.write_all(&bytes)
             .map_err(|e| format!("write temp file: {e}"))?;
-        file.flush()
-            .map_err(|e| format!("flush temp file: {e}"))?;
+        file.flush().map_err(|e| format!("flush temp file: {e}"))?;
     }
 
     #[cfg(unix)]

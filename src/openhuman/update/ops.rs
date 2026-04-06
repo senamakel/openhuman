@@ -12,9 +12,9 @@ pub async fn update_check() -> RpcOutcome<Value> {
     log::info!("[update:rpc] update_check invoked");
     match update::check_available().await {
         Ok(info) => {
-            let value = serde_json::to_value(&info).unwrap_or_else(|e| {
-                serde_json::json!({ "error": format!("serialization failed: {e}") })
-            });
+            let value = serde_json::to_value(&info).unwrap_or_else(
+                |e| serde_json::json!({ "error": format!("serialization failed: {e}") }),
+            );
             RpcOutcome::single_log(value, "update_check completed")
         }
         Err(e) => {
@@ -32,9 +32,7 @@ fn validate_download_url(url: &str) -> Result<(), String> {
     let parsed = url::Url::parse(url).map_err(|e| format!("invalid download URL: {e}"))?;
 
     let host = parsed.host_str().unwrap_or("");
-    if host != "github.com"
-        && host != "api.github.com"
-        && !host.ends_with(".githubusercontent.com")
+    if host != "github.com" && host != "api.github.com" && !host.ends_with(".githubusercontent.com")
     {
         return Err(format!(
             "download URL must be a GitHub domain, got '{host}'"
@@ -104,9 +102,9 @@ pub async fn update_apply(
     let dir: Option<PathBuf> = None;
     match update::download_and_stage(&download_url, &asset_name, dir).await {
         Ok(result) => {
-            let value = serde_json::to_value(&result).unwrap_or_else(|e| {
-                serde_json::json!({ "error": format!("serialization failed: {e}") })
-            });
+            let value = serde_json::to_value(&result).unwrap_or_else(
+                |e| serde_json::json!({ "error": format!("serialization failed: {e}") }),
+            );
             RpcOutcome::single_log(value, "update_apply completed")
         }
         Err(e) => {

@@ -4,207 +4,19 @@
 //! handles external API calls, billing, rate limiting, and markup. The client
 //! never talks to external services directly.
 
+pub mod client;
 pub mod google_places;
 pub mod parallel;
 pub mod twilio;
+pub mod types;
 
+pub use client::{build_client, IntegrationClient};
 pub use google_places::{GooglePlacesDetailsTool, GooglePlacesSearchTool};
 pub use parallel::{ParallelExtractTool, ParallelSearchTool};
 pub use twilio::TwilioCallTool;
-
-use serde::Deserialize;
-use std::sync::Arc;
-use std::time::Duration;
-
-// Re-export ToolScope from the canonical definition in tools::traits.
-pub use crate::openhuman::tools::traits::ToolScope;
-
-// ── Pricing types (fetched from backend) ────────────────────────────
-
-/// Per-integration pricing returned by `GET /agent-integrations/pricing`.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct IntegrationPricing {
-    #[serde(default)]
-    pub integrations: PricingIntegrations,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct PricingIntegrations {
-    #[serde(default)]
-    pub twilio: Option<IntegrationPricingEntry>,
-    #[serde(default)]
-    pub google_places: Option<IntegrationPricingEntry>,
-    #[serde(default)]
-    pub parallel: Option<IntegrationPricingEntry>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct IntegrationPricingEntry {
-    #[serde(default)]
-    pub available: bool,
-    #[serde(default)]
-    pub pricing: serde_json::Value,
-}
-
-// ── Backend response envelope ───────────────────────────────────────
-
-/// Standard `{ success, data, error }` envelope from the backend.
-#[derive(Debug, Deserialize)]
-pub struct BackendResponse<T> {
-    #[allow(dead_code)]
-    pub success: bool,
-    pub data: Option<T>,
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub error: Option<String>,
-}
-
-// ── Shared HTTP client ─────────────────────────────────────────────
-
-/// Shared client for all integration tools. Holds backend URL, auth token,
-/// a reusable `reqwest::Client`, and a lazily-fetched pricing cache.
-pub struct IntegrationClient {
-    pub backend_url: String,
-    pub auth_token: String,
-    http_client: reqwest::Client,
-    pricing: tokio::sync::OnceCell<IntegrationPricing>,
-}
-
-impl IntegrationClient {
-    pub fn new(backend_url: String, auth_token: String) -> Self {
-        let http_client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60))
-            .connect_timeout(Duration::from_secs(10))
-            .build()
-            .expect("failed to build integration HTTP client");
-
-        Self {
-            backend_url,
-            auth_token,
-            http_client,
-            pricing: tokio::sync::OnceCell::new(),
-        }
-    }
-
-    /// POST JSON to a backend endpoint and parse the response `data` field.
-    pub async fn post<T: serde::de::DeserializeOwned>(
-        &self,
-        path: &str,
-        body: &serde_json::Value,
-    ) -> anyhow::Result<T> {
-        let url = format!("{}{}", self.backend_url, path);
-        tracing::debug!("[integrations] POST {}", url);
-
-        let resp = self
-            .http_client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
-            .header("Content-Type", "application/json")
-            .json(body)
-            .send()
-            .await?;
-
-        let status = resp.status();
-        if !status.is_success() {
-            let _body_text = resp.text().await.unwrap_or_default();
-            tracing::debug!(
-                "[integrations] POST {} → {} <redacted-response>",
-                url,
-                status
-            );
-            anyhow::bail!("Backend returned {} for POST {}", status, url);
-        }
-
-        let envelope: BackendResponse<T> = resp.json().await?;
-        if !envelope.success {
-            let msg = envelope
-                .error
-                .unwrap_or_else(|| "unknown backend error".into());
-            anyhow::bail!("Backend error for POST {}: {}", url, msg);
-        }
-        envelope
-            .data
-            .ok_or_else(|| anyhow::anyhow!("Backend returned success but no data for POST {}", url))
-    }
-
-    /// GET from a backend endpoint and parse the response `data` field.
-    pub async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> anyhow::Result<T> {
-        let url = format!("{}{}", self.backend_url, path);
-        tracing::debug!("[integrations] GET {}", url);
-
-        let resp = self
-            .http_client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
-            .send()
-            .await?;
-
-        let status = resp.status();
-        if !status.is_success() {
-            let _body_text = resp.text().await.unwrap_or_default();
-            tracing::debug!(
-                "[integrations] GET {} → {} <redacted-response>",
-                url,
-                status
-            );
-            anyhow::bail!("Backend returned {} for GET {}", status, url);
-        }
-
-        let envelope: BackendResponse<T> = resp.json().await?;
-        if !envelope.success {
-            let msg = envelope
-                .error
-                .unwrap_or_else(|| "unknown backend error".into());
-            anyhow::bail!("Backend error for GET {}: {}", url, msg);
-        }
-        envelope
-            .data
-            .ok_or_else(|| anyhow::anyhow!("Backend returned success but no data for GET {}", url))
-    }
-
-    /// Fetch and cache pricing info from the backend. Returns a default
-    /// (empty) pricing struct on network errors so tool registration never fails.
-    pub async fn pricing(&self) -> &IntegrationPricing {
-        self.pricing
-            .get_or_init(|| async {
-                match self
-                    .get::<IntegrationPricing>("/agent-integrations/pricing")
-                    .await
-                {
-                    Ok(p) => {
-                        tracing::debug!("[integrations] pricing fetched successfully");
-                        p
-                    }
-                    Err(e) => {
-                        tracing::warn!("[integrations] failed to fetch pricing: {e}");
-                        IntegrationPricing::default()
-                    }
-                }
-            })
-            .await
-    }
-}
-
-/// Helper: build an `Arc<IntegrationClient>` from config, or `None` if
-/// integrations are disabled or misconfigured.
-pub fn build_client(
-    config: &crate::openhuman::config::IntegrationsConfig,
-) -> Option<Arc<IntegrationClient>> {
-    if !config.enabled {
-        return None;
-    }
-    match (config.backend_url.as_deref(), config.auth_token.as_deref()) {
-        (Some(url), Some(token)) if !url.is_empty() && !token.is_empty() => Some(Arc::new(
-            IntegrationClient::new(url.to_owned(), token.to_owned()),
-        )),
-        _ => {
-            tracing::warn!(
-                "[integrations] enabled but backend_url or auth_token missing — skipping"
-            );
-            None
-        }
-    }
-}
+pub use types::{
+    BackendResponse, IntegrationPricing, IntegrationPricingEntry, PricingIntegrations, ToolScope,
+};
 
 #[cfg(test)]
 mod tests {
@@ -253,6 +65,17 @@ mod tests {
         let config = crate::openhuman::config::IntegrationsConfig {
             enabled: true,
             backend_url: None,
+            auth_token: Some("tok".into()),
+            ..Default::default()
+        };
+        assert!(build_client(&config).is_none());
+    }
+
+    #[test]
+    fn build_client_rejects_whitespace_only_values() {
+        let config = crate::openhuman::config::IntegrationsConfig {
+            enabled: true,
+            backend_url: Some("   ".into()),
             auth_token: Some("tok".into()),
             ..Default::default()
         };

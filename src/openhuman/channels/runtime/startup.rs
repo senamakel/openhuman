@@ -44,13 +44,10 @@ pub async fn start_channels(config: Config) -> Result<()> {
     // subscriber for debug logging of all domain events.
     let bus = event_bus::init_global(DEFAULT_CAPACITY);
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
-    let _webhook_request_handle = bus.subscribe(Arc::new(
-        crate::openhuman::webhooks::bus::WebhookRequestSubscriber::new(),
-    ));
-    let _channel_inbound_handle = bus.subscribe(Arc::new(
-        crate::openhuman::channels::bus::ChannelInboundSubscriber::new(),
-    ));
     tracing::debug!("[event_bus] global singleton initialized in start_channels");
+    // Note: WebhookRequestSubscriber and ChannelInboundSubscriber are registered
+    // in bootstrap_skill_runtime() (src/core/jsonrpc.rs) to avoid double-registration
+    // when both startup paths run in the same process.
 
     let provider_runtime_options = providers::ProviderRuntimeOptions {
         auth_profile_override: None,

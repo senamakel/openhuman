@@ -1,11 +1,9 @@
-use crate::openhuman::channels::{
-    Channel, DiscordChannel, MattermostChannel, SendMessage, SlackChannel, TelegramChannel,
-};
 use crate::openhuman::config::Config;
 use crate::openhuman::cron::{
     due_jobs, next_run_for_schedule, record_last_run, record_run, remove_job, reschedule_after_run,
     update_job, CronJob, CronJobPatch, DeliveryConfig, JobType, Schedule, SessionTarget,
 };
+use crate::openhuman::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -239,7 +237,7 @@ fn warn_if_high_frequency_agent_job(job: &CronJob) {
     }
 }
 
-async fn deliver_if_configured(config: &Config, job: &CronJob, output: &str) -> Result<()> {
+async fn deliver_if_configured(_config: &Config, job: &CronJob, output: &str) -> Result<()> {
     let delivery: &DeliveryConfig = &job.delivery;
     if !delivery.mode.eq_ignore_ascii_case("announce") {
         return Ok(());
@@ -254,67 +252,22 @@ async fn deliver_if_configured(config: &Config, job: &CronJob, output: &str) -> 
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("delivery.to is required for announce mode"))?;
 
-    match channel.to_ascii_lowercase().as_str() {
-        "telegram" => {
-            let tg = config
-                .channels_config
-                .telegram
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("telegram channel not configured"))?;
-            let channel = TelegramChannel::new(
-                tg.bot_token.clone(),
-                tg.allowed_users.clone(),
-                tg.mention_only,
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
-        "discord" => {
-            let dc = config
-                .channels_config
-                .discord
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("discord channel not configured"))?;
-            let channel = DiscordChannel::new(
-                dc.bot_token.clone(),
-                dc.guild_id.clone(),
-                dc.channel_id.clone(),
-                dc.allowed_users.clone(),
-                dc.listen_to_bots,
-                dc.mention_only,
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
-        "slack" => {
-            let sl = config
-                .channels_config
-                .slack
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("slack channel not configured"))?;
-            let channel = SlackChannel::new(
-                sl.bot_token.clone(),
-                sl.channel_id.clone(),
-                sl.allowed_users.clone(),
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
-        "mattermost" => {
-            let mm = config
-                .channels_config
-                .mattermost
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("mattermost channel not configured"))?;
-            let channel = MattermostChannel::new(
-                mm.url.clone(),
-                mm.bot_token.clone(),
-                mm.channel_id.clone(),
-                mm.allowed_users.clone(),
-                mm.thread_replies.unwrap_or(true),
-                mm.mention_only.unwrap_or(false),
-            );
-            channel.send(&SendMessage::new(output, target)).await?;
-        }
-        other => anyhow::bail!("unsupported delivery channel: {other}"),
-    }
+    tracing::debug!(
+        job_id = %job.id,
+        channel = %channel,
+        target = %target,
+        "[cron] publishing CronDeliveryRequested event"
+    );
+
+    // Publish the delivery request as an event. The channels module's
+    // CronDeliverySubscriber handles the actual dispatch, decoupling
+    // the cron scheduler from channel implementations.
+    publish_global(DomainEvent::CronDeliveryRequested {
+        job_id: job.id.clone(),
+        channel: channel.to_string(),
+        target: target.to_string(),
+        output: output.to_string(),
+    });
 
     Ok(())
 }
@@ -734,20 +687,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn deliver_if_configured_handles_none_and_invalid_channel() {
+    async fn deliver_if_configured_skips_non_announce_mode() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp).await;
+        let job = test_job("echo ok");
+
+        // Default delivery mode is not "announce", so nothing is published.
+        assert!(deliver_if_configured(&config, &job, "x").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn deliver_if_configured_publishes_event_for_announce_mode() {
         let tmp = TempDir::new().unwrap();
         let config = test_config(&tmp).await;
         let mut job = test_job("echo ok");
 
-        assert!(deliver_if_configured(&config, &job, "x").await.is_ok());
-
         job.delivery = DeliveryConfig {
             mode: "announce".into(),
-            channel: Some("invalid".into()),
-            to: Some("target".into()),
+            channel: Some("telegram".into()),
+            to: Some("chat-123".into()),
             best_effort: true,
         };
-        let err = deliver_if_configured(&config, &job, "x").await.unwrap_err();
-        assert!(err.to_string().contains("unsupported delivery channel"));
+
+        // Delivery via event bus is fire-and-forget; no error even if
+        // no subscriber is listening (global bus may not be initialized).
+        assert!(deliver_if_configured(&config, &job, "hello").await.is_ok());
     }
 }

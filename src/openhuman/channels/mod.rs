@@ -5,6 +5,7 @@ pub mod controllers;
 pub mod providers;
 pub mod traits;
 
+pub mod cron_delivery;
 mod commands;
 mod context;
 mod prompt;

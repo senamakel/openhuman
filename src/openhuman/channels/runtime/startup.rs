@@ -30,6 +30,7 @@ use crate::openhuman::channels::whatsapp::WhatsAppChannel;
 use crate::openhuman::channels::whatsapp_web::WhatsAppWebChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
+use crate::openhuman::event_bus::{self, DomainEvent, EventBus, TracingSubscriber};
 use crate::openhuman::memory::{self, Memory};
 use crate::openhuman::providers::{self, Provider};
 use crate::openhuman::security::SecurityPolicy;
@@ -39,6 +40,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 pub async fn start_channels(config: Config) -> Result<()> {
+    // Initialize the global event bus and register the tracing subscriber
+    // for debug logging of all domain events.
+    let event_bus = event_bus::init_global(256);
+    let _tracing_handle = event_bus.subscribe(Arc::new(TracingSubscriber));
+    tracing::debug!("[event_bus] global bus initialized in start_channels");
+
     let provider_runtime_options = providers::ProviderRuntimeOptions {
         auth_profile_override: None,
         openhuman_dir: config.config_path.parent().map(std::path::PathBuf::from),
@@ -377,6 +384,9 @@ pub async fn start_channels(config: Config) -> Result<()> {
     println!();
 
     crate::openhuman::health::mark_component_ok("channels");
+    event_bus.publish(DomainEvent::SystemStartup {
+        component: "channels".into(),
+    });
 
     let initial_backoff_secs = config
         .reliability
@@ -408,6 +418,14 @@ pub async fn start_channels(config: Config) -> Result<()> {
             .map(|ch| (ch.name().to_string(), Arc::clone(ch)))
             .collect::<HashMap<_, _>>(),
     );
+    // Register the cron delivery subscriber so cron jobs can deliver output
+    // to channels via events instead of directly constructing channel instances.
+    let _cron_delivery_handle = event_bus.subscribe(Arc::new(
+        crate::openhuman::channels::cron_delivery::CronDeliverySubscriber::new(
+            Arc::clone(&channels_by_name),
+        ),
+    ));
+
     let max_in_flight_messages = compute_max_in_flight_messages(channels.len());
 
     println!("  🚦 In-flight message limit: {max_in_flight_messages}");
@@ -440,6 +458,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         workspace_dir: Arc::new(config.workspace_dir.clone()),
         message_timeout_secs,
         multimodal: config.multimodal.clone(),
+        event_bus: event_bus.clone(),
     });
 
     run_message_dispatch_loop(rx, runtime_ctx, max_in_flight_messages).await;

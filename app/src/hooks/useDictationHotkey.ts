@@ -1,24 +1,22 @@
 /**
  * useDictationHotkey
  *
- * On mount, fetches the dictation config from the core RPC and auto-registers
- * the global hotkey if dictation is enabled. Listens for `dictation://toggle`
- * events emitted by the Tauri shell when the hotkey is pressed.
+ * Fetches dictation config from the core RPC on mount and listens for
+ * `dictation:toggle` Socket.IO events emitted by the Rust core when
+ * the global hotkey is pressed. The hotkey listener runs in the core
+ * process (via rdev), not in the Tauri shell.
  *
  * Consumers receive:
  *   - `dictationEnabled`: whether dictation is configured on
- *   - `hotkeyRegistered`: whether the global shortcut is active
+ *   - `hotkeyRegistered`: true once the core confirms the hotkey is active
  *   - `toggleCount`: increments each time the hotkey fires (use to trigger effects)
+ *   - `activationMode`: "toggle" or "push"
+ *   - `hotkey`: the configured hotkey string
  */
-import { listen } from '@tauri-apps/api/event';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { callCoreRpc } from '../services/coreRpcClient';
-import {
-  isTauri,
-  registerDictationHotkey,
-  unregisterDictationHotkey,
-} from '../utils/tauriCommands';
+import socketService from '../services/socketService';
 
 interface DictationSettings {
   enabled: boolean;
@@ -32,7 +30,7 @@ interface DictationSettings {
 export interface DictationHotkeyState {
   /** Whether dictation is enabled in the core config. */
   dictationEnabled: boolean;
-  /** Whether the global shortcut was successfully registered. */
+  /** Whether the core hotkey listener is active. */
   hotkeyRegistered: boolean;
   /** Increments each time the hotkey is pressed (consumers can use as a trigger). */
   toggleCount: number;
@@ -48,11 +46,9 @@ export function useDictationHotkey(): DictationHotkeyState {
   const [toggleCount, setToggleCount] = useState(0);
   const [activationMode, setActivationMode] = useState('toggle');
   const [hotkey, setHotkey] = useState('');
-  const registeredRef = useRef(false);
 
+  // Fetch config from core RPC on mount.
   useEffect(() => {
-    if (!isTauri()) return;
-
     let disposed = false;
 
     const init = async () => {
@@ -77,20 +73,15 @@ export function useDictationHotkey(): DictationHotkeyState {
         setActivationMode(s.activation_mode ?? 'toggle');
         setHotkey(s.hotkey ?? '');
 
-        if (!s.enabled || !s.hotkey) {
-          console.debug('[dictation] dictation disabled or no hotkey configured');
-          return;
-        }
-
-        console.debug(`[dictation] auto-registering hotkey: ${s.hotkey}`);
-        await registerDictationHotkey(s.hotkey);
-        if (!disposed) {
-          registeredRef.current = true;
+        if (s.enabled && s.hotkey) {
+          // The core process registers the hotkey via rdev — we just note it.
           setHotkeyRegistered(true);
-          console.debug('[dictation] hotkey registered successfully');
+          console.debug(`[dictation] core hotkey active: ${s.hotkey}`);
+        } else {
+          console.debug('[dictation] dictation disabled or no hotkey configured');
         }
       } catch (err) {
-        console.warn('[dictation] failed to init dictation hotkey', err);
+        console.warn('[dictation] failed to fetch dictation settings', err);
       }
     };
 
@@ -98,34 +89,22 @@ export function useDictationHotkey(): DictationHotkeyState {
 
     return () => {
       disposed = true;
-      if (registeredRef.current) {
-        registeredRef.current = false;
-        unregisterDictationHotkey().catch(err =>
-          console.warn('[dictation] cleanup unregister failed', err)
-        );
-      }
     };
   }, []);
 
-  // Listen for hotkey toggle events
+  // Listen for hotkey events from the core via Socket.IO.
   useEffect(() => {
-    if (!isTauri()) return;
-
-    let unlisten: (() => void) | undefined;
-
-    listen('dictation://toggle', () => {
-      console.debug('[dictation] hotkey toggle event received');
+    const handleToggle = () => {
+      console.debug('[dictation] hotkey toggle event received via socket');
       setToggleCount(c => c + 1);
-    })
-      .then(fn => {
-        unlisten = fn;
-      })
-      .catch(err => {
-        console.warn('[dictation] failed to listen for dictation toggle', err);
-      });
+    };
+
+    socketService.on('dictation:toggle', handleToggle);
+    socketService.on('dictation_toggle', handleToggle);
 
     return () => {
-      unlisten?.();
+      socketService.off('dictation:toggle', handleToggle);
+      socketService.off('dictation_toggle', handleToggle);
     };
   }, []);
 

@@ -5,6 +5,7 @@
 //! standalone voice dictation server (hotkey → record → transcribe → insert).
 
 pub mod audio_capture;
+pub mod dictation_listener;
 pub mod hotkey;
 mod ops;
 mod postprocess;

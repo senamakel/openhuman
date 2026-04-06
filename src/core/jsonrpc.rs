@@ -646,6 +646,9 @@ pub async fn run_server(
                 } else {
                     log::info!("[overlay] overlay disabled by config (overlay_enabled = false)");
                 }
+
+                // Start the global dictation hotkey listener (rdev-based, core-side).
+                crate::openhuman::voice::dictation_listener::start_if_enabled(&config).await;
             }
             Err(err) => {
                 log::warn!("[core] config load failed, skipping local-ai and overlay: {err}");

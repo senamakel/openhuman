@@ -37,7 +37,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
 # Node.js 24.x + yarn
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g yarn \
+    && npm install -g yarn
+
+# Install ALSA, X11, input, and E2E automation dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev \
+    webkit2gtk-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # sccache (pre-installed so the action only needs to configure it)

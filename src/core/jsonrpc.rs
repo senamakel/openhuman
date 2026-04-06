@@ -52,9 +52,7 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
                 "[jsonrpc] backend returned 401 for method '{}' — clearing stored session",
                 method
             );
-            if let Ok(config) =
-                crate::openhuman::config::rpc::load_config_with_timeout().await
-            {
+            if let Ok(config) = crate::openhuman::config::rpc::load_config_with_timeout().await {
                 let _ = crate::openhuman::credentials::rpc::clear_session(&config).await;
             }
         }

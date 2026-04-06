@@ -265,14 +265,17 @@ fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {
             .unwrap_or(&config.voice_server.hotkey)
             .to_string();
 
-        let mode_str = params
-            .get("activation_mode")
-            .and_then(|v| v.as_str())
-            .unwrap_or(&config.voice_server.activation_mode);
-
-        let activation_mode = match mode_str {
-            "push" => ActivationMode::Push,
-            _ => ActivationMode::Tap,
+        let activation_mode = match params.get("activation_mode").and_then(|v| v.as_str()) {
+            Some("push") => ActivationMode::Push,
+            Some("tap") => ActivationMode::Tap,
+            Some(other) => {
+                log::warn!(
+                    "[voice_server] unrecognized activation_mode '{}', defaulting to Tap",
+                    other
+                );
+                ActivationMode::Tap
+            }
+            None => config.voice_server.activation_mode,
         };
 
         let skip_cleanup = params
@@ -285,7 +288,27 @@ fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {
             activation_mode,
             skip_cleanup,
             context: None,
+            min_duration_secs: config.voice_server.min_duration_secs,
         };
+
+        // Check if a server is already running with a different config.
+        if let Some(existing) = crate::openhuman::voice::server::try_global_server() {
+            let existing_status = existing.status().await;
+            if existing_status.state != crate::openhuman::voice::server::ServerState::Stopped {
+                if existing_status.hotkey != server_config.hotkey
+                    || existing_status.activation_mode != server_config.activation_mode
+                {
+                    return Err(format!(
+                        "voice server already running (hotkey={}, mode={:?}); \
+                         stop it first before starting with different config",
+                        existing_status.hotkey, existing_status.activation_mode
+                    ));
+                }
+                // Same config, already running — return current status.
+                return serde_json::to_value(existing_status)
+                    .map_err(|e| format!("serialize error: {e}"));
+            }
+        }
 
         let server = global_server(server_config);
         let config_clone = config.clone();
@@ -316,7 +339,15 @@ fn handle_voice_server_stop(_params: Map<String, Value>) -> ControllerFuture {
             let status = server.status().await;
             serde_json::to_value(status).map_err(|e| format!("serialize error: {e}"))
         } else {
-            Err("voice server is not running".to_string())
+            // Not running — return a stopped status rather than an error.
+            let status = crate::openhuman::voice::server::VoiceServerStatus {
+                state: crate::openhuman::voice::server::ServerState::Stopped,
+                hotkey: String::new(),
+                activation_mode: crate::openhuman::voice::hotkey::ActivationMode::Tap,
+                transcription_count: 0,
+                last_error: None,
+            };
+            serde_json::to_value(status).map_err(|e| format!("serialize error: {e}"))
         }
     })
 }

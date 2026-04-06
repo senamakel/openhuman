@@ -5,11 +5,12 @@
 //! microphone, transcribes via whisper, and inserts the result into the
 //! active text field.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use log::{debug, error, info, warn};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use crate::openhuman::config::Config;
 
@@ -52,6 +53,8 @@ pub struct VoiceServerConfig {
     pub skip_cleanup: bool,
     /// Optional conversation context for better transcription accuracy.
     pub context: Option<String>,
+    /// Minimum recording duration in seconds. Shorter recordings are discarded.
+    pub min_duration_secs: f32,
 }
 
 impl Default for VoiceServerConfig {
@@ -61,6 +64,7 @@ impl Default for VoiceServerConfig {
             activation_mode: ActivationMode::Tap,
             skip_cleanup: false,
             context: None,
+            min_duration_secs: 0.3,
         }
     }
 }
@@ -68,7 +72,7 @@ impl Default for VoiceServerConfig {
 /// The voice server runtime.
 pub struct VoiceServer {
     state: Arc<Mutex<ServerState>>,
-    running: Arc<AtomicBool>,
+    cancel: CancellationToken,
     config: VoiceServerConfig,
     transcription_count: Arc<std::sync::atomic::AtomicU64>,
     last_error: Arc<Mutex<Option<String>>>,
@@ -78,7 +82,7 @@ impl VoiceServer {
     pub fn new(config: VoiceServerConfig) -> Self {
         Self {
             state: Arc::new(Mutex::new(ServerState::Stopped)),
-            running: Arc::new(AtomicBool::new(false)),
+            cancel: CancellationToken::new(),
             config,
             transcription_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             last_error: Arc::new(Mutex::new(None)),
@@ -109,14 +113,13 @@ impl VoiceServer {
         let (listener_handle, mut hotkey_rx) =
             hotkey::start_listener(combo, self.config.activation_mode)?;
 
-        self.running.store(true, Ordering::SeqCst);
         *self.state.lock().await = ServerState::Idle;
 
         info!("{LOG_PREFIX} voice server ready, listening for hotkey");
 
         let mut recording: Option<RecordingHandle> = None;
 
-        while self.running.load(Ordering::SeqCst) {
+        loop {
             let event = tokio::select! {
                 ev = hotkey_rx.recv() => {
                     match ev {
@@ -127,8 +130,9 @@ impl VoiceServer {
                         }
                     }
                 }
-                _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
-                    continue;
+                _ = self.cancel.cancelled() => {
+                    debug!("{LOG_PREFIX} cancellation received");
+                    break;
                 }
             };
 
@@ -175,7 +179,7 @@ impl VoiceServer {
     /// Stop the voice server.
     pub async fn stop(&self) {
         info!("{LOG_PREFIX} stopping voice server");
-        self.running.store(false, Ordering::SeqCst);
+        self.cancel.cancel();
     }
 
     /// Process a completed recording: transcribe and insert text.
@@ -190,8 +194,7 @@ impl VoiceServer {
                     result.wav_bytes.len()
                 );
 
-                // Minimum recording duration threshold (300ms).
-                if result.duration_secs < 0.3 {
+                if result.duration_secs < self.config.min_duration_secs {
                     warn!(
                         "{LOG_PREFIX} recording too short ({:.1}s), skipping",
                         result.duration_secs
@@ -261,6 +264,10 @@ pub fn try_global_server() -> Option<Arc<VoiceServer>> {
 }
 
 /// Run the voice server standalone (blocking). Intended for CLI usage.
+///
+/// Creates a fresh `VoiceServer` that is **not** registered in the global
+/// singleton used by `voice_server_status` RPC. This keeps CLI-started
+/// instances isolated from the core RPC lifecycle.
 pub async fn run_standalone(
     app_config: Config,
     server_config: VoiceServerConfig,
@@ -289,10 +296,11 @@ pub async fn run_standalone(
 }
 
 fn truncate_for_log(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
+    let truncated: String = s.chars().take(max).collect();
+    if truncated.len() < s.len() {
+        format!("{truncated}...")
     } else {
-        format!("{}...", &s[..max])
+        truncated
     }
 }
 

@@ -254,7 +254,9 @@ fn run_voice_server_command(args: &[String]) -> Result<()> {
         .build()?;
 
     rt.block_on(async {
-        let mut config = crate::openhuman::config::Config::default();
+        let mut config = crate::openhuman::config::Config::load_or_init()
+            .await
+            .unwrap_or_default();
         config.apply_env_overrides();
 
         let activation_mode = match mode.as_deref() {
@@ -267,6 +269,7 @@ fn run_voice_server_command(args: &[String]) -> Result<()> {
             activation_mode,
             skip_cleanup,
             context: None,
+            min_duration_secs: config.voice_server.min_duration_secs,
         };
 
         run_standalone(config, server_config)

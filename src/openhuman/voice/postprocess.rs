@@ -20,11 +20,15 @@ nothing else.";
 
 /// Clean up raw transcription text using a local LLM.
 ///
-/// Automatically enables cleanup when the local LLM is downloaded and
-/// ready (`state == "ready"`), even if `voice_llm_cleanup_enabled` is
-/// not explicitly set. Returns the cleaned text on success, or the
-/// original raw text if the LLM is unavailable or cleanup fails
-/// (graceful degradation).
+/// Cleanup is enabled when **either** of these conditions holds:
+/// - `config.local_ai.voice_llm_cleanup_enabled` is `true` (default), **or**
+/// - the local LLM state is `"ready"` or `"degraded"`.
+///
+/// Even when enabled by config, cleanup is **skipped** if the LLM is not
+/// in a ready/degraded state (i.e. not yet downloaded or bootstrapped).
+///
+/// Returns the cleaned text on success, or the original raw text if the
+/// LLM is unavailable or cleanup fails (graceful degradation).
 pub async fn cleanup_transcription(
     config: &Config,
     raw_text: &str,

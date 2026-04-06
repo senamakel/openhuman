@@ -3,6 +3,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::openhuman::voice::hotkey::ActivationMode;
+
 /// Configuration for the voice dictation server.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VoiceServerConfig {
@@ -15,8 +17,8 @@ pub struct VoiceServerConfig {
     pub hotkey: String,
 
     /// Activation mode: "tap" (toggle) or "push" (hold-to-record).
-    #[serde(default = "default_activation_mode")]
-    pub activation_mode: String,
+    #[serde(default)]
+    pub activation_mode: ActivationMode,
 
     /// Skip LLM post-processing for transcriptions.
     #[serde(default)]
@@ -32,10 +34,6 @@ fn default_hotkey() -> String {
     "ctrl+shift+space".to_string()
 }
 
-fn default_activation_mode() -> String {
-    "tap".to_string()
-}
-
 fn default_min_duration() -> f32 {
     0.3
 }
@@ -45,7 +43,7 @@ impl Default for VoiceServerConfig {
         Self {
             auto_start: false,
             hotkey: default_hotkey(),
-            activation_mode: default_activation_mode(),
+            activation_mode: ActivationMode::default(),
             skip_cleanup: false,
             min_duration_secs: default_min_duration(),
         }

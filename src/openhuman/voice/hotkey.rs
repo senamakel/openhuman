@@ -17,7 +17,9 @@ use tokio::sync::mpsc;
 const LOG_PREFIX: &str = "[voice_hotkey]";
 
 /// Activation mode for the voice hotkey.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ActivationMode {
     /// Single press toggles recording on/off.
@@ -57,10 +59,15 @@ pub struct HotkeyListenerHandle {
 }
 
 impl HotkeyListenerHandle {
-    /// Signal the listener to stop.
+    /// Signal the listener to ignore further events.
+    ///
+    /// Note: this does **not** terminate the listener thread. `rdev::listen`
+    /// blocks in the platform event loop and provides no cancellation API
+    /// (rdev 0.5). The thread stays alive until the process exits; the
+    /// stop flag merely causes the callback to discard all events.
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::SeqCst);
-        info!("{LOG_PREFIX} stop signal sent to hotkey listener");
+        info!("{LOG_PREFIX} hotkey listener signaled to skip events");
     }
 }
 
@@ -185,6 +192,10 @@ pub fn start_listener(
                 }
             };
 
+            // rdev::listen blocks in the platform event loop and has no
+            // graceful cancellation API (rdev 0.5.3). The thread remains
+            // alive until the process exits; the stop_flag only causes the
+            // callback above to discard events. This is a known limitation.
             if let Err(e) = listen(callback) {
                 error!("{LOG_PREFIX} rdev listen error: {e:?}");
             }
@@ -235,6 +246,17 @@ fn string_to_key(s: &str) -> Result<Key, String> {
         "f10" => Ok(Key::F10),
         "f11" => Ok(Key::F11),
         "f12" => Ok(Key::F12),
+
+        // Navigation
+        "up" | "uparrow" => Ok(Key::UpArrow),
+        "down" | "downarrow" => Ok(Key::DownArrow),
+        "left" | "leftarrow" => Ok(Key::LeftArrow),
+        "right" | "rightarrow" => Ok(Key::RightArrow),
+        "home" => Ok(Key::Home),
+        "end" => Ok(Key::End),
+        "pageup" | "pgup" => Ok(Key::PageUp),
+        "pagedown" | "pgdn" => Ok(Key::PageDown),
+        "insert" | "ins" => Ok(Key::Insert),
 
         // Letters
         "a" => Ok(Key::KeyA),

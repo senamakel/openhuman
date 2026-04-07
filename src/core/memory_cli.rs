@@ -14,12 +14,9 @@
 use anyhow::Result;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use crate::openhuman::memory::ingestion::{MemoryIngestionConfig, MemoryIngestionRequest};
-use crate::openhuman::memory::store::types::NamespaceDocumentInput;
-use crate::openhuman::memory::store::unified::UnifiedMemory;
-use crate::openhuman::memory::{embeddings, MemoryClient};
+use crate::openhuman::memory::{MemoryClient, NamespaceDocumentInput};
 
 /// Entry point for `openhuman memory <subcommand>`.
 pub fn run_memory_command(args: &[String]) -> Result<()> {
@@ -83,7 +80,7 @@ fn run_ingest(args: &[String]) -> Result<()> {
                 println!("  -v, --verbose         Enable debug logging");
                 return Ok(());
             }
-            other if !other.starts_with('-') && file_path.is_none() => {
+            other if file_path.is_none() && (!other.starts_with('-') || other == "-") => {
                 file_path = Some(other.to_string());
                 i += 1;
             }
@@ -121,18 +118,7 @@ fn run_ingest(args: &[String]) -> Result<()> {
         .build()?;
 
     let result = rt.block_on(async {
-        let config = crate::openhuman::config::Config::load_or_init()
-            .await
-            .unwrap_or_default();
-        let workspace_dir = config.workspace_dir;
-
-        std::fs::create_dir_all(&workspace_dir)
-            .map_err(|e| format!("create workspace dir: {e}"))?;
-
-        let embedder: Arc<dyn crate::openhuman::memory::embeddings::EmbeddingProvider> =
-            embeddings::default_local_embedding_provider();
-        let memory =
-            UnifiedMemory::new(&workspace_dir, embedder, None).map_err(|e| format!("{e}"))?;
+        let client = create_memory_client().await?;
 
         let document = NamespaceDocumentInput {
             namespace: namespace.clone(),
@@ -151,19 +137,19 @@ fn run_ingest(args: &[String]) -> Result<()> {
         let ingestion_config = MemoryIngestionConfig::default();
 
         eprintln!(
-            "[memory:cli] starting ingestion with model={}, extraction_mode={}",
+            "[memory:cli] starting ingestion with model={}",
             ingestion_config.model_name,
-            ingestion_config.extraction_mode.as_str()
         );
 
-        let result = memory
-            .ingest_document(MemoryIngestionRequest {
+        let result = client
+            .ingest_doc(MemoryIngestionRequest {
                 document,
                 config: ingestion_config,
             })
-            .await?;
+            .await
+            .map_err(anyhow::Error::msg)?;
 
-        Ok::<_, String>(result)
+        Ok::<_, anyhow::Error>(result)
     })?;
 
     eprintln!();
@@ -281,7 +267,7 @@ fn run_graph_query(args: &[String]) -> Result<()> {
 fn run_query(args: &[String]) -> Result<()> {
     let mut namespace: Option<String> = None;
     let mut query: Option<String> = None;
-    let mut limit: usize = 10;
+    let mut limit: u32 = 10;
     let mut verbose = false;
     let mut i = 0;
 
@@ -295,7 +281,7 @@ fn run_query(args: &[String]) -> Result<()> {
             }
             "--limit" | "-l" => {
                 let raw = next_arg(args, &mut i, "--limit")?;
-                limit = raw.parse().map_err(|e| anyhow::anyhow!("invalid --limit: {e}"))?;
+                limit = raw.parse::<u32>().map_err(|e| anyhow::anyhow!("invalid --limit: {e}"))?;
             }
             "-v" | "--verbose" => {
                 verbose = true;

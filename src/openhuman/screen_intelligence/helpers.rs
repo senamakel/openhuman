@@ -150,21 +150,16 @@ pub(crate) fn parse_vision_summary_output(frame: CaptureFrame, raw: &str) -> Vis
 pub(crate) async fn persist_vision_summary(
     summary: VisionSummary,
 ) -> Result<PersistVisionSummaryResult, String> {
-    // Prefer the process-global memory client so the ingestion queue worker
-    // lives for the whole process.  Fall back to a per-call client when the
-    // global is not yet initialised (e.g. in tests with isolated workspaces).
-    let client = match crate::openhuman::memory::global::client_if_ready() {
-        Some(c) => c,
-        None => {
-            let config = crate::openhuman::config::Config::load_or_init()
-                .await
-                .map_err(|err| format!("config load failed: {err}"))?;
-            std::sync::Arc::new(
-                crate::openhuman::memory::MemoryClient::from_workspace_dir(config.workspace_dir)
-                    .map_err(|err| format!("memory init failed: {err}"))?,
-            )
-        }
-    };
+    // Create a MemoryClient from the current config each time.  This is safe
+    // because put_doc_light does no background work (no vectors, no graph) so
+    // the client's ingestion queue is never used and can be dropped immediately.
+    // We intentionally avoid the process-global singleton here because tests
+    // override OPENHUMAN_WORKSPACE per-test and the global may point elsewhere.
+    let config = crate::openhuman::config::Config::load_or_init()
+        .await
+        .map_err(|err| format!("config load failed: {err}"))?;
+    let client = crate::openhuman::memory::MemoryClient::from_workspace_dir(config.workspace_dir)
+        .map_err(|err| format!("memory init failed: {err}"))?;
 
     let ts = chrono::DateTime::from_timestamp_millis(summary.captured_at_ms)
         .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())

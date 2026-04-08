@@ -178,8 +178,7 @@ pub async fn rebuild_tree(
         if buffer_backup.exists() {
             std::fs::remove_dir_all(&buffer_backup)?;
         }
-        std::fs::rename(&buffer_path, &buffer_backup)
-            .context("backup buffer before rebuild")?;
+        std::fs::rename(&buffer_path, &buffer_backup).context("backup buffer before rebuild")?;
         tracing::debug!("[tree_summarizer] backed up buffer directory");
     }
 
@@ -420,9 +419,7 @@ fn hour_id_from_buffer_filename(filename: &str) -> Option<String> {
 }
 
 /// Derive propagation IDs from an hour node_id string like "2024/03/15/14".
-fn derive_node_ids_from_hour_id(
-    hour_id: &str,
-) -> (String, String, String, String, String) {
+fn derive_node_ids_from_hour_id(hour_id: &str) -> (String, String, String, String, String) {
     let parts: Vec<&str> = hour_id.split('/').collect();
     if parts.len() == 4 {
         let year = parts[0].to_string();

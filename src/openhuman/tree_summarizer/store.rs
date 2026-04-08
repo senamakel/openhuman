@@ -387,11 +387,10 @@ pub fn buffer_write(
     Ok(path)
 }
 
-/// Read and drain all buffered entries, returning `(filename, content)` pairs
-/// sorted by filename (chronological). Files are deleted after reading.
-///
-/// Returns an error if any file deletion fails, to prevent duplicate processing.
-pub fn buffer_drain(config: &Config, namespace: &str) -> Result<Vec<(String, String)>> {
+/// Read all buffered entries non-destructively, returning `(filename, content)` pairs
+/// sorted by filename (chronological). Files remain on disk until explicitly deleted
+/// via [`buffer_delete`].
+pub fn buffer_read(config: &Config, namespace: &str) -> Result<Vec<(String, String)>> {
     let dir = buffer_dir(config, namespace);
     if !dir.exists() {
         return Ok(vec![]);
@@ -418,23 +417,54 @@ pub fn buffer_drain(config: &Config, namespace: &str) -> Result<Vec<(String, Str
         contents.push((name.clone(), text));
     }
 
-    // Delete after successful reads — propagate errors to prevent duplicates
-    for (name, path) in &entries {
-        std::fs::remove_file(path).with_context(|| {
-            format!(
-                "failed to remove buffer entry '{}' at {}",
-                name,
-                path.display()
-            )
-        })?;
-    }
-
     tracing::debug!(
-        "[tree_summarizer] drained {} buffer entries for namespace '{}'",
+        "[tree_summarizer] read {} buffer entries for namespace '{}'",
         contents.len(),
         namespace
     );
     Ok(contents)
+}
+
+/// Delete specific buffer entries by filename after they have been successfully
+/// processed and durably written as hour leaves.
+pub fn buffer_delete(config: &Config, namespace: &str, filenames: &[String]) -> Result<()> {
+    let dir = buffer_dir(config, namespace);
+    for name in filenames {
+        let path = dir.join(name);
+        if path.exists() {
+            std::fs::remove_file(&path).with_context(|| {
+                format!(
+                    "failed to remove buffer entry '{}' at {}",
+                    name,
+                    path.display()
+                )
+            })?;
+        }
+    }
+    tracing::debug!(
+        "[tree_summarizer] deleted {} buffer entries for namespace '{}'",
+        filenames.len(),
+        namespace
+    );
+    Ok(())
+}
+
+/// Read and drain all buffered entries. Convenience wrapper that calls
+/// [`buffer_read`] then [`buffer_delete`]. Use the split API when you need
+/// to defer deletion until after durable writes complete.
+pub fn buffer_drain(config: &Config, namespace: &str) -> Result<Vec<(String, String)>> {
+    let entries = buffer_read(config, namespace)?;
+    if entries.is_empty() {
+        return Ok(entries);
+    }
+    let filenames: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
+    buffer_delete(config, namespace, &filenames)?;
+    tracing::debug!(
+        "[tree_summarizer] drained {} buffer entries for namespace '{}'",
+        entries.len(),
+        namespace
+    );
+    Ok(entries)
 }
 
 /// Strip the optional metadata frontmatter from a buffer entry,

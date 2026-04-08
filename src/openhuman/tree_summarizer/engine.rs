@@ -38,11 +38,14 @@ pub async fn run_summarization(
     namespace: &str,
     _ts: DateTime<Utc>,
 ) -> Result<Option<TreeNode>> {
-    let buffered = store::buffer_drain(config, namespace)?;
+    // Read buffer entries non-destructively; we only delete after durable writes.
+    let buffered = store::buffer_read(config, namespace)?;
     if buffered.is_empty() {
         tracing::debug!("[tree_summarizer] no buffered data for namespace '{namespace}', skipping");
         return Ok(None);
     }
+
+    let buffer_filenames: Vec<String> = buffered.iter().map(|(name, _)| name.clone()).collect();
 
     tracing::debug!(
         "[tree_summarizer] starting summarization for namespace '{}' with {} buffer entries",
@@ -142,6 +145,11 @@ pub async fn run_summarization(
         }
     }
 
+    // All hour leaves are durably written and propagation is complete.
+    // Now it's safe to delete the buffer entries.
+    store::buffer_delete(config, namespace, &buffer_filenames)
+        .context("delete buffer entries after successful summarization")?;
+
     Ok(last_hour_node)
 }
 
@@ -170,22 +178,28 @@ pub async fn rebuild_tree(
         return store::get_tree_status(config, namespace);
     }
 
-    // Preserve the buffer directory by moving it to a temp location
+    // Preserve the buffer directory by moving it to a sibling path *outside*
+    // the tree directory, so delete_tree() does not destroy it.
     let buffer_path = store::buffer_dir(config, namespace);
-    let buffer_backup = buffer_path.with_file_name("buffer_backup");
+    let tree_base = store::tree_dir(config, namespace);
+    // Place backup next to the tree dir (e.g. .../tree_buffer_backup)
+    let buffer_backup = tree_base
+        .parent()
+        .unwrap_or(&tree_base)
+        .join("tree_buffer_backup");
     let buffer_existed = buffer_path.exists();
     if buffer_existed {
         if buffer_backup.exists() {
             std::fs::remove_dir_all(&buffer_backup)?;
         }
         std::fs::rename(&buffer_path, &buffer_backup).context("backup buffer before rebuild")?;
-        tracing::debug!("[tree_summarizer] backed up buffer directory");
+        tracing::debug!("[tree_summarizer] backed up buffer directory outside tree");
     }
 
     // Delete and recreate the tree directory
     store::delete_tree(config, namespace)?;
 
-    // Restore the buffer directory
+    // Restore the buffer directory back inside the tree
     if buffer_existed && buffer_backup.exists() {
         let restored_buffer = store::buffer_dir(config, namespace);
         if let Some(parent) = restored_buffer.parent() {
@@ -362,17 +376,18 @@ async fn summarize_to_limit(
             format!("LLM summarization failed for node {node_id} (level={level_name})")
         })?;
 
-    // Enforce hard character limit on LLM response
-    let response = if response.len() > max_chars.max(MAX_SUMMARY_CHARS) {
+    // Enforce hard character limit on LLM response (use the stricter of the two limits)
+    let char_limit = max_chars.min(MAX_SUMMARY_CHARS);
+    let response = if response.len() > char_limit {
         tracing::warn!(
             "[tree_summarizer] LLM response for node {} (level={}) was {} chars, truncating to {} chars",
             node_id,
             level_name,
             response.len(),
-            max_chars
+            char_limit
         );
         // Truncate at a char boundary
-        let truncated = &response[..response.floor_char_boundary(max_chars)];
+        let truncated = &response[..response.floor_char_boundary(char_limit)];
         truncated.to_string()
     } else {
         response
@@ -474,11 +489,11 @@ fn collect_hour_leaves_recursive(
             let level = level_from_node_id(&node_id);
             if level == NodeLevel::Hour {
                 let raw = std::fs::read_to_string(entry.path())?;
-                if let Ok(node) = crate::openhuman::tree_summarizer::store::parse_node_markdown_pub(
+                let node = crate::openhuman::tree_summarizer::store::parse_node_markdown_pub(
                     &raw, namespace, &node_id,
-                ) {
-                    leaves.push(node);
-                }
+                )
+                .with_context(|| format!("failed to parse hour leaf '{node_id}'"))?;
+                leaves.push(node);
             }
         }
     }

@@ -567,7 +567,8 @@ pub fn parse_node_markdown_pub(raw: &str, namespace: &str, node_id: &str) -> Res
 
 /// Parse a markdown file with YAML frontmatter into a `TreeNode`.
 fn parse_node_markdown(raw: &str, namespace: &str, node_id: &str) -> Result<TreeNode> {
-    let (frontmatter, body) = split_frontmatter(raw);
+    let (frontmatter, body_raw) = split_frontmatter(raw);
+    let body = body_raw.trim_end().to_string();
 
     let level = frontmatter
         .get("level")
@@ -846,13 +847,15 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = test_config(&tmp);
         let ns = "test-ns";
-        let now = Utc::now();
+        let ts1 = Utc.with_ymd_and_hms(2024, 3, 15, 10, 0, 0).unwrap();
+        let ts2 = Utc.with_ymd_and_hms(2024, 3, 15, 11, 0, 0).unwrap();
 
-        buffer_write(&config, ns, "entry one", &now, None).unwrap();
-        buffer_write(&config, ns, "entry two", &now, None).unwrap();
+        buffer_write(&config, ns, "entry one", &ts1, None).unwrap();
+        buffer_write(&config, ns, "entry two", &ts2, None).unwrap();
 
         let drained = buffer_drain(&config, ns).unwrap();
         assert_eq!(drained.len(), 2);
+        // Sorted by filename (timestamp prefix), so ts1 < ts2
         assert_eq!(drained[0].1, "entry one");
         assert_eq!(drained[1].1, "entry two");
 

@@ -696,9 +696,16 @@ async fn run_server_inner(
                     log::info!("[overlay] overlay disabled by config (overlay_enabled = false)");
                 }
 
-                // Start the global dictation hotkey listener (rdev-based, core-side).
+                // Start the voice server (records + transcribes) and/or the
+                // dictation hotkey listener (broadcasts hotkey events to
+                // Socket.IO). Both use rdev::listen() which only supports
+                // one instance per process on macOS — so when the voice
+                // server is active it owns the single listener and forwards
+                // hotkey events to the dictation bus itself.
                 crate::openhuman::voice::server::start_if_enabled(&config).await;
-                crate::openhuman::voice::dictation_listener::start_if_enabled(&config).await;
+                if !config.voice_server.auto_start {
+                    crate::openhuman::voice::dictation_listener::start_if_enabled(&config).await;
+                }
 
                 // Initialize screen intelligence engine if enabled in config.
                 crate::openhuman::screen_intelligence::server::start_if_enabled(&config).await;

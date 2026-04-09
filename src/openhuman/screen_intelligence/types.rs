@@ -41,6 +41,12 @@ pub struct AccessibilityHealth {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoreProcessStatus {
+    pub pid: u32,
+    pub started_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessibilityStatus {
     pub platform_supported: bool,
     pub permissions: PermissionStatus,
@@ -54,6 +60,9 @@ pub struct AccessibilityStatus {
     /// show this so users enable the same binary in System Settings (see GH #133).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permission_check_process_path: Option<String>,
+    /// Identity of the current core process so the UI can verify that a restart actually happened.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub core_process: Option<CoreProcessStatus>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

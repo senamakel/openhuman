@@ -20,6 +20,7 @@ pub async fn run(config: Config) -> Result<()> {
     // Ensure the global event bus is initialized so cron delivery events
     // are not silently dropped. This is a no-op if already initialized.
     crate::openhuman::event_bus::init_global(crate::openhuman::event_bus::DEFAULT_CAPACITY);
+    crate::openhuman::health::bus::register_health_subscriber();
 
     let poll_secs = config.reliability.scheduler_poll_secs.max(MIN_POLL_SECONDS);
     let mut interval = time::interval(Duration::from_secs(poll_secs));
@@ -28,7 +29,9 @@ pub async fn run(config: Config) -> Result<()> {
         &config.workspace_dir,
     ));
 
-    crate::openhuman::health::mark_component_ok("scheduler");
+    publish_global(DomainEvent::SystemStartup {
+        component: "scheduler".to_string(),
+    });
 
     loop {
         interval.tick().await;
@@ -36,7 +39,11 @@ pub async fn run(config: Config) -> Result<()> {
         let jobs = match due_jobs(&config, Utc::now()) {
             Ok(jobs) => jobs,
             Err(e) => {
-                crate::openhuman::health::mark_component_error("scheduler", e.to_string());
+                publish_global(DomainEvent::HealthChanged {
+                    component: "scheduler".to_string(),
+                    healthy: false,
+                    message: Some(e.to_string()),
+                });
                 tracing::warn!("Scheduler query failed: {e}");
                 continue;
             }
@@ -97,10 +104,11 @@ async fn process_due_jobs(config: &Config, security: &Arc<SecurityPolicy>, jobs:
 
     while let Some((job_id, success)) = in_flight.next().await {
         if !success {
-            crate::openhuman::health::mark_component_error(
-                "scheduler",
-                format!("job {job_id} failed"),
-            );
+            publish_global(DomainEvent::HealthChanged {
+                component: "scheduler".to_string(),
+                healthy: false,
+                message: Some(format!("job {job_id} failed")),
+            });
         }
     }
 }
@@ -110,7 +118,11 @@ async fn execute_and_persist_job(
     security: &SecurityPolicy,
     job: &CronJob,
 ) -> (String, bool) {
-    crate::openhuman::health::mark_component_ok("scheduler");
+    publish_global(DomainEvent::HealthChanged {
+        component: "scheduler".to_string(),
+        healthy: true,
+        message: None,
+    });
     warn_if_high_frequency_agent_job(job);
 
     let started_at = Utc::now();
@@ -702,7 +714,7 @@ mod tests {
 
     #[tokio::test]
     async fn deliver_if_configured_publishes_event_for_announce_mode() {
-        use crate::openhuman::event_bus::{self, DomainEvent, EventHandler};
+        use crate::openhuman::event_bus::{DomainEvent, EventHandler};
         use std::sync::atomic::{AtomicUsize, Ordering};
 
         // Create an isolated bus for this test.

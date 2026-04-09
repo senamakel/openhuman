@@ -6,6 +6,7 @@ use super::memory_loader::{DefaultMemoryLoader, MemoryLoader};
 use super::prompt::{PromptContext, SystemPromptBuilder};
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::config::Config;
+use crate::openhuman::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::memory::{self, Memory, MemoryCategory};
 use crate::openhuman::providers::{
     self, ChatMessage, ChatRequest, ConversationMessage, Provider, ToolCall,
@@ -37,6 +38,8 @@ pub struct Agent {
     available_hints: Vec<String>,
     post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     learning_enabled: bool,
+    event_session_id: String,
+    event_channel: String,
 }
 
 pub struct AgentBuilder {
@@ -57,6 +60,8 @@ pub struct AgentBuilder {
     available_hints: Option<Vec<String>>,
     post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     learning_enabled: bool,
+    event_session_id: Option<String>,
+    event_channel: Option<String>,
 }
 
 impl Default for AgentBuilder {
@@ -85,6 +90,8 @@ impl AgentBuilder {
             available_hints: None,
             post_turn_hooks: Vec::new(),
             learning_enabled: false,
+            event_session_id: None,
+            event_channel: None,
         }
     }
 
@@ -179,6 +186,16 @@ impl AgentBuilder {
         self
     }
 
+    pub fn event_context(
+        mut self,
+        session_id: impl Into<String>,
+        channel: impl Into<String>,
+    ) -> Self {
+        self.event_session_id = Some(session_id.into());
+        self.event_channel = Some(channel.into());
+        self
+    }
+
     pub fn build(self) -> Result<Agent> {
         let tools = self
             .tools
@@ -219,11 +236,31 @@ impl AgentBuilder {
             available_hints: self.available_hints.unwrap_or_default(),
             post_turn_hooks: self.post_turn_hooks,
             learning_enabled: self.learning_enabled,
+            event_session_id: self
+                .event_session_id
+                .unwrap_or_else(|| "standalone".to_string()),
+            event_channel: self.event_channel.unwrap_or_else(|| "internal".to_string()),
         })
     }
 }
 
 impl Agent {
+    fn event_session_id(&self) -> &str {
+        &self.event_session_id
+    }
+
+    fn event_channel(&self) -> &str {
+        &self.event_channel
+    }
+
+    fn count_iterations(messages: &[ConversationMessage]) -> usize {
+        messages
+            .iter()
+            .filter(|message| matches!(message, ConversationMessage::AssistantToolCalls { .. }))
+            .count()
+            + 1
+    }
+
     fn with_fallback_tool_call_ids(
         mut parsed_calls: Vec<ParsedToolCall>,
         iteration: usize,
@@ -265,6 +302,11 @@ impl Agent {
 
     pub fn history(&self) -> &[ConversationMessage] {
         &self.history
+    }
+
+    pub fn set_event_context(&mut self, session_id: impl Into<String>, channel: impl Into<String>) {
+        self.event_session_id = session_id.into();
+        self.event_channel = channel.into();
     }
 
     pub fn clear_history(&mut self) {
@@ -576,6 +618,10 @@ impl Agent {
         call: &ParsedToolCall,
     ) -> (ToolExecutionResult, ToolCallRecord) {
         let started = std::time::Instant::now();
+        publish_global(DomainEvent::ToolExecutionStarted {
+            tool_name: call.name.clone(),
+            session_id: self.event_session_id().to_string(),
+        });
         log::info!("[agent_loop] tool start name={}", call.name);
         let (result, success) =
             if let Some(tool) = self.tools.iter().find(|t| t.name() == call.name) {
@@ -593,6 +639,12 @@ impl Agent {
                 (format!("Unknown tool: {}", call.name), false)
             };
         let elapsed_ms = started.elapsed().as_millis() as u64;
+        publish_global(DomainEvent::ToolExecutionCompleted {
+            tool_name: call.name.clone(),
+            session_id: self.event_session_id().to_string(),
+            success,
+            elapsed_ms,
+        });
         log::info!(
             "[agent_loop] tool finish name={} elapsed_ms={} output_chars={} success={}",
             call.name,
@@ -865,7 +917,30 @@ impl Agent {
     }
 
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
-        self.turn(message).await
+        let history_before = self.history.len();
+        publish_global(DomainEvent::AgentTurnStarted {
+            session_id: self.event_session_id().to_string(),
+            channel: self.event_channel().to_string(),
+        });
+
+        match self.turn(message).await {
+            Ok(response) => {
+                publish_global(DomainEvent::AgentTurnCompleted {
+                    session_id: self.event_session_id().to_string(),
+                    text_chars: response.chars().count(),
+                    iterations: Self::count_iterations(&self.history[history_before..]),
+                });
+                Ok(response)
+            }
+            Err(err) => {
+                publish_global(DomainEvent::AgentError {
+                    session_id: self.event_session_id().to_string(),
+                    message: err.to_string(),
+                    recoverable: false,
+                });
+                Err(err)
+            }
+        }
     }
 
     pub async fn run_interactive(&mut self) -> Result<()> {

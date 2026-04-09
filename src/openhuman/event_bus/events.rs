@@ -181,7 +181,13 @@ pub enum DomainEvent {
     /// A restart of the current core process was requested.
     SystemRestartRequested { source: String, reason: String },
     /// A component's health status changed.
-    HealthChanged { component: String, healthy: bool },
+    HealthChanged {
+        component: String,
+        healthy: bool,
+        message: Option<String>,
+    },
+    /// A component restart was observed.
+    HealthRestarted { component: String },
 }
 
 impl DomainEvent {
@@ -226,7 +232,8 @@ impl DomainEvent {
             Self::SystemStartup { .. }
             | Self::SystemShutdown { .. }
             | Self::SystemRestartRequested { .. }
-            | Self::HealthChanged { .. } => "system",
+            | Self::HealthChanged { .. }
+            | Self::HealthRestarted { .. } => "system",
         }
     }
 }
@@ -517,6 +524,13 @@ mod tests {
                 DomainEvent::HealthChanged {
                     component: "c".into(),
                     healthy: true,
+                    message: None,
+                },
+                "system",
+            ),
+            (
+                DomainEvent::HealthRestarted {
+                    component: "c".into(),
                 },
                 "system",
             ),

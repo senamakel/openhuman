@@ -29,7 +29,7 @@ function bubbleToneClass(tone: OverlayBubble['tone']) {
 function OverlayBubbleChip({ bubble }: { bubble: OverlayBubble }) {
   return (
     <div
-      className={`max-w-[184px] rounded-[18px] border px-3 py-2 text-left transition-all duration-200 ${bubbleToneClass(bubble.tone)} ${bubble.compact ? 'text-[10px] leading-4' : 'text-[11px] leading-[1.35]'}`}>
+      className={`max-w-[184px] rounded-[18px] border px-3 py-2 text-right transition-all duration-200 ${bubbleToneClass(bubble.tone)} ${bubble.compact ? 'text-[10px] leading-4' : 'text-[11px] leading-[1.35]'}`}>
       {bubble.text}
     </div>
   );

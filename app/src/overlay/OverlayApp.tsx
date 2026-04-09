@@ -5,8 +5,10 @@ import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 
 const OVERLAY_WIDTH = 248;
 const OVERLAY_HEIGHT = 228;
+const SCENARIO_TWO_TEXT = 'Noted. Need milk.';
 
-type OverlayStatus = 'idle' | 'active' | 'pulse';
+type OverlayStatus = 'idle' | 'active';
+type OverlayScenario = 1 | 2 | 3;
 
 interface OverlayBubble {
   id: string;
@@ -37,8 +39,8 @@ function OverlayBubbleChip({ bubble }: { bubble: OverlayBubble }) {
 
 export default function OverlayApp() {
   const appWindow = getCurrentWindow();
-  const [status, setStatus] = useState<OverlayStatus>('idle');
-  const [tapCount, setTapCount] = useState(0);
+  const [scenario, setScenario] = useState<OverlayScenario>(1);
+  const [typedText, setTypedText] = useState('');
 
   useEffect(() => {
     const size = new LogicalSize(OVERLAY_WIDTH, OVERLAY_HEIGHT);
@@ -53,31 +55,46 @@ export default function OverlayApp() {
     });
   }, [appWindow]);
 
-  const bubbles = useMemo<OverlayBubble[]>(() => {
-    const items: OverlayBubble[] = [];
-
-    if (status === 'active') {
-      items.push({ id: 'status', text: 'Orb engaged.', tone: 'accent', compact: true });
-    } else {
-      items.push({ id: 'status', text: 'Orb idle.', tone: 'neutral', compact: true });
+  useEffect(() => {
+    if (scenario !== 2) {
+      setTypedText('');
+      return;
     }
 
-    items.push({
-      id: 'interaction',
-      text: tapCount > 0 ? `Tapped ${tapCount} times.` : 'Click to animate.',
-      tone: 'neutral',
-      compact: true,
-    });
+    setTypedText('');
+    let index = 0;
+    const intervalId = window.setInterval(() => {
+      index += 1;
+      setTypedText(SCENARIO_TWO_TEXT.slice(0, index));
+      if (index >= SCENARIO_TWO_TEXT.length) {
+        window.clearInterval(intervalId);
+      }
+    }, 55);
 
-    items.push({
-      id: 'toggle',
-      text: status === 'active' ? 'State: active' : 'State: inactive',
-      tone: status === 'active' ? 'accent' : 'neutral',
-      compact: true,
-    });
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [scenario]);
 
-    return items;
-  }, [status, tapCount]);
+  const status: OverlayStatus = scenario === 1 ? 'idle' : 'active';
+
+  const bubbles = useMemo<OverlayBubble[]>(() => {
+    if (scenario === 1) {
+      return [];
+    }
+
+    if (scenario === 2) {
+      return [{ id: 'stt', text: typedText || ' ', tone: 'accent' }];
+    }
+
+    return [
+      {
+        id: 'assistant',
+        text: 'Hey I think your coffee is getting cold. Want me to get you a new one?',
+        tone: 'accent',
+      },
+    ];
+  }, [scenario, typedText]);
 
   const orbClassName = useMemo(() => {
     if (status === 'active') {
@@ -91,11 +108,8 @@ export default function OverlayApp() {
     <div className="flex h-screen w-screen items-end justify-end bg-transparent px-0 py-0">
       <div className="relative flex select-none flex-col items-end gap-3">
         <div className="flex max-w-[190px] flex-col items-end gap-2">
-          {bubbles.map((bubble, index) => (
-            <div
-              key={bubble.id}
-              className="animate-[overlay-bubble-in_220ms_ease-out]"
-              style={{ animationDelay: `${index * 40}ms` }}>
+          {bubbles.map(bubble => (
+            <div key={bubble.id} className="animate-[overlay-bubble-in_220ms_ease-out]">
               <OverlayBubbleChip bubble={bubble} />
             </div>
           ))}
@@ -106,11 +120,14 @@ export default function OverlayApp() {
             type="button"
             aria-label="Activate overlay orb"
             onClick={() => {
-              setTapCount(count => count + 1);
-              setStatus(current => (current === 'idle' ? 'active' : 'idle'));
+              setScenario(current => {
+                if (current === 1) return 2;
+                if (current === 2) return 3;
+                return 1;
+              });
             }}
             className={`group relative flex h-[56px] w-[56px] cursor-pointer items-center justify-center overflow-hidden rounded-full border transition-all duration-200 ${orbClassName}`}
-            title="Click to toggle active state.">
+            title="Click to cycle scenarios.">
             <div className="pointer-events-none h-[92%] w-[92%] opacity-95 transition-transform duration-300 group-hover:scale-105">
               <RotatingTetrahedronCanvas inverted={tetrahedronInverted} />
             </div>

@@ -32,7 +32,7 @@ import {
   logout as tauriLogout,
 } from '../utils/tauriCommands';
 
-const POLL_MS = 3000;
+const POLL_MS = 2000;
 const MAX_BOOTSTRAP_RETRIES = 5;
 
 interface CoreStateContextValue extends CoreState {
@@ -68,6 +68,12 @@ function normalizeSnapshot(
       encryptionKey: result.localState.encryptionKey ?? null,
       primaryWalletAddress: result.localState.primaryWalletAddress ?? null,
       onboardingTasks: result.localState.onboardingTasks ?? null,
+    },
+    runtime: {
+      screenIntelligence: result.runtime.screenIntelligence ?? null,
+      localAi: result.runtime.localAi ?? null,
+      autocomplete: result.runtime.autocomplete ?? null,
+      service: result.runtime.service ?? null,
     },
   };
 }

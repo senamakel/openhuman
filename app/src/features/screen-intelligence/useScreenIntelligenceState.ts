@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { getCoreStateSnapshot } from '../../lib/coreState/store';
+import { useCoreState } from '../../providers/CoreStateProvider';
 import type {
   AccessibilityPermissionKind,
   AccessibilityStartSessionParams,
@@ -9,7 +11,6 @@ import type {
 } from '../../utils/tauriCommands';
 import {
   extractError,
-  fetchScreenIntelligenceStatus,
   fetchScreenIntelligenceVisionRecent,
   flushScreenIntelligenceVision,
   refreshScreenIntelligencePermissionsWithRestart,
@@ -56,7 +57,8 @@ export function useScreenIntelligenceState(
   options: UseScreenIntelligenceStateOptions = {}
 ): ScreenIntelligenceState {
   const { pollMs = 2000, visionLimit = 10, loadVision = false } = options;
-  const [status, setStatus] = useState<AccessibilityStatus | null>(null);
+  const { refresh: refreshCoreState, snapshot } = useCoreState();
+  const status = snapshot.runtime.screenIntelligence;
   const [lastRestartSummary, setLastRestartSummary] = useState<string | null>(null);
   const [recentVisionSummaries, setRecentVisionSummaries] = useState<AccessibilityVisionSummary[]>(
     []
@@ -72,20 +74,24 @@ export function useScreenIntelligenceState(
   const [isFlushingVision, setIsFlushingVision] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
+  const latestScreenIntelligenceStatus = useCallback(
+    (): AccessibilityStatus | null => getCoreStateSnapshot().snapshot.runtime.screenIntelligence,
+    []
+  );
+
   const refreshStatus = useCallback(async () => {
     setIsLoading(true);
     setLastError(null);
     try {
-      const nextStatus = await fetchScreenIntelligenceStatus();
-      setStatus(nextStatus);
-      return nextStatus;
+      await refreshCoreState();
+      return latestScreenIntelligenceStatus();
     } catch (error) {
       setLastError(extractError(error, 'Failed to fetch accessibility status'));
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [latestScreenIntelligenceStatus, refreshCoreState]);
 
   const refreshVision = useCallback(
     async (limit = visionLimit) => {
@@ -104,21 +110,24 @@ export function useScreenIntelligenceState(
     [visionLimit]
   );
 
-  const requestPermission = useCallback(async (permission: AccessibilityPermissionKind) => {
-    setIsRequestingPermissions(true);
-    setLastError(null);
-    setLastRestartSummary(null);
-    try {
-      const nextStatus = await requestScreenIntelligencePermission(permission);
-      setStatus(nextStatus);
-      return nextStatus;
-    } catch (error) {
-      setLastError(extractError(error, 'Failed to request accessibility permission'));
-      return null;
-    } finally {
-      setIsRequestingPermissions(false);
-    }
-  }, []);
+  const requestPermission = useCallback(
+    async (permission: AccessibilityPermissionKind) => {
+      setIsRequestingPermissions(true);
+      setLastError(null);
+      setLastRestartSummary(null);
+      try {
+        await requestScreenIntelligencePermission(permission);
+        await refreshCoreState();
+        return latestScreenIntelligenceStatus();
+      } catch (error) {
+        setLastError(extractError(error, 'Failed to request accessibility permission'));
+        return null;
+      } finally {
+        setIsRequestingPermissions(false);
+      }
+    },
+    [latestScreenIntelligenceStatus, refreshCoreState]
+  );
 
   const refreshPermissionsWithRestart = useCallback(async () => {
     setIsRestartingCore(true);
@@ -126,46 +135,52 @@ export function useScreenIntelligenceState(
     setLastRestartSummary(null);
     try {
       const result = await refreshScreenIntelligencePermissionsWithRestart(status);
-      setStatus(result.status);
       setLastRestartSummary(result.restartSummary);
-      return result.status;
+      await refreshCoreState();
+      return latestScreenIntelligenceStatus() ?? result.status;
     } catch (error) {
       setLastError(extractError(error, 'Failed to restart core and refresh permissions'));
       return null;
     } finally {
       setIsRestartingCore(false);
     }
-  }, [status]);
+  }, [latestScreenIntelligenceStatus, refreshCoreState, status]);
 
-  const startSession = useCallback(async (params: AccessibilityStartSessionParams) => {
-    setIsStartingSession(true);
-    setLastError(null);
-    try {
-      const nextStatus = await startScreenIntelligenceSession(params);
-      setStatus(nextStatus);
-      return nextStatus;
-    } catch (error) {
-      setLastError(extractError(error, 'Failed to start accessibility session'));
-      return null;
-    } finally {
-      setIsStartingSession(false);
-    }
-  }, []);
+  const startSession = useCallback(
+    async (params: AccessibilityStartSessionParams) => {
+      setIsStartingSession(true);
+      setLastError(null);
+      try {
+        await startScreenIntelligenceSession(params);
+        await refreshCoreState();
+        return latestScreenIntelligenceStatus();
+      } catch (error) {
+        setLastError(extractError(error, 'Failed to start accessibility session'));
+        return null;
+      } finally {
+        setIsStartingSession(false);
+      }
+    },
+    [latestScreenIntelligenceStatus, refreshCoreState]
+  );
 
-  const stopSession = useCallback(async (reason?: string) => {
-    setIsStoppingSession(true);
-    setLastError(null);
-    try {
-      const nextStatus = await stopScreenIntelligenceSession(reason);
-      setStatus(nextStatus);
-      return nextStatus;
-    } catch (error) {
-      setLastError(extractError(error, 'Failed to stop accessibility session'));
-      return null;
-    } finally {
-      setIsStoppingSession(false);
-    }
-  }, []);
+  const stopSession = useCallback(
+    async (reason?: string) => {
+      setIsStoppingSession(true);
+      setLastError(null);
+      try {
+        await stopScreenIntelligenceSession(reason);
+        await refreshCoreState();
+        return latestScreenIntelligenceStatus();
+      } catch (error) {
+        setLastError(extractError(error, 'Failed to stop accessibility session'));
+        return null;
+      } finally {
+        setIsStoppingSession(false);
+      }
+    },
+    [latestScreenIntelligenceStatus, refreshCoreState]
+  );
 
   const flushVision = useCallback(async () => {
     setIsFlushingVision(true);
@@ -196,22 +211,22 @@ export function useScreenIntelligenceState(
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
     if (loadVision) {
       void refreshVision(visionLimit);
     }
-  }, [loadVision, refreshStatus, refreshVision, visionLimit]);
+  }, [loadVision, refreshVision, visionLimit]);
 
   useEffect(() => {
+    if (!loadVision) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
-      void refreshStatus();
-      if (loadVision) {
-        void refreshVision(visionLimit);
-      }
+      void refreshVision(visionLimit);
     }, pollMs);
 
     return () => window.clearInterval(intervalId);
-  }, [loadVision, pollMs, refreshStatus, refreshVision, visionLimit]);
+  }, [loadVision, pollMs, refreshVision, visionLimit]);
 
   return {
     status,

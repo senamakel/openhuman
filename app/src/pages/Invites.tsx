@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useUser } from '../hooks/useUser';
 import { inviteApi } from '../services/api/inviteApi';
@@ -78,13 +78,19 @@ const Invites = () => {
   const [redeemError, setRedeemError] = useState<string | null>(null);
 
   const [redeemInput, setRedeemInput] = useState('');
+  const redeemTimeoutRef = useRef<number | null>(null);
   const hasBeenInvited = !!user?.referral?.invitedBy;
+
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadInviteCodes = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await inviteApi.getMyInviteCodes();
       setCodes(data);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load invite codes');
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +98,12 @@ const Invites = () => {
 
   useEffect(() => {
     void loadInviteCodes();
+    return () => {
+      if (redeemTimeoutRef.current) {
+        clearTimeout(redeemTimeoutRef.current);
+        redeemTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const handleRedeem = async () => {
@@ -107,7 +119,11 @@ const Invites = () => {
       setRedeemInput('');
       await refetchUser();
       setRedeemStatus('success');
-      window.setTimeout(() => {
+      if (redeemTimeoutRef.current) {
+        clearTimeout(redeemTimeoutRef.current);
+      }
+      redeemTimeoutRef.current = window.setTimeout(() => {
+        redeemTimeoutRef.current = null;
         setRedeemStatus('idle');
         setRedeemError(null);
       }, 3000);
@@ -163,6 +179,10 @@ const Invites = () => {
                   Share these codes with friends. Each code can be used once.
                 </p>
               </div>
+
+              {loadError && (
+                <p className="text-coral-500 text-xs text-center py-2">{loadError}</p>
+              )}
 
               {isLoading ? (
                 <div className="space-y-3">

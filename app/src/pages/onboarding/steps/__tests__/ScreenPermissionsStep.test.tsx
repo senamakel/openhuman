@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type ScreenIntelligenceState,
@@ -80,10 +80,18 @@ const deniedState: ScreenIntelligenceState = {
   clearError: vi.fn(),
 };
 
+const originalVisibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+
 describe('ScreenPermissionsStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useScreenIntelligenceState).mockReturnValue(deniedState);
+  });
+
+  afterEach(() => {
+    if (originalVisibilityDescriptor) {
+      Object.defineProperty(document, 'visibilityState', originalVisibilityDescriptor);
+    }
   });
 
   it('auto-refreshes permissions after returning from System Settings', async () => {

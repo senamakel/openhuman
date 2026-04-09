@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type DaemonStatus = 'starting' | 'running' | 'error' | 'disconnected';
+export type DaemonStatus = 'starting' | 'stopping' | 'running' | 'error' | 'disconnected';
 export type ComponentStatus = 'ok' | 'error' | 'starting';
 
 export interface ComponentHealth {
@@ -52,37 +52,35 @@ const initialUserState: DaemonUserState = {
 let daemonState: DaemonState = { byUser: {} };
 const listeners = new Set<() => void>();
 
-function emitChange(): void {
+const emitChange = (): void => {
   for (const listener of listeners) {
     listener();
   }
-}
+};
 
-function currentUserState(userId: string): DaemonUserState {
-  return daemonState.byUser[userId] ?? initialUserState;
-}
+const currentUserState = (userId: string): DaemonUserState =>
+  daemonState.byUser[userId] ?? initialUserState;
 
-function updateUserState(
+const updateUserState = (
   userId: string,
   updater: (current: DaemonUserState) => DaemonUserState
-): void {
+): void => {
   daemonState = {
     ...daemonState,
     byUser: { ...daemonState.byUser, [userId]: updater(currentUserState(userId)) },
   };
   emitChange();
-}
+};
 
-export function subscribeDaemonStore(listener: () => void): () => void {
+export const subscribeDaemonStore = (listener: () => void): (() => void) => {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
-}
+};
 
-export function getDaemonUserState(userId?: string): DaemonUserState {
-  return currentUserState(userId || '__pending__');
-}
+export const getDaemonUserState = (userId?: string): DaemonUserState =>
+  currentUserState(userId || '__pending__');
 
 export function useDaemonUserState(userId?: string): DaemonUserState {
   return useSyncExternalStore(

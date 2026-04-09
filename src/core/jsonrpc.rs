@@ -797,21 +797,28 @@ pub async fn bootstrap_skill_runtime() {
 
     // --- Event bus bootstrap ---
     // Ensure the global event bus is initialized (no-op if already done by start_channels).
-    let bus =
-        crate::openhuman::event_bus::init_global(crate::openhuman::event_bus::DEFAULT_CAPACITY);
+    crate::openhuman::event_bus::init_global(crate::openhuman::event_bus::DEFAULT_CAPACITY);
     // Register domain subscribers for cross-module event handling.
     // Leak the handles so the background tasks live for the entire process —
     // SubscriptionHandle::drop aborts the task, and bootstrap_skill_runtime()
     // returns immediately after setup.
-    std::mem::forget(bus.subscribe(Arc::new(
+    if let Some(handle) = crate::openhuman::event_bus::subscribe_global(Arc::new(
         crate::openhuman::webhooks::bus::WebhookRequestSubscriber::new(),
-    )));
-    std::mem::forget(bus.subscribe(Arc::new(
+    )) {
+        std::mem::forget(handle);
+    }
+    if let Some(handle) = crate::openhuman::event_bus::subscribe_global(Arc::new(
         crate::openhuman::channels::bus::ChannelInboundSubscriber::new(),
-    )));
+    )) {
+        std::mem::forget(handle);
+    }
     // Restart requests are executed from a subscriber instead of inline in RPC
     // handlers so every trigger path shares the same respawn logic.
-    std::mem::forget(bus.subscribe(Arc::new(crate::openhuman::service::bus::RestartSubscriber)));
+    if let Some(handle) = crate::openhuman::event_bus::subscribe_global(Arc::new(
+        crate::openhuman::service::bus::RestartSubscriber,
+    )) {
+        std::mem::forget(handle);
+    }
     log::info!("[event_bus] webhook, channel, and restart subscribers registered");
 
     // --- Socket manager bootstrap ---

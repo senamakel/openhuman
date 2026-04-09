@@ -79,7 +79,7 @@ export const useDaemonHealth = (userId?: string) => {
 
   const stopDaemon = useCallback(async (): Promise<CommandResponse<ServiceStatus> | null> => {
     try {
-      setDaemonStatus(uid, 'starting');
+      setDaemonStatus(uid, 'stopping');
       const result = await openhumanServiceStop();
       await waitForAgentStatus(false, 7000);
       return result;
@@ -167,12 +167,18 @@ export const useDaemonHealth = (userId?: string) => {
 
   useEffect(() => {
     let cleanup: (() => void) | null = null;
+    let cancelled = false;
 
     void daemonHealthService.setupHealthListener().then(result => {
-      cleanup = result;
+      if (cancelled) {
+        result?.();
+      } else {
+        cleanup = result;
+      }
     });
 
     return () => {
+      cancelled = true;
       cleanup?.();
     };
   }, []);

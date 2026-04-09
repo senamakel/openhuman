@@ -141,7 +141,7 @@ describe('ScreenIntelligenceDebugPanel', () => {
     expect(screen.getByText('screen recording permission is not granted')).toBeInTheDocument();
     expect(screen.queryByAltText('Capture test result')).not.toBeInTheDocument();
     expect(screen.getByText('Permissions')).toBeInTheDocument();
-    expect(state.refreshStatus).toHaveBeenCalledTimes(1);
-    expect(state.refreshVision).toHaveBeenCalledWith(5);
+    expect(baseState.refreshStatus).toHaveBeenCalledTimes(1);
+    expect(baseState.refreshVision).toHaveBeenCalledWith(5);
   });
 });

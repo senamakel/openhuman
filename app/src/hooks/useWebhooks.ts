@@ -140,28 +140,16 @@ export function useWebhooks() {
 
   // ── CRUD actions ─────────────────────────────────────────────────────────
   const createTunnel = useCallback(async (name: string, description?: string) => {
-    try {
-      const tunnel = await tunnelsApi.createTunnel({ name, description });
-      setTunnels(current => [...current, tunnel]);
-      log('Created tunnel: %s (%s)', tunnel.name, tunnel.uuid);
-      return tunnel;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to create tunnel';
-      setError(msg);
-      throw err;
-    }
+    const tunnel = await tunnelsApi.createTunnel({ name, description });
+    setTunnels(current => [...current, tunnel]);
+    log('Created tunnel: %s (%s)', tunnel.name, tunnel.uuid);
+    return tunnel;
   }, []);
 
   const deleteTunnel = useCallback(async (id: string) => {
-    try {
-      await tunnelsApi.deleteTunnel(id);
-      setTunnels(current => current.filter(tunnel => tunnel.id !== id));
-      log('Deleted tunnel: %s', id);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete tunnel';
-      setError(msg);
-      throw err;
-    }
+    await tunnelsApi.deleteTunnel(id);
+    setTunnels(current => current.filter(tunnel => tunnel.id !== id));
+    log('Deleted tunnel: %s', id);
   }, []);
 
   const refreshTunnels = useCallback(async () => {

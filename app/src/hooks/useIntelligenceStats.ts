@@ -5,7 +5,7 @@ import { aiListMemoryFiles, type GraphRelation, memoryGraphQuery } from '../util
 
 export type AIStatus = 'idle' | 'initializing' | 'ready' | 'error';
 
-const POLL_MS = 2000;
+const POLL_MS = 5000;
 
 interface SessionEntry {
   sessionId: string;

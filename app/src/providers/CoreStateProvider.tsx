@@ -70,10 +70,10 @@ function normalizeSnapshot(
       onboardingTasks: result.localState.onboardingTasks ?? null,
     },
     runtime: {
-      screenIntelligence: result.runtime.screenIntelligence ?? null,
-      localAi: result.runtime.localAi ?? null,
-      autocomplete: result.runtime.autocomplete ?? null,
-      service: result.runtime.service ?? null,
+      screenIntelligence: result.runtime?.screenIntelligence ?? null,
+      localAi: result.runtime?.localAi ?? null,
+      autocomplete: result.runtime?.autocomplete ?? null,
+      service: result.runtime?.service ?? null,
     },
   };
 }
@@ -198,8 +198,9 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     };
 
     void load();
-    const interval = window.setInterval(() => {
-      void (async () => {
+    let timeoutId: number | null = null;
+    const scheduleNext = () => {
+      timeoutId = window.setTimeout(async () => {
         try {
           await refresh();
           bootstrapFailCountRef.current = 0;
@@ -220,12 +221,18 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
             }
           }
         }
-      })();
-    }, POLL_MS);
+        if (!cancelled) {
+          scheduleNext();
+        }
+      }, POLL_MS);
+    };
+    scheduleNext();
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [commitState, refresh, refreshTeams]);
 

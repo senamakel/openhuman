@@ -37,6 +37,10 @@ impl EventHandler for RestartSubscriber {
                     "[service:restart] replacement pid={} spawned; exiting current process",
                     child_pid
                 );
+                // Brief 150ms grace period before exit: allows in-flight log
+                // flushes and the replacement process to bind its listener before
+                // this process terminates. Empirically tuned — increase if logs
+                // are truncated on shutdown.
                 tokio::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
                     std::process::exit(0);

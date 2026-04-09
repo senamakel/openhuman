@@ -1,10 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 import { callParentCoreRpc } from './parentCoreRpc';
 
 const TARGET_SAMPLE_RATE = 16000;
+const OVERLAY_WIDTH = 240;
+const OVERLAY_HEIGHT = 220;
 
 type OverlayStatus = 'idle' | 'listening' | 'transcribing' | 'ready' | 'error';
 
@@ -87,7 +90,12 @@ interface OverlayDebugSnapshot {
   error: string | null;
 }
 
-const DEBUG_EXPANDED_KEY = 'openhuman_overlay_debug_expanded';
+interface OverlayBubble {
+  id: string;
+  text: string;
+  tone: 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+  compact?: boolean;
+}
 
 function logOverlay(message: string, details?: unknown) {
   if (details) {
@@ -95,22 +103,6 @@ function logOverlay(message: string, details?: unknown) {
     return;
   }
   console.debug(`[overlay] ${message}`);
-}
-
-function formatTimestamp(timestampMs: number | null): string {
-  if (!timestampMs) {
-    return 'none';
-  }
-
-  try {
-    return new Date(timestampMs).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  } catch {
-    return String(timestampMs);
-  }
 }
 
 function floatTo16BitPCM(output: DataView, offset: number, input: Float32Array) {
@@ -195,22 +187,27 @@ async function convertBlobToWavBytes(blob: Blob): Promise<number[]> {
   }
 }
 
-function MicrophoneIcon({ active }: { active: boolean }) {
+function bubbleToneClass(tone: OverlayBubble['tone']) {
+  switch (tone) {
+    case 'accent':
+      return 'border-sky-300/45 bg-sky-400/14 text-sky-50';
+    case 'success':
+      return 'border-emerald-300/45 bg-emerald-400/14 text-emerald-50';
+    case 'warning':
+      return 'border-amber-300/45 bg-amber-400/14 text-amber-50';
+    case 'danger':
+      return 'border-rose-300/45 bg-rose-400/14 text-rose-50';
+    default:
+      return 'border-white/18 bg-white/10 text-white';
+  }
+}
+
+function OverlayBubbleChip({ bubble }: { bubble: OverlayBubble }) {
   return (
-    <svg
-      aria-hidden="true"
-      className={`h-9 w-9 transition-transform duration-200 ${active ? 'scale-105' : ''}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M6 11a6 6 0 0 0 12 0" />
-      <path d="M12 17v4" />
-      <path d="M8.5 21h7" />
-    </svg>
+    <div
+      className={`max-w-[184px] rounded-[18px] border px-3 py-2 text-left shadow-[0_18px_40px_rgba(3,7,18,0.28)] backdrop-blur-xl transition-all duration-200 ${bubbleToneClass(bubble.tone)} ${bubble.compact ? 'text-[10px] leading-4' : 'text-[11px] leading-[1.35]'}`}>
+      {bubble.text}
+    </div>
   );
 }
 
@@ -225,18 +222,8 @@ export default function OverlayApp() {
   const [parentRpcUrl, setParentRpcUrl] = useState<string | null | undefined>(undefined);
   const [coreReachable, setCoreReachable] = useState(true);
   const [voiceCaptureEnabled, setVoiceCaptureEnabled] = useState(true);
-  const [debugExpanded, setDebugExpanded] = useState(() => {
-    try {
-      return (
-        typeof localStorage !== 'undefined' && localStorage.getItem(DEBUG_EXPANDED_KEY) === '1'
-      );
-    } catch {
-      return false;
-    }
-  });
-
   const [status, setStatus] = useState<OverlayStatus>('idle');
-  const [message, setMessage] = useState('Click to start listening');
+  const [message, setMessage] = useState('Tap to talk');
   const [transcript, setTranscript] = useState('');
   const [debugSnapshot, setDebugSnapshot] = useState<OverlayDebugSnapshot>({
     screen: null,
@@ -245,6 +232,19 @@ export default function OverlayApp() {
     updatedAt: null,
     error: null,
   });
+
+  useEffect(() => {
+    const size = new LogicalSize(OVERLAY_WIDTH, OVERLAY_HEIGHT);
+    void appWindow.setSize(size).catch(error => {
+      console.warn('[overlay] failed to resize overlay window', error);
+    });
+    void appWindow.setMinSize(size).catch(error => {
+      console.warn('[overlay] failed to set overlay min size', error);
+    });
+    void appWindow.setMaxSize(size).catch(error => {
+      console.warn('[overlay] failed to set overlay max size', error);
+    });
+  }, [appWindow]);
 
   useEffect(() => {
     let mounted = true;
@@ -278,15 +278,6 @@ export default function OverlayApp() {
     [parentRpcUrl]
   );
 
-  const persistDebugExpanded = useCallback((expanded: boolean) => {
-    setDebugExpanded(expanded);
-    try {
-      localStorage.setItem(DEBUG_EXPANDED_KEY, expanded ? '1' : '0');
-    } catch {
-      // Ignore storage failures in restricted environments.
-    }
-  }, []);
-
   useEffect(() => {
     let disposed = false;
 
@@ -311,7 +302,7 @@ export default function OverlayApp() {
         logOverlay('globe listener start result', result);
 
         if (!result.supported) {
-          await showOverlayFallback('Globe/Fn hotkey is only supported on macOS');
+          await showOverlayFallback('Globe/Fn is only supported on macOS');
           return;
         }
 
@@ -411,9 +402,8 @@ export default function OverlayApp() {
           return;
         }
 
-        logOverlay('debug snapshot refreshed', {
+        logOverlay('overlay state refreshed', {
           screenActive: screen.session.active,
-          captureCount: screen.session.capture_count,
           autocompletePhase: autocomplete.phase,
           hasSuggestion: Boolean(autocomplete.suggestion?.value),
           sttAvailable: voice.stt_available,
@@ -426,8 +416,8 @@ export default function OverlayApp() {
         }
 
         const nextError =
-          error instanceof Error ? error.message : 'Failed to refresh overlay debug state';
-        console.warn('[overlay] debug snapshot poll failed', error);
+          error instanceof Error ? error.message : 'Failed to refresh overlay state';
+        console.warn('[overlay] state poll failed', error);
         setDebugSnapshot(previous => ({ ...previous, updatedAt: Date.now(), error: nextError }));
       } finally {
         pollInFlight = false;
@@ -468,15 +458,15 @@ export default function OverlayApp() {
     [appWindow, rpc]
   );
 
-  const resetForNextCapture = useCallback(() => {
-    setTranscript('');
-    setMessage('Click to start listening');
-    setStatus('idle');
-  }, []);
-
   const cleanupStream = useCallback(() => {
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
+  }, []);
+
+  const resetForNextCapture = useCallback(() => {
+    setTranscript('');
+    setStatus('idle');
+    setMessage('Tap to talk');
   }, []);
 
   const transcribeBlob = useCallback(
@@ -503,12 +493,17 @@ export default function OverlayApp() {
 
         setTranscript(nextTranscript);
         setStatus('ready');
-        setMessage('Inserting text...');
+        setMessage('Dropping that into the active field');
         await insertTranscriptIntoFocusedField(nextTranscript);
         if (sessionIdRef.current !== sessionId) {
           return;
         }
-        setMessage('Inserted into active field');
+        setMessage('Sent');
+        window.setTimeout(() => {
+          if (sessionIdRef.current === sessionId) {
+            resetForNextCapture();
+          }
+        }, 1200);
       } catch (error) {
         if (sessionIdRef.current !== sessionId) {
           return;
@@ -520,7 +515,7 @@ export default function OverlayApp() {
         setMessage(error instanceof Error ? error.message : 'Transcription failed');
       }
     },
-    [insertTranscriptIntoFocusedField, rpc]
+    [insertTranscriptIntoFocusedField, resetForNextCapture, rpc]
   );
 
   const stopRecording = useCallback(() => {
@@ -601,11 +596,11 @@ export default function OverlayApp() {
     }
 
     if (!voiceCaptureEnabled) {
-      setMessage('Turn on voice capture to use the microphone');
+      setMessage('Voice capture is paused');
       return;
     }
     if (debugSnapshot.voice && !debugSnapshot.voice.stt_available) {
-      setMessage('Speech-to-text is not available. Configure Local AI / voice in the main app.');
+      setMessage('Speech-to-text is unavailable');
       return;
     }
 
@@ -613,245 +608,166 @@ export default function OverlayApp() {
     void startRecording();
   }, [debugSnapshot.voice, startRecording, status, stopRecording, voiceCaptureEnabled]);
 
-  const shellClassName = useMemo(() => {
-    if (status === 'listening') {
-      return 'from-red-500/90 via-rose-500/80 to-orange-400/85 text-white shadow-[0_0_64px_rgba(248,113,113,0.38)]';
-    }
-    if (status === 'transcribing') {
-      return 'from-amber-400/90 via-orange-400/80 to-yellow-300/80 text-stone-950 shadow-[0_0_56px_rgba(251,191,36,0.34)]';
-    }
-    if (status === 'error') {
-      return 'from-red-600/90 via-rose-700/80 to-stone-900/90 text-white shadow-[0_0_56px_rgba(190,24,93,0.35)]';
-    }
-    if (status === 'ready') {
-      return 'from-emerald-400/90 via-teal-400/80 to-cyan-300/80 text-stone-950 shadow-[0_0_56px_rgba(45,212,191,0.34)]';
-    }
-    return 'from-slate-900/92 via-slate-800/92 to-slate-700/92 text-white shadow-[0_0_48px_rgba(15,23,42,0.42)]';
-  }, [status]);
-
   const activeScreenApp =
     debugSnapshot.screen?.foreground_context?.app_name ??
     debugSnapshot.screen?.session.last_context ??
-    'Unknown app';
-  const activeScreenWindow =
-    debugSnapshot.screen?.foreground_context?.window_title ??
-    debugSnapshot.screen?.session.last_window_title ??
-    'No active window title';
+    'Current app';
   const autocompleteSuggestion = debugSnapshot.autocomplete?.suggestion?.value?.trim() ?? '';
-  const autocompletePhase = debugSnapshot.autocomplete?.phase ?? 'unknown';
-  const autocompleteRunning =
-    debugSnapshot.autocomplete?.running && debugSnapshot.autocomplete?.enabled;
-
   const sttAvailable = debugSnapshot.voice?.stt_available ?? true;
+  const waitingForCoreConfig = parentRpcUrl === undefined;
   const voiceBlocked =
     !voiceCaptureEnabled || (debugSnapshot.voice !== null && !debugSnapshot.voice.stt_available);
-  const waitingForCoreConfig = parentRpcUrl === undefined;
+  const orbDisabled =
+    waitingForCoreConfig || (voiceCaptureEnabled && debugSnapshot.voice !== null && !sttAvailable);
+
+  const bubbles = useMemo<OverlayBubble[]>(() => {
+    const items: OverlayBubble[] = [];
+
+    if (waitingForCoreConfig) {
+      items.push({
+        id: 'boot',
+        text: 'Connecting to OpenHuman...',
+        tone: 'neutral',
+        compact: true,
+      });
+      return items;
+    }
+
+    if (!coreReachable) {
+      items.push({
+        id: 'core',
+        text: 'Core offline. The orb is awake but the brain is not responding.',
+        tone: 'danger',
+      });
+    }
+
+    if (debugSnapshot.error) {
+      items.push({ id: 'error', text: debugSnapshot.error, tone: 'danger' });
+    } else if (status === 'listening') {
+      items.push({ id: 'status', text: 'Listening...', tone: 'accent' });
+    } else if (status === 'transcribing') {
+      items.push({ id: 'status', text: 'Transcribing what you just said...', tone: 'warning' });
+    } else if (status === 'ready') {
+      items.push({ id: 'status', text: 'Sent to the active field.', tone: 'success' });
+    } else if (status === 'error') {
+      items.push({ id: 'status', text: message, tone: 'danger' });
+    } else {
+      items.push({
+        id: 'hint',
+        text: voiceCaptureEnabled ? `Ready in ${activeScreenApp}` : 'Voice capture paused',
+        tone: 'neutral',
+        compact: true,
+      });
+    }
+
+    if (transcript) {
+      items.push({ id: 'transcript', text: transcript, tone: 'success' });
+    } else if (autocompleteSuggestion && status === 'idle') {
+      items.push({ id: 'suggestion', text: autocompleteSuggestion, tone: 'accent' });
+    } else if (!sttAvailable) {
+      items.push({
+        id: 'voice-unavailable',
+        text: 'Speech-to-text is not configured yet.',
+        tone: 'warning',
+        compact: true,
+      });
+    }
+
+    items.push({
+      id: 'control',
+      text: voiceCaptureEnabled ? 'Voice on' : 'Voice off',
+      tone: voiceCaptureEnabled ? 'success' : 'neutral',
+      compact: true,
+    });
+
+    return items.slice(0, 3);
+  }, [
+    activeScreenApp,
+    autocompleteSuggestion,
+    coreReachable,
+    debugSnapshot.error,
+    message,
+    status,
+    sttAvailable,
+    transcript,
+    voiceCaptureEnabled,
+    waitingForCoreConfig,
+  ]);
+
+  const orbClassName = useMemo(() => {
+    if (voiceBlocked) {
+      return 'border-white/12 bg-slate-900/82 shadow-[0_18px_48px_rgba(15,23,42,0.34)]';
+    }
+    if (status === 'listening') {
+      return 'border-rose-200/40 bg-[radial-gradient(circle_at_35%_30%,rgba(251,113,133,0.42),rgba(35,11,25,0.88)_72%)] shadow-[0_0_40px_rgba(251,113,133,0.35)]';
+    }
+    if (status === 'transcribing') {
+      return 'border-amber-200/40 bg-[radial-gradient(circle_at_35%_30%,rgba(251,191,36,0.38),rgba(39,27,8,0.9)_72%)] shadow-[0_0_40px_rgba(251,191,36,0.32)]';
+    }
+    if (status === 'ready') {
+      return 'border-emerald-200/40 bg-[radial-gradient(circle_at_35%_30%,rgba(52,211,153,0.36),rgba(7,29,24,0.9)_72%)] shadow-[0_0_40px_rgba(16,185,129,0.3)]';
+    }
+    if (status === 'error') {
+      return 'border-rose-200/40 bg-[radial-gradient(circle_at_35%_30%,rgba(244,63,94,0.38),rgba(34,8,18,0.92)_72%)] shadow-[0_0_42px_rgba(244,63,94,0.3)]';
+    }
+    return 'border-sky-200/30 bg-[radial-gradient(circle_at_35%_30%,rgba(74,131,221,0.34),rgba(10,16,31,0.92)_72%)] shadow-[0_0_42px_rgba(74,131,221,0.28)]';
+  }, [status, voiceBlocked]);
 
   return (
-    <div className="flex h-screen w-screen items-start justify-start bg-transparent p-3">
-      <div className="relative select-none">
-        {status === 'listening' ? (
-          <>
-            <span className="pointer-events-none absolute inset-0 animate-ping rounded-full border border-white/15" />
-            <span className="pointer-events-none absolute -inset-3 rounded-full border border-red-300/30 blur-[2px]" />
-          </>
-        ) : null}
+    <div className="flex h-screen w-screen items-end justify-start bg-transparent px-3 py-4">
+      <div className="relative flex select-none flex-col items-start gap-3">
+        <div className="pointer-events-none absolute bottom-0 left-0 h-[68px] w-[68px] rounded-full bg-sky-400/10 blur-2xl" />
 
-        <div
-          className={`relative w-[348px] rounded-[32px] border border-white/15 bg-gradient-to-br p-3 backdrop-blur-xl transition-all duration-200 ${shellClassName}`}
-          onMouseDown={event => {
-            if (event.target instanceof HTMLElement && event.target.closest('button')) {
-              return;
-            }
-            void appWindow.startDragging();
-          }}>
-          {parentRpcUrl && !coreReachable ? (
-            <div className="mb-2 rounded-2xl border border-amber-400/35 bg-amber-950/35 px-3 py-2 text-[11px] leading-4 text-amber-50">
-              Cannot reach the OpenHuman core at the sidecar URL. Autocomplete and screen debug may
-              be stale. Check that the main app is running.
+        <div className="ml-1 flex max-w-[190px] flex-col items-start gap-2">
+          {bubbles.map((bubble, index) => (
+            <div
+              key={bubble.id}
+              className="animate-[overlay-bubble-in_220ms_ease-out] transition-transform duration-200"
+              style={{ marginLeft: `${index * 8}px`, animationDelay: `${index * 40}ms` }}>
+              <OverlayBubbleChip bubble={bubble} />
             </div>
+          ))}
+        </div>
+
+        <div className="relative">
+          {status === 'listening' ? (
+            <>
+              <span className="pointer-events-none absolute -inset-2 rounded-full border border-rose-300/30 animate-ping" />
+              <span className="pointer-events-none absolute -inset-4 rounded-full border border-rose-200/15" />
+            </>
           ) : null}
 
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="rounded-full bg-black/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]">
-              Voice
-            </span>
-            <button
-              type="button"
-              className="h-7 w-7 rounded-full border border-white/15 bg-black/20 text-sm transition hover:bg-black/30"
-              onClick={() => appWindow.hide()}
-              aria-label="Hide overlay">
-              ×
-            </button>
-          </div>
-
-          <div className="mb-3 flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-80">
-                Voice capture
-              </p>
-              <p className="mt-0.5 text-[11px] leading-4 opacity-85">
-                {waitingForCoreConfig
-                  ? 'Checking core...'
-                  : sttAvailable
-                    ? debugSnapshot.voice?.whisper_in_process
-                      ? 'STT ready (in-process)'
-                      : 'STT ready'
-                    : 'STT unavailable - configure voice in the main app'}
-              </p>
+          <button
+            type="button"
+            aria-label={status === 'listening' ? 'Stop listening' : 'Start listening'}
+            disabled={orbDisabled}
+            onClick={handleMainButton}
+            onContextMenu={event => {
+              event.preventDefault();
+              setVoiceCaptureEnabled(previous => !previous);
+            }}
+            onDoubleClick={() => {
+              void appWindow.hide();
+            }}
+            className={`group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${orbClassName}`}
+            title="Click to talk. Right-click to toggle voice. Double-click to hide.">
+            <span className="pointer-events-none absolute inset-[5px] rounded-full border border-white/12" />
+            <span className="pointer-events-none absolute inset-[11px] rounded-full bg-white/6 blur-[1px]" />
+            <div className="pointer-events-none h-[24px] w-[24px] opacity-95 transition-transform duration-300 group-hover:scale-105">
+              <RotatingTetrahedronCanvas />
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={voiceCaptureEnabled}
-              aria-label={voiceCaptureEnabled ? 'Turn voice capture off' : 'Turn voice capture on'}
-              className={`relative h-8 w-[52px] shrink-0 rounded-full border border-white/15 transition ${
-                voiceCaptureEnabled ? 'bg-emerald-500/50' : 'bg-black/35'
-              }`}
-              onClick={() => setVoiceCaptureEnabled(previous => !previous)}>
-              <span
-                className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
-                  voiceCaptureEnabled ? 'left-7' : 'left-1'
-                }`}
-              />
-            </button>
-          </div>
+          </button>
 
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              onClick={handleMainButton}
-              disabled={waitingForCoreConfig || voiceBlocked}
-              className={`group relative flex h-[108px] w-[108px] shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/20 transition duration-200 hover:bg-black/28 disabled:cursor-not-allowed disabled:opacity-40 ${
-                status === 'listening' ? 'scale-[1.02]' : ''
-              }`}
-              aria-label={status === 'listening' ? 'Stop listening' : 'Start listening'}>
-              <span className="absolute inset-3 rounded-full border border-white/12" />
-              <MicrophoneIcon active={status === 'listening'} />
-            </button>
-
-            <div className="min-w-0 flex-1 pt-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-80">
-                {status}
-              </p>
-              <p className="mt-1 text-xs leading-4 opacity-90">{message}</p>
-
-              {transcript ? (
-                <div className="mt-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] leading-4 opacity-95">
-                  {transcript}
-                </div>
-              ) : null}
-
-              {(status === 'ready' || status === 'error') && !transcript ? (
-                <button
-                  type="button"
-                  className="mt-3 w-full rounded-full border border-white/12 bg-black/15 px-3 py-2 text-[11px] font-medium transition hover:bg-black/25"
-                  onClick={resetForNextCapture}>
-                  Reset
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-[24px] border border-white/10 bg-black/15 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                className="flex flex-1 items-center justify-between gap-2 text-left"
-                onClick={() => persistDebugExpanded(!debugExpanded)}
-                aria-expanded={debugExpanded}>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-75">
-                  Debug {debugExpanded ? '▼' : '▶'}
-                </span>
-                <span className="text-[10px] opacity-65">
-                  {debugSnapshot.updatedAt ? formatTimestamp(debugSnapshot.updatedAt) : 'waiting'}
-                </span>
-              </button>
-            </div>
-
-            {!debugExpanded ? (
-              <p className="mt-2 text-[11px] leading-4 opacity-80">
-                Screen: {debugSnapshot.screen?.session.active ? 'session on' : 'idle'} ·
-                Autocomplete: {autocompletePhase}
-                {debugSnapshot.autocomplete?.last_error ? ' · error' : ''}
-              </p>
-            ) : null}
-
-            {debugSnapshot.error ? (
-              <div className="mt-3 rounded-2xl border border-red-300/20 bg-red-950/20 px-3 py-2 text-[11px] leading-4 text-red-100">
-                {debugSnapshot.error}
-              </div>
-            ) : null}
-
-            {debugExpanded ? (
-              <div className="mt-3 grid gap-3">
-                <section className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
-                    Voice / STT
-                  </div>
-                  <div className="mt-2 space-y-1 text-[11px] leading-4 opacity-90">
-                    <p>STT: {sttAvailable ? 'available' : 'unavailable'}</p>
-                    <p className="truncate">Model: {debugSnapshot.voice?.stt_model_id ?? '—'}</p>
-                    <p className="truncate">
-                      Whisper: {debugSnapshot.voice?.whisper_binary ?? 'not found'}
-                    </p>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
-                    Screen Intelligence
-                  </div>
-                  <div className="mt-2 space-y-1 text-[11px] leading-4 opacity-90">
-                    <p>Active screen: {activeScreenApp}</p>
-                    <p className="truncate">Window: {activeScreenWindow}</p>
-                    <p>
-                      Screenshots: {debugSnapshot.screen?.session.capture_count ?? 0} total,{' '}
-                      {debugSnapshot.screen?.session.frames_in_memory ?? 0} in memory
-                    </p>
-                    <p>
-                      Session: {debugSnapshot.screen?.session.active ? 'active' : 'idle'} | Vision:{' '}
-                      {debugSnapshot.screen?.session.vision_enabled ? 'on' : 'off'} /{' '}
-                      {debugSnapshot.screen?.session.vision_state ?? 'idle'}
-                    </p>
-                    <p>
-                      Queue: {debugSnapshot.screen?.session.vision_queue_depth ?? 0} | Blocked:{' '}
-                      {debugSnapshot.screen?.is_context_blocked ? 'yes' : 'no'}
-                    </p>
-                    <p>
-                      Last capture:{' '}
-                      {formatTimestamp(debugSnapshot.screen?.session.last_capture_at_ms ?? null)}
-                    </p>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
-                    Autocomplete
-                  </div>
-                  <div className="mt-2 space-y-1 text-[11px] leading-4 opacity-90">
-                    <p>
-                      Status: {autocompleteRunning ? 'active' : 'idle'} | Phase: {autocompletePhase}
-                    </p>
-                    <p>App: {debugSnapshot.autocomplete?.app_name ?? activeScreenApp}</p>
-                    <p>
-                      Processing:{' '}
-                      {autocompletePhase === 'refreshing' || autocompletePhase === 'processing'
-                        ? 'yes'
-                        : 'no'}
-                    </p>
-                    <p>Suggestions: {autocompleteSuggestion ? '1 ready' : 'none'}</p>
-                    <div className="rounded-xl border border-white/8 bg-black/10 px-2 py-2 text-[11px] leading-4">
-                      {autocompleteSuggestion || 'No autocomplete suggestion available.'}
-                    </div>
-                    {debugSnapshot.autocomplete?.last_error ? (
-                      <p className="text-red-100">Error: {debugSnapshot.autocomplete.last_error}</p>
-                    ) : null}
-                  </div>
-                </section>
-              </div>
-            ) : null}
-          </div>
+          <button
+            type="button"
+            onMouseDown={event => {
+              event.preventDefault();
+              void appWindow.startDragging();
+            }}
+            className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/12 bg-slate-950/78 px-1.5 text-[9px] font-medium uppercase tracking-[0.16em] text-white/80 shadow-[0_10px_24px_rgba(2,6,23,0.34)] backdrop-blur-md transition hover:bg-slate-900/88"
+            title="Drag overlay">
+            drag
+          </button>
         </div>
       </div>
     </div>

@@ -5,26 +5,29 @@
 
 let nextJsonRpcId = 1;
 
-export function normalizeLegacyMethod(method: string): string {
+export const normalizeLegacyMethod = (method: string): string => {
   if (method.startsWith('openhuman.accessibility_')) {
     return method.replace('openhuman.accessibility_', 'openhuman.screen_intelligence_');
   }
   return method;
-}
+};
 
 /** RpcOutcome with non-empty logs serializes as `{ result, logs }` in the core. */
-function unwrapCliCompatibleJson<T>(raw: unknown): T {
+const unwrapCliCompatibleJson = <T,>(raw: unknown): T => {
   if (
     raw !== null &&
     typeof raw === 'object' &&
-    'result' in raw &&
-    'logs' in raw &&
-    Array.isArray((raw as { logs: unknown }).logs)
+    Object.prototype.hasOwnProperty.call(raw, 'result') &&
+    Object.prototype.hasOwnProperty.call(raw, 'logs')
   ) {
-    return (raw as { result: T }).result;
+    const keys = Object.keys(raw);
+    const { logs } = raw as { logs: unknown };
+    if (keys.length === 2 && Array.isArray(logs)) {
+      return (raw as { result: T }).result;
+    }
   }
   return raw as T;
-}
+};
 
 interface JsonRpcError {
   code: number;
@@ -41,12 +44,25 @@ interface JsonRpcResponse<T> {
 
 const DEFAULT_RPC_TIMEOUT_MS = 10_000;
 
-export async function callParentCoreRpc<T>(
+const isJsonRpcEnvelope = (value: unknown): value is JsonRpcResponse<unknown> => {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  return (
+    Object.prototype.hasOwnProperty.call(value, 'error') ||
+    Object.prototype.hasOwnProperty.call(value, 'result') ||
+    Object.prototype.hasOwnProperty.call(value, 'id') ||
+    Object.prototype.hasOwnProperty.call(value, 'jsonrpc')
+  );
+};
+
+export const callParentCoreRpc = async <T,>(
   rpcUrl: string,
   method: string,
   params: Record<string, unknown> = {},
   timeoutMs: number = DEFAULT_RPC_TIMEOUT_MS
-): Promise<T> {
+): Promise<T> => {
   const normalizedMethod = normalizeLegacyMethod(method);
   const payload = {
     jsonrpc: '2.0' as const,
@@ -68,7 +84,10 @@ export async function callParentCoreRpc<T>(
     });
   } catch (err) {
     clearTimeout(timer);
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (
+      (err instanceof DOMException && err.name === 'AbortError') ||
+      (err instanceof Error && err.name === 'AbortError')
+    ) {
       throw new Error(
         `Core RPC request timed out after ${timeoutMs}ms (method: ${normalizedMethod})`
       );
@@ -83,7 +102,10 @@ export async function callParentCoreRpc<T>(
     throw new Error(`Core RPC HTTP ${response.status}: ${text || response.statusText}`);
   }
 
-  const json = (await response.json()) as JsonRpcResponse<unknown>;
+  const json = await response.json();
+  if (!isJsonRpcEnvelope(json)) {
+    throw new Error('Invalid JSON-RPC envelope');
+  }
 
   if (json.error) {
     throw new Error(json.error.message || 'Core RPC returned an error');
@@ -93,4 +115,4 @@ export async function callParentCoreRpc<T>(
   }
 
   return unwrapCliCompatibleJson<T>(json.result);
-}
+};

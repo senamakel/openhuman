@@ -16,6 +16,9 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 #[cfg(any(windows, target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
 
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior};
+
 /// Tracks the currently registered dictation hotkey string so we can unregister it later.
 struct DictationHotkeyState(Mutex<Vec<String>>);
 
@@ -73,14 +76,41 @@ fn pin_overlay_bottom_right(window: &WebviewWindow) {
         return;
     };
 
-    let right_margin = 20i32;
-    let x = monitor.position().x + monitor.size().width as i32 - size.width as i32 - right_margin;
-    let y = monitor.position().y + monitor.size().height as i32 - size.height as i32 - right_margin;
+    let margin = 20i32;
+    let x = monitor.position().x + monitor.size().width as i32 - size.width as i32 - margin;
+    let y = monitor.position().y + monitor.size().height as i32 - size.height as i32 - margin;
 
     if let Err(err) = window.set_position(PhysicalPosition::new(x, y)) {
         log::warn!("[overlay] failed to pin overlay bottom-right: {err}");
     } else {
         log::info!("[overlay] pinned overlay bottom-right at {},{}", x, y);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn configure_overlay_window_macos(window: &WebviewWindow) {
+    if let Err(err) = window.set_always_on_top(true) {
+        log::warn!("[overlay] failed to set always-on-top: {err}");
+    }
+    if let Err(err) = window.set_visible_on_all_workspaces(true) {
+        log::warn!("[overlay] failed to set visible-on-all-workspaces: {err}");
+    }
+
+    match window.ns_window() {
+        Ok(ns_window) => unsafe {
+            let window: &NSWindow = &*ns_window.cast();
+            let mut behavior = window.collectionBehavior();
+            behavior.insert(NSWindowCollectionBehavior::FullScreenAuxiliary);
+            behavior.insert(NSWindowCollectionBehavior::CanJoinAllSpaces);
+            window.setCollectionBehavior(behavior);
+            window.setLevel(NSStatusWindowLevel);
+            log::info!(
+                "[overlay] macOS overlay configured for all spaces/fullscreen auxiliary at status level"
+            );
+        },
+        Err(err) => {
+            log::warn!("[overlay] failed to access native NSWindow handle: {err}");
+        }
     }
 }
 
@@ -444,13 +474,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 if let Some(window) = app.get_webview_window("overlay") {
-                    if let Err(err) = window.set_always_on_top(true) {
-                        log::warn!("[overlay] failed to set always-on-top: {err}");
-                    }
-                    if let Err(err) = window.set_visible_on_all_workspaces(true) {
-                        log::warn!("[overlay] failed to set visible-on-all-workspaces: {err}");
-                    }
-                    log::debug!("[overlay] window configured for all workspaces");
+                    configure_overlay_window_macos(&window);
                 } else {
                     log::warn!("[overlay] overlay window not found during setup");
                 }

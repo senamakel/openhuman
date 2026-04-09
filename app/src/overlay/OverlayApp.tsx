@@ -1,11 +1,11 @@
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 
 const OVERLAY_WIDTH = 248;
 const OVERLAY_HEIGHT = 228;
-const SCENARIO_TWO_TEXT = '"Noted. Need milk."';
+const SCENARIO_THREE_TEXT = '"Noted. Need milk."';
 
 type OverlayStatus = 'idle' | 'active';
 type OverlayScenario = 1 | 2 | 3;
@@ -29,20 +29,48 @@ function bubbleToneClass(tone: OverlayBubble['tone']) {
 }
 
 function OverlayBubbleChip({ bubble }: { bubble: OverlayBubble }) {
+  const [displayedText, setDisplayedText] = useState('');
+  const indexRef = useRef(0);
+
+  useEffect(() => {
+    if (!bubble.text) {
+      return () => {
+        indexRef.current = 0;
+        setDisplayedText('');
+      };
+    }
+
+    const timeoutId = window.setInterval(
+      () => {
+        indexRef.current += 1;
+        setDisplayedText(bubble.text.slice(0, indexRef.current));
+        if (indexRef.current >= bubble.text.length) {
+          window.clearInterval(timeoutId);
+        }
+      },
+      bubble.compact ? 28 : 32
+    );
+
+    return () => {
+      window.clearInterval(timeoutId);
+      indexRef.current = 0;
+      setDisplayedText('');
+    };
+  }, [bubble.compact, bubble.id, bubble.text]);
+
   return (
     <div
       className={`max-w-[184px] rounded-[18px] px-3 py-2 text-right transition-all duration-200 ${bubbleToneClass(bubble.tone)} ${bubble.compact ? 'text-[12px] leading-[1.35]' : 'text-[13px] leading-[1.45]'}`}>
-      {bubble.text}
+      {displayedText || ' '}
     </div>
   );
 }
 
 export default function OverlayApp() {
-  const appWindow = getCurrentWindow();
   const [scenario, setScenario] = useState<OverlayScenario>(1);
-  const [typedText, setTypedText] = useState('');
 
   useEffect(() => {
+    const appWindow = getCurrentWindow();
     const size = new LogicalSize(OVERLAY_WIDTH, OVERLAY_HEIGHT);
     void appWindow.setSize(size).catch(error => {
       console.warn('[overlay] failed to resize overlay window', error);
@@ -53,28 +81,7 @@ export default function OverlayApp() {
     void appWindow.setMaxSize(size).catch(error => {
       console.warn('[overlay] failed to set overlay max size', error);
     });
-  }, [appWindow]);
-
-  useEffect(() => {
-    if (scenario !== 3) {
-      setTypedText('');
-      return;
-    }
-
-    setTypedText('');
-    let index = 0;
-    const intervalId = window.setInterval(() => {
-      index += 1;
-      setTypedText(SCENARIO_TWO_TEXT.slice(0, index));
-      if (index >= SCENARIO_TWO_TEXT.length) {
-        window.clearInterval(intervalId);
-      }
-    }, 55);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [scenario]);
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -107,8 +114,8 @@ export default function OverlayApp() {
       ];
     }
 
-    return [{ id: 'stt', text: typedText || ' ', tone: 'accent' }];
-  }, [scenario, typedText]);
+    return [{ id: 'stt', text: SCENARIO_THREE_TEXT, tone: 'accent' }];
+  }, [scenario]);
 
   const orbClassName = useMemo(() => {
     if (status === 'active') {

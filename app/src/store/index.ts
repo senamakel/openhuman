@@ -14,7 +14,6 @@ import storage from 'redux-persist/lib/storage';
 
 import { IS_DEV } from '../utils/config';
 import channelConnectionsReducer from './channelConnectionsSlice';
-import daemonReducer from './daemonSlice';
 import socketReducer from './socketSlice';
 import threadReducer from './threadSlice';
 
@@ -40,7 +39,6 @@ const persistedChannelConnectionsReducer = persistReducer(
 export const store = configureStore({
   reducer: {
     socket: socketReducer,
-    daemon: daemonReducer,
     thread: persistedThreadReducer,
     channelConnections: persistedChannelConnectionsReducer,
   },

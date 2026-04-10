@@ -21,10 +21,14 @@ pub struct BootstrapContext {
     pub workspace_summary: String,
     /// Relevant memory context.
     pub memory_context: String,
-    /// Owner identity context — `Identity`-type profile facets plus rich
-    /// documents stored in the `owner` memory namespace. Rendered under
-    /// `## Owner` immediately after identity so the model learns who the
-    /// user is before anything else.
+    /// Owner identity context — currently populated only from
+    /// `FacetType::Identity` profile facets via
+    /// [`load_user_profile_from_unified`] and [`split_owner_and_profile`].
+    /// Rich documents stored in the `owner` memory namespace are assembled
+    /// by `channels::prompt::build_owner_section` on the live system-prompt
+    /// path, not through this struct. Rendered under `## Owner` immediately
+    /// after identity so the model learns who the user is before anything
+    /// else.
     pub owner_context: String,
     /// Remaining user-profile facets (preferences, skills, roles,
     /// personality, context) minus Identity (which lives in `owner_context`).

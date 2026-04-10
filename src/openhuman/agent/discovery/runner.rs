@@ -50,7 +50,7 @@ pub async fn run_discovery(
         job.seed_facts.len()
     );
 
-    let system_prompt = build_system_prompt();
+    let system_prompt = build_system_prompt(deps.config.max_rounds);
     let user_prompt = build_user_prompt(&job.trigger, &job.seed_facts);
     let tools: Vec<Value> = tool_specs();
     let origin = origin_from_trigger(&job.trigger);
@@ -139,8 +139,9 @@ fn assistant_message_with_calls(content: &str, _calls: &[LlmToolCall]) -> LlmMes
     LlmMessage::assistant(content.to_string())
 }
 
-fn build_system_prompt() -> String {
-    r#"You are the OpenHuman owner-discovery agent.
+fn build_system_prompt(max_rounds: u32) -> String {
+    format!(
+        r#"You are the OpenHuman owner-discovery agent.
 
 Your job: given seed signals from a connected skill (email, username,
 workspace name, etc.), use the available tools to find high-confidence
@@ -161,8 +162,8 @@ Rules:
    with a one-sentence summary of what you wrote and STOP. Do not
    loop forever.
 5. NEVER invent facts to fill gaps. Missing information is fine.
-6. You have at most 5 tool-calling rounds — budget accordingly."#
-        .to_string()
+6. You have at most {max_rounds} tool-calling rounds — budget accordingly."#
+    )
 }
 
 fn build_user_prompt(trigger: &DiscoveryTrigger, seeds: &[SeedFact]) -> String {

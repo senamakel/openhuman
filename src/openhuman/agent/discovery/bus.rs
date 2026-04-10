@@ -25,6 +25,7 @@ use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tokio::sync::Mutex;
 
 use super::apify::{ApifyClient, StubApifyClient};
 use super::llm::BackendLlmClient;
@@ -36,6 +37,21 @@ use crate::openhuman::event_bus::{DomainEvent, EventHandler, SubscriptionHandle}
 pub(crate) const DISCOVERY_LAST_RUN_KEY: &str = "owner.discovery.last_run_at";
 
 static DISCOVERY_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Process-local mutex serialising concurrent `trigger_discovery` calls.
+///
+/// The KV-based debounce check is a read-then-write against the memory
+/// store; on its own it lets two rapid `SkillOAuthCompleted` events race
+/// past the window and both launch runners. Wrapping the whole check +
+/// run in this mutex means the second task re-reads `last_run_at` after
+/// the first has stamped it, so it observes the fresh timestamp and
+/// bounces. The mutex is intentionally process-local — this subscriber
+/// only runs inside a single core process.
+static TRIGGER_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn trigger_lock() -> &'static Mutex<()> {
+    TRIGGER_LOCK.get_or_init(|| Mutex::new(()))
+}
 
 /// Register the discovery subscriber on the global event bus.
 ///
@@ -102,7 +118,10 @@ impl EventHandler for DiscoverySubscriber {
 /// Build a [`DiscoveryJob`] and invoke [`run_discovery`] with the
 /// global memory client + a freshly-constructed set of HTTP clients.
 ///
-/// Respects `config.discovery.enabled` and the debounce window.
+/// Respects `config.discovery.enabled` and the debounce window. The
+/// debounce check-then-run is serialised under [`trigger_lock`] so
+/// concurrent `SkillOAuthCompleted` events can't race past a stale
+/// `last_run_at` and fire duplicate runs.
 async fn trigger_discovery(
     skill_id: String,
     integration_id: String,
@@ -123,7 +142,12 @@ async fn trigger_discovery(
     let memory = crate::openhuman::memory::global::client_if_ready()
         .ok_or_else(|| "memory global client not ready".to_string())?;
 
-    // Debounce: check KV for last-run timestamp.
+    // Serialise the debounce check + run. A second task queued behind
+    // this mutex will observe the updated `last_run_at` from the first
+    // task's successful completion and bounce on the KV re-read.
+    let _claim = trigger_lock().lock().await;
+
+    // Debounce: check KV for last-run timestamp (now under the lock).
     let now = unix_secs();
     if let Ok(Some(v)) = memory.kv_get(None, DISCOVERY_LAST_RUN_KEY).await {
         if let Some(last) = v.as_u64() {
@@ -138,6 +162,15 @@ async fn trigger_discovery(
             }
         }
     }
+
+    // Stake the debounce marker *before* doing the expensive run so a
+    // racing task that acquires the lock after us still observes a fresh
+    // timestamp and bounces. We refresh it again on success below so a
+    // partial run that crashes mid-flight doesn't permanently block
+    // future attempts beyond the next debounce window.
+    let _ = memory
+        .kv_set(None, DISCOVERY_LAST_RUN_KEY, &json!(now))
+        .await;
 
     let llm = BackendLlmClient::from_config(&config)
         .map_err(|e| format!("BackendLlmClient::from_config: {e}"))?;

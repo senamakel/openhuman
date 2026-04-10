@@ -490,9 +490,13 @@ impl Config {
             }
         }
 
-        // Owner-discovery agent kill switch — the feature is on by default
-        // and runs against the backend's authenticated Apify proxy, so the
-        // only env var we honour is an opt-out.
+        // Owner-discovery agent toggle. The feature ships **disabled** by
+        // default (see `DiscoveryConfig::default`) while the Apify client
+        // is stubbed; this env var is an explicit opt-in/opt-out override
+        // for operators who want to exercise the runner.
+        //   "1"/"true"/"yes"/"on"  → enable
+        //   "0"/"false"/"no"/"off" → disable
+        // Anything else leaves the TOML-configured value untouched.
         if let Ok(flag) = std::env::var("OPENHUMAN_DISCOVERY_ENABLED") {
             match flag.trim().to_ascii_lowercase().as_str() {
                 "1" | "true" | "yes" | "on" => self.discovery.enabled = true,

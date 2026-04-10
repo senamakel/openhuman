@@ -480,6 +480,14 @@ mod tests {
                 },
                 "skill",
             ),
+            (
+                DomainEvent::SkillOAuthCompleted {
+                    skill_id: "gmail".into(),
+                    integration_id: "ada@example.com".into(),
+                    state_snapshot: serde_json::json!({"email": "ada@example.com"}),
+                },
+                "skill",
+            ),
             // Tool
             (
                 DomainEvent::ToolExecutionStarted {

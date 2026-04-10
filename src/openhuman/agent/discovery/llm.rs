@@ -266,8 +266,14 @@ pub fn parse_openai_chat_response(raw: &str) -> Result<LlmResponse, LlmError> {
                 .get("arguments")
                 .and_then(Value::as_str)
                 .unwrap_or("{}");
-            let arguments: Value =
-                serde_json::from_str(args_raw).unwrap_or(Value::Object(Default::default()));
+            // Surface malformed tool-call arguments so the runner can treat
+            // the round as a failed tool dispatch instead of silently dropping
+            // the LLM's intent on the floor.
+            let arguments: Value = serde_json::from_str(args_raw).map_err(|e| {
+                LlmError::Parse(format!(
+                    "tool_call '{name}' has malformed arguments JSON: {e}"
+                ))
+            })?;
             tool_calls.push(LlmToolCall {
                 id,
                 name,

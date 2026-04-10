@@ -831,15 +831,18 @@ globalThis.memory = {
    *   });
    */
   updateOwner: function (payload) {
-    if (!payload || typeof payload !== "object") {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new Error("memory.updateOwner requires an object payload");
     }
-    if (
-      (!payload.facts || !payload.facts.length) &&
-      !payload.document
-    ) {
+    var hasFacts =
+      Array.isArray(payload.facts) && payload.facts.length > 0;
+    var hasDoc =
+      payload.document &&
+      typeof payload.document === "object" &&
+      !Array.isArray(payload.document);
+    if (!hasFacts && !hasDoc) {
       throw new Error(
-        "memory.updateOwner requires at least one fact or a document"
+        "memory.updateOwner requires a non-empty facts array or a document object"
       );
     }
 

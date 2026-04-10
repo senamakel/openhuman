@@ -160,6 +160,10 @@ async fn owner_write(
         }
     };
 
+    // Snapshot error count before this call so we can decide success by
+    // errors added *in this invocation*, not the full history of the run.
+    let errors_before = report.errors.len();
+
     let facts = obj
         .get("facts")
         .and_then(Value::as_array)
@@ -230,14 +234,24 @@ async fn owner_write(
 
     report.facts_written += written_facts;
 
-    ToolOutcome {
-        content: format!(
+    // If nothing landed AND this call pushed errors, surface this round
+    // as a failed dispatch so the LLM sees a negative signal (rather than
+    // cheerfully thinking everything worked) and the report aggregate
+    // reflects the round as unsuccessful.
+    let nothing_written = written_facts == 0 && !doc_written;
+    let this_call_had_errors = report.errors.len() > errors_before;
+    let success = !(nothing_written && this_call_had_errors);
+    let content = if success {
+        format!(
             "owner_write ok: {} fact(s){} stored",
             written_facts,
             if doc_written { " + 1 document" } else { "" }
-        ),
-        success: true,
-    }
+        )
+    } else {
+        "owner_write: nothing persisted — see errors in report".to_string()
+    };
+
+    ToolOutcome { content, success }
 }
 
 async fn apify_search_person(
@@ -254,10 +268,13 @@ async fn apify_search_person(
             };
         }
     };
+    // Mirror the schema's minimum/maximum so a model asking for "1000" or
+    // "0" doesn't forward a silly value to Apify.
     let max_results = arguments
         .get("max_results")
         .and_then(Value::as_u64)
-        .unwrap_or(5);
+        .unwrap_or(5)
+        .clamp(1, 20);
 
     let actor_input = json!({
         "query": query,
@@ -288,8 +305,8 @@ async fn apify_fetch_url(
     apify: &Arc<dyn ApifyClient>,
     config: &DiscoveryConfig,
 ) -> ToolOutcome {
-    let url = match arguments.get("url").and_then(Value::as_str) {
-        Some(u) if !u.trim().is_empty() => u.to_string(),
+    let url_raw = match arguments.get("url").and_then(Value::as_str) {
+        Some(u) if !u.trim().is_empty() => u.trim().to_string(),
         _ => {
             return ToolOutcome {
                 content: "apify_fetch_url: missing 'url'".into(),
@@ -298,8 +315,49 @@ async fn apify_fetch_url(
         }
     };
 
+    // Validate the URL before forwarding it. The tool schema promises
+    // "absolute HTTPS URL" — enforce that so a bad LLM reply can't
+    // coerce the backend proxy into scraping an arbitrary (possibly
+    // internal) endpoint when the real Apify client returns.
+    let parsed = match ::url::Url::parse(&url_raw) {
+        Ok(u) => u,
+        Err(e) => {
+            return ToolOutcome {
+                content: format!("apify_fetch_url: invalid URL: {e}"),
+                success: false,
+            };
+        }
+    };
+    if parsed.scheme() != "https" {
+        return ToolOutcome {
+            content: "apify_fetch_url: only absolute https URLs are allowed".into(),
+            success: false,
+        };
+    }
+    // Reject URLs that parse as literal loopback/unspecified IPs. We don't
+    // do full DNS resolution here (the stub Apify client doesn't fetch
+    // anything anyway), but we can cheaply block the obvious cases.
+    if let Some(host) = parsed.host() {
+        if let ::url::Host::Ipv4(ip) = host {
+            if ip.is_loopback() || ip.is_private() || ip.is_unspecified() {
+                return ToolOutcome {
+                    content: "apify_fetch_url: refusing loopback/private IPv4".into(),
+                    success: false,
+                };
+            }
+        }
+        if let ::url::Host::Ipv6(ip) = host {
+            if ip.is_loopback() || ip.is_unspecified() {
+                return ToolOutcome {
+                    content: "apify_fetch_url: refusing loopback/unspecified IPv6".into(),
+                    success: false,
+                };
+            }
+        }
+    }
+
     let actor_input = json!({
-        "startUrls": [{ "url": url }],
+        "startUrls": [{ "url": parsed.as_str() }],
         "maxPages": 1,
     });
 

@@ -22,6 +22,11 @@ use super::{persist_state_to_memory, MemoryWriteJob};
 /// against the upstream API, and only persist to disk if start() returns
 /// `{ status: "complete" }`. There is no separate `onOAuthComplete` JS hook
 /// — `start()` is the single entry point for "this skill is now connected".
+///
+/// On successful validation + persistence, publishes
+/// [`DomainEvent::SkillOAuthCompleted`] with a snapshot of the skill's
+/// published state so listeners (e.g. the owner-discovery agent) can seed
+/// their work without having to touch the skill runtime directly.
 pub(crate) async fn handle_oauth_complete(
     rt: &rquickjs::AsyncRuntime,
     ctx: &rquickjs::AsyncContext,
@@ -149,6 +154,25 @@ pub(crate) async fn handle_oauth_complete(
             );
         }
     }
+
+    // Publish SkillOAuthCompleted so downstream consumers (owner-discovery
+    // agent, analytics, etc.) can react. We snapshot whatever the skill
+    // wrote via `state.set()` during OAuth so identity-bearing fields are
+    // immediately available to seeds without re-entering the skill runtime.
+    let integration_id = params
+        .get("integrationId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let state_snapshot = {
+        let guard = ops_state.read();
+        serde_json::Value::Object(guard.data.clone())
+    };
+    publish_global(DomainEvent::SkillOAuthCompleted {
+        skill_id: skill_id.to_string(),
+        integration_id,
+        state_snapshot,
+    });
 
     result
 }

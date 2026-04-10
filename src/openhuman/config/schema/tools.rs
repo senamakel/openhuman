@@ -223,6 +223,80 @@ impl Default for ComposioConfig {
     }
 }
 
+/// Configuration for the owner-discovery agent.
+///
+/// > **Status: Apify integration stubbed.** The feature is disabled
+/// > by default while the real Apify wiring is on hold. Owner
+/// > identity is populated today only by **Phase 1** (skills pushing
+/// > facts via `memory.updateOwner` from JavaScript). When real Apify
+/// > wiring returns, flip this flag on via env or config to re-enable
+/// > the background discovery runs.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DiscoveryConfig {
+    /// Master switch. Default: `false` while the Apify integration
+    /// is stubbed. Flip to `true` (via config or
+    /// `OPENHUMAN_DISCOVERY_ENABLED=1`) once real wiring is ready.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Apify actor id used for person search (default: a LinkedIn-style
+    /// people-search actor). Override to pin a specific actor version.
+    #[serde(default = "default_discovery_person_actor")]
+    pub person_search_actor: String,
+
+    /// Apify actor id used for fetching a single URL's content.
+    #[serde(default = "default_discovery_fetch_actor")]
+    pub fetch_url_actor: String,
+
+    /// Debounce window — discovery will not run more than once per this
+    /// many seconds. Persisted in the global KV store under
+    /// `owner.discovery.last_run_at`. Default: 24h.
+    #[serde(default = "default_discovery_debounce_secs")]
+    pub debounce_secs: u64,
+
+    /// Maximum tool-calling rounds the discovery agent will attempt per
+    /// run. Matches the bounded loop style used in `commands/chat.rs`.
+    #[serde(default = "default_discovery_max_rounds")]
+    pub max_rounds: u32,
+
+    /// Per-actor timeout in seconds forwarded to the backend proxy.
+    #[serde(default = "default_discovery_actor_timeout_secs")]
+    pub actor_timeout_secs: u32,
+}
+
+fn default_discovery_person_actor() -> String {
+    "apify/linkedin-profile-scraper".into()
+}
+
+fn default_discovery_fetch_actor() -> String {
+    "apify/website-content-crawler".into()
+}
+
+fn default_discovery_debounce_secs() -> u64 {
+    24 * 60 * 60
+}
+
+fn default_discovery_max_rounds() -> u32 {
+    5
+}
+
+fn default_discovery_actor_timeout_secs() -> u32 {
+    120
+}
+
+impl Default for DiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            person_search_actor: default_discovery_person_actor(),
+            fetch_url_actor: default_discovery_fetch_actor(),
+            debounce_secs: default_discovery_debounce_secs(),
+            max_rounds: default_discovery_max_rounds(),
+            actor_timeout_secs: default_discovery_actor_timeout_secs(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SecretsConfig {
     #[serde(default = "default_true")]

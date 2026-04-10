@@ -9,6 +9,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
+use crate::openhuman::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::{memory::MemoryClientRef, skills::quickjs_libs::qjs_ops};
 
 use super::{persist_state_to_memory, MemoryWriteJob};
@@ -22,12 +23,16 @@ use crate::openhuman::skills::qjs_skill_instance::js_handlers::{
 /// 2. Persists the credential to `{data_dir}/oauth_credential.json`.
 /// 3. Injects and persists the `clientKeyShare` if present.
 /// 4. Invokes the `onOAuthComplete` lifecycle handler in JS.
+/// 5. Publishes `DomainEvent::SkillOAuthCompleted` with a snapshot of
+///    the skill's published state so listeners (e.g. the owner-discovery
+///    agent) can seed their work.
 pub(crate) async fn handle_oauth_complete(
     rt: &rquickjs::AsyncRuntime,
     ctx: &rquickjs::AsyncContext,
     skill_id: &str,
     params: serde_json::Value,
     data_dir: &std::path::Path,
+    ops_state: &Arc<RwLock<qjs_ops::SkillState>>,
 ) -> Result<serde_json::Value, String> {
     let cred_json = serde_json::to_string(&params).unwrap_or_else(|_| "null".to_string());
 
@@ -96,6 +101,30 @@ pub(crate) async fn handle_oauth_complete(
             );
         }
     }
+
+    // Publish SkillOAuthCompleted so downstream consumers (owner-discovery
+    // agent, analytics, etc.) can react. We snapshot the skill's currently
+    // published state so the handler sees whatever identity-bearing fields
+    // the skill wrote via `state.set()` during its OAuth flow.
+    //
+    // Runs *before* onOAuthComplete so if the JS handler pushes additional
+    // state, the next `skill/sync` cycle will propagate it — and the
+    // discovery agent, which runs async after this publish returns, will
+    // re-read live memory when it's ready.
+    let integration_id = params
+        .get("integrationId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let state_snapshot = {
+        let guard = ops_state.read();
+        serde_json::Value::Object(guard.data.clone())
+    };
+    publish_global(DomainEvent::SkillOAuthCompleted {
+        skill_id: skill_id.to_string(),
+        integration_id,
+        state_snapshot,
+    });
 
     let params_str = serde_json::to_string(&params).unwrap_or_else(|_| "{}".to_string());
     handle_js_call(rt, ctx, "onOAuthComplete", &params_str).await

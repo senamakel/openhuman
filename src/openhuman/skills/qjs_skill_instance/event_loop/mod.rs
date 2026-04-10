@@ -767,7 +767,10 @@ async fn handle_message(
         } => {
             let result = match method.as_str() {
                 "oauth/complete" => {
-                    rpc_handlers::handle_oauth_complete(rt, ctx, skill_id, params, data_dir).await
+                    rpc_handlers::handle_oauth_complete(
+                        rt, ctx, skill_id, params, data_dir, ops_state,
+                    )
+                    .await
                 }
                 "skill/ping" => handle_js_call(rt, ctx, "onPing", "{}").await,
                 "skill/sync" => {

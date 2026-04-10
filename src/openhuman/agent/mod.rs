@@ -2,6 +2,7 @@
 pub mod agent;
 pub mod classifier;
 pub mod cost;
+pub mod discovery;
 pub mod dispatcher;
 pub mod error;
 pub mod harness;

@@ -122,6 +122,9 @@ pub struct Config {
     pub learning: LearningConfig,
 
     #[serde(default)]
+    pub discovery: DiscoveryConfig,
+
+    #[serde(default)]
     pub orchestrator: OrchestratorConfig,
 
     #[serde(default)]
@@ -180,6 +183,7 @@ impl Default for Config {
             query_classification: QueryClassificationConfig::default(),
             integrations: IntegrationsConfig::default(),
             learning: LearningConfig::default(),
+            discovery: DiscoveryConfig::default(),
             orchestrator: OrchestratorConfig::default(),
             update: UpdateConfig::default(),
             dictation: DictationConfig::default(),

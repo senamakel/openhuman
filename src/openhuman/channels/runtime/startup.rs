@@ -46,6 +46,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
     crate::openhuman::health::bus::register_health_subscriber();
     crate::openhuman::skills::bus::register_skill_cleanup_subscriber();
+    crate::openhuman::agent::discovery::register_discovery_subscriber();
     tracing::debug!("[event_bus] global singleton initialized in start_channels");
     // Note: WebhookRequestSubscriber and ChannelInboundSubscriber are registered
     // in bootstrap_skill_runtime() (src/core/jsonrpc.rs) to avoid double-registration

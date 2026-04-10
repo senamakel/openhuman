@@ -489,6 +489,17 @@ impl Config {
                 self.api_key = Some(key);
             }
         }
+
+        // Owner-discovery agent kill switch — the feature is on by default
+        // and runs against the backend's authenticated Apify proxy, so the
+        // only env var we honour is an opt-out.
+        if let Ok(flag) = std::env::var("OPENHUMAN_DISCOVERY_ENABLED") {
+            match flag.trim().to_ascii_lowercase().as_str() {
+                "1" | "true" | "yes" | "on" => self.discovery.enabled = true,
+                "0" | "false" | "no" | "off" => self.discovery.enabled = false,
+                _ => {}
+            }
+        }
         if let Ok(model) = std::env::var("OPENHUMAN_MODEL").or_else(|_| std::env::var("MODEL")) {
             if !model.is_empty() {
                 self.default_model = Some(model);

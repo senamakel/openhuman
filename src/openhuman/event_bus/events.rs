@@ -107,6 +107,19 @@ pub enum DomainEvent {
         success: bool,
         elapsed_ms: u64,
     },
+    /// A skill finished its OAuth flow and its credential is now available.
+    /// Carries the skill's published state snapshot so downstream listeners
+    /// (e.g. the owner-discovery agent) can seed their work without having
+    /// to touch the skill runtime directly.
+    SkillOAuthCompleted {
+        skill_id: String,
+        /// Integration id as reported by the skill (e.g. the user's email
+        /// address for Gmail). Empty string when the skill didn't supply one.
+        integration_id: String,
+        /// The skill's `state.*` payload at the moment OAuth completed.
+        /// Used as seed data for identity extraction.
+        state_snapshot: serde_json::Value,
+    },
 
     // ── Tools ───────────────────────────────────────────────────────────
     /// A tool execution started.
@@ -215,7 +228,8 @@ impl DomainEvent {
             Self::SkillLoaded { .. }
             | Self::SkillStopped { .. }
             | Self::SkillStartFailed { .. }
-            | Self::SkillExecuted { .. } => "skill",
+            | Self::SkillExecuted { .. }
+            | Self::SkillOAuthCompleted { .. } => "skill",
 
             Self::ToolExecutionStarted { .. } | Self::ToolExecutionCompleted { .. } => "tool",
 

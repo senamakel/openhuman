@@ -10,8 +10,7 @@ import type {
   RewardsDiscordRoleStatus,
   RewardsSnapshot,
 } from '../types/rewards';
-
-const FALLBACK_DISCORD_INVITE_URL = 'https://discord.com/invite/k23Kn8nK';
+import { DISCORD_INVITE_URL } from '../utils/links';
 
 function discordMembershipLabel(snapshot: RewardsSnapshot | null): string {
   if (!snapshot) return 'Waiting for backend sync';
@@ -99,7 +98,7 @@ const Rewards = () => {
   const rewardRoles: RewardsAchievement[] = snapshot?.achievements ?? [];
   const unlockedCount = snapshot?.summary.unlockedCount ?? 0;
   const totalCount = snapshot?.summary.totalCount ?? 0;
-  const inviteUrl = snapshot?.discord.inviteUrl ?? FALLBACK_DISCORD_INVITE_URL;
+  const inviteUrl = snapshot?.discord.inviteUrl ?? DISCORD_INVITE_URL;
   const progressWidth = totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0;
 
   return (

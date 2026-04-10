@@ -20,6 +20,11 @@ const PayAsYouGoCard = ({
   onTopUp,
   onBalanceRefresh,
 }: PayAsYouGoCardProps) => {
+  const promoCredits = creditBalance?.balanceUsd ?? 0;
+  const topUpCredits = creditBalance?.topUpBalanceUsd ?? 0;
+  const topUpBaseline = creditBalance?.topUpBaselineUsd ?? null;
+  const availableCredits = promoCredits + topUpCredits;
+
   // Coupon state (local — no need to share with other sections)
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
@@ -63,41 +68,37 @@ const PayAsYouGoCard = ({
       {/* Balance display */}
       {creditBalance ? (
         <div className="space-y-1.5 mb-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-stone-400">General credits</span>
-            <span className="text-xs font-medium text-stone-900">
-              ${creditBalance.balanceUsd.toFixed(2)}
+          <div className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2">
+            <span className="text-xs text-stone-500">Available credits</span>
+            <span className="text-sm font-semibold text-stone-900">
+              ${availableCredits.toFixed(2)}
             </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-stone-400">Signup + promo credits</span>
+            <span className="text-xs font-medium text-stone-900">${promoCredits.toFixed(2)}</span>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs text-stone-400">Top-up credits</span>
               <span className="text-xs font-medium text-stone-900">
-                ${creditBalance.topUpBalanceUsd.toFixed(2)}
-                {creditBalance.topUpBaselineUsd != null && creditBalance.topUpBaselineUsd > 0 && (
-                  <span className="text-stone-500 font-normal">
-                    {' '}
-                    / ${creditBalance.topUpBaselineUsd.toFixed(2)}
-                  </span>
+                ${topUpCredits.toFixed(2)}
+                {topUpBaseline != null && topUpBaseline > 0 && (
+                  <span className="text-stone-500 font-normal"> / ${topUpBaseline.toFixed(2)}</span>
                 )}
               </span>
             </div>
-            {creditBalance.topUpBaselineUsd != null && creditBalance.topUpBaselineUsd > 0 && (
+            {topUpBaseline != null && topUpBaseline > 0 && (
               <div className="h-1 bg-stone-700/60 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    creditBalance.topUpBalanceUsd <= 0
+                    topUpCredits <= 0
                       ? 'bg-coral-500'
-                      : creditBalance.topUpBalanceUsd / creditBalance.topUpBaselineUsd < 0.2
+                      : topUpCredits / topUpBaseline < 0.2
                         ? 'bg-amber-500'
                         : 'bg-primary-500'
                   }`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (creditBalance.topUpBalanceUsd / creditBalance.topUpBaselineUsd) * 100
-                    )}%`,
-                  }}
+                  style={{ width: `${Math.min(100, (topUpCredits / topUpBaseline) * 100)}%` }}
                 />
               </div>
             )}
@@ -113,8 +114,8 @@ const PayAsYouGoCard = ({
       )}
 
       <p className="mb-3 text-[11px] text-stone-500">
-        No subscription needed — buy credits as you need them. If you have a subscription, your
-        included budget is consumed first.
+        No subscription needed. Free users spend from any signup or promo credit first, then from
+        top-ups. Paid plans still consume included budget before pay-as-you-go credits.
       </p>
 
       {/* Top-up buttons */}

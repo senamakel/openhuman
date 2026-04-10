@@ -115,7 +115,15 @@ const RewardsCouponSection = () => {
       const result = await creditsApi.redeemCoupon(code);
       setSubmitSuccess(successMessage(result));
       setCouponCode('');
-      await Promise.all([loadCouponState(), refetch()]);
+
+      const refreshResults = await Promise.allSettled([loadCouponState(), refetch()]);
+      const refreshFailures = refreshResults.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected'
+      );
+      if (refreshFailures.length > 0) {
+        log('[redeem] refresh failed count=%d', refreshFailures.length);
+      }
+
       log(
         '[redeem] completed code=%s pending=%s amount=%s',
         result.couponCode,
@@ -243,11 +251,11 @@ const RewardsCouponSection = () => {
           <p className="text-sm text-stone-500">Loading reward history…</p>
         ) : null}
 
-        {redeemedCoupons.length === 0 ? (
+        {redeemedCoupons.length === 0 && !loading && !loadError ? (
           <p className="text-sm text-stone-500 rounded-xl border border-dashed border-stone-200 px-4 py-6 text-center">
             No reward codes redeemed yet.
           </p>
-        ) : (
+        ) : redeemedCoupons.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-stone-200">
             <table className="min-w-full text-sm text-left">
               <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">

@@ -150,13 +150,15 @@ function asStringOrNull(value: unknown): string | null {
 
 export function normalizeCouponRedeemResult(raw: unknown): CouponRedeemResult {
   const record = asRecord(raw) ?? {};
+  const envelopeData = asRecord(record.data);
+  const payload = envelopeData ?? record;
   return {
     couponCode:
-      (typeof record.couponCode === 'string' && record.couponCode.trim()) ||
-      (typeof record.code === 'string' && record.code.trim()) ||
+      (typeof payload.couponCode === 'string' && payload.couponCode.trim()) ||
+      (typeof payload.code === 'string' && payload.code.trim()) ||
       '',
-    amountUsd: asNumber(record.amountUsd ?? record.amount_usd),
-    pending: Boolean(record.pending),
+    amountUsd: asNumber(payload.amountUsd ?? payload.amount_usd),
+    pending: Boolean(payload.pending),
   };
 }
 

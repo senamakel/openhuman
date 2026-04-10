@@ -29,6 +29,18 @@ vi.mock('../../hooks/useChannelDefinitions', () => ({
   useChannelDefinitions: () => ({ definitions: [], loading: false, error: null }),
 }));
 
+vi.mock('../../providers/CoreStateProvider', () => ({
+  useCoreState: () => ({
+    snapshot: {
+      runtime: {
+        screenIntelligence: null,
+        autocomplete: null,
+        localAi: null,
+      },
+    },
+  }),
+}));
+
 vi.mock('../../lib/skills/manager', () => ({
   skillManager: { triggerSync: mocks.triggerSync, startSkill: mocks.startSkill },
 }));

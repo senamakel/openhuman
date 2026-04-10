@@ -52,13 +52,7 @@ vi.mock('../../hooks/useChannelDefinitions', () => ({
 
 vi.mock('../../providers/CoreStateProvider', () => ({
   useCoreState: () => ({
-    snapshot: {
-      runtime: {
-        screenIntelligence: null,
-        autocomplete: null,
-        localAi: null,
-      },
-    },
+    snapshot: { runtime: { screenIntelligence: null, autocomplete: null, localAi: null } },
   }),
 }));
 

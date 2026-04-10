@@ -31,7 +31,6 @@ use crate::openhuman::providers::{ChatMessage, ChatRequest, ConversationMessage}
 use crate::openhuman::tools::Tool;
 use crate::openhuman::util::truncate_with_ellipsis;
 use anyhow::Result;
-use std::io::Write as IoWrite;
 use std::sync::Arc;
 
 impl Agent {
@@ -48,16 +47,19 @@ impl Agent {
             self.history.len(),
             self.config.max_tool_iterations
         );
-        // Pre-fetch learned context async before building the system prompt
-        let learned = self.fetch_learned_context().await;
-
         if self.history.is_empty() {
+            // Learned context is only baked into the system prompt on the
+            // very first turn — once the history is non-empty we reuse the
+            // stored prompt verbatim to preserve the KV-cache prefix the
+            // inference backend has already tokenised. Fetching it later
+            // would just burn memory-store reads on data we throw away.
+            let learned = self.fetch_learned_context().await;
             let system_prompt = self.build_system_prompt(learned)?;
             log::info!(
-                "[agent_loop] system prompt built chars={} content=\n{}",
-                system_prompt.chars().count(),
-                system_prompt
+                "[agent_loop] system prompt built chars={}",
+                system_prompt.chars().count()
             );
+            log::debug!("[agent_loop] system prompt body:\n{system_prompt}");
             self.history
                 .push(ConversationMessage::Chat(ChatMessage::system(
                     system_prompt,
@@ -72,7 +74,6 @@ impl Agent {
             // rides on the user message via `memory_loader.load_context()`
             // — that's where the caller should inject anything that varies
             // between turns.
-            let _ = learned;
             log::trace!(
                 "[agent_loop] system prompt reused (history_len={}) — KV cache prefix preserved",
                 self.history.len()
@@ -297,12 +298,15 @@ impl Agent {
                         iteration + 1,
                         text.chars().count()
                     );
+                    // Push the assistant text into history; rendering is
+                    // the caller's responsibility (the CLI loop walks
+                    // `agent.history()` after each turn, sub-agents and
+                    // library consumers get whatever they need through
+                    // the returned value / history accessors).
                     self.history
                         .push(ConversationMessage::Chat(ChatMessage::assistant(
                             text.clone(),
                         )));
-                    print!("{text}");
-                    let _ = std::io::stdout().flush();
                 }
                 let tool_names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
                 log::info!(

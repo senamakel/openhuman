@@ -273,6 +273,11 @@ impl Agent {
     }
 
     /// Runs an interactive CLI loop, reading from standard input and printing to standard output.
+    ///
+    /// Each incoming message is dispatched through [`Agent::run_single`] so
+    /// the unified lifecycle events (`AgentTurnStarted`, `AgentTurnCompleted`,
+    /// `AgentError`) and error sanitisation run for interactive turns just
+    /// like they do for one-shot invocations.
     pub async fn run_interactive(&mut self) -> Result<()> {
         println!("🦀 OpenHuman Interactive Mode");
         println!("Type /quit to exit.\n");
@@ -285,14 +290,16 @@ impl Agent {
         });
 
         while let Some(msg) = rx.recv().await {
-            let response = match self.turn(&msg.content).await {
-                Ok(resp) => resp,
+            match self.run_single(&msg.content).await {
+                Ok(response) => println!("\n{response}\n"),
                 Err(e) => {
+                    // `run_single` already publishes `AgentError` and
+                    // sanitises the payload; surface a concise line here
+                    // for the CLI user and continue the loop.
                     eprintln!("\nError: {e}\n");
                     continue;
                 }
-            };
-            println!("\n{response}\n");
+            }
         }
 
         listen_handle.abort();

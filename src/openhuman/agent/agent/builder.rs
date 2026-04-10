@@ -170,6 +170,17 @@ impl AgentBuilder {
         self
     }
 
+    /// Sets the event-bus `session_id` and `channel` used to tag
+    /// `DomainEvent`s emitted by this agent.
+    ///
+    /// - `session_id` groups all events for a single user / conversation so
+    ///   downstream subscribers can correlate turns, tool calls, and errors.
+    /// - `channel` labels the source or stream the events originated from
+    ///   (e.g. `"cli"`, `"telegram"`, `"rpc"`) — useful when multiple front
+    ///   ends share the same subscriber pipeline.
+    ///
+    /// Both parameters are converted into owned `String`s and stored in
+    /// `event_session_id` / `event_channel` respectively.
     pub fn event_context(
         mut self,
         session_id: impl Into<String>,
@@ -225,6 +236,11 @@ impl AgentBuilder {
                 .event_session_id
                 .unwrap_or_else(|| "standalone".to_string()),
             event_channel: self.event_channel.unwrap_or_else(|| "internal".to_string()),
+            // The context pipeline is intentionally constructed with its
+            // defaults here — its tunables (`tool_result_budget_bytes`,
+            // microcompact thresholds, session-memory knobs) are read from
+            // the per-agent `AgentConfig` at call sites, so there is no
+            // need for a separate fluent setter on the builder today.
             context_pipeline: ContextPipeline::default(),
         })
     }

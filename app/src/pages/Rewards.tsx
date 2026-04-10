@@ -94,7 +94,8 @@ const Rewards = () => {
   }, []);
 
   const rewardRoles: RewardsAchievement[] = snapshot?.achievements ?? [];
-  const unlocked = snapshot?.summary.unlockedCount ?? rewardRoles.filter(role => role.unlocked).length;
+  const unlocked =
+    snapshot?.summary.unlockedCount ?? rewardRoles.filter(role => role.unlocked).length;
   const total = snapshot?.summary.totalCount ?? rewardRoles.length;
   const inviteUrl = snapshot?.discord.inviteUrl ?? DISCORD_INVITE_URL;
   const progressWidth = total > 0 ? (unlocked / total) * 100 : 0;

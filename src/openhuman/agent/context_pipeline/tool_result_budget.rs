@@ -6,12 +6,11 @@
 //! it does not mutate existing history and therefore does not break the
 //! KV-cache prefix.
 //!
-//! Claude-code's analog: `applyToolResultBudget` (`src/query.ts:369`).
-//! Claude-code parks the overflow in a "stored surrogate" and references
-//! it later if the model asks for the full body. OpenHuman doesn't have a
-//! surrogate store yet, so we do the simpler thing: truncate in-place
-//! with a size marker the model can use to decide whether to re-run the
-//! tool with a narrower query.
+//! A future iteration could park the overflow in a "stored surrogate"
+//! and reference it later if the model asks for the full body. For now
+//! OpenHuman does the simpler thing: truncate in-place with a size
+//! marker the model can use to decide whether to re-run the tool with a
+//! narrower query.
 //!
 //! This stage is called from `Agent::execute_tool_call` once the tool
 //! has returned its output and before that output is packaged into a

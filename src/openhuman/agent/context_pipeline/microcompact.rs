@@ -7,12 +7,11 @@
 //! `AssistantToolCalls ⇔ ToolResults` holds and the provider still
 //! accepts the next request.
 //!
-//! Claude-code's analog: `microcompactMessages`
-//! (`src/services/compact/microCompact.ts:253`), which either
-//! cache-edits old tool results or replaces them with
-//! `[Old tool result content cleared]` when the cache is cold. OpenHuman's
-//! inference backend does automatic prefix caching, so we skip the cache-
-//! edit dance and go straight to the placeholder strategy.
+//! OpenHuman's inference backend does automatic prefix caching, so we
+//! skip any cache-editing dance and go straight to the placeholder
+//! strategy: overwrite the old bodies in place, let the backend
+//! re-prefill once, and let the next turn pick up the new (smaller)
+//! cache target.
 //!
 //! # Cache implications
 //!
@@ -32,9 +31,9 @@ use crate::openhuman::providers::ConversationMessage;
 /// tokens.
 pub const CLEARED_PLACEHOLDER: &str = "[Old tool result content cleared]";
 
-/// Default number of most-recent `ToolResults` envelopes to leave intact.
-/// Mirrors claude-code's default (the N most recent tool results are
-/// kept hot so the model can still reason about them).
+/// Default number of most-recent `ToolResults` envelopes to leave
+/// intact — the N most recent tool results are kept hot so the model
+/// can still reason about them.
 pub const DEFAULT_KEEP_RECENT_TOOL_RESULTS: usize = 5;
 
 /// Summary of what a single microcompact pass changed.

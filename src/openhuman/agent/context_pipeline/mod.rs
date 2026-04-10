@@ -1,5 +1,4 @@
-//! Layered context-reduction pipeline — openhuman's analog to
-//! claude-code's `query.ts:365` reduction chain.
+//! Layered context-reduction pipeline.
 //!
 //! Context summarisation in openhuman is layered, not a single knob.
 //! Each layer has a specific trigger and invariant:
@@ -19,11 +18,11 @@
 //! the `Agent` and called once per turn before each provider hit. Stage
 //! 1 is applied inline in `Agent::execute_tool_call`, not here.
 //!
-//! Cross-reference with claude-code:
-//! - `applyToolResultBudget` → [`tool_result_budget::apply_tool_result_budget`]
-//! - `microcompactMessages` → [`microcompact::microcompact`]
-//! - `autoCompactIfNeeded` → signalled via `PipelineOutcome::AutocompactionRequested`
-//! - `sessionMemoryUtils` → [`session_memory::SessionMemoryState`]
+//! Stage reference:
+//! - [`tool_result_budget::apply_tool_result_budget`] — stage 1
+//! - [`microcompact::microcompact`] — stage 3
+//! - `PipelineOutcome::AutocompactionRequested` — stage 4 signal
+//! - [`session_memory::SessionMemoryState`] — stage 5 state tracker
 
 pub mod microcompact;
 pub mod pipeline;

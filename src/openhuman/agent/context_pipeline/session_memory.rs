@@ -9,10 +9,9 @@
 //! `archivist` archetype) so the user-facing agent never pays the cost
 //! of synthesis on its hot path.
 //!
-//! Claude-code's analog: `src/services/SessionMemory/sessionMemory.ts`,
-//! `src/services/SessionMemory/sessionMemoryUtils.ts`. Extraction only
-//! runs after token-growth and tool-call thresholds are met, so it does
-//! not fire every turn. We mirror those invariants here.
+//! Extraction only runs after token-growth, tool-call, and turn-count
+//! thresholds are met, so it does not fire every turn — see
+//! [`SessionMemoryConfig`] for the exact knobs.
 //!
 //! This module is purely state-tracking: it owns the thresholds and a
 //! `should_extract` decision, but the actual `spawn_subagent` call is
@@ -94,9 +93,9 @@ impl SessionMemoryState {
     }
 
     /// Decide whether a background session-memory extraction should run
-    /// right now. The rule mirrors claude-code: all three deltas
-    /// (tokens, tool calls, turns) must have grown past their thresholds
-    /// since the last extraction, AND no other extraction is in flight.
+    /// right now. The rule: all three deltas (tokens, tool calls, turns)
+    /// must have grown past their thresholds since the last extraction,
+    /// AND no other extraction is in flight.
     pub fn should_extract(&self, config: &SessionMemoryConfig) -> bool {
         if self.extraction_in_progress {
             return false;

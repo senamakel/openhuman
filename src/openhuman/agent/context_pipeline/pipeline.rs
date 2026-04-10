@@ -1,6 +1,6 @@
 //! The layered context pipeline orchestrator.
 //!
-//! Mirrors claude-code's `query.ts` reduction chain (`src/query.ts:365`):
+//! Ordered reduction chain applied before each provider hit:
 //!
 //! 1. **Tool-result budget** — applied inline in `Agent::execute_tool_call`
 //!    (not here). Oversized tool results are truncated before they enter
@@ -38,8 +38,8 @@ use super::session_memory::{SessionMemoryConfig, SessionMemoryState};
 use crate::openhuman::agent::loop_::context_guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::providers::{ConversationMessage, UsageInfo};
 
-/// Pipeline configuration. Defaults are tuned to match claude-code's
-/// behaviour on an `agentic-v1` 128k-context run.
+/// Pipeline configuration. Defaults are tuned for an `agentic-v1`
+/// 128k-context run.
 #[derive(Debug, Clone, Copy)]
 pub struct ContextPipelineConfig {
     /// Number of recent `ToolResults` envelopes microcompact leaves

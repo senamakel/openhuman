@@ -116,8 +116,8 @@ where
 /// automatic prefix caching server-side based on stable byte sequences.
 /// If the forked child's request shares an identical prefix with the
 /// parent's previous request, the prefix is served from cache and only
-/// the diverging tail is billed. This is the single biggest token-saving
-/// mechanism in claude-code's `forkSubagent` design.
+/// the diverging tail is billed. Forking this way is the biggest
+/// token-saving mechanism OpenHuman has for parallel sub-agent work.
 ///
 /// To preserve byte stability we hold:
 /// - `system_prompt` as a pre-rendered `String` (not the builder).

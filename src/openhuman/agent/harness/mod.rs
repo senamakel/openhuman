@@ -29,7 +29,6 @@
 
 pub mod archivist;
 pub mod builtin_definitions;
-pub mod context_assembly;
 pub(crate) mod context_guard;
 mod credentials;
 pub mod definition;

@@ -1,7 +1,7 @@
 use super::super::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS};
 use super::super::runtime::{process_channel_message, run_message_dispatch_loop};
 use super::super::{traits, Channel};
-use super::common::{NoopMemory, RecordingChannel, SlowProvider};
+use super::common::{use_real_agent_handler, NoopMemory, RecordingChannel, SlowProvider};
 use crate::core::event_bus::register_native_global;
 use crate::openhuman::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
@@ -12,29 +12,12 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Serializes tests that install handler overrides on the global native
-/// registry. `cargo test` runs tests in parallel by default, so two
-/// tests that each register a different `agent.run_turn` handler would
-/// race — whichever ran last would win for both dispatches. Tests that
-/// need a specific global handler state acquire this lock on entry;
-/// tests that never touch the global bus don't need it.
-///
-/// Uses `tokio::sync::Mutex::const_new` so it can live in a `static`
-/// without `OnceLock` boilerplate.
-static BUS_HANDLER_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
 #[tokio::test]
 async fn message_dispatch_processes_messages_in_parallel() {
-    // Hold the lock for the entire test so no parallel test can replace
-    // the `agent.run_turn` handler mid-dispatch.
-    let _guard = BUS_HANDLER_LOCK.lock().await;
-
-    // Install the production agent handler so the dispatch loop's call to
-    // `request_native_global("agent.run_turn", …)` actually reaches the
-    // tool-call loop and in turn the SlowProvider below. Without this,
-    // the dispatch path would fall into the UnregisteredHandler error
-    // branch and the test would pass vacuously.
-    register_agent_handlers();
+    // Install the real `agent.run_turn` handler and hold the shared bus
+    // lock for the whole test so no parallel stub-installing test can
+    // clobber the handler mid-dispatch.
+    let _bus_guard = use_real_agent_handler().await;
 
     let channel_impl = Arc::new(RecordingChannel::default());
     let channel: Arc<dyn Channel> = channel_impl.clone();
@@ -109,8 +92,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
 
 #[tokio::test]
 async fn process_channel_message_cancels_scoped_typing_task() {
-    let _guard = BUS_HANDLER_LOCK.lock().await;
-    register_agent_handlers();
+    let _bus_guard = use_real_agent_handler().await;
     let channel_impl = Arc::new(RecordingChannel::default());
     let channel: Arc<dyn Channel> = channel_impl.clone();
 
@@ -176,8 +158,10 @@ async fn process_channel_message_cancels_scoped_typing_task() {
 async fn dispatch_routes_through_agent_run_turn_bus_handler() {
     // Exclusive access to the global `agent.run_turn` registration — we
     // install an override for this test and must not race with other
-    // dispatch tests that expect the real handler.
-    let _guard = BUS_HANDLER_LOCK.lock().await;
+    // dispatch tests that expect the real handler. Grabs the lock
+    // directly (not `use_real_agent_handler`) because we're about to
+    // overwrite the real handler with a stub.
+    let _bus_guard = super::common::BUS_HANDLER_LOCK.lock().await;
 
     // Override the agent handler with a stub that records the request
     // shape we received and returns a canned response. The stub runs

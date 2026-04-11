@@ -52,7 +52,9 @@ impl ToolResult {
             .iter()
             .map(|c| match c {
                 ToolContent::Text { text } => text.clone(),
-                ToolContent::Json { data } => serde_json::to_string_pretty(data).unwrap_or_default(),
+                ToolContent::Json { data } => {
+                    serde_json::to_string_pretty(data).unwrap_or_default()
+                }
             })
             .collect::<Vec<_>>()
             .join("\n")

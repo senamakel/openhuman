@@ -134,9 +134,7 @@ const CronJobsPanel = () => {
       <div className="p-4 space-y-4">
         <section className="space-y-1">
           <h3 className="text-sm font-semibold text-stone-900">Scheduled Jobs</h3>
-          <p className="text-xs text-stone-400">
-            Manage cron jobs from the core scheduler.
-          </p>
+          <p className="text-xs text-stone-400">Manage cron jobs from the core scheduler.</p>
         </section>
 
         {coreError && (

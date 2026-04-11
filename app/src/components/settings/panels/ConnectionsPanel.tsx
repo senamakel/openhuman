@@ -2,9 +2,9 @@ import BinanceIcon from '../../../assets/icons/binance.svg';
 import GoogleIcon from '../../../assets/icons/GoogleIcon';
 import MetamaskIcon from '../../../assets/icons/metamask.svg';
 import NotionIcon from '../../../assets/icons/notion.svg';
+import type { SkillConnectionStatus } from '../../../types/skillStatus';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
-import type { SkillConnectionStatus } from '../../../types/skillStatus';
 
 interface ConnectOption {
   id: string;

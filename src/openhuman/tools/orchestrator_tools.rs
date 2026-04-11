@@ -9,9 +9,7 @@
 //! Each tool's `execute()` internally calls `run_subagent` with the
 //! correct definition. The LLM just picks the right tool by name.
 
-use super::{
-    ArchetypeDelegationTool, SpawnSubagentTool, Tool, ARCHETYPE_TOOLS,
-};
+use super::{ArchetypeDelegationTool, SpawnSubagentTool, Tool, ARCHETYPE_TOOLS};
 
 /// Build the orchestrator's tool list: one tool per installed skill +
 /// one tool per archetype. Also includes `spawn_subagent` as a fallback

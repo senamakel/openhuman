@@ -170,11 +170,7 @@ const handleOAuthDeepLink = async (parsed: URL) => {
     console.log(
       `[DeepLink] OAuth success for integration=${integrationId}${toolkit ? ` toolkit=${toolkit}` : ''}`
     );
-    window.dispatchEvent(
-      new CustomEvent('oauth:success', {
-        detail: { integrationId, toolkit },
-      })
-    );
+    window.dispatchEvent(new CustomEvent('oauth:success', { detail: { integrationId, toolkit } }));
     window.location.hash = '/skills';
   } else if (path === 'error') {
     const error = parsed.searchParams.get('error') ?? 'Unknown error';

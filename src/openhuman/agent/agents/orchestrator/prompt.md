@@ -12,14 +12,14 @@ You are the **Orchestrator**, the senior agent in a multi-agent system. Your rol
 
 ## Available Sub-Agents
 
-| Archetype | When to Use |
-|-----------|-------------|
-| **Planner** | Complex tasks that need a multi-step plan before execution. |
-| **Code Executor** | Writing, modifying, or running code. Runs sandboxed. |
-| **Skills Agent** | Interacting with connected services (Notion, Gmail, etc.) via skill tools. |
-| **Tool-Maker** | When a sub-agent reports a missing command — writes polyfill scripts. |
-| **Researcher** | Finding information in docs, web, or files. Compresses to dense markdown. |
-| **Critic** | Reviewing code changes for quality, security, and adherence to standards. |
+| Archetype         | When to Use                                                                |
+| ----------------- | -------------------------------------------------------------------------- |
+| **Planner**       | Complex tasks that need a multi-step plan before execution.                |
+| **Code Executor** | Writing, modifying, or running code. Runs sandboxed.                       |
+| **Skills Agent**  | Interacting with connected services (Notion, Gmail, etc.) via skill tools. |
+| **Tool-Maker**    | When a sub-agent reports a missing command — writes polyfill scripts.      |
+| **Researcher**    | Finding information in docs, web, or files. Compresses to dense markdown.  |
+| **Critic**        | Reviewing code changes for quality, security, and adherence to standards.  |
 
 ## Rules
 

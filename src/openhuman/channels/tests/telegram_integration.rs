@@ -12,6 +12,10 @@ use super::super::runtime::process_channel_message;
 use super::super::traits;
 use super::super::{Channel, SendMessage};
 use super::common::{NoopMemory, SlowProvider};
+use crate::core::event_bus::register_native_global;
+use crate::openhuman::agent::bus::{
+    register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
+};
 use crate::openhuman::providers::{ChatMessage, Provider};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};

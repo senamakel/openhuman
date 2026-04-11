@@ -8,7 +8,6 @@ pub mod error;
 pub mod harness;
 pub mod hooks;
 pub mod host_runtime;
-pub mod identity;
 pub mod memory_loader;
 pub mod multimodal;
 pub mod prompt;

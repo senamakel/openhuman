@@ -42,7 +42,7 @@ pub use dictation::{DictationActivationMode, DictationConfig};
 pub use hardware::{HardwareConfig, HardwareTransport};
 pub use heartbeat_cron::{CronConfig, HeartbeatConfig};
 pub use identity_cost::{
-    CostConfig, IdentityConfig, ModelPricing, PeripheralBoardConfig, PeripheralsConfig,
+    CostConfig, ModelPricing, PeripheralBoardConfig, PeripheralsConfig,
 };
 pub use learning::{LearningConfig, ReflectionSource};
 pub use local_ai::LocalAiConfig;

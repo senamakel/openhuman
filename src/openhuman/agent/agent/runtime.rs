@@ -95,12 +95,6 @@ impl Agent {
         &self.skills
     }
 
-    /// The agent's identity config (used by sub-agent prompt building
-    /// when `omit_identity = false`).
-    pub fn identity_config(&self) -> &crate::openhuman::config::IdentityConfig {
-        &self.identity_config
-    }
-
     /// The agent's runtime config snapshot.
     pub fn agent_config(&self) -> &crate::openhuman::config::AgentConfig {
         &self.config

@@ -1028,7 +1028,6 @@ mod tests {
             workspace_dir: std::env::temp_dir(),
             memory: noop_memory(),
             agent_config: crate::openhuman::config::AgentConfig::default(),
-            identity_config: crate::openhuman::config::IdentityConfig::default(),
             skills: Arc::new(vec![]),
             memory_context: None,
             session_id: "test-session".into(),

@@ -17,7 +17,7 @@
 //! Both contexts are stashed in `Arc`s so that cloning into the child
 //! costs a refcount bump rather than a full copy.
 
-use crate::openhuman::config::{AgentConfig, IdentityConfig};
+use crate::openhuman::config::AgentConfig;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::providers::{ChatMessage, Provider};
 use crate::openhuman::skills::Skill;
@@ -66,10 +66,6 @@ pub struct ParentExecutionContext {
     /// Parent's agent config (for `max_tool_iterations`, `max_memory_context_chars`,
     /// dispatcher choice, …).
     pub agent_config: AgentConfig,
-
-    /// Parent's identity config — handed to sub-agents that opt out of
-    /// `omit_identity` so the prompt builder can resolve workspace files.
-    pub identity_config: IdentityConfig,
 
     /// Skills loaded into the parent. Sub-agents that don't strip the
     /// skills catalog inherit this list.
@@ -304,7 +300,6 @@ mod tests {
             workspace_dir: std::path::PathBuf::from("/tmp"),
             memory: Arc::new(StubMemory),
             agent_config: AgentConfig::default(),
-            identity_config: IdentityConfig::default(),
             skills: Arc::new(vec![]),
             memory_context: None,
             session_id: "test-session".into(),

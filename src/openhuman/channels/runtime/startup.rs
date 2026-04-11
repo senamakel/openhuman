@@ -190,7 +190,6 @@ pub async fn start_channels(config: Config) -> Result<()> {
         &model,
         &tool_descs,
         &skills,
-        Some(&config.identity),
         bootstrap_max_chars,
     );
     system_prompt.push_str(&build_tool_instructions(tools_registry.as_ref()));

@@ -229,7 +229,6 @@ pub async fn run(
         model_name,
         &tool_descs,
         &skills,
-        Some(&config.identity),
         bootstrap_max_chars,
     );
 
@@ -578,7 +577,6 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         &model_name,
         &tool_descs,
         &skills,
-        Some(&config.identity),
         bootstrap_max_chars,
     );
     system_prompt.push_str(&build_tool_instructions(&tools_registry));

@@ -37,7 +37,6 @@ impl AgentBuilder {
             model_name: None,
             temperature: None,
             workspace_dir: None,
-            identity_config: None,
             skills: None,
             auto_save: None,
             classification_config: None,
@@ -125,15 +124,6 @@ impl AgentBuilder {
     /// Sets the workspace directory for the agent.
     pub fn workspace_dir(mut self, workspace_dir: std::path::PathBuf) -> Self {
         self.workspace_dir = Some(workspace_dir);
-        self
-    }
-
-    /// Sets the identity configuration for the agent.
-    pub fn identity_config(
-        mut self,
-        identity_config: crate::openhuman::config::IdentityConfig,
-    ) -> Self {
-        self.identity_config = Some(identity_config);
         self
     }
 
@@ -259,7 +249,6 @@ impl AgentBuilder {
             workspace_dir: self
                 .workspace_dir
                 .unwrap_or_else(|| std::path::PathBuf::from(".")),
-            identity_config: self.identity_config.unwrap_or_default(),
             skills: self.skills.unwrap_or_default(),
             auto_save: self.auto_save.unwrap_or(false),
             last_memory_context: None,
@@ -477,7 +466,6 @@ impl Agent {
             .workspace_dir(config.workspace_dir.clone())
             .classification_config(config.query_classification.clone())
             .available_hints(available_hints)
-            .identity_config(config.identity.clone())
             .skills(crate::openhuman::skills::load_skills(&config.workspace_dir))
             .auto_save(config.memory.auto_save)
             .post_turn_hooks(post_turn_hooks)

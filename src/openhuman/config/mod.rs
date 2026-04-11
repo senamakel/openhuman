@@ -28,7 +28,7 @@ pub use schema::{
     BrowserComputerUseConfig, BrowserConfig, ChannelsConfig, ClassificationRule, ComposioConfig,
     Config, CostConfig, CronConfig, DelegateAgentConfig, DictationActivationMode, DictationConfig,
     DiscordConfig, DockerRuntimeConfig, EmbeddingRouteConfig, HardwareConfig, HardwareTransport,
-    HeartbeatConfig, HttpRequestConfig, IMessageConfig, IdentityConfig, IntegrationToggle,
+    HeartbeatConfig, HttpRequestConfig, IMessageConfig, IntegrationToggle,
     IntegrationsConfig, LarkConfig, LearningConfig, LocalAiConfig, MatrixConfig, MemoryConfig,
     ModelRouteConfig, MultimodalConfig, ObservabilityConfig, OrchestratorConfig,
     PeripheralBoardConfig, PeripheralsConfig, ProxyConfig, ProxyScope, QueryClassificationConfig,

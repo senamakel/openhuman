@@ -1,6 +1,5 @@
 //! System prompt construction for channel interactions.
 
-use crate::openhuman::agent::identity;
 use std::path::Path;
 
 /// Maximum characters per injected workspace file (matches `OpenClaw` default).
@@ -34,7 +33,7 @@ fn load_openclaw_bootstrap_files(
 
 /// Load workspace identity files and build a system prompt.
 ///
-/// Follows the `OpenClaw` framework structure by default:
+/// Follows the `OpenClaw` framework structure:
 /// 1. Tooling — tool list + descriptions
 /// 2. Safety — guardrail reminder
 /// 3. Skills — compact list with paths (loaded on-demand)
@@ -43,9 +42,6 @@ fn load_openclaw_bootstrap_files(
 /// 6. Date & Time — timezone for cache stability
 /// 7. Runtime — host, OS, model
 ///
-/// When `identity_config` is set to AIEOS format, the bootstrap files section
-/// is replaced with the AIEOS identity data loaded from file or inline JSON.
-///
 /// Daily memory files (`memory/*.md`) are NOT injected — they are accessed
 /// on-demand via `memory_recall` / `memory_search` tools.
 pub fn build_system_prompt(
@@ -53,7 +49,6 @@ pub fn build_system_prompt(
     model_name: &str,
     tools: &[(&str, &str)],
     skills: &[crate::openhuman::skills::Skill],
-    identity_config: Option<&crate::openhuman::config::IdentityConfig>,
     bootstrap_max_chars: Option<usize>,
 ) -> String {
     use std::fmt::Write;
@@ -150,44 +145,8 @@ pub fn build_system_prompt(
 
     // ── 5. Bootstrap files (injected into context) ──────────────
     prompt.push_str("## Project Context\n\n");
-
-    // Check if AIEOS identity is configured
-    if let Some(config) = identity_config {
-        if identity::is_aieos_configured(config) {
-            // Load AIEOS identity
-            match identity::load_aieos_identity(config, workspace_dir) {
-                Ok(Some(aieos_identity)) => {
-                    let aieos_prompt = identity::aieos_to_system_prompt(&aieos_identity);
-                    if !aieos_prompt.is_empty() {
-                        prompt.push_str(&aieos_prompt);
-                        prompt.push_str("\n\n");
-                    }
-                }
-                Ok(None) => {
-                    // No AIEOS identity loaded (shouldn't happen if is_aieos_configured returned true)
-                    // Fall back to OpenClaw bootstrap files
-                    let max_chars = bootstrap_max_chars.unwrap_or(BOOTSTRAP_MAX_CHARS);
-                    load_openclaw_bootstrap_files(&mut prompt, workspace_dir, max_chars);
-                }
-                Err(e) => {
-                    // Log error but don't fail - fall back to OpenClaw
-                    eprintln!(
-                        "Warning: Failed to load AIEOS identity: {e}. Using OpenClaw format."
-                    );
-                    let max_chars = bootstrap_max_chars.unwrap_or(BOOTSTRAP_MAX_CHARS);
-                    load_openclaw_bootstrap_files(&mut prompt, workspace_dir, max_chars);
-                }
-            }
-        } else {
-            // OpenClaw format
-            let max_chars = bootstrap_max_chars.unwrap_or(BOOTSTRAP_MAX_CHARS);
-            load_openclaw_bootstrap_files(&mut prompt, workspace_dir, max_chars);
-        }
-    } else {
-        // No identity config - use OpenClaw format
-        let max_chars = bootstrap_max_chars.unwrap_or(BOOTSTRAP_MAX_CHARS);
-        load_openclaw_bootstrap_files(&mut prompt, workspace_dir, max_chars);
-    }
+    let max_chars = bootstrap_max_chars.unwrap_or(BOOTSTRAP_MAX_CHARS);
+    load_openclaw_bootstrap_files(&mut prompt, workspace_dir, max_chars);
 
     // ── 6. Date & Time ──────────────────────────────────────────
     let now = chrono::Local::now();

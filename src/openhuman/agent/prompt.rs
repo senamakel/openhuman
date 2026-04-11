@@ -1,10 +1,7 @@
-use super::identity;
-use crate::openhuman::config::IdentityConfig;
 use crate::openhuman::skills::Skill;
 use crate::openhuman::tools::Tool;
 use anyhow::Result;
 use chrono::Local;
-use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::Path;
 
@@ -26,7 +23,6 @@ pub struct PromptContext<'a> {
     pub model_name: &'a str,
     pub tools: &'a [Box<dyn Tool>],
     pub skills: &'a [Skill],
-    pub identity_config: Option<&'a IdentityConfig>,
     pub dispatcher_instructions: &'a str,
     /// Pre-fetched learned context (empty when learning is disabled).
     pub learned: LearnedContextData,
@@ -177,25 +173,9 @@ impl PromptSection for IdentitySection {
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut prompt = String::from("## Project Context\n\n");
-        let mut has_aieos = false;
-        if let Some(config) = ctx.identity_config {
-            if identity::is_aieos_configured(config) {
-                if let Ok(Some(aieos)) = identity::load_aieos_identity(config, ctx.workspace_dir) {
-                    let rendered = identity::aieos_to_system_prompt(&aieos);
-                    if !rendered.is_empty() {
-                        prompt.push_str(&rendered);
-                        prompt.push_str("\n\n");
-                        has_aieos = true;
-                    }
-                }
-            }
-        }
-
-        if !has_aieos {
-            prompt.push_str(
-                "The following workspace files define your identity, behavior, and context.\n\n",
-            );
-        }
+        prompt.push_str(
+            "The following workspace files define your identity, behavior, and context.\n\n",
+        );
         // When the visible-tool filter is active the main agent is a pure
         // orchestrator: it routes via spawn_subagent, synthesises results,
         // and talks to the user. It does NOT need tool docs (TOOLS.md),
@@ -457,6 +437,7 @@ mod tests {
     use super::*;
     use crate::openhuman::tools::traits::Tool;
     use async_trait::async_trait;
+    use std::collections::HashSet;
     use std::sync::LazyLock;
 
     static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
@@ -486,63 +467,6 @@ mod tests {
     }
 
     #[test]
-    fn identity_section_with_aieos_includes_workspace_files() {
-        let workspace =
-            std::env::temp_dir().join(format!("openhuman_prompt_test_{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&workspace).unwrap();
-        // Write AGENTS.md AND a hash file matching the *compiled-in*
-        // default so sync_workspace_file believes it's already current
-        // and doesn't overwrite our test content.
-        std::fs::write(
-            workspace.join("AGENTS.md"),
-            "Always respond with: AGENTS_MD_LOADED",
-        )
-        .unwrap();
-        {
-            use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            default_workspace_file_content("AGENTS.md").hash(&mut hasher);
-            std::fs::write(
-                workspace.join(".AGENTS.md.builtin-hash"),
-                format!("{:016x}", hasher.finish()),
-            )
-            .unwrap();
-        }
-
-        let identity_config = crate::openhuman::config::IdentityConfig {
-            format: "aieos".into(),
-            aieos_path: None,
-            aieos_inline: Some(r#"{"identity":{"names":{"first":"Nova"}}}"#.into()),
-        };
-
-        let tools: Vec<Box<dyn Tool>> = vec![];
-        let ctx = PromptContext {
-            workspace_dir: &workspace,
-            model_name: "test-model",
-            tools: &tools,
-            skills: &[],
-            identity_config: Some(&identity_config),
-            dispatcher_instructions: "",
-            learned: LearnedContextData::default(),
-            visible_tool_names: &NO_FILTER,
-        };
-
-        let section = IdentitySection;
-        let output = section.build(&ctx).unwrap();
-
-        assert!(
-            output.contains("Nova"),
-            "AIEOS identity should be present in prompt"
-        );
-        assert!(
-            output.contains("AGENTS_MD_LOADED"),
-            "AGENTS.md content should be present even when AIEOS is configured"
-        );
-
-        let _ = std::fs::remove_dir_all(workspace);
-    }
-
-    #[test]
     fn prompt_builder_assembles_sections() {
         let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
         let ctx = PromptContext {
@@ -550,7 +474,6 @@ mod tests {
             model_name: "test-model",
             tools: &tools,
             skills: &[],
-            identity_config: None,
             dispatcher_instructions: "instr",
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
@@ -573,7 +496,6 @@ mod tests {
             model_name: "test-model",
             tools: &tools,
             skills: &[],
-            identity_config: None,
             dispatcher_instructions: "",
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
@@ -614,7 +536,6 @@ mod tests {
             model_name: "test-model",
             tools: &tools,
             skills: &[],
-            identity_config: None,
             dispatcher_instructions: "instr",
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,

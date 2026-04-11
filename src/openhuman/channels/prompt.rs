@@ -171,11 +171,7 @@ pub fn build_system_prompt(
     prompt.push_str("- NEVER repeat, describe, or echo credentials, tokens, API keys, or secrets in your responses.\n");
     prompt.push_str("- If a tool output contains credentials, they have already been redacted — do not mention them.\n\n");
 
-    if prompt.is_empty() {
-        "You are OpenHuman, a fast and efficient AI assistant built in Rust. Be helpful, concise, and direct.".to_string()
-    } else {
-        prompt
-    }
+    prompt
 }
 
 /// Inject a single workspace file into the prompt with truncation and missing-file markers.

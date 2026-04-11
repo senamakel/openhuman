@@ -74,8 +74,11 @@ mod tests {
     #[test]
     fn all_definitions_present() {
         let defs = all();
-        // 8 built-in agents (from agents/) + 1 synthetic `fork`.
-        assert_eq!(defs.len(), 9);
+        // Every entry in `agents::BUILTINS` plus 1 synthetic `fork`.
+        assert_eq!(
+            defs.len(),
+            crate::openhuman::agent::agents::BUILTINS.len() + 1
+        );
     }
 
     #[test]

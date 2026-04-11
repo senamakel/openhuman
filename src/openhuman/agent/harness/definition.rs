@@ -55,13 +55,14 @@ pub struct AgentDefinition {
     pub display_name: Option<String>,
 
     // ── prompt ──────────────────────────────────────────────────────────
-    /// Source of the sub-agent's core system prompt. Inline for TOML-defined
-    /// agents, or a path to a file under `agent/prompts/` for built-ins.
+    /// Source of the sub-agent's core system prompt.
     ///
     /// Defaults to an empty inline prompt so TOMLs that ship a sibling
     /// `prompt.md` can omit this field and let the loader inject the
-    /// rendered body. All in-tree built-ins use that pattern — see
-    /// [`crate::openhuman::agent::agents`].
+    /// rendered body as [`PromptSource::Inline`]. All in-tree built-ins
+    /// use that pattern — see [`crate::openhuman::agent::agents`] for
+    /// the loader. Custom TOML-defined agents may also set this
+    /// explicitly as [`PromptSource::Inline`] or [`PromptSource::File`].
     #[serde(default = "defaults::empty_inline_prompt")]
     pub system_prompt: PromptSource,
 

@@ -1,13 +1,10 @@
-import { useState } from 'react';
-
 import BinanceIcon from '../../../assets/icons/binance.svg';
 import GoogleIcon from '../../../assets/icons/GoogleIcon';
 import MetamaskIcon from '../../../assets/icons/metamask.svg';
 import NotionIcon from '../../../assets/icons/notion.svg';
-import type { SkillConnectionStatus } from '../../../lib/skills/types';
-import SkillSetupModal from '../../skills/SkillSetupModal';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import type { SkillConnectionStatus } from '../../../types/skillStatus';
 
 interface ConnectOption {
   id: string;
@@ -141,11 +138,6 @@ function ConnectionOptionRow({
 const ConnectionsPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
-  const [setupModalOpen, setSetupModalOpen] = useState(false);
-  const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
-  const [activeSkillName, setActiveSkillName] = useState<string>('');
-  const [activeSkillDescription, setActiveSkillDescription] = useState<string>('');
-
   const connectOptions: ConnectOption[] = [
     {
       id: 'google',
@@ -179,12 +171,7 @@ const ConnectionsPanel = () => {
 
   const handleConnect = (option: ConnectOption) => {
     if (option.comingSoon) return;
-    if (option.skillId) {
-      setActiveSkillId(option.skillId);
-      setActiveSkillName(option.name);
-      setActiveSkillDescription(option.description);
-      setSetupModalOpen(true);
-    }
+    if (option.skillId) return;
   };
 
   return (
@@ -237,19 +224,6 @@ const ConnectionsPanel = () => {
           </div>
         </div>
       </div>
-
-      {/* Setup modal */}
-      {setupModalOpen && activeSkillId && (
-        <SkillSetupModal
-          skillId={activeSkillId}
-          skillName={activeSkillName}
-          skillDescription={activeSkillDescription}
-          onClose={() => {
-            setSetupModalOpen(false);
-            setActiveSkillId(null);
-          }}
-        />
-      )}
     </div>
   );
 };

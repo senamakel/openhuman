@@ -8,128 +8,20 @@ import {
   openhumanCronRun,
   openhumanCronRuns,
   openhumanCronUpdate,
-  runtimeDiscoverSkills,
-  runtimeIsSkillEnabled,
-  runtimeListSkillOptions,
-  runtimeListSkills,
-  runtimeSetSkillOption,
-  type RuntimeSkillOption,
 } from '../../../utils/tauriCommands';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import CoreJobList from './cron/CoreJobList';
-import RuntimeSkillCronList from './cron/RuntimeSkillCronList';
-
-type CronSkillConfig = {
-  skillId: string;
-  name: string;
-  enabled: boolean;
-  manifestTickInterval: number | null;
-  options: RuntimeSkillOption[];
-  optionsError: string | null;
-};
-
-const CRON_KEYWORDS = ['cron', 'schedule', 'interval', 'tick'];
-
-const isCronOption = (option: RuntimeSkillOption): boolean => {
-  const haystack = `${option.name} ${option.label} ${option.description ?? ''}`.toLowerCase();
-  return CRON_KEYWORDS.some(keyword => haystack.includes(keyword));
-};
 
 const CronJobsPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [coreError, setCoreError] = useState<string | null>(null);
-
-  const [skills, setSkills] = useState<CronSkillConfig[]>([]);
-  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
-  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const [coreJobs, setCoreJobs] = useState<CoreCronJob[]>([]);
   const [coreRunsByJob, setCoreRunsByJob] = useState<Record<string, CoreCronRun[]>>({});
   const [coreBusyKey, setCoreBusyKey] = useState<string | null>(null);
-
-  const loadRuntimeCronSkills = useCallback(async () => {
-    const [discoveredSkills, snapshots] = await Promise.all([
-      runtimeDiscoverSkills(),
-      runtimeListSkills(),
-    ]);
-
-    const discoveredById = new Map(discoveredSkills.map(skill => [skill.id, skill]));
-    const snapshotById = new Map(snapshots.map(snapshot => [snapshot.skill_id, snapshot]));
-    const allSkillIds = Array.from(new Set([...discoveredById.keys(), ...snapshotById.keys()]));
-
-    const enabledEntries = await Promise.all(
-      allSkillIds.map(async skillId => {
-        try {
-          const enabled = await runtimeIsSkillEnabled(skillId);
-          return [skillId, enabled] as const;
-        } catch {
-          return [skillId, false] as const;
-        }
-      })
-    );
-
-    const enabledMap = Object.fromEntries(enabledEntries);
-
-    const rows = await Promise.all(
-      allSkillIds.map(async skillId => {
-        const discovered = discoveredById.get(skillId);
-        const snapshot = snapshotById.get(skillId);
-
-        const baseName =
-          discovered?.name?.trim() ||
-          (typeof snapshot?.name === 'string' ? snapshot.name : skillId);
-
-        let options: RuntimeSkillOption[] = [];
-        let optionsError: string | null = null;
-
-        try {
-          const allOptions = await runtimeListSkillOptions(skillId);
-          options = allOptions.filter(isCronOption);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          optionsError = message;
-        }
-
-        const manifestTickInterval =
-          typeof discovered?.tickInterval === 'number' ? discovered.tickInterval : null;
-
-        if (manifestTickInterval === null && options.length === 0) {
-          return null;
-        }
-
-        return {
-          skillId,
-          name: baseName,
-          enabled: enabledMap[skillId] ?? false,
-          manifestTickInterval,
-          options,
-          optionsError,
-        } satisfies CronSkillConfig;
-      })
-    );
-
-    const filtered = rows
-      .filter((row): row is CronSkillConfig => row !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    setSkills(filtered);
-    setDraftValues(prev => {
-      const next = { ...prev };
-      for (const skill of filtered) {
-        for (const option of skill.options) {
-          const key = `${skill.skillId}:${option.name}`;
-          if (next[key] === undefined) {
-            next[key] = option.value == null ? '' : String(option.value);
-          }
-        }
-      }
-      return next;
-    });
-  }, []);
 
   const loadCoreCronJobs = useCallback(async () => {
     const response = await openhumanCronList();
@@ -143,15 +35,7 @@ const CronJobsPanel = () => {
 
   const loadCronSkills = useCallback(async () => {
     setLoading(true);
-    setError(null);
     setCoreError(null);
-
-    try {
-      await loadRuntimeCronSkills();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(`Failed to load runtime cron jobs: ${message}`);
-    }
 
     try {
       await loadCoreCronJobs();
@@ -161,74 +45,11 @@ const CronJobsPanel = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadCoreCronJobs, loadRuntimeCronSkills]);
+  }, [loadCoreCronJobs]);
 
   useEffect(() => {
     void loadCronSkills();
   }, [loadCronSkills]);
-
-  const updateOptionInState = (
-    skillId: string,
-    optionName: string,
-    value: RuntimeSkillOption['value']
-  ) => {
-    setSkills(prev =>
-      prev.map(skill => {
-        if (skill.skillId !== skillId) return skill;
-        return {
-          ...skill,
-          options: skill.options.map(option =>
-            option.name === optionName ? { ...option, value } : option
-          ),
-        };
-      })
-    );
-  };
-
-  const saveOptionValue = async (skillId: string, option: RuntimeSkillOption, rawValue: string) => {
-    const key = `${skillId}:${option.name}`;
-    setSavingKey(key);
-    setError(null);
-
-    try {
-      let nextValue: RuntimeSkillOption['value'] = rawValue;
-
-      if (option.type === 'number') {
-        const parsed = Number(rawValue);
-        if (!Number.isFinite(parsed)) {
-          throw new Error('Please enter a valid number for this cron option.');
-        }
-        nextValue = parsed;
-      }
-
-      await runtimeSetSkillOption(skillId, option.name, nextValue);
-      updateOptionInState(skillId, option.name, nextValue);
-      setDraftValues(prev => ({ ...prev, [key]: String(nextValue) }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(`Failed to update ${option.label}: ${message}`);
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  const toggleBooleanOption = async (skillId: string, option: RuntimeSkillOption) => {
-    const key = `${skillId}:${option.name}`;
-    setSavingKey(key);
-    setError(null);
-
-    try {
-      const nextValue = !(option.value === true);
-      await runtimeSetSkillOption(skillId, option.name, nextValue);
-      updateOptionInState(skillId, option.name, nextValue);
-      setDraftValues(prev => ({ ...prev, [key]: String(nextValue) }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(`Failed to update ${option.label}: ${message}`);
-    } finally {
-      setSavingKey(null);
-    }
-  };
 
   const toggleCoreJob = async (job: CoreCronJob) => {
     const key = `core-toggle:${job.id}`;
@@ -314,15 +135,9 @@ const CronJobsPanel = () => {
         <section className="space-y-1">
           <h3 className="text-sm font-semibold text-stone-900">Scheduled Jobs</h3>
           <p className="text-xs text-stone-400">
-            Manage cron jobs from both the core scheduler and runtime skills.
+            Manage cron jobs from the core scheduler.
           </p>
         </section>
-
-        {error && (
-          <div className="rounded-lg border border-coral-300 bg-coral-50 px-4 py-3 text-sm text-coral-700">
-            {error}
-          </div>
-        )}
 
         {coreError && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -340,19 +155,6 @@ const CronJobsPanel = () => {
           onLoadCoreRuns={jobId => void loadCoreRuns(jobId)}
           onRemoveCoreJob={jobId => void removeCoreJob(jobId)}
         />
-
-        <RuntimeSkillCronList
-          loading={loading}
-          skills={skills}
-          draftValues={draftValues}
-          savingKey={savingKey}
-          onSetDraftValues={setDraftValues}
-          onSaveOptionValue={(skillId, option, rawValue) =>
-            void saveOptionValue(skillId, option, rawValue)
-          }
-          onToggleBooleanOption={(skillId, option) => void toggleBooleanOption(skillId, option)}
-        />
-
         <div>
           <button
             type="button"

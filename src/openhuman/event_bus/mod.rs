@@ -1,8 +1,8 @@
-//! Cross-module event bus for decoupled pub/sub communication.
+//! Cross-module event bus for decoupled events and typed controller requests.
 //!
 //! The event bus is a **singleton** — one instance for the entire application.
-//! Call [`init_global`] once at startup, then use [`publish_global`] and
-//! [`subscribe_global`] from any module.
+//! Call [`init_global`] once at startup, then use [`publish_global`],
+//! [`subscribe_global`], and [`request_global`] from any module.
 //!
 //! # Usage
 //!
@@ -18,10 +18,15 @@
 
 mod bus;
 mod events;
+mod request;
 mod subscriber;
 mod tracing;
 
-pub use bus::{global, init_global, publish_global, subscribe_global, EventBus, DEFAULT_CAPACITY};
+pub use bus::{
+    global, init_global, publish_global, request_controller_global, request_global,
+    subscribe_global, EventBus, DEFAULT_CAPACITY,
+};
 pub use events::DomainEvent;
+pub use request::{ControllerCall, ControllerResponse, EventBusRequestError};
 pub use subscriber::{EventHandler, SubscriptionHandle};
 pub use tracing::TracingSubscriber;

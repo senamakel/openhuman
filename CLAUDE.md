@@ -289,9 +289,9 @@ Skills runtime uses **QuickJS** (`rquickjs`) in **`src/openhuman/skills/`** (e.g
 
 ### Event bus (`src/openhuman/event_bus/`)
 
-A typed pub/sub event bus for **decoupled cross-module communication**. The bus is a **singleton** — one instance handles all events for the entire application. Do **not** construct `EventBus` directly; use the module-level functions.
+A typed pub/sub event bus for **decoupled cross-module communication** plus a typed request/response surface backed by the same registered controllers used by JSON-RPC. The bus is a **singleton** — one instance handles all events for the entire application. Do **not** construct `EventBus` directly; use the module-level functions.
 
-**When to use the event bus:** Use events when a module needs to _notify_ other modules of something that happened (fire-and-forget). Do **not** use events for request/response flows where the caller needs a return value — use direct function calls or RPC for those.
+**When to use the event bus:** Use events when a module needs to _notify_ other modules of something that happened (fire-and-forget). Use the bus request API when you want a typed in-process call through the shared controller registry without adding separate transport glue.
 
 **Core types** (all in `src/openhuman/event_bus/`):
 
@@ -299,6 +299,7 @@ A typed pub/sub event bus for **decoupled cross-module communication**. The bus 
 |------|------|---------|
 | `DomainEvent` | `events.rs` | `#[non_exhaustive]` enum — all cross-module events live here, grouped by domain |
 | `EventBus` | `bus.rs` | Singleton backed by `tokio::sync::broadcast`. Construction is `pub(crate)` — tests only |
+| `ControllerCall<T>` / `ControllerResponse<T>` | `request.rs` | Typed request/response API backed directly by the shared controller registry used by JSON-RPC |
 | `EventHandler` | `subscriber.rs` | Async trait with optional `domains()` filter for selective subscription |
 | `SubscriptionHandle` | `subscriber.rs` | RAII handle — subscriber task is cancelled on drop |
 | `TracingSubscriber` | `tracing.rs` | Built-in debug logger for all events (registered at startup) |
@@ -310,6 +311,7 @@ A typed pub/sub event bus for **decoupled cross-module communication**. The bus 
 | `event_bus::init_global(capacity)` | Initialize the singleton at startup (once) |
 | `event_bus::publish_global(event)` | Publish from anywhere (no-op if not yet initialized) |
 | `event_bus::subscribe_global(handler)` | Subscribe from anywhere (returns `None` if not yet initialized) |
+| `event_bus::request_global(call)` / `event_bus::request_controller_global(method, payload)` | Execute typed request/response calls via the same registered controllers used by JSON-RPC |
 | `event_bus::global()` | Get `Option<&'static EventBus>` for advanced use |
 
 **Domains:** `agent`, `memory`, `channel`, `cron`, `skill`, `tool`, `webhook`, `system`. See `events.rs` for the full variant list — events carry rich payloads so subscribers have everything they need.

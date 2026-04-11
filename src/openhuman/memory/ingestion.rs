@@ -1887,5 +1887,4 @@ mod tests {
             .iter()
             .any(|hit| !hit.supporting_relations.is_empty()));
     }
-
 }

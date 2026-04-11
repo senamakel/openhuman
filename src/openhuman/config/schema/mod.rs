@@ -7,6 +7,7 @@ mod agent;
 mod autocomplete;
 mod autonomy;
 mod channels;
+mod context;
 mod defaults;
 mod dictation;
 mod hardware;
@@ -38,6 +39,7 @@ pub use channels::{
     SandboxBackend, SandboxConfig, SecurityConfig, SignalConfig, SlackConfig, StreamMode,
     TelegramConfig, WebhookConfig, WhatsAppConfig,
 };
+pub use context::ContextConfig;
 pub use dictation::{DictationActivationMode, DictationConfig};
 pub use hardware::{HardwareConfig, HardwareTransport};
 pub use heartbeat_cron::{CronConfig, HeartbeatConfig};

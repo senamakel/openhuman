@@ -841,6 +841,82 @@ impl Config {
             }
         }
 
+        // ── Context management overrides ───────────────────────────────
+        if let Ok(flag) = std::env::var("OPENHUMAN_CONTEXT_ENABLED") {
+            let normalized = flag.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => self.context.enabled = true,
+                "0" | "false" | "no" | "off" => self.context.enabled = false,
+                _ => {}
+            }
+        }
+        if let Ok(flag) = std::env::var("OPENHUMAN_CONTEXT_MICROCOMPACT_ENABLED") {
+            let normalized = flag.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => self.context.microcompact_enabled = true,
+                "0" | "false" | "no" | "off" => self.context.microcompact_enabled = false,
+                _ => {}
+            }
+        }
+        if let Ok(flag) = std::env::var("OPENHUMAN_CONTEXT_AUTOCOMPACT_ENABLED") {
+            let normalized = flag.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => self.context.autocompact_enabled = true,
+                "0" | "false" | "no" | "off" => self.context.autocompact_enabled = false,
+                _ => {}
+            }
+        }
+        if let Ok(val) = std::env::var("OPENHUMAN_CONTEXT_COMPACTION_TRIGGER_PCT") {
+            if let Ok(pct) = val.trim().parse::<u8>() {
+                if pct <= 100 {
+                    self.context.compaction_trigger_pct = pct;
+                }
+            }
+        }
+        if let Ok(val) = std::env::var("OPENHUMAN_CONTEXT_HARD_LIMIT_PCT") {
+            if let Ok(pct) = val.trim().parse::<u8>() {
+                if pct <= 100 {
+                    self.context.hard_limit_pct = pct;
+                }
+            }
+        }
+        if let Ok(val) = std::env::var("OPENHUMAN_CONTEXT_RESERVE_OUTPUT_TOKENS") {
+            if let Ok(n) = val.trim().parse::<u64>() {
+                self.context.reserve_output_tokens = n;
+            }
+        }
+        if let Ok(val) = std::env::var("OPENHUMAN_CONTEXT_TOOL_RESULT_BUDGET_BYTES") {
+            if let Ok(n) = val.trim().parse::<usize>() {
+                self.context.tool_result_budget_bytes = n;
+            }
+        }
+        if let Ok(model) = std::env::var("OPENHUMAN_CONTEXT_SUMMARIZER_MODEL") {
+            let model = model.trim();
+            if !model.is_empty() {
+                self.context.summarizer_model = Some(model.to_string());
+            }
+        }
+
+        // Migration: `agent.tool_result_budget_bytes` used to own this
+        // knob before it moved to `context.tool_result_budget_bytes`. If
+        // an existing config.toml sets the old field to a non-default
+        // value and the new field is still at its default, copy the old
+        // value forward and emit a deprecation warning so the user knows
+        // to move it. Once both are set the new field wins.
+        let context_default =
+            crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
+        if self.context.tool_result_budget_bytes == context_default
+            && self.agent.tool_result_budget_bytes != context_default
+        {
+            tracing::warn!(
+                old = self.agent.tool_result_budget_bytes,
+                "[context:config] `agent.tool_result_budget_bytes` is \
+                 deprecated — please move it to \
+                 `context.tool_result_budget_bytes` in your config.toml"
+            );
+            self.context.tool_result_budget_bytes = self.agent.tool_result_budget_bytes;
+        }
+
         if self.proxy.enabled && self.proxy.scope == ProxyScope::Environment {
             self.proxy.apply_to_process_env();
         }

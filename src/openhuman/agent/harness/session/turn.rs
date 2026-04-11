@@ -24,7 +24,9 @@ use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::{ParsedToolCall, ToolExecutionResult};
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::hooks::{self, ToolCallRecord, TurnContext};
-use crate::openhuman::context::prompt::{LearnedContextData, PromptContext, PromptTool};
+use crate::openhuman::context::prompt::{
+    LearnedContextData, PromptContext, PromptTool, RenderedPrompt,
+};
 use crate::openhuman::context::{ReductionOutcome, ARCHIVIST_EXTRACTION_PROMPT};
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::providers::{ChatMessage, ChatRequest, ConversationMessage};
@@ -55,16 +57,17 @@ impl Agent {
             // inference backend has already tokenised. Fetching it later
             // would just burn memory-store reads on data we throw away.
             let learned = self.fetch_learned_context().await;
-            let system_prompt = self.build_system_prompt(learned)?;
+            let rendered_prompt = self.build_system_prompt(learned)?;
             log::info!("[agent] system prompt built — initialising conversation history");
             log::info!(
                 "[agent_loop] system prompt built chars={}",
-                system_prompt.chars().count()
+                rendered_prompt.text.chars().count()
             );
-            log::debug!("[agent_loop] system prompt body:\n{system_prompt}");
+            log::debug!("[agent_loop] system prompt body:\n{}", rendered_prompt.text);
+            self.system_prompt_cache_boundary = rendered_prompt.cache_boundary;
             self.history
                 .push(ConversationMessage::Chat(ChatMessage::system(
-                    system_prompt,
+                    rendered_prompt.text,
                 )));
         } else {
             // Deliberately do NOT rebuild the system prompt on subsequent
@@ -239,7 +242,7 @@ impl Agent {
                             } else {
                                 None
                             },
-                            system_prompt_cache_boundary: None,
+                            system_prompt_cache_boundary: self.system_prompt_cache_boundary,
                         },
                         &effective_model,
                         self.temperature,
@@ -656,7 +659,7 @@ impl Agent {
             system_prompt: Arc::new(system_prompt),
             tool_specs: Arc::clone(&self.visible_tool_specs),
             message_prefix: Arc::new(messages),
-            cache_boundary: None,
+            cache_boundary: self.system_prompt_cache_boundary,
             fork_task_prompt,
         }
     }
@@ -751,7 +754,10 @@ impl Agent {
 
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
-    pub(super) fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
+    pub(super) fn build_system_prompt(
+        &self,
+        learned: LearnedContextData,
+    ) -> Result<RenderedPrompt> {
         let tools_slice: &[Box<dyn Tool>] = self.tools.as_slice();
         let instructions = self.tool_dispatcher.prompt_instructions(tools_slice);
         // Adapt the owned Box<dyn Tool> slice into the shared PromptTool
@@ -770,8 +776,9 @@ impl Agent {
         };
         // Route through the global context manager so every
         // prompt-building call-site — main agent, sub-agent runner,
-        // channel runtimes — shares one builder configuration.
-        self.context.build_system_prompt(&ctx)
+        // channel runtimes — shares one builder configuration while
+        // still preserving cache-boundary metadata for provider calls.
+        self.context.build_system_prompt_with_cache_metadata(&ctx)
     }
 
     // ─────────────────────────────────────────────────────────────────

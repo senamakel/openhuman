@@ -6,6 +6,7 @@ use std::fmt::Write;
 use std::path::Path;
 
 const BOOTSTRAP_MAX_CHARS: usize = 20_000;
+const CACHE_BOUNDARY_MARKER: &str = "<!-- CACHE_BOUNDARY -->";
 
 /// Pre-fetched learned context data for prompt sections (avoids blocking the runtime).
 #[derive(Debug, Clone, Default)]
@@ -91,6 +92,12 @@ pub trait PromptSection: Send + Sync {
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String>;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderedPrompt {
+    pub text: String,
+    pub cache_boundary: Option<usize>,
+}
+
 #[derive(Default)]
 pub struct SystemPromptBuilder {
     sections: Vec<Box<dyn PromptSection>>,
@@ -165,6 +172,10 @@ impl SystemPromptBuilder {
     }
 
     pub fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        Ok(self.build_with_cache_metadata(ctx)?.text)
+    }
+
+    pub fn build_with_cache_metadata(&self, ctx: &PromptContext<'_>) -> Result<RenderedPrompt> {
         let mut output = String::new();
         let mut cache_boundary_inserted = false;
         for section in &self.sections {
@@ -176,13 +187,34 @@ impl SystemPromptBuilder {
             // Static sections (identity, tools, safety, skills) are cacheable;
             // dynamic sections (workspace, datetime, runtime) change per request.
             if !cache_boundary_inserted && is_dynamic_section(section.name()) {
-                output.push_str("<!-- CACHE_BOUNDARY -->\n\n");
+                output.push_str(CACHE_BOUNDARY_MARKER);
+                output.push_str("\n\n");
                 cache_boundary_inserted = true;
             }
             output.push_str(part.trim_end());
             output.push_str("\n\n");
         }
-        Ok(output)
+        Ok(extract_cache_boundary(&output))
+    }
+}
+
+pub fn extract_cache_boundary(rendered: &str) -> RenderedPrompt {
+    if let Some(marker_idx) = rendered.find(CACHE_BOUNDARY_MARKER) {
+        let mut text = rendered.to_string();
+        let end = marker_idx + CACHE_BOUNDARY_MARKER.len();
+        text.replace_range(marker_idx..end, "");
+        if text[marker_idx..].starts_with("\n\n") {
+            text.replace_range(marker_idx..marker_idx + 2, "");
+        }
+        return RenderedPrompt {
+            text,
+            cache_boundary: Some(marker_idx),
+        };
+    }
+
+    RenderedPrompt {
+        text: rendered.to_string(),
+        cache_boundary: None,
     }
 }
 
@@ -560,7 +592,14 @@ pub fn render_subagent_system_prompt(
         );
     }
 
-    // 4. Workspace so the model knows where it is. Intentionally stable:
+    // 4. Insert the cache boundary before the dynamic tail. Typed
+    //    sub-agents keep the narrow/static instructions above this
+    //    marker and thread the resulting byte offset through the
+    //    provider request so repeat spawns can reuse prompt prefill.
+    out.push_str(CACHE_BOUNDARY_MARKER);
+    out.push_str("\n\n");
+
+    // 5. Workspace so the model knows where it is. Intentionally stable:
     //    no datetime, no hostname, no pid — see the KV-cache note above.
     let _ = writeln!(
         out,
@@ -568,7 +607,7 @@ pub fn render_subagent_system_prompt(
         workspace_dir.display()
     );
 
-    // 5. Runtime banner — model name only. Stable for the lifetime of
+    // 6. Runtime banner — model name only. Stable for the lifetime of
     //    this sub-agent's definition.
     let _ = writeln!(out, "## Runtime\n\nModel: {model_name}");
 
@@ -719,10 +758,14 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
         };
-        let prompt = SystemPromptBuilder::with_defaults().build(&ctx).unwrap();
-        assert!(prompt.contains("## Tools"));
-        assert!(prompt.contains("test_tool"));
-        assert!(prompt.contains("instr"));
+        let rendered = SystemPromptBuilder::with_defaults()
+            .build_with_cache_metadata(&ctx)
+            .unwrap();
+        assert!(rendered.text.contains("## Tools"));
+        assert!(rendered.text.contains("test_tool"));
+        assert!(rendered.text.contains("instr"));
+        assert!(!rendered.text.contains(CACHE_BOUNDARY_MARKER));
+        assert!(rendered.cache_boundary.is_some());
     }
 
     #[test]
@@ -782,5 +825,40 @@ mod tests {
         assert!(payload.chars().any(|c| c.is_ascii_digit()));
         assert!(payload.contains(" ("));
         assert!(payload.ends_with(')'));
+    }
+
+    #[test]
+    fn extract_cache_boundary_removes_marker_and_returns_offset() {
+        let rendered = extract_cache_boundary("static\n\n<!-- CACHE_BOUNDARY -->\n\ndynamic\n");
+        assert_eq!(rendered.text, "static\n\ndynamic\n");
+        assert_eq!(rendered.cache_boundary, Some("static\n\n".len()));
+    }
+
+    #[test]
+    fn render_subagent_system_prompt_includes_cache_boundary_before_workspace() {
+        let workspace = std::env::temp_dir().join(format!(
+            "openhuman_prompt_subagent_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+        let rendered = extract_cache_boundary(&render_subagent_system_prompt(
+            &workspace,
+            "test-model",
+            &[0],
+            &tools,
+            "You are a focused sub-agent.",
+            SubagentRenderOptions::narrow(),
+        ));
+
+        assert!(
+            rendered.cache_boundary.is_some(),
+            "typed sub-agent prompts should expose an explicit cache boundary"
+        );
+        assert!(rendered.text.contains("## Workspace"));
+        assert!(!rendered.text.contains(CACHE_BOUNDARY_MARKER));
+
+        let _ = std::fs::remove_dir_all(workspace);
     }
 }

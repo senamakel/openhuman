@@ -5,7 +5,6 @@
 //! transcription. These functions are typically invoked via RPC or CLI.
 
 use chrono::Utc;
-use serde_json::json;
 
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;

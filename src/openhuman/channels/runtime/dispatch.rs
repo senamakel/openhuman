@@ -1,5 +1,6 @@
 //! Channel runtime loop and message processing.
 
+use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::run_tool_call_loop;
 use crate::openhuman::channels::context::{
     build_memory_context, compact_sender_history, conversation_history_key,
@@ -11,7 +12,6 @@ use crate::openhuman::channels::routes::{
 };
 use crate::openhuman::channels::traits;
 use crate::openhuman::channels::{Channel, SendMessage};
-use crate::openhuman::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::providers::{self, ChatMessage};
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::sync::Arc;

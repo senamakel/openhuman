@@ -2,6 +2,7 @@
 
 use super::dispatch::run_message_dispatch_loop;
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
+use crate::core::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
 use crate::openhuman::agent::harness::build_tool_instructions;
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::channels::context::{
@@ -30,7 +31,6 @@ use crate::openhuman::channels::whatsapp::WhatsAppChannel;
 use crate::openhuman::channels::whatsapp_web::WhatsAppWebChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
-use crate::openhuman::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
 use crate::openhuman::memory::{self, Memory};
 use crate::openhuman::providers::{self, Provider};
 use crate::openhuman::security::SecurityPolicy;

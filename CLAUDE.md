@@ -287,13 +287,13 @@ Skills runtime uses **QuickJS** (`rquickjs`) in **`src/openhuman/skills/`** (e.g
 - Keep adapters generic: do not add domain-specific logic to `src/core/cli.rs` or `src/core/jsonrpc.rs`.
 - Remove migrated method branches from `src/rpc/dispatch.rs` once registry coverage is in place.
 
-### Event bus (`src/openhuman/event_bus/`)
+### Event bus (`src/core/event_bus/`)
 
 A typed pub/sub event bus for **decoupled cross-module communication** plus a typed request/response surface backed by the same registered controllers used by JSON-RPC. The bus is a **singleton** — one instance handles all events for the entire application. Do **not** construct `EventBus` directly; use the module-level functions.
 
 **When to use the event bus:** Use events when a module needs to _notify_ other modules of something that happened (fire-and-forget). Use the bus request API when you want a typed in-process call through the shared controller registry without adding separate transport glue.
 
-**Core types** (all in `src/openhuman/event_bus/`):
+**Core types** (all in `src/core/event_bus/`):
 
 | Type | File | Purpose |
 |------|------|---------|
@@ -332,7 +332,7 @@ A typed pub/sub event bus for **decoupled cross-module communication** plus a ty
 
 **Example — publishing:**
 ```rust
-use crate::openhuman::event_bus::{publish_global, DomainEvent};
+use crate::core::event_bus::{publish_global, DomainEvent};
 
 publish_global(DomainEvent::CronDeliveryRequested {
     job_id: job.id.clone(),
@@ -344,7 +344,7 @@ publish_global(DomainEvent::CronDeliveryRequested {
 
 **Example — subscribing (trait-based, in `<domain>/bus.rs`):**
 ```rust
-use crate::openhuman::event_bus::{DomainEvent, EventHandler};
+use crate::core::event_bus::{DomainEvent, EventHandler};
 use async_trait::async_trait;
 
 pub struct MyDomainSubscriber { /* dependencies */ }

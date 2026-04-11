@@ -7,7 +7,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use crate::openhuman::event_bus::{publish_global, subscribe_global, DomainEvent};
+//! use crate::core::event_bus::{publish_global, subscribe_global, DomainEvent};
 //!
 //! // Publish from anywhere
 //! publish_global(DomainEvent::SystemStartup { component: "example".into() });

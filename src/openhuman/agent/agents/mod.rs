@@ -90,6 +90,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         toml: include_str!("archivist/agent.toml"),
         prompt: include_str!("archivist/prompt.md"),
     },
+    BuiltinAgent {
+        id: "trigger_triage",
+        toml: include_str!("trigger_triage/agent.toml"),
+        prompt: include_str!("trigger_triage/prompt.md"),
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].
@@ -135,7 +140,28 @@ mod tests {
     fn all_builtins_parse() {
         let defs = load_builtins().expect("built-in TOML must parse");
         assert_eq!(defs.len(), BUILTINS.len());
-        assert_eq!(defs.len(), 8, "expected 8 built-in agents");
+        assert_eq!(defs.len(), 9, "expected 9 built-in agents");
+    }
+
+    #[test]
+    fn trigger_triage_has_no_tools_and_pulls_memory_context() {
+        let def = find("trigger_triage");
+        match &def.tools {
+            ToolScope::Named(tools) => assert!(
+                tools.is_empty(),
+                "trigger_triage must have zero tools (got {tools:?})"
+            ),
+            ToolScope::Wildcard => panic!("trigger_triage must have a Named empty tool scope"),
+        }
+        assert!(
+            !def.omit_memory_context,
+            "trigger_triage needs global memory/context to reason about triggers"
+        );
+        assert!(def.omit_identity);
+        assert!(def.omit_safety_preamble);
+        assert!(def.omit_skills_catalog);
+        assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+        assert_eq!(def.max_iterations, 2);
     }
 
     #[test]

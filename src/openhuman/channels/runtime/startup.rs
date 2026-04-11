@@ -49,6 +49,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
     crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
+    crate::openhuman::composio::register_composio_trigger_subscriber();
     tracing::debug!("[event_bus] global singleton initialized in start_channels");
 
     // Initialise the sub-agent definition registry from this workspace.

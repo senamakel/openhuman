@@ -13,7 +13,7 @@ Return **only** valid JSON matching this schema:
     {
       "id": "task-1",
       "description": "Clear, actionable instruction for the sub-agent",
-      "archetype": "code_executor",
+      "agent_id": "code_executor",
       "depends_on": [],
       "acceptance_criteria": "How to verify this task is done correctly"
     }
@@ -21,7 +21,7 @@ Return **only** valid JSON matching this schema:
 }
 ```
 
-## Available Archetypes
+## Available Agent IDs
 
 - `code_executor` — Writes and runs code. Use for implementation tasks.
 - `skills_agent` — Executes skill tools (Notion, Gmail, etc.). Use for service interactions.

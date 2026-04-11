@@ -384,6 +384,96 @@ fn is_dynamic_section(name: &str) -> bool {
     matches!(name, "workspace" | "datetime" | "runtime")
 }
 
+/// Render a narrow, KV-cache-stable system prompt for a typed sub-agent.
+///
+/// This is a purpose-built alternative to
+/// [`SystemPromptBuilder::for_subagent`] for call sites that only have
+/// indices into the parent's `&[Box<dyn Tool>]` vec (so they can't
+/// cheaply build a filtered owning slice for `ToolsSection`). The
+/// output mirrors what `for_subagent` would emit with
+/// `omit_identity = omit_safety_preamble = omit_skills_catalog = true`,
+/// plus a sub-agent-specific calling-convention preamble and a
+/// model-only runtime banner.
+///
+/// `archetype_body` is the already-loaded archetype markdown — for
+/// `PromptSource::Inline` this is the inline string, for
+/// `PromptSource::File` this is the file contents loaded by the caller.
+/// Callers resolve the source exactly once and hand the body in, so
+/// this renderer works uniformly for both definition shapes.
+///
+/// # KV cache stability
+///
+/// The rendered bytes MUST be a pure function of:
+/// - the `archetype_body` (archetype role prompt)
+/// - the filtered tool set (names, descriptions, schemas)
+/// - the workspace directory
+/// - the resolved model name
+///
+/// Anything that varies across invocations at the *same* call site
+/// (e.g. `chrono::Local::now()`, hostnames, pids, turn counters) is
+/// forbidden here. Repeat spawns of the same sub-agent within a session
+/// must produce byte-identical system prompts so the inference
+/// backend's automatic prefix caching can reuse the prefill from the
+/// previous run. Time-of-day information, if a sub-agent needs it,
+/// belongs in the user message — not the system prompt.
+pub fn render_subagent_system_prompt(
+    workspace_dir: &Path,
+    model_name: &str,
+    allowed_indices: &[usize],
+    parent_tools: &[Box<dyn Tool>],
+    archetype_body: &str,
+) -> String {
+    let mut out = String::new();
+
+    // 1. Archetype role prompt. Works for both `PromptSource::Inline`
+    //    and `PromptSource::File` because the caller preloaded the
+    //    body via `load_prompt_source`.
+    let trimmed = archetype_body.trim();
+    if !trimmed.is_empty() {
+        out.push_str(trimmed);
+        out.push_str("\n\n");
+    }
+
+    // 2. Filtered tool catalogue. Indices are taken in ascending order
+    //    from `allowed_indices`, which itself preserves `parent_tools`
+    //    order, so the rendering is deterministic.
+    out.push_str("## Tools\n\n");
+    for &i in allowed_indices {
+        let tool = &parent_tools[i];
+        let _ = writeln!(
+            out,
+            "- **{}**: {}\n  Parameters: `{}`",
+            tool.name(),
+            tool.description(),
+            tool.parameters_schema()
+        );
+    }
+
+    // 3. Sub-agent calling-convention preamble. Mirrors the existing
+    //    NativeToolDispatcher hint that gets baked into the parent's
+    //    prompt — sub-agents need it too.
+    out.push('\n');
+    out.push_str(
+        "Use the provided tools to accomplish the task. Reply with a concise, dense \
+                 final answer when you have one — the parent agent will weave it back into the \
+                 user-visible response.\n\n",
+    );
+
+    // 4. Workspace so the model knows where it is. Intentionally stable:
+    //    no datetime, no hostname, no pid — see the KV-cache note above.
+    let _ = writeln!(
+        out,
+        "## Workspace\n\nWorking directory: `{}`\n",
+        workspace_dir.display()
+    );
+
+    // 5. Runtime banner — model name only. Stable for the lifetime of
+    //    this sub-agent's definition.
+    let _ = writeln!(out, "## Runtime\n\nModel: {model_name}");
+
+    out
+}
+
 /// Ensure the workspace file is up-to-date with the compiled-in default.
 ///
 /// On first install the file doesn't exist → write it. On subsequent runs

@@ -1,4 +1,25 @@
-//! System prompt construction for channel interactions.
+//! System prompt construction for channel runtimes.
+//!
+//! Channel runtimes (Discord, Slack, Telegram, …) need a system prompt
+//! that is shaped differently from the main agent's:
+//!
+//! - Tool descriptions come in as `(name, description)` tuples from
+//!   the channel's tool registry, not as `Box<dyn Tool>` instances.
+//! - The prompt includes channel-specific preambles (the "Your Task"
+//!   action instruction, the "Channel Capabilities" section) that the
+//!   main agent's builder doesn't emit.
+//! - The datetime block is timezone-only — channel startup happens
+//!   once per process, so we keep the prompt byte-stable within a run
+//!   to maximise prefix-cache hits on the inference backend.
+//!
+//! Because the byte layout must not drift during consolidation
+//! (channel prompts are live in production), this module keeps its
+//! bespoke [`build_system_prompt`] free function rather than routing
+//! through [`super::SystemPromptBuilder`]. The file lives here under
+//! `context/` so every system-prompt-building code path — main
+//! agents, sub-agents, channel runtimes — has a single home. See the
+//! `misty-bubbling-bunny` plan file for the roadmap toward a unified
+//! builder.
 
 use std::path::Path;
 

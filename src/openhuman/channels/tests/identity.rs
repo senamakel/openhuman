@@ -1,4 +1,4 @@
-use super::super::prompt::build_system_prompt;
+use crate::openhuman::context::channels_prompt::build_system_prompt;
 use super::common::make_workspace;
 
 /// `build_system_prompt` loads OpenClaw markdown identity files from the

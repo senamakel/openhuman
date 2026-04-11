@@ -28,6 +28,7 @@
 //! Submodules are added incrementally as the `agent/` → `context/`
 //! migration lands (see plan `misty-bubbling-bunny.md`).
 
+pub mod channels_prompt;
 pub mod guard;
 pub mod manager;
 pub mod microcompact;

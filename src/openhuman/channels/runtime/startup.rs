@@ -19,7 +19,7 @@ use crate::openhuman::channels::linq::LinqChannel;
 #[cfg(feature = "channel-matrix")]
 use crate::openhuman::channels::matrix::MatrixChannel;
 use crate::openhuman::channels::mattermost::MattermostChannel;
-use crate::openhuman::channels::prompt::build_system_prompt;
+use crate::openhuman::context::channels_prompt::build_system_prompt;
 use crate::openhuman::channels::qq::QQChannel;
 use crate::openhuman::channels::signal::SignalChannel;
 use crate::openhuman::channels::slack::SlackChannel;

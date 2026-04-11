@@ -819,7 +819,7 @@ fn register_domain_subscribers(workspace_dir: std::path::PathBuf) {
         crate::openhuman::agent::bus::register_agent_handlers();
 
         log::info!(
-            "[event_bus] webhook, channel, health, skill, composio, restart subscribers + agent native handlers registered"
+            "[event_bus] webhook, channel, health, conversation persistence, composio, restart subscribers + agent native handlers registered"
         );
     });
 }

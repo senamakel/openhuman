@@ -45,7 +45,7 @@ export interface SanitizedSentryEvent {
 export interface PendingErrorReport {
   id: string;
   timestamp: number;
-  source: 'react' | 'global' | 'skill' | 'manual';
+  source: 'react' | 'global' | 'manual';
   title: string;
   message: string;
   componentStack?: string;

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 export interface UnifiedSkillCardProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
   statusDot?: string;
@@ -12,7 +13,7 @@ export interface UnifiedSkillCardProps {
   onCtaClick: () => void;
   secondaryActions?: Array<{
     label: string;
-    icon: React.ReactNode;
+    icon: ReactNode;
     onClick: () => void;
     disabled?: boolean;
     testId?: string;

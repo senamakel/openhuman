@@ -1,3 +1,4 @@
+import createDebug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -12,6 +13,8 @@ import {
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import CoreJobList from './cron/CoreJobList';
+
+const loadCronJobsLog = createDebug('app:settings:CronJobsPanel:loadCronSkills');
 
 const CronJobsPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
@@ -33,13 +36,16 @@ const CronJobsPanel = () => {
     setCoreJobs(sorted);
   }, []);
 
-  const loadCronSkills = useCallback(async () => {
+  const loadCoreCronJobsOnly = useCallback(async () => {
+    loadCronJobsLog('start');
     setLoading(true);
     setCoreError(null);
 
     try {
       await loadCoreCronJobs();
+      loadCronJobsLog('success');
     } catch (err) {
+      loadCronJobsLog('failure', err);
       const message = err instanceof Error ? err.message : String(err);
       setCoreError(`Failed to load core cron jobs: ${message}`);
     } finally {
@@ -48,8 +54,8 @@ const CronJobsPanel = () => {
   }, [loadCoreCronJobs]);
 
   useEffect(() => {
-    void loadCronSkills();
-  }, [loadCronSkills]);
+    void loadCoreCronJobsOnly();
+  }, [loadCoreCronJobsOnly]);
 
   const toggleCoreJob = async (job: CoreCronJob) => {
     const key = `core-toggle:${job.id}`;
@@ -157,7 +163,7 @@ const CronJobsPanel = () => {
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            onClick={() => void loadCronSkills()}>
+            onClick={() => void loadCoreCronJobsOnly()}>
             Refresh Cron Jobs
           </button>
         </div>

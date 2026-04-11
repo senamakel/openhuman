@@ -62,8 +62,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "list_toolkits" => ControllerSchema {
             namespace: "composio",
             function: "list_toolkits",
-            description:
-                "List the Composio toolkits currently enabled on the backend allowlist.",
+            description: "List the Composio toolkits currently enabled on the backend allowlist.",
             inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "toolkits",
@@ -148,8 +147,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "execute" => ControllerSchema {
             namespace: "composio",
             function: "execute",
-            description:
-                "Execute a Composio action (tool slug) against a connected account.",
+            description: "Execute a Composio action (tool slug) against a connected account.",
             inputs: vec![
                 FieldSchema {
                     name: "tool",

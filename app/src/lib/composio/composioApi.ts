@@ -11,7 +11,6 @@
  * files stylistically consistent so the parallel domain stays easy to
  * grok.
  */
-
 import { callCoreRpc } from '../../services/coreRpcClient';
 import type {
   ComposioAuthorizeResponse,
@@ -25,9 +24,7 @@ import type {
 // ── Read operations ───────────────────────────────────────────────
 
 export async function listToolkits(): Promise<ComposioToolkitsResponse> {
-  return callCoreRpc<ComposioToolkitsResponse>({
-    method: 'openhuman.composio_list_toolkits',
-  });
+  return callCoreRpc<ComposioToolkitsResponse>({ method: 'openhuman.composio_list_toolkits' });
 }
 
 export async function listConnections(): Promise<ComposioConnectionsResponse> {
@@ -36,9 +33,7 @@ export async function listConnections(): Promise<ComposioConnectionsResponse> {
   });
 }
 
-export async function listTools(
-  toolkits?: string[],
-): Promise<ComposioToolsResponse> {
+export async function listTools(toolkits?: string[]): Promise<ComposioToolsResponse> {
   return callCoreRpc<ComposioToolsResponse>({
     method: 'openhuman.composio_list_tools',
     params: toolkits && toolkits.length > 0 ? { toolkits } : {},
@@ -52,9 +47,7 @@ export async function listTools(
  * must be opened in a browser for the user to complete the flow.
  * The core publishes a `ComposioConnectionCreated` event on success.
  */
-export async function authorize(
-  toolkit: string,
-): Promise<ComposioAuthorizeResponse> {
+export async function authorize(toolkit: string): Promise<ComposioAuthorizeResponse> {
   return callCoreRpc<ComposioAuthorizeResponse>({
     method: 'openhuman.composio_authorize',
     params: { toolkit },
@@ -65,9 +58,7 @@ export async function authorize(
  * Delete an existing Composio connection. Backend verifies ownership
  * before forwarding to Composio.
  */
-export async function deleteConnection(
-  connectionId: string,
-): Promise<ComposioDeleteResponse> {
+export async function deleteConnection(connectionId: string): Promise<ComposioDeleteResponse> {
   return callCoreRpc<ComposioDeleteResponse>({
     method: 'openhuman.composio_delete_connection',
     params: { connection_id: connectionId },
@@ -81,7 +72,7 @@ export async function deleteConnection(
  */
 export async function execute(
   tool: string,
-  args?: Record<string, unknown>,
+  args?: Record<string, unknown>
 ): Promise<ComposioExecuteResponse> {
   return callCoreRpc<ComposioExecuteResponse>({
     method: 'openhuman.composio_execute',

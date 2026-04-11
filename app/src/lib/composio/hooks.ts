@@ -113,12 +113,5 @@ export function useComposioIntegrations(pollIntervalMs = 5_000): UseComposioInte
     return map;
   }, [connections]);
 
-  return {
-    toolkits,
-    connectionByToolkit,
-    loading,
-    error,
-    refresh,
-    disabled,
-  };
+  return { toolkits, connectionByToolkit, loading, error, refresh, disabled };
 }

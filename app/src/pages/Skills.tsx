@@ -17,7 +17,7 @@ import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligenc
 import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
 import { useComposioIntegrations } from '../lib/composio/hooks';
-import { deriveComposioState, type ComposioConnection } from '../lib/composio/types';
+import { type ComposioConnection, deriveComposioState } from '../lib/composio/types';
 import { useAvailableSkills } from '../lib/skills/hooks';
 import { installSkill } from '../lib/skills/skillsApi';
 import { useAppSelector } from '../store/hooks';
@@ -209,7 +209,7 @@ export default function Skills() {
   const [activeSkillHasSetup, setActiveSkillHasSetup] = useState(false);
   const [channelModalDef, setChannelModalDef] = useState<ChannelDefinition | null>(null);
   const [composioModalToolkit, setComposioModalToolkit] = useState<ComposioToolkitMeta | null>(
-    null,
+    null
   );
   const [installing, setInstalling] = useState<string | null>(null);
   const [screenIntelligenceModalOpen, setScreenIntelligenceModalOpen] = useState(false);
@@ -539,11 +539,7 @@ export default function Skills() {
                                 ? 'Retry'
                                 : 'Connect';
                         const ctaVariant: 'primary' | 'sage' | 'amber' =
-                          state === 'connected'
-                            ? 'sage'
-                            : state === 'error'
-                              ? 'amber'
-                              : 'primary';
+                          state === 'connected' ? 'sage' : state === 'error' ? 'amber' : 'primary';
                         return (
                           <UnifiedSkillCard
                             key={item.id}

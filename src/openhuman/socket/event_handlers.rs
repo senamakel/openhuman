@@ -145,9 +145,7 @@ pub(super) fn handle_sio_event(
                 .to_string();
 
             if toolkit.is_empty() || trigger.is_empty() {
-                log::warn!(
-                    "[socket] composio:trigger missing toolkit/trigger; dropping event"
-                );
+                log::warn!("[socket] composio:trigger missing toolkit/trigger; dropping event");
             } else {
                 publish_global(DomainEvent::ComposioTriggerReceived {
                     toolkit,

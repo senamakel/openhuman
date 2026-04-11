@@ -63,21 +63,15 @@ export interface ComposioExecuteResponse {
  * Mirrors the `SkillConnectionStatus` shape so the same
  * `UnifiedSkillCard` can render both.
  */
-export type ComposioConnectionState =
-  | 'disconnected'
-  | 'pending'
-  | 'connected'
-  | 'error';
+export type ComposioConnectionState = 'disconnected' | 'pending' | 'connected' | 'error';
 
 export function deriveComposioState(
-  connection: ComposioConnection | undefined,
+  connection: ComposioConnection | undefined
 ): ComposioConnectionState {
   if (!connection) return 'disconnected';
   const status = connection.status.toUpperCase();
   if (status === 'ACTIVE' || status === 'CONNECTED') return 'connected';
-  if (status === 'PENDING' || status === 'INITIATED' || status === 'INITIALIZING')
-    return 'pending';
-  if (status === 'FAILED' || status === 'ERROR' || status === 'EXPIRED')
-    return 'error';
+  if (status === 'PENDING' || status === 'INITIATED' || status === 'INITIALIZING') return 'pending';
+  if (status === 'FAILED' || status === 'ERROR' || status === 'EXPIRED') return 'error';
   return 'disconnected';
 }

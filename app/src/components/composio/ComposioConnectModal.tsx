@@ -13,25 +13,15 @@
  * keep the Skills page badge in sync too, so the card reflects the new
  * state as soon as the modal closes.
  */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { authorize, deleteConnection, listConnections } from '../../lib/composio/composioApi';
-import {
-  deriveComposioState,
-  type ComposioConnection,
-} from '../../lib/composio/types';
+import { type ComposioConnection, deriveComposioState } from '../../lib/composio/types';
 import { openUrl } from '../../utils/openUrl';
 import type { ComposioToolkitMeta } from './toolkitMeta';
 
-type Phase =
-  | 'idle'
-  | 'authorizing'
-  | 'waiting'
-  | 'connected'
-  | 'disconnecting'
-  | 'error';
+type Phase = 'idle' | 'authorizing' | 'waiting' | 'connected' | 'disconnecting' | 'error';
 
 interface ComposioConnectModalProps {
   toolkit: ComposioToolkitMeta;
@@ -60,7 +50,7 @@ export default function ComposioConnectModal({
   const [error, setError] = useState<string | null>(null);
   const [connectUrl, setConnectUrl] = useState<string | null>(null);
   const [activeConnection, setActiveConnection] = useState<ComposioConnection | undefined>(
-    connection,
+    connection
   );
 
   // Escape to close
@@ -98,7 +88,7 @@ export default function ComposioConnectModal({
       try {
         const resp = await listConnections();
         const hit = resp.connections.find(
-          c => c.toolkit.toLowerCase() === toolkit.slug.toLowerCase(),
+          c => c.toolkit.toLowerCase() === toolkit.slug.toLowerCase()
         );
         if (hit) {
           setActiveConnection(hit);
@@ -125,7 +115,7 @@ export default function ComposioConnectModal({
         stopPolling();
         setPhase('error');
         setError(
-          'Timed out waiting for OAuth to complete. Please retry or check that the browser finished the flow.',
+          'Timed out waiting for OAuth to complete. Please retry or check that the browser finished the flow.'
         );
       }
     };
@@ -171,8 +161,7 @@ export default function ComposioConnectModal({
     if (e.target === e.currentTarget) onClose();
   };
 
-  const headerTitle =
-    phase === 'connected' ? `Manage ${toolkit.name}` : `Connect ${toolkit.name}`;
+  const headerTitle = phase === 'connected' ? `Manage ${toolkit.name}` : `Connect ${toolkit.name}`;
 
   const modalContent = (
     <div
@@ -197,29 +186,21 @@ export default function ComposioConnectModal({
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 <span className="text-lg">{toolkit.icon}</span>
-                <h2
-                  id="composio-setup-title"
-                  className="text-base font-semibold text-stone-900">
+                <h2 id="composio-setup-title" className="text-base font-semibold text-stone-900">
                   {headerTitle}
                 </h2>
                 <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-primary-500/15 text-primary-600">
                   composio
                 </span>
               </div>
-              <p className="text-xs text-stone-400 mt-1.5 line-clamp-2">
-                {toolkit.description}
-              </p>
+              <p className="text-xs text-stone-400 mt-1.5 line-clamp-2">{toolkit.description}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="p-1 text-stone-400 hover:text-stone-900 transition-colors rounded-lg hover:bg-stone-100 flex-shrink-0"
               aria-label="Close">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -236,9 +217,9 @@ export default function ComposioConnectModal({
           {phase === 'idle' && (
             <>
               <p className="text-sm text-stone-600">
-                Connect your {toolkit.name} account through Composio. We will open a
-                browser window where you can grant access, and then this app will
-                detect the connection automatically.
+                Connect your {toolkit.name} account through Composio. We will open a browser window
+                where you can grant access, and then this app will detect the connection
+                automatically.
               </p>
               <button
                 type="button"
@@ -268,8 +249,8 @@ export default function ComposioConnectModal({
                 </button>
               )}
               <p className="text-xs text-stone-400">
-                Complete the sign-in in your browser. This window will update when
-                the connection is active.
+                Complete the sign-in in your browser. This window will update when the connection is
+                active.
               </p>
             </>
           )}
@@ -294,9 +275,7 @@ export default function ComposioConnectModal({
             </>
           )}
 
-          {phase === 'disconnecting' && (
-            <p className="text-sm text-stone-500">Disconnecting…</p>
-          )}
+          {phase === 'disconnecting' && <p className="text-sm text-stone-500">Disconnecting…</p>}
 
           {phase === 'error' && (
             <>

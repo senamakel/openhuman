@@ -10,7 +10,6 @@
  * Unknown slugs fall back to a generic entry with a title-cased name —
  * new backend toolkits will still render, just without custom copy.
  */
-
 import type { SkillCategory } from '../skills/SkillCategoryFilter';
 
 export interface ComposioToolkitMeta {

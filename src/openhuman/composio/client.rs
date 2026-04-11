@@ -168,10 +168,7 @@ impl ComposioClient {
 
         let resp = http_client
             .delete(&url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.inner.auth_token),
-            )
+            .header("Authorization", format!("Bearer {}", self.inner.auth_token))
             .send()
             .await?;
 
@@ -194,9 +191,9 @@ impl ComposioClient {
                 .unwrap_or_else(|| "unknown backend error".into());
             anyhow::bail!("Backend error for DELETE {}: {}", url, msg);
         }
-        envelope
-            .data
-            .ok_or_else(|| anyhow::anyhow!("Backend returned success but no data for DELETE {}", url))
+        envelope.data.ok_or_else(|| {
+            anyhow::anyhow!("Backend returned success but no data for DELETE {}", url)
+        })
     }
 }
 

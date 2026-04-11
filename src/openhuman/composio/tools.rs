@@ -157,7 +157,9 @@ impl Tool for ComposioAuthorizeTool {
             .trim()
             .to_string();
         if toolkit.is_empty() {
-            return Ok(ToolResult::error("composio_authorize: 'toolkit' is required"));
+            return Ok(ToolResult::error(
+                "composio_authorize: 'toolkit' is required",
+            ));
         }
         tracing::debug!(toolkit = %toolkit, "[composio] tool authorize.execute");
         match self.client.authorize(&toolkit).await {
@@ -174,9 +176,7 @@ impl Tool for ComposioAuthorizeTool {
                     resp.connect_url, resp.connection_id
                 )))
             }
-            Err(e) => Ok(ToolResult::error(format!(
-                "composio_authorize failed: {e}"
-            ))),
+            Err(e) => Ok(ToolResult::error(format!("composio_authorize failed: {e}"))),
         }
     }
 }
@@ -221,14 +221,11 @@ impl Tool for ComposioListToolsTool {
         PermissionLevel::ReadOnly
     }
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let toolkits = args
-            .get("toolkits")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(str::to_string))
-                    .collect::<Vec<_>>()
-            });
+        let toolkits = args.get("toolkits").and_then(|v| v.as_array()).map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        });
         tracing::debug!(?toolkits, "[composio] tool list_tools.execute");
         match self.client.list_tools(toolkits.as_deref()).await {
             Ok(resp) => Ok(ToolResult::success(

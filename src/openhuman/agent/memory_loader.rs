@@ -2,7 +2,7 @@ use crate::openhuman::memory::Memory;
 use async_trait::async_trait;
 use std::collections::HashSet;
 
-use super::loop_::memory_context::{WORKING_MEMORY_KEY_PREFIX, WORKING_MEMORY_LIMIT};
+use super::harness::memory_context::{WORKING_MEMORY_KEY_PREFIX, WORKING_MEMORY_LIMIT};
 
 #[async_trait]
 pub trait MemoryLoader: Send + Sync {

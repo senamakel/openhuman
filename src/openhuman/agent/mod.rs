@@ -10,7 +10,6 @@ pub mod harness;
 pub mod hooks;
 pub mod host_runtime;
 pub mod identity;
-pub mod loop_;
 pub mod memory_loader;
 pub mod multimodal;
 pub mod prompt;
@@ -27,4 +26,4 @@ mod tests;
 #[allow(unused_imports)]
 pub use agent::{Agent, AgentBuilder};
 #[allow(unused_imports)]
-pub use loop_::{process_message, run};
+pub use harness::{process_message, run};

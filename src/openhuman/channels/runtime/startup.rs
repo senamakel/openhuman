@@ -3,7 +3,7 @@
 use super::dispatch::run_message_dispatch_loop;
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
 use crate::openhuman::agent::host_runtime;
-use crate::openhuman::agent::loop_::build_tool_instructions;
+use crate::openhuman::agent::harness::build_tool_instructions;
 use crate::openhuman::channels::context::{
     effective_channel_message_timeout_secs, ChannelRuntimeContext,
     DEFAULT_CHANNEL_INITIAL_BACKOFF_SECS, DEFAULT_CHANNEL_MAX_BACKOFF_SECS,

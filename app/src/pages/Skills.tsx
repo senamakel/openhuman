@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
-import { composioToolkitMeta, type ComposioToolkitMeta } from '../components/composio/toolkitMeta';
+import {
+  composioToolkitMeta,
+  KNOWN_COMPOSIO_TOOLKITS,
+  type ComposioToolkitMeta,
+} from '../components/composio/toolkitMeta';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
-import { SKILL_ICONS, type SkillListEntry } from '../components/skills/shared';
-import UnifiedSkillCard, { ThirdPartySkillCard } from '../components/skills/SkillCard';
+import UnifiedSkillCard from '../components/skills/SkillCard';
 import SkillCategoryFilter, { type SkillCategory } from '../components/skills/SkillCategoryFilter';
 import SkillSearchBar from '../components/skills/SkillSearchBar';
-import SkillSetupModal from '../components/skills/SkillSetupModal';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import { useAutocompleteSkillStatus } from '../features/autocomplete/useAutocompleteSkillStatus';
 import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
@@ -18,11 +20,8 @@ import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
 import { useComposioIntegrations } from '../lib/composio/hooks';
 import { type ComposioConnection, deriveComposioState } from '../lib/composio/types';
-import { useAvailableSkills } from '../lib/skills/hooks';
-import { installSkill } from '../lib/skills/skillsApi';
 import { useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
-import { IS_DEV } from '../utils/config';
 
 const CHANNEL_ICONS: Record<string, string> = {
   telegram: '\u2708\uFE0F',
@@ -174,15 +173,13 @@ interface SkillItem {
   name: string;
   description: string;
   category: SkillCategory;
-  kind: 'builtin' | 'channel' | 'third-party' | 'composio';
+  kind: 'builtin' | 'channel' | 'composio';
   // For built-in
   route?: string;
   icon?: React.ReactNode;
   // For channel
   channelDef?: ChannelDefinition;
   channelStatus?: ChannelConnectionStatus;
-  // For third-party
-  skill?: SkillListEntry;
   // For composio
   composioToolkit?: ComposioToolkitMeta;
   composioConnection?: ComposioConnection;
@@ -192,7 +189,6 @@ interface SkillItem {
 
 export default function Skills() {
   const navigate = useNavigate();
-  const { skills: availableSkills, loading: skillsLoading } = useAvailableSkills();
   const { definitions: channelDefs } = useChannelDefinitions();
   const channelConnections = useAppSelector(state => state.channelConnections);
 
@@ -202,16 +198,10 @@ export default function Skills() {
     refresh: refreshComposio,
   } = useComposioIntegrations();
 
-  const [setupModalOpen, setSetupModalOpen] = useState(false);
-  const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
-  const [activeSkillName, setActiveSkillName] = useState('');
-  const [activeSkillDescription, setActiveSkillDescription] = useState('');
-  const [activeSkillHasSetup, setActiveSkillHasSetup] = useState(false);
   const [channelModalDef, setChannelModalDef] = useState<ChannelDefinition | null>(null);
   const [composioModalToolkit, setComposioModalToolkit] = useState<ComposioToolkitMeta | null>(
     null
   );
-  const [installing, setInstalling] = useState<string | null>(null);
   const [screenIntelligenceModalOpen, setScreenIntelligenceModalOpen] = useState(false);
   const [autocompleteModalOpen, setAutocompleteModalOpen] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -236,39 +226,6 @@ export default function Skills() {
     () => channelDefs.filter(d => d.id !== 'web'),
     [channelDefs]
   );
-
-  const skillsList: SkillListEntry[] = useMemo(() => {
-    return availableSkills
-      .filter(e => {
-        if (e.id.includes('_')) return false;
-        if (!IS_DEV && e.ignore_in_production) return false;
-        return true;
-      })
-      .map(e => ({
-        id: e.id,
-        name: e.name || e.id.charAt(0).toUpperCase() + e.id.slice(1),
-        description: e.description || '',
-        icon: SKILL_ICONS[e.id],
-        ignoreInProduction: e.ignore_in_production,
-        hasSetup: !!(e.setup && e.setup.required),
-      }));
-  }, [availableSkills]);
-
-  const openSkillSetup = async (skill: SkillListEntry) => {
-    try {
-      setInstalling(skill.id);
-      await installSkill(skill.id);
-    } catch (err) {
-      console.warn(`[Skills] install failed for ${skill.id}, continuing anyway:`, err);
-    } finally {
-      setInstalling(null);
-    }
-    setActiveSkillId(skill.id);
-    setActiveSkillName(skill.name);
-    setActiveSkillDescription(skill.description);
-    setActiveSkillHasSetup(skill.hasSetup);
-    setSetupModalOpen(true);
-  };
 
   // Unified item list
   const allItems: SkillItem[] = useMemo(() => {
@@ -299,23 +256,13 @@ export default function Skills() {
       });
     }
 
-    const sortedSkills = [...skillsList].sort((a, b) => a.name.localeCompare(b.name));
-    for (const skill of sortedSkills) {
-      items.push({
-        id: skill.id,
-        name: skill.name,
-        description: skill.description,
-        category: 'Other',
-        kind: 'third-party',
-        skill,
-      });
-    }
-
     // Composio toolkits — rendered with the same UnifiedSkillCard used
     // for channels/skills so they sit flush in the grid. Each entry is
     // keyed by slug and routed through `ComposioConnectModal` for the
     // authorize/OAuth/poll flow.
-    const sortedToolkits = [...composioToolkits].sort((a, b) => a.localeCompare(b));
+    const sortedToolkits = Array.from(
+      new Set([...KNOWN_COMPOSIO_TOOLKITS, ...composioToolkits.map(slug => slug.toLowerCase())])
+    ).sort((a, b) => a.localeCompare(b));
     for (const slug of sortedToolkits) {
       const meta = composioToolkitMeta(slug);
       const connection = composioConnectionByToolkit.get(meta.slug);
@@ -323,7 +270,7 @@ export default function Skills() {
         id: `composio-${meta.slug}`,
         name: meta.name,
         description: meta.description,
-        category: meta.category,
+        category: 'Other',
         kind: 'composio',
         icon: <span className="text-lg">{meta.icon}</span>,
         composioToolkit: meta,
@@ -334,7 +281,6 @@ export default function Skills() {
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    skillsList,
     configurableChannels,
     channelConnections,
     composioToolkits,
@@ -396,11 +342,7 @@ export default function Skills() {
               onChange={setSelectedCategory}
             />
 
-            {skillsLoading ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-stone-400">Loading skills...</p>
-              </div>
-            ) : filteredItems.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-sm text-stone-400">No skills found</p>
               </div>
@@ -555,15 +497,6 @@ export default function Skills() {
                           />
                         );
                       }
-                      // third-party
-                      return (
-                        <ThirdPartySkillCard
-                          key={item.id}
-                          skill={item.skill!}
-                          isInstalling={installing === item.id}
-                          onSetup={() => openSkillSetup(item.skill!)}
-                        />
-                      );
                     })}
                   </div>
                 </div>
@@ -572,19 +505,6 @@ export default function Skills() {
           </div>
         </div>
       </div>
-
-      {setupModalOpen && activeSkillId && (
-        <SkillSetupModal
-          skillId={activeSkillId}
-          skillName={activeSkillName}
-          skillDescription={activeSkillDescription}
-          hasSetup={activeSkillHasSetup}
-          onClose={() => {
-            setSetupModalOpen(false);
-            setActiveSkillId(null);
-          }}
-        />
-      )}
 
       {channelModalDef && (
         <ChannelSetupModal definition={channelModalDef} onClose={() => setChannelModalDef(null)} />

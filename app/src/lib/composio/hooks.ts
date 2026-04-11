@@ -49,26 +49,53 @@ export function useComposioIntegrations(pollIntervalMs = 5_000): UseComposioInte
   }, []);
 
   const refresh = useCallback(async () => {
+    let nextError: string | null = null;
+    let nextDisabled = false;
     try {
-      const [toolkitsResp, connectionsResp] = await Promise.all([
+      const [toolkitsResult, connectionsResult] = await Promise.allSettled([
         listToolkits(),
         listConnections(),
       ]);
       if (!mountedRef.current) return;
-      setToolkits(toolkitsResp.toolkits ?? []);
-      setConnections(connectionsResp.connections ?? []);
-      setDisabled(false);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      const message = err instanceof Error ? err.message : String(err);
-      // Detect the "composio disabled" error the Rust ops layer emits
-      // so we can render a distinct state rather than a red error.
-      if (/composio is disabled/i.test(message)) {
+
+      if (toolkitsResult.status === 'fulfilled') {
+        setToolkits(toolkitsResult.value.toolkits ?? []);
+      } else {
+        const message =
+          toolkitsResult.reason instanceof Error
+            ? toolkitsResult.reason.message
+            : String(toolkitsResult.reason);
+        console.warn('[composio] toolkit fetch failed:', message);
+        if (/composio is disabled/i.test(message)) {
+          nextDisabled = true;
+        } else {
+          nextError = message;
+        }
+      }
+
+      if (connectionsResult.status === 'fulfilled') {
+        setConnections(connectionsResult.value.connections ?? []);
+      } else {
+        const message =
+          connectionsResult.reason instanceof Error
+            ? connectionsResult.reason.message
+            : String(connectionsResult.reason);
+        console.warn('[composio] connection fetch failed:', message);
+        if (/composio is disabled/i.test(message)) {
+          nextDisabled = true;
+        } else if (!nextError) {
+          nextError = message;
+        }
+      }
+
+      if (nextDisabled) {
+        setToolkits([]);
+        setConnections([]);
         setDisabled(true);
         setError(null);
       } else {
-        setError(message);
+        setDisabled(false);
+        setError(nextError);
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -86,8 +113,11 @@ export function useComposioIntegrations(pollIntervalMs = 5_000): UseComposioInte
           if (!mountedRef.current) return;
           setConnections(resp.connections ?? []);
         })
-        .catch(() => {
-          /* swallow — non-fatal for poll cadence */
+        .catch(err => {
+          console.warn(
+            '[composio] polling connections failed:',
+            err instanceof Error ? err.message : String(err)
+          );
         });
     }, pollIntervalMs);
     return () => window.clearInterval(id);

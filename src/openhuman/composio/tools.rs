@@ -335,7 +335,7 @@ impl Tool for ComposioExecuteTool {
 /// client is available and composio is enabled. Returns an empty vec
 /// otherwise so callers can always `.extend(...)` unconditionally.
 pub fn all_composio_agent_tools(
-    config: &crate::openhuman::config::IntegrationsConfig,
+    config: &crate::openhuman::config::Config,
 ) -> Vec<Box<dyn Tool>> {
     let Some(client) = super::client::build_composio_client(config) else {
         tracing::debug!("[composio] agent tools not registered — disabled or missing credentials");

@@ -260,17 +260,29 @@ impl Default for IntegrationToggle {
 /// location search (Google Places), and phone calls (Twilio). The backend
 /// handles external API calls, billing, and rate limiting; the client only
 /// forwards requests and displays results.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+///
+/// The master `enabled` switch defaults to `true` so composio and the
+/// other backend-proxied integrations are on out of the box. `backend_url`
+/// and `auth_token` are optional overrides — when unset the shared
+/// `config.api_url` / `config.api_key` values are used (see
+/// [`crate::openhuman::integrations::build_client`]).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct IntegrationsConfig {
-    /// Master switch — set to `true` to register integration tools.
-    #[serde(default)]
+    /// Master switch — defaults to `true` so integrations are available
+    /// out of the box. Disable explicitly to turn every backend-proxied
+    /// integration tool off (composio, twilio, google_places, parallel).
+    #[serde(default = "defaults::default_true")]
     pub enabled: bool,
 
-    /// Backend API base URL (e.g. "https://api.openhuman.ai").
+    /// Optional override for the backend API base URL. When unset the
+    /// shared `config.api_url` (or its env-var fallback) is used — the
+    /// same backend every other part of the app talks to.
     #[serde(default)]
     pub backend_url: Option<String>,
 
-    /// JWT Bearer token for authenticating with the backend.
+    /// Optional override for the Bearer token. When unset the shared
+    /// `config.api_key` is used — the same JWT every other part of the
+    /// app authenticates with.
     #[serde(default)]
     pub auth_token: Option<String>,
 
@@ -292,4 +304,18 @@ pub struct IntegrationsConfig {
     /// and receive trigger events over the Socket.IO bridge.
     #[serde(default)]
     pub composio: IntegrationToggle,
+}
+
+impl Default for IntegrationsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: defaults::default_true(),
+            backend_url: None,
+            auth_token: None,
+            twilio: IntegrationToggle::default(),
+            google_places: IntegrationToggle::default(),
+            parallel: IntegrationToggle::default(),
+            composio: IntegrationToggle::default(),
+        }
+    }
 }

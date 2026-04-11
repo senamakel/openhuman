@@ -128,24 +128,70 @@ impl IntegrationClient {
     }
 }
 
-/// Helper: build an `Arc<IntegrationClient>` from config, or `None` if
-/// integrations are disabled or misconfigured.
+/// Helper: build an `Arc<IntegrationClient>` from the root config, or
+/// `None` if integrations are disabled or no credentials are available.
+///
+/// Resolution order (credentials are the same ones every other part of
+/// the app uses, so composio / twilio / google_places / parallel "just
+/// work" once the user is logged in):
+///
+/// 1. `config.integrations.backend_url` if set, else
+///    [`crate::api::config::effective_api_url`] applied to
+///    `config.api_url` (which itself falls back to `BACKEND_URL` /
+///    `VITE_BACKEND_URL` env vars and finally the staging default).
+/// 2. `config.integrations.auth_token` if set, else `config.api_key`.
+///
+/// Returns `None` (with a warning) only when the master switch is off
+/// or when no auth token is available anywhere.
 pub fn build_client(
-    config: &crate::openhuman::config::IntegrationsConfig,
+    config: &crate::openhuman::config::Config,
 ) -> Option<Arc<IntegrationClient>> {
-    if !config.enabled {
+    if !config.integrations.enabled {
+        tracing::debug!("[integrations] master switch off — skipping");
         return None;
     }
-    match (
-        config.backend_url.as_deref().map(str::trim),
-        config.auth_token.as_deref().map(str::trim),
-    ) {
-        (Some(url), Some(token)) if !url.is_empty() && !token.is_empty() => Some(Arc::new(
-            IntegrationClient::new(url.to_owned(), token.to_owned()),
-        )),
-        _ => {
+
+    // Backend URL: integrations override → shared `api_url` (which
+    // already has env-var + default fallbacks baked in).
+    let backend_url = config
+        .integrations
+        .backend_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_owned())
+        .unwrap_or_else(|| crate::api::config::effective_api_url(&config.api_url));
+
+    // Auth token: integrations override → shared `api_key`.
+    let auth_token = config
+        .integrations
+        .auth_token
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            config
+                .api_key
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+        });
+
+    match auth_token {
+        Some(token) => {
+            tracing::debug!(
+                backend_url = %backend_url,
+                "[integrations] client built"
+            );
+            Some(Arc::new(IntegrationClient::new(
+                backend_url,
+                token.to_owned(),
+            )))
+        }
+        None => {
             tracing::warn!(
-                "[integrations] enabled but backend_url or auth_token missing — skipping"
+                "[integrations] no auth token available (set config.api_key or \
+                 config.integrations.auth_token) — skipping"
             );
             None
         }

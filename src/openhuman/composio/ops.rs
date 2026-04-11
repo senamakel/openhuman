@@ -25,12 +25,12 @@ use super::types::{
     ComposioExecuteResponse, ComposioToolkitsResponse, ComposioToolsResponse,
 };
 
-/// Resolve a [`ComposioClient`] from `config.integrations`, or return an
+/// Resolve a [`ComposioClient`] from the root config, or return an
 /// error string that the caller can surface over RPC.
 fn resolve_client(config: &Config) -> OpResult<ComposioClient> {
-    build_composio_client(&config.integrations).ok_or_else(|| {
+    build_composio_client(config).ok_or_else(|| {
         "composio is disabled (integrations.enabled or integrations.composio.enabled is off, \
-         or backend_url/auth_token missing)"
+         or no backend auth token available — set config.api_key)"
             .to_string()
     })
 }

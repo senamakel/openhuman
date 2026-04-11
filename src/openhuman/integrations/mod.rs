@@ -56,29 +56,47 @@ mod tests {
 
     #[test]
     fn build_client_returns_none_when_disabled() {
-        let config = crate::openhuman::config::IntegrationsConfig::default();
+        let mut config = crate::openhuman::config::Config::default();
+        config.integrations.enabled = false;
+        config.api_key = Some("tok".into());
         assert!(build_client(&config).is_none());
     }
 
     #[test]
-    fn build_client_returns_none_when_url_missing() {
-        let config = crate::openhuman::config::IntegrationsConfig {
-            enabled: true,
-            backend_url: None,
-            auth_token: Some("tok".into()),
-            ..Default::default()
-        };
+    fn build_client_returns_none_when_no_auth_token() {
+        let mut config = crate::openhuman::config::Config::default();
+        config.integrations.enabled = true;
+        config.api_key = None;
+        config.integrations.auth_token = None;
         assert!(build_client(&config).is_none());
+    }
+
+    #[test]
+    fn build_client_falls_back_to_root_api_key() {
+        // Integrations are enabled by default and no integrations-specific
+        // override is set, so the shared config.api_key should be picked up.
+        let mut config = crate::openhuman::config::Config::default();
+        config.api_key = Some("root-token".into());
+        config.api_url = Some("https://api.example.test".into());
+        assert!(build_client(&config).is_some());
     }
 
     #[test]
     fn build_client_rejects_whitespace_only_values() {
-        let config = crate::openhuman::config::IntegrationsConfig {
-            enabled: true,
-            backend_url: Some("   ".into()),
-            auth_token: Some("tok".into()),
-            ..Default::default()
-        };
+        let mut config = crate::openhuman::config::Config::default();
+        config.integrations.enabled = true;
+        config.integrations.backend_url = Some("   ".into());
+        config.integrations.auth_token = Some("   ".into());
+        config.api_key = None;
         assert!(build_client(&config).is_none());
+    }
+
+    #[test]
+    fn integrations_enabled_by_default() {
+        let config = crate::openhuman::config::IntegrationsConfig::default();
+        assert!(
+            config.enabled,
+            "integrations master switch must default to true so composio + friends are on"
+        );
     }
 }

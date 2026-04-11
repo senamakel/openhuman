@@ -64,6 +64,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
             crate::core::tree_summarizer_cli::run_tree_summarizer_command(&args[1..])
         }
         "memory" => crate::core::memory_cli::run_memory_command(&args[1..]),
+        "agent" => crate::core::agent_cli::run_agent_command(&args[1..]),
         namespace => run_namespace_command(namespace, &args[1..], &grouped),
     }
 }
@@ -495,6 +496,7 @@ fn print_general_help(grouped: &BTreeMap<String, Vec<ControllerSchema>>) {
     println!("  openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only] [--verbose]");
     println!("  openhuman call --method <name> [--params '<json>']");
     println!("  openhuman skills <subcommand> [options]   (skill development runtime)");
+    println!("  openhuman agent <subcommand> [options]    (inspect agent definitions & prompts)");
     println!("  openhuman voice [--hotkey <combo>] [--mode <tap|push>]  (voice dictation server)");
     println!("  openhuman tree-summarizer <subcommand> [options]  (summary tree CLI)");
     println!("  openhuman <namespace> <function> [--param value ...]\n");

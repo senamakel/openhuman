@@ -42,10 +42,12 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 
+use crate::openhuman::agent::dispatcher::{PFormatToolDispatcher, ToolDispatcher};
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, PromptSource, ToolScope,
 };
 use crate::openhuman::agent::host_runtime::{self, RuntimeAdapter};
+use crate::openhuman::agent::pformat;
 use crate::openhuman::config::Config;
 use crate::openhuman::context::prompt::{
     extract_cache_boundary, render_subagent_system_prompt, LearnedContextData, PromptContext,
@@ -305,6 +307,17 @@ fn render_main_agent_dump(
     // tool the registry emits is candidate for rendering.
     let empty_filter: HashSet<String> = HashSet::new();
 
+    // Construct a real PFormatToolDispatcher so the dump includes the
+    // exact "Tool Use Protocol" preamble the runtime would inject.
+    // Without this the catalogue still renders with p-format
+    // signatures (because `tool_call_format = PFormat`), but the
+    // model doesn't see the protocol description, which is the
+    // single most important piece of context for *teaching* the
+    // model how to emit calls correctly.
+    let pformat_registry = pformat::build_registry(tools_vec);
+    let pformat_dispatcher = PFormatToolDispatcher::new(pformat_registry);
+    let dispatcher_instructions = pformat_dispatcher.prompt_instructions(tools_vec);
+
     // Hydrate the same user-memory blob the runtime would inject on the
     // first turn. The dump intentionally bypasses `Agent::fetch_learned_context`
     // (which needs a live `Memory` backend and the `learning_enabled`
@@ -333,7 +346,7 @@ fn render_main_agent_dump(
         model_name,
         tools: &prompt_tools,
         skills: &[],
-        dispatcher_instructions: "",
+        dispatcher_instructions: &dispatcher_instructions,
         learned,
         visible_tool_names: &empty_filter,
         // The dump matches what runtime would produce. P-Format is the

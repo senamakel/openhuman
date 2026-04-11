@@ -1106,4 +1106,64 @@ mod tests {
         assert!(validate_namespace("my-namespace").is_ok());
         assert!(validate_namespace("skill:gmail:user@example.com").is_ok());
     }
+
+    #[test]
+    fn list_namespaces_with_root_returns_only_summarised() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        // ns_a has a root node — should be returned.
+        write_node(&config, &make_node("ns_a", "root", "alpha summary")).unwrap();
+        // ns_b has only an hour leaf, no root — should be filtered out.
+        write_node(&config, &make_node("ns_b", "2024/03/15/14", "hour")).unwrap();
+        // ns_c has a root.
+        write_node(&config, &make_node("ns_c", "root", "gamma summary")).unwrap();
+
+        let listed = list_namespaces_with_root(&config).unwrap();
+        // Sorted alphabetically for cache stability — see fn docs.
+        assert_eq!(listed, vec!["ns_a".to_string(), "ns_c".to_string()]);
+    }
+
+    #[test]
+    fn collect_root_summaries_respects_per_namespace_cap() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        let big = "x".repeat(50);
+        write_node(&config, &make_node("ns", "root", &big)).unwrap();
+
+        // Per-namespace cap of 10 should clip the body.
+        let result = collect_root_summaries_with_caps(&config.workspace_dir, 10, 10_000);
+        assert_eq!(result.len(), 1);
+        let (ns, body) = &result[0];
+        assert_eq!(ns, "ns");
+        assert!(
+            body.starts_with("xxxxxxxxxx"),
+            "expected the first 10 x's, got: {body}"
+        );
+        assert!(body.contains("[... truncated]"));
+    }
+
+    #[test]
+    fn collect_root_summaries_stops_at_total_cap() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        write_node(&config, &make_node("aaa", "root", "first")).unwrap();
+        write_node(&config, &make_node("bbb", "root", "second")).unwrap();
+        write_node(&config, &make_node("ccc", "root", "third")).unwrap();
+
+        // Total cap of 5 chars — should accept aaa ("first" = 5),
+        // then break before reading bbb because total >= cap.
+        let result = collect_root_summaries_with_caps(&config.workspace_dir, 100, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].0, "aaa");
+    }
+
+    #[test]
+    fn collect_root_summaries_returns_empty_for_unknown_workspace() {
+        let tmp = TempDir::new().unwrap();
+        let result = collect_root_summaries_with_caps(&tmp.path().join("nope"), 100, 1000);
+        assert!(result.is_empty());
+    }
 }

@@ -485,6 +485,7 @@ impl ToolDispatcher for NativeToolDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::agent::pformat::PFormatToolParams;
 
     #[test]
     fn xml_dispatcher_parses_tool_calls() {
@@ -582,6 +583,141 @@ mod tests {
         };
         assert!(rendered.contains("<tool_result"));
         assert!(rendered.contains("shell"));
+    }
+
+    fn pformat_registry_for(name: &str, props: serde_json::Value) -> PFormatRegistry {
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": props
+        });
+        let mut reg = PFormatRegistry::new();
+        reg.insert(
+            name.to_string(),
+            PFormatToolParams::from_schema(&schema),
+        );
+        reg
+    }
+
+    #[test]
+    fn pformat_dispatcher_parses_tool_call_tag() {
+        // The model emits a p-format call inside a `<tool_call>` tag.
+        // The dispatcher should pull it out, look up the tool's
+        // parameter ordering, and produce named JSON args.
+        let registry = pformat_registry_for(
+            "get_weather",
+            serde_json::json!({
+                "location": { "type": "string" },
+                "unit": { "type": "string" }
+            }),
+        );
+        let dispatcher = PFormatToolDispatcher::new(registry);
+        let response = ChatResponse {
+            text: Some(
+                "Let me check the weather.\n<tool_call>get_weather[London|metric]</tool_call>"
+                    .into(),
+            ),
+            tool_calls: vec![],
+            usage: None,
+        };
+        let (text, calls) = dispatcher.parse_response(&response);
+        assert_eq!(text, "Let me check the weather.");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "get_weather");
+        assert_eq!(
+            calls[0].arguments,
+            serde_json::json!({"location": "London", "unit": "metric"})
+        );
+    }
+
+    #[test]
+    fn pformat_dispatcher_falls_back_to_json_in_tag() {
+        // A model that ignored the p-format protocol and emitted a
+        // JSON tool call should still be parsed correctly — the
+        // dispatcher's whole point is to be a strict superset of the
+        // legacy XML behaviour.
+        let registry = pformat_registry_for(
+            "shell",
+            serde_json::json!({ "command": { "type": "string" } }),
+        );
+        let dispatcher = PFormatToolDispatcher::new(registry);
+        let response = ChatResponse {
+            text: Some(
+                "Running it now.\n<tool_call>{\"name\":\"shell\",\"arguments\":{\"command\":\"ls\"}}</tool_call>"
+                    .into(),
+            ),
+            tool_calls: vec![],
+            usage: None,
+        };
+        let (text, calls) = dispatcher.parse_response(&response);
+        assert_eq!(text, "Running it now.");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "shell");
+        assert_eq!(
+            calls[0].arguments,
+            serde_json::json!({"command": "ls"})
+        );
+    }
+
+    #[test]
+    fn pformat_dispatcher_handles_multiple_tags() {
+        let registry = pformat_registry_for(
+            "shell",
+            serde_json::json!({ "command": { "type": "string" } }),
+        );
+        let dispatcher = PFormatToolDispatcher::new(registry);
+        let response = ChatResponse {
+            text: Some(
+                "Step 1.\n<tool_call>shell[ls]</tool_call>\nStep 2.\n<tool_call>shell[pwd]</tool_call>"
+                    .into(),
+            ),
+            tool_calls: vec![],
+            usage: None,
+        };
+        let (_text, calls) = dispatcher.parse_response(&response);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].arguments, serde_json::json!({"command": "ls"}));
+        assert_eq!(calls[1].arguments, serde_json::json!({"command": "pwd"}));
+    }
+
+    #[test]
+    fn pformat_dispatcher_reports_pformat_tool_call_format() {
+        let dispatcher = PFormatToolDispatcher::new(PFormatRegistry::new());
+        assert_eq!(dispatcher.tool_call_format(), ToolCallFormat::PFormat);
+    }
+
+    #[test]
+    fn pformat_dispatcher_instructions_are_protocol_only() {
+        // The dispatcher's prompt_instructions should NOT re-render
+        // the tool catalogue — that's `ToolsSection`'s job. Otherwise
+        // every tool gets emitted twice and the prompt double-pays.
+        let dispatcher = PFormatToolDispatcher::new(PFormatRegistry::new());
+        // Pass in a tool to make sure the dispatcher ignores it.
+        struct DummyTool;
+        #[async_trait::async_trait]
+        impl Tool for DummyTool {
+            fn name(&self) -> &str {
+                "should_not_appear"
+            }
+            fn description(&self) -> &str {
+                "this string must not show up in the dispatcher instructions"
+            }
+            fn parameters_schema(&self) -> serde_json::Value {
+                serde_json::json!({})
+            }
+            async fn execute(
+                &self,
+                _args: serde_json::Value,
+            ) -> anyhow::Result<crate::openhuman::tools::ToolResult> {
+                Ok(crate::openhuman::tools::ToolResult::success("ok"))
+            }
+        }
+        let tools: Vec<Box<dyn Tool>> = vec![Box::new(DummyTool)];
+        let instructions = dispatcher.prompt_instructions(&tools);
+        assert!(instructions.contains("Tool Use Protocol"));
+        assert!(
+            !instructions.contains("should_not_appear"),
+            "dispatcher instructions must not duplicate the tool catalogue, got:\n{instructions}"
+        );
     }
 
     #[test]

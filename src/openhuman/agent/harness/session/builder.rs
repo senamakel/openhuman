@@ -7,7 +7,7 @@
 //! [`super::turn`]; accessors and run-helpers live in [`super::runtime`].
 
 use super::types::{Agent, AgentBuilder};
-use crate::openhuman::agent::context_pipeline::ContextPipeline;
+use crate::openhuman::context::ContextPipeline;
 use crate::openhuman::agent::dispatcher::{
     NativeToolDispatcher, ToolDispatcher, XmlToolDispatcher,
 };

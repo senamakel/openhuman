@@ -18,10 +18,68 @@ pub struct LearnedContextData {
     pub user_profile: Vec<String>,
 }
 
+/// A lightweight tool descriptor for prompt rendering.
+///
+/// Shared shape so every call-site that builds a system prompt — main
+/// agents (which own `Box<dyn Tool>`), sub-agents, and channel runtimes
+/// (which only have `(name, description)` tuples from their tool
+/// registries) — can feed the same [`ToolsSection`] implementation
+/// instead of each writing its own. Callers adapt their own tool
+/// representation into a `Vec<PromptTool<'_>>` at the PromptContext
+/// construction site via a one-line `.iter().map(...).collect()` or via
+/// [`PromptTool::from_tools`].
+///
+/// `parameters_schema` is optional because channel runtimes don't have
+/// full JSON schemas at prompt-build time; the tools section renders
+/// the schema line only when it's present.
+#[derive(Debug, Clone)]
+pub struct PromptTool<'a> {
+    pub name: &'a str,
+    pub description: &'a str,
+    pub parameters_schema: Option<String>,
+}
+
+impl<'a> PromptTool<'a> {
+    pub fn new(name: &'a str, description: &'a str) -> Self {
+        Self {
+            name,
+            description,
+            parameters_schema: None,
+        }
+    }
+
+    pub fn with_schema(
+        name: &'a str,
+        description: &'a str,
+        parameters_schema: String,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            parameters_schema: Some(parameters_schema),
+        }
+    }
+
+    /// Adapt a `Box<dyn Tool>` slice into a `Vec<PromptTool<'_>>`. The
+    /// returned vector borrows names and descriptions from the original
+    /// tools, so it must not outlive them. Main-agent call-sites use
+    /// this one-liner to build the slice passed into [`PromptContext::tools`].
+    pub fn from_tools(tools: &'a [Box<dyn Tool>]) -> Vec<PromptTool<'a>> {
+        tools
+            .iter()
+            .map(|t| PromptTool {
+                name: t.name(),
+                description: t.description(),
+                parameters_schema: Some(t.parameters_schema().to_string()),
+            })
+            .collect()
+    }
+}
+
 pub struct PromptContext<'a> {
     pub workspace_dir: &'a Path,
     pub model_name: &'a str,
-    pub tools: &'a [Box<dyn Tool>],
+    pub tools: &'a [PromptTool<'a>],
     pub skills: &'a [Skill],
     pub dispatcher_instructions: &'a str,
     /// Pre-fetched learned context (empty when learning is disabled).
@@ -211,16 +269,18 @@ impl PromptSection for ToolsSection {
         let has_filter = !ctx.visible_tool_names.is_empty();
         for tool in ctx.tools {
             // Skip tools not in the visible set when a filter is active.
-            if has_filter && !ctx.visible_tool_names.contains(tool.name()) {
+            if has_filter && !ctx.visible_tool_names.contains(tool.name) {
                 continue;
             }
-            let _ = writeln!(
-                out,
-                "- **{}**: {}\n  Parameters: `{}`",
-                tool.name(),
-                tool.description(),
-                tool.parameters_schema()
-            );
+            if let Some(schema) = &tool.parameters_schema {
+                let _ = writeln!(
+                    out,
+                    "- **{}**: {}\n  Parameters: `{}`",
+                    tool.name, tool.description, schema
+                );
+            } else {
+                let _ = writeln!(out, "- **{}**: {}", tool.name, tool.description);
+            }
         }
         if !ctx.dispatcher_instructions.is_empty() {
             out.push('\n');
@@ -406,10 +466,14 @@ fn inject_workspace_file(prompt: &mut String, workspace_dir: &Path, filename: &s
 }
 
 fn default_workspace_file_content(filename: &str) -> &'static str {
+    // The bundled identity files live at `src/openhuman/agent/prompts/`
+    // (owned by the `agent/` tree because they describe agent identity).
+    // This module is under `src/openhuman/context/`, so the relative path
+    // walks up one level and back into `agent/prompts/`.
     match filename {
-        "SOUL.md" => include_str!("prompts/SOUL.md"),
-        "IDENTITY.md" => include_str!("prompts/IDENTITY.md"),
-        "USER.md" => include_str!("prompts/USER.md"),
+        "SOUL.md" => include_str!("../agent/prompts/SOUL.md"),
+        "IDENTITY.md" => include_str!("../agent/prompts/IDENTITY.md"),
+        "USER.md" => include_str!("../agent/prompts/USER.md"),
         "HEARTBEAT.md" => {
             "# Periodic Tasks\n\n# Add tasks below (one per line, starting with `- `)\n"
         }
@@ -454,10 +518,11 @@ mod tests {
     #[test]
     fn prompt_builder_assembles_sections() {
         let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+        let prompt_tools = PromptTool::from_tools(&tools);
         let ctx = PromptContext {
             workspace_dir: Path::new("/tmp"),
             model_name: "test-model",
-            tools: &tools,
+            tools: &prompt_tools,
             skills: &[],
             dispatcher_instructions: "instr",
             learned: LearnedContextData::default(),
@@ -476,10 +541,11 @@ mod tests {
         std::fs::create_dir_all(&workspace).unwrap();
 
         let tools: Vec<Box<dyn Tool>> = vec![];
+        let prompt_tools = PromptTool::from_tools(&tools);
         let ctx = PromptContext {
             workspace_dir: &workspace,
             model_name: "test-model",
-            tools: &tools,
+            tools: &prompt_tools,
             skills: &[],
             dispatcher_instructions: "",
             learned: LearnedContextData::default(),
@@ -507,10 +573,11 @@ mod tests {
     #[test]
     fn datetime_section_includes_timestamp_and_timezone() {
         let tools: Vec<Box<dyn Tool>> = vec![];
+        let prompt_tools = PromptTool::from_tools(&tools);
         let ctx = PromptContext {
             workspace_dir: Path::new("/tmp"),
             model_name: "test-model",
-            tools: &tools,
+            tools: &prompt_tools,
             skills: &[],
             dispatcher_instructions: "instr",
             learned: LearnedContextData::default(),

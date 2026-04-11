@@ -21,7 +21,7 @@
 //!    when ready. Keeping the pipeline pure (no LLM calls) means the
 //!    integration tests can exercise every stage without a provider.
 //! 5. **Session memory** — handled separately by
-//!    [`crate::openhuman::agent::context_pipeline::session_memory`].
+//!    [`crate::openhuman::context::session_memory`].
 //!
 //! # Cache contract
 //!
@@ -35,7 +35,7 @@
 
 use super::microcompact::{microcompact, MicrocompactStats, DEFAULT_KEEP_RECENT_TOOL_RESULTS};
 use super::session_memory::{SessionMemoryConfig, SessionMemoryState};
-use crate::openhuman::agent::harness::context_guard::{ContextCheckResult, ContextGuard};
+use super::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::providers::{ConversationMessage, UsageInfo};
 
 /// Pipeline configuration. Defaults are tuned for an `agentic-v1`

@@ -20,7 +20,7 @@
 //!   background archivist fork.
 
 use super::types::Agent;
-use crate::openhuman::agent::context_pipeline;
+use crate::openhuman::context as context_pipeline;
 use crate::openhuman::agent::dispatcher::{ParsedToolCall, ToolExecutionResult};
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::hooks::{self, ToolCallRecord, TurnContext};

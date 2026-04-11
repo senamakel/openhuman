@@ -23,6 +23,7 @@ pub mod autocomplete;
 pub mod billing;
 pub mod channels;
 pub mod config;
+pub mod context;
 pub mod cost;
 pub mod credentials;
 pub mod cron;

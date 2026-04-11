@@ -6,7 +6,7 @@
 //! `impl Agent`/`impl AgentBuilder` can see them without the whole
 //! crate gaining field access.
 
-use crate::openhuman::agent::context_pipeline::ContextPipeline;
+use crate::openhuman::context::ContextPipeline;
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::hooks::PostTurnHook;
 use crate::openhuman::agent::memory_loader::MemoryLoader;
@@ -61,7 +61,7 @@ pub struct Agent {
     /// trigger). Owned by the agent so its state (token counters,
     /// session-memory extraction deltas, compaction circuit breaker)
     /// persists across turns. See
-    /// [`crate::openhuman::agent::context_pipeline`] for the stage
+    /// [`crate::openhuman::context`] for the stage
     /// ordering and cache-safety contract.
     pub(super) context_pipeline: ContextPipeline,
 }

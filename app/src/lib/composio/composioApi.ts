@@ -51,9 +51,7 @@ export async function listToolkits(): Promise<ComposioToolkitsResponse> {
 }
 
 export async function listConnections(): Promise<ComposioConnectionsResponse> {
-  const raw = await callCoreRpc<unknown>({
-    method: 'openhuman.composio_list_connections',
-  });
+  const raw = await callCoreRpc<unknown>({ method: 'openhuman.composio_list_connections' });
   return unwrapCliEnvelope<ComposioConnectionsResponse>(raw);
 }
 

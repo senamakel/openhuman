@@ -18,9 +18,7 @@ describe('useComposioIntegrations', () => {
   it('keeps toolkit cards visible when connections fetch fails', async () => {
     const { useComposioIntegrations } = await import('./hooks');
 
-    mockListToolkits.mockResolvedValue({
-      toolkits: ['gmail', 'github', 'notion'],
-    });
+    mockListToolkits.mockResolvedValue({ toolkits: ['gmail', 'github', 'notion'] });
     mockListConnections.mockRejectedValue(new Error('backend connection listing failed'));
 
     const { result } = renderHook(() => useComposioIntegrations(0));

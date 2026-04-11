@@ -5,8 +5,8 @@ import ChannelSetupModal from '../components/channels/ChannelSetupModal';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
 import {
   composioToolkitMeta,
-  KNOWN_COMPOSIO_TOOLKITS,
   type ComposioToolkitMeta,
+  KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
@@ -280,12 +280,7 @@ export default function Skills() {
 
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    configurableChannels,
-    channelConnections,
-    composioToolkits,
-    composioConnectionByToolkit,
-  ]);
+  }, [configurableChannels, channelConnections, composioToolkits, composioConnectionByToolkit]);
 
   const availableCategories: SkillCategory[] = useMemo(() => {
     const cats = new Set<SkillCategory>(['All']);

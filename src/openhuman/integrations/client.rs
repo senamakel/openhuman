@@ -183,9 +183,7 @@ impl IntegrationClient {
 /// There are no per-feature toggles for the shared client itself —
 /// callers that need a kill switch (e.g. twilio, google_places,
 /// parallel) gate tool registration at their own level.
-pub fn build_client(
-    config: &crate::openhuman::config::Config,
-) -> Option<Arc<IntegrationClient>> {
+pub fn build_client(config: &crate::openhuman::config::Config) -> Option<Arc<IntegrationClient>> {
     let backend_url = crate::api::config::effective_api_url(&config.api_url);
 
     // Primary: app-session JWT from the auth profile store.

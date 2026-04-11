@@ -352,9 +352,7 @@ impl Tool for ComposioExecuteTool {
 /// Build the full set of composio agent tools when the integrations
 /// client is available and composio is enabled. Returns an empty vec
 /// otherwise so callers can always `.extend(...)` unconditionally.
-pub fn all_composio_agent_tools(
-    config: &crate::openhuman::config::Config,
-) -> Vec<Box<dyn Tool>> {
+pub fn all_composio_agent_tools(config: &crate::openhuman::config::Config) -> Vec<Box<dyn Tool>> {
     let Some(client) = super::client::build_composio_client(config) else {
         tracing::debug!("[composio] agent tools not registered — disabled or missing credentials");
         return Vec::new();
@@ -385,10 +383,8 @@ mod tests {
     /// metadata methods (`name`, `category`, `permission_level`, …), which
     /// are pure accessors that don't touch the HTTP client.
     fn fake_composio_client() -> ComposioClient {
-        let inner = IntegrationClient::new(
-            "http://127.0.0.1:0".to_string(),
-            "test-token".to_string(),
-        );
+        let inner =
+            IntegrationClient::new("http://127.0.0.1:0".to_string(), "test-token".to_string());
         ComposioClient::new(Arc::new(inner))
     }
 

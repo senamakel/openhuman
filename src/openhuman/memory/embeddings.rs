@@ -243,9 +243,10 @@ impl EmbeddingProvider for FastembedEmbedding {
                     // Also guard the actual embed call — fastembed / ort
                     // can panic on certain inputs or runtime errors, and
                     // we want to surface those as regular errors too.
-                    let embed_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-                        || model.embed(items, None),
-                    ));
+                    let embed_result =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            model.embed(items, None)
+                        }));
                     match embed_result {
                         Ok(Ok(vectors)) => Ok(vectors),
                         Ok(Err(e)) => Err(anyhow::anyhow!("fastembed embed failed: {e}")),

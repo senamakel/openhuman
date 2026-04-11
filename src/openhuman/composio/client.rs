@@ -213,9 +213,7 @@ impl ComposioClient {
 /// core defaults (`config.api_url` / `config.api_key`) via
 /// [`crate::openhuman::integrations::build_client`]. The only reason
 /// this returns `None` is that the user isn't signed in yet.
-pub fn build_composio_client(
-    config: &crate::openhuman::config::Config,
-) -> Option<ComposioClient> {
+pub fn build_composio_client(config: &crate::openhuman::config::Config) -> Option<ComposioClient> {
     let inner = crate::openhuman::integrations::build_client(config)?;
     Some(ComposioClient::new(inner))
 }

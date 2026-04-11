@@ -877,10 +877,8 @@ mod tests {
 
         // Build a throwaway composio client. The filter only touches
         // `Tool::name()` and `Tool::category()`, so no HTTP calls happen.
-        let inner = IntegrationClient::new(
-            "http://127.0.0.1:0".to_string(),
-            "test-token".to_string(),
-        );
+        let inner =
+            IntegrationClient::new("http://127.0.0.1:0".to_string(), "test-token".to_string());
         let client = ComposioClient::new(Arc::new(inner));
 
         // Parent registry = the five real Composio tools + a couple of

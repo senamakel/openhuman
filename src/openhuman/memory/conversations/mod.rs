@@ -4,9 +4,11 @@
 //! Thread metadata is append-only in `threads.jsonl`; each thread's messages live
 //! in a dedicated JSONL file for straightforward inspection and recovery.
 
+mod bus;
 mod store;
 mod types;
 
+pub use bus::register_conversation_persistence_subscriber;
 pub use store::{
     append_message, delete_thread, ensure_thread, get_messages, list_threads, purge_threads,
     update_message, ConversationPurgeStats, ConversationStore,

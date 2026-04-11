@@ -1,15 +1,10 @@
 use super::credentials::scrub_credentials;
-use super::history::{
-    apply_compaction_summary, autosave_memory_key, build_compaction_transcript, trim_history,
-    DEFAULT_MAX_HISTORY_MESSAGES,
-};
 use super::instructions::build_tool_instructions;
 use super::parse::{
     extract_json_values, parse_arguments_value, parse_glm_style_tool_calls, parse_tool_call_value,
     parse_tool_calls, parse_tool_calls_from_json_value, tools_to_openai_format,
 };
 use super::tool_loop::{run_tool_call_loop, DEFAULT_MAX_TOOL_ITERATIONS};
-use crate::openhuman::memory::{embeddings::NoopEmbedding, Memory, MemoryCategory, UnifiedMemory};
 use crate::openhuman::providers::traits::ProviderCapabilities;
 use crate::openhuman::providers::{ChatMessage, ChatRequest, ChatResponse, Provider};
 use crate::openhuman::tools::{self, Tool};
@@ -17,7 +12,6 @@ use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tempfile::TempDir;
 
 #[test]
 fn test_scrub_credentials() {
@@ -562,101 +556,6 @@ fn tools_to_openai_format_produces_valid_schema() {
     assert!(names.contains(&"file_read"));
 }
 
-#[test]
-fn trim_history_preserves_system_prompt() {
-    let mut history = vec![ChatMessage::system("system prompt")];
-    for i in 0..DEFAULT_MAX_HISTORY_MESSAGES + 20 {
-        history.push(ChatMessage::user(format!("msg {i}")));
-    }
-    let original_len = history.len();
-    assert!(original_len > DEFAULT_MAX_HISTORY_MESSAGES + 1);
-
-    trim_history(&mut history, DEFAULT_MAX_HISTORY_MESSAGES);
-
-    // System prompt preserved
-    assert_eq!(history[0].role, "system");
-    assert_eq!(history[0].content, "system prompt");
-    // Trimmed to limit
-    assert_eq!(history.len(), DEFAULT_MAX_HISTORY_MESSAGES + 1); // +1 for system
-                                                                 // Most recent messages preserved
-    let last = &history[history.len() - 1];
-    assert_eq!(
-        last.content,
-        format!("msg {}", DEFAULT_MAX_HISTORY_MESSAGES + 19)
-    );
-}
-
-#[test]
-fn trim_history_noop_when_within_limit() {
-    let mut history = vec![
-        ChatMessage::system("sys"),
-        ChatMessage::user("hello"),
-        ChatMessage::assistant("hi"),
-    ];
-    trim_history(&mut history, DEFAULT_MAX_HISTORY_MESSAGES);
-    assert_eq!(history.len(), 3);
-}
-
-#[test]
-fn build_compaction_transcript_formats_roles() {
-    let messages = vec![
-        ChatMessage::user("I like dark mode"),
-        ChatMessage::assistant("Got it"),
-    ];
-    let transcript = build_compaction_transcript(&messages);
-    assert!(transcript.contains("USER: I like dark mode"));
-    assert!(transcript.contains("ASSISTANT: Got it"));
-}
-
-#[test]
-fn apply_compaction_summary_replaces_old_segment() {
-    let mut history = vec![
-        ChatMessage::system("sys"),
-        ChatMessage::user("old 1"),
-        ChatMessage::assistant("old 2"),
-        ChatMessage::user("recent 1"),
-        ChatMessage::assistant("recent 2"),
-    ];
-
-    apply_compaction_summary(&mut history, 1, 3, "- user prefers concise replies");
-
-    assert_eq!(history.len(), 4);
-    assert!(history[1].content.contains("Compaction summary"));
-    assert!(history[2].content.contains("recent 1"));
-    assert!(history[3].content.contains("recent 2"));
-}
-
-#[test]
-fn autosave_memory_key_has_prefix_and_uniqueness() {
-    let key1 = autosave_memory_key("user_msg");
-    let key2 = autosave_memory_key("user_msg");
-
-    assert!(key1.starts_with("user_msg_"));
-    assert!(key2.starts_with("user_msg_"));
-    assert_ne!(key1, key2);
-}
-
-#[tokio::test]
-async fn autosave_memory_keys_preserve_multiple_turns() {
-    let tmp = TempDir::new().unwrap();
-    let mem = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
-
-    let key1 = autosave_memory_key("user_msg");
-    let key2 = autosave_memory_key("user_msg");
-
-    mem.store(&key1, "I'm Paul", MemoryCategory::Conversation, None)
-        .await
-        .unwrap();
-    mem.store(&key2, "I'm 45", MemoryCategory::Conversation, None)
-        .await
-        .unwrap();
-
-    assert_eq!(mem.count().await.unwrap(), 2);
-
-    let recalled = mem.recall("45", 5, None).await.unwrap();
-    assert!(recalled.iter().any(|entry| entry.content.contains("45")));
-}
-
 // ═══════════════════════════════════════════════════════════════════════
 // Recovery Tests - Tool Call Parsing Edge Cases
 // ═══════════════════════════════════════════════════════════════════════
@@ -707,42 +606,6 @@ fn parse_tool_calls_handles_empty_string_arguments() {
     let result = parse_tool_call_value(&value);
     assert!(result.is_some());
     assert_eq!(result.unwrap().name, "test");
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Recovery Tests - History Management
-// ═══════════════════════════════════════════════════════════════════════
-
-#[test]
-fn trim_history_with_no_system_prompt() {
-    // Recovery: History without system prompt should trim correctly
-    let mut history = vec![];
-    for i in 0..DEFAULT_MAX_HISTORY_MESSAGES + 20 {
-        history.push(ChatMessage::user(format!("msg {i}")));
-    }
-    trim_history(&mut history, DEFAULT_MAX_HISTORY_MESSAGES);
-    assert_eq!(history.len(), DEFAULT_MAX_HISTORY_MESSAGES);
-}
-
-#[test]
-fn trim_history_preserves_role_ordering() {
-    // Recovery: After trimming, role ordering should remain consistent
-    let mut history = vec![ChatMessage::system("system")];
-    for i in 0..DEFAULT_MAX_HISTORY_MESSAGES + 10 {
-        history.push(ChatMessage::user(format!("user {i}")));
-        history.push(ChatMessage::assistant(format!("assistant {i}")));
-    }
-    trim_history(&mut history, DEFAULT_MAX_HISTORY_MESSAGES);
-    assert_eq!(history[0].role, "system");
-    assert_eq!(history[history.len() - 1].role, "assistant");
-}
-
-#[test]
-fn trim_history_with_only_system_prompt() {
-    // Recovery: Only system prompt should not be trimmed
-    let mut history = vec![ChatMessage::system("system prompt")];
-    trim_history(&mut history, DEFAULT_MAX_HISTORY_MESSAGES);
-    assert_eq!(history.len(), 1);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -807,8 +670,6 @@ fn extract_json_values_handles_arrays() {
 const _: () = {
     assert!(DEFAULT_MAX_TOOL_ITERATIONS > 0);
     assert!(DEFAULT_MAX_TOOL_ITERATIONS <= 100);
-    assert!(DEFAULT_MAX_HISTORY_MESSAGES > 0);
-    assert!(DEFAULT_MAX_HISTORY_MESSAGES <= 1000);
 };
 
 #[test]
@@ -1101,49 +962,3 @@ fn scrub_credentials_short_values_not_redacted() {
     assert_eq!(result, input, "short values should not be redacted");
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// TG4 (inline): trim_history edge cases
-// ─────────────────────────────────────────────────────────────────────
-
-#[test]
-fn trim_history_empty_history() {
-    let mut history: Vec<crate::openhuman::providers::ChatMessage> = vec![];
-    trim_history(&mut history, 10);
-    assert!(history.is_empty());
-}
-
-#[test]
-fn trim_history_system_only() {
-    let mut history = vec![crate::openhuman::providers::ChatMessage::system(
-        "system prompt",
-    )];
-    trim_history(&mut history, 10);
-    assert_eq!(history.len(), 1);
-    assert_eq!(history[0].role, "system");
-}
-
-#[test]
-fn trim_history_exactly_at_limit() {
-    let mut history = vec![
-        crate::openhuman::providers::ChatMessage::system("system"),
-        crate::openhuman::providers::ChatMessage::user("msg 1"),
-        crate::openhuman::providers::ChatMessage::assistant("reply 1"),
-    ];
-    trim_history(&mut history, 2); // 2 non-system messages = exactly at limit
-    assert_eq!(history.len(), 3, "should not trim when exactly at limit");
-}
-
-#[test]
-fn trim_history_removes_oldest_non_system() {
-    let mut history = vec![
-        crate::openhuman::providers::ChatMessage::system("system"),
-        crate::openhuman::providers::ChatMessage::user("old msg"),
-        crate::openhuman::providers::ChatMessage::assistant("old reply"),
-        crate::openhuman::providers::ChatMessage::user("new msg"),
-        crate::openhuman::providers::ChatMessage::assistant("new reply"),
-    ];
-    trim_history(&mut history, 2);
-    assert_eq!(history.len(), 3); // system + 2 kept
-    assert_eq!(history[0].role, "system");
-    assert_eq!(history[1].content, "new msg");
-}

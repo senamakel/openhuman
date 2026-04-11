@@ -34,13 +34,11 @@ mod credentials;
 pub mod definition;
 pub mod definition_loader;
 pub mod fork_context;
-mod history;
 mod instructions;
 pub mod interrupt;
 pub(crate) mod memory_context;
 mod parse;
 pub mod self_healing;
-mod session;
 pub mod session_queue;
 pub mod subagent_runner;
 mod tool_loop;
@@ -61,7 +59,6 @@ pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 
 pub(crate) use instructions::build_tool_instructions;
 pub(crate) use parse::parse_tool_calls;
-pub use session::{process_message, run};
 pub(crate) use tool_loop::run_tool_call_loop;
 
 #[cfg(test)]

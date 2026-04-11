@@ -12,10 +12,7 @@ use super::super::runtime::process_channel_message;
 use super::super::traits;
 use super::super::{Channel, SendMessage};
 use super::common::{NoopMemory, SlowProvider};
-use crate::core::event_bus::register_native_global;
-use crate::openhuman::agent::bus::{
-    register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
-};
+use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
 use crate::openhuman::providers::{ChatMessage, Provider};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -452,33 +449,35 @@ async fn telegram_threaded_inbound_emits_ack_reaction_then_reply() {
 /// backend, or LLM provider.
 #[tokio::test]
 async fn telegram_dispatch_routes_through_agent_run_turn_bus_handler() {
-    // Grab the bus lock directly — we're overriding the real handler.
-    let _bus_guard = super::common::BUS_HANDLER_LOCK.lock().await;
-
+    // Install a typed stub for `agent.run_turn` via the shared mock bus
+    // helper. The returned guard holds `BUS_HANDLER_LOCK` for the whole
+    // test body and re-registers production handlers on drop.
     let stub_calls = Arc::new(AtomicUsize::new(0));
     let stub_calls_for_handler = Arc::clone(&stub_calls);
-    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
-        AGENT_RUN_TURN_METHOD,
-        move |req| {
-            let stub_calls = Arc::clone(&stub_calls_for_handler);
-            async move {
-                stub_calls.fetch_add(1, Ordering::SeqCst);
-                // Sanity-check the payload the dispatcher built for us.
-                assert_eq!(req.channel_name, "telegram");
-                assert_eq!(req.provider_name, "test-provider");
-                assert_eq!(req.model, "test-model");
-                assert!(
-                    req.history.len() >= 2,
-                    "history should include at least the system prompt and user message"
-                );
-                Ok(AgentTurnResponse {
-                    text: "CANNED_TELEGRAM_RESPONSE".to_string(),
-                })
-            }
-        },
-    );
+    let _bus_guard = mock_agent_run_turn(move |req| {
+        let stub_calls = Arc::clone(&stub_calls_for_handler);
+        async move {
+            stub_calls.fetch_add(1, Ordering::SeqCst);
+            // Sanity-check the payload the dispatcher built for us.
+            assert_eq!(req.channel_name, "telegram");
+            assert_eq!(req.provider_name, "test-provider");
+            assert_eq!(req.model, "test-model");
+            assert!(
+                req.history.len() >= 2,
+                "history should include at least the system prompt and user message"
+            );
+            Ok(AgentTurnResponse {
+                text: "CANNED_TELEGRAM_RESPONSE".to_string(),
+            })
+        }
+    })
+    .await;
 
-    let recorder = Arc::new(FullRecordingChannel::default());
+    // Use the TelegramReactingChannel so the channel genuinely reports
+    // `name() == "telegram"`. This makes the `req.channel_name == "telegram"`
+    // assertion above a real encapsulation check: dispatch must look up the
+    // Telegram channel by its real name and build the bus request accordingly.
+    let recorder = Arc::new(TelegramReactingChannel::default());
     let channel: Arc<dyn Channel> = recorder.clone();
     // Minimal provider — never invoked because the stub short-circuits.
     let ctx = make_test_context(channel, Arc::new(super::common::DummyProvider));
@@ -490,8 +489,10 @@ async fn telegram_dispatch_routes_through_agent_run_turn_bus_handler() {
             sender: "alice".to_string(),
             reply_target: "alice".to_string(),
             content: "hello from telegram bus test".to_string(),
-            channel: "test-channel".to_string(),
+            channel: "telegram".to_string(),
             timestamp: 1,
+            // No thread_ts so dispatch does not emit an automatic ack
+            // reaction — we want to count exactly one send.
             thread_ts: None,
         },
     )
@@ -510,10 +511,8 @@ async fn telegram_dispatch_routes_through_agent_run_turn_bus_handler() {
         "delivered message should contain the stubbed text, got {:?}",
         sent[0].content
     );
-
-    // Restore the production handler before releasing the lock so later
-    // tests that expect the real path see a consistent registry.
-    register_agent_handlers();
+    // No manual restore — dropping `_bus_guard` at end-of-scope re-registers
+    // the production `agent.run_turn` handler automatically.
 }
 
 /// Regression: for non-Telegram channels, thread_ts DOES split history keys

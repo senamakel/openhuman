@@ -139,6 +139,86 @@ pub fn register_agent_handlers() {
     );
 }
 
+// ── Shared test helpers ──────────────────────────────────────────────────
+//
+// Any test in `openhuman_core` that needs to stub or exercise the real
+// `agent.run_turn` native handler should use these helpers rather than
+// touching `register_native_global`, `register_agent_handlers`, or the
+// shared `BUS_HANDLER_LOCK` directly. That keeps bus-stubbing consistent
+// and panic-safe across the whole workspace — including tests outside the
+// `channels` module that previously couldn't easily mock the agent turn.
+
+/// Install a typed stub for `agent.run_turn` on the global native bus,
+/// returning an RAII guard that restores the production handler on drop.
+///
+/// This is the canonical entry point for any test that wants to verify
+/// dispatch routed through the bus OR inject a canned agent response
+/// without spinning up `run_tool_call_loop`. The returned guard holds
+/// [`crate::core::event_bus::testing::BUS_HANDLER_LOCK`] so other
+/// dispatch tests will block until this one finishes.
+///
+/// # Example
+///
+/// ```ignore
+/// use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
+/// use std::sync::atomic::{AtomicUsize, Ordering};
+/// use std::sync::Arc;
+///
+/// #[tokio::test]
+/// async fn channel_dispatch_hits_bus_once() {
+///     let calls = Arc::new(AtomicUsize::new(0));
+///     let calls_for_stub = Arc::clone(&calls);
+///     let _guard = mock_agent_run_turn(move |req| {
+///         let calls = Arc::clone(&calls_for_stub);
+///         async move {
+///             calls.fetch_add(1, Ordering::SeqCst);
+///             assert_eq!(req.channel_name, "discord");
+///             Ok(AgentTurnResponse { text: "CANNED".into() })
+///         }
+///     })
+///     .await;
+///
+///     // ... drive the code under test ...
+///     assert_eq!(calls.load(Ordering::SeqCst), 1);
+///     // _guard drops → `register_agent_handlers()` runs automatically.
+/// }
+/// ```
+#[cfg(test)]
+pub async fn mock_agent_run_turn<F, Fut>(
+    handler: F,
+) -> crate::core::event_bus::testing::MockBusGuard
+where
+    F: Fn(AgentTurnRequest) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = Result<AgentTurnResponse, String>> + Send + 'static,
+{
+    crate::core::event_bus::testing::mock_bus_stub::<
+        AgentTurnRequest,
+        AgentTurnResponse,
+        F,
+        Fut,
+        _,
+    >(AGENT_RUN_TURN_METHOD, handler, || register_agent_handlers())
+    .await
+}
+
+/// Acquire the shared bus handler lock and (re)register the real
+/// `agent.run_turn` handler on the global native registry. Returns the
+/// lock guard — callers should hold it for the duration of the test body
+/// so no parallel stub-installing test can clobber the handler mid-dispatch.
+///
+/// Use this in tests that drive channel dispatch or otherwise depend on
+/// the **real** agent turn path. For tests that want to override the
+/// handler with a stub, use [`mock_agent_run_turn`] instead.
+#[cfg(test)]
+pub async fn use_real_agent_handler(
+) -> tokio::sync::MutexGuard<'static, ()> {
+    let guard = crate::core::event_bus::testing::BUS_HANDLER_LOCK
+        .lock()
+        .await;
+    register_agent_handlers();
+    guard
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

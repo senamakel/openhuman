@@ -2,10 +2,7 @@ use super::super::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS}
 use super::super::runtime::{process_channel_message, run_message_dispatch_loop};
 use super::super::{traits, Channel};
 use super::common::{use_real_agent_handler, NoopMemory, RecordingChannel, SlowProvider};
-use crate::core::event_bus::register_native_global;
-use crate::openhuman::agent::bus::{
-    register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
-};
+use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
 use crate::openhuman::providers;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -156,39 +153,30 @@ async fn process_channel_message_cancels_scoped_typing_task() {
 /// this test will start failing because the stub handler won't be invoked.
 #[tokio::test]
 async fn dispatch_routes_through_agent_run_turn_bus_handler() {
-    // Exclusive access to the global `agent.run_turn` registration — we
-    // install an override for this test and must not race with other
-    // dispatch tests that expect the real handler. Grabs the lock
-    // directly (not `use_real_agent_handler`) because we're about to
-    // overwrite the real handler with a stub.
-    let _bus_guard = super::common::BUS_HANDLER_LOCK.lock().await;
-
-    // Override the agent handler with a stub that records the request
-    // shape we received and returns a canned response. The stub runs
-    // inside `request_native_global`, so if dispatch still bypassed the
-    // bus the counter would stay at zero.
+    // Install a typed stub for `agent.run_turn` via the shared
+    // `mock_agent_run_turn` helper. The returned guard holds the
+    // workspace-wide bus handler lock and re-registers the production
+    // handler on drop — no manual lock juggling or restoration.
     let stub_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let stub_calls_for_handler = Arc::clone(&stub_calls);
-    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
-        AGENT_RUN_TURN_METHOD,
-        move |req| {
-            let stub_calls = Arc::clone(&stub_calls_for_handler);
-            async move {
-                stub_calls.fetch_add(1, Ordering::SeqCst);
-                // Basic sanity on the payload the dispatch built for us.
-                assert_eq!(req.channel_name, "test-channel");
-                assert_eq!(req.provider_name, "test-provider");
-                assert_eq!(req.model, "test-model");
-                assert!(
-                    req.history.len() >= 2,
-                    "history should include at least the system prompt and user message"
-                );
-                Ok(AgentTurnResponse {
-                    text: "CANNED_RESPONSE_FROM_BUS_STUB".to_string(),
-                })
-            }
-        },
-    );
+    let _bus_guard = mock_agent_run_turn(move |req| {
+        let stub_calls = Arc::clone(&stub_calls_for_handler);
+        async move {
+            stub_calls.fetch_add(1, Ordering::SeqCst);
+            // Basic sanity on the payload the dispatch built for us.
+            assert_eq!(req.channel_name, "test-channel");
+            assert_eq!(req.provider_name, "test-provider");
+            assert_eq!(req.model, "test-model");
+            assert!(
+                req.history.len() >= 2,
+                "history should include at least the system prompt and user message"
+            );
+            Ok(AgentTurnResponse {
+                text: "CANNED_RESPONSE_FROM_BUS_STUB".to_string(),
+            })
+        }
+    })
+    .await;
 
     let channel_impl = Arc::new(RecordingChannel::default());
     let channel: Arc<dyn Channel> = channel_impl.clone();
@@ -252,7 +240,7 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
         sent[0]
     );
 
-    // Restore the production handler before releasing the lock so the
-    // next test that expects the real path sees a consistent registry.
-    register_agent_handlers();
+    // No manual restore — dropping `_bus_guard` re-registers the
+    // production `agent.run_turn` handler automatically so the next test
+    // that expects the real path sees a consistent registry.
 }

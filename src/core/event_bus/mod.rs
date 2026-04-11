@@ -41,6 +41,7 @@ mod bus;
 mod events;
 mod native_request;
 mod subscriber;
+pub mod testing;
 mod tracing;
 
 pub use bus::{

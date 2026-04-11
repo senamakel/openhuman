@@ -30,10 +30,7 @@ use super::super::runtime::process_channel_message;
 use super::super::traits;
 use super::super::{Channel, SendMessage};
 use super::common::{HistoryCaptureProvider, NoopMemory};
-use crate::core::event_bus::register_native_global;
-use crate::openhuman::agent::bus::{
-    register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
-};
+use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
 use crate::openhuman::providers::{ChatMessage, Provider};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -334,33 +331,30 @@ async fn discord_thread_ts_splits_conversation_history_end_to_end() {
 /// test starts failing because the stub handler won't be invoked.
 #[tokio::test]
 async fn discord_dispatch_routes_through_agent_run_turn_bus_handler() {
-    // Grab the bus lock directly — we're about to override the real handler
-    // with a stub and must not race with other dispatch tests that expect
-    // the real path.
-    let _bus_guard = super::common::BUS_HANDLER_LOCK.lock().await;
-
+    // Install a stub `agent.run_turn` handler via the shared mock bus
+    // helper. The returned guard holds `BUS_HANDLER_LOCK` for the whole
+    // test body and re-registers production handlers on drop — even on
+    // panic — so no manual restore call is required.
     let stub_calls = Arc::new(AtomicUsize::new(0));
     let stub_calls_for_handler = Arc::clone(&stub_calls);
-    register_native_global::<AgentTurnRequest, AgentTurnResponse, _, _>(
-        AGENT_RUN_TURN_METHOD,
-        move |req| {
-            let stub_calls = Arc::clone(&stub_calls_for_handler);
-            async move {
-                stub_calls.fetch_add(1, Ordering::SeqCst);
-                // Sanity-check the payload the dispatcher built for us.
-                assert_eq!(req.channel_name, "discord");
-                assert_eq!(req.provider_name, "test-provider");
-                assert_eq!(req.model, "test-model");
-                assert!(
-                    req.history.len() >= 2,
-                    "history should include at least the system prompt and user message"
-                );
-                Ok(AgentTurnResponse {
-                    text: "CANNED_DISCORD_RESPONSE".to_string(),
-                })
-            }
-        },
-    );
+    let _bus_guard = mock_agent_run_turn(move |req| {
+        let stub_calls = Arc::clone(&stub_calls_for_handler);
+        async move {
+            stub_calls.fetch_add(1, Ordering::SeqCst);
+            // Sanity-check the payload the dispatcher built for us.
+            assert_eq!(req.channel_name, "discord");
+            assert_eq!(req.provider_name, "test-provider");
+            assert_eq!(req.model, "test-model");
+            assert!(
+                req.history.len() >= 2,
+                "history should include at least the system prompt and user message"
+            );
+            Ok(AgentTurnResponse {
+                text: "CANNED_DISCORD_RESPONSE".to_string(),
+            })
+        }
+    })
+    .await;
 
     let recorder = Arc::new(DiscordRecordingChannel::default());
     let channel: Arc<dyn Channel> = recorder.clone();
@@ -394,8 +388,4 @@ async fn discord_dispatch_routes_through_agent_run_turn_bus_handler() {
         "delivered message should contain the stubbed text, got {:?}",
         sent[0].content
     );
-
-    // Restore the production handler before releasing the bus lock so the
-    // next test that expects the real path sees a consistent registry.
-    register_agent_handlers();
 }

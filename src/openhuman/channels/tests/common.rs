@@ -6,46 +6,18 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tempfile::TempDir;
-use tokio::sync::{Mutex as TokioMutex, MutexGuard as TokioMutexGuard};
 
-/// Serializes channel-dispatch tests against concurrent manipulation of
-/// the global native request registry.
-///
-/// Background: after the Tier-2 bus migration, channel dispatch calls
-/// `request_native_global("agent.run_turn", …)`. That registry is a
-/// process-wide singleton. Tests that:
-///
-/// * rely on the **real** `agent.run_turn` handler (to hit their test
-///   providers / tool stacks via the real `run_tool_call_loop`), or
-/// * install a **stub** handler to prove bus routing
-///
-/// would otherwise race and clobber each other when `cargo test` runs
-/// them in parallel. Every channel-dispatch test grabs this lock for the
-/// duration of the test, so global handler state is observed exclusively.
-///
-/// Tests that never touch the global registry do **not** need this lock.
-pub(super) static BUS_HANDLER_LOCK: TokioMutex<()> = TokioMutex::const_new(());
-
-/// Acquire the shared bus handler lock **and** (re)register the real
-/// `agent.run_turn` handler on the global native registry, returning
-/// the lock guard.
-///
-/// This is the canonical entry point for any channel test that calls
-/// `process_channel_message` or `run_message_dispatch_loop`. Callers
-/// should hold the returned guard for the entire test body:
-///
-/// ```ignore
-/// #[tokio::test]
-/// async fn my_dispatch_test() {
-///     let _bus_guard = super::common::use_real_agent_handler().await;
-///     // ... test body that drives channel dispatch ...
-/// }
-/// ```
-pub(super) async fn use_real_agent_handler() -> TokioMutexGuard<'static, ()> {
-    let guard = BUS_HANDLER_LOCK.lock().await;
-    crate::openhuman::agent::bus::register_agent_handlers();
-    guard
-}
+// Note: the shared bus handler lock and the "install the real agent
+// handler for this test" helper both live in
+// `crate::openhuman::agent::bus` as `BUS_HANDLER_LOCK` (re-exported from
+// `crate::core::event_bus::testing`) and `use_real_agent_handler` so any
+// test in the workspace can drive the real `agent.run_turn` path without
+// depending on channels-specific scaffolding.
+//
+// For stub installations use `mock_agent_run_turn` (also in
+// `crate::openhuman::agent::bus`) or the generic `mock_bus_stub` in
+// `crate::core::event_bus::testing` for arbitrary bus methods.
+pub(super) use crate::openhuman::agent::bus::use_real_agent_handler;
 
 pub(super) fn make_workspace() -> TempDir {
     let tmp = TempDir::new().unwrap();

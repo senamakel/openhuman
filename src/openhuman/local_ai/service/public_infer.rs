@@ -308,16 +308,22 @@ impl LocalAiService {
         }
 
         let started = std::time::Instant::now();
-        let mut combined_prompt = String::new();
-        if no_think {
-            combined_prompt.push_str("Respond with only the final answer. No reasoning.\\n\\n");
-        }
-        combined_prompt.push_str(prompt);
+
+        // When `no_think` is set, append the instruction to the system
+        // prompt so the model treats it as a directive rather than content
+        // it might parrot back.
+        let effective_system = if no_think {
+            format!(
+                "{system}\n\nRespond with only the final answer. No reasoning, no preamble."
+            )
+        } else {
+            system.to_string()
+        };
 
         let body = OllamaGenerateRequest {
             model: model_ids::effective_chat_model_id(config),
-            prompt: combined_prompt,
-            system: Some(system.to_string()),
+            prompt: prompt.to_string(),
+            system: Some(effective_system),
             images: None,
             stream: false,
             options: Some(OllamaGenerateOptions {

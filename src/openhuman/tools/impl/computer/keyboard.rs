@@ -143,9 +143,14 @@ impl Tool for KeyboardTool {
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         if !self.security.can_act() {
+            debug!(
+                tool = "keyboard",
+                "[computer] blocked: autonomy is read-only"
+            );
             return Ok(ToolResult::error("Action blocked: autonomy is read-only"));
         }
         if !self.security.record_action() {
+            debug!(tool = "keyboard", "[computer] blocked: rate limit exceeded");
             return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
         }
 
@@ -225,13 +230,19 @@ impl Tool for KeyboardTool {
             }
 
             "hotkey" => {
-                let key_names: Vec<String> = args
+                let raw_keys = args
                     .get("keys")
                     .and_then(Value::as_array)
-                    .ok_or_else(|| anyhow::anyhow!("Missing 'keys' array for hotkey action"))?
-                    .iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect();
+                    .ok_or_else(|| anyhow::anyhow!("Missing 'keys' array for hotkey action"))?;
+
+                // Reject non-string entries up front.
+                let mut key_names: Vec<String> = Vec::with_capacity(raw_keys.len());
+                for (i, v) in raw_keys.iter().enumerate() {
+                    let s = v.as_str().ok_or_else(|| {
+                        anyhow::anyhow!("Element {i} in 'keys' array is not a string (got {v})")
+                    })?;
+                    key_names.push(s.to_string());
+                }
 
                 if key_names.is_empty() {
                     return Ok(ToolResult::error("'keys' array cannot be empty"));
@@ -241,7 +252,13 @@ impl Tool for KeyboardTool {
                         "Too many keys in hotkey combination (max 6)",
                     ));
                 }
+                if key_names.len() < 2 {
+                    return Ok(ToolResult::error(
+                        "Hotkey requires at least one modifier and one final key (e.g. ['Ctrl', 'C'])",
+                    ));
+                }
 
+                // Parse all key names into Key values.
                 let mut keys: Vec<Key> = Vec::with_capacity(key_names.len());
                 for name in &key_names {
                     let key = parse_key(name).ok_or_else(|| {
@@ -250,25 +267,58 @@ impl Tool for KeyboardTool {
                     keys.push(key);
                 }
 
+                // Validate modifier-first pattern: all keys except the last
+                // must be modifiers, and the last must be a non-modifier.
+                let (modifiers, final_key) = keys.split_at(keys.len() - 1);
+                for (i, key) in modifiers.iter().enumerate() {
+                    if !is_modifier(key) {
+                        return Ok(ToolResult::error(format!(
+                            "Key '{}' at position {i} must be a modifier (Ctrl/Shift/Alt/Cmd). Non-modifier keys must be last.",
+                            key_names[i]
+                        )));
+                    }
+                }
+                if is_modifier(&final_key[0]) {
+                    return Ok(ToolResult::error(format!(
+                        "Last key '{}' cannot be a modifier. Hotkey must end with a non-modifier key (e.g. 'C', 'Enter').",
+                        key_names.last().unwrap()
+                    )));
+                }
+
                 let combo_desc = key_names.join("+");
                 tokio::task::spawn_blocking(move || {
                     let mut enigo = Enigo::new(&Settings::default())
                         .map_err(|e| anyhow::anyhow!("Failed to create enigo instance: {e}"))?;
 
-                    // Press all keys in order (modifiers first, then the final key)
-                    for key in &keys {
-                        enigo
-                            .key(*key, Direction::Press)
-                            .map_err(|e| anyhow::anyhow!("key press failed: {e}"))?;
-                        std::thread::sleep(HOTKEY_INTER_KEY_DELAY);
+                    // Press keys in order, tracking which were successfully
+                    // pressed so we can release them on error.
+                    let mut pressed_keys: Vec<Key> = Vec::with_capacity(keys.len());
+                    let press_result: Result<(), anyhow::Error> = (|| {
+                        for key in &keys {
+                            enigo.key(*key, Direction::Press).map_err(|e| {
+                                anyhow::anyhow!("key press failed for {key:?}: {e}")
+                            })?;
+                            pressed_keys.push(*key);
+                            std::thread::sleep(HOTKEY_INTER_KEY_DELAY);
+                        }
+                        Ok(())
+                    })();
+
+                    // Always release all successfully pressed keys in reverse
+                    // order, even if a press failed partway through.
+                    for key in pressed_keys.iter().rev() {
+                        if let Err(e) = enigo.key(*key, Direction::Release) {
+                            tracing::warn!(
+                                tool = "keyboard",
+                                key = ?key,
+                                error = %e,
+                                "[computer] best-effort key release failed during cleanup"
+                            );
+                        }
                     }
 
-                    // Release in reverse order
-                    for key in keys.iter().rev() {
-                        enigo
-                            .key(*key, Direction::Release)
-                            .map_err(|e| anyhow::anyhow!("key release failed: {e}"))?;
-                    }
+                    // Now propagate any press error.
+                    press_result?;
 
                     info!(
                         tool = "keyboard",
@@ -480,5 +530,46 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("too long"));
+    }
+
+    // ── hotkey validation tests ──────────────────────────────────
+
+    #[tokio::test]
+    async fn hotkey_non_string_entry_returns_error() {
+        let tool = make_tool();
+        let result = tool
+            .execute(json!({"action": "hotkey", "keys": ["Ctrl", 1]}))
+            .await;
+        assert!(result.is_err() || result.unwrap().is_error);
+    }
+
+    #[tokio::test]
+    async fn hotkey_modifier_only_returns_error() {
+        let tool = make_tool();
+        let result = tool
+            .execute(json!({"action": "hotkey", "keys": ["Ctrl"]}))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+    }
+
+    #[tokio::test]
+    async fn hotkey_non_modifier_before_last_returns_error() {
+        let tool = make_tool();
+        let result = tool
+            .execute(json!({"action": "hotkey", "keys": ["a", "Ctrl"]}))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+    }
+
+    #[tokio::test]
+    async fn hotkey_modifier_as_last_returns_error() {
+        let tool = make_tool();
+        let result = tool
+            .execute(json!({"action": "hotkey", "keys": ["Ctrl", "Shift"]}))
+            .await
+            .unwrap();
+        assert!(result.is_error);
     }
 }

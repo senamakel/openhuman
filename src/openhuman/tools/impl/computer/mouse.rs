@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use enigo::{Button, Coordinate, Direction, Enigo, Mouse, Settings};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Coordinate safety bound — reject values outside this range.
 const MAX_COORD: i64 = 32768;
@@ -25,11 +25,18 @@ impl MouseTool {
     }
 }
 
-fn parse_button(args: &Value) -> Button {
-    match args.get("button").and_then(Value::as_str) {
-        Some("right") => Button::Right,
-        Some("middle") => Button::Middle,
-        _ => Button::Left,
+fn parse_button(args: &Value) -> anyhow::Result<Button> {
+    match args.get("button") {
+        None => Ok(Button::Left),
+        Some(v) => match v.as_str() {
+            Some("left") => Ok(Button::Left),
+            Some("right") => Ok(Button::Right),
+            Some("middle") => Ok(Button::Middle),
+            Some(other) => {
+                anyhow::bail!("Invalid mouse button '{other}'. Use: left, right, middle")
+            }
+            None => anyhow::bail!("'button' must be a string, got {v}"),
+        },
     }
 }
 
@@ -117,9 +124,11 @@ impl Tool for MouseTool {
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         if !self.security.can_act() {
+            debug!(tool = "mouse", "[computer] blocked: autonomy is read-only");
             return Ok(ToolResult::error("Action blocked: autonomy is read-only"));
         }
         if !self.security.record_action() {
+            debug!(tool = "mouse", "[computer] blocked: rate limit exceeded");
             return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
         }
 
@@ -157,7 +166,7 @@ impl Tool for MouseTool {
 
             "click" => {
                 let (x, y) = require_xy(&args)?;
-                let button = parse_button(&args);
+                let button = parse_button(&args)?;
                 tokio::task::spawn_blocking(move || {
                     let mut enigo = Enigo::new(&Settings::default())
                         .map_err(|e| anyhow::anyhow!("Failed to create enigo instance: {e}"))?;
@@ -181,7 +190,7 @@ impl Tool for MouseTool {
 
             "double_click" => {
                 let (x, y) = require_xy(&args)?;
-                let button = parse_button(&args);
+                let button = parse_button(&args)?;
                 tokio::task::spawn_blocking(move || {
                     let mut enigo = Enigo::new(&Settings::default())
                         .map_err(|e| anyhow::anyhow!("Failed to create enigo instance: {e}"))?;
@@ -218,7 +227,7 @@ impl Tool for MouseTool {
                 validate_coord("start_x", start_x)?;
                 validate_coord("start_y", start_y)?;
                 let (end_x, end_y) = require_xy(&args)?;
-                let button = parse_button(&args);
+                let button = parse_button(&args)?;
                 let sx = start_x as i32;
                 let sy = start_y as i32;
 
@@ -231,12 +240,28 @@ impl Tool for MouseTool {
                     enigo
                         .button(button, Direction::Press)
                         .map_err(|e| anyhow::anyhow!("button press failed: {e}"))?;
-                    enigo
-                        .move_mouse(end_x, end_y, Coordinate::Abs)
-                        .map_err(|e| anyhow::anyhow!("move_mouse (end) failed: {e}"))?;
-                    enigo
-                        .button(button, Direction::Release)
-                        .map_err(|e| anyhow::anyhow!("button release failed: {e}"))?;
+
+                    // After press succeeds, guarantee release even on error.
+                    let drag_result: Result<(), anyhow::Error> = (|| {
+                        enigo
+                            .move_mouse(end_x, end_y, Coordinate::Abs)
+                            .map_err(|e| anyhow::anyhow!("move_mouse (end) failed: {e}"))?;
+                        Ok(())
+                    })();
+
+                    // Always release — best-effort cleanup.
+                    if let Err(e) = enigo.button(button, Direction::Release) {
+                        warn!(
+                            tool = "mouse",
+                            button = ?button,
+                            error = %e,
+                            "[computer] best-effort button release failed during drag cleanup"
+                        );
+                    }
+
+                    // Propagate the drag error if the move failed.
+                    drag_result?;
+
                     info!(
                         tool = "mouse", action = "drag",
                         start_x = sx, start_y = sy,
@@ -251,8 +276,23 @@ impl Tool for MouseTool {
             }
 
             "scroll" => {
-                let scroll_x = args.get("scroll_x").and_then(Value::as_i64).unwrap_or(0) as i32;
-                let scroll_y = args.get("scroll_y").and_then(Value::as_i64).unwrap_or(0) as i32;
+                let raw_x = args.get("scroll_x").and_then(Value::as_i64).unwrap_or(0);
+                let raw_y = args.get("scroll_y").and_then(Value::as_i64).unwrap_or(0);
+
+                let scroll_x = i32::try_from(raw_x).map_err(|_| {
+                    anyhow::anyhow!(
+                        "'scroll_x' value {raw_x} is out of i32 range ({min}..={max})",
+                        min = i32::MIN,
+                        max = i32::MAX
+                    )
+                })?;
+                let scroll_y = i32::try_from(raw_y).map_err(|_| {
+                    anyhow::anyhow!(
+                        "'scroll_y' value {raw_y} is out of i32 range ({min}..={max})",
+                        min = i32::MIN,
+                        max = i32::MAX
+                    )
+                })?;
 
                 if scroll_x == 0 && scroll_y == 0 {
                     return Ok(ToolResult::error(
@@ -355,18 +395,37 @@ mod tests {
 
     #[test]
     fn parse_button_defaults_to_left() {
-        assert_eq!(parse_button(&json!({})), Button::Left);
-        assert_eq!(parse_button(&json!({"button": "left"})), Button::Left);
+        assert_eq!(parse_button(&json!({})).unwrap(), Button::Left);
+        assert_eq!(
+            parse_button(&json!({"button": "left"})).unwrap(),
+            Button::Left
+        );
     }
 
     #[test]
     fn parse_button_right() {
-        assert_eq!(parse_button(&json!({"button": "right"})), Button::Right);
+        assert_eq!(
+            parse_button(&json!({"button": "right"})).unwrap(),
+            Button::Right
+        );
     }
 
     #[test]
     fn parse_button_middle() {
-        assert_eq!(parse_button(&json!({"button": "middle"})), Button::Middle);
+        assert_eq!(
+            parse_button(&json!({"button": "middle"})).unwrap(),
+            Button::Middle
+        );
+    }
+
+    #[test]
+    fn parse_button_unknown_returns_error() {
+        assert!(parse_button(&json!({"button": "laser"})).is_err());
+    }
+
+    #[test]
+    fn parse_button_non_string_returns_error() {
+        assert!(parse_button(&json!({"button": 42})).is_err());
     }
 
     #[tokio::test]

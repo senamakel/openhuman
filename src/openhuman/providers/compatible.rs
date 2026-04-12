@@ -5,6 +5,7 @@
 use crate::openhuman::providers::traits::{
     ChatMessage, ChatRequest as ProviderChatRequest, ChatResponse as ProviderChatResponse,
     Provider, StreamChunk, StreamError, StreamOptions, StreamResult, ToolCall as ProviderToolCall,
+    UsageInfo as ProviderUsageInfo,
 };
 use async_trait::async_trait;
 use futures_util::{stream, StreamExt};
@@ -288,11 +289,63 @@ struct Message {
 #[derive(Debug, Deserialize)]
 struct ApiChatResponse {
     choices: Vec<Choice>,
+    /// Standard OpenAI usage block.
+    #[serde(default)]
+    usage: Option<ApiUsage>,
+    /// OpenHuman backend metadata (usage + billing summary).
+    #[serde(default)]
+    openhuman: Option<OpenHumanMeta>,
 }
 
 #[derive(Debug, Deserialize)]
 struct Choice {
     message: ResponseMessage,
+}
+
+/// Standard OpenAI `usage` block on a chat completion response.
+#[derive(Debug, Deserialize, Default)]
+struct ApiUsage {
+    #[serde(default)]
+    prompt_tokens: u64,
+    #[serde(default)]
+    completion_tokens: u64,
+    #[serde(default)]
+    total_tokens: u64,
+    #[serde(default)]
+    prompt_tokens_details: Option<PromptTokensDetails>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct PromptTokensDetails {
+    #[serde(default)]
+    cached_tokens: u64,
+}
+
+/// OpenHuman backend metadata appended to the response JSON.
+#[derive(Debug, Deserialize, Default)]
+struct OpenHumanMeta {
+    #[serde(default)]
+    usage: Option<OpenHumanUsage>,
+    #[serde(default)]
+    billing: Option<OpenHumanBilling>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct OpenHumanUsage {
+    #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+    #[serde(default)]
+    total_tokens: u64,
+    #[serde(default)]
+    cached_input_tokens: u64,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct OpenHumanBilling {
+    #[serde(default)]
+    charged_amount_usd: f64,
 }
 
 /// Remove `<think>...</think>` blocks from model output.
@@ -941,7 +994,20 @@ impl OpenAiCompatibleProvider {
         modified_messages
     }
 
-    fn parse_native_response(message: ResponseMessage) -> ProviderChatResponse {
+    fn parse_native_response(api_response: ApiChatResponse) -> ProviderChatResponse {
+        let usage = Self::extract_usage(&api_response);
+
+        let message = match api_response.choices.into_iter().next() {
+            Some(choice) => choice.message,
+            None => {
+                return ProviderChatResponse {
+                    text: None,
+                    tool_calls: vec![],
+                    usage,
+                };
+            }
+        };
+
         let mut text = message.effective_content_optional();
         let mut tool_calls = message
             .tool_calls
@@ -990,8 +1056,47 @@ impl OpenAiCompatibleProvider {
         ProviderChatResponse {
             text,
             tool_calls,
-            usage: None,
+            usage,
         }
+    }
+
+    /// Extract usage info from API response, preferring the OpenHuman
+    /// metadata block (which includes cache stats and billing) over the
+    /// standard OpenAI usage block.
+    fn extract_usage(resp: &ApiChatResponse) -> Option<ProviderUsageInfo> {
+        let oh = resp.openhuman.as_ref();
+        let std_usage = resp.usage.as_ref();
+
+        // Need at least one source of token counts.
+        if oh.is_none() && std_usage.is_none() {
+            return None;
+        }
+
+        let oh_usage = oh.and_then(|o| o.usage.as_ref());
+        let oh_billing = oh.and_then(|o| o.billing.as_ref());
+
+        let input_tokens = oh_usage
+            .map(|u| u.input_tokens)
+            .or(std_usage.map(|u| u.prompt_tokens))
+            .unwrap_or(0);
+        let output_tokens = oh_usage
+            .map(|u| u.output_tokens)
+            .or(std_usage.map(|u| u.completion_tokens))
+            .unwrap_or(0);
+        let cached_input_tokens = oh_usage
+            .map(|u| u.cached_input_tokens)
+            .or(std_usage
+                .and_then(|u| u.prompt_tokens_details.as_ref())
+                .map(|d| d.cached_tokens))
+            .unwrap_or(0);
+
+        Some(ProviderUsageInfo {
+            input_tokens,
+            output_tokens,
+            context_window: 0,
+            cached_input_tokens,
+            charged_amount_usd: oh_billing.map(|b| b.charged_amount_usd).unwrap_or(0.0),
+        })
     }
 
     fn is_native_tool_schema_unsupported(status: reqwest::StatusCode, error: &str) -> bool {
@@ -1462,14 +1567,11 @@ impl Provider for OpenAiCompatibleProvider {
         }
 
         let native_response: ApiChatResponse = response.json().await?;
-        let message = native_response
-            .choices
-            .into_iter()
-            .next()
-            .map(|choice| choice.message)
-            .ok_or_else(|| anyhow::anyhow!("No response from {}", self.name))?;
+        if native_response.choices.is_empty() {
+            anyhow::bail!("No response from {}", self.name);
+        }
 
-        Ok(Self::parse_native_response(message))
+        Ok(Self::parse_native_response(native_response))
     }
 
     fn supports_native_tools(&self) -> bool {

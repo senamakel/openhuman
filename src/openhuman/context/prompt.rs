@@ -1093,7 +1093,10 @@ mod tests {
         let learned = LearnedContextData {
             tree_root_summaries: vec![
                 ("user".into(), "Steven prefers terse Rust answers.".into()),
-                ("conversations".into(), "Recent thread: prompt rework.".into()),
+                (
+                    "conversations".into(),
+                    "Recent thread: prompt rework.".into(),
+                ),
             ],
             ..Default::default()
         };

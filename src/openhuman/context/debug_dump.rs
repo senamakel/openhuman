@@ -48,16 +48,16 @@ use crate::openhuman::agent::harness::definition::{
 };
 use crate::openhuman::agent::host_runtime::{self, RuntimeAdapter};
 use crate::openhuman::agent::pformat;
+use crate::openhuman::composio::client::ComposioClient;
+use crate::openhuman::composio::tools::{
+    ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
+    ComposioListToolkitsTool, ComposioListToolsTool,
+};
 use crate::openhuman::config::Config;
 use crate::openhuman::context::prompt::{
     extract_cache_boundary, render_subagent_system_prompt, LearnedContextData, PromptContext,
     PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
     USER_MEMORY_PER_NAMESPACE_MAX_CHARS, USER_MEMORY_TOTAL_MAX_CHARS,
-};
-use crate::openhuman::composio::client::ComposioClient;
-use crate::openhuman::composio::tools::{
-    ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
-    ComposioListToolkitsTool, ComposioListToolsTool,
 };
 use crate::openhuman::integrations::IntegrationClient;
 use crate::openhuman::memory::{self, Memory};
@@ -224,11 +224,7 @@ pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPromp
     // for `skills_agent` — the names, descriptions and schemas are the
     // same bytes a signed-in user would see. See
     // [`DumpPromptOptions::stub_composio`] for the safety contract.
-    if options.stub_composio
-        && !tools_vec
-            .iter()
-            .any(|t| t.name().starts_with("composio_"))
-    {
+    if options.stub_composio && !tools_vec.iter().any(|t| t.name().starts_with("composio_")) {
         tracing::debug!("[debug_dump] injecting composio meta-tool stubs");
         tools_vec.extend(build_composio_stub_tools());
     }
@@ -635,19 +631,13 @@ mod tests {
             }),
         ];
 
-        let workspace = std::env::temp_dir()
-            .join(format!("openhuman_debug_dump_{}", uuid::Uuid::new_v4()));
+        let workspace =
+            std::env::temp_dir().join(format!("openhuman_debug_dump_{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&workspace).unwrap();
 
         let definition = skills_agent_def();
-        let dumped = render_subagent_dump(
-            &definition,
-            &workspace,
-            "reasoning-v1",
-            &tools,
-            None,
-        )
-        .expect("skills_agent prompt should render");
+        let dumped = render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None)
+            .expect("skills_agent prompt should render");
 
         assert_eq!(dumped.mode, "subagent");
         assert!(
@@ -690,8 +680,8 @@ mod tests {
             }),
         ];
 
-        let workspace = std::env::temp_dir()
-            .join(format!("openhuman_debug_dump_{}", uuid::Uuid::new_v4()));
+        let workspace =
+            std::env::temp_dir().join(format!("openhuman_debug_dump_{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&workspace).unwrap();
 
         let definition = skills_agent_def();

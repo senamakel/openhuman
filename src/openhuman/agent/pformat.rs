@@ -232,7 +232,14 @@ pub fn parse_call(body: &str, registry: &PFormatRegistry) -> Option<(String, Val
             );
             continue;
         };
-        let coerced = coerce_value(raw, params.types.get(i).copied().unwrap_or(PFormatParamType::String));
+        let coerced = coerce_value(
+            raw,
+            params
+                .types
+                .get(i)
+                .copied()
+                .unwrap_or(PFormatParamType::String),
+        );
         args.insert(param_name.clone(), coerced);
     }
 
@@ -445,10 +452,7 @@ mod tests {
         let reg = make_registry();
         // `math` has properties (in source) {x, y, verbose} but
         // BTreeMap iteration sorts to {verbose, x, y}.
-        assert_eq!(
-            render_signature("math", &reg["math"]),
-            "math[verbose|x|y]"
-        );
+        assert_eq!(render_signature("math", &reg["math"]), "math[verbose|x|y]");
     }
 
     #[test]

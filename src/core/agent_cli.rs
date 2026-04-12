@@ -239,7 +239,10 @@ fn print_json(dumped: &DumpedPrompt, with_tools: bool) -> Result<()> {
             ),
         );
     }
-    println!("{}", serde_json::to_string_pretty(&serde_json::Value::Object(obj))?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::Value::Object(obj))?
+    );
     Ok(())
 }
 
@@ -283,9 +286,8 @@ fn run_list(args: &[String]) -> Result<()> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        let config = rt.block_on(async {
-            crate::openhuman::config::Config::load_or_init().await
-        })?;
+        let config =
+            rt.block_on(async { crate::openhuman::config::Config::load_or_init().await })?;
         config.workspace_dir
     };
 
@@ -336,11 +338,7 @@ fn run_list(args: &[String]) -> Result<()> {
                 .category_filter
                 .map(|c| format!("{c:?}"))
                 .unwrap_or_else(|| "-".into());
-            let when = def
-                .when_to_use
-                .chars()
-                .take(46)
-                .collect::<String>();
+            let when = def.when_to_use.chars().take(46).collect::<String>();
             println!("{:<20} {:<22} {}", def.id, cat, when);
         }
         println!();

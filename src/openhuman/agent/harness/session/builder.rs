@@ -361,8 +361,7 @@ impl Agent {
         // about to be moved into the agent. The lookup is owned by
         // the dispatcher (no Arc back into the live tools), which
         // keeps lifetime/ownership rules trivial.
-        let pformat_registry =
-            crate::openhuman::agent::pformat::build_registry(&tools);
+        let pformat_registry = crate::openhuman::agent::pformat::build_registry(&tools);
         let dispatcher_choice = config.agent.tool_dispatcher.as_str();
         let tool_dispatcher: Box<dyn ToolDispatcher> = match dispatcher_choice {
             "native" => Box::new(NativeToolDispatcher),

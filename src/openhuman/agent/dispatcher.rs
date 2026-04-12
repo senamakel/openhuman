@@ -229,9 +229,7 @@ impl ToolDispatcher for PFormatToolDispatcher {
         while !remaining.is_empty() {
             let next = tags
                 .iter()
-                .filter_map(|(open, close)| {
-                    remaining.find(open).map(|i| (i, *open, *close))
-                })
+                .filter_map(|(open, close)| remaining.find(open).map(|i| (i, *open, *close)))
                 .min_by_key(|(i, _, _)| *i);
 
             let Some((open_idx, open_tag, close_tag)) = next else {
@@ -302,9 +300,8 @@ impl ToolDispatcher for PFormatToolDispatcher {
              pipe-delimited syntax wrapped in `<tool_call>` tags. ~80% cheaper on tokens \
              than JSON.\n\n",
         );
-        instructions.push_str(
-            "```\n<tool_call>\nget_weather[London|metric]\n</tool_call>\n```\n\n",
-        );
+        instructions
+            .push_str("```\n<tool_call>\nget_weather[London|metric]\n</tool_call>\n```\n\n");
         instructions.push_str(
             "**Rules:**\n\
              - Form: `name[arg1|arg2|...|argN]`. Arguments are positional and must match the \
@@ -591,10 +588,7 @@ mod tests {
             "properties": props
         });
         let mut reg = PFormatRegistry::new();
-        reg.insert(
-            name.to_string(),
-            PFormatToolParams::from_schema(&schema),
-        );
+        reg.insert(name.to_string(), PFormatToolParams::from_schema(&schema));
         reg
     }
 
@@ -652,10 +646,7 @@ mod tests {
         assert_eq!(text, "Running it now.");
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].name, "shell");
-        assert_eq!(
-            calls[0].arguments,
-            serde_json::json!({"command": "ls"})
-        );
+        assert_eq!(calls[0].arguments, serde_json::json!({"command": "ls"}));
     }
 
     #[test]

@@ -878,9 +878,7 @@ impl Agent {
 /// from `context::prompt`. The store helper does the actual work — this
 /// indirection just keeps the call site readable and the caps in one
 /// place where the prompt section is defined.
-fn collect_tree_root_summaries(
-    workspace_dir: &std::path::Path,
-) -> Vec<(String, String)> {
+fn collect_tree_root_summaries(workspace_dir: &std::path::Path) -> Vec<(String, String)> {
     use crate::openhuman::context::prompt::{
         USER_MEMORY_PER_NAMESPACE_MAX_CHARS, USER_MEMORY_TOTAL_MAX_CHARS,
     };

@@ -8,6 +8,7 @@ pub mod host_runtime;
 pub mod memory_loader;
 pub mod multimodal;
 mod schemas;
+pub mod triage;
 pub use schemas::{
     all_controller_schemas as all_agent_controller_schemas,
     all_registered_controllers as all_agent_registered_controllers,

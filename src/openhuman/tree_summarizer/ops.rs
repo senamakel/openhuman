@@ -168,7 +168,7 @@ fn create_local_ai_provider(
     let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
         "ollama-local",
         &base_url,
-        None, // Ollama doesn't require auth
+        Some("ollama"), // Ollama ignores auth but the provider requires a non-None credential
         AuthStyle::Bearer,
     );
 

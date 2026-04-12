@@ -577,7 +577,7 @@ const CAPABILITIES: &[Capability] = &[
         domain: "settings",
         category: CapabilityCategory::Settings,
         description:
-            "Inspect ComposeIO trigger history and find the daily JSONL archive files stored by the app.",
+            "Inspect Composio trigger history and find the daily JSONL archive files stored by the app.",
         how_to: "Settings > Developer Options > Webhooks",
         status: CapabilityStatus::Beta,
     },

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use chrono::Utc;
+use fs2::FileExt;
 
 use super::types::{ComposioTriggerHistoryEntry, ComposioTriggerHistoryResult};
 
@@ -17,13 +18,41 @@ static GLOBAL_TRIGGER_HISTORY: OnceLock<Arc<ComposioTriggerHistoryStore>> = Once
 const TRIGGER_ARCHIVE_DIR: &str = "triggers";
 
 pub fn init_global(workspace_dir: PathBuf) -> Result<(), String> {
-    if GLOBAL_TRIGGER_HISTORY.get().is_some() {
-        return Ok(());
+    let expected_archive_dir = workspace_dir.join("state").join(TRIGGER_ARCHIVE_DIR);
+    if let Some(existing) = GLOBAL_TRIGGER_HISTORY.get() {
+        if existing.archive_dir == expected_archive_dir {
+            return Ok(());
+        }
+
+        return Err(format!(
+            "[composio][history] global store already initialized for {} while attempting {}",
+            existing.archive_dir.display(),
+            expected_archive_dir.display()
+        ));
     }
 
     let store = Arc::new(ComposioTriggerHistoryStore::new(&workspace_dir)?);
-    let _ = GLOBAL_TRIGGER_HISTORY.set(store);
-    Ok(())
+    match GLOBAL_TRIGGER_HISTORY.set(store.clone()) {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            if let Some(existing) = GLOBAL_TRIGGER_HISTORY.get() {
+                if existing.archive_dir == store.archive_dir {
+                    return Ok(());
+                }
+
+                return Err(format!(
+                    "[composio][history] global store already initialized for {} while attempting {}",
+                    existing.archive_dir.display(),
+                    store.archive_dir.display()
+                ));
+            }
+
+            Err(format!(
+                "[composio][history] failed to initialize global store for {}",
+                store.archive_dir.display()
+            ))
+        }
+    }
 }
 
 pub fn global() -> Option<Arc<ComposioTriggerHistoryStore>> {
@@ -84,12 +113,29 @@ impl ComposioTriggerHistoryStore {
                 )
             })?;
 
-        writeln!(file, "{line}").map_err(|error| {
+        file.lock_exclusive().map_err(|error| {
             format!(
-                "[composio][history] failed to append archive file {}: {error}",
+                "[composio][history] failed to lock archive file {}: {error}",
                 path.display()
             )
         })?;
+        let write_result = writeln!(file, "{line}")
+            .and_then(|_| file.flush())
+            .map_err(|error| {
+                format!(
+                    "[composio][history] failed to append archive file {}: {error}",
+                    path.display()
+                )
+            });
+        let unlock_result = file.unlock().map_err(|error| {
+            format!(
+                "[composio][history] failed to unlock archive file {}: {error}",
+                path.display()
+            )
+        });
+
+        write_result?;
+        unlock_result?;
 
         tracing::debug!(
             toolkit = %entry.toolkit,

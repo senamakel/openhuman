@@ -17,7 +17,8 @@ function formatTimestamp(ts: number): string {
 
 function formatPayload(payload: unknown): string {
   try {
-    return JSON.stringify(payload, null, 2);
+    const formatted = JSON.stringify(payload, null, 2);
+    return formatted ?? String(payload);
   } catch {
     return String(payload);
   }

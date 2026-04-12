@@ -167,15 +167,40 @@ impl EventHandler for ComposioTriggerSubscriber {
         );
 
         if let Some(store) = trigger_history::global() {
-            if let Err(error) =
-                store.record_trigger(toolkit, trigger, metadata_id, metadata_uuid, payload)
+            let toolkit_owned = toolkit.clone();
+            let trigger_owned = trigger.clone();
+            let metadata_id_owned = metadata_id.clone();
+            let metadata_uuid_owned = metadata_uuid.clone();
+            let payload_owned = payload.clone();
+
+            match tokio::task::spawn_blocking(move || {
+                store.record_trigger(
+                    &toolkit_owned,
+                    &trigger_owned,
+                    &metadata_id_owned,
+                    &metadata_uuid_owned,
+                    &payload_owned,
+                )
+            })
+            .await
             {
-                tracing::warn!(
-                    toolkit = %toolkit,
-                    trigger = %trigger,
-                    error = %error,
-                    "[composio][history] failed to archive trigger"
-                );
+                Ok(Ok(_)) => {}
+                Ok(Err(error)) => {
+                    tracing::warn!(
+                        toolkit = %toolkit,
+                        trigger = %trigger,
+                        error = %error,
+                        "[composio][history] failed to archive trigger"
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        toolkit = %toolkit,
+                        trigger = %trigger,
+                        error = %error,
+                        "[composio][history] failed to join archive task"
+                    );
+                }
             }
         } else {
             tracing::debug!(

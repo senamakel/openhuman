@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCoreState } from '../providers/CoreStateProvider';
 import {
@@ -28,11 +28,39 @@ export function useComposeioTriggerHistory(limit = 100): ComposeioTriggerHistory
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coreConnected, setCoreConnected] = useState(false);
+  const isRefreshingRef = useRef(false);
+  const sessionTokenRef = useRef(snapshot.sessionToken);
+
+  const clearHistory = useCallback(() => {
+    setArchiveDir(null);
+    setCurrentDayFile(null);
+    setEntries([]);
+    setLoading(false);
+    setError(null);
+    setCoreConnected(false);
+  }, []);
+
+  useEffect(() => {
+    sessionTokenRef.current = snapshot.sessionToken;
+  }, [snapshot.sessionToken]);
 
   const refresh = useCallback(async () => {
+    if (isRefreshingRef.current) {
+      return;
+    }
+    if (!snapshot.sessionToken) {
+      clearHistory();
+      return;
+    }
+
+    const requestToken = snapshot.sessionToken;
+    isRefreshingRef.current = true;
     setLoading(true);
     try {
       const response = await openhumanComposioListTriggerHistory(limit);
+      if (!sessionTokenRef.current || sessionTokenRef.current !== requestToken) {
+        return;
+      }
       const result = response.result.result;
       setArchiveDir(result.archive_dir);
       setCurrentDayFile(result.current_day_file);
@@ -41,18 +69,31 @@ export function useComposeioTriggerHistory(limit = 100): ComposeioTriggerHistory
       setCoreConnected(true);
       log('loaded %d composio trigger entries', result.entries.length);
     } catch (refreshError) {
+      if (!sessionTokenRef.current || sessionTokenRef.current !== requestToken) {
+        return;
+      }
       const message =
         refreshError instanceof Error ? refreshError.message : 'Failed to load ComposeIO history';
       setError(message);
       setCoreConnected(false);
       log('failed to load trigger history: %s', message);
     } finally {
+      isRefreshingRef.current = false;
       setLoading(false);
     }
-  }, [limit]);
+  }, [clearHistory, limit, snapshot.sessionToken]);
+
+  useEffect(() => {
+    if (snapshot.sessionToken) {
+      return;
+    }
+
+    clearHistory();
+  }, [clearHistory, snapshot.sessionToken]);
 
   useEffect(() => {
     if (!snapshot.sessionToken) {
+      clearHistory();
       return;
     }
 
@@ -64,7 +105,7 @@ export function useComposeioTriggerHistory(limit = 100): ComposeioTriggerHistory
     return () => {
       window.clearInterval(timer);
     };
-  }, [snapshot.sessionToken, refresh]);
+  }, [clearHistory, refresh, snapshot.sessionToken]);
 
   return { archiveDir, currentDayFile, entries, loading, error, coreConnected, refresh };
 }

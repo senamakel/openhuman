@@ -67,6 +67,13 @@ const VoicePanel = () => {
       setVoiceStatus(voiceResponse);
       const sttAssetState = assetsResponse.result.stt?.state;
       const sttAssetOk = sttAssetState === 'ready' || sttAssetState === 'ondemand';
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[VoicePanel:stt] readiness decision', {
+          sttAssetState,
+          sttAssetOk,
+          sttAvailable: voiceResponse.stt_available,
+        });
+      }
       setSttReady(sttAssetOk && voiceResponse.stt_available);
       setError(null);
     } catch (err) {

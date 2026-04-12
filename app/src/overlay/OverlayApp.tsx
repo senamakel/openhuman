@@ -52,6 +52,7 @@ const DEFAULT_ATTENTION_TTL_MS = 6000;
 const STT_RELEASE_LINGER_MS = 1500;
 /** Placeholder bubble text while waiting for the first transcription. */
 const STT_LISTENING_PLACEHOLDER = '"Listening…"';
+let lastPollDebugTs = 0;
 
 // ── State model ──────────────────────────────────────────────────────────
 
@@ -356,11 +357,12 @@ export default function OverlayApp() {
         // Server is actively recording/transcribing but overlay is idle → show stt
         if (
           (serverState === 'recording' || serverState === 'transcribing') &&
-          currentMode === 'idle'
+          currentMode !== 'stt'
         ) {
           console.debug(
-            `[overlay] poll sync: server=${serverState}, overlay=idle → activating stt`
+            `[overlay] poll sync: server=${serverState}, overlay=${currentMode} → activating stt`
           );
+          clearDismissTimer();
           setMode('stt');
           setBubble({
             id: `stt-poll-${Date.now()}`,
@@ -375,8 +377,14 @@ export default function OverlayApp() {
           console.debug(`[overlay] poll sync: server=${serverState}, overlay=stt → dismissing`);
           goIdle();
         }
-      } catch {
-        // Core not reachable — ignore, will retry on next poll
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          const now = Date.now();
+          if (now - lastPollDebugTs > 5000) {
+            lastPollDebugTs = now;
+            console.debug('[overlay] RPC poll failed', err);
+          }
+        }
       }
     };
 
@@ -386,7 +394,7 @@ export default function OverlayApp() {
       disposed = true;
       window.clearInterval(id);
     };
-  }, [goIdle]);
+  }, [clearDismissTimer, goIdle]);
 
   // ── Window framing: resize / reposition on mode change ────────────────
   const status: 'idle' | 'active' = mode === 'idle' ? 'idle' : 'active';

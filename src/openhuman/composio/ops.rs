@@ -202,9 +202,14 @@ pub async fn composio_list_trigger_history(
     limit: Option<usize>,
 ) -> OpResult<RpcOutcome<ComposioTriggerHistoryResult>> {
     let requested_limit = limit.unwrap_or(100).clamp(1, 500);
+    let workspace_label = config
+        .workspace_dir
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("<workspace>");
     tracing::debug!(
         limit = requested_limit,
-        workspace = %config.workspace_dir.display(),
+        workspace = workspace_label,
         "[composio] rpc list_trigger_history"
     );
 
@@ -216,12 +221,11 @@ pub async fn composio_list_trigger_history(
         .list_recent(requested_limit)
         .map_err(|error| format!("[composio] list_trigger_history failed: {error}"))?;
     let count = history.entries.len();
-    let archive_dir = history.archive_dir.clone();
 
     Ok(RpcOutcome::new(
         history,
         vec![format!(
-            "composio: {count} trigger history entrie(s) loaded from {archive_dir}"
+            "composio: {count} trigger history entrie(s) loaded (archive present)"
         )],
     ))
 }

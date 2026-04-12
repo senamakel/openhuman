@@ -14,7 +14,7 @@ pub mod sentiment;
 
 mod install;
 pub(crate) mod model_ids;
-mod ollama_api;
+pub(crate) mod ollama_api;
 mod parse;
 pub(crate) mod paths;
 mod service;

@@ -69,9 +69,51 @@ export interface ChatErrorEvent {
   round: number | null;
 }
 
+/** Emitted when the agent turn begins (before the first LLM call). */
+export interface ChatInferenceStartEvent {
+  thread_id: string;
+  request_id: string;
+}
+
+/** Emitted at the start of each LLM iteration in the tool loop. */
+export interface ChatIterationStartEvent {
+  thread_id: string;
+  request_id: string;
+  /** 1-based iteration index. */
+  round: number;
+  message: string;
+}
+
+/** Emitted when a sub-agent is spawned during tool execution. */
+export interface ChatSubagentSpawnedEvent {
+  thread_id: string;
+  request_id: string;
+  /** Agent definition id (e.g. "researcher"). */
+  tool_name: string;
+  /** Per-spawn task id. */
+  skill_id: string;
+  message: string;
+  round: number;
+}
+
+/** Emitted when a sub-agent completes or fails. */
+export interface ChatSubagentDoneEvent {
+  thread_id: string;
+  request_id: string;
+  tool_name: string;
+  skill_id: string;
+  message: string;
+  success: boolean;
+  round: number;
+}
+
 export interface ChatEventListeners {
+  onInferenceStart?: (event: ChatInferenceStartEvent) => void;
+  onIterationStart?: (event: ChatIterationStartEvent) => void;
   onToolCall?: (event: ChatToolCallEvent) => void;
   onToolResult?: (event: ChatToolResultEvent) => void;
+  onSubagentSpawned?: (event: ChatSubagentSpawnedEvent) => void;
+  onSubagentDone?: (event: ChatSubagentDoneEvent) => void;
   onSegment?: (event: ChatSegmentEvent) => void;
   onDone?: (event: ChatDoneEvent) => void;
   onError?: (event: ChatErrorEvent) => void;
@@ -86,12 +128,31 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
   // The core emits aliases for compatibility, but subscribing once avoids
   // processing the same logical event twice.
   const EVENTS = {
+    inferenceStart: 'inference_start',
+    iterationStart: 'iteration_start',
     toolCall: 'tool_call',
     toolResult: 'tool_result',
+    subagentSpawned: 'subagent_spawned',
+    subagentCompleted: 'subagent_completed',
+    subagentFailed: 'subagent_failed',
     segment: 'chat_segment',
     done: 'chat_done',
     error: 'chat_error',
   } as const;
+
+  if (listeners.onInferenceStart) {
+    const cb = (payload: unknown) =>
+      listeners.onInferenceStart?.(payload as ChatInferenceStartEvent);
+    socket.on(EVENTS.inferenceStart, cb);
+    handlers.push([EVENTS.inferenceStart, cb]);
+  }
+
+  if (listeners.onIterationStart) {
+    const cb = (payload: unknown) =>
+      listeners.onIterationStart?.(payload as ChatIterationStartEvent);
+    socket.on(EVENTS.iterationStart, cb);
+    handlers.push([EVENTS.iterationStart, cb]);
+  }
 
   if (listeners.onToolCall) {
     const cb = (payload: unknown) => listeners.onToolCall?.(payload as ChatToolCallEvent);
@@ -103,6 +164,25 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     const cb = (payload: unknown) => listeners.onToolResult?.(payload as ChatToolResultEvent);
     socket.on(EVENTS.toolResult, cb);
     handlers.push([EVENTS.toolResult, cb]);
+  }
+
+  if (listeners.onSubagentSpawned) {
+    const cb = (payload: unknown) =>
+      listeners.onSubagentSpawned?.(payload as ChatSubagentSpawnedEvent);
+    socket.on(EVENTS.subagentSpawned, cb);
+    handlers.push([EVENTS.subagentSpawned, cb]);
+  }
+
+  if (listeners.onSubagentDone) {
+    const onCompleted = (payload: unknown) =>
+      listeners.onSubagentDone?.(payload as ChatSubagentDoneEvent);
+    socket.on(EVENTS.subagentCompleted, onCompleted);
+    handlers.push([EVENTS.subagentCompleted, onCompleted]);
+
+    const onFailed = (payload: unknown) =>
+      listeners.onSubagentDone?.(payload as ChatSubagentDoneEvent);
+    socket.on(EVENTS.subagentFailed, onFailed);
+    handlers.push([EVENTS.subagentFailed, onFailed]);
   }
 
   if (listeners.onSegment) {

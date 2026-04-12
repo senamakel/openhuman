@@ -276,6 +276,7 @@ impl AgentBuilder {
                 .unwrap_or_else(|| "standalone".to_string()),
             event_channel: self.event_channel.unwrap_or_else(|| "internal".to_string()),
             context,
+            on_progress: None,
         })
     }
 }

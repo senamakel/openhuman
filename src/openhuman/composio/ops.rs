@@ -28,6 +28,7 @@ use super::providers::{
 use super::types::{
     ComposioAuthorizeResponse, ComposioConnectionsResponse, ComposioDeleteResponse,
     ComposioExecuteResponse, ComposioToolkitsResponse, ComposioToolsResponse,
+    ComposioTriggerHistoryResult,
 };
 
 /// Resolve a [`ComposioClient`] from the root config, or return an
@@ -192,6 +193,37 @@ pub async fn composio_execute(
             Err(format!("[composio] execute failed: {e:#}"))
         }
     }
+}
+
+// ── Trigger history ────────────────────────────────────────────────
+
+pub async fn composio_list_trigger_history(
+    config: &Config,
+    limit: Option<usize>,
+) -> OpResult<RpcOutcome<ComposioTriggerHistoryResult>> {
+    let requested_limit = limit.unwrap_or(100).clamp(1, 500);
+    tracing::debug!(
+        limit = requested_limit,
+        workspace = %config.workspace_dir.display(),
+        "[composio] rpc list_trigger_history"
+    );
+
+    let store = super::trigger_history::global().ok_or_else(|| {
+        "[composio] trigger history unavailable: archive store is not initialized".to_string()
+    })?;
+
+    let history = store
+        .list_recent(requested_limit)
+        .map_err(|error| format!("[composio] list_trigger_history failed: {error}"))?;
+    let count = history.entries.len();
+    let archive_dir = history.archive_dir.clone();
+
+    Ok(RpcOutcome::new(
+        history,
+        vec![format!(
+            "composio: {count} trigger history entrie(s) loaded from {archive_dir}"
+        )],
+    ))
 }
 
 // ── Provider-backed ops ─────────────────────────────────────────────

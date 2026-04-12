@@ -54,6 +54,7 @@ use async_trait::async_trait;
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
 use crate::openhuman::agent::triage::{apply_decision, run_triage, TriggerEnvelope};
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::composio::trigger_history;
 
 use super::client::ComposioClient;
 use super::providers::{get_provider, ProviderContext};
@@ -164,6 +165,25 @@ impl EventHandler for ComposioTriggerSubscriber {
             payload_bytes = payload.to_string().len(),
             "[composio:bus] trigger received"
         );
+
+        if let Some(store) = trigger_history::global() {
+            if let Err(error) =
+                store.record_trigger(toolkit, trigger, metadata_id, metadata_uuid, payload)
+            {
+                tracing::warn!(
+                    toolkit = %toolkit,
+                    trigger = %trigger,
+                    error = %error,
+                    "[composio][history] failed to archive trigger"
+                );
+            }
+        } else {
+            tracing::debug!(
+                toolkit = %toolkit,
+                trigger = %trigger,
+                "[composio][history] archive store not initialized"
+            );
+        }
 
         if triage_disabled() {
             tracing::debug!(

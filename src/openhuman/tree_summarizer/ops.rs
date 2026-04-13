@@ -4,7 +4,6 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::providers;
 use crate::openhuman::tree_summarizer::{engine, store, types::*};
 use crate::rpc::RpcOutcome;
 
@@ -148,10 +147,46 @@ pub async fn tree_summarizer_rebuild(
 fn create_provider(
     config: &Config,
 ) -> Result<Box<dyn crate::openhuman::providers::traits::Provider>, String> {
-    providers::create_resilient_provider(
-        config.api_key.as_deref(),
-        config.api_url.as_deref(),
-        &config.reliability,
-    )
-    .map_err(|e| format!("failed to create provider: {e}"))
+    // Tree summarization runs exclusively on local AI to keep memory
+    // processing private and offline — no backend calls.
+    if !config.local_ai.enabled {
+        return Err("tree summarizer requires local_ai to be enabled in config".to_string());
+    }
+    create_local_ai_provider(config)
+}
+
+/// Create a provider backed by the local Ollama instance for summarization,
+/// wrapped in `ReliableProvider` for retry/backoff on transient failures.
+fn create_local_ai_provider(
+    config: &Config,
+) -> Result<Box<dyn crate::openhuman::providers::traits::Provider>, String> {
+    use crate::openhuman::local_ai::OLLAMA_BASE_URL;
+    use crate::openhuman::providers::compatible::{AuthStyle, OpenAiCompatibleProvider};
+    use crate::openhuman::providers::reliable::ReliableProvider;
+
+    let base_url = format!("{}/v1", OLLAMA_BASE_URL);
+    let inner = OpenAiCompatibleProvider::new_no_responses_fallback(
+        "ollama-local",
+        &base_url,
+        Some("ollama"), // Ollama ignores auth but the provider requires a non-None credential
+        AuthStyle::Bearer,
+    );
+
+    let providers: Vec<(
+        String,
+        Box<dyn crate::openhuman::providers::traits::Provider>,
+    )> = vec![("ollama-local".to_string(), Box::new(inner))];
+    let reliable = ReliableProvider::new(
+        providers,
+        config.reliability.provider_retries,
+        config.reliability.provider_backoff_ms,
+    );
+
+    tracing::debug!(
+        "[tree_summarizer] using local Ollama provider at {} with model '{}'",
+        base_url,
+        config.local_ai.chat_model_id
+    );
+
+    Ok(Box::new(reliable))
 }

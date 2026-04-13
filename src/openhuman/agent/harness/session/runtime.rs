@@ -95,6 +95,22 @@ impl Agent {
         &self.skills
     }
 
+    /// Active Composio integrations fetched at session start.
+    pub fn connected_integrations(
+        &self,
+    ) -> &[crate::openhuman::context::prompt::ConnectedIntegration] {
+        &self.connected_integrations
+    }
+
+    /// Replace the agent's connected integrations (e.g. from a cached
+    /// fetch result when the agent was built outside the normal turn loop).
+    pub fn set_connected_integrations(
+        &mut self,
+        integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+    ) {
+        self.connected_integrations = integrations;
+    }
+
     /// The agent's runtime config snapshot.
     pub fn agent_config(&self) -> &crate::openhuman::config::AgentConfig {
         &self.config

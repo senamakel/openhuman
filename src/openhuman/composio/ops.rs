@@ -126,6 +126,8 @@ pub async fn composio_delete_connection(
         .delete_connection(connection_id)
         .await
         .map_err(|e| format!("[composio] delete_connection failed: {e:#}"))?;
+    // Bust the integrations cache so the next prompt reflects the removal.
+    invalidate_connected_integrations_cache();
     Ok(RpcOutcome::new(
         resp,
         vec![format!("composio: connection {connection_id} deleted")],
@@ -361,6 +363,178 @@ fn parse_sync_reason(raw: Option<&str>) -> OpResult<SyncReason> {
              'manual', 'periodic', 'connection_created'"
         )),
     }
+}
+
+// ── Prompt integration discovery ────────────────────────────────────
+
+use crate::openhuman::context::prompt::{ConnectedIntegration, ConnectedIntegrationTool};
+use std::collections::HashMap;
+use std::sync::{LazyLock, RwLock};
+
+/// Process-wide cache for connected integrations, keyed by the config
+/// identity (the `config_path` string) so different user contexts don't
+/// collide. Each entry is populated on first fetch and returned on
+/// subsequent calls until explicitly invalidated.
+static INTEGRATIONS_CACHE: LazyLock<RwLock<HashMap<String, Vec<ConnectedIntegration>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+/// Derive a stable cache key from a [`Config`]. We use the stringified
+/// `config_path` because it uniquely identifies a user context (it
+/// resolves to the per-user openhuman dir).
+fn cache_key(config: &Config) -> String {
+    config.config_path.display().to_string()
+}
+
+/// Clear cached connected integrations so the next call to
+/// [`fetch_connected_integrations`] hits the backend again.
+///
+/// Called by [`super::bus::ComposioConnectionCreatedSubscriber`] when a
+/// new OAuth connection completes, and can also be called from tests.
+/// Clears the entire map because the bus subscriber doesn't carry a
+/// config reference.
+pub fn invalidate_connected_integrations_cache() {
+    if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
+        guard.clear();
+        tracing::debug!("[composio] connected integrations cache invalidated");
+    }
+}
+
+/// Fetch the user's active Composio connections and their available
+/// tool actions, returning a prompt-ready summary.
+///
+/// This is the **single source of truth** for connected integration
+/// data injected into system prompts — both the agent turn loop and
+/// the debug dump CLI call this function.
+///
+/// Results are cached process-wide (keyed by config identity) and
+/// returned instantly on subsequent calls. The cache is invalidated
+/// when a new connection is created
+/// (via [`invalidate_connected_integrations_cache`]) or on process
+/// restart.
+///
+/// Best-effort: returns an empty vec when the user isn't signed in,
+/// the backend is unreachable, or any step fails.
+pub async fn fetch_connected_integrations(config: &Config) -> Vec<ConnectedIntegration> {
+    let key = cache_key(config);
+
+    // Fast path: return cached result.
+    if let Ok(guard) = INTEGRATIONS_CACHE.read() {
+        if let Some(cached) = guard.get(&key) {
+            tracing::debug!(
+                count = cached.len(),
+                key = %key,
+                "[composio] fetch_connected_integrations: returning cached result"
+            );
+            return cached.clone();
+        }
+    }
+
+    match fetch_connected_integrations_uncached(config).await {
+        Some(result) => {
+            // Backend was reachable — cache the result (even if empty).
+            if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
+                guard.insert(key, result.clone());
+            }
+            result
+        }
+        None => {
+            // No auth / client unavailable — do NOT cache so a
+            // subsequent call with a different config can retry.
+            Vec::new()
+        }
+    }
+}
+
+/// The actual backend fetch, called on cache miss.
+///
+/// Returns `Some(vec)` when the backend was reachable (even if the user
+/// has zero connections — that's a valid cacheable state). Returns `None`
+/// when we couldn't even build a client (no auth), signalling the caller
+/// should NOT cache this result.
+async fn fetch_connected_integrations_uncached(
+    config: &Config,
+) -> Option<Vec<ConnectedIntegration>> {
+    use super::providers::toolkit_description;
+
+    let Some(client) = build_composio_client(config) else {
+        tracing::debug!("[composio] fetch_connected_integrations: no client (not signed in?)");
+        return None;
+    };
+
+    let connections = match client.list_connections().await {
+        Ok(resp) => resp.connections,
+        Err(e) => {
+            tracing::warn!("[composio] fetch_connected_integrations: list_connections failed: {e}");
+            return Some(Vec::new());
+        }
+    };
+
+    let active: Vec<_> = connections
+        .iter()
+        .filter(|c| c.status == "ACTIVE" || c.status == "CONNECTED")
+        .collect();
+
+    if active.is_empty() {
+        return Some(Vec::new());
+    }
+
+    // Collect the unique toolkit slugs so we can batch-fetch their tools.
+    let toolkit_slugs: Vec<String> = {
+        let mut slugs: Vec<String> = active.iter().map(|c| c.toolkit.clone()).collect();
+        slugs.sort();
+        slugs.dedup();
+        slugs
+    };
+
+    // Fetch available tool schemas for all connected toolkits in one call.
+    let tools_by_toolkit = match client.list_tools(Some(&toolkit_slugs)).await {
+        Ok(resp) => resp.tools,
+        Err(e) => {
+            tracing::warn!("[composio] fetch_connected_integrations: list_tools failed: {e}");
+            Vec::new()
+        }
+    };
+
+    // Build the per-toolkit integration entries.
+    let mut integrations: Vec<ConnectedIntegration> = toolkit_slugs
+        .iter()
+        .map(|slug| {
+            let tools: Vec<ConnectedIntegrationTool> = tools_by_toolkit
+                .iter()
+                .filter(|t| {
+                    // Composio action slugs are prefixed with the toolkit
+                    // name in uppercase, e.g. GMAIL_SEND_EMAIL.
+                    t.function.name.starts_with(&slug.to_uppercase())
+                })
+                .map(|t| ConnectedIntegrationTool {
+                    name: t.function.name.clone(),
+                    description: t.function.description.clone().unwrap_or_default(),
+                })
+                .collect();
+
+            ConnectedIntegration {
+                toolkit: slug.clone(),
+                description: toolkit_description(slug).to_string(),
+                tools,
+            }
+        })
+        .collect();
+
+    integrations.sort_by(|a, b| a.toolkit.cmp(&b.toolkit));
+
+    tracing::info!(
+        count = integrations.len(),
+        "[composio] fetch_connected_integrations: done"
+    );
+    for ci in &integrations {
+        tracing::debug!(
+            toolkit = %ci.toolkit,
+            tool_count = ci.tools.len(),
+            "[composio] connected integration"
+        );
+    }
+
+    Some(integrations)
 }
 
 #[cfg(test)]

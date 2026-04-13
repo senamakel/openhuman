@@ -82,6 +82,7 @@ impl Agent {
             // stored prompt verbatim to preserve the KV-cache prefix the
             // inference backend has already tokenised. Fetching it later
             // would just burn memory-store reads on data we throw away.
+            self.fetch_connected_integrations().await;
             let learned = self.fetch_learned_context().await;
             let rendered_prompt = self.build_system_prompt(learned)?;
             log::info!("[agent] system prompt built — initialising conversation history");
@@ -735,6 +736,7 @@ impl Agent {
             memory_context: self.last_memory_context.clone(),
             session_id: self.event_session_id().to_string(),
             channel: self.event_channel().to_string(),
+            connected_integrations: self.connected_integrations.clone(),
         }
     }
 
@@ -876,6 +878,25 @@ impl Agent {
         }
     }
 
+    /// Fetches the user's active Composio connections and populates
+    /// `self.connected_integrations` so the system prompt can surface them.
+    ///
+    /// Delegates to the shared [`crate::openhuman::composio::fetch_connected_integrations`]
+    /// which is the single source of truth for integration discovery.
+    pub(super) async fn fetch_connected_integrations(&mut self) {
+        let config = match crate::openhuman::config::Config::load_or_init().await {
+            Ok(c) => c,
+            Err(e) => {
+                log::debug!(
+                    "[agent] skipping connected integrations fetch: config load failed: {e}"
+                );
+                return;
+            }
+        };
+        self.connected_integrations =
+            crate::openhuman::composio::fetch_connected_integrations(&config).await;
+    }
+
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
     pub(super) fn build_system_prompt(
@@ -898,6 +919,7 @@ impl Agent {
             learned,
             visible_tool_names: &self.visible_tool_names,
             tool_call_format: self.tool_dispatcher.tool_call_format(),
+            connected_integrations: &self.connected_integrations,
         };
         // Route through the global context manager so every
         // prompt-building call-site — main agent, sub-agent runner,

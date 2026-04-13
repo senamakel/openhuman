@@ -77,7 +77,7 @@ pub fn create_memory_with_storage_and_routes(
         api_key,
         &config.embedding_model,
         config.embedding_dimensions,
-    ));
+    )?);
 
     // 2. Instantiate UnifiedMemory which handles SQLite and vector storage.
     let mem = UnifiedMemory::new(workspace_dir, embedder, config.sqlite_open_timeout_secs)?;

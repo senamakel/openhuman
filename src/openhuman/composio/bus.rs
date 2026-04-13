@@ -367,6 +367,10 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
                         status = %status,
                         "[composio:bus] connection observed active, dispatching on_connection_created"
                     );
+                    // Bust the prompt-level integrations cache now that
+                    // the connection is confirmed ACTIVE, so the next
+                    // agent session picks up the newly connected toolkit.
+                    super::ops::invalidate_connected_integrations_cache();
                 }
                 Err(WaitError::Timeout { last_status }) => {
                     tracing::warn!(

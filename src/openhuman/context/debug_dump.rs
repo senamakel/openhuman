@@ -55,9 +55,9 @@ use crate::openhuman::composio::tools::{
 };
 use crate::openhuman::config::Config;
 use crate::openhuman::context::prompt::{
-    extract_cache_boundary, render_subagent_system_prompt, LearnedContextData, PromptContext,
-    PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
-    USER_MEMORY_PER_NAMESPACE_MAX_CHARS, USER_MEMORY_TOTAL_MAX_CHARS,
+    extract_cache_boundary, render_subagent_system_prompt, ConnectedIntegration,
+    LearnedContextData, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
+    ToolCallFormat, USER_MEMORY_PER_NAMESPACE_MAX_CHARS, USER_MEMORY_TOTAL_MAX_CHARS,
 };
 use crate::openhuman::integrations::IntegrationClient;
 use crate::openhuman::memory::{self, Memory};
@@ -234,9 +234,17 @@ pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPromp
         "[debug_dump] assembled tool registry"
     );
 
+    // ── Fetch connected integrations ────────────────────────────────────
+    let connected_integrations = fetch_connected_integrations_for_dump(&config).await;
+
     // ── Main agent path ────────────────────────────────────────────────
     if options.agent_id == "main" || options.agent_id == "orchestrator_main" {
-        return render_main_agent_dump(&workspace_dir, &model_name, &tools_vec);
+        return render_main_agent_dump(
+            &workspace_dir,
+            &model_name,
+            &tools_vec,
+            &connected_integrations,
+        );
     }
 
     // ── Sub-agent path ────────────────────────────────────────────────
@@ -260,6 +268,7 @@ pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPromp
         &model_name,
         &tools_vec,
         options.skill_filter.as_deref(),
+        &connected_integrations,
     )
 }
 
@@ -293,10 +302,40 @@ fn build_composio_stub_tools() -> Vec<Box<dyn Tool>> {
     ]
 }
 
+/// Fetch connected integrations for the prompt dump.
+///
+/// Delegates to [`crate::openhuman::composio::fetch_connected_integrations`].
+/// The dump script often overrides `OPENHUMAN_WORKSPACE` to a throwaway
+/// temp dir which causes config resolution to miss the real user's auth
+/// token. We try the caller-supplied config first, then fall back to
+/// [`Config::load_from_default_paths`] which bypasses the env var.
+async fn fetch_connected_integrations_for_dump(config: &Config) -> Vec<ConnectedIntegration> {
+    use crate::openhuman::composio::fetch_connected_integrations;
+
+    let result = fetch_connected_integrations(config).await;
+    if !result.is_empty() {
+        return result;
+    }
+
+    // Fallback: load config from the default user paths (bypasses
+    // OPENHUMAN_WORKSPACE) so the real auth token is found.
+    match Config::load_from_default_paths().await {
+        Ok(c) => fetch_connected_integrations(&c).await,
+        Err(e) => {
+            tracing::debug!(
+                error = %e,
+                "[debug_dump] fallback config load failed, skipping integrations"
+            );
+            Vec::new()
+        }
+    }
+}
+
 fn render_main_agent_dump(
     workspace_dir: &Path,
     model_name: &str,
     tools_vec: &[Box<dyn Tool>],
+    connected_integrations: &[ConnectedIntegration],
 ) -> Result<DumpedPrompt> {
     let prompt_tools = PromptTool::from_tools(tools_vec);
     // Main agent dumps do not apply a visible-tool filter — every
@@ -362,6 +401,7 @@ fn render_main_agent_dump(
         learned,
         visible_tool_names: &empty_filter,
         tool_call_format: ToolCallFormat::PFormat,
+        connected_integrations,
     };
 
     let rendered = SystemPromptBuilder::with_defaults()
@@ -392,6 +432,7 @@ fn render_subagent_dump(
     model_name: &str,
     tools_vec: &[Box<dyn Tool>],
     skill_filter_override: Option<&str>,
+    connected_integrations: &[ConnectedIntegration],
 ) -> Result<DumpedPrompt> {
     // Resolve the archetype prompt body. Inline sources short-circuit
     // immediately; file sources walk the workspace override directory
@@ -463,6 +504,7 @@ fn render_subagent_dump(
         tools_vec,
         &archetype_body,
         options,
+        connected_integrations,
     );
     let rendered = extract_cache_boundary(&raw);
 
@@ -661,8 +703,9 @@ mod tests {
         std::fs::create_dir_all(&workspace).unwrap();
 
         let definition = skills_agent_def();
-        let dumped = render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None)
-            .expect("skills_agent prompt should render");
+        let dumped =
+            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None, &[])
+                .expect("skills_agent prompt should render");
 
         assert_eq!(dumped.mode, "subagent");
         assert!(
@@ -716,6 +759,7 @@ mod tests {
             "reasoning-v1",
             &tools,
             Some("notion"),
+            &[],
         )
         .expect("filtered dump should render");
 
@@ -772,7 +816,7 @@ mod tests {
             }),
         ];
 
-        let dumped = render_main_agent_dump(&workspace, "reasoning-v1", &tools).unwrap();
+        let dumped = render_main_agent_dump(&workspace, "reasoning-v1", &tools, &[]).unwrap();
         assert_eq!(dumped.mode, "main");
         assert_eq!(dumped.model, "reasoning-v1");
         assert_eq!(dumped.tool_names, vec!["shell", "notion__create_page"]);
@@ -850,7 +894,8 @@ mod tests {
         };
 
         let dumped =
-            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None).unwrap();
+            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None, &[])
+                .unwrap();
         assert!(dumped.text.contains("## Tools"));
         assert!(dumped.text.contains("OpenHuman"));
 
@@ -894,7 +939,8 @@ mod tests {
         };
 
         let dumped =
-            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None).unwrap();
+            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None, &[])
+                .unwrap();
         assert!(dumped.text.contains("## Tools"));
         assert!(!dumped.text.contains("does-not-exist"));
 
@@ -946,7 +992,8 @@ mod tests {
         };
 
         let agent_prompt =
-            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None).unwrap();
+            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None, &[])
+                .unwrap();
         assert!(agent_prompt.text.contains("Workspace agent prompt"));
 
         definition.id = "workspace_root".into();
@@ -954,7 +1001,8 @@ mod tests {
             path: "root.md".into(),
         };
         let root_prompt =
-            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None).unwrap();
+            render_subagent_dump(&definition, &workspace, "reasoning-v1", &tools, None, &[])
+                .unwrap();
         assert!(root_prompt.text.contains("Workspace root prompt"));
 
         let _ = std::fs::remove_dir_all(workspace);

@@ -41,6 +41,29 @@ pub struct LearnedContextData {
     pub tree_root_summaries: Vec<(String, String)>,
 }
 
+/// A connected external integration (e.g. a Composio OAuth connection)
+/// surfaced in the system prompt so the orchestrator knows which services
+/// are available and can delegate to the Skills Agent accordingly.
+#[derive(Debug, Clone)]
+pub struct ConnectedIntegration {
+    /// Toolkit slug, e.g. `"gmail"`, `"notion"`.
+    pub toolkit: String,
+    /// Human-readable one-line description of what this integration can do.
+    pub description: String,
+    /// Composio action slugs available for this toolkit, e.g.
+    /// `["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]`.
+    pub tools: Vec<ConnectedIntegrationTool>,
+}
+
+/// A single action available on a connected integration.
+#[derive(Debug, Clone)]
+pub struct ConnectedIntegrationTool {
+    /// Action slug, e.g. `"GMAIL_SEND_EMAIL"`.
+    pub name: String,
+    /// One-line description of the action.
+    pub description: String,
+}
+
 /// A lightweight tool descriptor for prompt rendering.
 ///
 /// Shared shape so every call-site that builds a system prompt — main
@@ -132,6 +155,10 @@ pub struct PromptContext<'a> {
     /// How [`ToolsSection`] should render each tool entry. Defaults to
     /// [`ToolCallFormat::PFormat`] when not set.
     pub tool_call_format: ToolCallFormat,
+    /// Active Composio integrations the user has connected. Rendered by
+    /// [`ConnectedIntegrationsSection`] so the orchestrator knows which
+    /// external services are available via the Skills Agent.
+    pub connected_integrations: &'a [ConnectedIntegration],
 }
 
 pub trait PromptSection: Send + Sync {
@@ -161,6 +188,10 @@ impl SystemPromptBuilder {
                 // the tree summarizer has nothing on disk yet.
                 Box::new(UserMemorySection),
                 Box::new(ToolsSection),
+                // Connected integrations sit after tools so the orchestrator
+                // sees which external services are available via the Skills
+                // Agent. Empty when the user has no active Composio connections.
+                Box::new(ConnectedIntegrationsSection),
                 Box::new(SafetySection),
                 Box::new(SkillsSection),
                 Box::new(WorkspaceSection),
@@ -300,6 +331,7 @@ pub struct IdentitySection;
 pub struct ToolsSection;
 pub struct SafetySection;
 pub struct SkillsSection;
+pub struct ConnectedIntegrationsSection;
 pub struct WorkspaceSection;
 pub struct RuntimeSection;
 pub struct DateTimeSection;
@@ -474,6 +506,44 @@ impl PromptSection for SkillsSection {
         }
         prompt.push_str("</available_skills>");
         Ok(prompt)
+    }
+}
+
+impl PromptSection for ConnectedIntegrationsSection {
+    fn name(&self) -> &str {
+        "connected_integrations"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        if ctx.connected_integrations.is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut out = String::from(
+            "## Connected Integrations\n\n\
+             The user has the following external services connected. \
+             To interact with any of these, delegate to the **Skills Agent** \
+             (`skills_agent`) via `spawn_subagent`.\n\n",
+        );
+        for integration in ctx.connected_integrations {
+            let _ = writeln!(
+                out,
+                "### {} — {}\n",
+                integration.toolkit, integration.description,
+            );
+            if integration.tools.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "Use `composio_list_tools` to discover available actions.\n",
+                );
+            } else {
+                for tool in &integration.tools {
+                    let _ = writeln!(out, "- `{}`: {}", tool.name, tool.description,);
+                }
+                out.push('\n');
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -653,6 +723,7 @@ pub fn render_subagent_system_prompt(
     parent_tools: &[Box<dyn Tool>],
     archetype_body: &str,
     options: SubagentRenderOptions,
+    connected_integrations: &[ConnectedIntegration],
 ) -> String {
     render_subagent_system_prompt_with_format(
         workspace_dir,
@@ -662,6 +733,7 @@ pub fn render_subagent_system_prompt(
         archetype_body,
         options,
         ToolCallFormat::PFormat,
+        connected_integrations,
     )
 }
 
@@ -677,6 +749,7 @@ pub fn render_subagent_system_prompt_with_format(
     archetype_body: &str,
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
+    connected_integrations: &[ConnectedIntegration],
 ) -> String {
     let mut out = String::new();
 
@@ -810,6 +883,59 @@ pub fn render_subagent_system_prompt_with_format(
         out.push_str(
             "Skills are loaded on demand. Use `read` on the skill path to get full instructions.\n\n",
         );
+    }
+
+    // 3d. Connected integrations — rendered so the agent knows which
+    //     external services are available. Wording varies based on
+    //     whether the agent can delegate (has spawn_subagent) or must
+    //     call Composio tools directly.
+    if !connected_integrations.is_empty() {
+        let has_spawn = allowed_indices.iter().any(|&i| {
+            parent_tools
+                .get(i)
+                .map_or(false, |t| t.name() == "spawn_subagent")
+        });
+        let has_composio_execute = allowed_indices.iter().any(|&i| {
+            parent_tools
+                .get(i)
+                .map_or(false, |t| t.name() == "composio_execute")
+        });
+
+        out.push_str("## Connected Integrations\n\n");
+        if has_composio_execute {
+            out.push_str(
+                "The user has the following external services connected. \
+                 Use `composio_execute` with the appropriate action slug to interact \
+                 with them.\n\n",
+            );
+        } else if has_spawn {
+            out.push_str(
+                "The user has the following external services connected. \
+                 To interact with any of these, delegate to the **Skills Agent** \
+                 (`skills_agent`) via `spawn_subagent`.\n\n",
+            );
+        } else {
+            out.push_str("The user has the following external services connected.\n\n");
+        }
+
+        for integration in connected_integrations {
+            let _ = writeln!(
+                out,
+                "### {} — {}\n",
+                integration.toolkit, integration.description,
+            );
+            if integration.tools.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "Use `composio_list_tools` to discover available actions.\n",
+                );
+            } else {
+                for tool in &integration.tools {
+                    let _ = writeln!(out, "- `{}`: {}", tool.name, tool.description);
+                }
+                out.push('\n');
+            }
+        }
     }
 
     // 4. Insert the cache boundary before the dynamic tail. Typed
@@ -978,6 +1104,7 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
         let rendered = SystemPromptBuilder::with_defaults()
             .build_with_cache_metadata(&ctx)
@@ -1006,6 +1133,7 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
 
         let section = IdentitySection;
@@ -1039,6 +1167,7 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
 
         let rendered = DateTimeSection.build(&ctx).unwrap();
@@ -1099,6 +1228,7 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
 
         let rendered = ToolsSection.build(&ctx).unwrap();
@@ -1130,6 +1260,7 @@ mod tests {
             learned: LearnedContextData::default(),
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::Json,
+            connected_integrations: &[],
         };
 
         let rendered = ToolsSection.build(&ctx).unwrap();
@@ -1165,6 +1296,7 @@ mod tests {
             learned,
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.starts_with("## User Memory\n\n"));
@@ -1188,6 +1320,7 @@ mod tests {
             learned,
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.is_empty());
@@ -1209,6 +1342,7 @@ mod tests {
             &tools,
             "You are a focused sub-agent.",
             SubagentRenderOptions::narrow(),
+            &[],
         ));
 
         assert!(
@@ -1269,6 +1403,7 @@ mod tests {
                 include_skills_catalog: true,
             },
             ToolCallFormat::Json,
+            &[],
         );
 
         assert!(rendered.contains("## Project Context"));
@@ -1286,6 +1421,7 @@ mod tests {
             "You are a specialist.",
             SubagentRenderOptions::narrow(),
             ToolCallFormat::Native,
+            &[],
         );
         assert!(native.contains("native tool-calling output"));
         assert!(!native.contains("## Safety"));
@@ -1365,6 +1501,7 @@ mod tests {
             },
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.contains("### user"));

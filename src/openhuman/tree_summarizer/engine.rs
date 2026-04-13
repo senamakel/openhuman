@@ -14,8 +14,6 @@ use crate::openhuman::tree_summarizer::types::{
     TreeStatus,
 };
 
-/// The model hint passed to the provider for summarization tasks.
-const SUMMARIZATION_MODEL: &str = "hint:fast";
 const SUMMARIZATION_TEMP: f64 = 0.3;
 
 /// Maximum characters for a summary response (hard limit enforced after LLM call).
@@ -81,12 +79,14 @@ pub async fn run_summarization(
             combined
         };
 
+        let model = &config.local_ai.chat_model_id;
         let hour_summary = summarize_to_limit(
             provider,
             &to_summarize,
             NodeLevel::Hour.max_tokens(),
             "hour",
             hour_id,
+            model,
         )
         .await
         .context("summarize hour leaf")?;
@@ -138,9 +138,16 @@ pub async fn run_summarization(
     ] {
         for (node_id, node_level) in &all_propagation_ids {
             if *node_level == level && seen.insert(node_id.clone()) {
-                propagate_node(config, provider, namespace, node_id, level)
-                    .await
-                    .with_context(|| format!("propagate {node_id}"))?;
+                propagate_node(
+                    config,
+                    provider,
+                    namespace,
+                    node_id,
+                    level,
+                    &config.local_ai.chat_model_id,
+                )
+                .await
+                .with_context(|| format!("propagate {node_id}"))?;
             }
         }
     }
@@ -233,16 +240,25 @@ pub async fn rebuild_tree(
     }
 
     // Propagate bottom-up: days, then months, then years, then root
+    let model = &config.local_ai.chat_model_id;
     for day_id in &day_ids {
-        propagate_node(config, provider, namespace, day_id, NodeLevel::Day).await?;
+        propagate_node(config, provider, namespace, day_id, NodeLevel::Day, model).await?;
     }
     for month_id in &month_ids {
-        propagate_node(config, provider, namespace, month_id, NodeLevel::Month).await?;
+        propagate_node(
+            config,
+            provider,
+            namespace,
+            month_id,
+            NodeLevel::Month,
+            model,
+        )
+        .await?;
     }
     for year_id in &year_ids {
-        propagate_node(config, provider, namespace, year_id, NodeLevel::Year).await?;
+        propagate_node(config, provider, namespace, year_id, NodeLevel::Year, model).await?;
     }
-    propagate_node(config, provider, namespace, "root", NodeLevel::Root).await?;
+    propagate_node(config, provider, namespace, "root", NodeLevel::Root, model).await?;
 
     let final_status = store::get_tree_status(config, namespace)?;
 
@@ -268,6 +284,7 @@ async fn propagate_node(
     namespace: &str,
     node_id: &str,
     level: NodeLevel,
+    model: &str,
 ) -> Result<()> {
     let children = store::read_children(config, namespace, node_id)?;
     if children.is_empty() {
@@ -305,7 +322,15 @@ async fn propagate_node(
             combined_tokens,
             max_tokens
         );
-        summarize_to_limit(provider, &combined, max_tokens, level.as_str(), node_id).await?
+        summarize_to_limit(
+            provider,
+            &combined,
+            max_tokens,
+            level.as_str(),
+            node_id,
+            model,
+        )
+        .await?
     };
 
     let now = Utc::now();
@@ -351,6 +376,7 @@ async fn summarize_to_limit(
     max_tokens: u32,
     level_name: &str,
     node_id: &str,
+    model: &str,
 ) -> Result<String> {
     let max_chars = (max_tokens as usize) * 4;
     let system_prompt = format!(
@@ -365,12 +391,7 @@ async fn summarize_to_limit(
     );
 
     let response = provider
-        .chat_with_system(
-            Some(&system_prompt),
-            content,
-            SUMMARIZATION_MODEL,
-            SUMMARIZATION_TEMP,
-        )
+        .chat_with_system(Some(&system_prompt), content, model, SUMMARIZATION_TEMP)
         .await
         .with_context(|| {
             format!("LLM summarization failed for node {node_id} (level={level_name})")

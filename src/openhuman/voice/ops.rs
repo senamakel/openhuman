@@ -4,7 +4,7 @@
 //! domain modules (billing, health, etc.).
 
 use chrono::Utc;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::time::Instant;
 
 use crate::openhuman::config::Config;
@@ -20,6 +20,42 @@ use super::postprocess;
 use super::types::{VoiceSpeechResult, VoiceStatus, VoiceTtsResult};
 
 const LOG_PREFIX: &str = "[voice]";
+const MAX_WHISPER_PROMPT_CHARS: usize = 500;
+
+fn log_transcription_details(
+    context: Option<&str>,
+    raw_text: &str,
+    final_text: &str,
+    skip_cleanup: bool,
+) {
+    info!("{LOG_PREFIX} transcription_context={context:?}");
+    info!("{LOG_PREFIX} whisper_received_text={raw_text:?}");
+    info!("{LOG_PREFIX} transcription_final_output={final_text:?} skip_cleanup={skip_cleanup}");
+}
+
+fn build_whisper_prompt(config: &Config) -> Option<String> {
+    let mut prompt = config
+        .voice_server
+        .custom_dictionary
+        .iter()
+        .map(|word| word.trim())
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    if prompt.is_empty() {
+        return None;
+    }
+
+    if prompt.len() > MAX_WHISPER_PROMPT_CHARS {
+        prompt.truncate(MAX_WHISPER_PROMPT_CHARS);
+        if let Some(last_space) = prompt.rfind(' ') {
+            prompt.truncate(last_space);
+        }
+    }
+
+    Some(prompt)
+}
 
 /// Check availability of STT/TTS binaries and models without executing them.
 pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, String> {
@@ -83,10 +119,10 @@ pub async fn voice_transcribe(
     debug!("{LOG_PREFIX} transcribing audio_path={audio_path}");
 
     let service = local_ai::global(config);
+    let whisper_prompt = build_whisper_prompt(config);
     let transcribe_started = Instant::now();
-    // Pass context as initial_prompt to bias whisper toward known vocabulary.
     let output = service
-        .transcribe_with_prompt(config, audio_path.trim(), context)
+        .transcribe_with_prompt(config, audio_path.trim(), whisper_prompt.as_deref())
         .await
         .map_err(|e| e.to_string())?;
     let transcribe_elapsed = transcribe_started.elapsed();
@@ -105,6 +141,7 @@ pub async fn voice_transcribe(
         postprocess::cleanup_transcription(config, &raw_text, context).await
     };
     let cleanup_elapsed = cleanup_started.elapsed();
+    log_transcription_details(context, &raw_text, &text, skip_cleanup);
     debug!(
         "{LOG_PREFIX} voice_transcribe complete (cleanup_elapsed_ms={}, total_elapsed_ms={})",
         cleanup_elapsed.as_millis(),
@@ -140,6 +177,7 @@ pub async fn voice_transcribe_bytes(
     );
 
     let service = local_ai::global(config);
+    let whisper_prompt = build_whisper_prompt(config);
 
     let voice_dir = std::env::temp_dir().join("openhuman_voice_input");
     tokio::fs::create_dir_all(&voice_dir)
@@ -160,9 +198,12 @@ pub async fn voice_transcribe_bytes(
     let write_elapsed = write_started.elapsed();
 
     let transcribe_started = Instant::now();
-    // Pass context as initial_prompt to bias whisper toward known vocabulary.
     let output = service
-        .transcribe_with_prompt(config, file_path.to_string_lossy().as_ref(), context)
+        .transcribe_with_prompt(
+            config,
+            file_path.to_string_lossy().as_ref(),
+            whisper_prompt.as_deref(),
+        )
         .await;
     let transcribe_elapsed = transcribe_started.elapsed();
     if let Err(e) = tokio::fs::remove_file(&file_path).await {
@@ -189,6 +230,7 @@ pub async fn voice_transcribe_bytes(
         postprocess::cleanup_transcription(config, &raw_text, context).await
     };
     let cleanup_elapsed = cleanup_started.elapsed();
+    log_transcription_details(context, &raw_text, &text, skip_cleanup);
     debug!(
         "{LOG_PREFIX} transcribe_bytes pipeline complete (cleanup_elapsed_ms={}, total_elapsed_ms={})",
         cleanup_elapsed.as_millis(),

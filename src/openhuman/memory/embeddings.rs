@@ -9,9 +9,11 @@
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::env;
+use std::panic::{self, UnwindSafe};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::{Mutex as StdMutex, OnceLock};
 
 /// Default model name for Fastembed.
 pub const DEFAULT_FASTEMBED_MODEL: &str = "BGESmallENV15";
@@ -103,7 +105,7 @@ impl FastembedEmbedding {
 
     /// Internal helper to initialize the model on first use.
     fn init_model(&self) -> anyhow::Result<fastembed::TextEmbedding> {
-        ensure_fastembed_ort_dylib_path();
+        ensure_fastembed_ort_dylib_path()?;
         fastembed::TextEmbedding::try_new(
             fastembed::InitOptions::new(self.resolve_model()).with_show_download_progress(false),
         )
@@ -119,10 +121,18 @@ impl FastembedEmbedding {
 /// 1. `ORT_DYLIB_PATH` environment variable.
 /// 2. `ORT_LIB_LOCATION` environment variable.
 /// 3. OpenHuman-specific cache directories.
-/// 4. Standard system library paths (Linux only).
-fn ensure_fastembed_ort_dylib_path() {
-    if env::var_os("ORT_DYLIB_PATH").is_some() {
-        return;
+/// 4. Standard system library paths.
+fn ensure_fastembed_ort_dylib_path() -> anyhow::Result<()> {
+    if let Some(existing) = env::var_os("ORT_DYLIB_PATH") {
+        let candidate = PathBuf::from(existing);
+        if candidate.is_file() {
+            return Ok(());
+        }
+
+        return Err(anyhow::anyhow!(
+            "ORT_DYLIB_PATH points to a missing file: {}",
+            candidate.display()
+        ));
     }
 
     // Check for explicit library location override.
@@ -130,7 +140,7 @@ fn ensure_fastembed_ort_dylib_path() {
         let candidate = PathBuf::from(lib_path);
         if candidate.is_file() {
             env::set_var("ORT_DYLIB_PATH", candidate);
-            return;
+            return Ok(());
         }
 
         #[cfg(target_os = "windows")]
@@ -142,24 +152,122 @@ fn ensure_fastembed_ort_dylib_path() {
 
         if runtime_lib.exists() {
             env::set_var("ORT_DYLIB_PATH", runtime_lib);
+            return Ok(());
         }
     }
 
-    // Fallback to system-wide paths on Linux.
-    #[cfg(target_os = "linux")]
-    {
-        for candidate in [
-            "/usr/lib/x86_64-linux-gnu/libonnxruntime.so",
-            "/usr/local/lib/libonnxruntime.so",
-            "/usr/lib/libonnxruntime.so",
-        ] {
-            let candidate = PathBuf::from(candidate);
-            if candidate.exists() {
-                env::set_var("ORT_DYLIB_PATH", candidate);
-                return;
-            }
+    for candidate in default_ort_dylib_candidates() {
+        if candidate.is_file() {
+            tracing::debug!(
+                target: "memory.embeddings",
+                "[embeddings] resolved ONNX Runtime dylib candidate at {}",
+                candidate.display()
+            );
+            env::set_var("ORT_DYLIB_PATH", &candidate);
+            return Ok(());
         }
     }
+
+    let runtime_name = default_ort_dylib_name();
+    let mut searched = default_ort_dylib_candidates()
+        .into_iter()
+        .map(|candidate| candidate.display().to_string())
+        .collect::<Vec<_>>();
+    searched.sort();
+    searched.dedup();
+
+    Err(anyhow::anyhow!(
+        "unable to locate {runtime_name}. Set ORT_DYLIB_PATH to the full library path or \
+         ORT_LIB_LOCATION to the containing directory. Searched: {}",
+        searched.join(", ")
+    ))
+}
+
+fn default_ort_dylib_name() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "onnxruntime.dll"
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        "libonnxruntime.dylib"
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        "libonnxruntime.so"
+    }
+}
+
+fn default_ort_dylib_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let runtime_name = default_ort_dylib_name();
+
+    #[cfg(target_os = "macos")]
+    {
+        candidates.extend([
+            PathBuf::from("/opt/homebrew/lib").join(runtime_name),
+            PathBuf::from("/usr/local/lib").join(runtime_name),
+            PathBuf::from("/opt/local/lib").join(runtime_name),
+        ]);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        candidates.extend([
+            PathBuf::from("/usr/lib/x86_64-linux-gnu").join(runtime_name),
+            PathBuf::from("/usr/local/lib").join(runtime_name),
+            PathBuf::from("/usr/lib").join(runtime_name),
+        ]);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(program_files) = env::var_os("ProgramFiles") {
+            candidates.push(
+                PathBuf::from(program_files)
+                    .join("onnxruntime")
+                    .join(runtime_name),
+            );
+        }
+    }
+
+    if let Some(home) = dirs::home_dir() {
+        candidates.extend([
+            home.join(".cache/onnxruntime").join(runtime_name),
+            home.join(".cache/openhuman/onnxruntime").join(runtime_name),
+            home.join("Library/Caches/onnxruntime").join(runtime_name),
+            home.join("Library/Caches/openhuman/onnxruntime")
+                .join(runtime_name),
+        ]);
+    }
+
+    candidates
+}
+
+fn fastembed_panic_hook_guard() -> &'static StdMutex<()> {
+    static GUARD: OnceLock<StdMutex<()>> = OnceLock::new();
+    GUARD.get_or_init(|| StdMutex::new(()))
+}
+
+/// `ort` can panic during lazy global environment setup before it returns an
+/// error. We already contain that unwind, but Rust still runs the global panic
+/// hook first, which prints a scary worker-thread backtrace. Serialize these
+/// calls and install a temporary no-op hook so init failures degrade into
+/// normal logged errors.
+fn catch_unwind_without_panic_hook<F, R>(f: F) -> Result<R, Box<dyn std::any::Any + Send>>
+where
+    F: FnOnce() -> R + UnwindSafe,
+{
+    let _hook_guard = fastembed_panic_hook_guard()
+        .lock()
+        .expect("fastembed panic hook guard poisoned");
+    let previous_hook = panic::take_hook();
+    panic::set_hook(Box::new(|_| {}));
+    let result = panic::catch_unwind(f);
+    panic::set_hook(previous_hook);
+    result
 }
 
 #[async_trait]
@@ -186,7 +294,7 @@ impl EmbeddingProvider for FastembedEmbedding {
         let provider = self.model.clone();
 
         let join_result = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Vec<f32>>> {
-            ensure_fastembed_ort_dylib_path();
+            ensure_fastembed_ort_dylib_path()?;
             let mut guard = state.lock();
 
             // Lazy initialization of the model on the first request.
@@ -206,15 +314,16 @@ impl EmbeddingProvider for FastembedEmbedding {
             // circuits on the cached failure without touching `ort` again.
             if matches!(*guard, FastembedState::Uninitialized) {
                 let provider_for_init = provider.clone();
-                let init_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    fastembed::TextEmbedding::try_new(
-                        fastembed::InitOptions::new(
-                            fastembed::EmbeddingModel::from_str(&provider_for_init)
-                                .unwrap_or(fastembed::EmbeddingModel::BGESmallENV15),
+                let init_result =
+                    catch_unwind_without_panic_hook(std::panic::AssertUnwindSafe(|| {
+                        fastembed::TextEmbedding::try_new(
+                            fastembed::InitOptions::new(
+                                fastembed::EmbeddingModel::from_str(&provider_for_init)
+                                    .unwrap_or(fastembed::EmbeddingModel::BGESmallENV15),
+                            )
+                            .with_show_download_progress(false),
                         )
-                        .with_show_download_progress(false),
-                    )
-                }));
+                    }));
 
                 match init_result {
                     Ok(Ok(model)) => *guard = FastembedState::Ready(Box::new(model)),
@@ -243,7 +352,7 @@ impl EmbeddingProvider for FastembedEmbedding {
                     // can panic on certain inputs or runtime errors, and
                     // we want to surface those as regular errors too.
                     let embed_result =
-                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        catch_unwind_without_panic_hook(std::panic::AssertUnwindSafe(|| {
                             model.embed(items, None)
                         }));
                     match embed_result {

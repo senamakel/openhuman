@@ -51,10 +51,6 @@ pub struct VoiceServerStatus {
 /// this are considered silent and skipped. Matches OpenWhispr's 0.002 default.
 const DEFAULT_SILENCE_THRESHOLD: f32 = 0.002;
 
-/// Maximum character length of the combined initial prompt (dictionary +
-/// explicit custom dictionary). Whisper's prompt token budget is limited.
-const MAX_INITIAL_PROMPT_CHARS: usize = 500;
-
 /// Configuration for the voice server.
 #[derive(Debug, Clone)]
 pub struct VoiceServerConfig {
@@ -415,27 +411,6 @@ fn capture_expected_app_name() -> Option<String> {
     None
 }
 
-/// Build the whisper initial_prompt from the explicit custom dictionary only.
-fn build_initial_prompt(config: &VoiceServerConfig) -> Option<String> {
-    if config.custom_dictionary.is_empty() {
-        return None;
-    }
-
-    let mut prompt = config.custom_dictionary.join(", ");
-    if prompt.len() > MAX_INITIAL_PROMPT_CHARS {
-        prompt.truncate(MAX_INITIAL_PROMPT_CHARS);
-        if let Some(last_space) = prompt.rfind(' ') {
-            prompt.truncate(last_space);
-        }
-    }
-    debug!(
-        "{LOG_PREFIX} built initial_prompt ({} chars): '{}'",
-        prompt.len(),
-        truncate_for_log(&prompt, 100)
-    );
-    Some(prompt)
-}
-
 /// Process a completed recording in the background.
 ///
 /// This is a free function (not `&self`) so it can be spawned via
@@ -487,11 +462,7 @@ async fn process_recording_bg(
                 return;
             }
 
-            // Start each dictation fresh; only explicit dictionary hints carry over.
-            let initial_prompt = build_initial_prompt(server_config);
-            let context = initial_prompt
-                .as_deref()
-                .or(server_config.context.as_deref());
+            let context = server_config.context.as_deref();
             if let Some(app) = expected_app.as_deref() {
                 debug!("{LOG_PREFIX} insertion target captured on hotkey press: app='{app}'");
             } else {
@@ -503,6 +474,7 @@ async fn process_recording_bg(
                 server_config.skip_cleanup,
                 context.map_or("none".to_string(), |c| format!("{}chars", c.len()))
             );
+            debug!("{LOG_PREFIX} whisper context payload: {:?}", context);
 
             let transcribe_started = Instant::now();
             match crate::openhuman::voice::voice_transcribe_bytes(
@@ -519,7 +491,7 @@ async fn process_recording_bg(
                     let text = &outcome.value.text;
                     info!(
                         "{LOG_PREFIX} transcription: '{}' ({} chars, transcribe_elapsed_ms={})",
-                        truncate_for_log(text, 80),
+                        text,
                         text.len(),
                         transcribe_elapsed.as_millis()
                     );

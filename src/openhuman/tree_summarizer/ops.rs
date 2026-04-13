@@ -150,9 +150,7 @@ fn create_provider(
     // Tree summarization runs exclusively on local AI to keep memory
     // processing private and offline — no backend calls.
     if !config.local_ai.enabled {
-        return Err(
-            "tree summarizer requires local_ai to be enabled in config".to_string(),
-        );
+        return Err("tree summarizer requires local_ai to be enabled in config".to_string());
     }
     create_local_ai_provider(config)
 }

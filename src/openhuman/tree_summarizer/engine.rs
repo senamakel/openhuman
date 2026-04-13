@@ -138,9 +138,16 @@ pub async fn run_summarization(
     ] {
         for (node_id, node_level) in &all_propagation_ids {
             if *node_level == level && seen.insert(node_id.clone()) {
-                propagate_node(config, provider, namespace, node_id, level, &config.local_ai.chat_model_id)
-                    .await
-                    .with_context(|| format!("propagate {node_id}"))?;
+                propagate_node(
+                    config,
+                    provider,
+                    namespace,
+                    node_id,
+                    level,
+                    &config.local_ai.chat_model_id,
+                )
+                .await
+                .with_context(|| format!("propagate {node_id}"))?;
             }
         }
     }
@@ -238,7 +245,15 @@ pub async fn rebuild_tree(
         propagate_node(config, provider, namespace, day_id, NodeLevel::Day, model).await?;
     }
     for month_id in &month_ids {
-        propagate_node(config, provider, namespace, month_id, NodeLevel::Month, model).await?;
+        propagate_node(
+            config,
+            provider,
+            namespace,
+            month_id,
+            NodeLevel::Month,
+            model,
+        )
+        .await?;
     }
     for year_id in &year_ids {
         propagate_node(config, provider, namespace, year_id, NodeLevel::Year, model).await?;
@@ -307,7 +322,15 @@ async fn propagate_node(
             combined_tokens,
             max_tokens
         );
-        summarize_to_limit(provider, &combined, max_tokens, level.as_str(), node_id, model).await?
+        summarize_to_limit(
+            provider,
+            &combined,
+            max_tokens,
+            level.as_str(),
+            node_id,
+            model,
+        )
+        .await?
     };
 
     let now = Utc::now();
@@ -368,12 +391,7 @@ async fn summarize_to_limit(
     );
 
     let response = provider
-        .chat_with_system(
-            Some(&system_prompt),
-            content,
-            model,
-            SUMMARIZATION_TEMP,
-        )
+        .chat_with_system(Some(&system_prompt), content, model, SUMMARIZATION_TEMP)
         .await
         .with_context(|| {
             format!("LLM summarization failed for node {node_id} (level={level_name})")

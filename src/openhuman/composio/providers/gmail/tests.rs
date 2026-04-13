@@ -40,13 +40,12 @@ fn extract_page_token_none_when_missing() {
 
 #[test]
 fn cursor_to_filter_from_epoch_millis() {
-    // 2026-04-01 00:00:00 UTC in millis
+    // 1774915200000 ms = 2026-03-31 UTC
     let millis = "1774915200000";
-    let filter = cursor_to_gmail_after_filter(millis);
-    assert!(filter.is_some());
-    // Should produce a YYYY/MM/DD date.
-    let f = filter.unwrap();
-    assert!(f.contains('/'), "Expected date with slashes, got {f}");
+    assert_eq!(
+        cursor_to_gmail_after_filter(millis),
+        Some("2026/03/31".to_string())
+    );
 }
 
 #[test]

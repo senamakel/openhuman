@@ -42,6 +42,7 @@ pub(crate) fn extract_page_token(data: &Value) -> Option<String> {
 /// `after:YYYY/MM/DD` filter component. Returns `None` if the cursor
 /// cannot be parsed.
 pub(crate) fn cursor_to_gmail_after_filter(cursor: &str) -> Option<String> {
+    let cursor = cursor.trim();
     // Try parsing as epoch millis first (Gmail's internalDate).
     if let Ok(millis) = cursor.parse::<i64>() {
         let secs = millis / 1000;

@@ -80,7 +80,7 @@ pub fn persist_provider_profile(profile: &ProviderUserProfile) -> usize {
     }
 
     if written > 0 {
-        tracing::info!(
+        tracing::debug!(
             toolkit = %toolkit,
             facets_written = written,
             "[composio:profile] persisted provider profile facets"

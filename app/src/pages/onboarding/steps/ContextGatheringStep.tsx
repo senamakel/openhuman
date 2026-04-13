@@ -115,9 +115,7 @@ const ContextGatheringStep = ({
     setStageStatuses(prev => ({ ...prev, 'gmail-search': 'active' }));
 
     try {
-      const raw = await callCoreRpc<unknown>({
-        method: 'openhuman.learning_linkedin_enrichment',
-      });
+      const raw = await callCoreRpc<unknown>({ method: 'openhuman.learning_linkedin_enrichment' });
       const result = unwrapCliEnvelope<EnrichmentResult>(raw);
       applyLogToStages(result.log, result.profile_url);
     } catch (e) {

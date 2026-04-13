@@ -62,7 +62,9 @@ pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedIn
 
     // ── Stage 1: search Gmail for LinkedIn emails ��───────────────────
     tracing::info!("[linkedin_enrichment] stage 1: searching Gmail for LinkedIn emails");
-    result.log.push("Searching Gmail for LinkedIn emails...".into());
+    result
+        .log
+        .push("Searching Gmail for LinkedIn emails...".into());
 
     let profile_url = match search_gmail_for_linkedin(config).await {
         Ok(Some(url)) => {
@@ -72,7 +74,9 @@ pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedIn
         }
         Ok(None) => {
             tracing::info!("[linkedin_enrichment] no LinkedIn profile URL found in emails");
-            result.log.push("No LinkedIn profile URL found in emails.".into());
+            result
+                .log
+                .push("No LinkedIn profile URL found in emails.".into());
             None
         }
         Err(e) => {
@@ -86,7 +90,9 @@ pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedIn
 
     // ── Stage 2: scrape the LinkedIn profile via Apify ───────────────
     let Some(url) = profile_url else {
-        result.log.push("Skipping LinkedIn scrape — no profile URL.".into());
+        result
+            .log
+            .push("Skipping LinkedIn scrape — no profile URL.".into());
         return Ok(result);
     };
 
@@ -96,7 +102,9 @@ pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedIn
     match scrape_linkedin_profile(&client, &url).await {
         Ok(data) => {
             tracing::info!("[linkedin_enrichment] Apify scrape succeeded");
-            result.log.push("LinkedIn profile scraped successfully.".into());
+            result
+                .log
+                .push("LinkedIn profile scraped successfully.".into());
 
             // ── Stage 3: write PROFILE.md to workspace ──────────────
             tracing::info!("[linkedin_enrichment] stage 3: writing PROFILE.md");
@@ -279,7 +287,10 @@ fn render_profile_markdown(url: &str, data: &serde_json::Value) -> String {
                 let company = exp.get("subtitle").and_then(|v| v.as_str()).unwrap_or("");
                 let duration = exp.get("duration").and_then(|v| v.as_str()).unwrap_or("");
                 let caption = exp.get("caption").and_then(|v| v.as_str()).unwrap_or("");
-                let desc = exp.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                let desc = exp
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 md.push_str(&format!("- **{title}**"));
                 if !company.is_empty() {
                     md.push_str(&format!(" at {company}"));
@@ -368,9 +379,8 @@ async fn search_gmail_for_linkedin(config: &Config) -> anyhow::Result<Option<Str
 
     // `comm/in/<username>` — LinkedIn's own notification emails always use
     // this form to refer to the email *recipient's* profile.
-    static COMM_RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"linkedin\.com/comm/in/([a-zA-Z0-9_-]+)").unwrap()
-    });
+    static COMM_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"linkedin\.com/comm/in/([a-zA-Z0-9_-]+)").unwrap());
 
     let resp = client
         .execute_tool(
@@ -407,10 +417,7 @@ async fn search_gmail_for_linkedin(config: &Config) -> anyhow::Result<Option<Str
         }
 
         // Decode base64 HTML parts from payload.parts[].body.data.
-        if let Some(parts) = msg
-            .pointer("/payload/parts")
-            .and_then(|v| v.as_array())
-        {
+        if let Some(parts) = msg.pointer("/payload/parts").and_then(|v| v.as_array()) {
             for part in parts {
                 let is_html = part
                     .get("mimeType")
@@ -516,8 +523,8 @@ async fn persist_linkedin_profile(
 ) -> anyhow::Result<()> {
     use crate::openhuman::memory::store::MemoryClient;
 
-    let memory = MemoryClient::new_local()
-        .map_err(|e| anyhow::anyhow!("memory client unavailable: {e}"))?;
+    let memory =
+        MemoryClient::new_local().map_err(|e| anyhow::anyhow!("memory client unavailable: {e}"))?;
 
     let content = format!(
         "LinkedIn profile for {url}:\n\n{}",
@@ -526,8 +533,8 @@ async fn persist_linkedin_profile(
 
     memory
         .store_skill_sync(
-            "user-profile",   // namespace skill_id
-            "linkedin",       // integration_id
+            "user-profile", // namespace skill_id
+            "linkedin",     // integration_id
             &format!("LinkedIn profile: {url}"),
             &content,
             Some("onboarding-linkedin-enrichment".into()),
@@ -549,8 +556,8 @@ async fn persist_linkedin_profile(
 async fn persist_linkedin_url_only(_config: &Config, url: &str) -> anyhow::Result<()> {
     use crate::openhuman::memory::store::MemoryClient;
 
-    let memory = MemoryClient::new_local()
-        .map_err(|e| anyhow::anyhow!("memory client unavailable: {e}"))?;
+    let memory =
+        MemoryClient::new_local().map_err(|e| anyhow::anyhow!("memory client unavailable: {e}"))?;
 
     memory
         .store_skill_sync(

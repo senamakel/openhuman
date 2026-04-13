@@ -6,7 +6,9 @@ fn tool_instructions_preamble() -> String {
     s.push_str("\n## Tool Use Protocol\n\n");
     s.push_str("To use a tool, wrap a JSON object in <tool_call></tool_call> tags:\n\n");
     s.push_str("```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n\n");
-    s.push_str("CRITICAL: Output actual <tool_call> tags—never describe steps or give examples.\n\n");
+    s.push_str(
+        "CRITICAL: Output actual <tool_call> tags—never describe steps or give examples.\n\n",
+    );
     s.push_str("Example: User says \"what's the date?\". You MUST respond with:\n<tool_call>\n{\"name\":\"shell\",\"arguments\":{\"command\":\"date\"}}\n</tool_call>\n\n");
     s.push_str("You may use multiple tool calls in a single response. ");
     s.push_str("After tool execution, results appear in <tool_result> tags. ");

@@ -27,13 +27,7 @@ export interface ComposioToolkitMeta {
   icon: ReactNode;
 }
 
-function BrandIcon({
-  bgClassName,
-  children,
-}: {
-  bgClassName: string;
-  children: ReactNode;
-}) {
+function BrandIcon({ bgClassName, children }: { bgClassName: string; children: ReactNode }) {
   return (
     <span
       className={`flex h-8 w-8 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 ${bgClassName}`}>
@@ -67,13 +61,7 @@ function GoogleCalendarIcon() {
         <rect x="4" y="5" width="16" height="15" rx="3" fill="#4285F4" />
         <rect x="4" y="8" width="16" height="12" rx="0" fill="white" />
         <path d="M8 4v4M16 4v4" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" />
-        <text
-          x="12"
-          y="17"
-          textAnchor="middle"
-          fontSize="7"
-          fontWeight="700"
-          fill="#4285F4">
+        <text x="12" y="17" textAnchor="middle" fontSize="7" fontWeight="700" fill="#4285F4">
           31
         </text>
       </svg>
@@ -118,10 +106,22 @@ function SlackIcon() {
   return (
     <BrandIcon bgClassName="bg-white">
       <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M9.2 3.5a2.2 2.2 0 1 1 0 4.4H7v2.2a2.2 2.2 0 1 1-4.4 0A2.2 2.2 0 0 1 4.8 7.9H7V5.7a2.2 2.2 0 0 1 2.2-2.2Z" fill="#36C5F0" />
-        <path d="M20.5 9.2a2.2 2.2 0 1 1-4.4 0V7h-2.2a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 2.2 2.2V7h2.2a2.2 2.2 0 0 1 2.2 2.2Z" fill="#2EB67D" />
-        <path d="M14.8 20.5a2.2 2.2 0 1 1 0-4.4H17v-2.2a2.2 2.2 0 1 1 4.4 0 2.2 2.2 0 0 1-2.2 2.2H17v2.2a2.2 2.2 0 0 1-2.2 2.2Z" fill="#ECB22E" />
-        <path d="M3.5 14.8a2.2 2.2 0 1 1 4.4 0V17h2.2a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1-2.2-2.2V17H5.7a2.2 2.2 0 0 1-2.2-2.2Z" fill="#E01E5A" />
+        <path
+          d="M9.2 3.5a2.2 2.2 0 1 1 0 4.4H7v2.2a2.2 2.2 0 1 1-4.4 0A2.2 2.2 0 0 1 4.8 7.9H7V5.7a2.2 2.2 0 0 1 2.2-2.2Z"
+          fill="#36C5F0"
+        />
+        <path
+          d="M20.5 9.2a2.2 2.2 0 1 1-4.4 0V7h-2.2a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 2.2 2.2V7h2.2a2.2 2.2 0 0 1 2.2 2.2Z"
+          fill="#2EB67D"
+        />
+        <path
+          d="M14.8 20.5a2.2 2.2 0 1 1 0-4.4H17v-2.2a2.2 2.2 0 1 1 4.4 0 2.2 2.2 0 0 1-2.2 2.2H17v2.2a2.2 2.2 0 0 1-2.2 2.2Z"
+          fill="#ECB22E"
+        />
+        <path
+          d="M3.5 14.8a2.2 2.2 0 1 1 4.4 0V17h2.2a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1-2.2-2.2V17H5.7a2.2 2.2 0 0 1-2.2-2.2Z"
+          fill="#E01E5A"
+        />
       </svg>
     </BrandIcon>
   );
@@ -153,7 +153,13 @@ function GoogleSheetsIcon() {
       <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M8 3h7l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" fill="#0F9D58" />
         <path d="M15 3v5h5" fill="#34A853" />
-        <path d="M9 11h6M9 14h6M9 17h6M13 9v10" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.95" />
+        <path
+          d="M9 11h6M9 14h6M9 17h6M13 9v10"
+          stroke="white"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          opacity="0.95"
+        />
       </svg>
     </BrandIcon>
   );
@@ -178,10 +184,18 @@ function RedditIcon() {
         <circle cx="12" cy="13" r="5.5" fill="white" />
         <circle cx="9.3" cy="12.5" r="1" fill="#FF4500" />
         <circle cx="14.7" cy="12.5" r="1" fill="#FF4500" />
-        <path d="M9.5 15.1c.7.6 1.52.9 2.5.9.98 0 1.8-.3 2.5-.9" stroke="#FF4500" strokeWidth="1.2" strokeLinecap="round" />
+        <path
+          d="M9.5 15.1c.7.6 1.52.9 2.5.9.98 0 1.8-.3 2.5-.9"
+          stroke="#FF4500"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
         <path d="m13 7.2 1.2-2.2 2.5.6" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
         <circle cx="17.5" cy="5.7" r="1.2" fill="white" />
-        <path d="M6.9 10.6c-.86 0-1.55-.72-1.55-1.6 0-.89.69-1.6 1.55-1.6.87 0 1.56.71 1.56 1.6 0 .88-.69 1.6-1.56 1.6Zm10.2 0c-.87 0-1.56-.72-1.56-1.6 0-.89.69-1.6 1.56-1.6.86 0 1.55.71 1.55 1.6 0 .88-.69 1.6-1.55 1.6Z" fill="white" />
+        <path
+          d="M6.9 10.6c-.86 0-1.55-.72-1.55-1.6 0-.89.69-1.6 1.55-1.6.87 0 1.56.71 1.56 1.6 0 .88-.69 1.6-1.56 1.6Zm10.2 0c-.87 0-1.56-.72-1.56-1.6 0-.89.69-1.6 1.56-1.6.86 0 1.55.71 1.55 1.6 0 .88-.69 1.6-1.55 1.6Z"
+          fill="white"
+        />
       </svg>
     </BrandIcon>
   );
@@ -190,7 +204,11 @@ function RedditIcon() {
 function GenericIntegrationIcon() {
   return (
     <BrandIcon bgClassName="bg-stone-100">
-      <svg className="h-[18px] w-[18px] text-stone-600" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+      <svg
+        className="h-[18px] w-[18px] text-stone-600"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        fill="none">
         <path
           d="M8 8h8v8H8zM5 12h3m8 0h3M12 5v3m0 8v3"
           stroke="currentColor"

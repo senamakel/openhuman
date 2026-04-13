@@ -97,6 +97,7 @@ pub struct VoiceServer {
     cancel: CancellationToken,
     config: VoiceServerConfig,
     transcription_count: Arc<std::sync::atomic::AtomicU64>,
+    session_generation: Arc<std::sync::atomic::AtomicU64>,
     last_error: Arc<Mutex<Option<String>>>,
     /// Rolling buffer of recent transcriptions used as whisper context for
     /// better continuity across consecutive recordings.
@@ -110,6 +111,7 @@ impl VoiceServer {
             cancel: CancellationToken::new(),
             config,
             transcription_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            session_generation: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             last_error: Arc::new(Mutex::new(None)),
             recent_transcripts: Arc::new(Mutex::new(Vec::new())),
         }
@@ -153,6 +155,8 @@ impl VoiceServer {
             tokio::sync::oneshot::Receiver<Result<RecordingHandle, String>>,
         > = None;
         let mut pending_expected_app: Option<String> = None;
+        let mut pending_generation: Option<u64> = None;
+        let mut recording_generation: Option<u64> = None;
         // Set when a stop-intent event (Release/Pressed toggle) arrives before
         // recording has started.
         let mut pending_stop = false;
@@ -229,6 +233,7 @@ impl VoiceServer {
                                     self.spawn_process_recording(
                                         handle,
                                         app_config,
+                                        recording_generation.take().unwrap_or_default(),
                                         recording_expected_app.take(),
                                     );
                                 }
@@ -237,7 +242,13 @@ impl VoiceServer {
                                 pending_stop = true;
                             } else {
                                 let expected_app = capture_expected_app_name();
+                                let generation =
+                                    self.session_generation.fetch_add(1, Ordering::Relaxed) + 1;
                                 debug!("{LOG_PREFIX} hotkey pressed → starting recording (non-blocking)");
+                                debug!(
+                                    "{LOG_PREFIX} assigned recording generation={} for new session",
+                                    generation
+                                );
 
                                 // Start recording on a blocking thread so the
                                 // event loop remains responsive to Release.
@@ -248,6 +259,7 @@ impl VoiceServer {
                                 });
                                 recording_pending_rx = Some(rx);
                                 pending_expected_app = expected_app;
+                                pending_generation = Some(generation);
                                 pending_stop = false;
                                 deferred_stop_deadline = None;
                                 *self.state.lock().await = ServerState::Recording;
@@ -265,6 +277,7 @@ impl VoiceServer {
                                 self.spawn_process_recording(
                                     handle,
                                     app_config,
+                                    recording_generation.take().unwrap_or_default(),
                                     recording_expected_app.take(),
                                 );
                             } else if recording_pending_rx.is_some() {
@@ -291,6 +304,7 @@ impl VoiceServer {
                                 // via non-blocking deferred deadline branch.
                                 pending_stop = false;
                                 recording = Some(handle);
+                                recording_generation = pending_generation.take();
                                 recording_expected_app = pending_expected_app.take();
 
                                 info!(
@@ -302,6 +316,7 @@ impl VoiceServer {
                                 );
                             } else {
                                 recording = Some(handle);
+                                recording_generation = pending_generation.take();
                                 recording_expected_app = pending_expected_app.take();
                                 deferred_stop_deadline = None;
 
@@ -312,6 +327,7 @@ impl VoiceServer {
                             pending_stop = false;
                             deferred_stop_deadline = None;
                             pending_expected_app = None;
+                            pending_generation = None;
                             error!("{LOG_PREFIX} failed to start recording: {e}");
                             *self.state.lock().await = ServerState::Idle;
                             *self.last_error.lock().await = Some(e);
@@ -320,6 +336,7 @@ impl VoiceServer {
                             pending_stop = false;
                             deferred_stop_deadline = None;
                             pending_expected_app = None;
+                            pending_generation = None;
                             error!("{LOG_PREFIX} recording setup task dropped");
                             *self.state.lock().await = ServerState::Idle;
                         }
@@ -336,6 +353,7 @@ impl VoiceServer {
                         self.spawn_process_recording(
                             handle,
                             app_config,
+                            recording_generation.take().unwrap_or_default(),
                             recording_expected_app.take(),
                         );
                     }
@@ -368,11 +386,13 @@ impl VoiceServer {
         &self,
         handle: RecordingHandle,
         config: &Config,
+        generation: u64,
         expected_app: Option<String>,
     ) {
         let state = self.state.clone();
         let server_config = self.config.clone();
         let transcription_count = self.transcription_count.clone();
+        let session_generation = self.session_generation.clone();
         let last_error = self.last_error.clone();
         let recent_transcripts = self.recent_transcripts.clone();
         let app_config = config.clone();
@@ -384,6 +404,8 @@ impl VoiceServer {
                 &server_config,
                 state,
                 transcription_count,
+                session_generation,
+                generation,
                 last_error,
                 recent_transcripts,
                 expected_app,
@@ -485,12 +507,21 @@ async fn process_recording_bg(
     server_config: &VoiceServerConfig,
     state: Arc<Mutex<ServerState>>,
     transcription_count: Arc<std::sync::atomic::AtomicU64>,
+    session_generation: Arc<std::sync::atomic::AtomicU64>,
+    generation: u64,
     last_error: Arc<Mutex<Option<String>>>,
     recent_transcripts: Arc<Mutex<Vec<String>>>,
     expected_app: Option<String>,
 ) {
     let pipeline_started = Instant::now();
-    *state.lock().await = ServerState::Transcribing;
+    update_state_if_current(
+        &state,
+        &session_generation,
+        generation,
+        ServerState::Transcribing,
+        "transcribing",
+    )
+    .await;
 
     let stop_started = Instant::now();
     match handle.stop().await {
@@ -510,7 +541,14 @@ async fn process_recording_bg(
                     "{LOG_PREFIX} recording too short ({:.1}s), skipping",
                     result.duration_secs
                 );
-                *state.lock().await = ServerState::Idle;
+                update_state_if_current(
+                    &state,
+                    &session_generation,
+                    generation,
+                    ServerState::Idle,
+                    "idle_after_short_recording",
+                )
+                .await;
                 return;
             }
 
@@ -521,7 +559,14 @@ async fn process_recording_bg(
                     result.peak_rms,
                     server_config.silence_threshold
                 );
-                *state.lock().await = ServerState::Idle;
+                update_state_if_current(
+                    &state,
+                    &session_generation,
+                    generation,
+                    ServerState::Idle,
+                    "idle_after_silence",
+                )
+                .await;
                 return;
             }
 
@@ -568,7 +613,14 @@ async fn process_recording_bg(
                             "{LOG_PREFIX} detected hallucinated output, discarding: '{}'",
                             truncate_for_log(text, 60)
                         );
-                        *state.lock().await = ServerState::Idle;
+                        update_state_if_current(
+                            &state,
+                            &session_generation,
+                            generation,
+                            ServerState::Idle,
+                            "idle_after_hallucination",
+                        )
+                        .await;
                         return;
                     }
 
@@ -626,7 +678,39 @@ async fn process_recording_bg(
         "{LOG_PREFIX} process_recording finished (total_pipeline_ms={})",
         pipeline_started.elapsed().as_millis()
     );
-    *state.lock().await = ServerState::Idle;
+    update_state_if_current(
+        &state,
+        &session_generation,
+        generation,
+        ServerState::Idle,
+        "idle_after_processing",
+    )
+    .await;
+}
+
+async fn update_state_if_current(
+    state: &Arc<Mutex<ServerState>>,
+    session_generation: &Arc<std::sync::atomic::AtomicU64>,
+    generation: u64,
+    next_state: ServerState,
+    reason: &str,
+) {
+    let latest_generation = session_generation.load(Ordering::Relaxed);
+    if latest_generation != generation {
+        debug!(
+            "{LOG_PREFIX} skipped stale state update reason={} generation={} latest_generation={} next_state={next_state:?}",
+            reason,
+            generation,
+            latest_generation
+        );
+        return;
+    }
+
+    debug!(
+        "{LOG_PREFIX} state update reason={} generation={} next_state={next_state:?}",
+        reason, generation
+    );
+    *state.lock().await = next_state;
 }
 
 /// Global voice server instance, lazily initialized.
@@ -872,6 +956,40 @@ mod tests {
         assert_eq!(status.state, ServerState::Stopped);
         assert_eq!(status.transcription_count, 0);
         assert!(status.last_error.is_none());
+    }
+
+    #[tokio::test]
+    async fn stale_processing_cannot_reset_newer_recording_state() {
+        let state = Arc::new(Mutex::new(ServerState::Recording));
+        let session_generation = Arc::new(std::sync::atomic::AtomicU64::new(2));
+
+        update_state_if_current(
+            &state,
+            &session_generation,
+            1,
+            ServerState::Idle,
+            "stale_test",
+        )
+        .await;
+
+        assert_eq!(*state.lock().await, ServerState::Recording);
+    }
+
+    #[tokio::test]
+    async fn current_processing_can_update_state() {
+        let state = Arc::new(Mutex::new(ServerState::Recording));
+        let session_generation = Arc::new(std::sync::atomic::AtomicU64::new(2));
+
+        update_state_if_current(
+            &state,
+            &session_generation,
+            2,
+            ServerState::Idle,
+            "current_test",
+        )
+        .await;
+
+        assert_eq!(*state.lock().await, ServerState::Idle);
     }
 
     #[test]

@@ -27,6 +27,9 @@ RULES:
 - Fix grammar, spelling, punctuation. Break up run-on sentences
 - Remove false starts, stutters, and accidental repetitions
 - Correct obvious transcription errors
+- Do NOT summarize, shorten, compress, paraphrase, or drop meaningful words
+- Keep the same claims, qualifiers, uncertainty, and sentence count unless the raw text is clearly broken
+- Do NOT turn prose into bullets or lists unless the speaker explicitly dictated a list
 - Preserve the speaker's voice, tone, vocabulary, and intent
 - Preserve technical terms, proper nouns, names, and jargon exactly as spoken
 
@@ -64,6 +67,15 @@ pub async fn cleanup_transcription(
         return raw_text.to_string();
     }
 
+    let normalized_context = conversation_context
+        .map(str::trim)
+        .filter(|context| !context.is_empty());
+
+    if normalized_context.is_none() {
+        info!("{LOG_PREFIX} LLM cleanup skipped: no conversation context, returning raw text");
+        return raw_text.to_string();
+    }
+
     let service = local_ai::global(config);
     let llm_state = service.status.lock().state.clone();
     let llm_ready = matches!(llm_state.as_str(), "ready" | "degraded");
@@ -92,18 +104,14 @@ pub async fn cleanup_transcription(
     debug!(
         "{LOG_PREFIX} cleaning up transcription ({} chars, context={}, llm_state={llm_state})",
         raw_text.len(),
-        conversation_context.is_some()
+        normalized_context.is_some()
     );
 
-    let prompt = match conversation_context {
-        Some(ctx) if !ctx.trim().is_empty() => {
-            format!(
-                "Conversation context:\n{ctx}\n\n\
-                 Transcribed text to clean up:\n{raw_text}"
-            )
-        }
-        _ => raw_text.to_string(),
-    };
+    let prompt = format!(
+        "Conversation context:\n{}\n\n\
+         Transcribed text to clean up:\n{raw_text}",
+        normalized_context.expect("normalized context checked above")
+    );
 
     // Hard timeout — dictation must feel instant. If the LLM doesn't
     // respond within 3 seconds, fall back to the raw Whisper text.
@@ -237,6 +245,15 @@ mod tests {
         let result = rt.block_on(cleanup_transcription(&config, "um hello uh world", None));
         service.status.lock().state = previous;
         assert_eq!(result, "um hello uh world");
+    }
+
+    #[test]
+    fn missing_context_returns_raw_text() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let config = Config::default();
+        let raw = "so the whisper received content and text is the same";
+        let result = rt.block_on(cleanup_transcription(&config, raw, None));
+        assert_eq!(result, raw);
     }
 
     #[test]

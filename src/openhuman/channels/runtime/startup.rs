@@ -3,7 +3,7 @@
 use super::dispatch::run_message_dispatch_loop;
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
 use crate::core::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
-use crate::openhuman::agent::harness::build_tool_instructions;
+use crate::openhuman::agent::harness::build_tool_instructions_filtered;
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::channels::context::{
     effective_channel_message_timeout_secs, ChannelRuntimeContext,
@@ -217,7 +217,16 @@ pub async fn start_channels(config: Config) -> Result<()> {
         bootstrap_max_chars,
         None,
     );
-    system_prompt.push_str(&build_tool_instructions(tools_registry.as_ref()));
+    // Filter out Skill-category tools (e.g. Composio, Apify) from the
+    // main agent prompt — those are only available to the skills_agent
+    // subagent via category_filter = "skill".
+    let non_skill_tools: Vec<&Box<dyn crate::openhuman::tools::Tool>> = tools_registry
+        .iter()
+        .filter(|t| t.category() != crate::openhuman::tools::traits::ToolCategory::Skill)
+        .collect();
+    let non_skill_refs: Vec<&dyn crate::openhuman::tools::Tool> =
+        non_skill_tools.iter().map(|t| t.as_ref()).collect();
+    system_prompt.push_str(&build_tool_instructions_filtered(&non_skill_refs));
 
     if !skills.is_empty() {
         println!(

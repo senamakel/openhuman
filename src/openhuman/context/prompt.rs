@@ -352,7 +352,7 @@ impl PromptSection for IdentitySection {
         // and talks to the user. It does NOT need the periodic-task config
         // (HEARTBEAT.md) — subagents handle their own concerns.
         let is_orchestrator = !ctx.visible_tool_names.is_empty();
-        let all_files: &[&str] = &["SOUL.md", "IDENTITY.md", "USER.md", "HEARTBEAT.md"];
+        let all_files: &[&str] = &["SOUL.md", "IDENTITY.md", "HEARTBEAT.md"];
         // Orchestrator skips these from the prompt but we still sync them
         // to disk so they stay current.
         let skip_in_prompt: &[&str] = if is_orchestrator {
@@ -778,7 +778,7 @@ pub fn render_subagent_system_prompt_with_format(
         out.push_str(
             "The following workspace files define your identity, behavior, and context.\n\n",
         );
-        for file in &["SOUL.md", "IDENTITY.md", "USER.md"] {
+        for file in &["SOUL.md", "IDENTITY.md"] {
             inject_workspace_file(&mut out, workspace_dir, file);
         }
         inject_workspace_file(&mut out, workspace_dir, "PROFILE.md");
@@ -1056,7 +1056,6 @@ fn default_workspace_file_content(filename: &str) -> &'static str {
     match filename {
         "SOUL.md" => include_str!("../agent/prompts/SOUL.md"),
         "IDENTITY.md" => include_str!("../agent/prompts/IDENTITY.md"),
-        "USER.md" => include_str!("../agent/prompts/USER.md"),
         "HEARTBEAT.md" => {
             "# Periodic Tasks\n\n# Add tasks below (one per line, starting with `- `)\n"
         }
@@ -1146,7 +1145,7 @@ mod tests {
         let section = IdentitySection;
         let _ = section.build(&ctx).unwrap();
 
-        for file in ["SOUL.md", "IDENTITY.md", "USER.md", "HEARTBEAT.md"] {
+        for file in ["SOUL.md", "IDENTITY.md", "HEARTBEAT.md"] {
             assert!(
                 workspace.join(file).exists(),
                 "expected workspace file to be created: {file}"
@@ -1395,7 +1394,6 @@ mod tests {
         std::fs::create_dir_all(&workspace).unwrap();
         std::fs::write(workspace.join("SOUL.md"), "# Soul\nContext").unwrap();
         std::fs::write(workspace.join("IDENTITY.md"), "# Identity\nContext").unwrap();
-        std::fs::write(workspace.join("USER.md"), "# User\nContext").unwrap();
 
         let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
         let rendered = render_subagent_system_prompt_with_format(

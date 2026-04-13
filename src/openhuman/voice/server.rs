@@ -1105,10 +1105,7 @@ mod tests {
         .await;
 
         assert_eq!(*state.lock().await, ServerState::Idle);
-        assert_eq!(
-            last_error.lock().await.as_deref(),
-            Some("stop failed")
-        );
+        assert_eq!(last_error.lock().await.as_deref(), Some("stop failed"));
     }
 
     #[tokio::test]

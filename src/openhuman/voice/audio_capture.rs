@@ -146,9 +146,7 @@ impl RecordingHandle {
     }
 
     #[cfg(test)]
-    pub(crate) fn from_test_result(
-        result: Result<RecordingResult, String>,
-    ) -> Self {
+    pub(crate) fn from_test_result(result: Result<RecordingResult, String>) -> Self {
         let (tx, rx) = oneshot::channel();
         tx.send(result)
             .expect("test recording result receiver should be open");

@@ -172,8 +172,10 @@ fn create_local_ai_provider(
         AuthStyle::Bearer,
     );
 
-    let providers: Vec<(String, Box<dyn crate::openhuman::providers::traits::Provider>)> =
-        vec![("ollama-local".to_string(), Box::new(inner))];
+    let providers: Vec<(
+        String,
+        Box<dyn crate::openhuman::providers::traits::Provider>,
+    )> = vec![("ollama-local".to_string(), Box::new(inner))];
     let reliable = ReliableProvider::new(
         providers,
         config.reliability.provider_retries,

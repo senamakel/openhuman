@@ -565,7 +565,6 @@ async fn persist_linkedin_url_only(
     memory: &crate::openhuman::memory::store::MemoryClient,
     url: &str,
 ) -> anyhow::Result<()> {
-
     memory
         .store_skill_sync(
             "user-profile",

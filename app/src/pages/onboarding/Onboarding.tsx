@@ -134,9 +134,7 @@ const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
   };
 
   const handleContextNext = async () => {
-    console.debug('[onboarding:handleContextNext]', {
-      connectedSources: draft.connectedSources,
-    });
+    console.debug('[onboarding:handleContextNext]', { connectedSources: draft.connectedSources });
     await setOnboardingTasks({
       accessibilityPermissionGranted: draft.accessibilityPermissionGranted,
       localModelConsentGiven: false,

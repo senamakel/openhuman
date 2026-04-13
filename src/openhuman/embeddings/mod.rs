@@ -50,30 +50,38 @@ pub trait EmbeddingProvider: Send + Sync {
 /// - `"ollama"` → local Ollama server (default, preferred)
 /// - `"openai"` → OpenAI API
 /// - `"custom:<url>"` → OpenAI-compatible endpoint
-/// - anything else → no-op (keyword-only search)
+/// - `"none"` → no-op (keyword-only search, no embeddings)
+///
+/// Returns an error for unrecognised provider names so configuration
+/// mistakes surface immediately rather than silently degrading to
+/// keyword-only search.
 pub fn create_embedding_provider(
     provider: &str,
     api_key: Option<&str>,
     model: &str,
     dims: usize,
-) -> Box<dyn EmbeddingProvider> {
+) -> anyhow::Result<Box<dyn EmbeddingProvider>> {
     match provider {
-        "ollama" => Box::new(OllamaEmbedding::new("", model, dims)),
+        "ollama" => Ok(Box::new(OllamaEmbedding::new("", model, dims))),
         "openai" => {
             let key = api_key.unwrap_or("");
-            Box::new(OpenAiEmbedding::new(
+            Ok(Box::new(OpenAiEmbedding::new(
                 "https://api.openai.com",
                 key,
                 model,
                 dims,
-            ))
+            )))
         }
         name if name.starts_with("custom:") => {
             let base_url = name.strip_prefix("custom:").unwrap_or("");
             let key = api_key.unwrap_or("");
-            Box::new(OpenAiEmbedding::new(base_url, key, model, dims))
+            Ok(Box::new(OpenAiEmbedding::new(base_url, key, model, dims)))
         }
-        _ => Box::new(NoopEmbedding),
+        "none" => Ok(Box::new(NoopEmbedding)),
+        unknown => Err(anyhow::anyhow!(
+            "unknown embedding provider: \"{unknown}\". \
+             Supported: \"ollama\", \"openai\", \"custom:<url>\", \"none\""
+        )),
     }
 }
 
@@ -117,60 +125,77 @@ mod tests {
         assert!(result.is_empty());
     }
 
-    // ── Factory ──────────────────────────────────────────────
+    // ── Factory — success ────────────────────────────────────
 
     #[test]
     fn factory_ollama() {
-        let p = create_embedding_provider("ollama", None, DEFAULT_OLLAMA_MODEL, 768);
+        let p = create_embedding_provider("ollama", None, DEFAULT_OLLAMA_MODEL, 768).unwrap();
         assert_eq!(p.name(), "ollama");
         assert_eq!(p.dimensions(), 768);
     }
 
     #[test]
     fn factory_openai() {
-        let p = create_embedding_provider("openai", Some("key"), "text-embedding-3-small", 1536);
+        let p =
+            create_embedding_provider("openai", Some("key"), "text-embedding-3-small", 1536)
+                .unwrap();
         assert_eq!(p.name(), "openai");
         assert_eq!(p.dimensions(), 1536);
     }
 
     #[test]
     fn factory_openai_no_api_key() {
-        let p = create_embedding_provider("openai", None, "text-embedding-3-small", 1536);
+        let p =
+            create_embedding_provider("openai", None, "text-embedding-3-small", 1536).unwrap();
         assert_eq!(p.name(), "openai");
         assert_eq!(p.dimensions(), 1536);
     }
 
     #[test]
     fn factory_custom_url() {
-        let p = create_embedding_provider("custom:http://localhost:1234", None, "model", 768);
+        let p = create_embedding_provider("custom:http://localhost:1234", None, "model", 768)
+            .unwrap();
         assert_eq!(p.name(), "openai"); // OpenAI-compatible under the hood
         assert_eq!(p.dimensions(), 768);
     }
 
     #[test]
     fn factory_custom_empty_url() {
-        let p = create_embedding_provider("custom:", None, "model", 768);
+        let p = create_embedding_provider("custom:", None, "model", 768).unwrap();
         assert_eq!(p.name(), "openai");
     }
 
     #[test]
-    fn factory_empty_string_returns_noop() {
-        let p = create_embedding_provider("", None, "model", 1536);
+    fn factory_none() {
+        let p = create_embedding_provider("none", None, "", 0).unwrap();
         assert_eq!(p.name(), "none");
+        assert_eq!(p.dimensions(), 0);
+    }
+
+    // ── Factory — errors ─────────────────────────────────────
+
+    #[test]
+    fn factory_unknown_provider_errors() {
+        let err = create_embedding_provider("cohere", None, "model", 1536).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("cohere"), "should include provider name: {msg}");
+        assert!(msg.contains("unknown"), "should say unknown: {msg}");
     }
 
     #[test]
-    fn factory_unknown_provider_returns_noop() {
-        let p = create_embedding_provider("cohere", None, "model", 1536);
-        assert_eq!(p.name(), "none");
+    fn factory_empty_string_errors() {
+        let err = create_embedding_provider("", None, "model", 1536).unwrap_err();
+        assert!(err.to_string().contains("unknown"));
     }
 
     #[test]
-    fn factory_fastembed_returns_noop() {
-        // Old provider name is no longer supported — falls through to noop.
-        let p = create_embedding_provider("fastembed", None, "BGESmallENV15", 384);
-        assert_eq!(p.name(), "none");
+    fn factory_fastembed_errors() {
+        let err =
+            create_embedding_provider("fastembed", None, "BGESmallENV15", 384).unwrap_err();
+        assert!(err.to_string().contains("fastembed"));
     }
+
+    // ── Default provider ─────────────────────────────────────
 
     #[test]
     fn default_local_provider_uses_ollama() {

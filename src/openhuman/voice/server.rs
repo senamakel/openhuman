@@ -51,12 +51,8 @@ pub struct VoiceServerStatus {
 /// this are considered silent and skipped. Matches OpenWhispr's 0.002 default.
 const DEFAULT_SILENCE_THRESHOLD: f32 = 0.002;
 
-/// Maximum number of recent transcriptions to keep as context for whisper's
-/// initial_prompt, improving continuity across consecutive recordings.
-const MAX_RECENT_TRANSCRIPTS: usize = 5;
-
 /// Maximum character length of the combined initial prompt (dictionary +
-/// recent transcripts). Whisper's prompt token budget is limited.
+/// explicit custom dictionary). Whisper's prompt token budget is limited.
 const MAX_INITIAL_PROMPT_CHARS: usize = 500;
 
 /// Configuration for the voice server.
@@ -98,9 +94,6 @@ pub struct VoiceServer {
     config: VoiceServerConfig,
     transcription_count: Arc<std::sync::atomic::AtomicU64>,
     last_error: Arc<Mutex<Option<String>>>,
-    /// Rolling buffer of recent transcriptions used as whisper context for
-    /// better continuity across consecutive recordings.
-    recent_transcripts: Arc<Mutex<Vec<String>>>,
 }
 
 impl VoiceServer {
@@ -111,7 +104,6 @@ impl VoiceServer {
             config,
             transcription_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             last_error: Arc::new(Mutex::new(None)),
-            recent_transcripts: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -374,7 +366,6 @@ impl VoiceServer {
         let server_config = self.config.clone();
         let transcription_count = self.transcription_count.clone();
         let last_error = self.last_error.clone();
-        let recent_transcripts = self.recent_transcripts.clone();
         let app_config = config.clone();
 
         tokio::spawn(async move {
@@ -385,7 +376,6 @@ impl VoiceServer {
                 state,
                 transcription_count,
                 last_error,
-                recent_transcripts,
                 expected_app,
             )
             .await;
@@ -425,27 +415,13 @@ fn capture_expected_app_name() -> Option<String> {
     None
 }
 
-/// Build the whisper initial_prompt from custom dictionary + recent transcripts.
-async fn build_initial_prompt(
-    config: &VoiceServerConfig,
-    recent_transcripts: &Mutex<Vec<String>>,
-) -> Option<String> {
-    let mut parts: Vec<String> = Vec::new();
-
-    if !config.custom_dictionary.is_empty() {
-        parts.push(config.custom_dictionary.join(", "));
-    }
-
-    let recent = recent_transcripts.lock().await;
-    if !recent.is_empty() {
-        parts.push(recent.join(" "));
-    }
-
-    if parts.is_empty() {
+/// Build the whisper initial_prompt from the explicit custom dictionary only.
+fn build_initial_prompt(config: &VoiceServerConfig) -> Option<String> {
+    if config.custom_dictionary.is_empty() {
         return None;
     }
 
-    let mut prompt = parts.join(". ");
+    let mut prompt = config.custom_dictionary.join(", ");
     if prompt.len() > MAX_INITIAL_PROMPT_CHARS {
         prompt.truncate(MAX_INITIAL_PROMPT_CHARS);
         if let Some(last_space) = prompt.rfind(' ') {
@@ -458,19 +434,6 @@ async fn build_initial_prompt(
         truncate_for_log(&prompt, 100)
     );
     Some(prompt)
-}
-
-/// Add a transcript to the rolling recent buffer.
-async fn push_recent_transcript(recent_transcripts: &Mutex<Vec<String>>, text: &str) {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return;
-    }
-    let mut recent = recent_transcripts.lock().await;
-    recent.push(trimmed.to_string());
-    while recent.len() > MAX_RECENT_TRANSCRIPTS {
-        recent.remove(0);
-    }
 }
 
 /// Process a completed recording in the background.
@@ -486,7 +449,6 @@ async fn process_recording_bg(
     state: Arc<Mutex<ServerState>>,
     transcription_count: Arc<std::sync::atomic::AtomicU64>,
     last_error: Arc<Mutex<Option<String>>>,
-    recent_transcripts: Arc<Mutex<Vec<String>>>,
     expected_app: Option<String>,
 ) {
     let pipeline_started = Instant::now();
@@ -525,8 +487,8 @@ async fn process_recording_bg(
                 return;
             }
 
-            // Build initial_prompt from dictionary + recent transcripts.
-            let initial_prompt = build_initial_prompt(server_config, &recent_transcripts).await;
+            // Start each dictation fresh; only explicit dictionary hints carry over.
+            let initial_prompt = build_initial_prompt(server_config);
             let context = initial_prompt
                 .as_deref()
                 .or(server_config.context.as_deref());
@@ -573,8 +535,6 @@ async fn process_recording_bg(
                     }
 
                     if !text.trim().is_empty() {
-                        push_recent_transcript(&recent_transcripts, text).await;
-
                         // When the Tauri app itself is focused, deliver via
                         // Socket.IO so the frontend inserts into the chat.
                         // Otherwise paste via OS-level Cmd+V into the

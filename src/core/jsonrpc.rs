@@ -840,13 +840,18 @@ fn register_domain_subscribers(workspace_dir: std::path::PathBuf) {
         // the same respawn logic.
         crate::openhuman::service::bus::register_restart_subscriber();
 
+        // Proactive message subscriber (web-only in the desktop runtime —
+        // no external channel instances are registered here). Uses a
+        // Once-guarded registrar so domain-level startup can't duplicate it.
+        crate::openhuman::channels::proactive::register_web_only_proactive_subscriber();
+
         // Native request handlers — typed in-process request/response.
         // The agent `agent.run_turn` handler is what channel dispatch
         // calls instead of importing `run_tool_call_loop` directly.
         crate::openhuman::agent::bus::register_agent_handlers();
 
         log::info!(
-            "[event_bus] webhook, channel, health, conversation persistence, composio, restart subscribers + agent native handlers registered"
+            "[event_bus] domain subscribers registered (webhook, channel, health, conversation, composio, restart, proactive, agent)"
         );
     });
 }

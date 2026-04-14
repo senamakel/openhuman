@@ -1210,6 +1210,27 @@ impl OpenAiCompatibleProvider {
             anyhow::bail!("{} streaming API error ({}): {}", self.name, status, body);
         }
 
+        // Some OpenAI-compatible backends (and our e2e mock) accept
+        // `stream: true` in the request but reply with a regular
+        // `application/json` body rather than SSE. Detect this and
+        // fall back to the non-streaming parse path so the caller
+        // still gets an aggregated response. No deltas are emitted in
+        // this case (there's nothing to stream).
+        let is_sse = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(|ct| ct.to_ascii_lowercase().contains("text/event-stream"))
+            .unwrap_or(false);
+        if !is_sse {
+            log::debug!(
+                "[stream] {} upstream replied with non-SSE content-type; falling back to JSON parse",
+                self.name,
+            );
+            let api_resp: ApiChatResponse = response.json().await?;
+            return Self::parse_native_response(api_resp, &self.name);
+        }
+
         // Accumulators for the final aggregated response. Tool-call
         // state is keyed by the upstream `index` so interleaved chunks
         // for multiple tool calls in the same turn don't clobber each

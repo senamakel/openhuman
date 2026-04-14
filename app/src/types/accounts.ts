@@ -1,4 +1,4 @@
-export type AccountProvider = 'whatsapp';
+export type AccountProvider = 'whatsapp' | 'telegram' | 'linkedin' | 'gmail' | 'slack';
 
 export type AccountStatus = 'pending' | 'open' | 'error' | 'closed';
 
@@ -47,5 +47,29 @@ export const PROVIDERS: ProviderDescriptor[] = [
     label: 'WhatsApp Web',
     description: 'Open web.whatsapp.com inside the app and stream chat updates.',
     serviceUrl: 'https://web.whatsapp.com/',
+  },
+  {
+    id: 'telegram',
+    label: 'Telegram Web',
+    description: 'Your Telegram chats, embedded and observed.',
+    serviceUrl: 'https://web.telegram.org/k/',
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    description: 'LinkedIn messaging — DMs and conversations.',
+    serviceUrl: 'https://www.linkedin.com/messaging/',
+  },
+  {
+    id: 'gmail',
+    label: 'Gmail',
+    description: 'Your Gmail inbox. Google may require sign-in a couple of times.',
+    serviceUrl: 'https://mail.google.com/mail/u/0/',
+  },
+  {
+    id: 'slack',
+    label: 'Slack',
+    description: 'Slack workspaces and channels.',
+    serviceUrl: 'https://app.slack.com/client/',
   },
 ];

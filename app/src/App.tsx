@@ -1,10 +1,12 @@
 import * as Sentry from '@sentry/react';
 import { Provider } from 'react-redux';
-import { HashRouter as Router } from 'react-router-dom';
+import { HashRouter as Router, useLocation } from 'react-router-dom';
 import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
 import BottomTabBar from './components/BottomTabBar';
+import { useAppSelector } from './store/hooks';
+import { isAccountsFullscreen } from './utils/accountsFullscreen';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
@@ -33,16 +35,7 @@ function App() {
             <SocketProvider>
               <Router>
                 <ServiceBlockingGate>
-                  <div className="relative h-screen flex flex-col overflow-hidden">
-                    <MeshGradient />
-                    <div className="app-dotted-canvas relative z-10 flex-1 flex flex-col overflow-hidden">
-                      <div className="flex-1 overflow-y-auto pb-16">
-                        <GlobalUpsellBanner />
-                        <AppRoutes />
-                      </div>
-                      <BottomTabBar />
-                    </div>
-                  </div>
+                  <AppShell />
                   <OnboardingOverlay />
                   <DictationHotkeyManager />
                   <LocalAIDownloadSnackbar />
@@ -53,6 +46,29 @@ function App() {
         </PersistGate>
       </Provider>
     </Sentry.ErrorBoundary>
+  );
+}
+
+/** Inner shell — lives inside the Router so it can use useLocation. */
+function AppShell() {
+  const location = useLocation();
+  const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
+  // On /accounts, only the agent view keeps the tab bar + its reserved
+  // bottom padding. Any other selected "app" (e.g. WhatsApp) takes the
+  // full viewport so the embedded webview goes edge-to-edge.
+  const fullscreen = isAccountsFullscreen(location.pathname, activeAccountId);
+
+  return (
+    <div className="relative h-screen flex flex-col overflow-hidden">
+      <MeshGradient />
+      <div className="app-dotted-canvas relative z-10 flex-1 flex flex-col overflow-hidden">
+        <div className={`flex-1 overflow-y-auto ${fullscreen ? '' : 'pb-16'}`}>
+          <GlobalUpsellBanner />
+          <AppRoutes />
+        </div>
+        <BottomTabBar />
+      </div>
+    </div>
   );
 }
 

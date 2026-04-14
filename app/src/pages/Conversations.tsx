@@ -193,7 +193,17 @@ function LimitPill({ label, usedPct }: { label: string; usedPct: number }) {
   );
 }
 
-const Conversations = () => {
+interface ConversationsProps {
+  /**
+   * `page` (default) renders the centered max-w-2xl card layout used as
+   * a top-level route at /conversations. `sidebar` drops the centering
+   * and width cap so the panel can be embedded as a right rail inside
+   * another page (e.g. /accounts).
+   */
+  variant?: 'page' | 'sidebar';
+}
+
+const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const {
@@ -1261,9 +1271,21 @@ const Conversations = () => {
     : null;
   const inlineCompletionSuffix = getInlineCompletionSuffix(inputValue, inlineSuggestionValue);
 
+  const isSidebar = variant === 'sidebar';
+
   return (
-    <div className="h-full relative z-10 flex justify-center overflow-hidden p-4 pt-6">
-      <div className="flex-1 flex flex-col min-w-0 max-w-2xl bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden">
+    <div
+      className={
+        isSidebar
+          ? 'h-full relative z-10 flex flex-col overflow-hidden'
+          : 'h-full relative z-10 flex justify-center overflow-hidden p-4 pt-6'
+      }>
+      <div
+        className={
+          isSidebar
+            ? 'flex-1 flex flex-col min-w-0 bg-white border-l border-stone-200 overflow-hidden'
+            : 'flex-1 flex flex-col min-w-0 max-w-2xl bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden'
+        }>
         <div className="flex-1 overflow-y-auto px-5 py-4 bg-stone-50">
           {isLoadingMessages ? (
             <div className="space-y-4">
@@ -1819,3 +1841,9 @@ const Conversations = () => {
 };
 
 export default Conversations;
+
+/**
+ * Embeddable variant — same component, page layout (floating centered
+ * card). Mounted inside /accounts when the Agent entry is selected.
+ */
+export const AgentChatPanel = () => <Conversations variant="page" />;

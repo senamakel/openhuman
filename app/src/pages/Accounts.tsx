@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import AddAccountModal from '../components/accounts/AddAccountModal';
+import { AgentIcon, ProviderIcon } from '../components/accounts/providerIcons';
 import WebviewHost from '../components/accounts/WebviewHost';
-import { closeWebviewAccount, startWebviewAccountService } from '../services/webviewAccountService';
-import { addAccount, removeAccount, setActiveAccount } from '../store/accountsSlice';
+import { AgentChatPanel } from './Conversations';
+import { startWebviewAccountService } from '../services/webviewAccountService';
+import { addAccount, setActiveAccount } from '../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { Account, ProviderDescriptor } from '../types/accounts';
+import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
 
 function makeAccountId(): string {
   const c = globalThis.crypto;
@@ -13,18 +16,44 @@ function makeAccountId(): string {
   return `acct-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+interface RailButtonProps {
+  active: boolean;
+  onClick: () => void;
+  tooltip: string;
+  badge?: number;
+  children: React.ReactNode;
+}
+
+const RailButton = ({ active, onClick, tooltip, badge, children }: RailButtonProps) => (
+  <button
+    onClick={onClick}
+    className={`group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
+      active
+        ? 'bg-primary-50 ring-2 ring-primary-500'
+        : 'hover:bg-stone-100 hover:scale-105'
+    }`}
+    aria-label={tooltip}>
+    {children}
+    {badge && badge > 0 ? (
+      <span className="absolute -right-0.5 -top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-semibold text-white">
+        {badge > 99 ? '99+' : badge}
+      </span>
+    ) : null}
+    <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-md bg-stone-900 px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 z-50">
+      {tooltip}
+    </span>
+  </button>
+);
+
 const Accounts = () => {
   const dispatch = useAppDispatch();
   const accountsById = useAppSelector(state => state.accounts.accounts);
   const order = useAppSelector(state => state.accounts.order);
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
-  const messagesByAccount = useAppSelector(state => state.accounts.messages);
-  const logsByAccount = useAppSelector(state => state.accounts.logs);
   const unreadByAccount = useAppSelector(state => state.accounts.unread);
 
   const [addOpen, setAddOpen] = useState(false);
 
-  // Bring up the bridge once.
   useEffect(() => {
     startWebviewAccountService();
   }, []);
@@ -34,9 +63,9 @@ const Accounts = () => {
     [order, accountsById]
   );
 
-  const active = activeAccountId ? (accountsById[activeAccountId] ?? null) : null;
-  const activeMessages = active ? (messagesByAccount[active.id] ?? []) : [];
-  const activeLogs = active ? (logsByAccount[active.id] ?? []) : [];
+  const selectedId = activeAccountId ?? AGENT_ID;
+  const active = selectedId === AGENT_ID ? null : (accountsById[selectedId] ?? null);
+  const isAgentSelected = selectedId === AGENT_ID;
 
   const handlePickProvider = (p: ProviderDescriptor) => {
     setAddOpen(false);
@@ -52,87 +81,59 @@ const Accounts = () => {
     dispatch(setActiveAccount(id));
   };
 
-  const handleRemove = (accountId: string) => {
-    void closeWebviewAccount(accountId);
-    dispatch(removeAccount({ accountId }));
-  };
+  const selectAgent = () => dispatch(setActiveAccount(AGENT_ID));
+  const selectAccount = (id: string) => dispatch(setActiveAccount(id));
 
   return (
-    <div className="flex h-full overflow-hidden bg-canvas-50">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-none flex-col border-r border-stone-200 bg-white">
-        <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
-          <h1 className="text-sm font-semibold text-stone-900">Accounts</h1>
-          <button
-            onClick={() => setAddOpen(true)}
-            className="rounded-md bg-primary-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-600">
-            + Add
-          </button>
-        </div>
+    <div className="relative flex h-full overflow-hidden">
+      {/* Narrow icon rail — floats when Agent is selected, flush to the
+          edge when an app webview is taking the full pane. */}
+      <aside
+        className={`z-30 flex w-16 flex-none flex-col items-center gap-2 bg-white/60 py-3 backdrop-blur-md transition-all duration-300 ${
+          isAgentSelected
+            ? 'my-3 ml-3 rounded-2xl border border-stone-200/70 shadow-soft'
+            : 'border-r border-stone-200/60'
+        }`}>
+        <RailButton active={isAgentSelected} onClick={selectAgent} tooltip="Agent">
+          <AgentIcon className="h-9 w-9 rounded-lg" />
+        </RailButton>
 
-        <div className="flex-1 overflow-y-auto">
-          {accounts.length === 0 ? (
-            <div className="px-4 py-6 text-xs text-stone-500">
-              No accounts yet. Click <span className="font-semibold">+ Add</span> to connect a
-              service.
-            </div>
-          ) : (
-            <ul>
-              {accounts.map(acct => {
-                const isActive = acct.id === activeAccountId;
-                const unread = unreadByAccount[acct.id] ?? 0;
-                return (
-                  <li key={acct.id}>
-                    <button
-                      onClick={() => dispatch(setActiveAccount(acct.id))}
-                      className={`flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm transition-colors ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-stone-700 hover:bg-stone-50'
-                      }`}>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-medium">{acct.label}</span>
-                        <span className="truncate text-[11px] text-stone-400">
-                          {acct.status}
-                          {acct.lastError ? ` • ${acct.lastError}` : ''}
-                        </span>
-                      </span>
-                      {unread > 0 && (
-                        <span className="rounded-full bg-coral-500 px-1.5 text-[10px] font-semibold text-white">
-                          {unread > 99 ? '99+' : unread}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        {accounts.map(acct => (
+          <RailButton
+            key={acct.id}
+            active={acct.id === selectedId}
+            onClick={() => selectAccount(acct.id)}
+            tooltip={acct.label}
+            badge={unreadByAccount[acct.id]}>
+            <ProviderIcon provider={acct.provider} className="h-8 w-8 rounded-md" />
+          </RailButton>
+        ))}
 
-        {active && (
-          <div className="border-t border-stone-200 p-3">
-            <button
-              onClick={() => handleRemove(active.id)}
-              className="w-full rounded-md border border-coral-200 bg-white px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50">
-              Remove {active.label}
-            </button>
-          </div>
-        )}
+        <button
+          onClick={() => setAddOpen(true)}
+          className="group relative mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-stone-300 text-stone-400 hover:bg-stone-50 hover:text-stone-600"
+          aria-label="Add app">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-md bg-stone-900 px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 z-50">
+            Add app
+          </span>
+        </button>
       </aside>
 
       {/* Main pane */}
       <main className="flex min-w-0 flex-1 flex-col">
-        {!active ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-stone-400">
-            Select or add an account to get started.
+        {isAgentSelected ? (
+          <AgentChatPanel />
+        ) : active ? (
+          <div className="flex-1">
+            <WebviewHost accountId={active.id} provider={active.provider} />
           </div>
         ) : (
-          <>
-            <div className="flex-1">
-              <WebviewHost accountId={active.id} provider={active.provider} />
-            </div>
-          </>
+          <div className="flex flex-1 items-center justify-center text-sm text-stone-400">
+            Select or add an app to get started.
+          </div>
         )}
       </main>
 

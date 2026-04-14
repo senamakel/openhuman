@@ -5,7 +5,6 @@ import {
   hideWebviewAccount,
   openWebviewAccount,
   setWebviewAccountBounds,
-  showWebviewAccount,
 } from '../../services/webviewAccountService';
 import type { AccountProvider } from '../../types/accounts';
 
@@ -31,9 +30,17 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
   const openedRef = useRef(false);
 
   // Spawn / show + keep bounds synced on every layout change.
+  // IMPORTANT: both refs are reset on cleanup so switching accountIds
+  // (React reuses this component instance when only props change) does
+  // not carry stale "already opened" / "last bounds" state into the next
+  // account — otherwise the new webview either never spawns or the size
+  // sync skips because the rect happens to match the previous account's.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    openedRef.current = false;
+    lastBoundsRef.current = null;
 
     let raf = 0;
     let cancelled = false;
@@ -41,7 +48,6 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
     const measureAndSync = () => {
       if (!el || cancelled) return;
       const rect = el.getBoundingClientRect();
-      // Round to integers — sub-pixel positioning isn't useful for a native view.
       const bounds = {
         x: Math.round(rect.left),
         y: Math.round(rect.top),
@@ -49,15 +55,17 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
         height: Math.max(1, Math.round(rect.height)),
       };
       const last = lastBoundsRef.current;
-      if (
+      const unchanged =
         last &&
         last.x === bounds.x &&
         last.y === bounds.y &&
         last.width === bounds.width &&
-        last.height === bounds.height
-      ) {
-        return;
-      }
+        last.height === bounds.height;
+
+      // Always run the first open — even if measurement happened to
+      // return identical bounds to a previous account, we still need to
+      // create/show this one.
+      if (unchanged && openedRef.current) return;
       lastBoundsRef.current = bounds;
 
       if (!openedRef.current) {
@@ -81,16 +89,14 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
     window.addEventListener('resize', scheduleMeasure);
     window.addEventListener('scroll', scheduleMeasure, true);
 
-    // Make sure the webview is shown when this host re-mounts (e.g. after
-    // navigating back to /accounts).
-    void showWebviewAccount(accountId);
-
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener('resize', scheduleMeasure);
       window.removeEventListener('scroll', scheduleMeasure, true);
+      openedRef.current = false;
+      lastBoundsRef.current = null;
       void hideWebviewAccount(accountId);
     };
   }, [accountId, provider]);

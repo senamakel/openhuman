@@ -45,7 +45,7 @@ const OnboardingOverlay = () => {
     } catch {
       console.warn('[onboarding] Failed to persist onboarding_completed');
     }
-    navigate('/conversations');
+    navigate('/chat');
   }, [setOnboardingCompletedFlag, navigate]);
 
   // Don't show if not logged in, bootstrap not complete, or user not ready

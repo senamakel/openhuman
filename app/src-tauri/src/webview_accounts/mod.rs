@@ -30,24 +30,34 @@ use tauri::{
 
 const RUNTIME_JS: &str = include_str!("runtime.js");
 const WHATSAPP_RECIPE_JS: &str = include_str!("../../recipes/whatsapp/recipe.js");
+const TELEGRAM_RECIPE_JS: &str = include_str!("../../recipes/telegram/recipe.js");
+const LINKEDIN_RECIPE_JS: &str = include_str!("../../recipes/linkedin/recipe.js");
+const GMAIL_RECIPE_JS: &str = include_str!("../../recipes/gmail/recipe.js");
+const SLACK_RECIPE_JS: &str = include_str!("../../recipes/slack/recipe.js");
 
-/// Registered providers and their service URLs. v1 ships only WhatsApp;
-/// add a new arm here + a recipe.js file under `recipes/<id>/` to support
-/// another provider.
+/// User agent we pretend to be for all external services. Web-app services
+/// (WhatsApp, Gmail, Google's login flow) reject "unknown" WebView UAs with
+/// upgrade-your-browser / unsupported-browser pages, so we announce as a
+/// recent desktop Chrome build for everything.
+const CHROME_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+                         (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+/// Registered providers and their service URLs. Add a new arm here plus a
+/// recipe.js file under `recipes/<id>/` to support another provider.
 fn provider_url(provider: &str) -> Option<&'static str> {
     match provider {
         "whatsapp" => Some("https://web.whatsapp.com/"),
+        "telegram" => Some("https://web.telegram.org/k/"),
+        "linkedin" => Some("https://www.linkedin.com/messaging/"),
+        "gmail" => Some("https://mail.google.com/mail/u/0/"),
+        "slack" => Some("https://app.slack.com/client/"),
         _ => None,
     }
 }
 
 fn provider_user_agent(provider: &str) -> Option<&'static str> {
     match provider {
-        // WhatsApp Web blocks "unknown" UAs with an upgrade-your-browser screen.
-        "whatsapp" => Some(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
-             (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        ),
+        "whatsapp" | "telegram" | "linkedin" | "gmail" | "slack" => Some(CHROME_UA),
         _ => None,
     }
 }
@@ -55,6 +65,10 @@ fn provider_user_agent(provider: &str) -> Option<&'static str> {
 fn provider_recipe_js(provider: &str) -> Option<&'static str> {
     match provider {
         "whatsapp" => Some(WHATSAPP_RECIPE_JS),
+        "telegram" => Some(TELEGRAM_RECIPE_JS),
+        "linkedin" => Some(LINKEDIN_RECIPE_JS),
+        "gmail" => Some(GMAIL_RECIPE_JS),
+        "slack" => Some(SLACK_RECIPE_JS),
         _ => None,
     }
 }
@@ -197,10 +211,13 @@ pub async fn webview_account_open<R: Runtime>(
         }
     }
 
-    let main = app
-        .get_webview_window("main")
+    // Grab the raw Window (not WebviewWindow) so `add_child` works even
+    // after we've attached sibling webviews — `get_webview_window` checks
+    // `is_webview_window()` which flips to false once a window has more
+    // than one webview.
+    let parent_window = app
+        .get_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
-    let parent_window = main.as_ref().window();
 
     let data_dir = data_directory_for(&app, &args.account_id)?;
     if let Err(err) = std::fs::create_dir_all(&data_dir) {

@@ -1406,9 +1406,7 @@ const Conversations = () => {
                             <span>Thinking…</span>
                           </summary>
                           <pre className="whitespace-pre-wrap break-words mt-1.5 font-sans text-[11px] text-stone-500">
-                            {selectedStreamingAssistant.thinking.slice(
-                              -STREAMING_PREVIEW_CHARS
-                            )}
+                            {selectedStreamingAssistant.thinking.slice(-STREAMING_PREVIEW_CHARS)}
                           </pre>
                         </details>
                       )}
@@ -1416,9 +1414,7 @@ const Conversations = () => {
                         <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 text-stone-900">
                           <p className="text-xs text-stone-700 font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
-                              STREAMING_PREVIEW_CHARS && (
-                              <span className="text-stone-400">…</span>
-                            )}
+                              STREAMING_PREVIEW_CHARS && <span className="text-stone-400">…</span>}
                             {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
                             <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
                           </p>

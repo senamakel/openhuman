@@ -261,6 +261,8 @@ async fn run_typed_mode(
         definition.omit_identity,
         definition.omit_safety_preamble,
         definition.omit_skills_catalog,
+        definition.omit_profile,
+        definition.omit_memory_md,
     );
     let rendered_prompt = extract_cache_boundary(&render_subagent_system_prompt(
         &parent.workspace_dir,
@@ -545,6 +547,7 @@ async fn run_inner_loop(
                     messages: history.as_slice(),
                     tools: request_tools,
                     system_prompt_cache_boundary,
+                    stream: None,
                 },
                 model,
                 temperature,
@@ -780,6 +783,8 @@ mod tests {
             omit_memory_context: true,
             omit_safety_preamble: true,
             omit_skills_catalog: true,
+            omit_profile: true,
+            omit_memory_md: true,
             model: ModelSpec::Inherit,
             temperature: 0.4,
             tools: ToolScope::Named(names.iter().map(|s| s.to_string()).collect()),

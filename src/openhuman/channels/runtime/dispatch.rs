@@ -431,6 +431,8 @@ mod scoping_tests {
             omit_memory_context: true,
             omit_safety_preamble: true,
             omit_skills_catalog: true,
+            omit_profile: true,
+            omit_memory_md: true,
             model: ModelSpec::Inherit,
             temperature: 0.4,
             tools: scope,
@@ -790,6 +792,7 @@ pub(crate) async fn process_channel_message(
         target_agent_id: scoping.target_agent_id,
         visible_tool_names: scoping.visible_tool_names,
         extra_tools: scoping.extra_tools,
+        on_progress: None,
     };
     tracing::debug!(
         channel = %msg.channel,

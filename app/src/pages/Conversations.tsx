@@ -54,6 +54,11 @@ import {
 const DEFAULT_THREAD_ID = 'default-thread';
 const DEFAULT_THREAD_TITLE = 'Conversation';
 const AGENTIC_MODEL_ID = 'agentic-v1';
+/** Maximum trailing characters rendered in the live-streaming assistant
+ *  preview bubble. The full response is revealed via `addInferenceResponse`
+ *  on `chat_done` — this is purely a ticker-tape affordance to signal
+ *  progress without jumping the scroll position as tokens arrive. */
+const STREAMING_PREVIEW_CHARS = 120;
 type ToolTimelineEntryStatus = 'running' | 'success' | 'error';
 type InputMode = 'text' | 'voice';
 type ReplyMode = 'text' | 'voice';
@@ -1385,7 +1390,10 @@ const Conversations = () => {
                   </div>
                 </div>
               )}
-              {/* Streaming assistant bubble — shown while deltas arrive for an in-flight turn. */}
+              {/* Streaming assistant preview — compact trailing tail of the
+                  in-flight response. Rendered as plain text (not Markdown) to
+                  avoid jitter from partially-parsed fences. The final bubble
+                  replaces this via addInferenceResponse on chat_done. */}
               {selectedStreamingAssistant &&
                 (selectedStreamingAssistant.content.length > 0 ||
                   selectedStreamingAssistant.thinking.length > 0) && (
@@ -1398,18 +1406,21 @@ const Conversations = () => {
                             <span>Thinking…</span>
                           </summary>
                           <pre className="whitespace-pre-wrap break-words mt-1.5 font-sans text-[11px] text-stone-500">
-                            {selectedStreamingAssistant.thinking}
+                            {selectedStreamingAssistant.thinking.slice(
+                              -STREAMING_PREVIEW_CHARS
+                            )}
                           </pre>
                         </details>
                       )}
                       {selectedStreamingAssistant.content.length > 0 && (
-                        <div className="rounded-2xl rounded-bl-md px-4 py-2.5 bg-stone-200/80 text-stone-900">
-                          <div className="text-sm prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-stone-300/50 prose-pre:rounded-lg prose-code:text-primary-700 prose-code:text-xs prose-a:text-primary-500 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                            <Markdown>{selectedStreamingAssistant.content}</Markdown>
-                          </div>
-                          <p className="text-[10px] mt-1 text-stone-400 flex items-center gap-1">
-                            <span className="inline-block w-1 h-1 rounded-full bg-primary-400 animate-pulse" />
-                            streaming…
+                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 text-stone-900">
+                          <p className="text-xs text-stone-700 font-mono whitespace-pre-wrap break-words leading-snug">
+                            {selectedStreamingAssistant.content.length >
+                              STREAMING_PREVIEW_CHARS && (
+                              <span className="text-stone-400">…</span>
+                            )}
+                            {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
+                            <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
                           </p>
                         </div>
                       )}

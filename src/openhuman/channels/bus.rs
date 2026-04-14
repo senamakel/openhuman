@@ -95,6 +95,20 @@ impl EventHandler for ChannelInboundSubscriber {
         // Don't fire immediately; wait for the first tick.
         edit_timer.tick().await;
 
+        // ── Typing indicator state ────────────────────────────────────
+        // Telegram's `sendChatAction` keeps the "typing…" UI alive for
+        // ~5s, so we re-send every 4s while the turn is in flight. The
+        // first call fires immediately; on repeated failures we latch
+        // `typing_disabled` to stop hitting a backend that doesn't
+        // support it.
+        let mut typing_state = TypingState::default();
+        let mut typing_timer = tokio::time::interval(TYPING_REFRESH_INTERVAL);
+        typing_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        // Fire immediately on first tick so the indicator shows up as
+        // soon as the inbound message is received.
+        send_typing_indicator(channel, &mut typing_state).await;
+        typing_timer.tick().await; // consume the immediate tick
+
         loop {
             tokio::select! {
                 event = event_rx.recv() => {
@@ -169,6 +183,11 @@ impl EventHandler for ChannelInboundSubscriber {
                         flush_streaming_edit(channel, &mut streaming_state).await;
                     }
                 }
+                _ = typing_timer.tick() => {
+                    if !typing_state.disabled {
+                        send_typing_indicator(channel, &mut typing_state).await;
+                    }
+                }
                 _ = tokio::time::sleep_until(deadline) => {
                     tracing::error!("[channel-inbound] agent timed out after {}s", timeout.as_secs());
                     let reply = "Sorry, the request timed out.";
@@ -189,6 +208,16 @@ const EDIT_FLUSH_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_m
 /// progressive streaming and falling back to atomic-final delivery.
 const MAX_EDIT_FAILURES: u32 = 2;
 
+/// How often to re-send the "typing…" indicator while a turn is in
+/// flight. Telegram's `sendChatAction` keeps the UI alive for about
+/// 5 seconds per call, so we refresh every 4 s to ensure continuity.
+const TYPING_REFRESH_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(4);
+
+/// Maximum consecutive typing-indicator failures before we stop
+/// trying. One failure is usually "endpoint doesn't exist"; two is
+/// enough to conclude the backend doesn't support it on this channel.
+const MAX_TYPING_FAILURES: u32 = 2;
+
 /// Per-turn progressive-edit buffer. `dirty=true` means there's new
 /// content to flush; `edit_disabled=true` means the backend doesn't
 /// support editing for this channel and we should finalize atomically.
@@ -208,6 +237,56 @@ struct StreamingState {
     /// Latched when the backend doesn't support edits for this channel
     /// — we stop trying and rely on the final atomic send.
     edit_disabled: bool,
+}
+
+/// Typing-indicator bookkeeping. One per in-flight turn. Latches
+/// `disabled` after repeated failures so channels without typing
+/// support stop getting hit every 4 seconds.
+#[derive(Default)]
+struct TypingState {
+    failures: u32,
+    disabled: bool,
+}
+
+/// Fire a single "typing…" indicator at the channel. Silently
+/// latches `disabled` on repeated failure so callers can keep calling
+/// this from a timer without accumulating warnings.
+async fn send_typing_indicator(channel: &str, state: &mut TypingState) {
+    if state.disabled {
+        return;
+    }
+    let Some((client, jwt)) = build_channel_client().await else {
+        return;
+    };
+    match client.send_channel_typing(channel, &jwt).await {
+        Ok(_) => {
+            if state.failures > 0 {
+                tracing::debug!(
+                    "[channel-inbound][typing] recovered channel='{}' after {} failure(s)",
+                    channel,
+                    state.failures,
+                );
+            }
+            state.failures = 0;
+        }
+        Err(err) => {
+            state.failures += 1;
+            tracing::debug!(
+                "[channel-inbound][typing] indicator failed channel='{}' err={} (failures={}/{})",
+                channel,
+                err,
+                state.failures,
+                MAX_TYPING_FAILURES,
+            );
+            if state.failures >= MAX_TYPING_FAILURES {
+                tracing::info!(
+                    "[channel-inbound][typing] disabling typing indicator for channel='{}' — backend unsupported",
+                    channel,
+                );
+                state.disabled = true;
+            }
+        }
+    }
 }
 
 impl StreamingState {

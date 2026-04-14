@@ -18,6 +18,12 @@
 # surface. Pass `--no-stub-composio` to see the raw on-disk state instead
 # (useful for sanity-checking the unauthed onboarding path).
 #
+# The dumper runs against the currently-logged-in user's workspace
+# (`$OPENHUMAN_WORKSPACE`, falling back to `~/.openhuman/workspace`) so
+# onboarding-generated files like `PROFILE.md` appear in the dump. Export
+# `OPENHUMAN_WORKSPACE=<path>` before running if you want to target a
+# different workspace.
+#
 # Usage:
 #   bash scripts/debug-agent-prompts.sh [--out <dir>] [--no-stub-composio] [--with-tools] [-v]
 #
@@ -104,15 +110,55 @@ esac
 rm -rf "${OUT_DIR}"
 mkdir -p "${OUT_DIR}"
 
-# Use a throwaway workspace so identity files (`SOUL.md`, `IDENTITY.md`,
-# …) get materialised into a tmp dir instead of polluting the user's
-# real `~/.openhuman/workspace`.
-WORKSPACE="$(mktemp -d -t openhuman-prompt-dump-XXXXXXXX)"
-trap 'rm -rf "${WORKSPACE}"' EXIT
-export OPENHUMAN_WORKSPACE="${WORKSPACE}"
+# Point the binary at the real, currently-logged-in user's workspace so
+# onboarding-generated files like `PROFILE.md` appear in the dump. A
+# throwaway mktemp workspace would silently hide them.
+#
+# Resolution order (matches what the desktop app does):
+#   1. $OPENHUMAN_WORKSPACE if explicitly exported.
+#   2. ~/.openhuman/users/<active_user_id>/workspace, where active_user_id
+#      is read from ~/.openhuman/active_user.toml. This is the path the
+#      Tauri app writes PROFILE.md into after onboarding.
+#   3. ~/.openhuman/workspace as a last-resort fallback for pre-multi-user
+#      installs.
+#
+# The binary auto-seeds SOUL.md/IDENTITY.md/HEARTBEAT.md when they are
+# missing, so pointing at the real workspace is read-mostly — the only
+# writes are the same self-healing writes that happen on every normal
+# agent run.
+if [[ -n "${OPENHUMAN_WORKSPACE:-}" ]]; then
+  WORKSPACE="${OPENHUMAN_WORKSPACE}"
+else
+  ACTIVE_USER_TOML="${HOME}/.openhuman/active_user.toml"
+  ACTIVE_USER_ID=""
+  if [[ -f "${ACTIVE_USER_TOML}" ]]; then
+    # Extract `user_id = "…"` without pulling in a TOML parser — the file
+    # is one or two lines and the shape is stable (config/ops.rs writes
+    # it with a plain quoted string).
+    ACTIVE_USER_ID="$(sed -n 's/^[[:space:]]*user_id[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "${ACTIVE_USER_TOML}" | head -n 1)"
+  fi
+  if [[ -n "${ACTIVE_USER_ID}" && -d "${HOME}/.openhuman/users/${ACTIVE_USER_ID}/workspace" ]]; then
+    WORKSPACE="${HOME}/.openhuman/users/${ACTIVE_USER_ID}/workspace"
+  else
+    WORKSPACE="${HOME}/.openhuman/workspace"
+  fi
+fi
+
+if [[ ! -d "${WORKSPACE}" ]]; then
+  echo "[debug-agent-prompts] workspace not found: ${WORKSPACE}" >&2
+  echo "[debug-agent-prompts] complete onboarding in the app first, or export OPENHUMAN_WORKSPACE=<path>." >&2
+  exit 66
+fi
+
+if [[ -f "${WORKSPACE}/PROFILE.md" ]]; then
+  PROFILE_STATE="present"
+else
+  PROFILE_STATE="MISSING (onboarding enrichment has not run)"
+fi
 
 echo "[debug-agent-prompts] output dir : ${OUT_DIR}" >&2
 echo "[debug-agent-prompts] workspace  : ${WORKSPACE}" >&2
+echo "[debug-agent-prompts] PROFILE.md : ${PROFILE_STATE}" >&2
 echo "[debug-agent-prompts] stub composio: $([[ ${STUB_COMPOSIO} -eq 1 ]] && echo on || echo off)" >&2
 echo >&2
 

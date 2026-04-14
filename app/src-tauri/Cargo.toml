@@ -25,8 +25,21 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1"
 
 [dependencies]
-# Tauri core and plugins
-tauri = { version = "2.10", features = ["macos-private-api", "tray-icon", "unstable"] }
+# Tauri core and plugins.
+#
+# Default build uses the stock `wry` backend (WKWebView on macOS, WebView2 on
+# Windows, WebKitGTK on Linux). Passing `--features cef` swaps the runtime to
+# CEF (Chromium Embedded Framework) via `tauri-runtime-cef` — the `[patch.
+# crates-io]` block at the bottom of this file pins every tauri crate and
+# plugin to the `feat/cef` branch on github so CEF symbols are even in scope.
+# Keeping `cef` optional lets contributors without the CEF binaries still run
+# `yarn tauri dev` on the wry backend.
+tauri = { version = "2.10", default-features = false, features = [
+    "common-controls-v6",
+    "macos-private-api",
+    "tray-icon",
+    "unstable",
+] }
 tauri-plugin-deep-link = "2.0.0"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-opener = "2"
@@ -48,9 +61,35 @@ objc2-app-kit = "0.3.2"
 objc2-core-graphics = "0.3.2"
 
 [features]
+# Default runtime is wry (OS-native webview). The `cef` feature swaps in CEF
+# (bundled Chromium). The two are mutually exclusive — the `feat/cef` branch
+# re-exports `webview_version` from both runtime crates without cfg gates, so
+# enabling both at once fails to compile. Users opt into CEF with
+# `--no-default-features --features cef`.
+default = ["wry"]
+wry = ["tauri/wry"]
+cef = ["tauri/cef"]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
 sandbox-bubblewrap = []
+
+[patch.crates-io]
+# CEF support lives on the `feat/cef` branch of tauri-apps/tauri and the
+# matching `feat/cef` branch of tauri-apps/plugins-workspace. The patch is
+# always active (not gated on the `cef` feature) because cargo doesn't support
+# conditional patches — it's a no-op for wry builds since the branch still
+# exposes the wry runtime.
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-build = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-utils = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-macros = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-runtime = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-runtime-wry = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-plugin = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+
+tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
+tauri-plugin-deep-link = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
+tauri-plugin-global-shortcut = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
 
 # Fast CI builds: trade runtime perf for compile speed
 [profile.ci]

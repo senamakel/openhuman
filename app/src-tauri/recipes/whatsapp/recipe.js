@@ -57,7 +57,51 @@
     return { messages, unread };
   }
 
+  // ─── Composer attach (ghost-text autocomplete) ──────────────────────
+  // WhatsApp Web's input is a contenteditable div carrying
+  // `data-tab="10"` and an `aria-label` of "Type a message" (locale-
+  // dependent). We try a couple selectors and reattach if the user
+  // navigates to a new chat (the composer node is re-mounted on switch).
+  let attachedComposerEl = null;
+  let attachedHandle = null;
+
+  function findComposer() {
+    return document.querySelector('div[contenteditable="true"][data-tab="10"]')
+      || document.querySelector('footer div[contenteditable="true"][role="textbox"]')
+      || document.querySelector('div[contenteditable="true"][data-lexical-editor="true"]');
+  }
+
+  function ensureComposerAttached() {
+    const el = findComposer();
+    if (!el) return;
+    if (el === attachedComposerEl) return;
+    if (attachedHandle) {
+      try { attachedHandle.detach(); } catch (_) {}
+    }
+    attachedComposerEl = el;
+    attachedHandle = api.attachComposer(el, {
+      id: 'whatsapp:composer',
+      providerHint: 'whatsapp',
+      debounceMs: 250,
+      suggestionKey: 'Tab',
+    });
+    api.log('info', '[whatsapp-recipe] composer attached');
+  }
+
+  // ─── WebSocket observation ──────────────────────────────────────────
+  // WhatsApp's WS frames are Noise-encrypted protobuf — useless raw —
+  // but we still emit `ws_open` / `ws_close` so the core can correlate
+  // session lifecycle. Recipes that care can tighten the filter later.
+  api.observeWebSocket({
+    filter: function (frame) {
+      // Only forward textual frames (rare on WhatsApp); drop binary noise.
+      return frame.kind === 'text';
+    },
+  });
+
   api.loop(function () {
+    ensureComposerAttached();
+
     const snap = scrapeChatList();
     if (!snap) {
       // Likely still on the QR-login screen

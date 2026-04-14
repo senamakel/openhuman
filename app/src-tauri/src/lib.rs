@@ -22,6 +22,18 @@ use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
 #[cfg(target_os = "macos")]
 use objc2_core_graphics::CGShieldingWindowLevel;
 
+// Runtime backend alias. `AppHandle`/`WebviewWindow` get their default `R`
+// (the runtime generic) from whichever runtime feature the tauri crate has
+// enabled — and when we drop `tauri/wry` in favor of `tauri/cef`, `Wry`
+// disappears entirely, so plain `AppHandle` (no generic) stops resolving.
+// Every helper that touches an `AppHandle` or `WebviewWindow` threads this
+// alias through its signature; tauri command handlers get the right runtime
+// automatically from the `#[tauri::command]` macro.
+#[cfg(feature = "cef")]
+pub(crate) type AppRuntime = tauri::Cef;
+#[cfg(not(feature = "cef"))]
+pub(crate) type AppRuntime = tauri::Wry;
+
 /// Tracks the currently registered dictation hotkey string so we can unregister it later.
 struct DictationHotkeyState(Mutex<Vec<String>>);
 
@@ -69,7 +81,7 @@ fn overlay_parent_rpc_url() -> Option<String> {
     Some(trimmed.to_string())
 }
 
-fn pin_overlay_bottom_right(window: &WebviewWindow) {
+fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
     let Ok(Some(monitor)) = window.current_monitor() else {
         log::warn!("[overlay] could not resolve current monitor for positioning");
         return;
@@ -91,7 +103,7 @@ fn pin_overlay_bottom_right(window: &WebviewWindow) {
 }
 
 #[cfg(target_os = "macos")]
-fn configure_overlay_window_macos(window: &WebviewWindow) {
+fn configure_overlay_window_macos(window: &WebviewWindow<AppRuntime>) {
     if let Err(err) = window.set_always_on_top(true) {
         log::warn!("[overlay] failed to set always-on-top: {err}");
     }
@@ -212,7 +224,7 @@ async fn check_core_update(
 #[tauri::command]
 async fn apply_core_update(
     state: tauri::State<'_, core_process::CoreProcessHandle>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
 ) -> Result<(), String> {
     log::info!("[core-update] manual apply_core_update invoked from frontend");
     core_update::check_and_update_core(state.inner().clone(), Some(app), true).await
@@ -231,7 +243,7 @@ async fn restart_core_process(
 /// Register (or re-register) the global dictation toggle hotkey.
 /// Emits `dictation://toggle` to all webviews when the shortcut is pressed.
 #[tauri::command]
-async fn register_dictation_hotkey(app: AppHandle, shortcut: String) -> Result<(), String> {
+async fn register_dictation_hotkey(app: AppHandle<AppRuntime>, shortcut: String) -> Result<(), String> {
     log::info!("[dictation] register_dictation_hotkey: shortcut={shortcut}");
 
     let old_shortcuts = {
@@ -320,7 +332,7 @@ async fn register_dictation_hotkey(app: AppHandle, shortcut: String) -> Result<(
 
 /// Unregister the global dictation hotkey (if any).
 #[tauri::command]
-async fn unregister_dictation_hotkey(app: AppHandle) -> Result<(), String> {
+async fn unregister_dictation_hotkey(app: AppHandle<AppRuntime>) -> Result<(), String> {
     log::info!("[dictation] unregister_dictation_hotkey: called");
     let state = app.state::<DictationHotkeyState>();
     let mut guard = state.0.lock().unwrap();
@@ -347,7 +359,7 @@ fn is_daemon_mode() -> bool {
     std::env::args().any(|arg| arg == "daemon" || arg == "--daemon")
 }
 
-fn show_main_window(app: &AppHandle) {
+fn show_main_window(app: &AppHandle<AppRuntime>) {
     if let Some(window) = app.get_webview_window("main") {
         if let Err(err) = window.show() {
             log::error!("[tray] failed to show main window: {err}");
@@ -363,7 +375,7 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
-fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     log::info!("[tray] setting up tray icon");
 
     let show_item = MenuItem::with_id(
@@ -420,7 +432,17 @@ pub fn run() {
         .parse_filters(&default_filter)
         .try_init();
 
-    tauri::Builder::default()
+    // Runtime selection: default build uses wry (WKWebView on macOS), the
+    // `cef` feature swaps to Chromium Embedded Framework. The switch is at
+    // Builder construction only — everything downstream (plugins, commands,
+    // events, state, tray, deep links, child webviews) uses the shared
+    // tauri-runtime trait surface and does not care which backend drives it.
+    #[cfg(not(feature = "cef"))]
+    let builder = tauri::Builder::<tauri::Wry>::new();
+    #[cfg(feature = "cef")]
+    let builder = tauri::Builder::<tauri::Cef>::new();
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -517,7 +539,11 @@ pub fn run() {
             webview_accounts::webview_account_bounds,
             webview_accounts::webview_account_hide,
             webview_accounts::webview_account_show,
-            webview_accounts::webview_recipe_event
+            webview_accounts::webview_recipe_event,
+            webview_accounts::webview_account_set_suggestion,
+            webview_accounts::webview_account_clear_suggestion,
+            webview_accounts::webview_account_commit_suggestion,
+            webview_accounts::webview_account_eval
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

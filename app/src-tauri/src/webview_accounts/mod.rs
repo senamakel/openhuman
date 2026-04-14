@@ -29,6 +29,7 @@ use tauri::{
 };
 
 const RUNTIME_JS: &str = include_str!("runtime.js");
+const UA_SPOOF_JS: &str = include_str!("ua_spoof.js");
 const WHATSAPP_RECIPE_JS: &str = include_str!("../../recipes/whatsapp/recipe.js");
 const TELEGRAM_RECIPE_JS: &str = include_str!("../../recipes/telegram/recipe.js");
 const LINKEDIN_RECIPE_JS: &str = include_str!("../../recipes/linkedin/recipe.js");
@@ -73,6 +74,14 @@ fn provider_recipe_js(provider: &str) -> Option<&'static str> {
     }
 }
 
+/// Whether to pre-load `ua_spoof.js` for a given provider. Enabled only
+/// for services known to run Chromium-specific fingerprinting checks —
+/// WhatsApp & Telegram are happy with the Chrome UA alone and running the
+/// spoof risks breaking perfectly-working integrations for no gain.
+fn provider_ua_spoof(provider: &str) -> bool {
+    matches!(provider, "slack" | "gmail" | "linkedin")
+}
+
 #[derive(Default)]
 pub struct WebviewAccountsState {
     /// account_id -> webview label (we use `acct_<id>` as the label).
@@ -105,6 +114,25 @@ pub struct BoundsArgs {
 #[derive(Debug, Deserialize)]
 pub struct AccountIdArgs {
     pub account_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SuggestionArgs {
+    pub account_id: String,
+    pub composer_id: String,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ComposerActionArgs {
+    pub account_id: String,
+    pub composer_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EvalArgs {
+    pub account_id: String,
+    pub js: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,13 +173,22 @@ fn data_directory_for<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Resul
 
 fn build_init_script(account_id: &str, provider: &str, recipe_js: &str) -> String {
     // Inject context first so the runtime can read it on load. JSON-encode
-    // the values so escaping is safe.
+    // the values so escaping is safe. Order matters:
+    //   1. UA spoof (must land BEFORE page JS reads `navigator`)
+    //   2. Recipe context
+    //   3. Recipe runtime + per-provider recipe
     let ctx = serde_json::json!({
         "accountId": account_id,
         "provider": provider,
     });
+    let spoof = if provider_ua_spoof(provider) {
+        UA_SPOOF_JS
+    } else {
+        ""
+    };
     format!(
-        "window.__OPENHUMAN_RECIPE_CTX__ = {ctx};\n\n{runtime}\n\n{recipe}\n",
+        "{spoof}\n\nwindow.__OPENHUMAN_RECIPE_CTX__ = {ctx};\n\n{runtime}\n\n{recipe}\n",
+        spoof = spoof,
         ctx = ctx,
         runtime = RUNTIME_JS,
         recipe = recipe_js
@@ -346,6 +383,127 @@ pub async fn webview_account_show<R: Runtime>(
     Ok(())
 }
 
+/// Look up the live `Webview` for an account, or return a descriptive error.
+fn resolve_webview<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &tauri::State<'_, WebviewAccountsState>,
+    account_id: &str,
+) -> Result<tauri::Webview<R>, String> {
+    let label = state
+        .inner
+        .lock()
+        .unwrap()
+        .get(account_id)
+        .cloned()
+        .ok_or_else(|| format!("no webview for account {account_id}"))?;
+    app.get_webview(&label)
+        .ok_or_else(|| format!("webview {label} missing (stale state)"))
+}
+
+/// JS-string-escape a Rust `&str` for safe interpolation into a string
+/// literal inside an `eval()` payload. We can't use serde_json::to_string
+/// for the suggestion text alone because we need to slot it into a single
+/// JS expression — wrapping the whole arg list as JSON keeps escaping
+/// trustworthy across newlines, quotes, and unicode.
+fn build_invoke_recipe(method: &str, args: &[serde_json::Value]) -> Result<String, String> {
+    let serialized = args
+        .iter()
+        .map(serde_json::to_string)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("serialize args: {e}"))?
+        .join(", ");
+    Ok(format!(
+        "(function(){{ try {{ if (window.__openhumanRecipe && typeof window.__openhumanRecipe.{m} === 'function') {{ window.__openhumanRecipe.{m}({a}); }} }} catch (e) {{ console.error('[openhuman] {m} failed', e); }} }})();",
+        m = method,
+        a = serialized,
+    ))
+}
+
+/// Push a ghost-text suggestion into a composer the recipe has registered
+/// via `__openhumanRecipe.attachComposer(...)`. The user accepts with Tab
+/// (or whatever `suggestionKey` the recipe attached with).
+#[tauri::command]
+pub async fn webview_account_set_suggestion<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, WebviewAccountsState>,
+    args: SuggestionArgs,
+) -> Result<(), String> {
+    let wv = resolve_webview(&app, &state, &args.account_id)?;
+    let js = build_invoke_recipe(
+        "setSuggestion",
+        &[
+            serde_json::Value::String(args.composer_id.clone()),
+            serde_json::Value::String(args.text.clone()),
+        ],
+    )?;
+    log::debug!(
+        "[webview-accounts] set_suggestion account={} composer={} len={}",
+        args.account_id,
+        args.composer_id,
+        args.text.chars().count()
+    );
+    wv.eval(&js).map_err(|e| format!("eval failed: {e}"))
+}
+
+/// Clear the active ghost suggestion in a composer.
+#[tauri::command]
+pub async fn webview_account_clear_suggestion<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, WebviewAccountsState>,
+    args: ComposerActionArgs,
+) -> Result<(), String> {
+    let wv = resolve_webview(&app, &state, &args.account_id)?;
+    let js = build_invoke_recipe(
+        "clearSuggestion",
+        &[serde_json::Value::String(args.composer_id.clone())],
+    )?;
+    log::debug!(
+        "[webview-accounts] clear_suggestion account={} composer={}",
+        args.account_id,
+        args.composer_id
+    );
+    wv.eval(&js).map_err(|e| format!("eval failed: {e}"))
+}
+
+/// Programmatically commit (insert) the active suggestion as if the user
+/// pressed Tab. Useful for "accept" buttons in the host UI.
+#[tauri::command]
+pub async fn webview_account_commit_suggestion<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, WebviewAccountsState>,
+    args: ComposerActionArgs,
+) -> Result<(), String> {
+    let wv = resolve_webview(&app, &state, &args.account_id)?;
+    let js = build_invoke_recipe(
+        "commitSuggestion",
+        &[serde_json::Value::String(args.composer_id.clone())],
+    )?;
+    log::debug!(
+        "[webview-accounts] commit_suggestion account={} composer={}",
+        args.account_id,
+        args.composer_id
+    );
+    wv.eval(&js).map_err(|e| format!("eval failed: {e}"))
+}
+
+/// Generic eval escape hatch — runs `js` inside the account's webview.
+/// Prefer the typed commands above; only use this for one-off recipe
+/// helpers or debugging.
+#[tauri::command]
+pub async fn webview_account_eval<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, WebviewAccountsState>,
+    args: EvalArgs,
+) -> Result<(), String> {
+    let wv = resolve_webview(&app, &state, &args.account_id)?;
+    log::debug!(
+        "[webview-accounts] eval account={} bytes={}",
+        args.account_id,
+        args.js.len()
+    );
+    wv.eval(&args.js).map_err(|e| format!("eval failed: {e}"))
+}
+
 /// Called from the injected runtime each time the recipe emits an event.
 /// We forward to React via a Tauri event so the UI can render and persist.
 #[tauri::command]
@@ -367,6 +525,54 @@ pub async fn webview_recipe_event<R: Runtime>(
                 messages.len()
             );
         }
+    } else if args.kind == "ws_message" {
+        let direction = args
+            .payload
+            .get("direction")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let size = args.payload.get("size").and_then(|v| v.as_i64()).unwrap_or(0);
+        log::trace!(
+            "[webview-accounts][{}] ws {} {} bytes",
+            args.account_id,
+            direction,
+            size
+        );
+    } else if args.kind == "composer_input" {
+        let composer = args
+            .payload
+            .get("composerId")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let len = args
+            .payload
+            .get("text")
+            .and_then(|v| v.as_str())
+            .map(|s| s.chars().count())
+            .unwrap_or(0);
+        log::debug!(
+            "[webview-accounts][{}] composer_input id={} chars={}",
+            args.account_id,
+            composer,
+            len
+        );
+    } else if args.kind == "composer_commit" {
+        let composer = args
+            .payload
+            .get("composerId")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let source = args
+            .payload
+            .get("source")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        log::info!(
+            "[webview-accounts][{}] composer_commit id={} source={}",
+            args.account_id,
+            composer,
+            source
+        );
     } else if args.kind == "log" {
         let level = args
             .payload

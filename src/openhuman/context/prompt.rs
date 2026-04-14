@@ -1139,6 +1139,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
         let rendered = SystemPromptBuilder::with_defaults()
             .build_with_cache_metadata(&ctx)
@@ -1168,6 +1169,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
 
         let section = IdentitySection;
@@ -1202,6 +1204,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
 
         let rendered = DateTimeSection.build(&ctx).unwrap();
@@ -1263,6 +1266,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
 
         let rendered = ToolsSection.build(&ctx).unwrap();
@@ -1295,6 +1299,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::Json,
             connected_integrations: &[],
+            include_profile: false,
         };
 
         let rendered = ToolsSection.build(&ctx).unwrap();
@@ -1331,6 +1336,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.starts_with("## User Memory\n\n"));
@@ -1355,6 +1361,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.is_empty());
@@ -1398,10 +1405,12 @@ mod tests {
 
     #[test]
     fn subagent_render_options_invert_definition_flags() {
-        let options = SubagentRenderOptions::from_definition_flags(true, false, true);
+        // (omit_identity, omit_safety_preamble, omit_skills_catalog, omit_profile)
+        let options = SubagentRenderOptions::from_definition_flags(true, false, true, false);
         assert!(!options.include_identity);
         assert!(options.include_safety_preamble);
         assert!(!options.include_skills_catalog);
+        assert!(options.include_profile);
         let narrow = SubagentRenderOptions::narrow();
         let default = SubagentRenderOptions::default();
         assert_eq!(narrow.include_identity, default.include_identity);
@@ -1413,6 +1422,9 @@ mod tests {
             narrow.include_skills_catalog,
             default.include_skills_catalog
         );
+        assert_eq!(narrow.include_profile, default.include_profile);
+        // Narrow default = every flag off, including PROFILE.md.
+        assert!(!narrow.include_profile);
     }
 
     #[test]
@@ -1434,6 +1446,7 @@ mod tests {
                 include_identity: true,
                 include_safety_preamble: true,
                 include_skills_catalog: true,
+                include_profile: false,
             },
             ToolCallFormat::Json,
             &[],
@@ -1466,10 +1479,9 @@ mod tests {
     fn render_subagent_system_prompt_injects_profile_md_even_when_identity_omitted() {
         // Regression: the welcome agent sets `omit_identity = true` to
         // drop the SOUL/IDENTITY preamble (it has its own voice) but it
-        // still needs PROFILE.md to personalise the greeting. Before the
-        // fix, PROFILE.md was bundled inside the identity block and
-        // silently dropped along with SOUL/IDENTITY. This test pins the
-        // desired split: identity off, profile still on.
+        // still needs PROFILE.md to personalise the greeting. PROFILE.md
+        // is gated on its own `include_profile` flag so the welcome path
+        // can opt in without pulling SOUL/IDENTITY back in.
         let workspace = std::env::temp_dir().join(format!(
             "openhuman_prompt_profile_nosoul_{}",
             uuid::Uuid::new_v4()
@@ -1494,17 +1506,18 @@ mod tests {
                 include_identity: false,
                 include_safety_preamble: false,
                 include_skills_catalog: false,
+                include_profile: true,
             },
             &[],
         );
 
         assert!(
             rendered.contains("### PROFILE.md"),
-            "PROFILE.md header must appear even when include_identity=false, got:\n{rendered}"
+            "PROFILE.md header must appear when include_profile=true, got:\n{rendered}"
         );
         assert!(
             rendered.contains("Jane Doe"),
-            "PROFILE.md body must be injected when include_identity=false, got:\n{rendered}"
+            "PROFILE.md body must be injected when include_profile=true, got:\n{rendered}"
         );
         assert!(
             !rendered.contains("## Project Context"),
@@ -1513,6 +1526,47 @@ mod tests {
         assert!(
             !rendered.contains("### SOUL.md") && !rendered.contains("### IDENTITY.md"),
             "SOUL/IDENTITY must still be suppressed when include_identity=false"
+        );
+
+        let _ = std::fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn render_subagent_system_prompt_skips_profile_md_when_include_profile_false() {
+        // Mirror of the opt-in regression above: narrow specialists
+        // (planner, code_executor, critic, …) set `omit_profile = true`
+        // and must NOT see PROFILE.md even when the file is on disk —
+        // otherwise every sub-agent pays the token cost of onboarding
+        // enrichment output that is irrelevant to their task.
+        let workspace = std::env::temp_dir().join(format!(
+            "openhuman_prompt_profile_opt_out_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(
+            workspace.join("PROFILE.md"),
+            "# User Profile\nName: Jane Doe\nRole: Data scientist",
+        )
+        .unwrap();
+
+        let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+        let rendered = render_subagent_system_prompt(
+            &workspace,
+            "test-model",
+            &[0],
+            &tools,
+            "You are a narrow specialist.",
+            SubagentRenderOptions::narrow(), // include_profile defaults to false
+            &[],
+        );
+
+        assert!(
+            !rendered.contains("### PROFILE.md"),
+            "PROFILE.md must NOT appear when include_profile=false, got:\n{rendered}"
+        );
+        assert!(
+            !rendered.contains("Jane Doe"),
+            "PROFILE.md body must NOT be leaked when include_profile=false"
         );
 
         let _ = std::fs::remove_dir_all(workspace);
@@ -1542,6 +1596,7 @@ mod tests {
                 include_identity: true,
                 include_safety_preamble: false,
                 include_skills_catalog: false,
+                include_profile: true,
             },
             &[],
         );
@@ -1594,9 +1649,10 @@ mod tests {
     fn welcome_agent_definition_flags_still_load_profile_md() {
         // End-to-end-ish check against the real welcome agent flags: the
         // agent.toml sets omit_identity=true/omit_skills_catalog=true/
-        // omit_safety_preamble=true. Mirror that exact combo and verify
-        // PROFILE.md still lands in the rendered prompt. If someone later
-        // re-wraps PROFILE.md inside the identity block, this test breaks.
+        // omit_safety_preamble=true/omit_profile=false. Mirror that exact
+        // combo and verify PROFILE.md still lands in the rendered prompt.
+        // If someone flips `omit_profile` back to its default (true), this
+        // test breaks.
         let workspace = std::env::temp_dir().join(format!(
             "openhuman_prompt_welcome_flags_{}",
             uuid::Uuid::new_v4()
@@ -1613,6 +1669,7 @@ mod tests {
             true,  // omit_identity
             true,  // omit_safety_preamble
             true,  // omit_skills_catalog
+            false, // omit_profile — welcome opts IN to PROFILE.md
         );
 
         let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
@@ -1628,11 +1685,57 @@ mod tests {
 
         assert!(
             rendered.contains("### PROFILE.md"),
-            "welcome agent (omit_identity=true) must still load PROFILE.md, got:\n{rendered}"
+            "welcome agent (omit_profile=false) must load PROFILE.md, got:\n{rendered}"
         );
         assert!(
             rendered.contains("Crypto trader"),
             "PROFILE.md body must reach the welcome agent prompt"
+        );
+
+        let _ = std::fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn narrow_subagent_definition_flags_skip_profile_md() {
+        // Inverse of `welcome_agent_definition_flags_still_load_profile_md`:
+        // a narrow specialist (e.g. `code_executor`, `critic`) leaves
+        // `omit_profile` at its default `true`. PROFILE.md must NOT be
+        // injected even when present on disk — the narrow runner is
+        // task-focused and should not pay the token cost.
+        let workspace = std::env::temp_dir().join(format!(
+            "openhuman_prompt_narrow_flags_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(
+            workspace.join("PROFILE.md"),
+            "# User Profile\nTimezone: PST\nRole: Crypto trader",
+        )
+        .unwrap();
+
+        // Mirrors e.g. `critic/agent.toml` — all omit_* default-true.
+        let options = SubagentRenderOptions::from_definition_flags(
+            true, true, true, true,
+        );
+
+        let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+        let rendered = render_subagent_system_prompt(
+            &workspace,
+            "test-model",
+            &[0],
+            &tools,
+            "You are a narrow specialist.",
+            options,
+            &[],
+        );
+
+        assert!(
+            !rendered.contains("### PROFILE.md"),
+            "narrow specialist (omit_profile=true) must NOT load PROFILE.md, got:\n{rendered}"
+        );
+        assert!(
+            !rendered.contains("Crypto trader"),
+            "narrow specialist must not leak PROFILE.md body"
         );
 
         let _ = std::fs::remove_dir_all(workspace);
@@ -1711,6 +1814,7 @@ mod tests {
             visible_tool_names: &NO_FILTER,
             tool_call_format: ToolCallFormat::PFormat,
             connected_integrations: &[],
+            include_profile: false,
         };
         let rendered = UserMemorySection.build(&ctx).unwrap();
         assert!(rendered.contains("### user"));

@@ -769,6 +769,10 @@ impl Agent {
             .map(|def| def.temperature)
             .unwrap_or(config.default_temperature);
 
+        // Thread PROFILE.md inclusion from the resolved definition. Legacy
+        // / no-definition path stays on the safe `true` default (omit).
+        let effective_omit_profile = target_def.map(|def| def.omit_profile).unwrap_or(true);
+
         // `agent_id` is not stamped onto the returned Agent here — the
         // `event_channel` field on `Agent` is for transport identity
         // (which channel the session belongs to: "web_channel", "cli",
@@ -798,6 +802,7 @@ impl Agent {
             .auto_save(config.memory.auto_save)
             .post_turn_hooks(post_turn_hooks)
             .learning_enabled(config.learning.enabled)
+            .omit_profile(effective_omit_profile)
             .build()
     }
 }

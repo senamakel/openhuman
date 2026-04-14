@@ -243,6 +243,12 @@ struct StreamingState {
     /// Backend-assigned message id returned from the initial
     /// `send_channel_message`; subsequent edits target this id.
     message_id: Option<String>,
+    /// `true` once a draft message has been posted to the channel,
+    /// even when the backend response didn't include an id to target
+    /// for future edits. Decouples "a draft exists" from "we can edit
+    /// it" so `finalize_channel_reply` won't post a duplicate bubble
+    /// when the id was lost.
+    draft_sent: bool,
     /// New content has arrived since the last edit flush.
     dirty: bool,
     /// Consecutive edit failures. Reset to zero on every success.
@@ -369,6 +375,11 @@ async fn flush_streaming_edit(channel: &str, state: &mut StreamingState) {
         let body = json!({ "text": draft });
         match client.send_channel_message(channel, &jwt, body).await {
             Ok(resp) => {
+                // A message was posted to the user — record that fact
+                // *before* checking for an id. Even if we can't extract
+                // one (and thus can't edit it further), we must never
+                // later fall back to sending a second atomic message.
+                state.draft_sent = true;
                 let id = resp
                     .get("id")
                     .or_else(|| resp.get("data").and_then(|d| d.get("id")))
@@ -383,7 +394,7 @@ async fn flush_streaming_edit(channel: &str, state: &mut StreamingState) {
                     state.message_id = Some(id);
                 } else {
                     tracing::warn!(
-                        "[channel-inbound][stream] initial draft sent but response lacked id — disabling progressive edits"
+                        "[channel-inbound][stream] initial draft sent but response lacked id — disabling progressive edits (finalize will skip sending a duplicate)"
                     );
                     state.edit_disabled = true;
                 }
@@ -407,11 +418,12 @@ async fn flush_streaming_edit(channel: &str, state: &mut StreamingState) {
 /// Deliver the final canonical reply.
 ///
 /// **Invariant**: if a draft message has already been posted to the
-/// channel (`state.message_id.is_some()`), we MUST NOT post a second
+/// channel (`state.draft_sent == true`), we MUST NOT post a second
 /// message — that would duplicate the visible bubble on the user's
-/// side. We always try to edit the draft one more time; if that fails,
-/// the stale draft stays as-is and we log a warning. The only path
-/// that creates a fresh outbound message is when no draft exists yet.
+/// side. When we have an id we attempt one last edit; when the id was
+/// lost we leave the draft in place silently. The only path that
+/// creates a fresh outbound message is when no draft has been posted
+/// at all.
 async fn finalize_channel_reply(channel: &str, state: &mut StreamingState, final_text: &str) {
     if let Some(ref message_id) = state.message_id {
         // We committed to a draft earlier in the turn. Always attempt
@@ -451,6 +463,16 @@ async fn finalize_channel_reply(channel: &str, state: &mut StreamingState, final
                 message_id,
             );
         }
+        return;
+    }
+    if state.draft_sent {
+        // A draft was posted but the backend didn't return an id, so
+        // we have nothing to edit. Posting a fresh message here would
+        // give the user two bubbles — skip silently.
+        tracing::warn!(
+            "[channel-inbound] skipping fresh send on channel='{}' — an id-less draft was already posted earlier this turn (duplicate prevented)",
+            channel,
+        );
         return;
     }
     // No draft exists — this is the first (and only) message for the

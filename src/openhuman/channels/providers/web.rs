@@ -378,8 +378,102 @@ fn spawn_progress_bridge(
     use crate::openhuman::agent::progress::AgentProgress;
 
     tokio::spawn(async move {
+        log::debug!(
+            "[web_channel][bridge] spawned client_id={} thread_id={} request_id={}",
+            client_id,
+            thread_id,
+            request_id,
+        );
         let mut round: u32 = 0;
+        let mut events_seen: u64 = 0;
         while let Some(event) = rx.recv().await {
+            events_seen += 1;
+            // Per-variant trace so branch decisions are visible in
+            // terminal output when correlating progress over Socket.IO.
+            // Kept at trace-level for high-volume deltas and debug for
+            // lifecycle transitions.
+            match &event {
+                AgentProgress::TextDelta { delta, iteration } => {
+                    log::trace!(
+                        "[web_channel][bridge] text_delta round={} chars={} request_id={}",
+                        iteration,
+                        delta.len(),
+                        request_id,
+                    );
+                }
+                AgentProgress::ThinkingDelta { delta, iteration } => {
+                    log::trace!(
+                        "[web_channel][bridge] thinking_delta round={} chars={} request_id={}",
+                        iteration,
+                        delta.len(),
+                        request_id,
+                    );
+                }
+                AgentProgress::ToolCallArgsDelta {
+                    call_id,
+                    tool_name,
+                    delta,
+                    iteration,
+                } => {
+                    log::trace!(
+                        "[web_channel][bridge] tool_args_delta round={} tool={} call_id={} chars={} request_id={}",
+                        iteration,
+                        tool_name,
+                        call_id,
+                        delta.len(),
+                        request_id,
+                    );
+                }
+                AgentProgress::ToolCallStarted {
+                    call_id,
+                    tool_name,
+                    iteration,
+                    ..
+                } => {
+                    log::debug!(
+                        "[web_channel][bridge] tool_call round={} tool={} call_id={} request_id={}",
+                        iteration,
+                        tool_name,
+                        call_id,
+                        request_id,
+                    );
+                }
+                AgentProgress::ToolCallCompleted {
+                    call_id,
+                    tool_name,
+                    success,
+                    iteration,
+                    ..
+                } => {
+                    log::debug!(
+                        "[web_channel][bridge] tool_result round={} tool={} call_id={} success={} request_id={}",
+                        iteration,
+                        tool_name,
+                        call_id,
+                        success,
+                        request_id,
+                    );
+                }
+                AgentProgress::SubagentFailed {
+                    agent_id, error, ..
+                } => {
+                    log::warn!(
+                        "[web_channel][bridge] subagent_failed agent_id={} err={} client_id={} thread_id={} request_id={}",
+                        agent_id,
+                        error,
+                        client_id,
+                        thread_id,
+                        request_id,
+                    );
+                }
+                other => {
+                    log::debug!(
+                        "[web_channel][bridge] lifecycle event={:?} request_id={}",
+                        std::mem::discriminant(other),
+                        request_id,
+                    );
+                }
+            }
             match event {
                 AgentProgress::TurnStarted => {
                     publish_web_channel_event(WebChannelEvent {
@@ -610,6 +704,14 @@ fn spawn_progress_bridge(
                 }
             }
         }
+        log::debug!(
+            "[web_channel][bridge] exit client_id={} thread_id={} request_id={} round={} events_seen={}",
+            client_id,
+            thread_id,
+            request_id,
+            round,
+            events_seen,
+        );
     });
 }
 

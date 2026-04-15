@@ -24,29 +24,25 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+mod dom_snapshot;
+mod idb;
+
 const CDP_HOST: &str = "127.0.0.1";
 const CDP_PORT: u16 = 9222;
-/// Cadence for the expensive full scan (IDB walk, spy snapshot, schema
-/// dumps). Runs infrequently because each pass serialises thousands of
-/// message records.
+/// Cadence for the expensive full scan — pages the whole IDB via CDP and
+/// captures a fresh DOM snapshot. Each pass serialises thousands of
+/// message records, so we pay this cost infrequently.
 const FULL_SCAN_INTERVAL: Duration = Duration::from_secs(30);
 /// Cadence for the cheap fast scan (DOM `[data-id]` scrape only). Runs at
-/// Franz-like 2s so the ingest stream feels live — each tick only hits
-/// `document.querySelectorAll` and serialises rendered rows.
+/// Franz-like 2s so the ingest stream feels live — each tick captures the
+/// DOM via `DOMSnapshot.captureSnapshot` (pure CDP, no page-world JS).
 const FAST_SCAN_INTERVAL: Duration = Duration::from_secs(2);
-/// Inline scan script, executed via `Runtime.evaluate` per full tick.
-const SCANNER_JS: &str = include_str!("scanner.js");
-/// Fast-tick DOM-only scrape script. Returns `{ok, domMessages, hash}`.
-/// `hash` is a rolling FNV-1a over (dataId, body) so the Rust side can
-/// skip emission when the visible set hasn't changed.
-const DOM_SCAN_JS: &str = include_str!("dom_scan.js");
 
 /// One CDP target descriptor (from `Target.getTargets`).
 #[derive(Debug, Clone)]
@@ -56,60 +52,20 @@ struct CdpTarget {
     url: String,
 }
 
-/// Snapshot returned by `scanner.js`. Mirrors the JS shape verbatim.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Product of one full scan — IDB walk (via `idb::walk`) joined with a
+/// DOM snapshot (via `dom_snapshot::capture_messages`). `messages` carries
+/// IDB-sourced metadata only; DOM-sourced bodies are merged in by id at
+/// emit time (see `emit_snapshot`).
+#[derive(Debug, Clone, Default)]
 pub struct ScanSnapshot {
     pub ok: bool,
-    #[serde(rename = "scannedAt", default)]
-    pub scanned_at: i64,
-    #[serde(default)]
-    pub dbs: Vec<String>,
-    #[serde(default)]
-    pub chats: serde_json::Map<String, Value>,
-    #[serde(default)]
-    pub messages: Vec<Value>,
-    #[serde(default)]
     pub error: Option<String>,
-    /// Up to N most-recent messages (body preview only) — useful as a log
-    /// sanity check. Each entry: { chatId, chatName, from, fromMe,
-    /// timestamp, bodyPreview }.
-    #[serde(rename = "sampleMessages", default)]
-    pub sample_messages: Vec<Value>,
-    /// DOM-scraped rendered message bodies (chat currently open in the
-    /// webview). WhatsApp doesn't expose msgRowOpaqueData via crypto.subtle
-    /// when rendering, so we read the rendered DOM directly and join to
-    /// IndexedDB metadata via the data-id attribute.
-    #[serde(rename = "domMessages", default)]
+    /// `jid → display name`, drawn from chat/contact/group-metadata stores.
+    pub chats: serde_json::Map<String, Value>,
+    /// Normalised message metadata (no bodies — see note above).
+    pub messages: Vec<Value>,
+    /// DOM-scraped rendered bodies; merged into `messages` by id.
     pub dom_messages: Vec<Value>,
-    /// `window.*` keys matching encryption/local-storage patterns —
-    /// would let us call WA's own decryption helper directly if exposed.
-    #[serde(rename = "windowGlobals", default)]
-    pub window_globals: Vec<String>,
-    /// Union of all top-level field names observed across every message
-    /// record, with the type signature(s) seen for each. Surfaces fields
-    /// like `body` that only appear on certain message types.
-    #[serde(rename = "messageKeyUnion", default)]
-    pub message_key_union: Option<Value>,
-    /// `type → count` over every scanned message — tells us at a glance
-    /// how many text vs media vs system messages we actually have.
-    #[serde(rename = "messageTypeBreakdown", default)]
-    pub message_type_breakdown: Option<Value>,
-    /// `type → shape(firstRecord)` so we can see one full example per
-    /// message type rather than just the first record overall.
-    #[serde(rename = "sampleByType", default)]
-    pub sample_by_type: Option<Value>,
-    /// First-record shape per "interesting" store name (excluding `message`
-    /// itself, which has its own dedicated diagnostics above).
-    #[serde(rename = "schemaDump", default)]
-    pub schema_dump: serde_json::Map<String, Value>,
-    /// OPFS listing — WhatsApp may persist bodies in a SQLite-via-WASM
-    /// file in the Origin Private File System rather than IndexedDB.
-    #[serde(default)]
-    pub opfs: Option<Value>,
-    /// Map of dbName → object store names. Logged once per scan so we can
-    /// see WhatsApp's actual layout and tighten the store-name hints.
-    #[serde(rename = "storeMap", default)]
-    pub store_map: serde_json::Map<String, Value>,
 }
 
 /// Spawn a per-account CDP poller. Idempotent at call site (caller tracks
@@ -148,21 +104,17 @@ pub fn spawn_scanner<R: Runtime>(app: AppHandle<R>, account_id: String, url_pref
             if !do_full {
                 match scan_dom_once(&account_id, &url_prefix).await {
                     Ok(dom) => {
-                        if dom.ok {
-                            let changed = last_dom_hash != Some(dom.hash)
-                                && !dom.dom_messages.is_empty();
-                            if changed {
-                                log::info!(
-                                    "[wa][{}] fast dom-scan rows={} hash={} (changed)",
-                                    account_id,
-                                    dom.dom_messages.len(),
-                                    dom.hash
-                                );
-                                emit_dom_only(&app, &account_id, &dom.dom_messages);
-                                last_dom_hash = Some(dom.hash);
-                            }
-                        } else if let Some(err) = dom.error {
-                            log::debug!("[wa][{}] dom-scan err: {}", account_id, err);
+                        let changed = last_dom_hash != Some(dom.hash)
+                            && !dom.dom_messages.is_empty();
+                        if changed {
+                            log::info!(
+                                "[wa][{}] fast dom-scan rows={} hash={} (changed)",
+                                account_id,
+                                dom.dom_messages.len(),
+                                dom.hash
+                            );
+                            emit_dom_only(&app, &account_id, &dom.dom_messages);
+                            last_dom_hash = Some(dom.hash);
                         }
                     }
                     Err(e) => {
@@ -176,137 +128,36 @@ pub fn spawn_scanner<R: Runtime>(app: AppHandle<R>, account_id: String, url_pref
             match scan_once(&app, &account_id, &url_prefix).await {
                 Ok(snap) => {
                     log::info!(
-                        "[wa][{}] scan ok dbs={} messages={} chats={}",
+                        "[wa][{}] full scan ok messages={} chats={} dom={}",
                         account_id,
-                        snap.dbs.len(),
                         snap.messages.len(),
                         snap.chats.len(),
+                        snap.dom_messages.len(),
                     );
-                    if !snap.window_globals.is_empty() {
-                        log::info!(
-                            "[wa][{}] globals {:?}",
-                            account_id,
-                            snap.window_globals
-                        );
-                    }
-                    if let Some(ref types) = snap.message_type_breakdown {
-                        log::info!("[wa][{}] msg-types {}", account_id, types);
-                    }
-                    if let Some(ref union) = snap.message_key_union {
-                        log::info!("[wa][{}] msg-key-union {}", account_id, union);
-                    }
-                    if let Some(ref by_type) = snap.sample_by_type {
-                        if let Some(map) = by_type.as_object() {
-                            for (t, shape) in map {
-                                log::info!("[wa][{}] msg-shape type={} {}", account_id, t, shape);
-                            }
-                        }
-                    }
-                    for (store, shape) in &snap.schema_dump {
-                        log::info!("[wa][{}] schema {} {}", account_id, store, shape);
-                    }
-                    if let Some(ref opfs) = snap.opfs {
-                        log::info!("[wa][{}] opfs {}", account_id, opfs);
-                    }
-                    for (i, sample) in snap.sample_messages.iter().enumerate() {
-                        let chat_name = sample
-                            .get("chatName")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("?");
-                        let chat_id = sample
-                            .get("chatId")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("?");
-                        let from = if sample
-                            .get("fromMe")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false)
-                        {
-                            "me".to_string()
-                        } else {
-                            sample
-                                .get("from")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?")
-                                .to_string()
-                        };
-                        let ts = sample.get("timestamp").and_then(|v| v.as_i64()).unwrap_or(0);
-                        let body = sample
-                            .get("bodyPreview")
+                    // Preview a few DOM-scraped rows so it's obvious from the
+                    // log whether the active chat produced fresh bodies.
+                    for (i, dm) in snap.dom_messages.iter().take(5).enumerate() {
+                        let chat = dm.get("chatId").and_then(|v| v.as_str()).unwrap_or("?");
+                        let msg = dm.get("msgId").and_then(|v| v.as_str()).unwrap_or("?");
+                        let from_me = dm.get("fromMe").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let author = dm.get("author").and_then(|v| v.as_str()).unwrap_or("");
+                        let ts = dm
+                            .get("preTimestamp")
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
+                        let body = dm.get("body").and_then(|v| v.as_str()).unwrap_or("");
+                        let preview: String = body.chars().take(120).collect();
                         log::info!(
-                            "[wa][{}] msg#{} ts={} chat={} ({}) from={} body={:?}",
+                            "[wa][{}] dom#{} chat={} msg={} fromMe={} [{}] {}: {:?}",
                             account_id,
                             i + 1,
+                            chat,
+                            msg,
+                            from_me,
                             ts,
-                            chat_name,
-                            chat_id,
-                            from,
-                            body
+                            author,
+                            preview
                         );
-                    }
-                    // DOM-scraped message bodies (the chat the user has open).
-                    if !snap.dom_messages.is_empty() {
-                        log::info!(
-                            "[wa][{}] dom-scrape count={}",
-                            account_id,
-                            snap.dom_messages.len()
-                        );
-                        for (i, dm) in snap.dom_messages.iter().take(5).enumerate() {
-                            let chat = dm.get("chatId").and_then(|v| v.as_str()).unwrap_or("?");
-                            let msg = dm.get("msgId").and_then(|v| v.as_str()).unwrap_or("?");
-                            let from_me = dm
-                                .get("fromMe")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false);
-                            let author = dm
-                                .get("author")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
-                            let ts = dm
-                                .get("preTimestamp")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
-                            let body = dm.get("body").and_then(|v| v.as_str()).unwrap_or("");
-                            let body_preview = if body.len() > 120 {
-                                format!("{}…", &body[..120])
-                            } else {
-                                body.to_string()
-                            };
-                            log::info!(
-                                "[wa][{}] dom#{} chat={} msg={} fromMe={} [{}] {}: {:?}",
-                                account_id,
-                                i + 1,
-                                chat,
-                                msg,
-                                from_me,
-                                ts,
-                                author,
-                                body_preview
-                            );
-                        }
-                    }
-                    if !snap.store_map.is_empty() {
-                        // Compact one-liner so we can grep store layouts.
-                        let layout = snap
-                            .store_map
-                            .iter()
-                            .map(|(db, stores)| {
-                                let names = stores
-                                    .as_array()
-                                    .map(|a| {
-                                        a.iter()
-                                            .filter_map(|v| v.as_str())
-                                            .collect::<Vec<_>>()
-                                            .join(",")
-                                    })
-                                    .unwrap_or_default();
-                                format!("{db}:[{names}]")
-                            })
-                            .collect::<Vec<_>>()
-                            .join(" ");
-                        log::info!("[wa][{}] stores {}", account_id, layout);
                     }
                     emit_snapshot(&app, &account_id, &snap);
                 }
@@ -365,23 +216,16 @@ async fn scan_once<R: Runtime>(
     account_id: &str,
     url_prefix: &str,
 ) -> Result<ScanSnapshot, String> {
-    // One browser-level CDP connection per scan tick. We use it to attach
-    // to BOTH the WhatsApp page AND every worker target via
-    // `Target.attachToTarget` — workers can't be debugged via direct WS,
-    // they must be reached as nested sessions on the browser endpoint.
+    // One CDP connection per tick — we attach to the WhatsApp page session,
+    // run the IDB walk + DOM snapshot, then detach (which frees every
+    // RemoteObject the IDB walk materialised, so no per-object releases).
     let browser_ws = browser_ws_url().await?;
     let mut cdp = CdpConn::open(&browser_ws).await?;
 
-    // 1. Enumerate every CDP target.
-    let targets_v = cdp
-        .call("Target.getTargets", json!({}), None)
-        .await?;
+    let targets_v = cdp.call("Target.getTargets", json!({}), None).await?;
     let targets = parse_targets(&targets_v);
     log::debug!("[wa][{}] {} targets total", account_id, targets.len());
 
-    // Run the full IndexedDB scanner against the WhatsApp page. Worker
-    // targets are intentionally ignored — CEF workers don't answer CDP
-    // Runtime calls so probing them would waste ~10s per attempt.
     let page_target = targets
         .iter()
         .find(|t| t.kind == "page" && t.url.starts_with(url_prefix))
@@ -399,34 +243,38 @@ async fn scan_once<R: Runtime>(
         .ok_or_else(|| "page attach missing sessionId".to_string())?
         .to_string();
 
-    // NOTE: previously we installed a Worker constructor hook via
-    // Page.addScriptToEvaluateOnNewDocument and reloaded the page so
-    // workers would respawn through our wrapper. That path proved a dead
-    // end (WA decrypts message bodies outside crypto.subtle in a way we
-    // can't capture) and the reload disrupts the user. DOM scraping +
-    // IDB reading from SCANNER_JS is enough — no hook, no reload.
-
-    let scan_v = cdp
-        .call(
-            "Runtime.evaluate",
-            json!({
-                "expression": SCANNER_JS,
-                "awaitPromise": true,
-                "returnByValue": true,
-                "timeout": 30_000,
-            }),
-            Some(&page_session),
-        )
-        .await?;
-    if let Some(exc) = scan_v.pointer("/exceptionDetails") {
-        return Err(format!("page scanner threw: {exc}"));
+    // IDB + DOM are independent — run IDB first (the heavier of the two)
+    // so a DOM failure doesn't mask IDB errors. Errors are captured on
+    // `snap.error` instead of bubbling so the caller can still act on
+    // whatever partial data came back.
+    let mut snap = ScanSnapshot {
+        ok: true,
+        ..Default::default()
+    };
+    match idb::walk(&mut cdp, &page_session, url_prefix).await {
+        Ok((messages, chat_names)) => {
+            snap.messages = messages.iter().map(idb::IdbMessage::to_json).collect();
+            snap.chats = chat_names
+                .into_iter()
+                .map(|(k, v)| (k, Value::String(v)))
+                .collect();
+        }
+        Err(e) => {
+            snap.ok = false;
+            snap.error = Some(format!("idb walk: {e}"));
+            log::warn!("[wa][{}] idb walk failed: {}", account_id, e);
+        }
     }
-    let value = scan_v
-        .pointer("/result/value")
-        .ok_or_else(|| format!("page scanner missing result/value: {scan_v}"))?
-        .clone();
-    let snap: ScanSnapshot =
-        serde_json::from_value(value).map_err(|e| format!("decode snapshot: {e}"))?;
+    match dom_snapshot::capture_messages(&mut cdp, &page_session).await {
+        Ok((rows, _hash)) => {
+            snap.dom_messages = rows.iter().map(dom_snapshot::DomMessage::to_json).collect();
+        }
+        Err(e) => {
+            // Fast-tick DOM scans will retry every 2s, so degrade gracefully.
+            log::warn!("[wa][{}] dom snapshot failed: {}", account_id, e);
+        }
+    }
+
     let _ = cdp
         .call(
             "Target.detachFromTarget",
@@ -439,21 +287,17 @@ async fn scan_once<R: Runtime>(
 }
 
 /// Result of a fast DOM-only scan. Small enough to bounce back every 2s.
-#[derive(Deserialize, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct DomScanResult {
-    #[serde(default)]
-    pub ok: bool,
-    #[serde(default)]
-    pub error: Option<String>,
-    #[serde(rename = "domMessages", default)]
     pub dom_messages: Vec<Value>,
-    #[serde(default)]
     pub hash: u64,
 }
 
-/// Fast tick: open a CDP session, attach to the WhatsApp page, run only
-/// the DOM scrape script, detach. No IDB, no spy, no target enumeration of
-/// workers. Returns the cheap `DomScanResult`.
+/// Fast tick: open a CDP session, attach to the WhatsApp page, snapshot
+/// the DOM via `DOMSnapshot.captureSnapshot`, detach. No IDB, no worker
+/// enumeration, no JavaScript runs in the page — the snapshot is produced
+/// at the browser's C++ layer. The flat-array response is parsed in Rust
+/// (see `dom_snapshot.rs`).
 async fn scan_dom_once(
     account_id: &str,
     url_prefix: &str,
@@ -478,32 +322,9 @@ async fn scan_dom_once(
         .and_then(|x| x.as_str())
         .ok_or_else(|| "page attach missing sessionId".to_string())?
         .to_string();
-    let scan_v = cdp
-        .call(
-            "Runtime.evaluate",
-            json!({
-                "expression": DOM_SCAN_JS,
-                "awaitPromise": false,
-                "returnByValue": true,
-                "timeout": 2_000,
-            }),
-            Some(&page_session),
-        )
-        .await?;
-    if let Some(exc) = scan_v.pointer("/exceptionDetails") {
-        let _ = cdp
-            .call(
-                "Target.detachFromTarget",
-                json!({ "sessionId": page_session }),
-                None,
-            )
-            .await;
-        return Err(format!("dom-scan threw: {exc}"));
-    }
-    let value = scan_v
-        .pointer("/result/value")
-        .cloned()
-        .ok_or_else(|| format!("dom-scan missing result/value: {scan_v}"))?;
+    let captured = dom_snapshot::capture_messages(&mut cdp, &page_session).await;
+    // Detach no matter what — otherwise dangling sessions pile up on long
+    // runs and eventually the CDP endpoint refuses new attachments.
     let _ = cdp
         .call(
             "Target.detachFromTarget",
@@ -511,15 +332,15 @@ async fn scan_dom_once(
             None,
         )
         .await;
-    let result: DomScanResult =
-        serde_json::from_value(value).map_err(|e| format!("decode dom-scan: {e}"))?;
+    let (rows, hash) = captured?;
+    let dom_messages: Vec<Value> = rows.iter().map(dom_snapshot::DomMessage::to_json).collect();
     log::debug!(
         "[wa][{}] fast dom-scan rows={} hash={}",
         account_id,
-        result.dom_messages.len(),
-        result.hash
+        dom_messages.len(),
+        hash
     );
-    Ok(result)
+    Ok(DomScanResult { dom_messages, hash })
 }
 
 fn parse_targets(v: &Value) -> Vec<CdpTarget> {

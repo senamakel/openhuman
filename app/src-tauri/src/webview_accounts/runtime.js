@@ -71,29 +71,102 @@
     }
   }
 
-  // ─── Notification patch ───────────────────────────────────────────────
-  // Many web messengers use the Notification API for new-message pings;
-  // we forward them so recipes can react without polling.
+  // ─── Notification interception ───────────────────────────────────────
+  // Web messengers fire notifications via two paths:
+  //   1. Main-thread `new Notification(title, opts)` — WhatsApp, Telegram,
+  //      Discord, LinkedIn.
+  //   2. Service-worker `registration.showNotification(title, opts)` —
+  //      Gmail, Slack, Meet and anything using the Push API.
+  //
+  // We intercept both and hand the payload to Rust via `send('notify', …)`.
+  // The original calls still run so the page's own `onclick` / permission
+  // state behaves normally; Rust is responsible for emitting the OS-native
+  // OpenHuman notification. We deliberately pretend permission is granted
+  // so providers don't suppress their own notify() calls.
+  function serializeNotifyOptions(options) {
+    // Lift only the fields we actually care about — `data` can hold
+    // arbitrary JSON (Slack ships the whole thread payload) and the
+    // Tauri IPC channel stringifies everything we send, so cap it.
+    const o = options || {};
+    return {
+      body: typeof o.body === 'string' ? o.body : null,
+      icon: typeof o.icon === 'string' ? o.icon : null,
+      image: typeof o.image === 'string' ? o.image : null,
+      badge: typeof o.badge === 'string' ? o.badge : null,
+      tag: typeof o.tag === 'string' ? o.tag : null,
+      silent: o.silent === true,
+      renotify: o.renotify === true,
+      lang: typeof o.lang === 'string' ? o.lang : null,
+    };
+  }
+
+  function emitNotify(source, title, options) {
+    try {
+      if (notifyHandler) {
+        notifyHandler({ source: source, title: title, options: options || {} });
+      }
+      send('notify', {
+        source: source,
+        title: typeof title === 'string' ? title : String(title == null ? '' : title),
+        options: serializeNotifyOptions(options),
+      });
+    } catch (_) {}
+  }
+
+  // 1. `new Notification(...)`.
   try {
     const NativeNotification = window.Notification;
     if (NativeNotification && !NativeNotification.__openhumanPatched) {
       function PatchedNotification(title, options) {
-        try {
-          if (notifyHandler) {
-            notifyHandler({ title: title, options: options || {} });
-          }
-          send('notify', { title: title, options: options || {} });
-        } catch (_) {}
+        emitNotify('window', title, options);
         return new NativeNotification(title, options);
       }
       PatchedNotification.prototype = NativeNotification.prototype;
-      PatchedNotification.permission = NativeNotification.permission;
-      PatchedNotification.requestPermission = NativeNotification.requestPermission.bind(NativeNotification);
+      // Lie about permission so sites that gate their notification calls
+      // on `Notification.permission === 'granted'` actually fire — we're
+      // going to render the OS notification from Rust either way.
+      try {
+        Object.defineProperty(PatchedNotification, 'permission', {
+          get: function () { return 'granted'; },
+        });
+      } catch (_) {
+        PatchedNotification.permission = 'granted';
+      }
+      PatchedNotification.requestPermission = function (cb) {
+        try { if (typeof cb === 'function') cb('granted'); } catch (_) {}
+        return Promise.resolve('granted');
+      };
       PatchedNotification.__openhumanPatched = true;
       window.Notification = PatchedNotification;
     }
   } catch (_) {
     // Notification API not available — fine
+  }
+
+  // 2. `ServiceWorkerRegistration.prototype.showNotification(...)` — covers
+  // page-initiated calls. Notifications fired from inside the service
+  // worker's own scope (the Push API `push` event) don't hit this patch
+  // because the SW runs in a different realm; catching those requires
+  // script injection into the SW itself, which wry/CEF don't expose.
+  try {
+    if (
+      window.ServiceWorkerRegistration &&
+      window.ServiceWorkerRegistration.prototype &&
+      !window.ServiceWorkerRegistration.prototype.__openhumanPatched
+    ) {
+      const proto = window.ServiceWorkerRegistration.prototype;
+      const native = proto.showNotification;
+      if (typeof native === 'function') {
+        proto.showNotification = function (title, options) {
+          emitNotify('sw', title, options);
+          try { return native.call(this, title, options); }
+          catch (e) { return Promise.reject(e); }
+        };
+        proto.__openhumanPatched = true;
+      }
+    }
+  } catch (_) {
+    // Service worker API absent — fine
   }
 
   // ─── WebSocket interception ──────────────────────────────────────────

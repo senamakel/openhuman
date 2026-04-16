@@ -1,5 +1,12 @@
 import { FaLinkedin } from 'react-icons/fa';
-import { SiDiscord, SiGmail, SiSlack, SiTelegram, SiWhatsapp } from 'react-icons/si';
+import {
+  SiDiscord,
+  SiGmail,
+  SiGooglemeet,
+  SiSlack,
+  SiTelegram,
+  SiWhatsapp,
+} from 'react-icons/si';
 
 import type { AccountProvider } from '../../types/accounts';
 
@@ -15,6 +22,7 @@ const PROVIDER_COLOR: Record<AccountProvider, string> = {
   gmail: '#EA4335',
   slack: '#4A154B',
   discord: '#5865F2',
+  'google-meet': '#00897B',
 };
 
 export const AgentIcon = ({ className }: { className?: string }) => (
@@ -43,6 +51,8 @@ export const ProviderIcon = ({
       return <SiSlack className={className} style={style} />;
     case 'discord':
       return <SiDiscord className={className} style={style} />;
+    case 'google-meet':
+      return <SiGooglemeet className={className} style={style} />;
     default:
       return null;
   }

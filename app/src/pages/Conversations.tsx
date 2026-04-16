@@ -724,7 +724,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
       className={
         isSidebar
           ? 'h-full relative z-10 flex overflow-hidden'
-          : 'h-full relative z-10 flex overflow-hidden p-4 pt-6 gap-3'
+          : 'h-full relative z-10 flex justify-center overflow-hidden p-4 pt-6 gap-3'
       }>
       {/* Thread sidebar — only shown in page mode (when Conversations itself
           is a top-level route, not embedded as a sidebar in another page). */}

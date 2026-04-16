@@ -4,7 +4,8 @@ export type AccountProvider =
   | 'linkedin'
   | 'gmail'
   | 'slack'
-  | 'discord';
+  | 'discord'
+  | 'google-meet';
 
 export type AccountStatus = 'pending' | 'open' | 'error' | 'closed';
 
@@ -83,5 +84,11 @@ export const PROVIDERS: ProviderDescriptor[] = [
     label: 'Discord',
     description: 'Discord servers and DMs — channel list and unread counts.',
     serviceUrl: 'https://discord.com/channels/@me',
+  },
+  {
+    id: 'google-meet',
+    label: 'Google Meet',
+    description: 'Join Google Meet calls and capture live captions.',
+    serviceUrl: 'https://meet.google.com/',
   },
 ];

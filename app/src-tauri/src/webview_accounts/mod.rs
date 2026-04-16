@@ -25,7 +25,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime, Url, WebviewBuilder,
-    WebviewUrl,
+    WebviewUrl, webview::NewWindowResponse,
 };
 
 const RUNTIME_JS: &str = include_str!("runtime.js");
@@ -36,6 +36,7 @@ const LINKEDIN_RECIPE_JS: &str = include_str!("../../recipes/linkedin/recipe.js"
 const GMAIL_RECIPE_JS: &str = include_str!("../../recipes/gmail/recipe.js");
 const SLACK_RECIPE_JS: &str = include_str!("../../recipes/slack/recipe.js");
 const DISCORD_RECIPE_JS: &str = include_str!("../../recipes/discord/recipe.js");
+const GOOGLE_MEET_RECIPE_JS: &str = include_str!("../../recipes/google-meet/recipe.js");
 
 /// User agent we pretend to be for all external services. Web-app services
 /// (WhatsApp, Gmail, Google's login flow) reject "unknown" WebView UAs with
@@ -54,13 +55,16 @@ fn provider_url(provider: &str) -> Option<&'static str> {
         "gmail" => Some("https://mail.google.com/mail/u/0/"),
         "slack" => Some("https://app.slack.com/client/"),
         "discord" => Some("https://discord.com/channels/@me"),
+        "google-meet" => Some("https://meet.google.com/"),
         _ => None,
     }
 }
 
 fn provider_user_agent(provider: &str) -> Option<&'static str> {
     match provider {
-        "whatsapp" | "telegram" | "linkedin" | "gmail" | "slack" | "discord" => Some(CHROME_UA),
+        "whatsapp" | "telegram" | "linkedin" | "gmail" | "slack" | "discord" | "google-meet" => {
+            Some(CHROME_UA)
+        }
         _ => None,
     }
 }
@@ -73,6 +77,7 @@ fn provider_recipe_js(provider: &str) -> Option<&'static str> {
         "gmail" => Some(GMAIL_RECIPE_JS),
         "slack" => Some(SLACK_RECIPE_JS),
         "discord" => Some(DISCORD_RECIPE_JS),
+        "google-meet" => Some(GOOGLE_MEET_RECIPE_JS),
         _ => None,
     }
 }
@@ -82,7 +87,87 @@ fn provider_recipe_js(provider: &str) -> Option<&'static str> {
 /// WhatsApp & Telegram are happy with the Chrome UA alone and running the
 /// spoof risks breaking perfectly-working integrations for no gain.
 fn provider_ua_spoof(provider: &str) -> bool {
-    matches!(provider, "slack" | "gmail" | "linkedin" | "discord")
+    matches!(
+        provider,
+        "slack" | "gmail" | "linkedin" | "discord" | "google-meet"
+    )
+}
+
+/// Host suffixes the embedded webview is allowed to navigate within. Any
+/// navigation to a host outside this set is cancelled and opened in the
+/// user's default browser instead. Gmail / Meet include Google's auth and
+/// static asset hosts so the OAuth redirect loop works; Discord includes
+/// its CDN subdomains for the same reason.
+fn provider_allowed_hosts(provider: &str) -> &'static [&'static str] {
+    match provider {
+        "whatsapp" => &["whatsapp.com", "whatsapp.net", "wa.me"],
+        "telegram" => &["telegram.org", "t.me"],
+        "linkedin" => &["linkedin.com", "licdn.com"],
+        "gmail" => &[
+            "google.com",
+            "googleusercontent.com",
+            "gstatic.com",
+            "googleapis.com",
+        ],
+        "slack" => &["slack.com", "slack-edge.com", "slackb.com"],
+        "discord" => &[
+            "discord.com",
+            "discord.gg",
+            "discordapp.com",
+            "discordapp.net",
+        ],
+        "google-meet" => &[
+            "google.com",
+            "googleusercontent.com",
+            "gstatic.com",
+            "googleapis.com",
+        ],
+        _ => &[],
+    }
+}
+
+/// `true` if `url` is considered in-app for `provider`. Non-HTTP(S)
+/// schemes (`about:blank`, `data:`, `blob:`) have no host and are always
+/// allowed so the webview's own internal navigations keep working.
+/// Unknown providers are also permissive — better to accidentally keep a
+/// link in-app than to leak it to the system browser.
+fn url_is_internal(provider: &str, url: &Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return true;
+    };
+    let allowed = provider_allowed_hosts(provider);
+    if allowed.is_empty() {
+        return true;
+    }
+    allowed
+        .iter()
+        .any(|suffix| host == *suffix || host.ends_with(&format!(".{}", suffix)))
+}
+
+/// Fire-and-forget handoff to the OS default URL handler. Any error is
+/// logged but not propagated — we've already cancelled the in-app
+/// navigation so there's nowhere to surface a failure to.
+fn open_in_system_browser(url: &str) {
+    match tauri_plugin_opener::open_url(url, None::<&str>) {
+        Ok(()) => log::info!("[webview-accounts] opened externally: {}", url),
+        Err(e) => log::warn!("[webview-accounts] open_url({}) failed: {}", url, e),
+    }
+}
+
+/// Human-readable label used as the title prefix on native notifications
+/// so users can tell which provider fired the ping. Matches the labels
+/// in the frontend `PROVIDERS` registry.
+fn provider_display_name(provider: &str) -> &'static str {
+    match provider {
+        "whatsapp" => "WhatsApp",
+        "telegram" => "Telegram",
+        "linkedin" => "LinkedIn",
+        "gmail" => "Gmail",
+        "slack" => "Slack",
+        "discord" => "Discord",
+        "google-meet" => "Google Meet",
+        _ => "OpenHuman",
+    }
 }
 
 #[derive(Default)]
@@ -274,6 +359,37 @@ pub async fn webview_account_open<R: Runtime>(
     let mut builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url))
         .initialization_script(&init_script)
         .data_directory(data_dir);
+
+    // Keep link clicks that leave the provider's host set in the OS
+    // browser, not the embedded webview. Same-host navigations (including
+    // OAuth hops to accounts.google.com etc., which we pre-declare per
+    // provider) stay in-app.
+    let nav_provider = args.provider.clone();
+    builder = builder.on_navigation(move |url| {
+        if url_is_internal(&nav_provider, url) {
+            true
+        } else {
+            log::info!(
+                "[webview-accounts] external navigation {} → system browser",
+                url
+            );
+            open_in_system_browser(url.as_str());
+            false
+        }
+    });
+
+    // Cmd/Ctrl-click and `target="_blank"` / `window.open(...)` trigger a
+    // new-window request. Denying all of them and handing the URL to the
+    // system browser matches user intent: "open in new tab" outside the
+    // app, not "spawn a rootless OpenHuman window".
+    builder = builder.on_new_window(move |url, _features| {
+        log::info!(
+            "[webview-accounts] new-window request {} → system browser",
+            url
+        );
+        open_in_system_browser(url.as_str());
+        NewWindowResponse::Deny
+    });
 
     // Always enable devtools on child webviews so recipe diagnostics and
     // IndexedDB state can be inspected. Access on macOS is via
@@ -761,6 +877,53 @@ pub async fn webview_recipe_event<R: Runtime>(
             "warn" => log::warn!("[webview-accounts][{}] {}", args.account_id, msg),
             "error" => log::error!("[webview-accounts][{}] {}", args.account_id, msg),
             _ => log::info!("[webview-accounts][{}] {}", args.account_id, msg),
+        }
+    } else if args.kind == "notify" {
+        // MITM'd push notification from the embedded webview — re-emit it
+        // as an OS-native notification so the user sees it even when the
+        // OpenHuman window is not focused. Source is either "window"
+        // (main-thread `new Notification(...)`) or "sw" (service worker
+        // page-initiated `registration.showNotification(...)`).
+        use tauri_plugin_notification::NotificationExt;
+        let raw_title = args
+            .payload
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let body = args
+            .payload
+            .get("options")
+            .and_then(|v| v.get("body"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let source = args
+            .payload
+            .get("source")
+            .and_then(|v| v.as_str())
+            .unwrap_or("window");
+        let provider_label = provider_display_name(&args.provider);
+        let notify_title = if raw_title.is_empty() {
+            provider_label.to_string()
+        } else {
+            format!("{} — {}", provider_label, raw_title)
+        };
+        log::info!(
+            "[webview-accounts][{}] notify source={} title={:?} body_chars={}",
+            args.account_id,
+            source,
+            raw_title,
+            body.chars().count()
+        );
+        let mut builder = app.notification().builder().title(&notify_title);
+        if !body.is_empty() {
+            builder = builder.body(body);
+        }
+        if let Err(e) = builder.show() {
+            log::warn!(
+                "[webview-accounts][{}] notification show failed: {}",
+                args.account_id,
+                e
+            );
         }
     }
 

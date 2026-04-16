@@ -6,15 +6,25 @@ import LocalAIStep from '../LocalAIStep';
 
 vi.mock('../../../../utils/localAiBootstrap', () => ({
   bootstrapLocalAiWithRecommendedPreset: vi.fn().mockResolvedValue({} as never),
-  ensureRecommendedLocalAiPresetIfNeeded: vi
-    .fn()
-    .mockResolvedValue({
-      presets: { recommend_disabled: false },
-      recommendedTier: 'ram_2_4gb',
-      selectedTier: null,
-      hadSelectedTier: false,
-      appliedTier: null,
-    } as never),
+}));
+
+vi.mock('../../../../utils/tauriCommands', () => ({
+  openhumanLocalAiPresets: vi.fn().mockResolvedValue({
+    recommend_disabled: false,
+    presets: [],
+    recommended_tier: 'ram_2_4gb',
+    current_tier: 'ram_2_4gb',
+    selected_tier: null,
+    device: {
+      total_ram_bytes: 16 * 1024 * 1024 * 1024,
+      cpu_count: 8,
+      cpu_brand: 'test',
+      os_name: 'test',
+      os_version: '1.0',
+      has_gpu: false,
+      gpu_description: null,
+    },
+  } as never),
 }));
 
 describe('LocalAIStep', () => {
@@ -88,15 +98,23 @@ describe('LocalAIStep', () => {
   });
 
   it('shows cloud fallback UI when device is below RAM floor', async () => {
-    const { ensureRecommendedLocalAiPresetIfNeeded } =
-      await import('../../../../utils/localAiBootstrap');
-    vi.mocked(ensureRecommendedLocalAiPresetIfNeeded).mockResolvedValue({
-      presets: { recommend_disabled: true } as never,
-      recommendedTier: 'ram_2_4gb',
-      selectedTier: null,
-      hadSelectedTier: false,
-      appliedTier: null,
-    });
+    const { openhumanLocalAiPresets } = await import('../../../../utils/tauriCommands');
+    vi.mocked(openhumanLocalAiPresets).mockResolvedValue({
+      recommend_disabled: true,
+      presets: [],
+      recommended_tier: 'ram_2_4gb',
+      current_tier: 'ram_2_4gb',
+      selected_tier: null,
+      device: {
+        total_ram_bytes: 4 * 1024 * 1024 * 1024,
+        cpu_count: 4,
+        cpu_brand: 'test',
+        os_name: 'test',
+        os_version: '1.0',
+        has_gpu: false,
+        gpu_description: null,
+      },
+    } as never);
 
     const onNext = vi.fn();
     renderWithProviders(<LocalAIStep onNext={onNext} />);
@@ -109,15 +127,25 @@ describe('LocalAIStep', () => {
   });
 
   it('allows force-enabling local AI on low-RAM device', async () => {
-    const { ensureRecommendedLocalAiPresetIfNeeded, bootstrapLocalAiWithRecommendedPreset } =
+    const { openhumanLocalAiPresets } = await import('../../../../utils/tauriCommands');
+    const { bootstrapLocalAiWithRecommendedPreset } =
       await import('../../../../utils/localAiBootstrap');
-    vi.mocked(ensureRecommendedLocalAiPresetIfNeeded).mockResolvedValue({
-      presets: { recommend_disabled: true } as never,
-      recommendedTier: 'ram_2_4gb',
-      selectedTier: null,
-      hadSelectedTier: false,
-      appliedTier: null,
-    });
+    vi.mocked(openhumanLocalAiPresets).mockResolvedValue({
+      recommend_disabled: true,
+      presets: [],
+      recommended_tier: 'ram_2_4gb',
+      current_tier: 'ram_2_4gb',
+      selected_tier: null,
+      device: {
+        total_ram_bytes: 4 * 1024 * 1024 * 1024,
+        cpu_count: 4,
+        cpu_brand: 'test',
+        os_name: 'test',
+        os_version: '1.0',
+        has_gpu: false,
+        gpu_description: null,
+      },
+    } as never);
 
     const onNext = vi.fn();
     renderWithProviders(<LocalAIStep onNext={onNext} />);

@@ -281,7 +281,7 @@ fn config_with_recommended_tier_if_unselected(config: &Config, device: &DevicePr
     if selected_tier.is_none()
         && crate::openhuman::local_ai::presets::should_default_to_cloud_fallback(device)
     {
-        tracing::info!(
+        tracing::debug!(
             total_ram_gb = device.total_ram_gb(),
             min_required_gb = crate::openhuman::local_ai::presets::MIN_RAM_GB_FOR_LOCAL_AI,
             "[local_ai] bootstrap: device below RAM floor, defaulting to disabled (cloud fallback)"

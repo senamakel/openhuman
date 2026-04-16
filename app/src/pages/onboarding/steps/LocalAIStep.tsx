@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  bootstrapLocalAiWithRecommendedPreset,
-  ensureRecommendedLocalAiPresetIfNeeded,
-} from '../../../utils/localAiBootstrap';
+import { bootstrapLocalAiWithRecommendedPreset } from '../../../utils/localAiBootstrap';
+import { openhumanLocalAiPresets } from '../../../utils/tauriCommands';
 import OnboardingNextButton from '../components/OnboardingNextButton';
 
 /* ---------- component ---------- */
@@ -20,10 +18,12 @@ const LocalAIStep = ({ onNext, onBack: _onBack, onDownloadError }: LocalAIStepPr
 
   useEffect(() => {
     let cancelled = false;
-    ensureRecommendedLocalAiPresetIfNeeded('[LocalAIStep:probe]')
-      .then(result => {
+    // Read-only probe: never apply/persist a preset from the mount effect.
+    // Preset application lives in handleConsent via bootstrapLocalAiWithRecommendedPreset.
+    openhumanLocalAiPresets()
+      .then(presets => {
         if (!cancelled) {
-          setRecommendDisabled(result.presets.recommend_disabled ?? false);
+          setRecommendDisabled(presets.recommend_disabled ?? false);
         }
       })
       .catch(() => {

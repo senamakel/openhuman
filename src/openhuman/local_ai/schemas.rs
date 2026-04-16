@@ -437,7 +437,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output(
                 "presets",
-                "Presets, recommended tier, current tier.",
+                "Object containing: presets (array of ModelPreset), recommended_tier (string), \
+                 current_tier (string), selected_tier (string | null), device (DeviceProfile), \
+                 recommend_disabled (boolean — true when the device is below the RAM floor and \
+                 cloud fallback is the recommended default), local_ai_enabled (boolean — mirrors \
+                 config.local_ai.enabled so the UI can render the active state when disabled).",
             )],
         },
         "local_ai_apply_preset" => ControllerSchema {

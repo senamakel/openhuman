@@ -70,24 +70,15 @@ export const ensureRecommendedLocalAiPresetIfNeeded = async (
     return { presets, recommendedTier, selectedTier, hadSelectedTier: true, appliedTier: null };
   }
 
-  // Device below RAM floor — skip local AI setup and fall back to cloud.
-  if (presets.recommend_disabled) {
-    console.debug(
-      `${logPrefix} device below RAM floor, defaulting to cloud fallback (disabled)`,
-      JSON.stringify({ recommendedTier, device: presets.device })
-    );
-    return {
-      presets,
-      recommendedTier,
-      selectedTier: null,
-      hadSelectedTier: false,
-      appliedTier: null,
-    };
-  }
-
+  // No selected tier yet: persist the recommended tier so the Rust-side
+  // `config_with_recommended_tier_if_unselected()` honors the user's
+  // opt-in instead of defaulting a low-RAM device back to disabled.
+  // The mount-time probe in LocalAIStep uses `openhumanLocalAiPresets()`
+  // directly, so this apply only runs when the user has explicitly
+  // chosen to proceed with local AI (consent flow).
   console.debug(
     `${logPrefix} applying recommended local AI preset`,
-    JSON.stringify({ recommendedTier })
+    JSON.stringify({ recommendedTier, recommendDisabled: presets.recommend_disabled ?? false })
   );
   await retryLocalAiCommand(
     'apply recommended local AI preset',
@@ -98,8 +89,8 @@ export const ensureRecommendedLocalAiPresetIfNeeded = async (
   return {
     presets: { ...presets, current_tier: recommendedTier, selected_tier: recommendedTier },
     recommendedTier,
-    selectedTier: null,
-    hadSelectedTier: false,
+    selectedTier: recommendedTier,
+    hadSelectedTier: true,
     appliedTier: recommendedTier,
   };
 };

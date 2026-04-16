@@ -719,6 +719,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
 
   const isSidebar = variant === 'sidebar';
 
+  return (
     <div
       className={
         isSidebar

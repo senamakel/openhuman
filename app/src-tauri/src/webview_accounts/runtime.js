@@ -1,8 +1,7 @@
 // OpenHuman webview-accounts recipe runtime.
 // Injected via WebviewBuilder.initialization_script BEFORE page JS runs.
-// Exposes a small `window.__openhumanRecipe` API that per-provider recipes
-// use to scrape DOM state, intercept WebSocket traffic, and drive a
-// ghost-text autocomplete overlay on the provider's message composer.
+// Exposes a small `window.__openhumanRecipe` API per-provider recipes
+// use to scrape DOM state and intercept WebSocket traffic.
 //
 // Runs in the loaded service's origin (e.g. https://web.whatsapp.com).
 // IPC back to Rust uses Tauri's `window.__TAURI_INTERNALS__.invoke`,
@@ -11,21 +10,15 @@
 //
 // Event kinds emitted to Rust via `webview_recipe_event`:
 //   log              { level, msg }
-//   notify           { title, options }
 //   ingest           { messages, unread?, snapshotKey? }      (recipe-driven)
 //   ws_message       { direction:'in'|'out', kind, data, url, size, ts }
 //   ws_open          { url, ts }
 //   ws_close         { url, code, reason, ts }
-//   composer_attach  { composerId, providerHint? }
-//   composer_input   { composerId, text, cursor, ts }
-//   composer_commit  { composerId, text, source:'tab'|'api', ts }
-//   composer_dismiss { composerId, reason }
 //
-// Rust → page (via `webview.eval(...)`) calls these globals:
-//   __openhumanRecipe.setSuggestion(composerId, text)
-//   __openhumanRecipe.clearSuggestion(composerId)
-//   __openhumanRecipe.commitSuggestion(composerId)
-//   __openhumanRecipe.runScript(jsString)        // escape hatch
+// Browser push notifications are NOT handled here — they're intercepted
+// at the CDP level in `notification_scanner` (feature=cef only).
+// Composer autocomplete has been removed; any ghost-text overlay is now
+// the UI host's responsibility.
 (function () {
   if (window.__openhumanRecipe) return;
 
@@ -60,7 +53,6 @@
 
   let loopFn = null;
   let pollTimer = null;
-  let notifyHandler = null;
 
   function safeRunLoop() {
     if (!loopFn) return;
@@ -69,104 +61,6 @@
     } catch (e) {
       send('log', { level: 'warn', msg: '[recipe] loop threw: ' + (e && e.message ? e.message : String(e)) });
     }
-  }
-
-  // ─── Notification interception ───────────────────────────────────────
-  // Web messengers fire notifications via two paths:
-  //   1. Main-thread `new Notification(title, opts)` — WhatsApp, Telegram,
-  //      Discord, LinkedIn.
-  //   2. Service-worker `registration.showNotification(title, opts)` —
-  //      Gmail, Slack, Meet and anything using the Push API.
-  //
-  // We intercept both and hand the payload to Rust via `send('notify', …)`.
-  // The original calls still run so the page's own `onclick` / permission
-  // state behaves normally; Rust is responsible for emitting the OS-native
-  // OpenHuman notification. We deliberately pretend permission is granted
-  // so providers don't suppress their own notify() calls.
-  function serializeNotifyOptions(options) {
-    // Lift only the fields we actually care about — `data` can hold
-    // arbitrary JSON (Slack ships the whole thread payload) and the
-    // Tauri IPC channel stringifies everything we send, so cap it.
-    const o = options || {};
-    return {
-      body: typeof o.body === 'string' ? o.body : null,
-      icon: typeof o.icon === 'string' ? o.icon : null,
-      image: typeof o.image === 'string' ? o.image : null,
-      badge: typeof o.badge === 'string' ? o.badge : null,
-      tag: typeof o.tag === 'string' ? o.tag : null,
-      silent: o.silent === true,
-      renotify: o.renotify === true,
-      lang: typeof o.lang === 'string' ? o.lang : null,
-    };
-  }
-
-  function emitNotify(source, title, options) {
-    try {
-      if (notifyHandler) {
-        notifyHandler({ source: source, title: title, options: options || {} });
-      }
-      send('notify', {
-        source: source,
-        title: typeof title === 'string' ? title : String(title == null ? '' : title),
-        options: serializeNotifyOptions(options),
-      });
-    } catch (_) {}
-  }
-
-  // 1. `new Notification(...)`.
-  try {
-    const NativeNotification = window.Notification;
-    if (NativeNotification && !NativeNotification.__openhumanPatched) {
-      function PatchedNotification(title, options) {
-        emitNotify('window', title, options);
-        return new NativeNotification(title, options);
-      }
-      PatchedNotification.prototype = NativeNotification.prototype;
-      // Lie about permission so sites that gate their notification calls
-      // on `Notification.permission === 'granted'` actually fire — we're
-      // going to render the OS notification from Rust either way.
-      try {
-        Object.defineProperty(PatchedNotification, 'permission', {
-          get: function () { return 'granted'; },
-        });
-      } catch (_) {
-        PatchedNotification.permission = 'granted';
-      }
-      PatchedNotification.requestPermission = function (cb) {
-        try { if (typeof cb === 'function') cb('granted'); } catch (_) {}
-        return Promise.resolve('granted');
-      };
-      PatchedNotification.__openhumanPatched = true;
-      window.Notification = PatchedNotification;
-    }
-  } catch (_) {
-    // Notification API not available — fine
-  }
-
-  // 2. `ServiceWorkerRegistration.prototype.showNotification(...)` — covers
-  // page-initiated calls. Notifications fired from inside the service
-  // worker's own scope (the Push API `push` event) don't hit this patch
-  // because the SW runs in a different realm; catching those requires
-  // script injection into the SW itself, which wry/CEF don't expose.
-  try {
-    if (
-      window.ServiceWorkerRegistration &&
-      window.ServiceWorkerRegistration.prototype &&
-      !window.ServiceWorkerRegistration.prototype.__openhumanPatched
-    ) {
-      const proto = window.ServiceWorkerRegistration.prototype;
-      const native = proto.showNotification;
-      if (typeof native === 'function') {
-        proto.showNotification = function (title, options) {
-          emitNotify('sw', title, options);
-          try { return native.call(this, title, options); }
-          catch (e) { return Promise.reject(e); }
-        };
-        proto.__openhumanPatched = true;
-      }
-    }
-  } catch (_) {
-    // Service worker API absent — fine
   }
 
   // ─── WebSocket interception ──────────────────────────────────────────
@@ -273,229 +167,6 @@
     // WebSocket missing — fine, nothing to patch.
   }
 
-  // ─── Composer / ghost-text autocomplete ───────────────────────────────
-  // Recipes call `api.attachComposer(element, opts)` to wire the chat
-  // input box. We:
-  //   - debounce input events and emit `composer_input` to Rust
-  //   - render a grey suggestion span at the caret (contenteditable) or
-  //     overlay (input/textarea) when Rust calls setSuggestion()
-  //   - on Tab (or `opts.suggestionKey`), insert the suggestion as if the
-  //     user had typed it, dispatching the platform's expected events so
-  //     the host framework's reactivity sees the change
-  const composers = Object.create(null);
-
-  const GHOST_STYLE = 'pointer-events:none;user-select:none;color:rgba(120,120,120,0.65);' +
-                      'white-space:pre-wrap;font:inherit;letter-spacing:inherit;';
-
-  function getComposerText(el) {
-    if (!el) return '';
-    if (el.isContentEditable) return el.innerText || '';
-    if ('value' in el) return el.value || '';
-    return el.textContent || '';
-  }
-
-  function getComposerCursor(el) {
-    if (!el) return 0;
-    if ('selectionStart' in el && el.selectionStart != null) return el.selectionStart;
-    try {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount) {
-        const range = sel.getRangeAt(0);
-        const pre = range.cloneRange();
-        pre.selectNodeContents(el);
-        pre.setEnd(range.endContainer, range.endOffset);
-        return pre.toString().length;
-      }
-    } catch (_) {}
-    return getComposerText(el).length;
-  }
-
-  function detachGhost(state) {
-    if (state.ghostNode && state.ghostNode.parentNode) {
-      state.ghostNode.parentNode.removeChild(state.ghostNode);
-    }
-    state.ghostNode = null;
-  }
-
-  function renderGhostInline(state) {
-    detachGhost(state);
-    if (!state.suggestion) return;
-    const el = state.el;
-    const ghost = document.createElement('span');
-    ghost.setAttribute('data-openhuman-ghost', state.composerId);
-    ghost.setAttribute('contenteditable', 'false');
-    ghost.style.cssText = GHOST_STYLE;
-    ghost.textContent = state.suggestion;
-    state.ghostNode = ghost;
-
-    if (el.isContentEditable) {
-      // Append at the end of the editable surface. Most chat composers have
-      // a single contenteditable line/paragraph, so end-append is a sane
-      // default. Recipes can override by passing opts.placeGhost(el, ghost).
-      try {
-        if (typeof state.placeGhost === 'function') {
-          state.placeGhost(el, ghost);
-        } else {
-          el.appendChild(ghost);
-        }
-      } catch (_) {}
-    } else {
-      // For input/textarea we can't inject a child; mount an overlay sibling.
-      try {
-        if (!state.overlay) {
-          const overlay = document.createElement('div');
-          overlay.setAttribute('data-openhuman-ghost-overlay', state.composerId);
-          overlay.style.cssText = 'position:absolute;pointer-events:none;z-index:9999;';
-          state.overlay = overlay;
-          // Position over the input.
-          const rect = el.getBoundingClientRect();
-          overlay.style.left = rect.left + window.scrollX + 'px';
-          overlay.style.top = rect.top + window.scrollY + 'px';
-          overlay.style.width = rect.width + 'px';
-          overlay.style.height = rect.height + 'px';
-          overlay.style.padding = window.getComputedStyle(el).padding;
-          overlay.style.font = window.getComputedStyle(el).font;
-          document.body.appendChild(overlay);
-        }
-        // Render typed text invisibly + ghost suffix.
-        state.overlay.textContent = '';
-        const filler = document.createElement('span');
-        filler.style.cssText = 'visibility:hidden;white-space:pre-wrap;';
-        filler.textContent = getComposerText(el);
-        state.overlay.appendChild(filler);
-        state.overlay.appendChild(ghost);
-      } catch (_) {}
-    }
-  }
-
-  function clearSuggestionState(state, reason) {
-    if (!state.suggestion) return;
-    state.suggestion = '';
-    detachGhost(state);
-    if (state.overlay && state.overlay.parentNode) {
-      state.overlay.parentNode.removeChild(state.overlay);
-      state.overlay = null;
-    }
-    if (reason) send('composer_dismiss', { composerId: state.composerId, reason: reason });
-  }
-
-  function commitSuggestion(state, source) {
-    if (!state.suggestion) return false;
-    const text = state.suggestion;
-    clearSuggestionState(state, null);
-    const el = state.el;
-    try {
-      el.focus();
-      if (el.isContentEditable) {
-        // execCommand is deprecated but still the most reliable way to
-        // insert text into a contenteditable composer in a way that the
-        // host framework (React/Vue/Lit) sees as a real user edit.
-        const ok = document.execCommand && document.execCommand('insertText', false, text);
-        if (!ok) {
-          const sel = window.getSelection();
-          if (sel && sel.rangeCount) {
-            const r = sel.getRangeAt(0);
-            r.deleteContents();
-            r.insertNode(document.createTextNode(text));
-            r.collapse(false);
-          } else {
-            el.appendChild(document.createTextNode(text));
-          }
-          el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
-        }
-      } else if ('value' in el) {
-        const start = el.selectionStart != null ? el.selectionStart : el.value.length;
-        const end = el.selectionEnd != null ? el.selectionEnd : start;
-        el.value = el.value.slice(0, start) + text + el.value.slice(end);
-        const caret = start + text.length;
-        try { el.setSelectionRange(caret, caret); } catch (_) {}
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
-      }
-    } catch (e) {
-      send('log', { level: 'warn', msg: '[composer] commit failed: ' + (e && e.message ? e.message : String(e)) });
-    }
-    send('composer_commit', { composerId: state.composerId, text: text, source: source || 'api' });
-    return true;
-  }
-
-  function attachComposer(el, opts) {
-    if (!el) {
-      send('log', { level: 'warn', msg: '[composer] attachComposer called with null element' });
-      return null;
-    }
-    opts = opts || {};
-    const composerId = opts.id || ('composer-' + Math.random().toString(36).slice(2, 10));
-    const debounceMs = typeof opts.debounceMs === 'number' ? opts.debounceMs : 200;
-    const suggestionKey = opts.suggestionKey || 'Tab';
-
-    if (composers[composerId]) {
-      // Re-attach: tear down old listeners first.
-      try { composers[composerId].detach(); } catch (_) {}
-    }
-
-    const state = {
-      composerId: composerId,
-      el: el,
-      suggestion: '',
-      ghostNode: null,
-      overlay: null,
-      placeGhost: typeof opts.placeGhost === 'function' ? opts.placeGhost : null,
-      inputTimer: null,
-    };
-
-    function onInput() {
-      // Any user keystroke invalidates the current suggestion.
-      clearSuggestionState(state, 'user-input');
-      clearTimeout(state.inputTimer);
-      state.inputTimer = setTimeout(function () {
-        send('composer_input', {
-          composerId: composerId,
-          text: getComposerText(el),
-          cursor: getComposerCursor(el),
-        });
-      }, debounceMs);
-    }
-
-    function onKeyDown(ev) {
-      if (!state.suggestion) return;
-      if (ev.key === suggestionKey) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        commitSuggestion(state, 'tab');
-      } else if (ev.key === 'Escape') {
-        clearSuggestionState(state, 'escape');
-      }
-    }
-
-    function onBlur() { clearSuggestionState(state, 'blur'); }
-
-    el.addEventListener('input', onInput);
-    el.addEventListener('keydown', onKeyDown, true);
-    el.addEventListener('blur', onBlur);
-
-    const handle = {
-      composerId: composerId,
-      element: el,
-      setSuggestion: function (text) {
-        state.suggestion = text == null ? '' : String(text);
-        renderGhostInline(state);
-      },
-      clear: function () { clearSuggestionState(state, 'api'); },
-      commit: function () { return commitSuggestion(state, 'api'); },
-      detach: function () {
-        clearSuggestionState(state, 'detach');
-        clearTimeout(state.inputTimer);
-        try { el.removeEventListener('input', onInput); } catch (_) {}
-        try { el.removeEventListener('keydown', onKeyDown, true); } catch (_) {}
-        try { el.removeEventListener('blur', onBlur); } catch (_) {}
-        delete composers[composerId];
-      },
-    };
-    composers[composerId] = handle;
-    send('composer_attach', { composerId: composerId, providerHint: opts.providerHint || null });
-    return handle;
-  }
-
   // ─── Public API ───────────────────────────────────────────────────────
   const api = {
     loop(fn) {
@@ -512,9 +183,6 @@
     },
     log(level, msg) {
       send('log', { level: level || 'info', msg: String(msg) });
-    },
-    onNotify(fn) {
-      notifyHandler = fn;
     },
     context() {
       return Object.assign({}, ctx);
@@ -535,29 +203,6 @@
     emitWebSocket(frame) {
       if (!frame) return;
       send('ws_message', Object.assign({ direction: 'in', kind: 'text', ts: Date.now() }, frame));
-    },
-
-    // Composer
-    attachComposer: attachComposer,
-    setSuggestion(composerId, text) {
-      const h = composers[composerId];
-      if (!h) return false;
-      h.setSuggestion(text);
-      return true;
-    },
-    clearSuggestion(composerId) {
-      const h = composers[composerId];
-      if (!h) return false;
-      h.clear();
-      return true;
-    },
-    commitSuggestion(composerId) {
-      const h = composers[composerId];
-      if (!h) return false;
-      return h.commit();
-    },
-    listComposers() {
-      return Object.keys(composers);
     },
 
     // Escape hatch — used by Rust when it wants to run arbitrary recipe

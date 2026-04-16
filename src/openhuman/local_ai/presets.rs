@@ -33,6 +33,43 @@ pub enum ModelTier {
 /// selection is re-enabled post-MVP.
 pub const MVP_MAX_TIER: ModelTier = ModelTier::Ram2To4Gb;
 
+/// Minimum host RAM (in whole GB) required to run the local AI stack.
+///
+/// Even the smallest bundled chat model (`gemma3:1b-it-qat`, ~1 GB on disk)
+/// competes with the OS, the browser, and the app itself for memory. Below
+/// this floor we disable local inference entirely and route summarization /
+/// cheap tasks through the cloud summarizer model instead — it's fast,
+/// inexpensive, and avoids OOMs on low-RAM machines.
+pub const MIN_RAM_GB_FOR_LOCAL_AI: u64 = 8;
+
+/// Returns `true` when the device has enough RAM to run the local AI stack.
+pub fn device_supports_local_ai(device: &DeviceProfile) -> bool {
+    device.total_ram_gb() >= MIN_RAM_GB_FOR_LOCAL_AI
+}
+
+/// Disable `config.local_ai.enabled` in-memory when the host doesn't meet
+/// the minimum RAM requirement. Returns `true` when the gate fired (i.e.
+/// local AI was enabled but is now forced off by hardware).
+///
+/// This is a runtime-only override — callers must not persist the mutated
+/// config back to disk. Placing the gate at config-load time means every
+/// downstream site that checks `config.local_ai.enabled` transparently
+/// sees `false` and falls back to the cloud summarizer, without having to
+/// thread a device profile through every call site.
+pub fn enforce_hardware_gates(config: &mut LocalAiConfig, device: &DeviceProfile) -> bool {
+    if config.enabled && !device_supports_local_ai(device) {
+        tracing::warn!(
+            total_ram_gb = device.total_ram_gb(),
+            min_required_gb = MIN_RAM_GB_FOR_LOCAL_AI,
+            "[local_ai] disabling local AI on low-RAM host; falling back to cloud summarizer"
+        );
+        config.enabled = false;
+        true
+    } else {
+        false
+    }
+}
+
 impl ModelTier {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -379,6 +416,45 @@ mod tests {
         let config = LocalAiConfig::default();
         assert_eq!(current_tier_from_config(&config), ModelTier::Ram8To16Gb);
         assert_eq!(vision_mode_for_config(&config), VisionMode::Bundled);
+    }
+
+    #[test]
+    fn device_supports_local_ai_honors_min_ram_floor() {
+        assert!(!device_supports_local_ai(&test_device(1)));
+        assert!(!device_supports_local_ai(&test_device(4)));
+        assert!(!device_supports_local_ai(&test_device(7)));
+        assert!(device_supports_local_ai(&test_device(8)));
+        assert!(device_supports_local_ai(&test_device(16)));
+        assert!(device_supports_local_ai(&test_device(64)));
+    }
+
+    #[test]
+    fn enforce_hardware_gates_disables_when_ram_below_floor() {
+        let mut config = LocalAiConfig::default();
+        assert!(config.enabled, "default config expected to be enabled");
+        let fired = enforce_hardware_gates(&mut config, &test_device(4));
+        assert!(fired, "gate must fire on a low-RAM host");
+        assert!(!config.enabled, "local_ai.enabled must flip to false");
+    }
+
+    #[test]
+    fn enforce_hardware_gates_is_noop_when_ram_sufficient() {
+        let mut config = LocalAiConfig::default();
+        let fired = enforce_hardware_gates(&mut config, &test_device(16));
+        assert!(!fired, "gate must not fire on a high-RAM host");
+        assert!(config.enabled, "local_ai.enabled must remain true");
+    }
+
+    #[test]
+    fn enforce_hardware_gates_is_noop_when_already_disabled() {
+        let mut config = LocalAiConfig::default();
+        config.enabled = false;
+        let fired = enforce_hardware_gates(&mut config, &test_device(2));
+        assert!(
+            !fired,
+            "gate must not report firing when user already disabled local_ai"
+        );
+        assert!(!config.enabled);
     }
 
     #[test]

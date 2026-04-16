@@ -184,6 +184,8 @@ export interface PresetsResponse {
   current_tier: string;
   selected_tier?: string | null;
   device: DeviceProfileResult;
+  /** When true the device is below the RAM floor and cloud fallback is the recommended default. */
+  recommend_disabled?: boolean;
 }
 
 export interface ApplyPresetResult {

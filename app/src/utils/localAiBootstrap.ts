@@ -70,6 +70,21 @@ export const ensureRecommendedLocalAiPresetIfNeeded = async (
     return { presets, recommendedTier, selectedTier, hadSelectedTier: true, appliedTier: null };
   }
 
+  // Device below RAM floor — skip local AI setup and fall back to cloud.
+  if (presets.recommend_disabled) {
+    console.debug(
+      `${logPrefix} device below RAM floor, defaulting to cloud fallback (disabled)`,
+      JSON.stringify({ recommendedTier, device: presets.device })
+    );
+    return {
+      presets,
+      recommendedTier,
+      selectedTier: null,
+      hadSelectedTier: false,
+      appliedTier: null,
+    };
+  }
+
   console.debug(
     `${logPrefix} applying recommended local AI preset`,
     JSON.stringify({ recommendedTier })

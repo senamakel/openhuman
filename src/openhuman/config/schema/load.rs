@@ -1071,19 +1071,6 @@ impl Config {
         }
 
         set_runtime_proxy_config(self.proxy.clone());
-
-        // Hardware-gate local AI: on hosts with less than
-        // `MIN_RAM_GB_FOR_LOCAL_AI` total RAM, force `local_ai.enabled = false`
-        // in-memory so every downstream `config.local_ai.enabled` check routes
-        // summarization to the cheap cloud summarizer instead. Runtime-only —
-        // the mutation is never persisted back to disk.
-        if self.local_ai.enabled {
-            let device = crate::openhuman::local_ai::device::detect_device_profile();
-            crate::openhuman::local_ai::presets::enforce_hardware_gates(
-                &mut self.local_ai,
-                &device,
-            );
-        }
     }
 
     pub async fn save(&self) -> Result<()> {

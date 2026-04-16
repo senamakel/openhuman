@@ -759,12 +759,15 @@ fn handle_local_ai_presets(_params: Map<String, Value>) -> ControllerFuture {
             preset_count = presets.len(),
             "[local_ai] presets: returning"
         );
+        let recommend_disabled =
+            crate::openhuman::local_ai::presets::should_default_to_cloud_fallback(&device);
         let value = serde_json::json!({
             "presets": presets,
             "recommended_tier": recommended,
             "current_tier": current,
             "selected_tier": selected_tier,
             "device": device,
+            "recommend_disabled": recommend_disabled,
         });
         Ok(value)
     })

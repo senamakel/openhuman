@@ -89,8 +89,8 @@ export const ensureRecommendedLocalAiPresetIfNeeded = async (
   return {
     presets: { ...presets, current_tier: recommendedTier, selected_tier: recommendedTier },
     recommendedTier,
-    selectedTier: recommendedTier,
-    hadSelectedTier: true,
+    selectedTier: null,
+    hadSelectedTier: false,
     appliedTier: recommendedTier,
   };
 };

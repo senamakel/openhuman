@@ -196,6 +196,29 @@ export const persistReaction = createAsyncThunk(
   }
 );
 
+export const deleteThread = createAsyncThunk(
+  'thread/deleteThread',
+  async (threadId: string, { dispatch, getState, rejectWithValue }) => {
+    try {
+      await threadApi.deleteThread(threadId);
+      const state = getState() as { thread: ThreadState };
+      if (state.thread.selectedThreadId === threadId) {
+        const remaining = state.thread.threads.filter(t => t.id !== threadId);
+        if (remaining.length > 0) {
+          dispatch(setSelectedThread(remaining[0].id));
+          void dispatch(loadThreadMessages(remaining[0].id));
+        } else {
+          dispatch(clearSelectedThread());
+        }
+      }
+      await dispatch(loadThreads()).unwrap();
+      return { threadId };
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to delete thread');
+    }
+  }
+);
+
 export const purgeThreads = createAsyncThunk(
   'thread/purgeThreads',
   async (_, { dispatch, rejectWithValue }) => {
@@ -341,6 +364,17 @@ const threadSlice = createSlice({
       })
       .addCase(persistReaction.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message, true);
+      })
+      .addCase(deleteThread.pending, state => {
+        state.deleteStatus = 'loading';
+      })
+      .addCase(deleteThread.fulfilled, (state, action) => {
+        state.deleteStatus = 'success';
+        delete state.messagesByThreadId[action.payload.threadId];
+        delete state.lastViewedAt[action.payload.threadId];
+      })
+      .addCase(deleteThread.rejected, state => {
+        state.deleteStatus = 'error';
       })
       .addCase(purgeThreads.pending, state => {
         state.purgeStatus = 'loading';

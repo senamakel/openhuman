@@ -826,6 +826,16 @@ fn build_session_agent(
     Agent::from_config_for_agent(&effective, target_agent_id)
         .map(|mut agent| {
             agent.set_event_context(event_session_id_for(client_id, thread_id), "web_channel");
+            // Scope session transcripts per thread so each conversation
+            // gets its own transcript file instead of sharing one by
+            // agent type. Without this, new threads load the latest
+            // transcript for the agent name and inherit prior messages.
+            let short_thread = if thread_id.len() > 12 {
+                &thread_id[..12]
+            } else {
+                thread_id
+            };
+            agent.set_agent_definition_name(format!("{target_agent_id}_{short_thread}"));
             agent
         })
         .map_err(|e| e.to_string())

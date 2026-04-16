@@ -9,22 +9,24 @@ vi.mock('../../../../utils/localAiBootstrap', () => ({
 }));
 
 vi.mock('../../../../utils/tauriCommands', () => ({
-  openhumanLocalAiPresets: vi.fn().mockResolvedValue({
-    recommend_disabled: false,
-    presets: [],
-    recommended_tier: 'ram_2_4gb',
-    current_tier: 'ram_2_4gb',
-    selected_tier: null,
-    device: {
-      total_ram_bytes: 16 * 1024 * 1024 * 1024,
-      cpu_count: 8,
-      cpu_brand: 'test',
-      os_name: 'test',
-      os_version: '1.0',
-      has_gpu: false,
-      gpu_description: null,
-    },
-  } as never),
+  openhumanLocalAiPresets: vi
+    .fn()
+    .mockResolvedValue({
+      recommend_disabled: false,
+      presets: [],
+      recommended_tier: 'ram_2_4gb',
+      current_tier: 'ram_2_4gb',
+      selected_tier: null,
+      device: {
+        total_ram_bytes: 16 * 1024 * 1024 * 1024,
+        cpu_count: 8,
+        cpu_brand: 'test',
+        os_name: 'test',
+        os_version: '1.0',
+        has_gpu: false,
+        gpu_description: null,
+      },
+    } as never),
 }));
 
 describe('LocalAIStep', () => {

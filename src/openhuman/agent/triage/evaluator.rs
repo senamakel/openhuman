@@ -308,14 +308,35 @@ pub async fn run_triage_with_resolved(
     })
 }
 
-/// Pull the inline prompt body out of the definition. Built-ins always
-/// use [`PromptSource::Inline`] — the `BUILTINS` loader in
-/// `agent/agents/mod.rs` injects the rendered `prompt.md` at startup.
-/// Returning an option here (rather than panicking) lets the caller
-/// surface a clean error to downstream logging.
+/// Pull the prompt body out of the definition.
+///
+/// Built-ins use [`PromptSource::Dynamic`] (function-driven) and
+/// custom TOML definitions use `Inline` / `File`; both shapes are
+/// handled here. For `Dynamic`, the builder is invoked with a minimal
+/// [`crate::openhuman::agent::harness::definition::PromptContext`]
+/// since the triage classifier does not need tool lists or memory
+/// context. Returning an option here (rather than panicking) lets the
+/// caller surface a clean error to downstream logging.
 fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
     match &def.system_prompt {
         PromptSource::Inline(body) if !body.is_empty() => Some(body.clone()),
+        PromptSource::Dynamic(build) => {
+            let empty_tools: Vec<String> = Vec::new();
+            let empty_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> =
+                Vec::new();
+            let ctx = crate::openhuman::agent::harness::definition::PromptContext {
+                agent_id: &def.id,
+                workspace_dir: std::path::Path::new("."),
+                parent_model: "",
+                available_tools: &empty_tools,
+                memory_context: None,
+                connected_integrations: &empty_integrations,
+            };
+            match build(&ctx) {
+                Ok(body) if !body.is_empty() => Some(body),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -418,7 +439,7 @@ mod tests {
             .find(|b| b.id == TRIGGER_TRIAGE_AGENT_ID)
             .expect("trigger_triage built-in must be registered");
         let mut def: AgentDefinition = toml::from_str(builtin.toml).expect("TOML must parse");
-        def.system_prompt = PromptSource::Inline(builtin.prompt.to_string());
+        def.system_prompt = PromptSource::Dynamic(builtin.prompt_fn);
         let body = extract_inline_prompt(&def).expect("body should be present");
         assert!(
             body.to_lowercase().contains("trigger"),

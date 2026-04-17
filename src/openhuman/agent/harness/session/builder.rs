@@ -610,6 +610,27 @@ impl Agent {
                 // (custom workspace overrides) read from disk.
                 let body = match &def.system_prompt {
                     PromptSource::Inline(text) => text.clone(),
+                    PromptSource::Dynamic(build) => {
+                        let empty_tools: Vec<String> = Vec::new();
+                        let empty_integrations: Vec<
+                            crate::openhuman::context::prompt::ConnectedIntegration,
+                        > = Vec::new();
+                        let ctx = crate::openhuman::agent::harness::definition::PromptContext {
+                            agent_id: &def.id,
+                            workspace_dir: &config.workspace_dir,
+                            parent_model: "",
+                            available_tools: &empty_tools,
+                            memory_context: None,
+                            connected_integrations: &empty_integrations,
+                        };
+                        build(&ctx).unwrap_or_else(|e| {
+                            log::warn!(
+                                "[agent::builder] dynamic prompt for `{}` failed: {e} — using empty body",
+                                def.id
+                            );
+                            String::new()
+                        })
+                    }
                     PromptSource::File { path } => {
                         let workspace_path = config
                             .workspace_dir

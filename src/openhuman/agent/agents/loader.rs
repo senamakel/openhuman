@@ -6,12 +6,15 @@
 //! * `agent.toml`  — id, when_to_use, model, tool allowlist, sandbox,
 //!   iteration cap, and the `omit_*` flags. Parsed
 //!   directly into [`AgentDefinition`] via serde.
-//! * `prompt.md`   — the sub-agent's system prompt body.
+//! * `prompt.rs`   — a Rust module exporting `pub fn build(ctx: &PromptContext)
+//!   -> anyhow::Result<String>` that returns the sub-agent's system
+//!   prompt body. Dynamic: may branch on available tools, user profile,
+//!   connected integrations, model hint, etc.
 //!
 //! Adding a new built-in agent = creating a new subfolder with those two
-//! files and appending one entry to [`BUILTINS`] below. There are no
-//! match arms to update, no enum variants to add, and no `include_str!`
-//! paths scattered across the harness.
+//! files, declaring the module, and appending one entry to [`BUILTINS`]
+//! below. There are no match arms to update, no enum variants to add,
+//! and no `include_str!` paths scattered across the harness.
 //!
 //! ## Flow
 //!
@@ -32,18 +35,22 @@
 //! collision.
 
 use crate::openhuman::agent::harness::definition::{
-    AgentDefinition, DefinitionSource, PromptSource,
+    AgentDefinition, DefinitionSource, PromptBuilder, PromptSource,
 };
 use anyhow::{Context, Result};
 
-/// A single built-in agent: its id plus the two files that define it.
+/// A single built-in agent: its id plus the metadata TOML and a
+/// function-driven prompt builder.
 ///
 /// Kept as a static slice (rather than e.g. `include_dir!`) so the
 /// compile-time file-existence check is explicit and grep-friendly.
 pub struct BuiltinAgent {
     pub id: &'static str,
     pub toml: &'static str,
-    pub prompt: &'static str,
+    /// Prompt builder. Invoked at spawn time by the sub-agent runner
+    /// with a populated [`crate::openhuman::agent::harness::definition::PromptContext`]
+    /// so the returned body can branch on runtime state.
+    pub prompt_fn: PromptBuilder,
 }
 
 /// Every built-in agent, in stable display order.
@@ -53,67 +60,67 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     BuiltinAgent {
         id: "orchestrator",
         toml: include_str!("orchestrator/agent.toml"),
-        prompt: include_str!("orchestrator/prompt.md"),
+        prompt_fn: super::orchestrator::prompt::build,
     },
     BuiltinAgent {
         id: "planner",
         toml: include_str!("planner/agent.toml"),
-        prompt: include_str!("planner/prompt.md"),
+        prompt_fn: super::planner::prompt::build,
     },
     BuiltinAgent {
         id: "code_executor",
         toml: include_str!("code_executor/agent.toml"),
-        prompt: include_str!("code_executor/prompt.md"),
+        prompt_fn: super::code_executor::prompt::build,
     },
     BuiltinAgent {
         id: "skills_agent",
         toml: include_str!("skills_agent/agent.toml"),
-        prompt: include_str!("skills_agent/prompt.md"),
+        prompt_fn: super::skills_agent::prompt::build,
     },
     BuiltinAgent {
         id: "tool_maker",
         toml: include_str!("tool_maker/agent.toml"),
-        prompt: include_str!("tool_maker/prompt.md"),
+        prompt_fn: super::tool_maker::prompt::build,
     },
     BuiltinAgent {
         id: "researcher",
         toml: include_str!("researcher/agent.toml"),
-        prompt: include_str!("researcher/prompt.md"),
+        prompt_fn: super::researcher::prompt::build,
     },
     BuiltinAgent {
         id: "critic",
         toml: include_str!("critic/agent.toml"),
-        prompt: include_str!("critic/prompt.md"),
+        prompt_fn: super::critic::prompt::build,
     },
     BuiltinAgent {
         id: "archivist",
         toml: include_str!("archivist/agent.toml"),
-        prompt: include_str!("archivist/prompt.md"),
+        prompt_fn: super::archivist::prompt::build,
     },
     BuiltinAgent {
         id: "trigger_triage",
         toml: include_str!("trigger_triage/agent.toml"),
-        prompt: include_str!("trigger_triage/prompt.md"),
+        prompt_fn: super::trigger_triage::prompt::build,
     },
     BuiltinAgent {
         id: "trigger_reactor",
         toml: include_str!("trigger_reactor/agent.toml"),
-        prompt: include_str!("trigger_reactor/prompt.md"),
+        prompt_fn: super::trigger_reactor::prompt::build,
     },
     BuiltinAgent {
         id: "morning_briefing",
         toml: include_str!("morning_briefing/agent.toml"),
-        prompt: include_str!("morning_briefing/prompt.md"),
+        prompt_fn: super::morning_briefing::prompt::build,
     },
     BuiltinAgent {
         id: "welcome",
         toml: include_str!("welcome/agent.toml"),
-        prompt: include_str!("welcome/prompt.md"),
+        prompt_fn: super::welcome::prompt::build,
     },
     BuiltinAgent {
         id: "summarizer",
         toml: include_str!("summarizer/agent.toml"),
-        prompt: include_str!("summarizer/prompt.md"),
+        prompt_fn: super::summarizer::prompt::build,
     },
 ];
 
@@ -134,8 +141,8 @@ fn parse_builtin(b: &BuiltinAgent) -> Result<AgentDefinition> {
     let mut def: AgentDefinition = toml::from_str(b.toml)
         .with_context(|| format!("parsing built-in agent `{}` TOML", b.id))?;
 
-    // Inject the prompt body and stamp the source.
-    def.system_prompt = PromptSource::Inline(b.prompt.to_string());
+    // Install the function-driven prompt builder and stamp the source.
+    def.system_prompt = PromptSource::Dynamic(b.prompt_fn);
     def.source = DefinitionSource::Builtin;
 
     // Sanity check: file layout id must match declared TOML id. This
@@ -226,13 +233,27 @@ mod tests {
 
     #[test]
     fn every_builtin_has_a_prompt_body() {
+        use crate::openhuman::agent::harness::definition::PromptContext;
+        let empty_tools: Vec<String> = Vec::new();
+        let empty_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> =
+            Vec::new();
+        let ctx = PromptContext {
+            agent_id: "",
+            workspace_dir: std::path::Path::new("."),
+            parent_model: "test",
+            available_tools: &empty_tools,
+            memory_context: None,
+            connected_integrations: &empty_integrations,
+        };
         for def in load_builtins().unwrap() {
             match &def.system_prompt {
-                PromptSource::Inline(body) => {
+                PromptSource::Dynamic(build) => {
+                    let body = build(&PromptContext { agent_id: &def.id, ..ctx })
+                        .unwrap_or_else(|e| panic!("{} prompt build failed: {e}", def.id));
                     assert!(!body.is_empty(), "{} has empty prompt", def.id);
                 }
-                PromptSource::File { .. } => {
-                    panic!("{} should use inline prompt, not File", def.id);
+                PromptSource::Inline(_) | PromptSource::File { .. } => {
+                    panic!("{} should use dynamic prompt builder", def.id);
                 }
             }
         }

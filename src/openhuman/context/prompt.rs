@@ -945,9 +945,9 @@ pub fn render_subagent_system_prompt_with_format(
 ) -> String {
     let mut out = String::new();
 
-    // 1. Archetype role prompt. Works for both `PromptSource::Inline`
-    //    and `PromptSource::File` because the caller preloaded the
-    //    body via `load_prompt_source`.
+    // 1. Archetype role prompt. Works for `PromptSource::Inline`,
+    //    `PromptSource::File`, and `PromptSource::Dynamic` because the
+    //    caller preloaded the body via `load_prompt_source`.
     let trimmed = archetype_body.trim();
     if !trimmed.is_empty() {
         out.push_str(trimmed);

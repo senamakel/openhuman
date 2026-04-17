@@ -514,6 +514,18 @@ fn render_subagent_dump(
     // first, mirroring `subagent_runner::load_prompt_source`.
     let archetype_body = match &definition.system_prompt {
         PromptSource::Inline(body) => body.clone(),
+        PromptSource::Dynamic(build) => {
+            let tool_names: Vec<String> = tools_vec.iter().map(|t| t.name().to_string()).collect();
+            let ctx = crate::openhuman::agent::harness::definition::PromptContext {
+                agent_id: &definition.id,
+                workspace_dir,
+                parent_model: model_name,
+                available_tools: &tool_names,
+                memory_context: None,
+                connected_integrations,
+            };
+            build(&ctx).with_context(|| format!("building dynamic prompt for {}", definition.id))?
+        }
         PromptSource::File { path } => {
             let workspace_path = workspace_dir.join("agent").join("prompts").join(path);
             if workspace_path.is_file() {

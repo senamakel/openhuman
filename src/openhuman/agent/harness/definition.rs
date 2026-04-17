@@ -248,9 +248,40 @@ impl AgentDefinition {
 // Prompt source
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Runtime context passed to [`PromptSource::Dynamic`] builder functions.
+///
+/// Exposes the bits of parent state a prompt may legitimately branch on
+/// (tools, user data, connected integrations, memory). Kept as borrowed
+/// fields so construction at every spawn site is cheap and the function
+/// pointer stays `fn(&PromptContext) -> Result<String>`.
+#[derive(Debug, Clone, Copy)]
+pub struct PromptContext<'a> {
+    /// The agent id the prompt is being built for.
+    pub agent_id: &'a str,
+    /// The parent agent's workspace directory — prompts may read auxiliary
+    /// workspace files (e.g. PROFILE.md) if they want to inline them.
+    pub workspace_dir: &'a std::path::Path,
+    /// Resolved parent model name (post-router) at spawn time. Prompts
+    /// may branch for small vs. reasoning-class models.
+    pub parent_model: &'a str,
+    /// Tool names available to this sub-agent after scope + disallow +
+    /// category filtering. Empty when the runner hasn't yet computed
+    /// allowed tools at the time of prompt load.
+    pub available_tools: &'a [String],
+    /// Archivist-curated MEMORY.md contents if the parent has injected
+    /// memory context, else `None`.
+    pub memory_context: Option<&'a str>,
+    /// Composio integrations the user has connected.
+    pub connected_integrations: &'a [crate::openhuman::context::prompt::ConnectedIntegration],
+}
+
+/// Builder function signature for [`PromptSource::Dynamic`]. Takes a
+/// fully-populated [`PromptContext`] and returns the rendered system
+/// prompt body.
+pub type PromptBuilder = fn(&PromptContext<'_>) -> anyhow::Result<String>;
+
 /// Where the sub-agent's core system prompt comes from.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone)]
 pub enum PromptSource {
     /// Inline prompt string (custom TOML-defined agents).
     Inline(String),
@@ -258,6 +289,62 @@ pub enum PromptSource {
     /// `src/openhuman/agent/prompts/` for built-ins. Resolved by the runner
     /// at spawn time.
     File { path: String },
+    /// Function-driven prompt: the builder is invoked at spawn time with
+    /// a [`PromptContext`] so the returned body can depend on runtime
+    /// state (available tools, user profile, connected skills, etc.).
+    ///
+    /// Only constructed in-process (by built-in agent loaders). Not
+    /// deserializable from TOML — TOML-authored agents must use `inline`
+    /// or `file`.
+    Dynamic(PromptBuilder),
+}
+
+impl std::fmt::Debug for PromptSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PromptSource::Inline(s) => f.debug_tuple("Inline").field(&s).finish(),
+            PromptSource::File { path } => f.debug_struct("File").field("path", path).finish(),
+            PromptSource::Dynamic(_) => f.debug_tuple("Dynamic").field(&"<fn>").finish(),
+        }
+    }
+}
+
+impl Serialize for PromptSource {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(1))?;
+        match self {
+            PromptSource::Inline(s) => map.serialize_entry("inline", s)?,
+            PromptSource::File { path } => {
+                #[derive(Serialize)]
+                struct FileBody<'a> {
+                    path: &'a str,
+                }
+                map.serialize_entry("file", &FileBody { path })?;
+            }
+            // Opaque marker — runtime-only. Round-trips back through
+            // Deserialize would produce an error (Dynamic is unsupported
+            // there) which is intentional: RPC consumers treat Dynamic
+            // sources as "built-in, runtime-generated".
+            PromptSource::Dynamic(_) => map.serialize_entry("dynamic", &serde_json::Value::Null)?,
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for PromptSource {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        enum Shape {
+            Inline(String),
+            File { path: String },
+        }
+        Shape::deserialize(deserializer).map(|s| match s {
+            Shape::Inline(body) => PromptSource::Inline(body),
+            Shape::File { path } => PromptSource::File { path },
+        })
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

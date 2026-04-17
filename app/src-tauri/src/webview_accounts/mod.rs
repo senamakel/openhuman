@@ -290,9 +290,28 @@ pub struct WebviewEvent {
     pub ts: Option<i64>,
 }
 
+/// Reject any `account_id` that isn't strictly `[A-Za-z0-9_-]+`. The ID comes
+/// from IPC (React shell, but also from injected recipe code running inside
+/// third-party origins via `webview_recipe_event`), so treat it as untrusted.
+/// Enforcing this early prevents `../` sequences from escaping the per-account
+/// data directory in `data_directory_for` (which feeds `create_dir_all` and
+/// `remove_dir_all`).
+fn sanitize_account_id(account_id: &str) -> Result<&str, String> {
+    if account_id.is_empty()
+        || !account_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(format!("invalid account_id: {account_id:?}"));
+    }
+    Ok(account_id)
+}
+
 fn label_for(account_id: &str) -> String {
-    // Webview labels must be alphanumeric + `-` / `_`. Account IDs come from
-    // the React side as UUIDs so this is just defensive.
+    // Webview labels must be alphanumeric + `-` / `_`. Callers that reached
+    // here without first going through `sanitize_account_id` still get a
+    // defensively-scrubbed label so invalid characters never reach the
+    // tauri webview-label parser.
     let safe: String = account_id
         .chars()
         .map(|c| {
@@ -307,6 +326,9 @@ fn label_for(account_id: &str) -> String {
 }
 
 fn data_directory_for<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Result<PathBuf, String> {
+    // Guard against path traversal — `account_id` is joined into a filesystem
+    // path that is later passed to `create_dir_all` / `remove_dir_all`.
+    let account_id = sanitize_account_id(account_id)?;
     let base = app
         .path()
         .app_local_data_dir()

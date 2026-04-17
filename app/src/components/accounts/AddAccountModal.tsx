@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { type AccountProvider, type ProviderDescriptor, PROVIDERS } from '../../types/accounts';
 import { ProviderIcon } from './providerIcons';
 
@@ -10,6 +11,18 @@ interface AddAccountModalProps {
 }
 
 const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccountModalProps) => {
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    closeBtnRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const available = connectedProviders
@@ -28,9 +41,10 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-stone-900">Add account</h2>
           <button
+            ref={closeBtnRef}
             onClick={onClose}
             className="rounded p-1 text-stone-500 hover:bg-stone-100"
-            aria-label="close">
+            aria-label="Close">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

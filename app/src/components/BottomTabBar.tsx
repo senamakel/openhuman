@@ -159,7 +159,11 @@ const BottomTabBar = () => {
         className={`pointer-events-none flex justify-center px-4 pb-4 pt-2 transition-transform duration-300 ease-out ${
           collapsed ? 'translate-y-[calc(100%+8px)]' : 'translate-y-0'
         }`}
-        onMouseLeave={() => setRevealed(false)}>
+        onMouseLeave={() => setRevealed(false)}
+        onFocus={() => setRevealed(true)}
+        onBlur={e => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setRevealed(false);
+        }}>
         <nav className="pointer-events-auto inline-flex items-center gap-2 rounded-sm border border-stone-300 bg-stone-200 shadow-soft px-1 py-1">
           {tabs.map(tab => {
             const active = isActive(tab.path);

@@ -37,7 +37,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https: ws: wss: ipc: http://ipc.localhost; img-src 'self' data: blob: https: http:; connect-src 'self' ipc: http://ipc.localhost http: https: ws: wss: data: blob:; frame-src 'self' https: http: data: blob:"
+      "csp": "default-src 'self' 'unsafe-inline' data: blob: https: wss: ipc: http://ipc.localhost; img-src 'self' data: blob: https:; connect-src 'self' ipc: http://ipc.localhost https: wss: data: blob:; frame-src 'self' https: data: blob:"
     },
     "macOSPrivateApi": true
   },

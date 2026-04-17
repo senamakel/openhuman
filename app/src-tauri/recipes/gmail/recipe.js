@@ -20,6 +20,8 @@
     let totalUnread = 0;
 
     rows.forEach(function (row, idx) {
+      const stableId =
+        (row.getAttribute && row.getAttribute('data-legacy-message-id')) || null;
       const fromEl =
         row.querySelector('.yW span[email]') ||
         row.querySelector('.yW .yP') ||
@@ -38,7 +40,7 @@
 
       if (from || subject) {
         messages.push({
-          id: 'gm:' + idx,
+          id: 'gm:' + (stableId || (from + '|' + subject).slice(0, 120) || idx),
           from: from || null,
           body: subject + (snippet ? ' — ' + snippet : ''),
           unread: isUnread ? 1 : 0,

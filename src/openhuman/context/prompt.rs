@@ -7,6 +7,15 @@ use std::path::Path;
 
 const BOOTSTRAP_MAX_CHARS: usize = 20_000;
 
+/// Cache-boundary marker. Emit this literal (wrapped in blank lines) in
+/// a prompt string at the point where static content ends and dynamic
+/// content begins; `extract_cache_boundary` strips the marker on the
+/// way out and returns its byte offset via `RenderedPrompt::cache_boundary`.
+///
+/// Exposed so dynamic builders in `agents/<id>/prompt.rs` can embed the
+/// marker themselves when they compose the final prompt body.
+pub const CACHE_BOUNDARY: &str = CACHE_BOUNDARY_MARKER;
+
 /// Tight per-file budget for user-specific, potentially growing files —
 /// currently `PROFILE.md` (onboarding enrichment output) and `MEMORY.md`
 /// (archivist-curated long-term memory). Caps the prompt footprint so
@@ -802,6 +811,112 @@ impl PromptSection for DateTimeSection {
 /// the cache boundary; dynamic sections (workspace, datetime, runtime) after.
 fn is_dynamic_section(name: &str) -> bool {
     matches!(name, "workspace" | "datetime" | "runtime")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section helpers for function-driven prompts
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Each of the `Section` unit structs above is also available as a free
+// `render_*` function that takes the same `PromptContext` and returns
+// the section body (or an empty string when the section's gate is
+// closed).
+//
+// These exist so `agents/<id>/prompt.rs` builders can assemble their own
+// final system prompt, composing the exact sections they care about in
+// the order they want — no `SystemPromptBuilder` machinery required.
+
+/// Render the `## Project Context` identity block
+/// (`SOUL.md` / `IDENTITY.md` / optionally `HEARTBEAT.md`).
+pub fn render_identity(ctx: &PromptContext<'_>) -> Result<String> {
+    IdentitySection.build(ctx)
+}
+
+/// Render the `PROFILE.md` + `MEMORY.md` user-file injection.
+/// Empty when neither `ctx.include_profile` nor `ctx.include_memory_md`
+/// is set.
+pub fn render_user_files(ctx: &PromptContext<'_>) -> Result<String> {
+    UserFilesSection.build(ctx)
+}
+
+/// Render the tree-summariser user-memory block.
+pub fn render_user_memory(ctx: &PromptContext<'_>) -> Result<String> {
+    UserMemorySection.build(ctx)
+}
+
+/// Render the `## Tools` catalogue in the dispatcher's tool-call format.
+pub fn render_tools(ctx: &PromptContext<'_>) -> Result<String> {
+    ToolsSection.build(ctx)
+}
+
+/// Render the static `## Safety` block.
+pub fn render_safety() -> String {
+    SafetySection
+        .build(&empty_prompt_context_for_static_sections())
+        .expect("SafetySection::build is infallible")
+}
+
+/// Render the `## Available Skills` catalogue. Empty when no skills
+/// are registered or when the main-agent tool filter is active.
+pub fn render_skills(ctx: &PromptContext<'_>) -> Result<String> {
+    SkillsSection.build(ctx)
+}
+
+/// Render the `## Connected Integrations` block from
+/// [`PromptContext::connected_integrations`]. Empty when the slice is
+/// empty.
+pub fn render_connected_integrations(ctx: &PromptContext<'_>) -> Result<String> {
+    ConnectedIntegrationsSection.build(ctx)
+}
+
+/// Render the `## Workspace` block (working directory + file listing
+/// bounds) — part of the dynamic, per-request suffix.
+pub fn render_workspace(ctx: &PromptContext<'_>) -> Result<String> {
+    WorkspaceSection.build(ctx)
+}
+
+/// Render the `## Runtime` block (model name, dispatcher format) —
+/// dynamic.
+pub fn render_runtime(ctx: &PromptContext<'_>) -> Result<String> {
+    RuntimeSection.build(ctx)
+}
+
+/// Render the `## Current Date & Time` block. Intentionally **not**
+/// included in byte-stable sub-agent prompts (`for_subagent`) because
+/// injecting `Local::now()` defeats prefix caching. Exposed so full-
+/// assembly main-agent builders can opt in.
+pub fn render_datetime(ctx: &PromptContext<'_>) -> Result<String> {
+    DateTimeSection.build(ctx)
+}
+
+/// Build a throwaway `PromptContext` for sections whose `build` only
+/// uses static/immutable inputs (currently just `SafetySection`). Keeps
+/// the `render_safety()` free function from forcing callers to
+/// manufacture a full context when they only need the static text.
+fn empty_prompt_context_for_static_sections() -> PromptContext<'static> {
+    static EMPTY_TOOLS: &[PromptTool<'static>] = &[];
+    static EMPTY_SKILLS: &[Skill] = &[];
+    static EMPTY_INTEGRATIONS: &[ConnectedIntegration] = &[];
+    // SAFETY: the &HashSet reference must outlive the returned context;
+    // a leaked OnceLock-style allocation gives us a permanent 'static
+    // anchor without adding runtime cost on the hot path.
+    use std::sync::OnceLock;
+    static EMPTY_VISIBLE: OnceLock<std::collections::HashSet<String>> = OnceLock::new();
+    let visible = EMPTY_VISIBLE.get_or_init(std::collections::HashSet::new);
+    PromptContext {
+        workspace_dir: std::path::Path::new(""),
+        model_name: "",
+        agent_id: "",
+        tools: EMPTY_TOOLS,
+        skills: EMPTY_SKILLS,
+        dispatcher_instructions: "",
+        learned: LearnedContextData::default(),
+        visible_tool_names: visible,
+        tool_call_format: ToolCallFormat::PFormat,
+        connected_integrations: EMPTY_INTEGRATIONS,
+        include_profile: false,
+        include_memory_md: false,
+    }
 }
 
 /// Per-definition rendering flags passed into

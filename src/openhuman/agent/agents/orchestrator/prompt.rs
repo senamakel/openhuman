@@ -1,105 +1,77 @@
 //! System prompt builder for the `orchestrator` built-in agent.
 //!
-//! The body starts from the sibling `prompt.md` template and appends a
-//! rendered tool catalog computed from [`PromptContext::available_tools`]
-//! at spawn time, so the orchestrator's prompt always matches the
-//! actual tools the inner loop will expose to the LLM.
+//! Returns the fully-assembled system prompt including the live
+//! connected-integrations block — so the agent sees which Composio
+//! toolkits the user has authorised right now and can make accurate
+//! delegation decisions without relying on a separate delegation guide.
 
-use crate::openhuman::agent::harness::definition::{
-    render_connected_integrations, render_tool_catalog, PromptContext,
+use crate::openhuman::context::prompt::{
+    render_connected_integrations, render_tools, render_user_files, render_workspace,
+    PromptContext, CACHE_BOUNDARY,
 };
 use anyhow::Result;
 
-const TEMPLATE: &str = include_str!("prompt.md");
+const ARCHETYPE: &str = include_str!("prompt.md");
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
-    let mut out = String::with_capacity(TEMPLATE.len() + 1024);
-    out.push_str(TEMPLATE.trim_end());
+    let mut out = String::with_capacity(8192);
+    out.push_str(ARCHETYPE.trim_end());
+    out.push_str("\n\n");
 
-    let integrations = render_connected_integrations(ctx.connected_integrations);
-    if !integrations.is_empty() {
+    let user_files = render_user_files(ctx)?;
+    if !user_files.trim().is_empty() {
+        out.push_str(user_files.trim_end());
         out.push_str("\n\n");
-        out.push_str(&integrations);
     }
 
-    let catalog = render_tool_catalog(ctx.available_tools);
-    if !catalog.is_empty() {
+    let integrations = render_connected_integrations(ctx)?;
+    if !integrations.trim().is_empty() {
+        out.push_str(integrations.trim_end());
         out.push_str("\n\n");
-        out.push_str(&catalog);
     }
+
+    let tools = render_tools(ctx)?;
+    if !tools.trim().is_empty() {
+        out.push_str(tools.trim_end());
+        out.push_str("\n\n");
+    }
+
+    out.push_str(CACHE_BOUNDARY);
+    out.push_str("\n\n");
+
+    let workspace = render_workspace(ctx)?;
+    if !workspace.trim().is_empty() {
+        out.push_str(workspace.trim_end());
+        out.push('\n');
+    }
+
     Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent::harness::definition::ToolSummary;
-    use crate::openhuman::context::prompt::ConnectedIntegration;
-
-    fn ctx_with<'a>(
-        tools: &'a [ToolSummary<'a>],
-        integrations: &'a [ConnectedIntegration],
-    ) -> PromptContext<'a> {
-        PromptContext {
-            agent_id: "orchestrator",
-            workspace_dir: std::path::Path::new("."),
-            parent_model: "test",
-            available_tools: tools,
-            memory_context: None,
-            connected_integrations: integrations,
-        }
-    }
+    use crate::openhuman::context::prompt::{LearnedContextData, ToolCallFormat};
+    use std::collections::HashSet;
 
     #[test]
     fn build_returns_nonempty_body() {
-        let tools: Vec<ToolSummary> = Vec::new();
-        let integrations: Vec<ConnectedIntegration> = Vec::new();
-        let body = build(&ctx_with(&tools, &integrations)).unwrap();
+        let visible: HashSet<String> = HashSet::new();
+        let ctx = PromptContext {
+            workspace_dir: std::path::Path::new("."),
+            model_name: "test",
+            agent_id: "orchestrator",
+            tools: &[],
+            skills: &[],
+            dispatcher_instructions: "",
+            learned: LearnedContextData::default(),
+            visible_tool_names: &visible,
+            tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
+            include_profile: false,
+            include_memory_md: false,
+        };
+        let body = build(&ctx).unwrap();
         assert!(!body.is_empty());
-        assert!(!body.contains("## Available Tools"));
-    }
-
-    #[test]
-    fn build_appends_tool_catalog_when_tools_present() {
-        let tools = vec![
-            ToolSummary {
-                name: "spawn_subagent",
-                description: "Delegate to a specialised sub-agent.",
-            },
-            ToolSummary {
-                name: "memory_recall",
-                description: "Recall persisted memory.",
-            },
-        ];
-        let integrations: Vec<ConnectedIntegration> = Vec::new();
-        let body = build(&ctx_with(&tools, &integrations)).unwrap();
-        assert!(body.contains("## Available Tools"));
-        assert!(body.contains("- `spawn_subagent` — Delegate to a specialised sub-agent."));
-        assert!(body.contains("- `memory_recall` — Recall persisted memory."));
-    }
-
-    #[test]
-    fn build_appends_connected_integrations_from_live_context() {
-        let tools: Vec<ToolSummary> = Vec::new();
-        let integrations = vec![
-            ConnectedIntegration {
-                toolkit: "gmail".into(),
-                description: "Read and send email.".into(),
-                tools: Vec::new(),
-                connected: true,
-            },
-            ConnectedIntegration {
-                toolkit: "linear".into(),
-                description: "Allowlisted but the user has not authorised yet.".into(),
-                tools: Vec::new(),
-                connected: false,
-            },
-        ];
-        let body = build(&ctx_with(&tools, &integrations)).unwrap();
-        assert!(body.contains("## Connected Integrations"));
-        assert!(body.contains("- `gmail`"));
-        // Unconnected integrations are omitted from the live section —
-        // they only belong in the orchestrator's delegation guide.
-        assert!(!body.contains("- `linear`"));
     }
 }

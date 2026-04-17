@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import debug from 'debug';
+import { useEffect, useRef } from 'react';
 
 import {
   hideWebviewAccount,

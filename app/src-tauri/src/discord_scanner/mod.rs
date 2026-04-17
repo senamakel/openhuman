@@ -155,7 +155,11 @@ fn parse_targets(v: &Value) -> Vec<CdpTarget> {
                     Some(CdpTarget {
                         id: t.get("targetId")?.as_str()?.to_string(),
                         kind: t.get("type")?.as_str()?.to_string(),
-                        url: t.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string(),
+                        url: t
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                     })
                 })
                 .collect()
@@ -251,10 +255,9 @@ impl CdpConn {
                 .map_err(|e| format!("ws recv: {e}"))?;
             let text = match msg {
                 Message::Text(t) => t,
-                Message::Binary(_)
-                | Message::Ping(_)
-                | Message::Pong(_)
-                | Message::Frame(_) => continue,
+                Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
+                    continue
+                }
                 Message::Close(_) => return Err("ws closed".into()),
             };
             let v: Value = serde_json::from_str(&text).map_err(|e| format!("decode: {e}"))?;
@@ -295,10 +298,9 @@ impl CdpConn {
                 .map_err(|e| format!("ws recv: {e}"))?;
             let text = match msg {
                 Message::Text(t) => t,
-                Message::Binary(_)
-                | Message::Ping(_)
-                | Message::Pong(_)
-                | Message::Frame(_) => continue,
+                Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
+                    continue
+                }
                 Message::Close(_) => {
                     log::info!("[discord][{}] cdp ws closed", account_id);
                     return Ok(());
@@ -351,12 +353,7 @@ impl CdpConn {
 ///
 /// Everything else (image loads, css, telemetry pings, voice WS, ...) is
 /// dropped silently to keep noise out of the event stream.
-fn dispatch_event<R: Runtime>(
-    app: &AppHandle<R>,
-    account_id: &str,
-    method: &str,
-    params: &Value,
-) {
+fn dispatch_event<R: Runtime>(app: &AppHandle<R>, account_id: &str, method: &str, params: &Value) {
     match method {
         "Network.requestWillBeSent" => {
             let url = params
@@ -488,7 +485,11 @@ fn dispatch_event<R: Runtime>(
             // gateway. Cheap, and avoids missing the very first frames
             // (which fire before our event filter sees the create event
             // sometimes, depending on attach-vs-handshake timing).
-            let direction = if m.ends_with("Sent") { "sent" } else { "received" };
+            let direction = if m.ends_with("Sent") {
+                "sent"
+            } else {
+                "received"
+            };
             let opcode = params
                 .pointer("/response/opcode")
                 .and_then(|v| v.as_i64())
@@ -556,12 +557,7 @@ fn is_discord_gateway(url: &str) -> bool {
     url.starts_with("wss://gateway.discord.gg") || url.starts_with("wss://gateway-")
 }
 
-fn emit<R: Runtime>(
-    app: &AppHandle<R>,
-    account_id: &str,
-    kind: &str,
-    payload: Value,
-) {
+fn emit<R: Runtime>(app: &AppHandle<R>, account_id: &str, kind: &str, payload: Value) {
     let envelope = json!({
         "account_id": account_id,
         "provider": "discord",

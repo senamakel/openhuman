@@ -1,9 +1,5 @@
+import { type AccountProvider, type ProviderDescriptor, PROVIDERS } from '../../types/accounts';
 import { ProviderIcon } from './providerIcons';
-import {
-  PROVIDERS,
-  type AccountProvider,
-  type ProviderDescriptor,
-} from '../../types/accounts';
 
 interface AddAccountModalProps {
   open: boolean;
@@ -13,12 +9,7 @@ interface AddAccountModalProps {
   connectedProviders?: ReadonlySet<AccountProvider>;
 }
 
-const AddAccountModal = ({
-  open,
-  onClose,
-  onPick,
-  connectedProviders,
-}: AddAccountModalProps) => {
+const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccountModalProps) => {
   if (!open) return null;
 
   const available = connectedProviders
@@ -41,7 +32,12 @@ const AddAccountModal = ({
             className="rounded p-1 text-stone-500 hover:bg-stone-100"
             aria-label="close">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>

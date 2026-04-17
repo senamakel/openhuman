@@ -72,10 +72,7 @@ pub struct IdbStore {
 /// flat dump — no per-record normalisation happens here; that lives in
 /// `extract::walk_extract` because the record shapes vary across stores.
 pub async fn walk(cdp: &mut CdpConn, session: &str) -> Result<IdbDump, String> {
-    if let Err(e) = cdp
-        .call("IndexedDB.enable", json!({}), Some(session))
-        .await
-    {
+    if let Err(e) = cdp.call("IndexedDB.enable", json!({}), Some(session)).await {
         log::debug!("[sl][idb] enable: {}", e);
     }
 
@@ -302,10 +299,7 @@ async fn call_function_batch(
         return Ok(Vec::new());
     }
     let (first, rest) = object_ids.split_first().unwrap();
-    let args: Vec<Value> = rest
-        .iter()
-        .map(|oid| json!({ "objectId": oid }))
-        .collect();
+    let args: Vec<Value> = rest.iter().map(|oid| json!({ "objectId": oid })).collect();
     let resp = cdp
         .call_with_timeout(
             "Runtime.callFunctionOn",

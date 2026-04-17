@@ -1,15 +1,15 @@
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 compile_error!("src-tauri host is desktop-only. Non-desktop targets are not supported.");
 
-#[cfg(feature = "cef")]
-mod whatsapp_scanner;
-#[cfg(feature = "cef")]
-mod slack_scanner;
-#[cfg(feature = "cef")]
-mod discord_scanner;
 mod core_process;
 mod core_update;
+#[cfg(feature = "cef")]
+mod discord_scanner;
+#[cfg(feature = "cef")]
+mod slack_scanner;
 mod webview_accounts;
+#[cfg(feature = "cef")]
+mod whatsapp_scanner;
 
 use std::sync::Mutex;
 
@@ -307,7 +307,10 @@ async fn restart_core_process(
 /// Register (or re-register) the global dictation toggle hotkey.
 /// Emits `dictation://toggle` to all webviews when the shortcut is pressed.
 #[tauri::command]
-async fn register_dictation_hotkey(app: AppHandle<AppRuntime>, shortcut: String) -> Result<(), String> {
+async fn register_dictation_hotkey(
+    app: AppHandle<AppRuntime>,
+    shortcut: String,
+) -> Result<(), String> {
     log::info!("[dictation] register_dictation_hotkey: shortcut={shortcut}");
 
     let old_shortcuts = {
@@ -629,8 +632,7 @@ pub fn run() {
                     tauri::async_runtime::spawn(async move {
                         // Wait for the window to be fully ready.
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        let state = app_handle
-                            .state::<webview_accounts::WebviewAccountsState>();
+                        let state = app_handle.state::<webview_accounts::WebviewAccountsState>();
                         let args = webview_accounts::OpenArgs {
                             account_id: account_id.clone(),
                             provider: "whatsapp".to_string(),
@@ -673,8 +675,7 @@ pub fn run() {
                     let app_handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        let state = app_handle
-                            .state::<webview_accounts::WebviewAccountsState>();
+                        let state = app_handle.state::<webview_accounts::WebviewAccountsState>();
                         let args = webview_accounts::OpenArgs {
                             account_id: account_id.clone(),
                             provider: "slack".to_string(),
@@ -721,8 +722,7 @@ pub fn run() {
                     let app_handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        let state = app_handle
-                            .state::<webview_accounts::WebviewAccountsState>();
+                        let state = app_handle.state::<webview_accounts::WebviewAccountsState>();
                         // Dev mode: size the child webview to the parent
                         // window's inner bounds so Meet controls (CC toggle,
                         // mic/cam, leave) are reachable without overflowing.
@@ -730,12 +730,9 @@ pub fn run() {
                             .get_webview_window("main")
                             .and_then(|main| {
                                 let scale = main.scale_factor().unwrap_or(1.0);
-                                main.inner_size().ok().map(|s| {
-                                    (
-                                        (s.width as f64) / scale,
-                                        (s.height as f64) / scale,
-                                    )
-                                })
+                                main.inner_size()
+                                    .ok()
+                                    .map(|s| ((s.width as f64) / scale, (s.height as f64) / scale))
                             })
                             .unwrap_or((1100.0, 780.0));
                         let args = webview_accounts::OpenArgs {

@@ -104,8 +104,8 @@ pub fn spawn_scanner<R: Runtime>(app: AppHandle<R>, account_id: String, url_pref
             if !do_full {
                 match scan_dom_once(&account_id, &url_prefix).await {
                     Ok(dom) => {
-                        let changed = last_dom_hash != Some(dom.hash)
-                            && !dom.dom_messages.is_empty();
+                        let changed =
+                            last_dom_hash != Some(dom.hash) && !dom.dom_messages.is_empty();
                         if changed {
                             log::info!(
                                 "[wa][{}] fast dom-scan rows={} hash={} (changed)",
@@ -185,9 +185,12 @@ fn emit_dom_only<R: Runtime>(app: &AppHandle<R>, account_id: &str, dom: &[Value]
 /// full IDB scan (from chats / contacts / group-metadata stores) and read
 /// by fast DOM-only ticks so the transcript lines show names instead of
 /// raw JIDs even when the scrape comes from the DOM.
-fn contact_cache() -> &'static std::sync::Mutex<std::collections::HashMap<String, serde_json::Map<String, Value>>> {
+fn contact_cache(
+) -> &'static std::sync::Mutex<std::collections::HashMap<String, serde_json::Map<String, Value>>> {
     use std::sync::OnceLock;
-    static CACHE: OnceLock<std::sync::Mutex<std::collections::HashMap<String, serde_json::Map<String, Value>>>> = OnceLock::new();
+    static CACHE: OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, serde_json::Map<String, Value>>>,
+    > = OnceLock::new();
     CACHE.get_or_init(|| std::sync::Mutex::new(Default::default()))
 }
 
@@ -298,10 +301,7 @@ pub struct DomScanResult {
 /// enumeration, no JavaScript runs in the page — the snapshot is produced
 /// at the browser's C++ layer. The flat-array response is parsed in Rust
 /// (see `dom_snapshot.rs`).
-async fn scan_dom_once(
-    account_id: &str,
-    url_prefix: &str,
-) -> Result<DomScanResult, String> {
+async fn scan_dom_once(account_id: &str, url_prefix: &str) -> Result<DomScanResult, String> {
     let browser_ws = browser_ws_url().await?;
     let mut cdp = CdpConn::open(&browser_ws).await?;
     let targets_v = cdp.call("Target.getTargets", json!({}), None).await?;
@@ -352,7 +352,11 @@ fn parse_targets(v: &Value) -> Vec<CdpTarget> {
                     Some(CdpTarget {
                         id: t.get("targetId")?.as_str()?.to_string(),
                         kind: t.get("type")?.as_str()?.to_string(),
-                        url: t.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string(),
+                        url: t
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                     })
                 })
                 .collect()
@@ -437,10 +441,9 @@ impl CdpConn {
                 .map_err(|e| format!("ws recv: {e}"))?;
             let text = match msg {
                 Message::Text(t) => t,
-                Message::Binary(_)
-                | Message::Ping(_)
-                | Message::Pong(_)
-                | Message::Frame(_) => continue,
+                Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
+                    continue
+                }
                 Message::Close(_) => return Err("ws closed".into()),
             };
             let v: Value = serde_json::from_str(&text).map_err(|e| format!("decode: {e}"))?;
@@ -456,7 +459,6 @@ impl CdpConn {
         }
     }
 }
-
 
 /// Forward the snapshot to React via the same `webview:event` channel
 /// recipe ingest already uses. UI code can listen for kind == "ingest".
@@ -500,10 +502,7 @@ fn emit_snapshot<R: Runtime>(app: &AppHandle<R>, account_id: &str, snap: &ScanSn
         let mut consumed: HashSet<String> = HashSet::new();
         let mut patched = 0usize;
         for m in messages.iter_mut() {
-            let mid_opt = m
-                .get("id")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+            let mid_opt = m.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
             let has_body = m
                 .get("body")
                 .and_then(|v| v.as_str())
@@ -642,16 +641,17 @@ fn emit_grouped_whatsapp<R: Runtime>(
         }
 
         // Derive day + canonical timestamp (seconds).
-        let (day, ts_secs): (String, i64) = if let Some(t) = m.get("timestamp").and_then(|v| v.as_i64()) {
-            (seconds_to_ymd(t), t)
-        } else if let Some(pre) = m.get("preTimestamp").and_then(|v| v.as_str()) {
-            match parse_pre_timestamp_ymd(pre) {
-                Some(d) => (d, now_secs),
-                None => (seconds_to_ymd(now_secs), now_secs),
-            }
-        } else {
-            (seconds_to_ymd(now_secs), now_secs)
-        };
+        let (day, ts_secs): (String, i64) =
+            if let Some(t) = m.get("timestamp").and_then(|v| v.as_i64()) {
+                (seconds_to_ymd(t), t)
+            } else if let Some(pre) = m.get("preTimestamp").and_then(|v| v.as_str()) {
+                match parse_pre_timestamp_ymd(pre) {
+                    Some(d) => (d, now_secs),
+                    None => (seconds_to_ymd(now_secs), now_secs),
+                }
+            } else {
+                (seconds_to_ymd(now_secs), now_secs)
+            };
 
         // React expects `fromMe`, `from`, `body`, `timestamp` (sec), `type`.
         let from_me = m.get("fromMe").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -695,10 +695,7 @@ fn emit_grouped_whatsapp<R: Runtime>(
             .cloned()
             .or_else(|| m.get("dataId").cloned())
             .unwrap_or(Value::Null);
-        let type_ = m
-            .get("type")
-            .cloned()
-            .unwrap_or(Value::Null);
+        let type_ = m.get("type").cloned().unwrap_or(Value::Null);
         let normalized = json!({
             "id": id,
             "chatId": chat_id.clone(),
@@ -779,7 +776,10 @@ async fn post_memory_doc_ingest(account_id: &str, ingest: &Value) -> Result<(), 
         .get("chatId")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
-    let day = ingest.get("day").and_then(|v| v.as_str()).unwrap_or_default();
+    let day = ingest
+        .get("day")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
     let chat_name = ingest
         .get("chatName")
         .and_then(|v| v.as_str())

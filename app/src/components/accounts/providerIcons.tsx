@@ -1,13 +1,6 @@
 import { FaLinkedin } from 'react-icons/fa';
+import { SiDiscord, SiGmail, SiGooglemeet, SiSlack, SiTelegram, SiWhatsapp } from 'react-icons/si';
 import { TbRobot } from 'react-icons/tb';
-import {
-  SiDiscord,
-  SiGmail,
-  SiGooglemeet,
-  SiSlack,
-  SiTelegram,
-  SiWhatsapp,
-} from 'react-icons/si';
 
 import type { AccountProvider } from '../../types/accounts';
 

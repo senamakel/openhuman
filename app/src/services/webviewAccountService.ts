@@ -2,16 +2,12 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import debug from 'debug';
 
-import { callCoreRpc } from './coreRpcClient';
-import { chatSend } from './chatService';
-import { threadApi } from './api/threadApi';
 import { store } from '../store';
-import {
-  appendLog,
-  appendMessages,
-  setAccountStatus,
-} from '../store/accountsSlice';
+import { appendLog, appendMessages, setAccountStatus } from '../store/accountsSlice';
 import type { AccountProvider, IngestedMessage } from '../types/accounts';
+import { threadApi } from './api/threadApi';
+import { chatSend } from './chatService';
+import { callCoreRpc } from './coreRpcClient';
 
 const MEET_ORCHESTRATOR_MODEL = 'reasoning-v1';
 
@@ -88,12 +84,7 @@ function handleRecipeEvent(evt: RecipeEventPayload) {
   if (evt.kind === 'log') {
     const level = (evt.payload.level as 'info' | 'warn' | 'error' | 'debug') || 'info';
     const msg = String(evt.payload.msg ?? '');
-    store.dispatch(
-      appendLog({
-        accountId,
-        entry: { ts: evt.ts ?? Date.now(), level, msg },
-      })
-    );
+    store.dispatch(appendLog({ accountId, entry: { ts: evt.ts ?? Date.now(), level, msg } }));
     return;
   }
 
@@ -123,13 +114,7 @@ function handleRecipeEvent(evt: RecipeEventPayload) {
       ts: evt.ts ?? Date.now(),
     }));
 
-    store.dispatch(
-      appendMessages({
-        accountId,
-        messages,
-        unread: ingest.unread,
-      })
-    );
+    store.dispatch(appendMessages({ accountId, messages, unread: ingest.unread }));
 
     // Fire-and-forget memory write via the existing core RPC.
     // Namespace mirrors the skill-sync convention so the recall pipeline
@@ -195,10 +180,7 @@ async function persistIngestToMemory(
   }
 }
 
-async function persistWhatsappChatDay(
-  accountId: string,
-  ingest: IngestPayload
-): Promise<void> {
+async function persistWhatsappChatDay(accountId: string, ingest: IngestPayload): Promise<void> {
   const chatId = ingest.chatId as string;
   const day = ingest.day as string;
   const chatName = ingest.chatName ?? chatId;
@@ -209,22 +191,19 @@ async function persistWhatsappChatDay(
   const namespace = `whatsapp-web:${accountId}`;
   const key = `${chatId}:${day}`;
 
-  const sorted = [...raw].sort(
-    (a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)
-  );
+  const sorted = [...raw].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
   const transcriptLines = sorted.map(m => {
     const tsSec = m.timestamp ?? 0;
-    const hhmm = tsSec
-      ? new Date(tsSec * 1000).toISOString().slice(11, 16) + 'Z'
-      : '--:--';
+    const hhmm = tsSec ? new Date(tsSec * 1000).toISOString().slice(11, 16) + 'Z' : '--:--';
     const who = m.fromMe ? 'me' : (m.from ?? '?');
     const body = (m.body ?? '').replace(/\r?\n/g, ' ').trim();
     const kind = m.type && m.type !== 'chat' ? ` [${m.type}]` : '';
     return `[${hhmm}] ${who}${kind}: ${body}`;
   });
 
-  const header = `# WhatsApp — ${chatName} — ${day}\n` +
+  const header =
+    `# WhatsApp — ${chatName} — ${day}\n` +
     `chat_id: ${chatId}\n` +
     `account_id: ${accountId}\n` +
     `messages: ${sorted.length}\n\n`;
@@ -368,11 +347,7 @@ function handleMeetCaptions(accountId: string, payload: MeetCaptionsPayload) {
 async function handleMeetCallEnded(accountId: string, payload: MeetCallEndedPayload) {
   const session = activeMeetings.get(accountId);
   if (!session || session.code !== payload.code) {
-    log(
-      'meet: call_ended with no matching session account=%s code=%s',
-      accountId,
-      payload.code
-    );
+    log('meet: call_ended with no matching session account=%s code=%s', accountId, payload.code);
     return;
   }
   activeMeetings.delete(accountId);
@@ -540,10 +515,7 @@ function collapseToSegments(snapshots: CaptionSnapshot[]): TranscriptSegment[] {
   const committed: TranscriptSegment[] = [];
   const active = new Map<string, { text: string; startTs: number; lastTs: number }>();
 
-  const commit = (
-    speaker: string,
-    state: { text: string; startTs: number; lastTs: number }
-  ) => {
+  const commit = (speaker: string, state: { text: string; startTs: number; lastTs: number }) => {
     const text = state.text.trim();
     if (!text) return;
     committed.push({ speaker, text, startTs: state.startTs, endTs: state.lastTs });
@@ -641,11 +613,7 @@ export async function openWebviewAccount(args: OpenAccountArgs): Promise<void> {
   store.dispatch(setAccountStatus({ accountId: args.accountId, status: 'pending' }));
   try {
     await invoke('webview_account_open', {
-      args: {
-        account_id: args.accountId,
-        provider: args.provider,
-        bounds: args.bounds,
-      },
+      args: { account_id: args.accountId, provider: args.provider, bounds: args.bounds },
     });
     store.dispatch(setAccountStatus({ accountId: args.accountId, status: 'open' }));
   } catch (err) {

@@ -158,9 +158,7 @@ fn walk(
                             .or_else(|| map.get("name").and_then(|v| v.as_str()))
                             .filter(|s| !s.is_empty());
                         if let Some(n) = name {
-                            users
-                                .entry(id.to_string())
-                                .or_insert_with(|| n.to_string());
+                            users.entry(id.to_string()).or_insert_with(|| n.to_string());
                         }
                     }
                     'C' | 'G' | 'D' => {
@@ -200,12 +198,28 @@ fn walk(
                 } else {
                     channel_hint
                 };
-                walk(vv, next_hint, messages, users, channels, workspace, depth + 1);
+                walk(
+                    vv,
+                    next_hint,
+                    messages,
+                    users,
+                    channels,
+                    workspace,
+                    depth + 1,
+                );
             }
         }
         Value::Array(arr) => {
             for vv in arr.iter() {
-                walk(vv, channel_hint, messages, users, channels, workspace, depth + 1);
+                walk(
+                    vv,
+                    channel_hint,
+                    messages,
+                    users,
+                    channels,
+                    workspace,
+                    depth + 1,
+                );
             }
         }
         Value::String(s) => {

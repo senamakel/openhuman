@@ -5,8 +5,6 @@ import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
 import BottomTabBar from './components/BottomTabBar';
-import { useAppSelector } from './store/hooks';
-import { isAccountsFullscreen } from './utils/accountsFullscreen';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
@@ -21,6 +19,8 @@ import SocketProvider from './providers/SocketProvider';
 import { tagErrorSource } from './services/errorReportQueue';
 import { startWebviewAccountService } from './services/webviewAccountService';
 import { persistor, store } from './store';
+import { useAppSelector } from './store/hooks';
+import { isAccountsFullscreen } from './utils/accountsFullscreen';
 
 // Attach the `webview:event` listener at app boot so background recipe
 // events (Google Meet captions → transcript flush, WhatsApp ingest, …)

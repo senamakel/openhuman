@@ -24,8 +24,8 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime, Url, WebviewBuilder,
-    WebviewUrl, webview::NewWindowResponse,
+    webview::NewWindowResponse, AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime,
+    Url, WebviewBuilder, WebviewUrl,
 };
 #[cfg(feature = "cef")]
 use tauri_plugin_notification::NotificationExt;
@@ -295,7 +295,13 @@ fn label_for(account_id: &str) -> String {
     // the React side as UUIDs so this is just defensive.
     let safe: String = account_id
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     format!("acct_{}", safe)
 }
@@ -642,12 +648,7 @@ pub async fn webview_account_close<R: Runtime>(
             let acct = args.account_id.clone();
             tokio::spawn(async move { registry.forget(&acct).await });
         }
-        if let Some(browser_id) = state
-            .browser_ids
-            .lock()
-            .unwrap()
-            .remove(&args.account_id)
-        {
+        if let Some(browser_id) = state.browser_ids.lock().unwrap().remove(&args.account_id) {
             tauri_runtime_cef::notification::unregister(browser_id);
             log::debug!(
                 "[notify-cef] unregistered handler account={} browser_id={}",
@@ -704,12 +705,7 @@ pub async fn webview_account_purge<R: Runtime>(
             let acct = args.account_id.clone();
             tokio::spawn(async move { registry.forget(&acct).await });
         }
-        if let Some(browser_id) = state
-            .browser_ids
-            .lock()
-            .unwrap()
-            .remove(&args.account_id)
-        {
+        if let Some(browser_id) = state.browser_ids.lock().unwrap().remove(&args.account_id) {
             tauri_runtime_cef::notification::unregister(browser_id);
             log::debug!(
                 "[notify-cef] purge unregistered handler account={} browser_id={}",
@@ -730,10 +726,7 @@ pub async fn webview_account_purge<R: Runtime>(
                 err
             );
         } else {
-            log::info!(
-                "[webview-accounts] purged data dir {}",
-                data_dir.display()
-            );
+            log::info!("[webview-accounts] purged data dir {}", data_dir.display());
         }
     }
 
@@ -777,7 +770,9 @@ pub async fn webview_account_hide<R: Runtime>(
     args: AccountIdArgs,
 ) -> Result<(), String> {
     let label_opt = state.inner.lock().unwrap().get(&args.account_id).cloned();
-    let Some(label) = label_opt else { return Ok(()) };
+    let Some(label) = label_opt else {
+        return Ok(());
+    };
     if let Some(wv) = app.get_webview(&label) {
         let _ = wv.hide();
         log::debug!("[webview-accounts] hide label={}", label);
@@ -792,7 +787,9 @@ pub async fn webview_account_show<R: Runtime>(
     args: AccountIdArgs,
 ) -> Result<(), String> {
     let label_opt = state.inner.lock().unwrap().get(&args.account_id).cloned();
-    let Some(label) = label_opt else { return Ok(()) };
+    let Some(label) = label_opt else {
+        return Ok(());
+    };
     if let Some(wv) = app.get_webview(&label) {
         let _ = wv.show();
         log::debug!("[webview-accounts] show label={}", label);
@@ -856,11 +853,7 @@ pub async fn webview_recipe_event<R: Runtime>(
                     .get("code")
                     .and_then(|v| v.as_str())
                     .unwrap_or("?");
-                log::info!(
-                    "[gmeet][{}] call_started code={}",
-                    args.account_id,
-                    code
-                );
+                log::info!("[gmeet][{}] call_started code={}", args.account_id, code);
             }
             "meet_captions" => {
                 let code = args
@@ -916,7 +909,11 @@ pub async fn webview_recipe_event<R: Runtime>(
             .get("direction")
             .and_then(|v| v.as_str())
             .unwrap_or("?");
-        let size = args.payload.get("size").and_then(|v| v.as_i64()).unwrap_or(0);
+        let size = args
+            .payload
+            .get("size")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
         log::trace!(
             "[webview-accounts][{}] ws {} {} bytes",
             args.account_id,

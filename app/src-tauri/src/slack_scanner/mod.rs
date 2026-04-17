@@ -271,11 +271,7 @@ fn emit_and_persist<R: Runtime>(
             }
         });
     }
-    log::info!(
-        "[sl][{}] emitted {} channel doc(s)",
-        account_id,
-        emitted
-    );
+    log::info!("[sl][{}] emitted {} channel doc(s)", account_id, emitted);
 }
 
 /// Parse Slack's `"unix_seconds.microseconds"` ts string to unix seconds.
@@ -527,7 +523,11 @@ fn parse_targets(v: &Value) -> Vec<CdpTarget> {
                     Some(CdpTarget {
                         id: t.get("targetId")?.as_str()?.to_string(),
                         kind: t.get("type")?.as_str()?.to_string(),
-                        url: t.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string(),
+                        url: t
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                     })
                 })
                 .collect()
@@ -621,10 +621,9 @@ impl CdpConn {
                 .map_err(|e| format!("ws recv: {e}"))?;
             let text = match msg {
                 Message::Text(t) => t,
-                Message::Binary(_)
-                | Message::Ping(_)
-                | Message::Pong(_)
-                | Message::Frame(_) => continue,
+                Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
+                    continue
+                }
                 Message::Close(_) => return Err("ws closed".into()),
             };
             let v: Value = serde_json::from_str(&text).map_err(|e| format!("decode: {e}"))?;

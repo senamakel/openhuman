@@ -161,23 +161,23 @@ const BottomTabBar = () => {
         }`}
         onMouseLeave={() => setRevealed(false)}>
         <nav className="pointer-events-auto inline-flex items-center gap-2 rounded-sm border border-stone-300 bg-stone-200 shadow-soft px-1 py-1">
-        {tabs.map(tab => {
-          const active = isActive(tab.path);
-          return (
-            <button
-              key={tab.id}
-              onClick={() => navigate(tab.path)}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-sm text-sm transition-colors duration-150 cursor-pointer ${
-                active
-                  ? 'bg-white text-stone-900 font-semibold shadow-sm'
-                  : 'bg-transparent text-stone-500 hover:bg-stone-300/50 hover:text-stone-700'
-              }`}
-              aria-label={tab.label}>
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+          {tabs.map(tab => {
+            const active = isActive(tab.path);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => navigate(tab.path)}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-sm text-sm transition-colors duration-150 cursor-pointer ${
+                  active
+                    ? 'bg-white text-stone-900 font-semibold shadow-sm'
+                    : 'bg-transparent text-stone-500 hover:bg-stone-300/50 hover:text-stone-700'
+                }`}
+                aria-label={tab.label}>
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
     </div>

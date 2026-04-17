@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import AddAccountModal from '../components/accounts/AddAccountModal';
 import { AgentIcon, ProviderIcon } from '../components/accounts/providerIcons';
 import WebviewHost from '../components/accounts/WebviewHost';
-import { AgentChatPanel } from './Conversations';
 import {
   hideWebviewAccount,
   purgeWebviewAccount,
@@ -14,6 +13,7 @@ import { addAccount, removeAccount, setActiveAccount } from '../store/accountsSl
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { Account, AccountProvider, ProviderDescriptor } from '../types/accounts';
 import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
+import { AgentChatPanel } from './Conversations';
 
 function makeAccountId(): string {
   const c = globalThis.crypto;
@@ -42,9 +42,7 @@ const RailButton = ({
     onClick={onClick}
     onContextMenu={onContextMenu}
     className={`group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
-      active
-        ? 'bg-primary-50 ring-2 ring-primary-500'
-        : 'hover:bg-stone-100 hover:scale-105'
+      active ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-stone-100 hover:scale-105'
     }`}
     aria-label={tooltip}>
     {children}

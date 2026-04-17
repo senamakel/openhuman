@@ -70,8 +70,8 @@ pub async fn capture_messages(
             Some(session),
         )
         .await?;
-    let snap: CaptureSnapshot = serde_json::from_value(raw)
-        .map_err(|e| format!("decode DOMSnapshot: {e}"))?;
+    let snap: CaptureSnapshot =
+        serde_json::from_value(raw).map_err(|e| format!("decode DOMSnapshot: {e}"))?;
     let rows = parse_rows(&snap);
     let hash = fnv_hash(&rows);
     Ok((rows, hash))

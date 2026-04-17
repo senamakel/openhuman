@@ -84,10 +84,7 @@ pub async fn walk(
 
     // `IndexedDB.enable` isn't strictly required for `requestData` on modern
     // Chromium but older CEF builds refuse without it. Cost is trivial.
-    if let Err(e) = cdp
-        .call("IndexedDB.enable", json!({}), Some(session))
-        .await
-    {
+    if let Err(e) = cdp.call("IndexedDB.enable", json!({}), Some(session)).await {
         log::debug!("[wa][idb] enable: {}", e);
     }
 
@@ -256,10 +253,7 @@ async fn call_function_batch(
         return Ok(Vec::new());
     }
     let (first, rest) = object_ids.split_first().unwrap();
-    let args: Vec<Value> = rest
-        .iter()
-        .map(|oid| json!({ "objectId": oid }))
-        .collect();
+    let args: Vec<Value> = rest.iter().map(|oid| json!({ "objectId": oid })).collect();
     let resp = cdp
         .call(
             "Runtime.callFunctionOn",
@@ -308,7 +302,11 @@ fn normalize_id(v: &Value) -> Option<String> {
         return None;
     }
     if let Some(s) = v.as_str() {
-        return if s.is_empty() { None } else { Some(s.to_string()) };
+        return if s.is_empty() {
+            None
+        } else {
+            Some(s.to_string())
+        };
     }
     let obj = v.as_object()?;
     let str_of = |k: &str, src: &serde_json::Map<String, Value>| -> Option<String> {
@@ -370,8 +368,14 @@ fn normalize_message(raw: &Value) -> Option<IdbMessage> {
         .or_else(|| from_jid.clone())
         .or_else(|| to_jid.clone())?;
     let from_me = obj.get("fromMe").and_then(|v| v.as_bool()).unwrap_or(false)
-        || obj.get("isSentByMe").and_then(|v| v.as_bool()).unwrap_or(false)
-        || obj.get("isFromMe").and_then(|v| v.as_bool()).unwrap_or(false);
+        || obj
+            .get("isSentByMe")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        || obj
+            .get("isFromMe")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
     let timestamp = obj
         .get("t")
         .and_then(|v| v.as_i64())
@@ -413,12 +417,11 @@ fn normalize_chat(raw: &Value) -> Option<(String, String)> {
         .get("id")
         .and_then(normalize_id)
         .or_else(|| obj.get("_id").and_then(normalize_id))?;
-    let name = first_non_empty_str(obj, &["name", "subject", "formattedTitle"])
-        .or_else(|| {
-            obj.get("contact")
-                .and_then(|c| c.as_object())
-                .and_then(|c| first_non_empty_str(c, &["name", "pushname"]))
-        })?;
+    let name = first_non_empty_str(obj, &["name", "subject", "formattedTitle"]).or_else(|| {
+        obj.get("contact")
+            .and_then(|c| c.as_object())
+            .and_then(|c| first_non_empty_str(c, &["name", "pushname"]))
+    })?;
     Some((id, name))
 }
 

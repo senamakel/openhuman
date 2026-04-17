@@ -64,11 +64,7 @@ const accountsSlice = createSlice({
 
     appendMessages(
       state,
-      action: PayloadAction<{
-        accountId: string;
-        messages: IngestedMessage[];
-        unread?: number;
-      }>
+      action: PayloadAction<{ accountId: string; messages: IngestedMessage[]; unread?: number }>
     ) {
       const { accountId, messages, unread } = action.payload;
       if (!state.accounts[accountId]) return;
@@ -83,10 +79,7 @@ const accountsSlice = createSlice({
       }
     },
 
-    appendLog(
-      state,
-      action: PayloadAction<{ accountId: string; entry: AccountLogEntry }>
-    ) {
+    appendLog(state, action: PayloadAction<{ accountId: string; entry: AccountLogEntry }>) {
       const { accountId, entry } = action.payload;
       const list = (state.logs[accountId] ??= []);
       list.push(entry);

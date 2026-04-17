@@ -617,19 +617,20 @@ fn render_subagent_dump(
     skill_filter_override: Option<&str>,
     connected_integrations: &[ConnectedIntegration],
 ) -> Result<DumpedPrompt> {
-    use crate::openhuman::agent::harness::definition::{PromptContext, ToolSummary};
-    use crate::openhuman::agent::harness::subagent_runner::{filter_tool_indices, load_prompt_source};
+    use crate::openhuman::agent::harness::subagent_runner::{
+        filter_tool_indices, load_prompt_source,
+    };
 
     // Mirror `subagent_runner::run_typed_mode` step-for-step so the dump
     // is byte-identical to what the live runner produces for this agent.
-    // No case-by-case branching per agent id — every registered
-    // definition flows through the exact same pipeline:
+    // Every registered definition flows through the same pipeline:
     //
     //   1. resolve model
     //   2. filter tools via the shared `filter_tool_indices`
-    //   3. build the archetype body via the shared `load_prompt_source`
-    //      (Inline / Dynamic / File all handled there — no parallel copy)
-    //   4. render via `render_subagent_system_prompt`
+    //   3. build a live `PromptContext`
+    //   4. `Dynamic` sources → call `build(&ctx)` for the final prompt
+    //      `Inline`/`File` sources → `load_prompt_source` + legacy
+    //      `render_subagent_system_prompt` section wrap
     let model = definition.model.resolve(model_name);
     let effective_skill_filter = skill_filter_override.or(definition.skill_filter.as_deref());
     let allowed_indices = filter_tool_indices(
@@ -640,50 +641,61 @@ fn render_subagent_dump(
         definition.category_filter,
     );
 
-    let tool_summaries: Vec<ToolSummary> = allowed_indices
+    let prompt_tools: Vec<PromptTool<'_>> = allowed_indices
         .iter()
-        .map(|&i| ToolSummary {
+        .map(|&i| PromptTool {
             name: tools_vec[i].name(),
             description: tools_vec[i].description(),
+            parameters_schema: Some(tools_vec[i].parameters_schema().to_string()),
         })
         .collect();
+    let empty_visible: std::collections::HashSet<String> = std::collections::HashSet::new();
     let prompt_ctx = PromptContext {
+        workspace_dir,
+        model_name: &model,
         agent_id: &definition.id,
-        workspace_dir,
-        parent_model: &model,
-        available_tools: &tool_summaries,
-        memory_context: None,
+        tools: &prompt_tools,
+        skills: &[],
+        dispatcher_instructions: "",
+        learned: LearnedContextData::default(),
+        visible_tool_names: &empty_visible,
+        tool_call_format: ToolCallFormat::PFormat,
         connected_integrations,
+        include_profile: !definition.omit_profile,
+        include_memory_md: !definition.omit_memory_md,
     };
-    let archetype_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)
-        .with_context(|| format!("loading prompt for {}", definition.id))?;
 
-    let options = SubagentRenderOptions::from_definition_flags(
-        definition.omit_identity,
-        definition.omit_safety_preamble,
-        definition.omit_skills_catalog,
-        definition.omit_profile,
-        definition.omit_memory_md,
-    );
-
-    // Debug dump runs outside the agent lifecycle, so there's no
-    // dynamic per-action toolkit to inject and no live dispatcher to
-    // read the format from. Use empty extra_tools and the legacy
-    // PFormat default to preserve existing dump output for
-    // contributors who diff against committed snapshots.
-    let no_extra_tools: Vec<Box<dyn Tool>> = Vec::new();
-    let raw = render_subagent_system_prompt(
-        workspace_dir,
-        &model,
-        &allowed_indices,
-        tools_vec,
-        &no_extra_tools,
-        &archetype_body,
-        options,
-        crate::openhuman::context::prompt::ToolCallFormat::PFormat,
-        connected_integrations,
-    );
-    let rendered = extract_cache_boundary(&raw);
+    let rendered = match &definition.system_prompt {
+        crate::openhuman::agent::harness::definition::PromptSource::Dynamic(build) => {
+            let text = build(&prompt_ctx)
+                .with_context(|| format!("building dynamic prompt for {}", definition.id))?;
+            extract_cache_boundary(&text)
+        }
+        _ => {
+            let archetype_body = load_prompt_source(&definition.system_prompt, &prompt_ctx)
+                .with_context(|| format!("loading prompt for {}", definition.id))?;
+            let options = SubagentRenderOptions::from_definition_flags(
+                definition.omit_identity,
+                definition.omit_safety_preamble,
+                definition.omit_skills_catalog,
+                definition.omit_profile,
+                definition.omit_memory_md,
+            );
+            let no_extra_tools: Vec<Box<dyn Tool>> = Vec::new();
+            let raw = render_subagent_system_prompt(
+                workspace_dir,
+                &model,
+                &allowed_indices,
+                tools_vec,
+                &no_extra_tools,
+                &archetype_body,
+                options,
+                ToolCallFormat::PFormat,
+                connected_integrations,
+            );
+            extract_cache_boundary(&raw)
+        }
+    };
 
     let tool_names: Vec<String> = allowed_indices
         .iter()

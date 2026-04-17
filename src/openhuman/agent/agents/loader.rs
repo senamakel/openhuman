@@ -233,22 +233,30 @@ mod tests {
 
     #[test]
     fn every_builtin_has_a_prompt_body() {
-        use crate::openhuman::agent::harness::definition::{PromptContext, ToolSummary};
-        use crate::openhuman::context::prompt::ConnectedIntegration;
-        let empty_tools: Vec<ToolSummary> = Vec::new();
-        let empty_integrations: Vec<ConnectedIntegration> = Vec::new();
-        let ctx = PromptContext {
-            agent_id: "",
-            workspace_dir: std::path::Path::new("."),
-            parent_model: "test",
-            available_tools: &empty_tools,
-            memory_context: None,
-            connected_integrations: &empty_integrations,
+        use crate::openhuman::context::prompt::{
+            ConnectedIntegration, LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
         };
+        let empty_tools: Vec<PromptTool<'_>> = Vec::new();
+        let empty_integrations: Vec<ConnectedIntegration> = Vec::new();
+        let empty_visible: std::collections::HashSet<String> = std::collections::HashSet::new();
         for def in load_builtins().unwrap() {
             match &def.system_prompt {
                 PromptSource::Dynamic(build) => {
-                    let body = build(&PromptContext { agent_id: &def.id, ..ctx })
+                    let ctx = PromptContext {
+                        workspace_dir: std::path::Path::new("."),
+                        model_name: "test",
+                        agent_id: &def.id,
+                        tools: &empty_tools,
+                        skills: &[],
+                        dispatcher_instructions: "",
+                        learned: LearnedContextData::default(),
+                        visible_tool_names: &empty_visible,
+                        tool_call_format: ToolCallFormat::PFormat,
+                        connected_integrations: &empty_integrations,
+                        include_profile: false,
+                        include_memory_md: false,
+                    };
+                    let body = build(&ctx)
                         .unwrap_or_else(|e| panic!("{} prompt build failed: {e}", def.id));
                     assert!(!body.is_empty(), "{} has empty prompt", def.id);
                 }

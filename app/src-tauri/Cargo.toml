@@ -107,10 +107,13 @@ tauri-runtime = { path = "vendor/tauri-cef/crates/tauri-runtime" }
 tauri-runtime-wry = { path = "vendor/tauri-cef/crates/tauri-runtime-wry" }
 tauri-plugin = { path = "vendor/tauri-cef/crates/tauri-plugin" }
 
-tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
-tauri-plugin-deep-link = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
-tauri-plugin-global-shortcut = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
-tauri-plugin-notification = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "feat/cef" }
+# Pinned to a specific commit on plugins-workspace@feat/cef so fresh
+# dependency resolution (without Cargo.lock) is reproducible and doesn't
+# silently drift when upstream pushes to the branch.
+tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2" }
+tauri-plugin-deep-link = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2" }
+tauri-plugin-global-shortcut = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2" }
+tauri-plugin-notification = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2" }
 
 # Fast CI builds: trade runtime perf for compile speed
 [profile.ci]

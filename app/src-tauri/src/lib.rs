@@ -518,7 +518,7 @@ pub fn run() {
     #[cfg(not(feature = "cef"))]
     let builder = tauri::Builder::<tauri::Wry>::new();
     #[cfg(feature = "cef")]
-    let builder = tauri::Builder::<tauri::Cef>::new()
+    let builder = {
         // Bypass macOS Keychain. Without this, every embedded service that
         // touches password / cookie / encryption-key storage triggers a
         // "Allow access to your keychain?" prompt — WhatsApp Web hits it on
@@ -527,24 +527,27 @@ pub fn run() {
         // mock; `password-store=basic` is the equivalent for the password
         // manager. Both are no-ops on Windows/Linux, so safe to always set.
         //
-        // `remote-debugging-port` exposes Chrome DevTools for every CEF
-        // webview (main window + per-account service views) at
-        //   http://localhost:9222
-        // — open that URL in any browser to pick a target. Right-click
-        // "Inspect" does not work on CEF child webviews on macOS, so this
-        // is the only reliable way to inspect IndexedDB / console / storage
-        // for the embedded WhatsApp/Slack/etc. webviews.
+        // In debug builds we additionally expose the Chrome DevTools
+        // Protocol on localhost:9222 so every CEF webview can be inspected
+        // from a regular browser (right-click "Inspect" does not propagate
+        // to CEF child webviews on macOS). Release builds intentionally do
+        // NOT open the CDP port — it would let any process on the machine
+        // drive the embedded WhatsApp/Slack/etc. webviews.
+        //
         // NOTE: flags must be prefixed with `--`. The runtime's
         // `on_before_command_line_processing` dispatch (in
         // `tauri-runtime-cef/src/cef_impl.rs`) routes value-less args that
         // don't start with `-` to `append_argument` (positional) instead of
         // `append_switch`, which means Chromium silently ignores them.
-        .command_line_args::<&str, &str>([
+        let mut args: Vec<(&str, Option<&str>)> = vec![
             ("--use-mock-keychain", None),
             ("--password-store", Some("basic")),
-            ("--remote-debugging-port", Some("9222")),
-            ("--remote-allow-origins", Some("*")),
-        ]);
+        ];
+        if cfg!(debug_assertions) {
+            args.push(("--remote-debugging-port", Some("9222")));
+        }
+        tauri::Builder::<tauri::Cef>::new().command_line_args::<&str, &str>(args)
+    };
 
     let builder = builder
         .plugin(tauri_plugin_opener::init())

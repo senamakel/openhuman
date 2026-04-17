@@ -4532,7 +4532,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-deep-link"
 version = "2.4.7"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=feat%2Fcef#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?rev=c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
 dependencies = [
  "dunce",
  "plist",
@@ -4552,7 +4552,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-global-shortcut"
 version = "2.3.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=feat%2Fcef#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?rev=c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
 dependencies = [
  "global-hotkey",
  "log",
@@ -4566,7 +4566,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-notification"
 version = "2.3.3"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=feat%2Fcef#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?rev=c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
 dependencies = [
  "log",
  "notify-rust",
@@ -4584,7 +4584,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-opener"
 version = "2.5.3"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=feat%2Fcef#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?rev=c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
 dependencies = [
  "dunce",
  "glob",

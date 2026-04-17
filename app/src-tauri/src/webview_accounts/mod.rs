@@ -446,12 +446,15 @@ pub async fn webview_account_open<R: Runtime>(
         NewWindowResponse::Deny
     });
 
-    // Always enable devtools on child webviews so recipe diagnostics and
-    // IndexedDB state can be inspected. Access on macOS is via
+    // Enable devtools on child webviews in debug builds only so recipe
+    // diagnostics and IndexedDB state can be inspected. Access on macOS is via
     //   Safari → Develop → <App name> → <webview label>
     // (the parent Tauri window's right-click "Inspect" does not propagate
-    // into child webviews on WKWebView).
-    builder = builder.devtools(true);
+    // into child webviews on WKWebView). In release builds we leave CDP off
+    // so third-party-site webviews are not remotely inspectable.
+    if cfg!(debug_assertions) {
+        builder = builder.devtools(true);
+    }
 
     if let Some(ua) = provider_user_agent(&args.provider) {
         builder = builder.user_agent(ua);
@@ -837,8 +840,24 @@ pub async fn webview_account_eval<R: Runtime>(
 #[tauri::command]
 pub async fn webview_recipe_event<R: Runtime>(
     app: AppHandle<R>,
+    webview: tauri::Webview<R>,
     args: RecipeEventArgs,
 ) -> Result<(), String> {
+    // The event can only be trusted if the invoking webview is the
+    // `acct_<account_id>` webview for the account in the payload. A
+    // compromised renderer or a sibling child webview must not be able to
+    // forge events for another account.
+    let caller_label = webview.label().to_string();
+    let expected_label = label_for(&args.account_id);
+    if caller_label != expected_label {
+        log::warn!(
+            "[webview-accounts] recipe_event rejected: caller_label={} expected={} account={}",
+            caller_label,
+            expected_label,
+            args.account_id
+        );
+        return Err("webview label does not match account_id".to_string());
+    }
     log::debug!(
         "[webview-accounts] recipe_event account={} provider={} kind={}",
         args.account_id,

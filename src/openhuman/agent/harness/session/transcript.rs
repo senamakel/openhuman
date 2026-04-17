@@ -249,12 +249,20 @@ pub fn write_transcript(
 /// (migration path — old sessions), reads it via the legacy HTML-comment
 /// parser and returns a `SessionTranscript` with default meta where the
 /// `.md` format didn't track a field.
-pub fn read_transcript(jsonl_path: &Path) -> Result<SessionTranscript> {
-    if jsonl_path.exists() {
-        read_transcript_jsonl(jsonl_path)
+pub fn read_transcript(path: &Path) -> Result<SessionTranscript> {
+    // Route by extension first: a legacy `.md` path (returned by
+    // `find_latest_transcript` when only legacy files exist) must go to
+    // the legacy parser, never to the JSONL parser.
+    if path.extension().and_then(|s| s.to_str()) == Some("md") {
+        log::debug!("[transcript] reading legacy .md transcript: {}", path.display());
+        return read_transcript_legacy_md(path);
+    }
+
+    if path.exists() {
+        read_transcript_jsonl(path)
     } else {
         // Fallback: try the .md sibling (legacy one-release compat).
-        let md_path = jsonl_path.with_extension("md");
+        let md_path = path.with_extension("md");
         if md_path.exists() {
             log::debug!(
                 "[transcript] .jsonl not found, falling back to legacy .md: {}",
@@ -263,7 +271,7 @@ pub fn read_transcript(jsonl_path: &Path) -> Result<SessionTranscript> {
             read_transcript_legacy_md(&md_path)
         } else {
             // Neither exists — propagate the original jsonl error.
-            read_transcript_jsonl(jsonl_path)
+            read_transcript_jsonl(path)
         }
     }
 }

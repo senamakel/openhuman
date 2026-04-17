@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { type AccountProvider, type ProviderDescriptor, PROVIDERS } from '../../types/accounts';
 import { ProviderIcon } from './providerIcons';
 

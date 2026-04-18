@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { requestUsageRefresh } from '../hooks/usageRefresh';
 import {
@@ -124,46 +124,47 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     return (hash >>> 0).toString(36);
   };
 
-  const resolveVisibleThreadForProactive = async (
-    incomingThreadId: string
-  ): Promise<string | null> => {
-    if (!incomingThreadId.startsWith('proactive:')) {
-      return incomingThreadId;
-    }
-
-    const state = store.getState().thread;
-    const targetFromState =
-      state.selectedThreadId ?? state.activeThreadId ?? state.threads[0]?.id ?? null;
-    if (targetFromState) {
-      return targetFromState;
-    }
-
-    if (proactiveThreadCreationPromiseRef.current) {
-      return proactiveThreadCreationPromiseRef.current;
-    }
-
-    const createPromise: Promise<string | null> = (async () => {
-      try {
-        const newThread = await dispatch(createNewThread()).unwrap();
-        dispatch(setSelectedThread(newThread.id));
-        return newThread.id;
-      } catch (error) {
-        rtLog('proactive_thread_create_failed', {
-          err: error instanceof Error ? error.message : String(error),
-        });
-        return null;
-      } finally {
-        proactiveThreadCreationPromiseRef.current = null;
+  const resolveVisibleThreadForProactive = useCallback(
+    async (incomingThreadId: string): Promise<string | null> => {
+      if (!incomingThreadId.startsWith('proactive:')) {
+        return incomingThreadId;
       }
-    })();
-    proactiveThreadCreationPromiseRef.current = createPromise;
 
-    try {
-      return await createPromise;
-    } finally {
-      // no-op: cleared in createPromise.finally
-    }
-  };
+      const state = store.getState().thread;
+      const targetFromState =
+        state.selectedThreadId ?? state.activeThreadId ?? state.threads[0]?.id ?? null;
+      if (targetFromState) {
+        return targetFromState;
+      }
+
+      if (proactiveThreadCreationPromiseRef.current) {
+        return proactiveThreadCreationPromiseRef.current;
+      }
+
+      const createPromise: Promise<string | null> = (async () => {
+        try {
+          const newThread = await dispatch(createNewThread()).unwrap();
+          dispatch(setSelectedThread(newThread.id));
+          return newThread.id;
+        } catch (error) {
+          rtLog('proactive_thread_create_failed', {
+            err: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        } finally {
+          proactiveThreadCreationPromiseRef.current = null;
+        }
+      })();
+      proactiveThreadCreationPromiseRef.current = createPromise;
+
+      try {
+        return await createPromise;
+      } finally {
+        // no-op: cleared in createPromise.finally
+      }
+    },
+    [dispatch]
+  );
 
   useEffect(() => {
     if (socketStatus !== 'connected') return;
@@ -585,7 +586,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       rtLog('unsubscribe_chat_events');
       cleanup();
     };
-  }, [dispatch, socketStatus]);
+  }, [dispatch, resolveVisibleThreadForProactive, socketStatus]);
 
   return <>{children}</>;
 };

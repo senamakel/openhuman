@@ -846,7 +846,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                       </svg>
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  {/* <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-stone-400">
                       {formatRelativeTime(thread.lastMessageAt)}
                     </span>
@@ -855,7 +855,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                         {thread.messageCount} msg{thread.messageCount !== 1 ? 's' : ''}
                       </span>
                     )}
-                  </div>
+                  </div> */}
                 </button>
               ))
             )}

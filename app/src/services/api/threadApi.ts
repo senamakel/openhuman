@@ -50,6 +50,14 @@ export const threadApi = {
     return unwrapEnvelope(response);
   },
 
+  generateTitleIfNeeded: async (threadId: string, assistantMessage?: string): Promise<Thread> => {
+    const response = await callCoreRpc<Envelope<Thread>>({
+      method: 'openhuman.threads_generate_title',
+      params: { thread_id: threadId, assistant_message: assistantMessage },
+    });
+    return unwrapEnvelope(response);
+  },
+
   updateMessage: async (
     threadId: string,
     messageId: string,

@@ -148,6 +148,27 @@ export const addInferenceResponse = createAsyncThunk(
   }
 );
 
+export const generateThreadTitleIfNeeded = createAsyncThunk(
+  'thread/generateThreadTitleIfNeeded',
+  async (
+    payload: { threadId: string; assistantMessage?: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const thread = await threadApi.generateTitleIfNeeded(
+        payload.threadId,
+        payload.assistantMessage
+      );
+      await dispatch(loadThreads()).unwrap();
+      return thread;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to generate thread title'
+      );
+    }
+  }
+);
+
 export const persistReaction = createAsyncThunk(
   'thread/persistReaction',
   async (

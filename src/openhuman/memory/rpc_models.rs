@@ -158,6 +158,15 @@ pub struct AppendConversationMessageRequest {
     pub message: ConversationMessageRecord,
 }
 
+/// Request to generate or refresh a thread title after the first exchange.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GenerateConversationThreadTitleRequest {
+    pub thread_id: String,
+    #[serde(default)]
+    pub assistant_message: Option<String>,
+}
+
 /// Request to patch a persisted message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

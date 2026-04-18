@@ -31,6 +31,7 @@ import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addInferenceResponse,
   createNewThread,
+  generateThreadTitleIfNeeded,
   setActiveThread,
   setSelectedThread,
 } from '../store/threadSlice';
@@ -483,11 +484,19 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
         }
 
-        if (!event.segment_total) {
-          void dispatch(
-            addInferenceResponse({ content: event.full_response, threadId: event.thread_id })
+        void (async () => {
+          if (!event.segment_total) {
+            await dispatch(
+              addInferenceResponse({ content: event.full_response, threadId: event.thread_id })
+            );
+          }
+          await dispatch(
+            generateThreadTitleIfNeeded({
+              threadId: event.thread_id,
+              assistantMessage: event.full_response,
+            })
           );
-        }
+        })();
         dispatch(endInferenceTurn({ threadId: event.thread_id }));
         dispatch(setActiveThread(null));
       },

@@ -517,6 +517,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               await dispatch(
                 addInferenceResponse({ content: event.full_response, threadId: event.thread_id })
               ).unwrap();
+              void dispatch(
+                generateThreadTitleIfNeeded({
+                  threadId: event.thread_id,
+                  assistantMessage: event.full_response,
+                })
+              );
             } catch (error) {
               rtLog('chat_done_append_failed', {
                 thread: event.thread_id,
@@ -524,12 +530,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 error: error instanceof Error ? error.message : String(error),
               });
             }
-            void dispatch(
-              generateThreadTitleIfNeeded({
-                threadId: event.thread_id,
-                assistantMessage: event.full_response,
-              })
-            );
             rtLog('refresh_usage_counter', {
               thread: event.thread_id,
               request: event.request_id,

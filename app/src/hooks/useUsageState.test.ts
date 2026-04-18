@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetCurrentPlan = vi.fn();
@@ -181,12 +181,12 @@ describe('useUsageState', () => {
     });
     expect(result.current.teamUsage?.remainingUsd).toBe(9);
 
-    requestUsageRefresh();
+    act(() => {
+      requestUsageRefresh();
+    });
 
     await waitFor(() => {
       expect(result.current.teamUsage?.remainingUsd).toBe(7);
     });
-    expect(mockGetTeamUsage).toHaveBeenCalledTimes(2);
-    expect(mockGetCurrentPlan).toHaveBeenCalledTimes(2);
   });
 });

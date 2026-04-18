@@ -105,7 +105,55 @@ fn record_to_message(record: ConversationMessageRecord) -> ConversationMessage {
 }
 
 fn is_auto_generated_thread_title(title: &str) -> bool {
-    title.trim().starts_with("Chat ")
+    let trimmed = title.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() < 16 || !trimmed.starts_with("Chat ") {
+        return false;
+    }
+
+    let month_end = 8;
+    if bytes.len() <= month_end || !bytes[5..month_end].iter().all(|b| b.is_ascii_alphabetic()) {
+        return false;
+    }
+    if bytes.get(month_end) != Some(&b' ') {
+        return false;
+    }
+
+    let mut idx = month_end + 1;
+    let day_start = idx;
+    while idx < bytes.len() && bytes[idx].is_ascii_digit() {
+        idx += 1;
+    }
+    if idx == day_start || idx - day_start > 2 {
+        return false;
+    }
+    if bytes.get(idx) != Some(&b' ') {
+        return false;
+    }
+    idx += 1;
+
+    let hour_start = idx;
+    while idx < bytes.len() && bytes[idx].is_ascii_digit() {
+        idx += 1;
+    }
+    if idx == hour_start || idx - hour_start > 2 {
+        return false;
+    }
+    if bytes.get(idx) != Some(&b':') {
+        return false;
+    }
+    idx += 1;
+
+    if idx + 2 >= bytes.len()
+        || !bytes[idx].is_ascii_digit()
+        || !bytes[idx + 1].is_ascii_digit()
+        || bytes[idx + 2] != b' '
+    {
+        return false;
+    }
+    idx += 3;
+
+    matches!(&trimmed[idx..], "AM" | "PM")
 }
 
 fn collapse_whitespace(input: &str) -> String {

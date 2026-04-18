@@ -965,6 +965,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     ? (toolTimelineByThread[selectedThreadId] ?? [])
     : [];
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
+  const hasVisibleMessages = visibleMessages.length > 0;
   const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
   const latestVisibleAgentMessage = [...visibleMessages]
     .reverse()
@@ -1156,7 +1157,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                 Reload
               </button>
             </div>
-          ) : messages.length > 0 ? (
+          ) : hasVisibleMessages ? (
             <div className="space-y-3">
               {visibleMessages.map(msg => (
                 <div key={msg.id}>
@@ -1410,7 +1411,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
           )}
         </div>
 
-        {messages.length === 0 && suggestedQuestions.length > 0 && !isLoadingSuggestions && (
+        {!hasVisibleMessages && suggestedQuestions.length > 0 && !isLoadingSuggestions && (
           <div className="flex-shrink-0 px-4 py-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {suggestedQuestions.map((s, i) => (

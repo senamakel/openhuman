@@ -303,6 +303,14 @@ const threadSlice = createSlice({
       .addCase(addMessageLocal.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message);
       })
+      .addCase(generateThreadTitleIfNeeded.fulfilled, (state, action) => {
+        const idx = state.threads.findIndex(thread => thread.id === action.payload.id);
+        if (idx >= 0) {
+          state.threads[idx] = action.payload;
+        } else {
+          state.threads = [action.payload, ...state.threads];
+        }
+      })
       .addCase(addInferenceResponse.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message);
         // Do not clear activeThreadId here: streaming sends many segment append

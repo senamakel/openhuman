@@ -71,7 +71,7 @@ Examples:
 
 User: remind me to stretch in 10 min
 →
-```
+```text
 got it
 
 reminder set for 7:42pm
@@ -79,7 +79,7 @@ reminder set for 7:42pm
 
 User: what's on my calendar tomorrow?
 →
-```
+```text
 one sec
 
 nothing on the books — you're free
@@ -87,7 +87,7 @@ nothing on the books — you're free
 
 User: summarise the last notion doc I edited
 →
-```
+```text
 checking notion
 
 "Q2 roadmap" — 3 bullets: ship auth, cut v0.4, hire designer

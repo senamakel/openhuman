@@ -20,8 +20,8 @@ use super::handoff::{
     HANDOFF_OVERSIZE_THRESHOLD_TOKENS,
 };
 use super::tool_prep::{
-    build_text_mode_tool_instructions, filter_tool_indices, is_welcome_only_tool,
-    load_prompt_source, top_k_for_toolkit,
+    build_text_mode_tool_instructions, filter_tool_indices, is_subagent_spawn_tool,
+    is_welcome_only_tool, load_prompt_source, top_k_for_toolkit,
 };
 use super::types::{SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
@@ -131,6 +131,27 @@ async fn run_typed_mode(
         allowed_indices.retain(|&i| !is_welcome_only_tool(parent.all_tools[i].name()));
     }
 
+    // Sub-agents must never spawn their own sub-agents. Nested spawns
+    // create a recursion tree the harness doesn't budget, observe, or
+    // cost-attribute — and historically produced runaway dispatch loops
+    // (e.g. summarizer → summarizer → …). The orchestrator is the only
+    // node that delegates; every archetype running here is, by
+    // definition, a sub-agent. Strip `spawn_subagent` and every
+    // synthesised `delegate_*` tool regardless of the archetype's
+    // declared scope. This is belt-and-braces: archetype definitions
+    // should not list these tools either, but we enforce it here so a
+    // misconfigured TOML can't bypass the rule.
+    let before = allowed_indices.len();
+    allowed_indices.retain(|&i| !is_subagent_spawn_tool(parent.all_tools[i].name()));
+    let stripped = before - allowed_indices.len();
+    if stripped > 0 {
+        tracing::debug!(
+            agent_id = %definition.id,
+            stripped,
+            "[subagent_runner] removed sub-agent spawn tools from sub-agent's tool surface"
+        );
+    }
+
     // ── Force-include extra_tools ──────────────────────────────────────
     //
     // `extra_tools` is a simple "also include these" hook that bypasses
@@ -150,6 +171,10 @@ async fn run_typed_mode(
             if definition.extra_tools.iter().any(|n| n == name)
                 && !allowed_indices.contains(&i)
                 && !disallow_set.contains(name)
+                // `extra_tools` cannot be used to bypass the sub-agent
+                // spawn guard above — a stray TOML entry listing
+                // `spawn_subagent` there must still be dropped.
+                && !is_subagent_spawn_tool(name)
             {
                 allowed_indices.push(i);
             }
@@ -636,10 +661,20 @@ async fn run_fork_mode(
     // request body matches the prefix the backend has already cached.
     // Runtime execution still resolves against the parent's live tool
     // registry.
+    //
+    // Sub-agents (including fork-mode ones) must not spawn their own
+    // sub-agents — the rule that applies in `run_typed_mode`'s filter
+    // applies here too. We keep `spawn_subagent` / `delegate_*` in
+    // `fork.tool_specs` so the prefix bytes still match the parent's
+    // cached body (mutating the specs would defeat the whole point of
+    // fork mode), and instead drop them from `allowed_names` so the
+    // runtime rejects any attempt to call them with the usual
+    // "not in allowlist" path.
     let allowed_names: HashSet<String> = parent
         .all_tools
         .iter()
         .map(|t| t.name().to_string())
+        .filter(|name| !is_subagent_spawn_tool(name))
         .collect();
 
     let model = parent.model_name.clone();

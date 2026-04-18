@@ -107,6 +107,26 @@ pub(crate) fn is_welcome_only_tool(name: &str) -> bool {
     matches!(name, "complete_onboarding")
 }
 
+/// Tools that spawn a new sub-agent turn. A sub-agent must never be
+/// able to invoke any of these — only the top-level orchestrator
+/// delegates. Nested spawns would create a recursion tree the harness
+/// is not designed to budget, cost, or observe.
+///
+/// Matches:
+/// * the generic `spawn_subagent` meta-tool (arbitrary archetype by id);
+/// * every synthesised per-archetype `delegate_*` tool
+///   ([`crate::openhuman::tools::orchestrator_tools::collect_orchestrator_tools`]
+///   emits `delegate_researcher`, `delegate_planner`, …).
+///
+/// Kept as a tight prefix/exact match rather than a registry lookup so
+/// the strip is cheap to run inside [`super::ops::run_typed_mode`]'s
+/// filter pass. If the delegation-tool naming scheme changes, update
+/// this function and the corresponding generator in
+/// `orchestrator_tools.rs` together.
+pub(super) fn is_subagent_spawn_tool(name: &str) -> bool {
+    name == "spawn_subagent" || name.starts_with("delegate_")
+}
+
 /// Returns indices into `parent_tools` for the tools the sub-agent may
 /// invoke. Index-based filtering avoids cloning `Box<dyn Tool>` (which
 /// isn't Clone) and lets us reuse the parent's existing instances.

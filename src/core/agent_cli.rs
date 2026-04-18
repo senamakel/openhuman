@@ -7,6 +7,7 @@
 //!
 //! Usage:
 //!   openhuman agent dump-prompt --agent <id> [--workspace <path>] [--json] [--with-tools] [-v]
+//!   openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]
 //!   openhuman agent list [--json] [-v]
 //!
 //! `dump-prompt` is the main tool: it renders the exact system prompt the
@@ -274,6 +275,13 @@ fn run_dump_prompt(args: &[String]) -> Result<()> {
         anyhow!("--agent <id> is required (e.g. `orchestrator`, `integrations_agent`, `welcome`)")
     })?;
 
+    if agent == "integrations_agent" && flags.toolkit.is_none() {
+        return Err(anyhow!(
+            "--toolkit <slug> is required when --agent is `integrations_agent` \
+             (e.g. `--toolkit gmail`). Run `composio list_connection` to see active slugs."
+        ));
+    }
+
     init_quiet_logging(flags.verbose);
 
     let options = DumpPromptOptions {
@@ -493,6 +501,7 @@ fn print_agent_help() {
     println!("Usage:");
     println!("  openhuman agent list [--workspace <path>] [--json]");
     println!("  openhuman agent dump-prompt --agent <id> [--workspace <path>] [--model <name>] [--with-tools] [--json] [-v]");
+    println!("  openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]");
     println!();
     println!("Run `openhuman agent <subcommand> --help` for details.");
 }

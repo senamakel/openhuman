@@ -34,7 +34,8 @@
 #
 # Defaults:
 #   --out          ./prompt-dumps   (deleted + recreated each run)
-#   --with-tools   OFF (pass to also list each agent's tool names)
+#   --with-tools   DEPRECATED / no-op — tool names are always recorded in
+#                  the per-agent `.meta.txt` files emitted by dump-all.
 #
 
 set -euo pipefail

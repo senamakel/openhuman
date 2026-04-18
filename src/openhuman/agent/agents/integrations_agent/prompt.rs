@@ -85,12 +85,30 @@ fn render_available_skills(skills: &[Skill], workspace_dir: &Path) -> String {
         let _ = writeln!(
             out,
             "  <skill>\n    <name>{}</name>\n    <description>{}</description>\n    <location>{}</location>\n  </skill>",
-            skill.name,
-            skill.description,
-            location.display()
+            xml_escape(&skill.name),
+            xml_escape(&skill.description),
+            xml_escape(&location.display().to_string()),
         );
     }
     out.push_str("</available_skills>");
+    out
+}
+
+/// Escape XML-sensitive characters so skill metadata can't break the
+/// surrounding `<available_skills>` block if a name or description
+/// contains `<`, `>`, or `&`.
+fn xml_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            _ => out.push(ch),
+        }
+    }
     out
 }
 

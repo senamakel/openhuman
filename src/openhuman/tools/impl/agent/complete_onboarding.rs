@@ -143,7 +143,7 @@ impl Tool for CompleteOnboardingTool {
              \"composio\": true,\n\
              \"browser\": false,\n\
              \"web_search\": true,\n\
-             \"http_request\": false,\n\
+             \"http_request\": true,\n\
              \"local_ai\": true\n\
            },\n\
            \"memory\": { \"backend\": \"sqlite\", \"auto_save\": true },\n\

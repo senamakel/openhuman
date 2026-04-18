@@ -59,9 +59,39 @@ fn render_connected_integrations(integrations: &[ConnectedIntegration]) -> Strin
     }
     let mut out = String::from("## Connected Integrations\n\n");
     for ci in connected {
-        let _ = writeln!(out, "- **{}** — {}", ci.toolkit, ci.description);
+        let _ = writeln!(
+            out,
+            "- **{}** — {}",
+            sanitize_bullet(&ci.toolkit),
+            sanitize_bullet(&ci.description),
+        );
     }
     out
+}
+
+/// Normalise a string for safe inclusion in a single markdown bullet:
+/// replace newlines/carriage returns with spaces, collapse runs of
+/// whitespace, and trim leading/trailing whitespace so a description
+/// with embedded linebreaks can't split the bullet.
+fn sanitize_bullet(s: &str) -> String {
+    let replaced: String = s
+        .chars()
+        .map(|c| if c == '\n' || c == '\r' { ' ' } else { c })
+        .collect();
+    let mut out = String::with_capacity(replaced.len());
+    let mut prev_space = false;
+    for ch in replaced.chars() {
+        if ch.is_whitespace() {
+            if !prev_space {
+                out.push(' ');
+            }
+            prev_space = true;
+        } else {
+            out.push(ch);
+            prev_space = false;
+        }
+    }
+    out.trim().to_string()
 }
 
 #[cfg(test)]

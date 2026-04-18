@@ -626,6 +626,21 @@ impl Agent {
                 let formatted = self.tool_dispatcher.format_results(&results);
                 self.history.push(formatted);
                 self.trim_history();
+                // Flush the transcript again now that tool results have
+                // been appended — the pre-tool persist above only
+                // captured the assistant's tool-call intents. A crash
+                // or early-exit between iterations would otherwise lose
+                // the tool output from the on-disk session record.
+                let post_tool_messages = self.tool_dispatcher.to_provider_messages(&self.history);
+                self.persist_session_transcript(
+                    &post_tool_messages,
+                    cumulative_input_tokens,
+                    cumulative_output_tokens,
+                    cumulative_cached_input_tokens,
+                    cumulative_charged_usd,
+                    last_turn_usage.as_ref(),
+                );
+                last_provider_messages = Some(post_tool_messages);
                 log::info!(
                     "[agent_loop] iteration end i={} history_len={}",
                     iteration + 1,

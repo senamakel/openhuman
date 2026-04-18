@@ -226,6 +226,15 @@ impl Tool for SpawnSubagentTool {
                 .map(|ci| ci.toolkit.clone())
                 .collect();
 
+            tracing::debug!(
+                target: "spawn_subagent",
+                toolkit = ?toolkit_override,
+                allowlist_count = allowlist.len(),
+                connected_count = connected_slugs.len(),
+                connected = ?connected_slugs,
+                "[spawn_subagent] integrations_agent gate: validating toolkit"
+            );
+
             match toolkit_override.as_deref() {
                 None => {
                     return Ok(ToolResult::error(format!(
@@ -276,7 +285,11 @@ impl Tool for SpawnSubagentTool {
                             )));
                         }
                         Some(_) => {
-                            // Connected — fall through to spawn.
+                            tracing::debug!(
+                                target: "spawn_subagent",
+                                toolkit = %tk,
+                                "[spawn_subagent] integrations_agent gate: toolkit connected, proceeding with spawn"
+                            );
                         }
                     }
                 }

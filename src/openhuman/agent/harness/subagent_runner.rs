@@ -569,7 +569,11 @@ async fn run_typed_mode(
             parameters_schema: Some(t.parameters_schema().to_string()),
         }))
         .collect();
-    let empty_visible: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // Derive the visible-tool set from the prompt tool list so prompt
+    // sections that gate on `visible_tool_names` (e.g. tool-protocol
+    // notes) see exactly what the model sees, rather than an empty set.
+    let visible_tool_names: std::collections::HashSet<String> =
+        prompt_tools.iter().map(|t| t.name.to_string()).collect();
     let prompt_ctx = PromptContext {
         workspace_dir: &parent.workspace_dir,
         model_name: &model,
@@ -578,7 +582,7 @@ async fn run_typed_mode(
         skills: &parent.skills,
         dispatcher_instructions: "",
         learned: crate::openhuman::context::prompt::LearnedContextData::default(),
-        visible_tool_names: &empty_visible,
+        visible_tool_names: &visible_tool_names,
         tool_call_format: parent.tool_call_format,
         connected_integrations: &narrowed_integrations,
         include_profile: !definition.omit_profile,
@@ -807,10 +811,15 @@ async fn run_inner_loop(
     // iteration's** persist call resolves to the same file on disk:
     //   `{parent_chain}__{unix_ts}_{agent_id}.jsonl`.
     let child_session_key = {
-        let unix_ts = std::time::SystemTime::now()
+        let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+            .unwrap_or_default();
+        let unix_ts = now.as_secs();
+        // Nanos component + task_id suffix disambiguate sibling sub-agents
+        // spawned within the same wall-clock second (tests and fan-out
+        // flows routinely do this, and a shared stem would overwrite the
+        // earlier sibling's transcript file).
+        let nanos = now.subsec_nanos();
         let sanitized: String = agent_id
             .chars()
             .map(|c| {
@@ -821,7 +830,16 @@ async fn run_inner_loop(
                 }
             })
             .collect();
-        format!("{unix_ts}_{sanitized}")
+        let task_suffix: String = task_id
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+            .take(12)
+            .collect();
+        if task_suffix.is_empty() {
+            format!("{unix_ts}_{nanos:09}_{sanitized}")
+        } else {
+            format!("{unix_ts}_{nanos:09}_{sanitized}_{task_suffix}")
+        }
     };
     let transcript_stem = {
         let parent_chain = match parent.session_parent_prefix.as_deref() {
@@ -1684,7 +1702,7 @@ fn top_k_for_toolkit(toolkit: &str) -> usize {
 /// correctly while staying within budget. If the model needs deeper
 /// schema detail it can surface the error and the orchestrator will
 /// clarify on the next turn.
-fn build_text_mode_tool_instructions(specs: &[ToolSpec]) -> String {
+pub(crate) fn build_text_mode_tool_instructions(specs: &[ToolSpec]) -> String {
     let mut out = String::new();
     out.push_str("## Tool Use Protocol\n\n");
     out.push_str(

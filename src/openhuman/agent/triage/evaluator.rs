@@ -311,8 +311,10 @@ pub async fn run_triage_with_resolved(
 /// Pull the prompt body out of the definition.
 ///
 /// Built-ins use [`PromptSource::Dynamic`] (function-driven) and
-/// custom TOML definitions use `Inline` / `File`; both shapes are
-/// handled here. For `Dynamic`, the builder is invoked with a minimal
+/// custom TOML definitions may use `Inline`. Only `Inline` and
+/// `Dynamic` are handled here — `File`-backed sources fall into the
+/// wildcard arm and return `None`. For `Dynamic`, the builder is
+/// invoked with a minimal
 /// [`crate::openhuman::agent::harness::definition::PromptContext`]
 /// since the triage classifier does not need tool lists or memory
 /// context. Returning an option here (rather than panicking) lets the
@@ -343,7 +345,15 @@ fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
             };
             match build(&ctx) {
                 Ok(body) if !body.is_empty() => Some(body),
-                _ => None,
+                Ok(_) => None,
+                Err(e) => {
+                    tracing::warn!(
+                        agent_id = %def.id,
+                        error = %e,
+                        "[triage::evaluator] dynamic prompt builder failed"
+                    );
+                    None
+                }
             }
         }
         _ => None,

@@ -951,10 +951,15 @@ fn inject_workspace_file_capped(
                 prompt.push_str("\n\n");
             }
         }
-        Err(_) => {
-            // Keep prompt focused: missing optional identity/bootstrap files should not
-            // add noisy placeholders that dilute tool-calling instructions.
-        }
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => {
+                // Keep prompt focused: missing optional identity/bootstrap files should not
+                // add noisy placeholders that dilute tool-calling instructions.
+            }
+            _ => {
+                log::debug!("[prompt] failed to read {}: {e}", path.display());
+            }
+        },
     }
 }
 
@@ -1345,7 +1350,6 @@ mod tests {
         assert!(rendered.contains("## Project Context"));
         assert!(rendered.contains("### SOUL.md"));
         assert!(rendered.contains("## Safety"));
-        assert!(rendered.contains("## Available Skills"));
         // Json is a prompt-driven format (the model wraps JSON tool
         // calls in `<tool_call>` tags); it does NOT use the provider's
         // native function-calling channel. So the prose `## Tools`

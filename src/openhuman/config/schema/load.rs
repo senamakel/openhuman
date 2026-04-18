@@ -631,7 +631,15 @@ impl Config {
         // `OPENHUMAN_WEB_SEARCH_ENABLED` is intentionally ignored —
         // web search is unconditionally registered in the tool set.
         // Only the provider / API-key / budget knobs remain
-        // environment-configurable.
+        // environment-configurable. Emit a one-shot deprecation warning
+        // if the caller still sets it so stale scripts surface clearly.
+        if std::env::var_os("OPENHUMAN_WEB_SEARCH_ENABLED").is_some() {
+            log::warn!(
+                "[config] OPENHUMAN_WEB_SEARCH_ENABLED is deprecated and ignored — \
+                 web search is always registered; use OPENHUMAN_WEB_SEARCH_PROVIDER / \
+                 API-key / budget env vars instead."
+            );
+        }
 
         if let Ok(provider) = std::env::var("OPENHUMAN_WEB_SEARCH_PROVIDER")
             .or_else(|_| std::env::var("WEB_SEARCH_PROVIDER"))

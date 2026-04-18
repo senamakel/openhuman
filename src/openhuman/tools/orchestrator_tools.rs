@@ -128,12 +128,12 @@ pub fn collect_orchestrator_tools(
                     // on brand-new or poorly-populated toolkits.
                     let description = if integration.description.trim().is_empty() {
                         format!(
-                            "Delegate to the skills agent with the `{}` integration pre-selected.",
+                            "Delegate to the integrations_agent with the `{}` integration pre-selected.",
                             integration.toolkit
                         )
                     } else {
                         format!(
-                            "Delegate to the skills agent using `{}`. {}",
+                            "Delegate to the integrations_agent using `{}`. {}",
                             integration.toolkit, integration.description
                         )
                     };

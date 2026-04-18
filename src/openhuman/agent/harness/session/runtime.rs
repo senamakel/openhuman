@@ -116,6 +116,13 @@ impl Agent {
         &self.connected_integrations
     }
 
+    /// The Composio client cached on the session, if any. Populated by
+    /// [`Agent::fetch_connected_integrations`]; remains `None` when the
+    /// user is not signed in.
+    pub fn composio_client(&self) -> Option<&crate::openhuman::composio::ComposioClient> {
+        self.composio_client.as_ref()
+    }
+
     /// Replace the agent's connected integrations (e.g. from a cached
     /// fetch result when the agent was built outside the normal turn loop).
     pub fn set_connected_integrations(

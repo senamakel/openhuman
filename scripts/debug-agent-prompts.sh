@@ -201,90 +201,25 @@ if [[ -n "${OPENHUMAN_BASE_URL:-}" ]]; then
 fi
 echo >&2
 
-# ── Discover agent ids from `agent list --json` ───────────────────────────
-# `mapfile` is bash 4+, but macOS ships bash 3 — use a portable
-# read-while-IFS loop instead so the script works out of the box on a
-# vanilla `/bin/bash`.
-LIST_ARGS=(agent list --json)
+# ── Delegate to `openhuman-core agent dump-all` ──────────────────────────
+# All the per-agent iteration + `integrations_agent`-per-toolkit
+# expansion now lives in Rust (`debug_dump::dump_all_agent_prompts`).
+# The shell script just supplies the output directory and passes
+# through workspace / verbose toggles.
+DUMP_ARGS=(agent dump-all --out "${OUT_DIR}")
 if [[ -n "${WORKSPACE_OVERRIDE}" ]]; then
-  LIST_ARGS+=(--workspace "${WORKSPACE_OVERRIDE}")
-fi
-AGENT_LIST_JSON="$("${BIN}" "${LIST_ARGS[@]}" 2>/dev/null)"
-AGENT_IDS=()
-while IFS= read -r line; do
-  [[ -n "${line}" ]] && AGENT_IDS+=("${line}")
-done < <(printf '%s' "${AGENT_LIST_JSON}" | python3 -c '
-import json, sys
-for entry in json.load(sys.stdin):
-    aid = entry.get("id", "")
-    # The synthetic `fork` definition replays the parent verbatim and
-    # has no standalone prompt — skip it.
-    if aid and aid != "fork":
-        print(aid)
-')
-
-# Every registered agent — orchestrator included. There's no
-# "main" alias anymore: the dumper treats the orchestrator as just
-# another agent, which keeps the per-agent render pipeline uniform.
-TARGETS=("${AGENT_IDS[@]}")
-
-# ── Build common dump-prompt flag list ────────────────────────────────────
-DUMP_FLAGS=()
-if [[ -n "${WORKSPACE_OVERRIDE}" ]]; then
-  DUMP_FLAGS+=(--workspace "${WORKSPACE_OVERRIDE}")
-fi
-if [[ ${WITH_TOOLS} -eq 1 ]]; then
-  DUMP_FLAGS+=(--with-tools)
+  DUMP_ARGS+=(--workspace "${WORKSPACE_OVERRIDE}")
 fi
 if [[ ${#VERBOSE_FLAG[@]} -gt 0 ]]; then
-  DUMP_FLAGS+=("${VERBOSE_FLAG[@]}")
+  DUMP_ARGS+=("${VERBOSE_FLAG[@]}")
 fi
 
-# ── Dump every target ─────────────────────────────────────────────────────
-INDEX=0
-SUMMARY=""
-for AGENT in "${TARGETS[@]}"; do
-  INDEX=$((INDEX + 1))
-  SAFE_NAME="$(printf '%s' "${AGENT}" | tr -c 'A-Za-z0-9._-' '_')"
-  PROMPT_PATH="${OUT_DIR}/${INDEX}_${SAFE_NAME}.md"
-  META_PATH="${OUT_DIR}/${INDEX}_${SAFE_NAME}.meta.txt"
+"${BIN}" "${DUMP_ARGS[@]}"
 
-  printf '[debug-agent-prompts] %-20s → %s\n' "${AGENT}" "${PROMPT_PATH}" >&2
-  if "${BIN}" agent dump-prompt --agent "${AGENT}" ${DUMP_FLAGS[@]+"${DUMP_FLAGS[@]}"} \
-        > "${PROMPT_PATH}" 2> "${META_PATH}"; then
-    LINES="$(wc -l < "${PROMPT_PATH}" | tr -d ' ')"
-    TOOL_COUNT="$(grep -E '^tool_count:' "${META_PATH}" | awk '{print $2}')"
-    SKILL_COUNT="$(grep -E '^skill_tools:' "${META_PATH}" | awk '{print $2}')"
-    SUMMARY+="$(printf '%-20s lines=%-5s tools=%-4s skill=%-4s\n' \
-        "${AGENT}" "${LINES}" "${TOOL_COUNT:-?}" "${SKILL_COUNT:-?}")
-"
-  else
-    echo "[debug-agent-prompts]   ✘ failed to dump ${AGENT} (see ${META_PATH})" >&2
-    SUMMARY+="$(printf '%-20s FAILED — see %s\n' "${AGENT}" "${META_PATH}")
-"
-  fi
-done
-
-# ── Write a summary index file alongside the dumps ────────────────────────
-SUMMARY_PATH="${OUT_DIR}/SUMMARY.txt"
-{
-  echo "OpenHuman agent prompt dump summary"
-  echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if [[ -n "${WORKSPACE_OVERRIDE}" ]]; then
-    echo "Workspace: ${WORKSPACE_OVERRIDE} (OPENHUMAN_WORKSPACE override)"
-  else
-    echo "Workspace: <resolved by Config::load_or_init>"
-  fi
-  if [[ -n "${OPENHUMAN_APP_ENV:-}" ]]; then
-    echo "App env: ${OPENHUMAN_APP_ENV}"
-  fi
-  if [[ -n "${OPENHUMAN_BASE_URL:-}" ]]; then
-    echo "Base URL: ${OPENHUMAN_BASE_URL}"
-  fi
-  echo
-  echo "${SUMMARY}"
-} > "${SUMMARY_PATH}"
+if [[ ${WITH_TOOLS} -eq 1 ]]; then
+  echo "[debug-agent-prompts] NOTE: --with-tools is no longer honoured by dump-all" >&2
+  echo "[debug-agent-prompts]       (tool names are always recorded in the .meta.txt files)" >&2
+fi
 
 echo >&2
-echo "[debug-agent-prompts] done — ${INDEX} prompts dumped" >&2
-echo "[debug-agent-prompts] summary  : ${SUMMARY_PATH}" >&2
+echo "[debug-agent-prompts] done — see ${OUT_DIR}/SUMMARY.txt" >&2

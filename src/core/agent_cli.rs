@@ -18,11 +18,13 @@
 //! any built-in or workspace-custom agent id (e.g. `integrations_agent`,
 //! `welcome`, `code_executor`).
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::context::debug_dump::{dump_agent_prompt, DumpPromptOptions, DumpedPrompt};
+use crate::openhuman::context::debug_dump::{
+    dump_agent_prompt, dump_all_agent_prompts, DumpPromptOptions, DumpedPrompt,
+};
 
 /// Entry point for `openhuman agent <subcommand>`.
 pub fn run_agent_command(args: &[String]) -> Result<()> {
@@ -33,6 +35,7 @@ pub fn run_agent_command(args: &[String]) -> Result<()> {
 
     match args[0].as_str() {
         "dump-prompt" => run_dump_prompt(&args[1..]),
+        "dump-all" => run_dump_all(&args[1..]),
         "list" => run_list(&args[1..]),
         other => Err(anyhow!(
             "unknown agent subcommand '{other}'. Run `openhuman agent --help`."
@@ -41,11 +44,151 @@ pub fn run_agent_command(args: &[String]) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// dump-all
+// ---------------------------------------------------------------------------
+
+struct DumpAllFlags {
+    out: PathBuf,
+    workspace: Option<PathBuf>,
+    model: Option<String>,
+    verbose: bool,
+}
+
+fn parse_dump_all_flags(args: &[String]) -> Result<DumpAllFlags> {
+    let mut out: Option<PathBuf> = None;
+    let mut workspace: Option<PathBuf> = None;
+    let mut model: Option<String> = None;
+    let mut verbose = false;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--out" | "-o" => {
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --out"))?,
+                ));
+                i += 2;
+            }
+            "--workspace" | "-w" => {
+                workspace = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --workspace"))?,
+                ));
+                i += 2;
+            }
+            "--model" | "-m" => {
+                model = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --model"))?
+                        .clone(),
+                );
+                i += 2;
+            }
+            "-v" | "--verbose" => {
+                verbose = true;
+                i += 1;
+            }
+            "-h" | "--help" => {
+                println!("Usage: openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]");
+                println!();
+                println!("Render every registered agent's turn-1 system prompt into <dir>.");
+                println!("`integrations_agent` is expanded into one file per currently-connected");
+                println!("Composio toolkit; if no toolkit is connected, it is skipped.");
+                std::process::exit(0);
+            }
+            other => return Err(anyhow!("unknown dump-all arg: {other}")),
+        }
+    }
+    Ok(DumpAllFlags {
+        out: out.ok_or_else(|| anyhow!("--out <dir> is required"))?,
+        workspace,
+        model,
+        verbose,
+    })
+}
+
+fn run_dump_all(args: &[String]) -> Result<()> {
+    let flags = parse_dump_all_flags(args)?;
+    init_quiet_logging(flags.verbose);
+
+    std::fs::create_dir_all(&flags.out)
+        .with_context(|| format!("creating output dir {}", flags.out.display()))?;
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    let dumps = rt.block_on(async {
+        dump_all_agent_prompts(flags.workspace.clone(), flags.model.clone()).await
+    })?;
+
+    let mut summary = String::new();
+    for (idx, dumped) in dumps.iter().enumerate() {
+        let safe_agent = sanitise_filename_component(&dumped.agent_id);
+        let stem = match &dumped.toolkit {
+            Some(tk) => format!("{}_{}_{}", idx + 1, safe_agent, sanitise_filename_component(tk)),
+            None => format!("{}_{}", idx + 1, safe_agent),
+        };
+        let prompt_path = flags.out.join(format!("{stem}.md"));
+        let meta_path = flags.out.join(format!("{stem}.meta.txt"));
+
+        std::fs::write(&prompt_path, &dumped.text)
+            .with_context(|| format!("writing {}", prompt_path.display()))?;
+
+        let mut meta = String::new();
+        use std::fmt::Write as _;
+        let _ = writeln!(meta, "agent:          {}", dumped.agent_id);
+        if let Some(tk) = &dumped.toolkit {
+            let _ = writeln!(meta, "toolkit:        {tk}");
+        }
+        let _ = writeln!(meta, "mode:           {}", dumped.mode);
+        let _ = writeln!(meta, "model:          {}", dumped.model);
+        let _ = writeln!(meta, "workspace:      {}", dumped.workspace_dir.display());
+        let _ = writeln!(meta, "tool_count:     {}", dumped.tool_names.len());
+        let _ = writeln!(meta, "skill_tools:    {}", dumped.skill_tool_count);
+        std::fs::write(&meta_path, meta)
+            .with_context(|| format!("writing {}", meta_path.display()))?;
+
+        let label = match &dumped.toolkit {
+            Some(tk) => format!("{}@{}", dumped.agent_id, tk),
+            None => dumped.agent_id.clone(),
+        };
+        let _ = writeln!(
+            summary,
+            "{:<32} tools={:<4} skill={:<4}",
+            label,
+            dumped.tool_names.len(),
+            dumped.skill_tool_count
+        );
+        eprintln!("[dump-all] {label:<32} → {}", prompt_path.display());
+    }
+
+    let summary_path = flags.out.join("SUMMARY.txt");
+    std::fs::write(&summary_path, &summary)
+        .with_context(|| format!("writing {}", summary_path.display()))?;
+    eprintln!("[dump-all] wrote summary → {}", summary_path.display());
+    Ok(())
+}
+
+fn sanitise_filename_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
 // dump-prompt
 // ---------------------------------------------------------------------------
 
 struct DumpFlags {
     agent: Option<String>,
+    toolkit: Option<String>,
     workspace: Option<PathBuf>,
     model: Option<String>,
     json: bool,
@@ -56,6 +199,7 @@ struct DumpFlags {
 fn parse_dump_flags(args: &[String]) -> Result<DumpFlags> {
     let mut out = DumpFlags {
         agent: None,
+        toolkit: None,
         workspace: None,
         model: None,
         json: false,
@@ -69,6 +213,14 @@ fn parse_dump_flags(args: &[String]) -> Result<DumpFlags> {
                 out.agent = Some(
                     args.get(i + 1)
                         .ok_or_else(|| anyhow!("missing value for --agent"))?
+                        .clone(),
+                );
+                i += 2;
+            }
+            "--toolkit" | "-t" => {
+                out.toolkit = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --toolkit"))?
                         .clone(),
                 );
                 i += 2;
@@ -121,6 +273,7 @@ fn run_dump_prompt(args: &[String]) -> Result<()> {
 
     let options = DumpPromptOptions {
         agent_id: agent,
+        toolkit: flags.toolkit.clone(),
         workspace_dir_override: flags.workspace.clone(),
         model_override: flags.model.clone(),
     };
@@ -145,6 +298,9 @@ fn print_human(dumped: &DumpedPrompt, with_tools: bool) {
     // in `core/cli.rs` (banner to stderr, JSON result to stdout).
     eprintln!("# Agent prompt dump");
     eprintln!("agent:          {}", dumped.agent_id);
+    if let Some(tk) = &dumped.toolkit {
+        eprintln!("toolkit:        {tk}");
+    }
     eprintln!("mode:           {}", dumped.mode);
     eprintln!("model:          {}", dumped.model);
     eprintln!("workspace:      {}", dumped.workspace_dir.display());
@@ -170,6 +326,13 @@ fn print_json(dumped: &DumpedPrompt, with_tools: bool) -> Result<()> {
     obj.insert(
         "agent_id".into(),
         serde_json::Value::String(dumped.agent_id.clone()),
+    );
+    obj.insert(
+        "toolkit".into(),
+        match &dumped.toolkit {
+            Some(tk) => serde_json::Value::String(tk.clone()),
+            None => serde_json::Value::Null,
+        },
     );
     obj.insert(
         "mode".into(),
@@ -340,6 +503,10 @@ fn print_dump_prompt_help() {
     println!("                       (e.g. `orchestrator`, `integrations_agent`, `welcome`).");
     println!();
     println!("Options:");
+    println!("  --toolkit, -t <slug> REQUIRED when `--agent integrations_agent`. Names the");
+    println!("                       Composio toolkit to bind this dump to (e.g. `gmail`,");
+    println!("                       `notion`). Must match a currently-connected integration —");
+    println!("                       run `composio list_connection` to see the active slugs.");
     println!("  --workspace, -w <p>  Override the workspace directory (defaults to");
     println!("                       Config::workspace_dir / ~/.openhuman/workspace).");
     println!("  --model, -m <name>   Override the resolved model name (affects only the");
@@ -349,11 +516,11 @@ fn print_dump_prompt_help() {
     println!("  -v, --verbose        Enable debug logging on stderr.");
     println!();
     println!("Examples:");
-    println!("  # Full integrations_agent dump (includes Composio meta-tools when enabled).");
-    println!("  openhuman agent dump-prompt --agent integrations_agent --with-tools");
-    println!();
     println!("  # Orchestrator prompt, JSON for scripting.");
     println!("  openhuman agent dump-prompt --agent orchestrator --json");
+    println!();
+    println!("  # integrations_agent bound to the user's gmail connection.");
+    println!("  openhuman agent dump-prompt --agent integrations_agent --toolkit gmail --with-tools");
 }
 
 fn is_help(value: &str) -> bool {

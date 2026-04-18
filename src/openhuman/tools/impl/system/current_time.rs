@@ -148,12 +148,10 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_str(&result.output()).unwrap();
         assert!(payload["requested_timezone"].is_object());
         assert!(payload["requested_timezone"]["name"].is_string());
-        assert!(
-            payload["requested_timezone"]["name"]
-                .as_str()
-                .unwrap()
-                .contains("Asia/Kolkata")
-        );
+        assert!(payload["requested_timezone"]["name"]
+            .as_str()
+            .unwrap()
+            .contains("Asia/Kolkata"));
     }
 
     #[tokio::test]

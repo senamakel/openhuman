@@ -21,7 +21,11 @@ static CONVERSATION_STORE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 fn redact_title_for_log(title: &str) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     title.hash(&mut hasher);
-    format!("<redacted len={} hash={:016x}>", title.chars().count(), hasher.finish())
+    format!(
+        "<redacted len={} hash={:016x}>",
+        title.chars().count(),
+        hasher.finish()
+    )
 }
 
 #[derive(Debug, Clone, Copy, Default)]

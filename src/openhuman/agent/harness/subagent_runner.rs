@@ -40,7 +40,6 @@ use async_trait::async_trait;
 use futures::stream::StreamExt;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write as _;
 use std::sync::{Arc, LazyLock, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -1731,7 +1730,16 @@ fn top_k_for_toolkit(toolkit: &str) -> usize {
 /// correctly while staying within budget. If the model needs deeper
 /// schema detail it can surface the error and the orchestrator will
 /// clarify on the next turn.
-pub(crate) fn build_text_mode_tool_instructions(specs: &[ToolSpec]) -> String {
+pub(crate) fn build_text_mode_tool_instructions(_specs: &[ToolSpec]) -> String {
+    // The tool catalog is already rendered in the prompt's `## Tools`
+    // section (see `prompts::ToolsSection::build`) with full
+    // `Call as: NAME[arg|arg]` signatures. We previously also emitted
+    // an `### Available Tools` subsection here with a different
+    // formatting (`Parameters: name:type, ...`), which doubled the
+    // tool list bytes for text-mode agents — especially expensive for
+    // the integrations_agent toolkit-scoped spawns (~50 actions ×
+    // 2 listings). Keep only the protocol explanation; the tool
+    // catalog itself comes from the prompt template.
     let mut out = String::new();
     out.push_str("## Tool Use Protocol\n\n");
     out.push_str(
@@ -1740,71 +1748,9 @@ pub(crate) fn build_text_mode_tool_instructions(specs: &[ToolSpec]) -> String {
          in the same response if you need to run calls in parallel.\n\n",
     );
     out.push_str(
-        "```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n\n",
+        "```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n",
     );
-    out.push_str("### Available Tools\n\n");
-    for spec in specs {
-        let _ = writeln!(
-            out,
-            "- **{}**: {}",
-            spec.name,
-            first_line_truncated(&spec.description, 120)
-        );
-        let params_line = summarise_parameters(&spec.parameters);
-        if !params_line.is_empty() {
-            let _ = writeln!(out, "  Parameters: {}", params_line);
-        }
-    }
     out
-}
-
-/// Render a JSON-schema `parameters` object as a single-line,
-/// ultra-compact parameter list — `*name: type, optName: type` for each
-/// top-level property (leading `*` marks required). Deeply nested
-/// shapes, enums, descriptions, and examples are all dropped.
-///
-/// Kept intentionally terse: Composio action schemas routinely contain
-/// per-parameter descriptions several hundred tokens long, so even a
-/// "short description" per param balloons to tens of thousands of
-/// tokens across a 27-tool integrations_agent toolkit and pushes the prompt
-/// past the 196 607-token context window. The model can infer usage
-/// from the parameter names + the tool's overall description; any
-/// validation mismatch surfaces at call time and the orchestrator can
-/// course-correct on the next turn.
-fn summarise_parameters(params: &serde_json::Value) -> String {
-    let Some(props) = params.get("properties").and_then(|v| v.as_object()) else {
-        return String::new();
-    };
-    let required: std::collections::HashSet<&str> = params
-        .get("required")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
-        .unwrap_or_default();
-
-    let mut parts: Vec<String> = Vec::with_capacity(props.len());
-    for (name, schema) in props {
-        let ty = schema.get("type").and_then(|v| v.as_str()).unwrap_or("any");
-        let marker = if required.contains(name.as_str()) {
-            "*"
-        } else {
-            ""
-        };
-        parts.push(format!("{marker}{name}:{ty}"));
-    }
-    parts.join(", ")
-}
-
-/// Return the first line of `s`, trimmed and truncated to `max_chars`
-/// with a trailing ellipsis when it overflows. Used to keep
-/// tool/parameter descriptions on a single grep-friendly line.
-fn first_line_truncated(s: &str, max_chars: usize) -> String {
-    let first = s.lines().next().unwrap_or("").trim();
-    if first.chars().count() <= max_chars {
-        first.to_string()
-    } else {
-        let truncated: String = first.chars().take(max_chars).collect();
-        format!("{truncated}…")
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

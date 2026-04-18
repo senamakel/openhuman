@@ -51,6 +51,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("get_user_profile"),
         schemas("sync"),
         schemas("list_trigger_history"),
+        schemas("get_user_scopes"),
+        schemas("set_user_scopes"),
     ]
 }
 
@@ -99,6 +101,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("list_trigger_history"),
             handler: handle_list_trigger_history,
+        },
+        RegisteredController {
+            schema: schemas("get_user_scopes"),
+            handler: handle_get_user_scopes,
+        },
+        RegisteredController {
+            schema: schemas("set_user_scopes"),
+            handler: handle_set_user_scopes,
         },
     ]
 }
@@ -334,6 +344,65 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "get_user_scopes" => ControllerSchema {
+            namespace: "composio",
+            function: "get_user_scopes",
+            description:
+                "Read the per-toolkit user scope preference (read/write/admin) used to gate \
+                 composio_execute. Defaults to {read:true, write:true, admin:false} when no \
+                 pref is stored.",
+            inputs: vec![FieldSchema {
+                name: "toolkit",
+                ty: TypeSchema::String,
+                comment: "Toolkit slug, e.g. 'gmail' or 'notion'.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "pref",
+                ty: TypeSchema::Json,
+                comment: "Scope pref: { read: bool, write: bool, admin: bool }.",
+                required: true,
+            }],
+        },
+        "set_user_scopes" => ControllerSchema {
+            namespace: "composio",
+            function: "set_user_scopes",
+            description:
+                "Persist a per-toolkit user scope preference. The agent will only be able to \
+                 invoke composio actions whose classified scope is enabled here.",
+            inputs: vec![
+                FieldSchema {
+                    name: "toolkit",
+                    ty: TypeSchema::String,
+                    comment: "Toolkit slug, e.g. 'gmail' or 'notion'.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "read",
+                    ty: TypeSchema::Bool,
+                    comment: "Allow read-classified actions (GET / FETCH / LIST / SEARCH).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "write",
+                    ty: TypeSchema::Bool,
+                    comment: "Allow write-classified actions (SEND / CREATE / UPDATE).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "admin",
+                    ty: TypeSchema::Bool,
+                    comment: "Allow admin-classified actions (DELETE / TRASH / SHARE).",
+                    required: true,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "pref",
+                ty: TypeSchema::Json,
+                comment: "Stored scope pref: { read, write, admin }.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "composio",
             function: "unknown",
@@ -459,6 +528,94 @@ fn handle_sync(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_get_user_scopes(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let toolkit = match read_required_non_empty(&params, "toolkit") {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    method = "composio.get_user_scopes",
+                    error = %e,
+                    "[composio:scopes] missing required `toolkit` param"
+                );
+                return Err(e);
+            }
+        };
+        tracing::debug!(
+            method = "composio.get_user_scopes",
+            toolkit = %toolkit,
+            "[composio:scopes] handler entry"
+        );
+        let pref = super::providers::user_scopes::load_or_default(&toolkit).await;
+        tracing::debug!(
+            method = "composio.get_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler exit"
+        );
+        to_json(crate::rpc::RpcOutcome::new(pref, vec![]))
+    })
+}
+
+fn handle_set_user_scopes(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let toolkit = match read_required_non_empty(&params, "toolkit") {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    method = "composio.set_user_scopes",
+                    error = %e,
+                    "[composio:scopes] missing required `toolkit` param"
+                );
+                return Err(e);
+            }
+        };
+        let read: bool = read_required(&params, "read")?;
+        let write: bool = read_required(&params, "write")?;
+        let admin: bool = read_required(&params, "admin")?;
+        let pref = super::providers::UserScopePref { read, write, admin };
+        tracing::debug!(
+            method = "composio.set_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler entry"
+        );
+        let memory = match crate::openhuman::memory::global::client_if_ready() {
+            Some(m) => m,
+            None => {
+                tracing::error!(
+                    method = "composio.set_user_scopes",
+                    toolkit = %toolkit,
+                    "[composio:scopes] memory client not initialised — cannot persist pref"
+                );
+                return Err("memory client not initialised".to_string());
+            }
+        };
+        if let Err(e) = super::providers::user_scopes::save(&memory, &toolkit, pref).await {
+            tracing::error!(
+                method = "composio.set_user_scopes",
+                toolkit = %toolkit,
+                error = %e,
+                "[composio:scopes] save failed"
+            );
+            return Err(e);
+        }
+        tracing::debug!(
+            method = "composio.set_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler exit"
+        );
+        to_json(crate::rpc::RpcOutcome::new(pref, vec![]))
+    })
+}
+
 // ── Param helpers ───────────────────────────────────────────────────
 
 fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
@@ -535,6 +692,8 @@ mod tests {
             "get_user_profile",
             "sync",
             "list_trigger_history",
+            "get_user_scopes",
+            "set_user_scopes",
         ];
         for k in keys {
             let s = schemas(k);

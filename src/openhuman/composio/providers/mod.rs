@@ -34,22 +34,105 @@
 
 mod descriptions;
 pub(crate) mod helpers;
+pub mod tool_scope;
 mod traits;
 mod types;
+pub mod user_scopes;
 
+pub mod catalogs;
+pub mod github;
 pub mod gmail;
 pub mod notion;
+pub mod post_process;
 pub mod profile;
 pub mod registry;
 pub mod sync_state;
+
+/// Static toolkit → curated catalog map.
+///
+/// This is consulted by the meta-tool layer alongside any registered
+/// provider's [`ComposioProvider::curated_tools`]. It lets toolkits
+/// without a full native provider (e.g. `github`, which has no sync
+/// logic yet) still benefit from curated whitelisting.
+///
+/// Lookup key is the lowercased prefix returned by
+/// [`toolkit_from_slug`] applied to the action slug — e.g.
+/// `GOOGLECALENDAR_CREATE_EVENT` → `"googlecalendar"`. Multi-segment
+/// prefixes like `MICROSOFT_TEAMS_*` are matched via their first
+/// segment with an extra arm.
+/// Synchronous visibility check for a Composio action slug given a
+/// pre-loaded user scope preference.
+///
+/// Returns `true` if the action should appear in the agent's tool
+/// surface — i.e. it's in the toolkit's curated whitelist (or the
+/// toolkit has no curation) **and** the user's scope pref allows its
+/// classification. Falls back to [`classify_unknown`] for un-curated
+/// toolkits.
+///
+/// Use this when the user pref has already been loaded for the
+/// toolkit (typical inside a `for slug in toolkits {...}` loop where
+/// awaiting once per toolkit is cheaper than once per action).
+pub fn is_action_visible_with_pref(slug: &str, pref: &UserScopePref) -> bool {
+    let Some(toolkit) = toolkit_from_slug(slug) else {
+        return true;
+    };
+    let catalog = get_provider(&toolkit)
+        .and_then(|p| p.curated_tools())
+        .or_else(|| catalog_for_toolkit(&toolkit));
+    match catalog {
+        Some(catalog) => match find_curated(catalog, slug) {
+            Some(curated) => pref.allows(curated.scope),
+            None => false,
+        },
+        None => pref.allows(classify_unknown(slug)),
+    }
+}
+
+pub fn catalog_for_toolkit(toolkit: &str) -> Option<&'static [CuratedTool]> {
+    match toolkit.trim().to_ascii_lowercase().as_str() {
+        // Native providers
+        "gmail" => Some(gmail::GMAIL_CURATED),
+        "notion" => Some(notion::NOTION_CURATED),
+        "github" => Some(github::GITHUB_CURATED),
+        // Catalog-only toolkits
+        "slack" => Some(catalogs::SLACK_CURATED),
+        "discord" => Some(catalogs::DISCORD_CURATED),
+        "googlecalendar" | "google_calendar" => Some(catalogs::GOOGLECALENDAR_CURATED),
+        "googledrive" | "google_drive" => Some(catalogs::GOOGLEDRIVE_CURATED),
+        "googledocs" | "google_docs" => Some(catalogs::GOOGLEDOCS_CURATED),
+        "googlesheets" | "google_sheets" => Some(catalogs::GOOGLESHEETS_CURATED),
+        "outlook" => Some(catalogs::OUTLOOK_CURATED),
+        // MICROSOFT_TEAMS_* slugs extract to "microsoft" via toolkit_from_slug.
+        "microsoft" | "microsoft_teams" => Some(catalogs::MICROSOFT_TEAMS_CURATED),
+        "linear" => Some(catalogs::LINEAR_CURATED),
+        "jira" => Some(catalogs::JIRA_CURATED),
+        "trello" => Some(catalogs::TRELLO_CURATED),
+        "asana" => Some(catalogs::ASANA_CURATED),
+        "dropbox" => Some(catalogs::DROPBOX_CURATED),
+        "twitter" => Some(catalogs::TWITTER_CURATED),
+        "spotify" => Some(catalogs::SPOTIFY_CURATED),
+        "telegram" => Some(catalogs::TELEGRAM_CURATED),
+        "whatsapp" => Some(catalogs::WHATSAPP_CURATED),
+        "shopify" => Some(catalogs::SHOPIFY_CURATED),
+        "stripe" => Some(catalogs::STRIPE_CURATED),
+        "hubspot" => Some(catalogs::HUBSPOT_CURATED),
+        "salesforce" => Some(catalogs::SALESFORCE_CURATED),
+        "airtable" => Some(catalogs::AIRTABLE_CURATED),
+        "figma" => Some(catalogs::FIGMA_CURATED),
+        "youtube" => Some(catalogs::YOUTUBE_CURATED),
+        _ => None,
+    }
+}
 
 pub use descriptions::toolkit_description;
 pub(crate) use helpers::pick_str;
 pub use registry::{
     all_providers, get_provider, init_default_providers, register_provider, ProviderArc,
 };
+pub use tool_scope::{classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope};
 pub use traits::ComposioProvider;
 pub use types::{ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason};
+pub use user_scopes::{load_or_default as load_user_scope_or_default, UserScopePref};
 
 #[cfg(test)]
 mod tests {

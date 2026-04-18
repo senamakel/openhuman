@@ -27,6 +27,106 @@ use serde_json::{json, Value};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 use super::client::ComposioClient;
+use super::providers::{
+    catalog_for_toolkit, classify_unknown, find_curated, get_provider, load_user_scope_or_default,
+    post_process, toolkit_from_slug, ToolScope, UserScopePref,
+};
+
+/// Decision returned by [`evaluate_tool_visibility`].
+enum ToolDecision {
+    /// Action is curated for this toolkit and user scope allows it.
+    Allow,
+    /// Action exists in the curated list but the user's scope blocks
+    /// it. `scope` is the curated classification.
+    BlockedByScope { scope: ToolScope },
+    /// Action is not in the toolkit's curated whitelist (and the
+    /// toolkit has one). Hidden / rejected.
+    NotCurated,
+    /// Toolkit has no curated catalog — pass through, but still gate by
+    /// the user scope using the [`classify_unknown`] heuristic.
+    PassthroughCheckScope { scope: ToolScope },
+}
+
+/// Decide whether a Composio action slug should be visible / executable
+/// for the current user, given the registered provider's curated list
+/// (if any) and the user's stored scope preference.
+async fn evaluate_tool_visibility(slug: &str) -> ToolDecision {
+    let Some(toolkit) = toolkit_from_slug(slug) else {
+        // Unparseable slug — let the backend return its own error.
+        return ToolDecision::Allow;
+    };
+    let pref = load_user_scope_or_default(&toolkit).await;
+    // Prefer a registered provider's curated list; fall back to the
+    // static toolkit→catalog map so toolkits without a native provider
+    // (e.g. github) still get whitelist enforcement.
+    let catalog = get_provider(&toolkit)
+        .and_then(|p| p.curated_tools())
+        .or_else(|| catalog_for_toolkit(&toolkit));
+    match catalog {
+        Some(catalog) => match find_curated(catalog, slug) {
+            Some(curated) if pref.allows(curated.scope) => ToolDecision::Allow,
+            Some(curated) => ToolDecision::BlockedByScope {
+                scope: curated.scope,
+            },
+            None => ToolDecision::NotCurated,
+        },
+        None => {
+            let scope = classify_unknown(slug);
+            if pref.allows(scope) {
+                ToolDecision::PassthroughCheckScope { scope }
+            } else {
+                ToolDecision::BlockedByScope { scope }
+            }
+        }
+    }
+}
+
+/// Filter a freshly-fetched [`super::types::ComposioToolsResponse`] in
+/// place: drop tools that aren't curated for their toolkit and tools
+/// whose scope is disabled in the user's pref.
+async fn filter_list_tools_response(resp: &mut super::types::ComposioToolsResponse) {
+    let before = resp.tools.len();
+    // Compute keep/drop decisions sequentially (the await means we
+    // can't fold this into a single sync `retain` closure). Then zip
+    // each tool with its decision and collect the survivors — clearer
+    // than juggling a parallel index alongside `Vec::retain`.
+    let mut keep: Vec<bool> = Vec::with_capacity(before);
+    for t in &resp.tools {
+        let decision = evaluate_tool_visibility(&t.function.name).await;
+        keep.push(matches!(
+            decision,
+            ToolDecision::Allow | ToolDecision::PassthroughCheckScope { .. }
+        ));
+    }
+    let drained: Vec<_> = resp.tools.drain(..).collect();
+    resp.tools = drained
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(tool, keep_it)| if keep_it { Some(tool) } else { None })
+        .collect();
+    let after = resp.tools.len();
+    if after != before {
+        tracing::debug!(
+            before,
+            after,
+            dropped = before - after,
+            "[composio][scopes] composio_list_tools filtered"
+        );
+    }
+}
+
+/// Format a user-facing error message for a scope-blocked execution.
+fn scope_error_message(slug: &str, scope: ToolScope, pref: UserScopePref) -> String {
+    format!(
+        "composio_execute: action `{slug}` is classified `{}` and is disabled in your \
+         current scope preferences (read={}, write={}, admin={}). Update the toolkit's \
+         scope preference (composio_set_user_scopes) to enable this category.",
+        scope.as_str(),
+        pref.read,
+        pref.write,
+        pref.admin,
+    )
+}
 
 // ── composio_list_toolkits ──────────────────────────────────────────
 
@@ -258,9 +358,12 @@ impl Tool for ComposioListToolsTool {
         });
         tracing::debug!(?toolkits, "[composio] tool list_tools.execute");
         match self.client.list_tools(toolkits.as_deref()).await {
-            Ok(resp) => Ok(ToolResult::success(
-                serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
-            )),
+            Ok(mut resp) => {
+                filter_list_tools_response(&mut resp).await;
+                Ok(ToolResult::success(
+                    serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
+                ))
+            }
             Err(e) => Ok(ToolResult::error(format!(
                 "composio_list_tools failed: {e}"
             ))),
@@ -330,11 +433,41 @@ impl Tool for ComposioExecuteTool {
         }
         let arguments = args.get("arguments").cloned();
         tracing::debug!(tool = %tool, "[composio] tool execute.execute");
+
+        // Enforce per-user scope preferences before delegating to backend.
+        match evaluate_tool_visibility(&tool).await {
+            ToolDecision::Allow | ToolDecision::PassthroughCheckScope { .. } => {}
+            ToolDecision::BlockedByScope { scope } => {
+                let toolkit = toolkit_from_slug(&tool).unwrap_or_default();
+                let pref = load_user_scope_or_default(&toolkit).await;
+                let msg = scope_error_message(&tool, scope, pref);
+                tracing::info!(
+                    tool = %tool,
+                    toolkit = %toolkit,
+                    scope = scope.as_str(),
+                    "[composio][scopes] execute blocked by user scope pref"
+                );
+                return Ok(ToolResult::error(msg));
+            }
+            ToolDecision::NotCurated => {
+                let toolkit = toolkit_from_slug(&tool).unwrap_or_default();
+                tracing::info!(
+                    tool = %tool,
+                    toolkit = %toolkit,
+                    "[composio][scopes] execute blocked: action not in curated whitelist"
+                );
+                return Ok(ToolResult::error(format!(
+                    "composio_execute: action `{tool}` is not in the curated whitelist for \
+                     toolkit `{toolkit}`. Use composio_list_tools to see available actions."
+                )));
+            }
+        }
+
         let started = std::time::Instant::now();
         let res = self.client.execute_tool(&tool, arguments.clone()).await;
         let elapsed_ms = started.elapsed().as_millis() as u64;
         match res {
-            Ok(resp) => {
+            Ok(mut resp) => {
                 crate::core::event_bus::publish_global(
                     crate::core::event_bus::DomainEvent::ComposioActionExecuted {
                         tool: tool.clone(),
@@ -344,6 +477,14 @@ impl Tool for ComposioExecuteTool {
                         elapsed_ms,
                     },
                 );
+                // Per-toolkit post-processing of the upstream payload
+                // (e.g. gmail HTML → markdown). Only run on successful
+                // responses; errors are passed through verbatim.
+                if resp.successful {
+                    if let Some(toolkit) = toolkit_from_slug(&tool) {
+                        post_process::post_process(&toolkit, &tool, &mut resp.data);
+                    }
+                }
                 Ok(ToolResult::success(
                     serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
                 ))

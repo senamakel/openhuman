@@ -89,6 +89,7 @@ fn overlay_parent_rpc_url() -> Option<String> {
     Some(trimmed.to_string())
 }
 
+#[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
     let Ok(Some(monitor)) = window.current_monitor() else {
         log::warn!("[overlay] could not resolve current monitor for positioning");
@@ -111,6 +112,7 @@ fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn configure_overlay_window_macos(window: &WebviewWindow<AppRuntime>) {
     // Standard NSWindow cannot float above fullscreen apps on macOS because
     // fullscreen apps run in a separate Space. Only NSPanel can do this.
@@ -612,23 +614,23 @@ pub fn run() {
                 }
             }
 
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(window) = app.get_webview_window("overlay") {
-                    configure_overlay_window_macos(&window);
-                } else {
-                    log::warn!("[overlay] overlay window not found during setup");
-                }
-            }
-
-            if let Some(window) = app.get_webview_window("overlay") {
-                pin_overlay_bottom_right(&window);
-                if let Err(err) = window.show() {
-                    log::warn!("[overlay] failed to show overlay on startup: {err}");
-                } else {
-                    log::info!("[overlay] overlay shown on startup");
-                }
-            }
+            // Overlay window is currently disabled in `tauri.conf.json` (the
+            // `overlay` entry under `app.windows` was removed), so we skip
+            // the macOS NSPanel reclass + bottom-right pin + initial show
+            // here. The helpers (`configure_overlay_window_macos`,
+            // `pin_overlay_bottom_right`) and the React entry point
+            // (`src/overlay/OverlayApp.tsx`) are kept intact so the overlay
+            // can be re-enabled by restoring the config entry and the two
+            // setup blocks below.
+            //
+            //   #[cfg(target_os = "macos")]
+            //   if let Some(window) = app.get_webview_window("overlay") {
+            //       configure_overlay_window_macos(&window);
+            //   }
+            //   if let Some(window) = app.get_webview_window("overlay") {
+            //       pin_overlay_bottom_right(&window);
+            //       let _ = window.show();
+            //   }
 
             if let Err(err) = setup_tray(app.handle()) {
                 log::error!("[tray] failed to setup tray icon: {err}");

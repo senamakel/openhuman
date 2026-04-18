@@ -20,20 +20,6 @@
         "decorations": true,
         "resizable": true,
         "center": true
-      },
-      {
-        "label": "overlay",
-        "title": "OpenHuman Overlay",
-        "width": 50,
-        "height": 50,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": false,
-        "visible": false,
-        "create": false,
-        "center": false
       }
     ],
     "security": {

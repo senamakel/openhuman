@@ -25,6 +25,16 @@ if [[ ! -f "$VENDOR_CARGO_TOML" ]]; then
   exit 1
 fi
 
+# Pin a single CEF binary distribution location for *every* cef-dll-sys build:
+#   - the main app's cef-dll-sys (linked into OpenHuman / openhuman_lib)
+#   - the inner `cargo build` that tauri-bundler's build.rs runs to produce
+#     the embedded cef-helper that becomes OpenHuman Helper.app/*.
+# If these disagree on which CEF dist to use, the helper processes will abort
+# with `CefApp_0_CToCpp called with invalid version -1` because the helper's
+# bindings and the loaded framework are out of sync.
+export CEF_PATH="${CEF_PATH:-$HOME/Library/Caches/tauri-cef}"
+mkdir -p "$CEF_PATH"
+
 # Detect whether the currently installed cargo-tauri came from our vendored path.
 CRATES_TOML="${CARGO_HOME:-$HOME/.cargo}/.crates.toml"
 if [[ -f "$CRATES_TOML" ]] && grep -q "tauri-cli.*$VENDOR_CLI" "$CRATES_TOML" 2>/dev/null; then
@@ -33,5 +43,6 @@ if [[ -f "$CRATES_TOML" ]] && grep -q "tauri-cli.*$VENDOR_CLI" "$CRATES_TOML" 2>
 fi
 
 echo "[ensure-tauri-cli] installing vendored CEF-aware tauri-cli from $VENDOR_CLI"
+echo "[ensure-tauri-cli] CEF_PATH=$CEF_PATH"
 echo "[ensure-tauri-cli] (first install only — takes a few minutes; subsequent runs are instant)"
 cargo install --locked --path "$VENDOR_CLI"

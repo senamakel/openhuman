@@ -41,6 +41,7 @@ pub mod user_scopes;
 
 pub mod catalogs;
 pub mod github;
+pub mod post_process;
 pub mod gmail;
 pub mod notion;
 pub mod profile;

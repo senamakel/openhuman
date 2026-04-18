@@ -31,10 +31,13 @@ import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addInferenceResponse,
   createNewThread,
-  generateThreadTitleIfNeeded,
   setActiveThread,
   setSelectedThread,
 } from '../store/threadSlice';
+import {
+  formatTimelineEntry,
+  promptFromArgsBuffer,
+} from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
 
@@ -167,6 +170,28 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (socketStatus !== 'connected') return;
 
+    const decorateEntry = (entry: ToolTimelineEntry): ToolTimelineEntry => {
+      const formatted = formatTimelineEntry(entry);
+      return { ...entry, displayName: formatted.title, detail: formatted.detail };
+    };
+
+    const findPendingDelegationContext = (
+      entries: ToolTimelineEntry[],
+      round: number
+    ): { sourceToolName?: string; prompt?: string } => {
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const entry = entries[i];
+        if (entry.status !== 'running' || entry.round !== round) continue;
+        if (entry.name === 'spawn_subagent' || entry.name.startsWith('delegate_')) {
+          return {
+            sourceToolName: entry.name,
+            prompt: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer),
+          };
+        }
+      }
+      return {};
+    };
+
     rtLog('subscribe_chat_events', { socket: socketStatus });
     const cleanup = subscribeChatEvents({
       onInferenceStart: (event: ChatInferenceStartEvent) => {
@@ -224,23 +249,23 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         let entries: ToolTimelineEntry[];
         if (existingIdx >= 0) {
           entries = [...existing];
-          entries[existingIdx] = {
+          entries[existingIdx] = decorateEntry({
             ...entries[existingIdx],
             name: event.tool_name,
             round: event.round,
             status: 'running',
-          };
+          });
         } else {
           entries = [
             ...existing,
-            {
+            decorateEntry({
               id:
                 event.tool_call_id ??
                 `${event.thread_id}:${event.round}:${existing.length}:${event.tool_name}`,
               name: event.tool_name,
               round: event.round,
               status: 'running',
-            },
+            }),
           ];
         }
         dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
@@ -311,17 +336,20 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
+        const pendingContext = findPendingDelegationContext(existing, event.round);
         dispatch(
           setToolTimelineForThread({
             threadId: event.thread_id,
             entries: [
               ...existing,
-              {
+              decorateEntry({
                 id: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
                 name: `subagent:${event.tool_name}`,
                 round: event.round,
                 status: 'running',
-              },
+                detail: pendingContext.prompt,
+                sourceToolName: pendingContext.sourceToolName,
+              }),
             ],
           })
         );
@@ -332,10 +360,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         if (existing.length > 0) {
           const entries = existing.map(entry =>
             entry.id === subagentRowId && entry.status === 'running'
-              ? {
+              ? decorateEntry({
                   ...entry,
                   status: (event.success ? 'success' : 'error') as ToolTimelineEntryStatus,
-                }
+                })
               : entry
           );
           dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
@@ -409,24 +437,24 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         let entries: ToolTimelineEntry[];
         if (matchIdx >= 0) {
           entries = [...existing];
-          entries[matchIdx] = {
+          entries[matchIdx] = decorateEntry({
             ...entries[matchIdx],
             argsBuffer: `${entries[matchIdx].argsBuffer ?? ''}${event.delta}`,
             name:
               entries[matchIdx].name.length === 0 && event.tool_name
                 ? event.tool_name
                 : entries[matchIdx].name,
-          };
+          });
         } else {
           entries = [
             ...existing,
-            {
+            decorateEntry({
               id: event.tool_call_id,
               name: event.tool_name ?? '',
               round: event.round,
               status: 'running',
               argsBuffer: event.delta,
-            },
+            }),
           ];
         }
         dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
@@ -490,12 +518,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               addInferenceResponse({ content: event.full_response, threadId: event.thread_id })
             );
           }
-          await dispatch(
-            generateThreadTitleIfNeeded({
-              threadId: event.thread_id,
-              assistantMessage: event.full_response,
-            })
-          );
         })();
         dispatch(endInferenceTurn({ threadId: event.thread_id }));
         dispatch(setActiveThread(null));

@@ -16,6 +16,9 @@ export interface ToolTimelineEntry {
   round: number;
   status: ToolTimelineEntryStatus;
   argsBuffer?: string;
+  displayName?: string;
+  detail?: string;
+  sourceToolName?: string;
 }
 
 export interface StreamingAssistantState {

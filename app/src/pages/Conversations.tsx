@@ -21,6 +21,7 @@ import {
   createNewThread,
   deleteThread,
   fetchSuggestedQuestions,
+  generateThreadTitleIfNeeded,
   loadThreadMessages,
   loadThreads,
   persistReaction,
@@ -28,7 +29,12 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
+import {
+  parseMarkdownTable,
+  splitAgentMessageIntoBubbles,
+} from '../utils/agentMessageBubbles';
 import { openUrl } from '../utils/openUrl';
+import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
 import {
   isTauri,
   notifyOverlaySttState,
@@ -124,6 +130,128 @@ function isAllowedExternalHref(rawHref: string): boolean {
   } catch {
     return false;
   }
+}
+
+type AgentBubblePosition = 'single' | 'first' | 'middle' | 'last';
+
+function getAgentBubbleChrome(position: AgentBubblePosition): string {
+  if (position === 'single') return 'rounded-2xl rounded-bl-md';
+  if (position === 'first') return 'rounded-2xl rounded-bl-lg';
+  if (position === 'middle') return 'rounded-2xl rounded-tl-md rounded-bl-lg';
+  return 'rounded-2xl rounded-tl-md rounded-bl-md';
+}
+
+function BubbleMarkdown({ content, tone = 'agent' }: { content: string; tone?: 'agent' | 'user' }) {
+  const proseTone =
+    tone === 'user'
+      ? 'prose-invert prose-p:text-white prose-li:text-white prose-a:text-white prose-code:text-white prose-strong:text-white prose-headings:text-white [&_li::marker]:text-white/85'
+      : 'prose-a:text-primary-500 prose-code:text-primary-700 prose-headings:text-sm [&_li::marker]:text-stone-700';
+
+  return (
+    <div
+      className={`text-sm prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:rounded-lg prose-code:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 ${proseTone} ${
+        tone === 'user' ? 'prose-pre:bg-white/10' : 'prose-pre:bg-stone-300/50'
+      }`}>
+      <Markdown
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              onClick={e => {
+                e.preventDefault();
+                if (!href || !isAllowedExternalHref(href)) return;
+                void openUrl(href).catch(() => {
+                  // Ignore launcher errors from OS URL handler failures.
+                });
+              }}
+              className="cursor-pointer underline">
+              {children}
+            </a>
+          ),
+        }}>
+        {content}
+      </Markdown>
+    </div>
+  );
+}
+
+function TableCellMarkdown({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm max-w-none text-sm text-stone-700 prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-xs prose-code:text-primary-700 prose-a:text-primary-500 prose-strong:text-stone-900 prose-headings:text-sm prose-headings:font-semibold [&_li::marker]:text-stone-700">
+      <Markdown
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              onClick={e => {
+                e.preventDefault();
+                if (!href || !isAllowedExternalHref(href)) return;
+                void openUrl(href).catch(() => {
+                  // Ignore launcher errors from OS URL handler failures.
+                });
+              }}
+              className="cursor-pointer underline">
+              {children}
+            </a>
+          ),
+        }}>
+        {content}
+      </Markdown>
+    </div>
+  );
+}
+
+function AgentMessageBubble({
+  content,
+  position = 'single',
+}: {
+  content: string;
+  position?: AgentBubblePosition;
+}) {
+  const table = parseMarkdownTable(content);
+  const bubbleChrome = getAgentBubbleChrome(position);
+
+  if (table) {
+    return (
+      <div
+        className={`w-full max-w-full overflow-hidden border border-stone-200 bg-white/90 shadow-sm ${bubbleChrome}`}>
+        <div className="overflow-x-auto">
+          <table className="w-max min-w-full border-collapse text-left text-sm text-stone-800">
+            <thead className="bg-stone-100/90">
+              <tr>
+                {table.headers.map(header => (
+                  <th
+                    key={header}
+                    className="max-w-[25vw] border-b border-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-stone-500">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={`${rowIndex}:${row.join('|')}`} className="odd:bg-white even:bg-stone-50/70">
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={`${rowIndex}:${cellIndex}:${cell}`}
+                      className="max-w-[25vw] border-t border-stone-200 px-4 py-3 align-top text-sm text-stone-700">
+                      <TableCellMarkdown content={cell} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-stone-200/80 px-4 py-2.5 text-stone-900 ${bubbleChrome}`}>
+      <BubbleMarkdown content={content} />
+    </div>
+  );
 }
 
 function formatResetTime(isoStr: string): string {
@@ -489,6 +617,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     if (composerBlocked) return;
 
     const sendingThreadId = selectedThreadId;
+    const shouldGenerateTitleFromFirstMessage = messages.length === 0;
 
     const userMessage: ThreadMessage = {
       id: `msg_${Date.now()}_${Math.random()}`,
@@ -499,7 +628,12 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
       createdAt: new Date().toISOString(),
     };
 
-    void dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage }));
+    void (async () => {
+      await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage }));
+      if (shouldGenerateTitleFromFirstMessage) {
+        await dispatch(generateThreadTitleIfNeeded({ threadId: sendingThreadId }));
+      }
+    })();
     setInputValue('');
     setSendError(null);
     // Silence timer: fires only if 120s pass without ANY inference progress
@@ -751,6 +885,9 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? [])
     : [];
+  const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
+    entry => entry.status === 'running' && entry.name.startsWith('subagent:')
+  );
   const selectedInferenceStatus = selectedThreadId
     ? (inferenceStatusByThread[selectedThreadId] ?? null)
     : null;
@@ -941,45 +1078,39 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                   <div
                     key={msg.id}
                     className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className="relative max-w-[75%]">
-                      <div
-                        className={`rounded-2xl px-4 py-2.5 ${
-                          msg.sender === 'user'
-                            ? 'bg-primary-500 text-white rounded-br-md'
-                            : 'bg-stone-200/80 text-stone-900 rounded-bl-md'
-                        }`}>
-                        {msg.sender === 'agent' ? (
-                          <div className="text-sm prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-stone-300/50 prose-pre:rounded-lg prose-code:text-primary-700 prose-code:text-xs prose-a:text-primary-500 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                            <Markdown
-                              components={{
-                                a: ({ href, children }) => (
-                                  <a
-                                    href={href}
-                                    onClick={e => {
-                                      e.preventDefault();
-                                      if (!href || !isAllowedExternalHref(href)) return;
-                                      void openUrl(href).catch(() => {
-                                        // Ignore launcher errors from OS URL handler failures.
-                                      });
-                                    }}
-                                    className="cursor-pointer underline text-primary-500">
-                                    {children}
-                                  </a>
-                                ),
-                              }}>
-                              {msg.content}
-                            </Markdown>
-                          </div>
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                        )}
-                        <p
-                          className={`text-[10px] mt-1 ${
-                            msg.sender === 'user' ? 'text-white/60' : 'text-stone-400'
-                          }`}>
-                          {formatRelativeTime(msg.createdAt)}
-                        </p>
-                      </div>
+                    <div className="relative w-full md:max-w-[75%]">
+                      {msg.sender === 'agent' ? (
+                        <div className="space-y-1">
+                          {splitAgentMessageIntoBubbles(msg.content).map((segment, index, parts) => {
+                            const position: AgentBubblePosition =
+                              parts.length === 1
+                                ? 'single'
+                                : index === 0
+                                  ? 'first'
+                                  : index === parts.length - 1
+                                    ? 'last'
+                                    : 'middle';
+
+                            return (
+                              <AgentMessageBubble
+                                key={`${msg.id}:${index}`}
+                                content={segment}
+                                position={position}
+                              />
+                            );
+                          })}
+                          <p className="text-[10px] px-1 text-stone-400">
+                            {formatRelativeTime(msg.createdAt)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md">
+                          <BubbleMarkdown content={msg.content} tone="user" />
+                          <p className="text-[10px] mt-1 text-white/60">
+                            {formatRelativeTime(msg.createdAt)}
+                          </p>
+                        </div>
+                      )}
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-all`}
@@ -1109,7 +1240,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                 (selectedStreamingAssistant.content.length > 0 ||
                   selectedStreamingAssistant.thinking.length > 0) && (
                   <div className="flex justify-start">
-                    <div className="relative max-w-[75%]">
+                    <div className="relative w-full md:max-w-[75%]">
                       {selectedStreamingAssistant.thinking.length > 0 && (
                         <details className="mb-1.5 bg-stone-100 rounded-lg px-3 py-1.5 text-xs text-stone-600 open:bg-stone-100">
                           <summary className="cursor-pointer select-none flex items-center gap-1.5">
@@ -1146,17 +1277,26 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                     {selectedInferenceStatus.phase === 'tool_use' &&
                       `Running ${selectedInferenceStatus.activeTool ?? 'tool'}...`}
                     {selectedInferenceStatus.phase === 'subagent' &&
-                      `Sub-agent ${selectedInferenceStatus.activeSubagent ?? ''} working...`}
+                      `${formatTimelineEntry(
+                        activeSubagentTimelineEntry ?? {
+                          id: 'active-subagent',
+                          name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
+                          round: selectedInferenceStatus.iteration,
+                          status: 'running',
+                        }
+                      ).title}...`}
                   </span>
                 </div>
               )}
               {/* Tool call timeline */}
               {selectedThreadToolTimeline.length > 0 && (
                 <div className="space-y-1 px-1 py-1">
-                  {selectedThreadToolTimeline.map(entry => (
-                    <div key={entry.id} className="flex flex-col gap-0.5 text-xs text-stone-400">
+                  {selectedThreadToolTimeline.map(entry => {
+                    const formatted = formatTimelineEntry(entry);
+                    return (
+                    <div key={entry.id} className="flex flex-col gap-1 text-xs text-stone-400">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono">{entry.name}</span>
+                        <span className="font-medium text-stone-600">{formatted.title}</span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] ${
                             entry.status === 'running'
@@ -1168,15 +1308,21 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                           {entry.status}
                         </span>
                       </div>
+                      {formatted.detail && (
+                        <div className="ml-1 rounded-xl rounded-tl-md bg-stone-100 px-2.5 py-2 text-[11px] text-stone-600 whitespace-pre-wrap break-words">
+                          {formatted.detail}
+                        </div>
+                      )}
                       {entry.status === 'running' &&
                         entry.argsBuffer &&
-                        entry.argsBuffer.length > 0 && (
+                        entry.argsBuffer.length > 0 &&
+                        !formatted.detail && (
                           <pre className="ml-1 mt-0.5 px-2 py-1 bg-stone-100 rounded text-[10px] font-mono text-stone-500 whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
                             {entry.argsBuffer}
                           </pre>
                         )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
               {isSending && rustChat && (

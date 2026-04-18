@@ -1069,7 +1069,7 @@ impl Agent {
     ///
     /// Delegates to the shared [`crate::openhuman::composio::fetch_connected_integrations`]
     /// which is the single source of truth for integration discovery.
-    pub(super) async fn fetch_connected_integrations(&mut self) {
+    pub async fn fetch_connected_integrations(&mut self) {
         let config = match crate::openhuman::config::Config::load_or_init().await {
             Ok(c) => c,
             Err(e) => {
@@ -1086,7 +1086,7 @@ impl Agent {
 
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
-    pub(super) fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
+    pub fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
         let tools_slice: &[Box<dyn Tool>] = self.tools.as_slice();
         let instructions = self.tool_dispatcher.prompt_instructions(tools_slice);
         // Adapt the owned Box<dyn Tool> slice into the shared PromptTool

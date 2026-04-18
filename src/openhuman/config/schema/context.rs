@@ -144,7 +144,11 @@ fn default_tool_result_budget_bytes() -> usize {
 }
 
 fn default_summarizer_payload_threshold_tokens() -> usize {
-    500_000
+    // Disabled: 0 short-circuits the payload_summarizer wiring in the
+    // agent builder (see session/builder.rs `> 0` guard). The summarizer
+    // sub-agent was being invoked recursively in some flows; keep off
+    // until that's root-caused.
+    0
 }
 
 fn default_summarizer_max_payload_tokens() -> usize {

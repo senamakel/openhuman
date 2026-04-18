@@ -48,4 +48,4 @@ Return **only** valid JSON matching this schema:
 6. **Simple goals = single node** — If the goal is straightforward, return exactly 1 node.
 7. **No cycles** — The graph must be a DAG (directed acyclic graph).
 8. **Max 8 nodes** — Keep plans manageable. Split larger projects into multiple plans.
-9. **Store insights** — If you discover something during research that future plans would benefit from, use `memory_store` to save it.
+9. **Read-only** — You have no write tools. If a plan depends on saving an insight, facts, or artefacts, capture that as an explicit node (e.g. "archivist: store X") in the DAG so a downstream agent performs the write.

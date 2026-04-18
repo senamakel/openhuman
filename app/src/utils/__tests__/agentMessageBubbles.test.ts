@@ -53,7 +53,10 @@ describe('splitAgentMessageIntoBubbles', () => {
 
   it('keeps double-newline paragraphs in the same bubble', () => {
     const content = 'First line\nSecond line\n\nThird paragraph\nFourth line';
-    expect(splitAgentMessageIntoBubbles(content)).toEqual(['First line\nSecond line', 'Third paragraph\nFourth line']);
+    expect(splitAgentMessageIntoBubbles(content)).toEqual([
+      'First line\nSecond line',
+      'Third paragraph\nFourth line',
+    ]);
   });
 
   it('normalizes 3+ newlines down to double before splitting', () => {
@@ -72,20 +75,14 @@ describe('splitAgentMessageIntoBubbles', () => {
 
   it('never returns an hr-only bubble', () => {
     expect(splitAgentMessageIntoBubbles('<hr>')).toEqual([]);
-    expect(splitAgentMessageIntoBubbles('Before\n\n<hr />\n\nAfter')).toEqual([
-      'Before',
-      'After',
-    ]);
+    expect(splitAgentMessageIntoBubbles('Before\n\n<hr />\n\nAfter')).toEqual(['Before', 'After']);
   });
 
   it('never returns a markdown thematic-break-only bubble', () => {
     expect(splitAgentMessageIntoBubbles('---')).toEqual([]);
     expect(splitAgentMessageIntoBubbles('***')).toEqual([]);
     expect(splitAgentMessageIntoBubbles('___')).toEqual([]);
-    expect(splitAgentMessageIntoBubbles('Before\n\n---\n\nAfter')).toEqual([
-      'Before',
-      'After',
-    ]);
+    expect(splitAgentMessageIntoBubbles('Before\n\n---\n\nAfter')).toEqual(['Before', 'After']);
   });
 });
 

@@ -418,8 +418,7 @@ fn write_extract_transcript(
         Some(label) => format!("_{label}"),
         None => String::new(),
     };
-    let stem =
-        format!("{parent_chain}__extract_{unix_ts}_{nanos:09}_{call_seq:04}{chunk_tag}");
+    let stem = format!("{parent_chain}__extract_{unix_ts}_{nanos:09}_{call_seq:04}{chunk_tag}");
 
     let path = match resolve_keyed_transcript_path(workspace_dir, &stem) {
         Ok(p) => p,

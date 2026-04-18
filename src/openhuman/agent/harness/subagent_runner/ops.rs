@@ -14,6 +14,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
+use super::super::fork_context::{
+    current_fork, current_parent, ForkContext, ParentExecutionContext,
+};
+use super::super::session::transcript;
 use super::extract_tool::ExtractFromResultTool;
 use super::handoff::{
     build_handoff_placeholder, clean_tool_output, ResultHandoffCache,
@@ -25,8 +29,6 @@ use super::tool_prep::{
 };
 use super::types::{SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
-use super::super::fork_context::{current_fork, current_parent, ForkContext, ParentExecutionContext};
-use super::super::session::transcript;
 use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -1260,9 +1262,7 @@ mod tests {
 
     // ── End-to-end runner tests with mock provider ────────────────────────
 
-    use crate::openhuman::agent::harness::fork_context::{
-        with_fork_context, with_parent_context,
-    };
+    use crate::openhuman::agent::harness::fork_context::{with_fork_context, with_parent_context};
     use crate::openhuman::providers::{
         ChatRequest as PChatRequest, ChatResponse, Provider, ToolCall,
     };

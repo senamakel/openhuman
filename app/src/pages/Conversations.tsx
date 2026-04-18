@@ -30,12 +30,8 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
-import {
-  parseMarkdownTable,
-  splitAgentMessageIntoBubbles,
-} from '../utils/agentMessageBubbles';
+import { parseMarkdownTable, splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
 import { openUrl } from '../utils/openUrl';
-import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
 import {
   isTauri,
   notifyOverlaySttState,
@@ -45,6 +41,7 @@ import {
   openhumanVoiceTranscribeBytes,
   openhumanVoiceTts,
 } from '../utils/tauriCommands';
+import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
 
 // Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
 // that execute tool calls, not the primary user-facing conversation.
@@ -202,11 +199,7 @@ function TableCellMarkdown({ content }: { content: string }) {
   );
 }
 
-function ToolTimelineBlock({
-  entries,
-}: {
-  entries: ToolTimelineEntry[];
-}) {
+function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] }) {
   const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
 
   const normalizeToolBody = (value?: string): string | undefined => {
@@ -316,7 +309,9 @@ function AgentMessageBubble({
             </thead>
             <tbody>
               {table.rows.map((row, rowIndex) => (
-                <tr key={`${rowIndex}:${row.join('|')}`} className="odd:bg-white even:bg-stone-50/70">
+                <tr
+                  key={`${rowIndex}:${row.join('|')}`}
+                  className="odd:bg-white even:bg-stone-50/70">
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${rowIndex}:${cellIndex}:${cell}`}
@@ -973,7 +968,9 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     : [];
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
   const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
-  const latestVisibleAgentMessage = [...visibleMessages].reverse().find(msg => msg.sender === 'agent');
+  const latestVisibleAgentMessage = [...visibleMessages]
+    .reverse()
+    .find(msg => msg.sender === 'agent');
   const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
     entry => entry.status === 'running' && entry.name.startsWith('subagent:')
   );
@@ -1174,24 +1171,26 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                     <div className="relative w-full md:max-w-[75%]">
                       {msg.sender === 'agent' ? (
                         <div className="space-y-1">
-                          {splitAgentMessageIntoBubbles(msg.content).map((segment, index, parts) => {
-                            const position: AgentBubblePosition =
-                              parts.length === 1
-                                ? 'single'
-                                : index === 0
-                                  ? 'first'
-                                  : index === parts.length - 1
-                                    ? 'last'
-                                    : 'middle';
+                          {splitAgentMessageIntoBubbles(msg.content).map(
+                            (segment, index, parts) => {
+                              const position: AgentBubblePosition =
+                                parts.length === 1
+                                  ? 'single'
+                                  : index === 0
+                                    ? 'first'
+                                    : index === parts.length - 1
+                                      ? 'last'
+                                      : 'middle';
 
-                            return (
-                              <AgentMessageBubble
-                                key={`${msg.id}:${index}`}
-                                content={segment}
-                                position={position}
-                              />
-                            );
-                          })}
+                              return (
+                                <AgentMessageBubble
+                                  key={`${msg.id}:${index}`}
+                                  content={segment}
+                                  position={position}
+                                />
+                              );
+                            }
+                          )}
                           {latestVisibleMessage?.id === msg.id && (
                             <p className="px-1 text-[10px] text-stone-400">
                               {formatRelativeTime(msg.createdAt)}
@@ -1375,14 +1374,16 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                     {selectedInferenceStatus.phase === 'tool_use' &&
                       `Running ${selectedInferenceStatus.activeTool ?? 'tool'}...`}
                     {selectedInferenceStatus.phase === 'subagent' &&
-                      `${formatTimelineEntry(
-                        activeSubagentTimelineEntry ?? {
-                          id: 'active-subagent',
-                          name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
-                          round: selectedInferenceStatus.iteration,
-                          status: 'running',
-                        }
-                      ).title}...`}
+                      `${
+                        formatTimelineEntry(
+                          activeSubagentTimelineEntry ?? {
+                            id: 'active-subagent',
+                            name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
+                            round: selectedInferenceStatus.iteration,
+                            status: 'running',
+                          }
+                        ).title
+                      }...`}
                   </span>
                 </div>
               )}

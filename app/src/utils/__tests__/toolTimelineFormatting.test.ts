@@ -4,13 +4,7 @@ import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 import { formatTimelineEntry } from '../toolTimelineFormatting';
 
 function entry(overrides: Partial<ToolTimelineEntry>): ToolTimelineEntry {
-  return {
-    id: 'x',
-    name: 'delegate_notion',
-    round: 1,
-    status: 'running',
-    ...overrides,
-  };
+  return { id: 'x', name: 'delegate_notion', round: 1, status: 'running', ...overrides };
 }
 
 describe('formatTimelineEntry', () => {
@@ -22,10 +16,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ prompt: 'Find the project brief in Notion.' }),
         })
       )
-    ).toEqual({
-      title: 'Checking your Notion',
-      detail: 'Find the project brief in Notion.',
-    });
+    ).toEqual({ title: 'Checking your Notion', detail: 'Find the project brief in Notion.' });
   });
 
   it('formats spawn_subagent for integrations_agent from toolkit args', () => {
@@ -43,7 +34,8 @@ describe('formatTimelineEntry', () => {
       )
     ).toEqual({
       title: 'Checking your Gmail',
-      detail: 'Get my 5 most recent emails. Show subject, sender, date, and a short preview for each.',
+      detail:
+        'Get my 5 most recent emails. Show subject, sender, date, and a short preview for each.',
     });
   });
 
@@ -56,10 +48,7 @@ describe('formatTimelineEntry', () => {
           detail: 'Search Notion for the latest roadmap.',
         })
       )
-    ).toEqual({
-      title: 'Checking your Notion',
-      detail: 'Search Notion for the latest roadmap.',
-    });
+    ).toEqual({ title: 'Checking your Notion', detail: 'Search Notion for the latest roadmap.' });
   });
 
   it('falls back to humanized generic labels for non-integration subagents', () => {

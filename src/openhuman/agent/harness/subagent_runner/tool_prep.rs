@@ -232,4 +232,3 @@ pub(crate) fn load_prompt_source(
         }
     }
 }
-

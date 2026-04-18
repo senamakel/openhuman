@@ -6,10 +6,7 @@ interface ParsedToolArgs {
   toolkit?: string;
 }
 
-export function formatTimelineEntry(entry: ToolTimelineEntry): {
-  title: string;
-  detail?: string;
-} {
+export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; detail?: string } {
   const parsedArgs = parseToolArgs(entry.argsBuffer);
 
   if (entry.name === 'spawn_subagent' && parsedArgs?.agent_id === 'integrations_agent') {
@@ -79,7 +76,9 @@ export function inferIntegrationName(input?: string): string | undefined {
     return humanizeIdentifier(delegateMatch[1]);
   }
 
-  const toolkitMatch = input.match(/^(gmail|notion|github|slack|discord|linear|jira|google_calendar|google_drive|calendar)$/i);
+  const toolkitMatch = input.match(
+    /^(gmail|notion|github|slack|discord|linear|jira|google_calendar|google_drive|calendar)$/i
+  );
   if (toolkitMatch) {
     return humanizeIdentifier(toolkitMatch[1]);
   }

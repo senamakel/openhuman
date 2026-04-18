@@ -34,10 +34,7 @@ import {
   setActiveThread,
   setSelectedThread,
 } from '../store/threadSlice';
-import {
-  formatTimelineEntry,
-  promptFromArgsBuffer,
-} from '../utils/toolTimelineFormatting';
+import { formatTimelineEntry, promptFromArgsBuffer } from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
 

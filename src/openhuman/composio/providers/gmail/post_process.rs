@@ -54,9 +54,8 @@ use serde_json::{json, Map, Value};
 /// fast-strip path that preserves readable text and link labels.
 const MAX_HTML2MD_INPUT_BYTES: usize = 24_000;
 
-static HTML_NOISE_BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?is)<!--.*?-->").expect("valid html comment regex")
-});
+static HTML_NOISE_BLOCK_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?is)<!--.*?-->").expect("valid html comment regex"));
 
 /// Entry point called from `GmailProvider::post_process_action_result`.
 ///
@@ -434,7 +433,10 @@ fn decode_html_entity(entity: &str) -> Option<char> {
         "quot" => Some('"'),
         "apos" | "#39" => Some('\''),
         _ => {
-            if let Some(hex) = entity.strip_prefix("#x").or_else(|| entity.strip_prefix("#X")) {
+            if let Some(hex) = entity
+                .strip_prefix("#x")
+                .or_else(|| entity.strip_prefix("#X"))
+            {
                 u32::from_str_radix(hex, 16).ok().and_then(char::from_u32)
             } else if let Some(dec) = entity.strip_prefix('#') {
                 dec.parse::<u32>().ok().and_then(char::from_u32)
@@ -491,10 +493,18 @@ fn strip_excess_blank_lines(s: &str) -> String {
 }
 
 /// Normalize markdown/text emitted by either `html2md` or the fast HTML strip:
-/// trim invisible Unicode, collapse intra-line whitespace, and keep only short
+/// decode leftover HTML entities, unescape html2md's markdown backslash
+/// escapes, trim invisible Unicode, collapse intra-line whitespace, collapse
+/// runs of noisy separator tokens (`& & & & &`), and keep only short
 /// blank-line runs so the body stays compact for the model.
 fn normalize_markdownish_text(s: &str) -> String {
-    let sanitized = sanitize_llm_text(s);
+    // `html2md` leaves named entities (`&nbsp;`, `&zwnj;`, `&#8203;`) as
+    // literals and escapes markdown-significant chars with backslashes
+    // (`\&`, `\_`, `\.`, `\[`, …). Decode both before any further
+    // whitespace / entity normalization so downstream passes see plain text.
+    let decoded = decode_html_entities_inline(s);
+    let unescaped = unescape_markdown_backslashes(&decoded);
+    let sanitized = sanitize_llm_text(&unescaped);
     let mut normalized = String::with_capacity(sanitized.len());
 
     for raw_line in sanitized.lines() {
@@ -516,11 +526,143 @@ fn normalize_markdownish_text(s: &str) -> String {
                 prev_space = false;
             }
         }
-        normalized.push_str(line.trim());
+        let collapsed = collapse_separator_runs(line.trim());
+        normalized.push_str(&collapsed);
         normalized.push('\n');
     }
 
     strip_excess_blank_lines(normalized.trim())
+}
+
+/// Decode any HTML entities still present in `s`, using the same table as
+/// [`decode_html_entity`] plus numeric `&#nnn;` / `&#xHH;` forms.
+///
+/// Unknown entities are left as-is so we never silently swallow characters
+/// that were meant to be literal ampersands.
+fn decode_html_entities_inline(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'&' {
+            // Copy through one UTF-8 codepoint.
+            let ch_len = utf8_char_len(bytes[i]);
+            out.push_str(&s[i..i + ch_len]);
+            i += ch_len;
+            continue;
+        }
+        // Try to match an entity beginning at `i`. Entity names are ASCII
+        // alphanumerics, max 16 chars, terminated by `;`.
+        let mut j = i + 1;
+        let limit = (i + 1 + 16).min(bytes.len());
+        while j < limit && bytes[j] != b';' {
+            let b = bytes[j];
+            let is_name_char = b.is_ascii_alphanumeric() || b == b'#';
+            if !is_name_char {
+                break;
+            }
+            j += 1;
+        }
+        if j < bytes.len() && bytes[j] == b';' && j > i + 1 {
+            let name = &s[i + 1..j];
+            if let Some(ch) = decode_html_entity(name) {
+                out.push(ch);
+                i = j + 1;
+                continue;
+            }
+        }
+        // Not a recognised entity — keep the `&` and advance.
+        out.push('&');
+        i += 1;
+    }
+    out
+}
+
+/// UTF-8 leading-byte → codepoint length. Always returns 1..=4.
+fn utf8_char_len(first: u8) -> usize {
+    match first {
+        0x00..=0x7F => 1,
+        0xC0..=0xDF => 2,
+        0xE0..=0xEF => 3,
+        0xF0..=0xF7 => 4,
+        _ => 1,
+    }
+}
+
+/// Undo html2md's markdown backslash escapes for the limited set of chars
+/// that routinely appear in email bodies. We only unescape where the backslash
+/// is immediately followed by one of the escaped characters — any other
+/// backslash usage (actual line-continuation, code fences, etc.) is preserved.
+fn unescape_markdown_backslashes(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            if let Some(&next) = chars.peek() {
+                if matches!(
+                    next,
+                    '&' | '_'
+                        | '*'
+                        | '.'
+                        | ','
+                        | '!'
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '<'
+                        | '>'
+                        | '#'
+                        | '+'
+                        | '-'
+                        | '@'
+                        | '`'
+                        | '~'
+                        | '='
+                        | '|'
+                        | '\''
+                        | '"'
+                ) {
+                    out.push(next);
+                    chars.next();
+                    continue;
+                }
+            }
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Collapse runs of the same single-char separator surrounded by spaces
+/// (e.g. `" & & & & Conditions"` → `" & Conditions"`). Keeps legitimate
+/// uses like `"Terms & Conditions"` intact because those aren't runs.
+/// Applies to `&`, `-`, `*`, `_`, `|`, `•`, `·`.
+fn collapse_separator_runs(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut tokens = line.split(' ').peekable();
+    while let Some(tok) = tokens.next() {
+        out.push_str(tok);
+        // Look ahead: if `tok` is a single separator char and the next
+        // token is the *same* separator, drop consecutive duplicates.
+        if is_collapsible_separator(tok) {
+            while let Some(&next) = tokens.peek() {
+                if next == tok {
+                    tokens.next();
+                } else {
+                    break;
+                }
+            }
+        }
+        if tokens.peek().is_some() {
+            out.push(' ');
+        }
+    }
+    out
+}
+
+fn is_collapsible_separator(tok: &str) -> bool {
+    matches!(tok, "&" | "-" | "*" | "_" | "|" | "•" | "·")
 }
 
 /// Strip characters that carry little or no semantic value for the model but
@@ -630,7 +772,10 @@ mod tests {
         assert_eq!(m["labels"], json!(["INBOX", "UNREAD"]));
 
         let md = m["markdown"].as_str().unwrap();
-        assert!(md.contains("Title"), "markdown body must carry heading text: {md:?}");
+        assert!(
+            md.contains("Title"),
+            "markdown body must carry heading text: {md:?}"
+        );
         assert!(md.contains("Hello"));
         assert!(md.contains("world"));
         assert!(!md.contains("<h1>"), "html must be stripped: {md:?}");
@@ -654,7 +799,10 @@ mod tests {
         let original = v.clone();
         let args = json!({ "raw_html": true });
         post_process("GMAIL_FETCH_EMAILS", Some(&args), &mut v);
-        assert_eq!(v, original, "raw_html=true must preserve the Composio shape");
+        assert_eq!(
+            v, original,
+            "raw_html=true must preserve the Composio shape"
+        );
     }
 
     #[test]
@@ -764,14 +912,22 @@ mod tests {
         let html = format!(
             "<html><head><style>.x{{color:red}}</style></head><body>{}</body></html>",
             (0..3000)
-                .map(|i| format!("<div><h2>Card {i}</h2><p>Hello &amp; welcome&nbsp;home</p></div>"))
+                .map(|i| format!(
+                    "<div><h2>Card {i}</h2><p>Hello &amp; welcome&nbsp;home</p></div>"
+                ))
                 .collect::<String>()
         );
         let md = html_email_to_markdown(&html);
-        assert!(md.contains("## Card 0"), "heading should survive fallback: {md:?}");
+        assert!(
+            md.contains("## Card 0"),
+            "heading should survive fallback: {md:?}"
+        );
         assert!(md.contains("Hello & welcome home"));
         assert!(!md.contains("<div>"), "html tags must be stripped: {md:?}");
-        assert!(!md.contains(".x{color:red}"), "style blocks must be removed: {md:?}");
+        assert!(
+            !md.contains(".x{color:red}"),
+            "style blocks must be removed: {md:?}"
+        );
     }
 
     #[test]
@@ -784,6 +940,60 @@ mod tests {
     fn sanitize_llm_text_strips_weird_token_wasting_chars() {
         let input = "A\u{200b}\u{200d}\u{2060}\u{feff}\u{00ad}B\u{202e}C\tD\nE";
         assert_eq!(sanitize_llm_text(input), "ABC\tD\nE");
+    }
+
+    #[test]
+    fn decode_entities_inline_handles_named_and_numeric() {
+        let s = "Terms &amp; Conditions &nbsp; and &#169; 2026 with &#x2014; dash";
+        let decoded = decode_html_entities_inline(s);
+        assert!(decoded.contains("Terms & Conditions"));
+        assert!(decoded.contains("© 2026"));
+        assert!(decoded.contains("— dash"));
+        assert!(!decoded.contains("&amp;"));
+        assert!(!decoded.contains("&#169;"));
+    }
+
+    #[test]
+    fn decode_entities_inline_preserves_unknown() {
+        let s = "keep &notarealentity; and & without semi";
+        assert_eq!(decode_html_entities_inline(s), s);
+    }
+
+    #[test]
+    fn unescape_markdown_backslashes_strips_known_escapes() {
+        let s = r"a\&b \_ c \. d \\ e \n";
+        let out = unescape_markdown_backslashes(s);
+        // Known escapes drop the backslash; unknown (`\\` before letter n) stays.
+        assert!(out.contains("a&b"));
+        assert!(out.contains("_"));
+        assert!(out.contains(". d"));
+        assert!(out.contains(r"\\ e"));
+        assert!(out.contains(r"\n"));
+    }
+
+    #[test]
+    fn collapse_separator_runs_squashes_noise() {
+        assert_eq!(collapse_separator_runs("x & & & & y"), "x & y");
+        assert_eq!(collapse_separator_runs("- - - header"), "- header");
+        assert_eq!(collapse_separator_runs("a | | | b"), "a | b");
+        // Preserves legitimate single-use separators.
+        assert_eq!(
+            collapse_separator_runs("Terms & Conditions"),
+            "Terms & Conditions"
+        );
+        // Multi-char tokens are untouched.
+        assert_eq!(collapse_separator_runs("a -- b"), "a -- b");
+    }
+
+    #[test]
+    fn normalize_cleans_entity_and_separator_noise() {
+        let input = "Terms &amp; &amp; &amp; &amp; Conditions \
+            with &nbsp; &nbsp; spaces and\\& an escaped ampersand";
+        let out = normalize_markdownish_text(input);
+        assert!(out.contains("Terms & Conditions"), "got: {out:?}");
+        assert!(!out.contains("&amp;"));
+        assert!(!out.contains("&nbsp;"));
+        assert!(out.contains("an escaped ampersand"));
     }
 
     #[test]
@@ -817,7 +1027,10 @@ mod tests {
     #[test]
     fn suspiciously_short_markdown_detects_large_collapse() {
         assert!(suspiciously_short_markdown(&"x".repeat(4000), "tiny"));
-        assert!(!suspiciously_short_markdown(&"x".repeat(4000), &"y".repeat(400)));
+        assert!(!suspiciously_short_markdown(
+            &"x".repeat(4000),
+            &"y".repeat(400)
+        ));
     }
 
     #[test]

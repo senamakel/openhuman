@@ -111,6 +111,37 @@ impl ConversationStore {
         Ok(message)
     }
 
+    pub fn update_thread_title(
+        &self,
+        thread_id: &str,
+        title: &str,
+        updated_at: &str,
+    ) -> Result<ConversationThread, String> {
+        let _guard = CONVERSATION_STORE_LOCK.lock();
+        let index = self.thread_index_unlocked()?;
+        let entry = index
+            .get(thread_id)
+            .ok_or_else(|| format!("thread {} does not exist", thread_id))?;
+        let threads_path = self.ensure_root()?.join(THREADS_FILENAME);
+        append_jsonl(
+            &threads_path,
+            &ThreadLogEntry::Upsert {
+                thread_id: thread_id.to_string(),
+                title: title.to_string(),
+                created_at: entry.created_at.clone(),
+                updated_at: updated_at.to_string(),
+            },
+        )?;
+        debug!(
+            "{LOG_PREFIX} updated thread title id={} title={} path={}",
+            thread_id,
+            title,
+            threads_path.display()
+        );
+        self.thread_summary_unlocked(thread_id)?
+            .ok_or_else(|| format!("thread {} missing after title update", thread_id))
+    }
+
     pub fn update_message(
         &self,
         thread_id: &str,
@@ -415,6 +446,15 @@ pub fn append_message(
     ConversationStore::new(workspace_dir).append_message(thread_id, message)
 }
 
+pub fn update_thread_title(
+    workspace_dir: PathBuf,
+    thread_id: &str,
+    title: &str,
+    updated_at: &str,
+) -> Result<ConversationThread, String> {
+    ConversationStore::new(workspace_dir).update_thread_title(thread_id, title, updated_at)
+}
+
 pub fn update_message(
     workspace_dir: PathBuf,
     thread_id: &str,
@@ -682,6 +722,27 @@ mod tests {
             },
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_thread_title_persists_latest_title() {
+        let (_temp, store) = make_store();
+        store
+            .ensure_thread(CreateConversationThread {
+                id: "t1".to_string(),
+                title: "Chat Apr 10 12:00 PM".to_string(),
+                created_at: "2026-04-10T12:00:00Z".to_string(),
+            })
+            .unwrap();
+
+        let updated = store
+            .update_thread_title("t1", "Invoice follow-up", "2026-04-10T12:03:00Z")
+            .unwrap();
+
+        assert_eq!(updated.title, "Invoice follow-up");
+        let threads = store.list_threads().unwrap();
+        assert_eq!(threads[0].title, "Invoice follow-up");
+        assert_eq!(threads[0].created_at, "2026-04-10T12:00:00Z");
     }
 
     #[test]

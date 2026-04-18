@@ -16,6 +16,12 @@ crate-type = ["rlib"]
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Used by composio post-processing to convert Gmail HTML bodies to
+# markdown. `html2md` is the canonical pure-Rust crate (no system deps);
+# `htmd` (>0.5) is more actively maintained but our usage is one
+# function call (`parse_html`) and the migration cost outweighs the
+# upside today. Re-evaluate if html2md goes unmaintained or we need
+# GFM/table fidelity beyond what html2md emits.
 html2md = "0.2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "native-tls", "stream", "http2", "multipart", "socks"] }
 tokio = { version = "1", features = ["full", "sync"] }

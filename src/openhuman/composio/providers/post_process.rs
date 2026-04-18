@@ -72,8 +72,18 @@ fn looks_like_html(s: &str) -> bool {
     }
     // Cheap substring scan; case-insensitive via lowercased haystack.
     // Bound the work for very large strings — we only need the first
-    // few KB to make the call.
-    let head = if s.len() > 4096 { &s[..4096] } else { s };
+    // few KB to make the call. Walk back to a UTF-8 char boundary so we
+    // never slice in the middle of a multibyte sequence (4096 may land
+    // mid-codepoint).
+    let head = if s.len() > 4096 {
+        let mut end = 4096;
+        while end > 0 && !s.is_char_boundary(end) {
+            end -= 1;
+        }
+        &s[..end]
+    } else {
+        s
+    };
     let lower = head.to_ascii_lowercase();
     const MARKERS: &[&str] = &[
         "<html",
@@ -114,6 +124,19 @@ mod tests {
         assert!(looks_like_html("<p>Hello <b>world</b></p>"));
         assert!(looks_like_html("<DIV>Mixed Case</DIV>"));
         assert!(looks_like_html("<a href=\"x\">link</a>"));
+    }
+
+    #[test]
+    fn looks_like_html_does_not_panic_on_multibyte_at_boundary() {
+        // Build a string > 4096 bytes whose 4096th byte lands inside a
+        // 3-byte UTF-8 codepoint. Naive `&s[..4096]` slicing panics here.
+        let mut s = String::with_capacity(4200);
+        // 4095 ASCII bytes, then a 3-byte CJK char straddling 4095..4098.
+        s.push_str(&"a".repeat(4095));
+        s.push('日');
+        s.push_str(&"b".repeat(100));
+        // Should not panic; result doesn't matter, only that it returns.
+        let _ = looks_like_html(&s);
     }
 
     #[test]

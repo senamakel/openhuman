@@ -86,7 +86,10 @@ async fn evaluate_tool_visibility(slug: &str) -> ToolDecision {
 /// whose scope is disabled in the user's pref.
 async fn filter_list_tools_response(resp: &mut super::types::ComposioToolsResponse) {
     let before = resp.tools.len();
-    // Collect decisions first (async); then drain.
+    // Compute keep/drop decisions sequentially (the await means we
+    // can't fold this into a single sync `retain` closure). Then zip
+    // each tool with its decision and collect the survivors — clearer
+    // than juggling a parallel index alongside `Vec::retain`.
     let mut keep: Vec<bool> = Vec::with_capacity(before);
     for t in &resp.tools {
         let decision = evaluate_tool_visibility(&t.function.name).await;
@@ -95,12 +98,12 @@ async fn filter_list_tools_response(resp: &mut super::types::ComposioToolsRespon
             ToolDecision::Allow | ToolDecision::PassthroughCheckScope { .. }
         ));
     }
-    let mut idx = 0;
-    resp.tools.retain(|_| {
-        let keep_it = keep[idx];
-        idx += 1;
-        keep_it
-    });
+    let drained: Vec<_> = resp.tools.drain(..).collect();
+    resp.tools = drained
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(tool, keep_it)| if keep_it { Some(tool) } else { None })
+        .collect();
     let after = resp.tools.len();
     if after != before {
         tracing::debug!(

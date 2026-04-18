@@ -91,21 +91,23 @@ export async function deleteConnection(connectionId: string): Promise<ComposioDe
 }
 
 /**
- * Execute a Composio action slug (e.g. `GMAIL_SEND_EMAIL`). The core
- * charges the caller, tracks usage, and publishes a
- * `ComposioActionExecuted` event.
- */
-/**
  * Read the per-toolkit user scope preference (read/write/admin) used
  * to gate `composio_execute`. Returns the default
  * `{ read: true, write: true, admin: false }` when nothing is stored.
  */
 export async function getUserScopes(toolkit: string): Promise<ComposioUserScopePref> {
+  console.debug('[composio][scopes] → openhuman.composio_get_user_scopes toolkit=%s', toolkit);
   const raw = await callCoreRpc<unknown>({
     method: 'openhuman.composio_get_user_scopes',
     params: { toolkit },
   });
-  return unwrapCliEnvelope<ComposioUserScopePref>(raw);
+  const pref = unwrapCliEnvelope<ComposioUserScopePref>(raw);
+  console.debug(
+    '[composio][scopes] ← openhuman.composio_get_user_scopes toolkit=%s pref=%o',
+    toolkit,
+    pref
+  );
+  return pref;
 }
 
 /**
@@ -117,13 +119,29 @@ export async function setUserScopes(
   toolkit: string,
   pref: ComposioUserScopePref
 ): Promise<ComposioUserScopePref> {
+  console.debug(
+    '[composio][scopes] → openhuman.composio_set_user_scopes toolkit=%s pref=%o',
+    toolkit,
+    pref
+  );
   const raw = await callCoreRpc<unknown>({
     method: 'openhuman.composio_set_user_scopes',
     params: { toolkit, ...pref },
   });
-  return unwrapCliEnvelope<ComposioUserScopePref>(raw);
+  const persisted = unwrapCliEnvelope<ComposioUserScopePref>(raw);
+  console.debug(
+    '[composio][scopes] ← openhuman.composio_set_user_scopes toolkit=%s persisted=%o',
+    toolkit,
+    persisted
+  );
+  return persisted;
 }
 
+/**
+ * Execute a Composio action slug (e.g. `GMAIL_SEND_EMAIL`). The core
+ * charges the caller, tracks usage, and publishes a
+ * `ComposioActionExecuted` event.
+ */
 export async function execute(
   tool: string,
   args?: Record<string, unknown>

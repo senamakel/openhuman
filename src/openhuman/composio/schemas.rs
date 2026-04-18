@@ -530,22 +530,88 @@ fn handle_sync(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_get_user_scopes(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let toolkit = read_required_non_empty(&params, "toolkit")?;
+        let toolkit = match read_required_non_empty(&params, "toolkit") {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    method = "composio.get_user_scopes",
+                    error = %e,
+                    "[composio:scopes] missing required `toolkit` param"
+                );
+                return Err(e);
+            }
+        };
+        tracing::debug!(
+            method = "composio.get_user_scopes",
+            toolkit = %toolkit,
+            "[composio:scopes] handler entry"
+        );
         let pref = super::providers::user_scopes::load_or_default(&toolkit).await;
+        tracing::debug!(
+            method = "composio.get_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler exit"
+        );
         to_json(crate::rpc::RpcOutcome::new(pref, vec![]))
     })
 }
 
 fn handle_set_user_scopes(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let toolkit = read_required_non_empty(&params, "toolkit")?;
+        let toolkit = match read_required_non_empty(&params, "toolkit") {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    method = "composio.set_user_scopes",
+                    error = %e,
+                    "[composio:scopes] missing required `toolkit` param"
+                );
+                return Err(e);
+            }
+        };
         let read: bool = read_required(&params, "read")?;
         let write: bool = read_required(&params, "write")?;
         let admin: bool = read_required(&params, "admin")?;
         let pref = super::providers::UserScopePref { read, write, admin };
-        let memory = crate::openhuman::memory::global::client_if_ready()
-            .ok_or_else(|| "memory client not initialised".to_string())?;
-        super::providers::user_scopes::save(&memory, &toolkit, pref).await?;
+        tracing::debug!(
+            method = "composio.set_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler entry"
+        );
+        let memory = match crate::openhuman::memory::global::client_if_ready() {
+            Some(m) => m,
+            None => {
+                tracing::error!(
+                    method = "composio.set_user_scopes",
+                    toolkit = %toolkit,
+                    "[composio:scopes] memory client not initialised — cannot persist pref"
+                );
+                return Err("memory client not initialised".to_string());
+            }
+        };
+        if let Err(e) = super::providers::user_scopes::save(&memory, &toolkit, pref).await {
+            tracing::error!(
+                method = "composio.set_user_scopes",
+                toolkit = %toolkit,
+                error = %e,
+                "[composio:scopes] save failed"
+            );
+            return Err(e);
+        }
+        tracing::debug!(
+            method = "composio.set_user_scopes",
+            toolkit = %toolkit,
+            read = pref.read,
+            write = pref.write,
+            admin = pref.admin,
+            "[composio:scopes] handler exit"
+        );
         to_json(crate::rpc::RpcOutcome::new(pref, vec![]))
     })
 }
@@ -626,6 +692,8 @@ mod tests {
             "get_user_profile",
             "sync",
             "list_trigger_history",
+            "get_user_scopes",
+            "set_user_scopes",
         ];
         for k in keys {
             let s = schemas(k);

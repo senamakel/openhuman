@@ -220,18 +220,45 @@ export default function ComposioConnectModal({
 
   const handleToggleScope = useCallback(
     async (key: keyof ComposioUserScopePref) => {
-      if (!scopes || savingScope) return;
+      if (!scopes || savingScope) {
+        console.debug(
+          '[composio][scopes] toggle ignored toolkit=%s key=%s reason=%s',
+          toolkit.slug,
+          key,
+          !scopes ? 'pref-not-loaded' : 'another-save-in-flight'
+        );
+        return;
+      }
       const optimistic: ComposioUserScopePref = { ...scopes, [key]: !scopes[key] };
+      console.debug(
+        '[composio][scopes] toggle toolkit=%s key=%s old=%s new=%s',
+        toolkit.slug,
+        key,
+        scopes[key],
+        optimistic[key]
+      );
       setScopes(optimistic);
       setSavingScope(key);
       setScopeError(null);
       try {
         const persisted = await setUserScopes(toolkit.slug, optimistic);
+        console.debug(
+          '[composio][scopes] toggle persisted toolkit=%s key=%s pref=%o',
+          toolkit.slug,
+          key,
+          persisted
+        );
         setScopes(persisted);
       } catch (err) {
         // Roll back on failure so the toggle reflects reality.
-        setScopes(scopes);
         const msg = err instanceof Error ? err.message : String(err);
+        console.error(
+          '[composio][scopes] toggle failed toolkit=%s key=%s error=%o',
+          toolkit.slug,
+          key,
+          err
+        );
+        setScopes(scopes);
         setScopeError(`Couldn't save ${key} scope: ${msg}`);
       } finally {
         setSavingScope(null);

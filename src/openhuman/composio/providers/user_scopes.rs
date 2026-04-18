@@ -141,8 +141,12 @@ pub async fn load_or_default(toolkit: &str) -> UserScopePref {
     match crate::openhuman::memory::global::client_if_ready() {
         Some(client) => load(&client, toolkit).await,
         None => {
+            // Match the normalized key form `load()` logs so traces
+            // grouped by `key` correlate across both code paths.
+            let key = kv_key(toolkit);
             tracing::debug!(
                 toolkit = %toolkit,
+                key = %key,
                 "[composio][scopes] memory not ready, using default pref"
             );
             UserScopePref::default()

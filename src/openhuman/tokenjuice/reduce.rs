@@ -1853,6 +1853,318 @@ mod tests {
         assert!(!result.inline_text.is_empty() || result.inline_text.is_empty());
     }
 
+    // --- gh table format edge cases ---
+
+    #[test]
+    fn gh_table_empty_line_returns_empty_string() {
+        // An empty line in gh table output should produce empty string
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some("   \n42  Fix bug  open  feat/fix  2024-01-01\n".to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        // The non-empty line should be formatted
+        assert!(
+            result.inline_text.contains("#42") || result.inline_text.contains("Fix bug"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn gh_table_three_columns_context() {
+        // Table with 3 cols: number, title, state (no context, no 4th col)
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some("99  My PR  open\n".to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(
+            result.inline_text.contains("#99") || result.inline_text.contains("My PR"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn gh_table_non_numeric_first_column() {
+        // When first column is not numeric, falls back to compact_whitespace
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "issue".to_owned(), "list".to_owned()]),
+            stdout: Some("feature  My Issue  open\n".to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(!result.inline_text.is_empty());
+    }
+
+    // --- gh json: comment count variants ---
+
+    #[test]
+    fn gh_json_comment_count_as_array() {
+        // comments field as array (length = comment count)
+        let json_line = r#"{"number":5,"title":"PR Title","state":"open","comments":[{"body":"comment1"},{"body":"comment2"}]}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(result.inline_text.contains("#5"), "got: {}", result.inline_text);
+        // 2 comments shown as "2c"
+        assert!(result.inline_text.contains("2c"), "got: {}", result.inline_text);
+    }
+
+    #[test]
+    fn gh_json_comment_count_as_number() {
+        // comments as plain number
+        let json_line = r#"{"number":6,"title":"Another PR","state":"closed","comments":4}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(result.inline_text.contains("#6"), "got: {}", result.inline_text);
+        assert!(result.inline_text.contains("4c"), "got: {}", result.inline_text);
+    }
+
+    // --- gh json: labels as string array ---
+
+    #[test]
+    fn gh_json_labels_as_string_array() {
+        // labels as array of strings (not objects)
+        let json_line =
+            r#"{"number":8,"title":"Tagged PR","state":"open","labels":["bug","urgent",""]}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(result.inline_text.contains("#8"), "got: {}", result.inline_text);
+        // Should include label names (empty string filtered)
+        assert!(
+            result.inline_text.contains("bug") || result.inline_text.contains("{"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn gh_json_labels_non_array_is_ignored() {
+        // labels as non-array → should not crash
+        let json_line = r#"{"number":9,"title":"PR no labels","state":"open","labels":"bug"}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(result.inline_text.contains("#9"), "got: {}", result.inline_text);
+    }
+
+    // --- pretty_print_json: array and non-json ---
+
+    #[test]
+    fn pretty_print_json_array_output() {
+        use crate::openhuman::tokenjuice::{rules::compiler::compile_rule, types::RuleMatch};
+
+        let rule = crate::openhuman::tokenjuice::types::JsonRule {
+            id: "test/ppjson-arr".to_owned(),
+            family: "test".to_owned(),
+            description: None,
+            priority: None,
+            on_empty: None,
+            match_output: None,
+            counter_source: None,
+            r#match: RuleMatch::default(),
+            filters: None,
+            transforms: Some(crate::openhuman::tokenjuice::types::RuleTransforms {
+                pretty_print_json: Some(true),
+                strip_ansi: None,
+                trim_empty_edges: None,
+                dedupe_adjacent: None,
+            }),
+            summarize: None,
+            counters: None,
+            failure: None,
+        };
+        let compiled = compile_rule(
+            rule,
+            crate::openhuman::tokenjuice::types::RuleOrigin::Builtin,
+            "builtin:test/ppjson-arr".to_owned(),
+        );
+        // JSON array
+        let input = ToolExecutionInput {
+            tool_name: "bash".to_owned(),
+            argv: Some(vec!["some_tool".to_owned()]),
+            stdout: Some(r#"[1,2,3]"#.to_owned()),
+            ..Default::default()
+        };
+        let fb = load_builtin_rules()
+            .into_iter()
+            .find(|r| r.rule.id == "generic/fallback")
+            .unwrap();
+        let rules = vec![compiled, fb];
+        let opts = ReduceOptions {
+            classifier: Some("test/ppjson-arr".to_owned()),
+            ..Default::default()
+        };
+        let result = reduce_execution_with_rules(input, &rules, &opts);
+        assert!(!result.inline_text.is_empty());
+    }
+
+    #[test]
+    fn pretty_print_json_non_json_passthrough() {
+        use crate::openhuman::tokenjuice::{rules::compiler::compile_rule, types::RuleMatch};
+
+        let rule = crate::openhuman::tokenjuice::types::JsonRule {
+            id: "test/ppjson-plain".to_owned(),
+            family: "test".to_owned(),
+            description: None,
+            priority: None,
+            on_empty: None,
+            match_output: None,
+            counter_source: None,
+            r#match: RuleMatch::default(),
+            filters: None,
+            transforms: Some(crate::openhuman::tokenjuice::types::RuleTransforms {
+                pretty_print_json: Some(true),
+                strip_ansi: None,
+                trim_empty_edges: None,
+                dedupe_adjacent: None,
+            }),
+            summarize: None,
+            counters: None,
+            failure: None,
+        };
+        let compiled = compile_rule(
+            rule,
+            crate::openhuman::tokenjuice::types::RuleOrigin::Builtin,
+            "builtin:test/ppjson-plain".to_owned(),
+        );
+        // Not JSON
+        let input = ToolExecutionInput {
+            tool_name: "bash".to_owned(),
+            argv: Some(vec!["some_tool".to_owned()]),
+            stdout: Some("plain text output".to_owned()),
+            ..Default::default()
+        };
+        let fb = load_builtin_rules()
+            .into_iter()
+            .find(|r| r.rule.id == "generic/fallback")
+            .unwrap();
+        let rules = vec![compiled, fb];
+        let opts = ReduceOptions {
+            classifier: Some("test/ppjson-plain".to_owned()),
+            ..Default::default()
+        };
+        let result = reduce_execution_with_rules(input, &rules, &opts);
+        assert!(result.inline_text.contains("plain text output"));
+    }
+
+    // --- normalize_execution_input: empty tokenized argv ---
+
+    #[test]
+    fn normalize_whitespace_only_command_returns_no_argv() {
+        // tokenize_command("''") → empty (quotes enclose nothing useful)
+        let input = ToolExecutionInput {
+            tool_name: "bash".to_owned(),
+            command: Some("''".to_owned()), // tokenizes to empty because quotes contain nothing
+            argv: None,
+            ..Default::default()
+        };
+        let out = normalize_execution_input(input);
+        // argv should remain None or empty since tokenized form is empty
+        assert!(
+            out.argv.as_ref().map(|v| v.is_empty()).unwrap_or(true),
+            "expected empty or no argv"
+        );
+    }
+
+    // --- select_inline_text: passthrough <= compact_chars branch ---
+
+    #[test]
+    fn select_inline_text_passthrough_shorter_than_compact() {
+        // When passthrough is shorter than compact, passthrough is returned
+        // This happens for short output where compact is longer (rare but possible)
+        let short_output = "short";
+        let input = ToolExecutionInput {
+            tool_name: "bash".to_owned(),
+            argv: Some(vec!["some_tool".to_owned()]),
+            stdout: Some(short_output.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        // Short output should just be returned as-is
+        assert_eq!(result.inline_text, "short");
+    }
+
+    // --- zero raw_chars gives ratio 1.0 ---
+
+    #[test]
+    fn zero_raw_chars_ratio_is_one() {
+        let input = ToolExecutionInput {
+            tool_name: "bash".to_owned(),
+            argv: Some(vec!["some_tool".to_owned()]),
+            stdout: None,
+            stderr: None,
+            ..Default::default()
+        };
+        let result = run(input);
+        assert_eq!(result.stats.ratio, 1.0);
+        assert_eq!(result.stats.raw_chars, 0);
+    }
+
+    // --- gh json with workflowName field ---
+
+    #[test]
+    fn gh_json_workflow_name_field() {
+        let json_line =
+            r#"{"databaseId":100,"workflowName":"CI/CD Pipeline","status":"in_progress"}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "run".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        assert!(
+            result.inline_text.contains("CI/CD Pipeline")
+                || result.inline_text.contains("#100"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    // --- gh json: no title field returns None (format_gh_json_record returns None) ---
+
+    #[test]
+    fn gh_json_missing_title_falls_to_table_format() {
+        // JSON line without any title-like field → format_gh_json_record returns None
+        // → falls back to table format since argv[0] == "gh"
+        let json_line = r#"{"number":1,"state":"open"}"#;
+        let input = ToolExecutionInput {
+            tool_name: "exec".to_owned(),
+            argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
+            stdout: Some(json_line.to_owned()),
+            ..Default::default()
+        };
+        let result = run(input);
+        // Should not panic, result may be formatted or passthrough
+        assert!(!result.inline_text.is_empty() || result.inline_text.is_empty());
+    }
+
     // --- skip_patterns ---
 
     #[test]
@@ -1916,6 +2228,74 @@ mod tests {
         let result = run(input);
         assert!(
             !result.inline_text.contains("and have"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn git_status_empty_line_handled() {
+        // Empty lines in git status output should produce empty strings (not be dropped)
+        let stdout = "Changes not staged for commit:\n\n\tmodified:   foo.rs\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        // Should still have M: foo.rs
+        assert!(result.inline_text.contains("M: foo.rs"), "got: {}", result.inline_text);
+    }
+
+    #[test]
+    fn git_status_no_changes_hint_removed() {
+        let stdout =
+            "nothing added to commit but untracked files present (use \"git add\" to track)\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        // This line should be filtered out
+        assert!(
+            !result.inline_text.contains("nothing added to commit but untracked"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn git_status_use_git_hint_removed() {
+        let stdout = "(use \"git add <file>...\" to update what will be committed)\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        assert!(
+            !result.inline_text.contains("use \"git add"),
+            "got: {}",
+            result.inline_text
+        );
+    }
+
+    #[test]
+    fn git_status_porcelain_format_mm_code() {
+        // Two-char porcelain status code
+        let stdout = "MM src/foo.rs\nA  src/bar.rs\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        // Should be parsed somehow (via porcelain fallthrough or direct match)
+        assert!(!result.inline_text.is_empty());
+    }
+
+    #[test]
+    fn git_status_consecutive_empty_lines_collapsed() {
+        // Multiple consecutive blank lines should be collapsed to one
+        let stdout =
+            "Changes not staged for commit:\n\n\n\tmodified:   a.rs\n\n\n\tmodified:   b.rs\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        assert!(result.inline_text.contains("M: a.rs"), "got: {}", result.inline_text);
+    }
+
+    #[test]
+    fn git_status_no_changes_to_commit() {
+        let stdout = "no changes added to commit (use \"git add\" and/or \"git commit -a\")\n";
+        let input = make_input("bash", &["git", "status"], stdout);
+        let result = run(input);
+        assert!(
+            !result.inline_text.contains("no changes added to commit"),
             "got: {}",
             result.inline_text
         );

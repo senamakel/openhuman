@@ -2154,7 +2154,6 @@ mod tests {
     #[derive(Clone)]
     struct CapturedRequest {
         messages: Vec<crate::openhuman::providers::ChatMessage>,
-        cache_boundary: Option<usize>,
         tool_count: usize,
     }
 
@@ -2192,7 +2191,6 @@ mod tests {
         ) -> anyhow::Result<ChatResponse> {
             self.captured.lock().push(CapturedRequest {
                 messages: request.messages.to_vec(),
-                cache_boundary: request.system_prompt_cache_boundary,
                 tool_count: request.tools.map_or(0, |tools| tools.len()),
             });
             let mut q = self.responses.lock();
@@ -2402,31 +2400,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn typed_mode_threads_system_prompt_cache_boundary() {
-        let provider = ScriptedProvider::new(vec![text_response("ok")]);
-        let parent = make_parent(provider.clone(), vec![stub("file_read")]);
-        let def = make_def_named_tools(&[]);
-
-        let _ = with_parent_context(parent, async {
-            run_subagent(
-                &def,
-                "the actual task prompt",
-                SubagentRunOptions::default(),
-            )
-            .await
-        })
-        .await
-        .unwrap();
-
-        let captured = provider.captured.lock();
-        assert_eq!(captured.len(), 1);
-        assert!(
-            captured[0].cache_boundary.is_some(),
-            "typed sub-agent request should carry a prompt cache boundary"
-        );
-    }
-
-    #[tokio::test]
     async fn typed_mode_filters_tools_by_skill_filter() {
         // Parent has tools spanning notion__*, gmail__*, and a generic
         // file_read; spawn the runner with skill_filter override "notion"
@@ -2568,7 +2541,6 @@ mod tests {
             system_prompt: Arc::new("PARENT_SYSTEM_PROMPT_BYTES".into()),
             tool_specs: Arc::new(vec![parent.all_tool_specs[0].clone()]),
             message_prefix: Arc::new(prefix.clone()),
-            cache_boundary: Some(9),
             fork_task_prompt: "ANALYSE THIS BRANCH".into(),
         };
 
@@ -2604,7 +2576,6 @@ mod tests {
         let appended = first_call.messages.last().unwrap();
         assert_eq!(appended.role, "user");
         assert_eq!(appended.content, "ANALYSE THIS BRANCH");
-        assert_eq!(first_call.cache_boundary, Some(9));
         assert_eq!(first_call.tool_count, 1);
     }
 

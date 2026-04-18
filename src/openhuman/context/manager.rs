@@ -230,12 +230,6 @@ impl ContextManager {
 
     /// Assemble the opening system prompt for a session using the
     /// manager's default [`SystemPromptBuilder`].
-    pub fn build_system_prompt(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        self.default_prompt_builder.build(ctx)
-    }
-
-    /// Assemble the opening system prompt for a session using the
-    /// manager's default builder.
     ///
     /// The returned bytes are the full system prompt, intended to be
     /// built once at session start and reused verbatim on every turn —

@@ -680,19 +680,9 @@ async fn system_prompt_and_model_are_byte_stable_across_turns() {
             "model name flipped on turn {} — KV cache namespace broken",
             idx
         );
-        assert_eq!(
-            cap.cache_boundary, captures[0].cache_boundary,
-            "cache boundary drifted on turn {} — provider prompt caching became unstable",
-            idx
-        );
-        assert!(
-            cap.cache_boundary.is_some(),
-            "turn {} should carry an explicit prompt cache boundary",
-            idx
-        );
         assert!(
             !sys.contains("<!-- CACHE_BOUNDARY -->"),
-            "system prompt should not leak the internal cache marker"
+            "system prompt should not leak any cache-boundary marker"
         );
     }
 }

@@ -395,10 +395,10 @@ mod tests {
     #[test]
     fn non_existent_dir_loads_only_builtins() {
         let opts = LoadRuleOptions {
-            user_rules_dir: Some(std::path::PathBuf::from("/nonexistent/path/that/does/not/exist")),
-            project_rules_dir: Some(std::path::PathBuf::from(
-                "/another/nonexistent/path/rules",
+            user_rules_dir: Some(std::path::PathBuf::from(
+                "/nonexistent/path/that/does/not/exist",
             )),
+            project_rules_dir: Some(std::path::PathBuf::from("/another/nonexistent/path/rules")),
             ..Default::default()
         };
         let rules = load_rules(&opts);

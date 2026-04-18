@@ -538,9 +538,9 @@ mod tests {
 
         // Simulate a parse failure (bad JSON)
         let bad_json = "{ not valid json at all }";
-        if let Err(e) = serde_json::from_str::<crate::openhuman::tokenjuice::types::JsonRule>(
-            bad_json,
-        ) {
+        if let Err(e) =
+            serde_json::from_str::<crate::openhuman::tokenjuice::types::JsonRule>(bad_json)
+        {
             compile_issues.push(format!("PARSE 'bad-entry': {}", e));
         }
 

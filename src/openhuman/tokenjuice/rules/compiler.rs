@@ -227,8 +227,11 @@ mod tests {
             skip_patterns: None,
             keep_patterns: Some(vec!["[invalid".to_owned()]),
         });
-        let compiled =
-            compile_rule(rule, RuleOrigin::Builtin, "builtin:test/bad-keep".to_owned());
+        let compiled = compile_rule(
+            rule,
+            RuleOrigin::Builtin,
+            "builtin:test/bad-keep".to_owned(),
+        );
         assert!(compiled.compiled.keep_patterns.is_empty());
     }
 

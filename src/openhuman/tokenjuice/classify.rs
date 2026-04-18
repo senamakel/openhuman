@@ -322,10 +322,7 @@ mod tests {
             counter_source: None,
             r#match: RuleMatch {
                 argv0: Some(vec!["tool".to_owned()]),
-                argv_includes_any: Some(vec![
-                    vec!["--foo".to_owned()],
-                    vec!["--bar".to_owned()],
-                ]),
+                argv_includes_any: Some(vec![vec!["--foo".to_owned()], vec!["--bar".to_owned()]]),
                 ..Default::default()
             },
             filters: None,

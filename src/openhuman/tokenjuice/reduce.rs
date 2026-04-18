@@ -1142,7 +1142,11 @@ mod tests {
     fn jq_is_file_content_inspection() {
         let input = ToolExecutionInput {
             tool_name: "bash".to_owned(),
-            argv: Some(vec!["jq".to_owned(), ".".to_owned(), "file.json".to_owned()]),
+            argv: Some(vec![
+                "jq".to_owned(),
+                ".".to_owned(),
+                "file.json".to_owned(),
+            ]),
             ..Default::default()
         };
         assert!(is_file_content_inspection_command(&input));
@@ -1564,7 +1568,8 @@ mod tests {
 
     #[test]
     fn gh_pr_list_json_output_compacted() {
-        let json_line = r#"{"number":42,"title":"Fix the bug","state":"open","headRefName":"fix/issue-42"}"#;
+        let json_line =
+            r#"{"number":42,"title":"Fix the bug","state":"open","headRefName":"fix/issue-42"}"#;
         let input = ToolExecutionInput {
             tool_name: "exec".to_owned(),
             argv: Some(vec!["gh".to_owned(), "pr".to_owned(), "list".to_owned()]),
@@ -1810,7 +1815,11 @@ mod tests {
             ..Default::default()
         };
         let result = run(input);
-        assert!(result.inline_text.contains("#7"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("#7"),
+            "got: {}",
+            result.inline_text
+        );
         assert!(
             result.inline_text.contains("Add feature"),
             "got: {}",
@@ -1822,8 +1831,7 @@ mod tests {
 
     #[test]
     fn gh_json_with_display_title_and_database_id() {
-        let json_line =
-            r#"{"databaseId":999,"displayTitle":"My Workflow Run","status":"completed","conclusion":"success","headBranch":"main"}"#;
+        let json_line = r#"{"databaseId":999,"displayTitle":"My Workflow Run","status":"completed","conclusion":"success","headBranch":"main"}"#;
         let input = ToolExecutionInput {
             tool_name: "exec".to_owned(),
             argv: Some(vec!["gh".to_owned(), "run".to_owned(), "list".to_owned()]),
@@ -1916,9 +1924,17 @@ mod tests {
             ..Default::default()
         };
         let result = run(input);
-        assert!(result.inline_text.contains("#5"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("#5"),
+            "got: {}",
+            result.inline_text
+        );
         // 2 comments shown as "2c"
-        assert!(result.inline_text.contains("2c"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("2c"),
+            "got: {}",
+            result.inline_text
+        );
     }
 
     #[test]
@@ -1932,8 +1948,16 @@ mod tests {
             ..Default::default()
         };
         let result = run(input);
-        assert!(result.inline_text.contains("#6"), "got: {}", result.inline_text);
-        assert!(result.inline_text.contains("4c"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("#6"),
+            "got: {}",
+            result.inline_text
+        );
+        assert!(
+            result.inline_text.contains("4c"),
+            "got: {}",
+            result.inline_text
+        );
     }
 
     // --- gh json: labels as string array ---
@@ -1950,7 +1974,11 @@ mod tests {
             ..Default::default()
         };
         let result = run(input);
-        assert!(result.inline_text.contains("#8"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("#8"),
+            "got: {}",
+            result.inline_text
+        );
         // Should include label names (empty string filtered)
         assert!(
             result.inline_text.contains("bug") || result.inline_text.contains("{"),
@@ -1970,7 +1998,11 @@ mod tests {
             ..Default::default()
         };
         let result = run(input);
-        assert!(result.inline_text.contains("#9"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("#9"),
+            "got: {}",
+            result.inline_text
+        );
     }
 
     // --- pretty_print_json: array and non-json ---
@@ -2140,8 +2172,7 @@ mod tests {
         };
         let result = run(input);
         assert!(
-            result.inline_text.contains("CI/CD Pipeline")
-                || result.inline_text.contains("#100"),
+            result.inline_text.contains("CI/CD Pipeline") || result.inline_text.contains("#100"),
             "got: {}",
             result.inline_text
         );
@@ -2170,7 +2201,8 @@ mod tests {
     #[test]
     fn skip_patterns_remove_matching_lines() {
         // cargo test rule skips "Compiling" and "Finished" lines
-        let stdout = "   Compiling foo v0.1.0\n   Finished dev [unoptimized] target(s)\ntest foo ... ok\n";
+        let stdout =
+            "   Compiling foo v0.1.0\n   Finished dev [unoptimized] target(s)\ntest foo ... ok\n";
         let input = ToolExecutionInput {
             tool_name: "exec".to_owned(),
             argv: Some(vec!["cargo".to_owned(), "test".to_owned()]),
@@ -2240,7 +2272,11 @@ mod tests {
         let input = make_input("bash", &["git", "status"], stdout);
         let result = run(input);
         // Should still have M: foo.rs
-        assert!(result.inline_text.contains("M: foo.rs"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("M: foo.rs"),
+            "got: {}",
+            result.inline_text
+        );
     }
 
     #[test]
@@ -2251,7 +2287,9 @@ mod tests {
         let result = run(input);
         // This line should be filtered out
         assert!(
-            !result.inline_text.contains("nothing added to commit but untracked"),
+            !result
+                .inline_text
+                .contains("nothing added to commit but untracked"),
             "got: {}",
             result.inline_text
         );
@@ -2286,7 +2324,11 @@ mod tests {
             "Changes not staged for commit:\n\n\n\tmodified:   a.rs\n\n\n\tmodified:   b.rs\n";
         let input = make_input("bash", &["git", "status"], stdout);
         let result = run(input);
-        assert!(result.inline_text.contains("M: a.rs"), "got: {}", result.inline_text);
+        assert!(
+            result.inline_text.contains("M: a.rs"),
+            "got: {}",
+            result.inline_text
+        );
     }
 
     #[test]

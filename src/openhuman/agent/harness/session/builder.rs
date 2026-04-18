@@ -191,7 +191,7 @@ impl AgentBuilder {
     }
 
     /// Sets the agent definition id this session is running
-    /// (`welcome`, `orchestrator`, `skills_agent`, …).
+    /// (`welcome`, `orchestrator`, `integrations_agent`, …).
     ///
     /// This value is stamped onto the built [`Agent`] and surfaces in
     /// the following places:
@@ -212,13 +212,13 @@ impl AgentBuilder {
     /// * **[`PromptContext::agent_id`]** at prompt-build time (see
     ///   `turn.rs`). Today only one prompt section reads this field —
     ///   the `Connected Integrations` branch in `context/prompt.rs`
-    ///   that special-cases `skills_agent` vs every other agent — so
+    ///   that special-cases `integrations_agent` vs every other agent — so
     ///   the current user-visible impact of a wrong id is limited to
     ///   the two bullets above. The stamped `prompt_builder` injected
     ///   by [`Agent::from_config_for_agent`] is what actually drives
     ///   prompt flavour per archetype, independent of this field. That
     ///   said, any future prompt section that branches on a
-    ///   non-`skills_agent` id (e.g. welcome-specific banner, planner-
+    ///   non-`integrations_agent` id (e.g. welcome-specific banner, planner-
     ///   specific rubric) would silently never fire if the field were
     ///   left at `"main"`, so keeping it correctly stamped closes a
     ///   latent foot-gun for code that hasn't been written yet.
@@ -888,10 +888,10 @@ impl Agent {
         // that even 16–25 of them blow past that ceiling, regardless of
         // how aggressively the fuzzy filter in `tool_filter.rs` narrows
         // the list. When that happens the provider rejects the request
-        // with a 400 before any generation starts, so skills_agent can
+        // with a 400 before any generation starts, so integrations_agent can
         // never actually invoke the toolkit.
         //
-        // Workaround: if we're building skills_agent and the selected
+        // Workaround: if we're building integrations_agent and the selected
         // dispatcher would ship `tools: [...]` in the API payload
         // (`should_send_tool_specs() == true`, i.e. native mode), swap
         // to XML mode. XmlToolDispatcher puts the tool catalogue inside
@@ -901,9 +901,9 @@ impl Agent {
         // than native; the existing `parse_tool_calls` recovers from
         // stray formatting and the loop retries on malformed output.
         let tool_dispatcher: Box<dyn ToolDispatcher> =
-            if agent_id == "skills_agent" && tool_dispatcher.should_send_tool_specs() {
+            if agent_id == "integrations_agent" && tool_dispatcher.should_send_tool_specs() {
                 log::info!(
-                    "[agent::builder] skills_agent: overriding native tool dispatcher with \
+                    "[agent::builder] integrations_agent: overriding native tool dispatcher with \
                      XmlToolDispatcher (native mode hits provider grammar-rule limits on \
                      large Composio toolkits)"
                 );

@@ -1062,7 +1062,7 @@ impl Agent {
     /// Fetches the user's active Composio connections and populates
     /// `self.connected_integrations` so the system prompt can surface them.
     /// Also caches a [`ComposioClient`] on the session so the sub-agent
-    /// runner can construct per-action tools for `skills_agent` spawns
+    /// runner can construct per-action tools for `integrations_agent` spawns
     /// without rebuilding the client on every call.
     ///
     /// Delegates to the shared [`crate::openhuman::composio::fetch_connected_integrations`]

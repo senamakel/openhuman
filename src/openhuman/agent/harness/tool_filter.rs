@@ -1,6 +1,6 @@
 //! Fuzzy tool-filter for sub-agent delegation.
 //!
-//! When `skills_agent` is spawned with a bound Composio toolkit (e.g.
+//! When `integrations_agent` is spawned with a bound Composio toolkit (e.g.
 //! `toolkit="github"`), the parent-refined task prompt is usually specific
 //! enough that only a handful of the toolkit's actions are relevant. Github's
 //! catalogue alone has 500 actions; loading every one into the sub-agent's

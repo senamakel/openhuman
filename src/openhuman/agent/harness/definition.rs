@@ -155,7 +155,7 @@ pub struct AgentDefinition {
     ///
     /// * [`SubagentEntry::Skills`] — one [`SkillDelegationTool`] per
     ///   connected Composio toolkit, each named `delegate_{toolkit}`,
-    ///   all routing to the generic `skills_agent` with an appropriate
+    ///   all routing to the generic `integrations_agent` with an appropriate
     ///   `skill_filter` pre-populated.
     ///
     /// `subagents` is intentionally separate from [`AgentDefinition::tools`]
@@ -205,7 +205,7 @@ pub enum SubagentEntry {
     AgentId(String),
     /// Expand at build time to one `delegate_{toolkit}` tool per
     /// connected Composio toolkit, each routing to the generic
-    /// `skills_agent` with `skill_filter` pre-set.
+    /// `integrations_agent` with `skill_filter` pre-set.
     Skills(SkillsWildcard),
 }
 

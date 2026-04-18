@@ -512,7 +512,7 @@ async fn fetch_connected_integrations_uncached(
     // Pull the backend allowlist — every toolkit the orchestrator can
     // possibly suggest, regardless of whether the user has authorized
     // it yet. This is the universe of valid `toolkit` arguments to
-    // `spawn_subagent(skills_agent, …)`.
+    // `spawn_subagent(integrations_agent, …)`.
     //
     // On transient backend errors we return `None` instead of a
     // degraded `Some(Vec::new())` so `fetch_connected_integrations`
@@ -571,7 +571,7 @@ async fn fetch_connected_integrations_uncached(
                 // caching connected entries with empty `tools` vectors
                 // would cause `subagent_runner::run_typed_mode` to
                 // build zero dynamic Composio action tools for a
-                // toolkit-scoped `skills_agent` spawn, silently
+                // toolkit-scoped `integrations_agent` spawn, silently
                 // leaving the sub-agent with nothing callable.
                 return None;
             }

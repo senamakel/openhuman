@@ -47,7 +47,7 @@
 //!
 //! Only the orchestrator session gets a `PayloadSummarizer` wired in
 //! ([`crate::openhuman::agent::harness::session::builder::AgentBuilder`]
-//! checks `agent_id == "orchestrator"`). Welcome, skills_agent,
+//! checks `agent_id == "orchestrator"`). Welcome, integrations_agent,
 //! researcher, planner, archivist, and every other typed sub-agent get
 //! `None` and their tool results are untouched. The summarizer itself
 //! is also `None` so it can never recursively summarize its own input.

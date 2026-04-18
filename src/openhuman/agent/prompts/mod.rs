@@ -91,7 +91,7 @@ impl SystemPromptBuilder {
         }
         // Skills catalogue and connected integrations are rendered by
         // the individual agent's `prompt.rs` when that agent needs
-        // them (skills_agent for the skill-executor voice,
+        // them (integrations_agent for the skill-executor voice,
         // orchestrator/welcome for the delegator voice). The shared
         // builder intentionally does not emit them — keeping
         // agent-specific prose scoped to the agent that owns it.
@@ -171,7 +171,7 @@ pub struct SafetySection;
 // `SkillsSection` and `ConnectedIntegrationsSection` previously lived
 // here and branched on `ctx.agent_id` to pick between the skill-
 // executor and delegator voice. They've been removed — each agent's
-// `prompt.rs` now renders its own block inline (skills_agent owns the
+// `prompt.rs` now renders its own block inline (integrations_agent owns the
 // `## Available Skills` + executor-voice `## Connected Integrations`
 // blocks, orchestrator owns `## Delegation Guide — Integrations`,
 // welcome owns its onboarding-flavoured connected list).
@@ -498,7 +498,7 @@ pub fn render_safety() -> String {
 }
 
 // `render_skills` and `render_connected_integrations` helpers are
-// gone — `## Available Skills` lives in `skills_agent/prompt.rs`, and
+// gone — `## Available Skills` lives in `integrations_agent/prompt.rs`, and
 // the connected-integrations / delegation-guide blocks each live in
 // their owning agent's `prompt.rs` so no branching-on-agent-id logic
 // needs to exist here.
@@ -687,7 +687,7 @@ pub fn render_subagent_system_prompt_with_format(
     //   the request body's `tools` field (via `filtered_specs` in the
     //   sub-agent runner) and emits structured `tool_calls`. Listing
     //   the same tools again as prose in the system prompt is pure
-    //   duplication — for a skills_agent spawn with 62 dynamic gmail
+    //   duplication — for a integrations_agent spawn with 62 dynamic gmail
     //   tools, that duplication added ~54k tokens and blew past the
     //   model's context window. We skip the prose `## Tools` section
     //   entirely in this mode.
@@ -782,7 +782,7 @@ pub fn render_subagent_system_prompt_with_format(
     }
 
     // 3b. Optional safety preamble. Definitions that do work with real
-    //     side-effects (code_executor, tool_maker, skills_agent) set
+    //     side-effects (code_executor, tool_maker, integrations_agent) set
     //     `omit_safety_preamble = false` so the narrow renderer used to
     //     silently drop that instruction — we now honour the flag.
     //     Byte-identical to `SafetySection::build`.
@@ -794,7 +794,7 @@ pub fn render_subagent_system_prompt_with_format(
 
     // 3c/3d. `## Available Skills` and `## Connected Integrations`
     //        are no longer emitted here. Each agent that needs them
-    //        renders its own block in its `prompt.rs` (skills_agent
+    //        renders its own block in its `prompt.rs` (integrations_agent
     //        owns the executor voice, orchestrator/welcome own the
     //        delegator voice). Legacy Inline/File-sourced TOML agents
     //        that still route through this helper simply don't get

@@ -65,7 +65,7 @@ pub struct SubagentRunOptions {
     /// whose name starts with the uppercased `{toolkit}_` prefix, and
     /// the sub-agent's rendered `Connected Integrations` section is
     /// narrowed to only that toolkit's entry. Used by main/orchestrator
-    /// when spawning `skills_agent` for a specific platform so the
+    /// when spawning `integrations_agent` for a specific platform so the
     /// sub-agent only sees one integration's tool catalogue.
     pub toolkit_override: Option<String>,
 
@@ -257,9 +257,9 @@ async fn run_typed_mode(
         }
     }
 
-    // ── Dynamic per-action toolkit tools (skills_agent + toolkit) ──────
+    // ── Dynamic per-action toolkit tools (integrations_agent + toolkit) ──────
     //
-    // When `skills_agent` is spawned with a `toolkit` argument (e.g.
+    // When `integrations_agent` is spawned with a `toolkit` argument (e.g.
     // `toolkit="gmail"`), build one [`ComposioActionTool`] per action
     // in that toolkit and inject them into the sub-agent's tool list.
     // Each carries the action's real JSON schema, so the LLM's native
@@ -271,8 +271,20 @@ async fn run_typed_mode(
     // are stripped from the parent-filtered indices in this path so
     // the model only sees one way to call each action.
     let mut dynamic_tools: Vec<Box<dyn Tool>> = Vec::new();
-    let is_skills_agent_with_toolkit = definition.id == "skills_agent" && toolkit_filter.is_some();
-    if is_skills_agent_with_toolkit {
+    let is_integrations_agent_with_toolkit = definition.id == "integrations_agent" && toolkit_filter.is_some();
+
+    // `tools_agent` is the Composio-free counterpart to
+    // `integrations_agent`: it inherits the orchestrator's wildcard
+    // scope but must never see Skill-category tools. Stripping them
+    // here (before any dynamic additions) keeps the parent-fed
+    // `allowed_indices` clean of composio_* meta-tools and
+    // toolkit-specific action tools. Delegation to integrations_agent
+    // is the orchestrator's job, not this agent's.
+    if definition.id == "tools_agent" {
+        allowed_indices.retain(|&i| parent.all_tools[i].category() != ToolCategory::Skill);
+    }
+
+    if is_integrations_agent_with_toolkit {
         // Drop EVERY skill-category parent tool. In the new
         // architecture all integration discovery / authorization /
         // dispatching is the orchestrator's responsibility (via the
@@ -375,7 +387,7 @@ async fn run_typed_mode(
 
     // ── Progressive-disclosure handoff cache ───────────────────────────
     //
-    // Built only for skills_agent-with-toolkit because that's the only
+    // Built only for integrations_agent-with-toolkit because that's the only
     // typed sub-agent that regularly calls external tools capable of
     // returning megabyte-scale payloads (Composio actions). Every other
     // typed sub-agent gets `None` and its tool results stay inline.
@@ -387,7 +399,7 @@ async fn run_typed_mode(
     // summarizer sub-agent against the cached payload with a targeted
     // query. Lazy / pay-per-question, so trivial asks answerable from
     // the preview don't pay any extra LLM cost.
-    let handoff_cache: Option<Arc<ResultHandoffCache>> = if is_skills_agent_with_toolkit {
+    let handoff_cache: Option<Arc<ResultHandoffCache>> = if is_integrations_agent_with_toolkit {
         let cache = Arc::new(ResultHandoffCache::new());
 
         // Resolve the summarizer definition once and register the
@@ -456,7 +468,7 @@ async fn run_typed_mode(
     // Per-definition omit_* flags are threaded through via
     // `SubagentRenderOptions` — previously the narrow renderer
     // hard-coded all three as "omit", which silently downgraded
-    // definitions like `code_executor` / `tool_maker` / `skills_agent`
+    // definitions like `code_executor` / `tool_maker` / `integrations_agent`
     // that set `omit_safety_preamble = false`.
     let render_options = SubagentRenderOptions::from_definition_flags(
         definition.omit_identity,
@@ -791,7 +803,7 @@ async fn run_inner_loop(
 ) -> Result<(String, usize, AggregatedUsage), SubagentRunError> {
     let max_iterations = max_iterations.max(1);
 
-    // ── Text-mode override for skills_agent ────────────────────────────
+    // ── Text-mode override for integrations_agent ────────────────────────────
     //
     // Large Composio toolkits (Notion, Salesforce, HubSpot, GitHub) ship
     // per-action JSON schemas that are extraordinarily dense — deeply
@@ -811,12 +823,12 @@ async fn run_inner_loop(
     // prose (XmlToolDispatcher format) and parse `<tool_call>` tags out
     // of the model's free-form response text.
     //
-    // Scoped to `skills_agent` because that's the only path where we
+    // Scoped to `integrations_agent` because that's the only path where we
     // pass Composio toolkit schemas. Every other typed sub-agent
     // (welcome, researcher, summarizer, …) uses small built-in tool
     // sets that stay well under the grammar ceiling and benefit from
     // native mode's stricter formatting guarantees.
-    let force_text_mode = agent_id == "skills_agent" && !tool_specs.is_empty();
+    let force_text_mode = agent_id == "integrations_agent" && !tool_specs.is_empty();
 
     let supports_native =
         !force_text_mode && provider.supports_native_tools() && !tool_specs.is_empty();
@@ -977,7 +989,7 @@ async fn run_inner_loop(
             };
 
             // Progressive-disclosure handoff: if this spawn has a cache
-            // (skills_agent-with-toolkit path) and the result is large
+            // (integrations_agent-with-toolkit path) and the result is large
             // and not itself an error / not from the extractor tool,
             // stash the raw payload and replace it in history with a
             // short placeholder. The sub-agent can drill in with
@@ -1074,7 +1086,7 @@ fn parse_tool_arguments(arguments: &str) -> serde_json::Value {
 // Oversized-tool-result handoff (progressive disclosure)
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Typed sub-agents (skills_agent in particular) regularly call tools that
+// Typed sub-agents (integrations_agent in particular) regularly call tools that
 // return megabyte-scale payloads — `GMAIL_LIST_MESSAGES`, `NOTION_GET_PAGE`,
 // `GOOGLEDRIVE_LIST_FILES`. The default behaviour pushes that raw blob into
 // the sub-agent's history as a tool-result message, and the NEXT iteration
@@ -1628,7 +1640,7 @@ fn build_text_mode_tool_instructions(specs: &[ToolSpec]) -> String {
 /// Kept intentionally terse: Composio action schemas routinely contain
 /// per-parameter descriptions several hundred tokens long, so even a
 /// "short description" per param balloons to tens of thousands of
-/// tokens across a 27-tool skills_agent toolkit and pushes the prompt
+/// tokens across a 27-tool integrations_agent toolkit and pushes the prompt
 /// past the 196 607-token context window. The model can infer usage
 /// from the parameter names + the tool's overall description; any
 /// validation mismatch surfaces at call time and the orchestrator can

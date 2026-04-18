@@ -92,7 +92,7 @@ pub struct Agent {
     /// shared into [`harness::ParentExecutionContext`] at turn start
     /// so the sub-agent runner can dynamically construct per-action
     /// [`crate::openhuman::composio::ComposioActionTool`] instances
-    /// when `skills_agent` is spawned with a `toolkit` argument.
+    /// when `integrations_agent` is spawned with a `toolkit` argument.
     /// `None` when the user isn't signed in or the backend is
     /// unreachable.
     pub(super) composio_client: Option<crate::openhuman::composio::ComposioClient>,

@@ -201,13 +201,13 @@ fn build_minimal_agent_with_definition_name(definition_name: Option<&str>) -> Ag
 /// `.agent_definition_name(id)` on the builder chain produces an
 /// `Agent` whose [`Agent::agent_definition_name`] accessor returns
 /// that id verbatim. `"welcome"` and `"orchestrator"` exercise the
-/// two ids that reach `from_config_for_agent` today; `"skills_agent"`
+/// two ids that reach `from_config_for_agent` today; `"integrations_agent"`
 /// and `"trigger_triage"` are defensive coverage so that if a
 /// future commit adds a new top-level caller for one of those ids
 /// the builder contract is already pinned.
 #[test]
 fn agent_builder_threads_agent_definition_name_when_set() {
-    for expected in ["welcome", "skills_agent", "orchestrator", "trigger_triage"] {
+    for expected in ["welcome", "integrations_agent", "orchestrator", "trigger_triage"] {
         let agent = build_minimal_agent_with_definition_name(Some(expected));
         assert_eq!(
             agent.agent_definition_name(),

@@ -119,12 +119,12 @@ mod tests {
     }
 
     #[test]
-    fn skills_agent_has_extra_tools_for_export() {
+    fn integrations_agent_has_extra_tools_for_export() {
         let defs = all();
-        let skills = defs.iter().find(|d| d.id == "skills_agent").unwrap();
+        let skills = defs.iter().find(|d| d.id == "integrations_agent").unwrap();
         assert!(
             skills.extra_tools.contains(&"file_write".to_string()),
-            "skills_agent must include file_write in extra_tools"
+            "integrations_agent must include file_write in extra_tools"
         );
         // csv_export was removed from extra_tools — it triggered
         // superfluous export calls after extraction had already
@@ -142,7 +142,7 @@ mod tests {
             "orchestrator",
             "planner",
             "code_executor",
-            "skills_agent",
+            "integrations_agent",
             "tool_maker",
             "researcher",
             "critic",

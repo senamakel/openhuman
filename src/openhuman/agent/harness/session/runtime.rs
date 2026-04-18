@@ -34,7 +34,7 @@ impl Agent {
     }
 
     /// The agent definition id this session is running
-    /// (`"welcome"`, `"orchestrator"`, `"skills_agent"`, …).
+    /// (`"welcome"`, `"orchestrator"`, `"integrations_agent"`, …).
     ///
     /// Exposed so callers that build sessions via
     /// [`Agent::from_config_for_agent`] can stamp the resolved id onto

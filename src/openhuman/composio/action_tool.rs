@@ -6,10 +6,10 @@
 //! tool-calling path can validate arguments before they hit the wire.
 //!
 //! These are constructed **dynamically at spawn time** by the sub-agent
-//! runner when `skills_agent` is spawned with a `toolkit` argument —
+//! runner when `integrations_agent` is spawned with a `toolkit` argument —
 //! one tool per action in the chosen toolkit. The generic
 //! [`ComposioExecuteTool`](super::tools::ComposioExecuteTool) dispatcher
-//! is deliberately excluded from `skills_agent`'s tool list in that
+//! is deliberately excluded from `integrations_agent`'s tool list in that
 //! path so the model doesn't see two ways to call the same action.
 //!
 //! Lifetime: these tools live for the duration of a single sub-agent

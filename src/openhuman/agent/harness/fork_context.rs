@@ -90,7 +90,7 @@ pub struct ParentExecutionContext {
     /// when the parent agent fetches its integration list. Used by the
     /// sub-agent runner to dynamically construct per-action
     /// [`ComposioActionTool`](crate::openhuman::composio::ComposioActionTool)
-    /// entries at spawn time when `skills_agent` is scoped to a
+    /// entries at spawn time when `integrations_agent` is scoped to a
     /// specific toolkit. `None` when the user isn't signed in to
     /// Composio or the backend was unreachable.
     pub composio_client: Option<crate::openhuman::composio::ComposioClient>,

@@ -49,11 +49,15 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 }
 
 /// Render the delegator-voice `## Delegation Guide — Integrations`
-/// block. Lists every integration (connected or not) with the exact
-/// `spawn_subagent` snippet. Auth state is the spawn pre-flight's
-/// responsibility — the prompt stays uniform and small.
+/// block. Only toolkits the user has actively connected are listed —
+/// unauthorised toolkits are hidden so the orchestrator can't hallucinate
+/// a spawn against an integration the `spawn_subagent` pre-flight will
+/// immediately reject. When every toolkit is unconnected, the whole
+/// section is omitted.
 fn render_delegation_guide(integrations: &[ConnectedIntegration]) -> String {
-    if integrations.is_empty() {
+    let connected: Vec<&ConnectedIntegration> =
+        integrations.iter().filter(|ci| ci.connected).collect();
+    if connected.is_empty() {
         return String::new();
     }
     let mut out = String::from(
@@ -63,11 +67,11 @@ fn render_delegation_guide(integrations: &[ConnectedIntegration]) -> String {
          argument. The sub-agent receives the full action catalogue \
          for that integration as native tool schemas — do not attempt \
          to call integration actions directly from this agent.\n\n\
-         If a spawn returns an authorization error, surface it to the \
-         user and ask them to authorize the integration in \
-         **Settings → Integrations** before retrying.\n\n",
+         Only the integrations listed below are currently authorised. \
+         If the user asks about another service, tell them to connect \
+         it in **Settings → Integrations** before retrying.\n\n",
     );
-    for ci in integrations {
+    for ci in connected {
         let _ = writeln!(
             out,
             "- **{}** — {}\n  Delegate with: `spawn_subagent(agent_id=\"integrations_agent\", toolkit=\"{}\", prompt=<task>)`",
@@ -127,10 +131,32 @@ mod tests {
     }
 
     #[test]
-    fn build_lists_unconnected_integrations_in_delegation_guide() {
-        // Delegation Guide lists everything in the allowlist — auth
-        // state is the spawn pre-flight's job to enforce, not the
-        // prompt's job to filter out.
+    fn build_hides_unconnected_integrations() {
+        // Only connected toolkits make it into the Delegation Guide
+        // — unconnected entries would just trigger a spawn_subagent
+        // pre-flight rejection, so keeping them out keeps the prompt
+        // focused on what the orchestrator can actually delegate.
+        let integrations = vec![
+            ConnectedIntegration {
+                toolkit: "gmail".into(),
+                description: "Email.".into(),
+                tools: Vec::new(),
+                connected: true,
+            },
+            ConnectedIntegration {
+                toolkit: "linear".into(),
+                description: "Tracker.".into(),
+                tools: Vec::new(),
+                connected: false,
+            },
+        ];
+        let body = build(&ctx_with(&integrations)).unwrap();
+        assert!(body.contains("- **gmail**"));
+        assert!(!body.contains("- **linear**"));
+    }
+
+    #[test]
+    fn build_omits_guide_when_no_integrations_connected() {
         let integrations = vec![ConnectedIntegration {
             toolkit: "linear".into(),
             description: "Tracker.".into(),
@@ -138,6 +164,6 @@ mod tests {
             connected: false,
         }];
         let body = build(&ctx_with(&integrations)).unwrap();
-        assert!(body.contains("- **linear**"));
+        assert!(!body.contains("## Delegation Guide"));
     }
 }

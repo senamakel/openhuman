@@ -552,6 +552,17 @@ impl Agent {
             config,
         );
 
+        // `complete_onboarding` is the terminal step of the welcome
+        // flow and must never be callable from any other session.
+        // Stripping it here (before prompt + delegation assembly) keeps
+        // it out of both the LLM's function-calling schema and the
+        // rendered `## Tools` section.
+        if agent_id != "welcome" {
+            tools.retain(|t| {
+                !crate::openhuman::agent::harness::subagent_runner::is_welcome_only_tool(t.name())
+            });
+        }
+
         let model_name = config
             .default_model
             .as_deref()

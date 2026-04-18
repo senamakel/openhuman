@@ -232,6 +232,14 @@ async fn run_typed_mode(
             .or(definition.skill_filter.as_deref()),
     );
 
+    // `complete_onboarding` is a welcome-only tool — it flips the
+    // onboarding-complete flag in workspace config and is meaningless
+    // (and potentially destructive) from any other agent. Strip it
+    // from every non-welcome subagent regardless of their scope.
+    if definition.id != "welcome" {
+        allowed_indices.retain(|&i| !is_welcome_only_tool(parent.all_tools[i].name()));
+    }
+
     // ── Force-include extra_tools ──────────────────────────────────────
     //
     // `extra_tools` is a simple "also include these" hook that bypasses
@@ -1698,6 +1706,18 @@ fn first_line_truncated(s: &str, max_chars: usize) -> String {
 /// [`crate::openhuman::context::debug_dump`] shares the exact same
 /// filter logic as the live runner — previously debug_dump carried a
 /// "standalone copy" which drifted over time.
+/// Tools that must never be visible to any agent except `welcome`.
+///
+/// `complete_onboarding` flips the onboarding-complete flag in
+/// workspace config and is the terminal step of the welcome flow;
+/// every other agent must route the user back to the welcome agent
+/// rather than call it directly. Central list here so both the main
+/// agent builder ([`crate::openhuman::agent::harness::session::builder`])
+/// and the subagent runner apply the same guard.
+pub(crate) fn is_welcome_only_tool(name: &str) -> bool {
+    matches!(name, "complete_onboarding")
+}
+
 pub(crate) fn filter_tool_indices(
     parent_tools: &[Box<dyn Tool>],
     scope: &ToolScope,

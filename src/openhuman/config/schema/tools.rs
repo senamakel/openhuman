@@ -234,15 +234,13 @@ impl Default for SecretsConfig {
 
 // ── Native computer control (mouse + keyboard) ─────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct ComputerControlConfig {
     /// Master toggle for mouse and keyboard tools. Disabled by default —
     /// the user must explicitly opt in.
     #[serde(default)]
     pub enabled: bool,
 }
-
 
 // ── Agent integration tools (backend-proxied) ───────────────────────
 

@@ -1458,9 +1458,7 @@ impl OpenAiCompatibleProvider {
                         if let Some(tc_list) = choice.delta.tool_calls.as_ref() {
                             for tc in tc_list {
                                 let idx = tc.index.unwrap_or(0);
-                                let entry = tool_accum
-                                    .entry(idx)
-                                    .or_default();
+                                let entry = tool_accum.entry(idx).or_default();
 
                                 if let Some(id) = tc.id.as_ref() {
                                     if entry.id.is_none() {
@@ -1569,7 +1567,9 @@ impl OpenAiCompatibleProvider {
         // shape. We reuse `parse_native_response` by building an
         // `ApiChatResponse` from the accumulators so downstream code
         // sees the same shape as the non-streaming path.
-        let tool_calls_for_api: Vec<ToolCall> = tool_accum.into_values().map(|c| ToolCall {
+        let tool_calls_for_api: Vec<ToolCall> = tool_accum
+            .into_values()
+            .map(|c| ToolCall {
                 id: c.id,
                 kind: Some("function".to_string()),
                 function: Some(Function {

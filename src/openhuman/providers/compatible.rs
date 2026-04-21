@@ -1458,9 +1458,7 @@ impl OpenAiCompatibleProvider {
                         if let Some(tc_list) = choice.delta.tool_calls.as_ref() {
                             for tc in tc_list {
                                 let idx = tc.index.unwrap_or(0);
-                                let entry = tool_accum
-                                    .entry(idx)
-                                    .or_insert_with(StreamingToolCall::default);
+                                let entry = tool_accum.entry(idx).or_default();
 
                                 if let Some(id) = tc.id.as_ref() {
                                     if entry.id.is_none() {
@@ -1570,8 +1568,8 @@ impl OpenAiCompatibleProvider {
         // `ApiChatResponse` from the accumulators so downstream code
         // sees the same shape as the non-streaming path.
         let tool_calls_for_api: Vec<ToolCall> = tool_accum
-            .into_iter()
-            .map(|(_idx, c)| ToolCall {
+            .into_values()
+            .map(|c| ToolCall {
                 id: c.id,
                 kind: Some("function".to_string()),
                 function: Some(Function {
@@ -1586,7 +1584,7 @@ impl OpenAiCompatibleProvider {
                         // JSON yet.
                         Some(
                             serde_json::from_str(&c.arguments)
-                                .unwrap_or_else(|_| serde_json::Value::String(c.arguments)),
+                                .unwrap_or(serde_json::Value::String(c.arguments)),
                         )
                     },
                 }),

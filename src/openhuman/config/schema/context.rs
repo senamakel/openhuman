@@ -77,7 +77,9 @@ pub struct ContextConfig {
     /// compresses the payload into a dense note that preserves
     /// identifiers and key facts, and the compressed summary replaces
     /// the raw payload before it enters agent history. Set to `0` to
-    /// disable summarization entirely. Default: `500_000` tokens.
+    /// disable summarization entirely (the default). Set to any value
+    /// `> 0` to enable summarization once a payload crosses that token
+    /// threshold.
     ///
     /// Token count is estimated as `chars / 4` (the same heuristic used
     /// by `tree_summarizer::estimate_tokens`). Pairs with
@@ -144,7 +146,11 @@ fn default_tool_result_budget_bytes() -> usize {
 }
 
 fn default_summarizer_payload_threshold_tokens() -> usize {
-    500_000
+    // Disabled: 0 short-circuits the payload_summarizer wiring in the
+    // agent builder (see session/builder.rs `> 0` guard). The summarizer
+    // sub-agent was being invoked recursively in some flows; keep off
+    // until that's root-caused.
+    0
 }
 
 fn default_summarizer_max_payload_tokens() -> usize {

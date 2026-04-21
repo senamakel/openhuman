@@ -7,7 +7,8 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::memory::{
     AppendConversationMessageRequest, ConversationMessagesRequest, DeleteConversationThreadRequest,
-    EmptyRequest, UpdateConversationMessageRequest, UpsertConversationThreadRequest,
+    EmptyRequest, GenerateConversationThreadTitleRequest, UpdateConversationMessageRequest,
+    UpsertConversationThreadRequest,
 };
 
 use super::ops;
@@ -19,6 +20,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("create_new"),
         schemas("messages_list"),
         schemas("message_append"),
+        schemas("generate_title"),
         schemas("message_update"),
         schemas("delete"),
         schemas("purge"),
@@ -46,6 +48,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("message_append"),
             handler: handle_message_append,
+        },
+        RegisteredController {
+            schema: schemas("generate_title"),
+            handler: handle_generate_title,
         },
         RegisteredController {
             schema: schemas("message_update"),
@@ -192,6 +198,33 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "generate_title" => ControllerSchema {
+            namespace: "threads",
+            function: "generate_title",
+            description:
+                "Generate a short thread title from the first user message and assistant reply.",
+            inputs: vec![
+                FieldSchema {
+                    name: "thread_id",
+                    ty: TypeSchema::String,
+                    comment: "Thread identifier.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "assistant_message",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment:
+                        "Optional completed assistant reply to use instead of the stored first agent message.",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope with the resulting thread summary.",
+                required: true,
+            }],
+        },
         "delete" => ControllerSchema {
             namespace: "threads",
             function: "delete",
@@ -275,6 +308,13 @@ fn handle_message_append(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_generate_title(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<GenerateConversationThreadTitleRequest>(params)?;
+        to_json(ops::thread_generate_title(p).await?)
+    })
+}
+
 fn handle_message_update(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<UpdateConversationMessageRequest>(params)?;
@@ -313,6 +353,7 @@ mod tests {
         "create_new",
         "messages_list",
         "message_append",
+        "generate_title",
         "message_update",
         "delete",
         "purge",

@@ -148,6 +148,36 @@ export const addInferenceResponse = createAsyncThunk(
   }
 );
 
+export const generateThreadTitleIfNeeded = createAsyncThunk(
+  'thread/generateThreadTitleIfNeeded',
+  async (
+    payload: { threadId: string; assistantMessage?: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    let thread: Thread;
+    try {
+      thread = await threadApi.generateTitleIfNeeded(payload.threadId, payload.assistantMessage);
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to generate thread title'
+      );
+    }
+
+    try {
+      await dispatch(loadThreads()).unwrap();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.debug('[threadSlice] generateThreadTitleIfNeeded refresh failed', {
+          threadId: payload.threadId,
+          error,
+        });
+      }
+    }
+
+    return thread;
+  }
+);
+
 export const persistReaction = createAsyncThunk(
   'thread/persistReaction',
   async (
@@ -272,6 +302,14 @@ const threadSlice = createSlice({
       })
       .addCase(addMessageLocal.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message);
+      })
+      .addCase(generateThreadTitleIfNeeded.fulfilled, (state, action) => {
+        const idx = state.threads.findIndex(thread => thread.id === action.payload.id);
+        if (idx >= 0) {
+          state.threads[idx] = action.payload;
+        } else {
+          state.threads = [action.payload, ...state.threads];
+        }
       })
       .addCase(addInferenceResponse.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message);

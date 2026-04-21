@@ -88,6 +88,15 @@ impl ComposioProvider for GmailProvider {
         Some(15 * 60)
     }
 
+    fn post_process_action_result(
+        &self,
+        slug: &str,
+        arguments: Option<&serde_json::Value>,
+        data: &mut serde_json::Value,
+    ) {
+        super::post_process::post_process(slug, arguments, data);
+    }
+
     async fn fetch_user_profile(
         &self,
         ctx: &ProviderContext,
@@ -283,7 +292,7 @@ impl ComposioProvider for GmailProvider {
                 if let Some(date_val) = extract_item_id(msg, MESSAGE_DATE_PATHS) {
                     if newest_date
                         .as_ref()
-                        .map_or(true, |existing| date_val > *existing)
+                        .is_none_or(|existing| date_val > *existing)
                     {
                         newest_date = Some(date_val);
                     }

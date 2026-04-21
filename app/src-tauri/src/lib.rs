@@ -7,9 +7,10 @@ mod core_update;
 mod discord_scanner;
 mod python;
 #[cfg(feature = "cef")]
+mod imessage_scanner;
+#[cfg(feature = "cef")]
 mod slack_scanner;
 mod webview_accounts;
-#[cfg(feature = "cef")]
 mod whatsapp_scanner;
 
 use std::sync::Mutex;
@@ -90,6 +91,7 @@ fn overlay_parent_rpc_url() -> Option<String> {
     Some(trimmed.to_string())
 }
 
+#[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
     let Ok(Some(monitor)) = window.current_monitor() else {
         log::warn!("[overlay] could not resolve current monitor for positioning");
@@ -112,6 +114,7 @@ fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn configure_overlay_window_macos(window: &WebviewWindow<AppRuntime>) {
     // Standard NSWindow cannot float above fullscreen apps on macOS because
     // fullscreen apps run in a separate Space. Only NSPanel can do this.
@@ -220,6 +223,13 @@ async fn run_core_cli(args: Vec<String>) -> Result<String, String> {
             cmd.arg("core");
         }
         cmd.args(&args);
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
 
         log::info!(
             "[service-direct] running {:?} {}{}",
@@ -543,6 +553,14 @@ pub fn run() {
         let mut args: Vec<(&str, Option<&str>)> = vec![
             ("--use-mock-keychain", None),
             ("--password-store", Some("basic")),
+            // Enable SharedArrayBuffer so embedded apps that need WebRTC
+            // audio worklets / Opus encoders (Slack Huddles, Meet
+            // real-time features, Discord voice) can actually initialise.
+            // Chromium gates SharedArrayBuffer behind cross-origin
+            // isolation by default; web apps embedded inside CEF rarely
+            // send COOP/COEP headers, so without this flag the feature
+            // silently disappears and huddle/call buttons no-op.
+            ("--enable-features", Some("SharedArrayBuffer")),
         ];
         if cfg!(debug_assertions) {
             args.push(("--remote-debugging-port", Some("9222")));
@@ -558,6 +576,7 @@ pub fn run() {
         .manage(DictationHotkeyState(Mutex::new(Vec::new())))
         .manage(webview_accounts::WebviewAccountsState::default());
     #[cfg(feature = "cef")]
+    let builder = builder.manage(std::sync::Arc::new(imessage_scanner::ScannerRegistry::new()));
     let builder = builder.manage(whatsapp_scanner::ScannerRegistry::new());
     #[cfg(feature = "cef")]
     let builder = builder.manage(slack_scanner::ScannerRegistry::new());
@@ -613,23 +632,23 @@ pub fn run() {
                 }
             }
 
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(window) = app.get_webview_window("overlay") {
-                    configure_overlay_window_macos(&window);
-                } else {
-                    log::warn!("[overlay] overlay window not found during setup");
-                }
-            }
-
-            if let Some(window) = app.get_webview_window("overlay") {
-                pin_overlay_bottom_right(&window);
-                if let Err(err) = window.show() {
-                    log::warn!("[overlay] failed to show overlay on startup: {err}");
-                } else {
-                    log::info!("[overlay] overlay shown on startup");
-                }
-            }
+            // Overlay window is currently disabled in `tauri.conf.json` (the
+            // `overlay` entry under `app.windows` was removed), so we skip
+            // the macOS NSPanel reclass + bottom-right pin + initial show
+            // here. The helpers (`configure_overlay_window_macos`,
+            // `pin_overlay_bottom_right`) and the React entry point
+            // (`src/overlay/OverlayApp.tsx`) are kept intact so the overlay
+            // can be re-enabled by restoring the config entry and the two
+            // setup blocks below.
+            //
+            //   #[cfg(target_os = "macos")]
+            //   if let Some(window) = app.get_webview_window("overlay") {
+            //       configure_overlay_window_macos(&window);
+            //   }
+            //   if let Some(window) = app.get_webview_window("overlay") {
+            //       pin_overlay_bottom_right(&window);
+            //       let _ = window.show();
+            //   }
 
             if let Err(err) = setup_tray(app.handle()) {
                 log::error!("[tray] failed to setup tray icon: {err}");
@@ -780,6 +799,17 @@ pub fn run() {
                             ),
                         }
                     });
+                }
+            }
+
+            #[cfg(all(target_os = "macos", feature = "cef"))]
+            {
+                use std::sync::Arc;
+                if let Some(registry) = app.try_state::<Arc<imessage_scanner::ScannerRegistry>>() {
+                    let registry = registry.inner().clone();
+                    let app_handle = app.handle().clone();
+                    registry.ensure_scanner(app_handle, "default".to_string());
+                    log::info!("[imessage] scanner scheduled on startup");
                 }
             }
 

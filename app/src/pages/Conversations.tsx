@@ -13,6 +13,7 @@ import {
   beginInferenceTurn,
   clearRuntimeForThread,
   setToolTimelineForThread,
+  type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
@@ -28,6 +29,7 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
+import { parseMarkdownTable, splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
 import { openUrl } from '../utils/openUrl';
 import {
   isTauri,
@@ -38,6 +40,7 @@ import {
   openhumanVoiceTranscribeBytes,
   openhumanVoiceTts,
 } from '../utils/tauriCommands';
+import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
 
 // Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
 // that execute tool calls, not the primary user-facing conversation.
@@ -124,6 +127,211 @@ function isAllowedExternalHref(rawHref: string): boolean {
   } catch {
     return false;
   }
+}
+
+type AgentBubblePosition = 'single' | 'first' | 'middle' | 'last';
+
+function getAgentBubbleChrome(position: AgentBubblePosition): string {
+  if (position === 'single') return 'rounded-2xl rounded-bl-md';
+  if (position === 'first') return 'rounded-2xl rounded-bl-lg';
+  if (position === 'middle') return 'rounded-2xl rounded-tl-md rounded-bl-lg';
+  return 'rounded-2xl rounded-tl-md rounded-bl-md';
+}
+
+function BubbleMarkdown({ content, tone = 'agent' }: { content: string; tone?: 'agent' | 'user' }) {
+  const proseTone =
+    tone === 'user'
+      ? 'prose-invert prose-p:text-white prose-li:text-white prose-a:text-white prose-code:text-white prose-strong:text-white prose-headings:text-white [&_li::marker]:text-white/85'
+      : 'prose-a:text-primary-500 prose-code:text-primary-700 prose-headings:text-sm [&_li::marker]:text-stone-700';
+
+  return (
+    <div
+      className={`text-sm prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:rounded-lg prose-code:text-xs prose-headings:font-semibold prose-ul:my-0 prose-ol:my-0 prose-li:my-0 ${proseTone} ${
+        tone === 'user' ? 'prose-pre:bg-white/10' : 'prose-pre:bg-stone-300/50'
+      } [&_ul]:my-0 [&_ol]:my-0 [&_ul]:pl-0 [&_ol]:pl-0 [&_ul]:list-inside [&_ol]:list-inside [&_li]:my-0 [&_li]:pl-0 [&_li_p]:inline [&_li_p]:m-0`}>
+      <Markdown
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              onClick={e => {
+                e.preventDefault();
+                if (!href || !isAllowedExternalHref(href)) return;
+                void openUrl(href).catch(() => {
+                  // Ignore launcher errors from OS URL handler failures.
+                });
+              }}
+              className="cursor-pointer underline">
+              {children}
+            </a>
+          ),
+        }}>
+        {content}
+      </Markdown>
+    </div>
+  );
+}
+
+function TableCellMarkdown({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm max-w-none text-sm text-stone-700 prose-p:my-0 prose-ul:my-0 prose-ol:my-0 prose-li:my-0 prose-code:text-xs prose-code:text-primary-700 prose-a:text-primary-500 prose-strong:text-stone-900 prose-headings:text-sm prose-headings:font-semibold [&_li::marker]:text-stone-700 [&_ul]:my-0 [&_ol]:my-0 [&_ul]:pl-0 [&_ol]:pl-0 [&_ul]:list-inside [&_ol]:list-inside [&_li]:pl-0 [&_li_p]:inline [&_li_p]:m-0">
+      <Markdown
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              onClick={e => {
+                e.preventDefault();
+                if (!href || !isAllowedExternalHref(href)) return;
+                void openUrl(href).catch(() => {
+                  // Ignore launcher errors from OS URL handler failures.
+                });
+              }}
+              className="cursor-pointer underline">
+              {children}
+            </a>
+          ),
+        }}>
+        {content}
+      </Markdown>
+    </div>
+  );
+}
+
+function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] }) {
+  const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
+
+  const normalizeToolBody = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return undefined;
+    if (trimmed === '{}' || trimmed === '[]' || trimmed === 'null') return undefined;
+    return value;
+  };
+
+  return (
+    <div className="mb-2 space-y-1 px-1 py-0">
+      {entries.map(entry => {
+        const formatted = formatTimelineEntry(entry);
+        const detailContent =
+          normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
+        const shouldAutoExpand = latestRunningEntryId != null && latestRunningEntryId === entry.id;
+        const statusTone =
+          entry.status === 'running'
+            ? {
+                pill: 'bg-amber-100 text-amber-600',
+                bubble: 'bg-amber-50 text-amber-900',
+                code: 'text-amber-800',
+                chevron: 'text-amber-500',
+              }
+            : entry.status === 'success'
+              ? {
+                  pill: 'bg-sage-100 text-sage-600',
+                  bubble: 'bg-sage-50 text-sage-900',
+                  code: 'text-sage-800',
+                  chevron: 'text-sage-500',
+                }
+              : {
+                  pill: 'bg-coral-100 text-coral-600',
+                  bubble: 'bg-coral-50 text-coral-900',
+                  code: 'text-coral-800',
+                  chevron: 'text-coral-500',
+                };
+
+        return (
+          <div key={entry.id} className="flex flex-col gap-1 text-xs text-stone-400">
+            {detailContent ? (
+              <details open={shouldAutoExpand} className="ml-1 group">
+                <summary className="flex cursor-pointer list-none items-center gap-2 select-none marker:hidden">
+                  <span
+                    className={`text-[10px] transition-transform group-open:rotate-90 ${statusTone.chevron}`}>
+                    ▶
+                  </span>
+                  <span className="font-medium text-stone-600">{formatted.title}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${statusTone.pill}`}>
+                    {entry.status}
+                  </span>
+                </summary>
+                {formatted.detail ? (
+                  <div
+                    className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[11px] whitespace-pre-wrap break-words ${statusTone.bubble}`}>
+                    {formatted.detail}
+                  </div>
+                ) : (
+                  <pre
+                    className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[10px] whitespace-pre-wrap break-all ${statusTone.bubble} ${statusTone.code}`}>
+                    {detailContent}
+                  </pre>
+                )}
+              </details>
+            ) : (
+              <div className="ml-1 flex items-center gap-2">
+                <span className="font-medium text-stone-600">{formatted.title}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${statusTone.pill}`}>
+                  {entry.status}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AgentMessageBubble({
+  content,
+  position = 'single',
+}: {
+  content: string;
+  position?: AgentBubblePosition;
+}) {
+  const table = parseMarkdownTable(content);
+  const bubbleChrome = getAgentBubbleChrome(position);
+
+  if (table) {
+    return (
+      <div
+        className={`w-full max-w-full overflow-hidden border border-stone-200 bg-white/90 shadow-sm ${bubbleChrome}`}>
+        <div className="overflow-x-auto">
+          <table className="w-max min-w-full border-collapse text-left text-sm text-stone-800">
+            <thead className="bg-stone-100/90">
+              <tr>
+                {table.headers.map(header => (
+                  <th
+                    key={header}
+                    className="max-w-[25vw] border-b border-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-stone-500">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr
+                  key={`${rowIndex}:${row.join('|')}`}
+                  className="odd:bg-white even:bg-stone-50/70">
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={`${rowIndex}:${cellIndex}:${cell}`}
+                      className="max-w-[25vw] border-t border-stone-200 px-4 py-3 align-top text-sm text-stone-700">
+                      <TableCellMarkdown content={cell} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-stone-200/80 px-4 py-2.5 text-stone-900 ${bubbleChrome}`}>
+      <BubbleMarkdown content={content} />
+    </div>
+  );
 }
 
 function formatResetTime(isoStr: string): string {
@@ -328,18 +536,18 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
     sendingThreadIdRef.current = threadId;
     sendingTimeoutRef.current = setTimeout(() => {
-      console.warn('[chat] silence timeout: no inference signal for 120s');
+      console.warn('[chat] silence timeout: no inference signal for 600s');
       setSendError(
         chatSendError(
           'safety_timeout',
-          'No response from the assistant after 2 minutes. Try again or check your connection.'
+          'No response from the assistant after 10 minutes. Try again or check your connection.'
         )
       );
       dispatch(clearRuntimeForThread({ threadId }));
       dispatch(setActiveThread(null));
       sendingTimeoutRef.current = null;
       sendingThreadIdRef.current = null;
-    }, 120_000);
+    }, 600_000);
   };
 
   // Rearm the silence timer on every inference status change for the
@@ -489,7 +697,6 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     if (composerBlocked) return;
 
     const sendingThreadId = selectedThreadId;
-
     const userMessage: ThreadMessage = {
       id: `msg_${Date.now()}_${Math.random()}`,
       content: trimmed,
@@ -499,10 +706,16 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
       createdAt: new Date().toISOString(),
     };
 
-    void dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage }));
+    try {
+      await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage })).unwrap();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      setSendError(chatSendError('cloud_send_failed', msg));
+      return;
+    }
     setInputValue('');
     setSendError(null);
-    // Silence timer: fires only if 120s pass without ANY inference progress
+    // Silence timer: fires only if 600s pass without ANY inference progress
     // (tool call, tool result, iteration start, subagent event, text delta).
     // The effect below rearms this timer whenever `inferenceStatusByThread`
     // changes for `sendingThreadId`, so long-running agent turns stay alive
@@ -751,6 +964,15 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? [])
     : [];
+  const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
+  const hasVisibleMessages = visibleMessages.length > 0;
+  const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
+  const latestVisibleAgentMessage = [...visibleMessages]
+    .reverse()
+    .find(msg => msg.sender === 'agent');
+  const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
+    entry => entry.status === 'running' && entry.name.startsWith('subagent:')
+  );
   const selectedInferenceStatus = selectedThreadId
     ? (inferenceStatusByThread[selectedThreadId] ?? null)
     : null;
@@ -766,6 +988,8 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     (inferenceTurnLifecycleByThread[selectedThreadId] === 'started' ||
       inferenceTurnLifecycleByThread[selectedThreadId] === 'streaming')
   );
+  const shouldRenderTimelineBeforeLatestAgentMessage =
+    selectedThreadToolTimeline.length > 0 && !isSending && Boolean(latestVisibleAgentMessage);
 
   const sortedThreads = [...threads].sort(
     (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
@@ -846,7 +1070,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                       </svg>
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  {/* <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-stone-400">
                       {formatRelativeTime(thread.lastMessageAt)}
                     </span>
@@ -855,7 +1079,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                         {thread.messageCount} msg{thread.messageCount !== 1 ? 's' : ''}
                       </span>
                     )}
-                  </div>
+                  </div> */}
                 </button>
               ))
             )}
@@ -898,7 +1122,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-5 py-4 bg-stone-50">
+        <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6]">
           {isLoadingMessages ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -933,53 +1157,55 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                 Reload
               </button>
             </div>
-          ) : messages.length > 0 ? (
+          ) : hasVisibleMessages ? (
             <div className="space-y-3">
-              {messages
-                .filter(msg => !msg.extraMetadata?.hidden)
-                .map(msg => (
+              {visibleMessages.map(msg => (
+                <div key={msg.id}>
+                  {shouldRenderTimelineBeforeLatestAgentMessage &&
+                    latestVisibleAgentMessage?.id === msg.id && (
+                      <ToolTimelineBlock entries={selectedThreadToolTimeline} />
+                    )}
                   <div
-                    key={msg.id}
                     className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className="relative max-w-[75%]">
-                      <div
-                        className={`rounded-2xl px-4 py-2.5 ${
-                          msg.sender === 'user'
-                            ? 'bg-primary-500 text-white rounded-br-md'
-                            : 'bg-stone-200/80 text-stone-900 rounded-bl-md'
-                        }`}>
-                        {msg.sender === 'agent' ? (
-                          <div className="text-sm prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-stone-300/50 prose-pre:rounded-lg prose-code:text-primary-700 prose-code:text-xs prose-a:text-primary-500 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                            <Markdown
-                              components={{
-                                a: ({ href, children }) => (
-                                  <a
-                                    href={href}
-                                    onClick={e => {
-                                      e.preventDefault();
-                                      if (!href || !isAllowedExternalHref(href)) return;
-                                      void openUrl(href).catch(() => {
-                                        // Ignore launcher errors from OS URL handler failures.
-                                      });
-                                    }}
-                                    className="cursor-pointer underline text-primary-500">
-                                    {children}
-                                  </a>
-                                ),
-                              }}>
-                              {msg.content}
-                            </Markdown>
-                          </div>
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                        )}
-                        <p
-                          className={`text-[10px] mt-1 ${
-                            msg.sender === 'user' ? 'text-white/60' : 'text-stone-400'
-                          }`}>
-                          {formatRelativeTime(msg.createdAt)}
-                        </p>
-                      </div>
+                    <div className="relative w-full md:max-w-[75%]">
+                      {msg.sender === 'agent' ? (
+                        <div className="space-y-1">
+                          {splitAgentMessageIntoBubbles(msg.content).map(
+                            (segment, index, parts) => {
+                              const position: AgentBubblePosition =
+                                parts.length === 1
+                                  ? 'single'
+                                  : index === 0
+                                    ? 'first'
+                                    : index === parts.length - 1
+                                      ? 'last'
+                                      : 'middle';
+
+                              return (
+                                <AgentMessageBubble
+                                  key={`${msg.id}:${index}`}
+                                  content={segment}
+                                  position={position}
+                                />
+                              );
+                            }
+                          )}
+                          {latestVisibleMessage?.id === msg.id && (
+                            <p className="px-1 text-[10px] text-stone-400">
+                              {formatRelativeTime(msg.createdAt)}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md">
+                          <BubbleMarkdown content={msg.content} tone="user" />
+                          {latestVisibleMessage?.id === msg.id && (
+                            <p className="mt-1 text-[10px] text-white/60">
+                              {formatRelativeTime(msg.createdAt)}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-all`}
@@ -1013,11 +1239,11 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                         )}
                       </button>
                       {(() => {
+                        if (latestVisibleMessage?.id !== msg.id) return null;
                         const myReactions =
                           (msg.extraMetadata?.myReactions as string[] | undefined) ?? [];
                         const hasReactions = myReactions.length > 0;
-                        // Show reaction row if there are existing reactions (any sender)
-                        // or if this is an agent message (manual picker available)
+                        // Show reaction row only for the most recent visible message.
                         if (!hasReactions && msg.sender !== 'agent') return null;
                         return (
                           <div className="mt-1 flex items-center gap-1 flex-wrap min-h-[20px]">
@@ -1081,7 +1307,8 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                       })()}
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
               {isSending &&
                 // Suppress the legacy 3-dot placeholder once streaming
                 // output (visible text or thinking) has started — the
@@ -1109,7 +1336,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                 (selectedStreamingAssistant.content.length > 0 ||
                   selectedStreamingAssistant.thinking.length > 0) && (
                   <div className="flex justify-start">
-                    <div className="relative max-w-[75%]">
+                    <div className="relative w-full md:max-w-[75%]">
                       {selectedStreamingAssistant.thinking.length > 0 && (
                         <details className="mb-1.5 bg-stone-100 rounded-lg px-3 py-1.5 text-xs text-stone-600 open:bg-stone-100">
                           <summary className="cursor-pointer select-none flex items-center gap-1.5">
@@ -1146,39 +1373,24 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                     {selectedInferenceStatus.phase === 'tool_use' &&
                       `Running ${selectedInferenceStatus.activeTool ?? 'tool'}...`}
                     {selectedInferenceStatus.phase === 'subagent' &&
-                      `Sub-agent ${selectedInferenceStatus.activeSubagent ?? ''} working...`}
+                      `${
+                        formatTimelineEntry(
+                          activeSubagentTimelineEntry ?? {
+                            id: 'active-subagent',
+                            name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
+                            round: selectedInferenceStatus.iteration,
+                            status: 'running',
+                          }
+                        ).title
+                      }...`}
                   </span>
                 </div>
               )}
               {/* Tool call timeline */}
-              {selectedThreadToolTimeline.length > 0 && (
-                <div className="space-y-1 px-1 py-1">
-                  {selectedThreadToolTimeline.map(entry => (
-                    <div key={entry.id} className="flex flex-col gap-0.5 text-xs text-stone-400">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">{entry.name}</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] ${
-                            entry.status === 'running'
-                              ? 'bg-amber-100 text-amber-600'
-                              : entry.status === 'success'
-                                ? 'bg-sage-100 text-sage-600'
-                                : 'bg-coral-100 text-coral-600'
-                          }`}>
-                          {entry.status}
-                        </span>
-                      </div>
-                      {entry.status === 'running' &&
-                        entry.argsBuffer &&
-                        entry.argsBuffer.length > 0 && (
-                          <pre className="ml-1 mt-0.5 px-2 py-1 bg-stone-100 rounded text-[10px] font-mono text-stone-500 whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
-                            {entry.argsBuffer}
-                          </pre>
-                        )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {selectedThreadToolTimeline.length > 0 &&
+                !shouldRenderTimelineBeforeLatestAgentMessage && (
+                  <ToolTimelineBlock entries={selectedThreadToolTimeline} />
+                )}
               {isSending && rustChat && (
                 <div className="flex justify-start px-1">
                   <button
@@ -1199,7 +1411,7 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
           )}
         </div>
 
-        {messages.length === 0 && suggestedQuestions.length > 0 && !isLoadingSuggestions && (
+        {!hasVisibleMessages && suggestedQuestions.length > 0 && !isLoadingSuggestions && (
           <div className="flex-shrink-0 px-4 py-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {suggestedQuestions.map((s, i) => (

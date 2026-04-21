@@ -22,11 +22,7 @@ pub struct OpenHumanBackendProvider {
 }
 
 impl OpenHumanBackendProvider {
-    pub fn new(
-        api_url: Option<&str>,
-        _api_key: Option<&str>,
-        options: &ProviderRuntimeOptions,
-    ) -> Self {
+    pub fn new(api_url: Option<&str>, options: &ProviderRuntimeOptions) -> Self {
         Self {
             options: options.clone(),
             api_url: api_url

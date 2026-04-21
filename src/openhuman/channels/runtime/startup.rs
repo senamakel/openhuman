@@ -87,7 +87,6 @@ pub async fn start_channels(config: Config) -> Result<()> {
         reasoning_enabled: config.runtime.reasoning_enabled,
     };
     let provider: Arc<dyn Provider> = Arc::from(providers::create_intelligent_routing_provider(
-        None,
         config.api_url.as_deref(),
         &config,
         &provider_runtime_options,
@@ -515,7 +514,6 @@ pub async fn start_channels(config: Config) -> Result<()> {
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
         provider_cache: Arc::new(Mutex::new(provider_cache_seed)),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
-        api_key: None,
         api_url: config.api_url.clone(),
         reliability: Arc::new(config.reliability.clone()),
         provider_runtime_options,

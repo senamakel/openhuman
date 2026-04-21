@@ -149,41 +149,20 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
 
 /// Create the OpenHuman backend inference client (session JWT only).
 pub fn create_backend_inference_provider(
-    _api_key: Option<&str>,
     api_url: Option<&str>,
     options: &ProviderRuntimeOptions,
 ) -> anyhow::Result<Box<dyn Provider>> {
     Ok(Box::new(openhuman_backend::OpenHumanBackendProvider::new(
-        api_url, None, options,
+        api_url, options,
     )))
-}
-
-/// Backwards-compatible alias (name ignored).
-pub fn create_provider_with_options(
-    _name: &str,
-    api_key: Option<&str>,
-    options: &ProviderRuntimeOptions,
-) -> anyhow::Result<Box<dyn Provider>> {
-    create_backend_inference_provider(api_key, None, options)
-}
-
-/// Backwards-compatible alias (name ignored).
-pub fn create_provider_with_url(
-    _name: &str,
-    api_key: Option<&str>,
-    api_url: Option<&str>,
-) -> anyhow::Result<Box<dyn Provider>> {
-    create_backend_inference_provider(api_key, api_url, &ProviderRuntimeOptions::default())
 }
 
 /// Create provider chain with retry and fallback behavior.
 pub fn create_resilient_provider(
-    api_key: Option<&str>,
     api_url: Option<&str>,
     reliability: &crate::openhuman::config::ReliabilityConfig,
 ) -> anyhow::Result<Box<dyn Provider>> {
     create_resilient_provider_with_options(
-        api_key,
         api_url,
         reliability,
         &ProviderRuntimeOptions::default(),
@@ -192,7 +171,6 @@ pub fn create_resilient_provider(
 
 /// Create provider chain with retry/fallback behavior and auth runtime options.
 pub fn create_resilient_provider_with_options(
-    api_key: Option<&str>,
     api_url: Option<&str>,
     reliability: &crate::openhuman::config::ReliabilityConfig,
     options: &ProviderRuntimeOptions,
@@ -203,7 +181,7 @@ pub fn create_resilient_provider_with_options(
         );
     }
 
-    let primary_provider = create_backend_inference_provider(api_key, api_url, options)?;
+    let primary_provider = create_backend_inference_provider(api_url, options)?;
     let providers: Vec<(String, Box<dyn Provider>)> =
         vec![(INFERENCE_BACKEND_ID.to_string(), primary_provider)];
 
@@ -219,14 +197,12 @@ pub fn create_resilient_provider_with_options(
 
 /// Create a RouterProvider if model routes are configured, otherwise return a resilient provider.
 pub fn create_routed_provider(
-    api_key: Option<&str>,
     api_url: Option<&str>,
     reliability: &crate::openhuman::config::ReliabilityConfig,
     model_routes: &[crate::openhuman::config::ModelRouteConfig],
     default_model: &str,
 ) -> anyhow::Result<Box<dyn Provider>> {
     create_routed_provider_with_options(
-        api_key,
         api_url,
         reliability,
         model_routes,
@@ -236,7 +212,6 @@ pub fn create_routed_provider(
 }
 
 pub fn create_routed_provider_with_options(
-    api_key: Option<&str>,
     api_url: Option<&str>,
     reliability: &crate::openhuman::config::ReliabilityConfig,
     model_routes: &[crate::openhuman::config::ModelRouteConfig],
@@ -244,10 +219,10 @@ pub fn create_routed_provider_with_options(
     options: &ProviderRuntimeOptions,
 ) -> anyhow::Result<Box<dyn Provider>> {
     if model_routes.is_empty() {
-        return create_resilient_provider_with_options(api_key, api_url, reliability, options);
+        return create_resilient_provider_with_options(api_url, reliability, options);
     }
 
-    let backend = create_backend_inference_provider(api_key, api_url, options)?;
+    let backend = create_backend_inference_provider(api_url, options)?;
     let providers: Vec<(String, Box<dyn Provider>)> =
         vec![(INFERENCE_BACKEND_ID.to_string(), backend)];
 
@@ -282,12 +257,11 @@ pub fn create_routed_provider_with_options(
 /// Telemetry for every routing decision is emitted at `INFO` level under the
 /// `"routing"` tracing target.
 pub fn create_intelligent_routing_provider(
-    api_key: Option<&str>,
     api_url: Option<&str>,
     config: &crate::openhuman::config::Config,
     options: &ProviderRuntimeOptions,
 ) -> anyhow::Result<Box<dyn Provider>> {
-    let remote = create_backend_inference_provider(api_key, api_url, options)?;
+    let remote = create_backend_inference_provider(api_url, options)?;
     let default_model = config
         .default_model
         .as_deref()
@@ -349,18 +323,9 @@ mod tests {
     #[test]
     fn factory_backend() {
         assert!(create_backend_inference_provider(
-            Some("jwt"),
             Some("https://api.example.com"),
             &ProviderRuntimeOptions::default()
         )
         .is_ok());
-    }
-
-    #[test]
-    fn legacy_create_provider_with_url_ignores_name() {
-        assert!(
-            create_provider_with_url("anything", Some("jwt"), Some("https://api.example.com"))
-                .is_ok()
-        );
     }
 }

@@ -241,7 +241,6 @@ pub fn all_tools_with_runtime(
             .collect();
         tools.push(Box::new(DelegateTool::new_with_options(
             delegate_agents,
-            None,
             security.clone(),
             crate::openhuman::providers::ProviderRuntimeOptions {
                 auth_profile_override: None,

@@ -482,6 +482,33 @@ mod tests {
     }
 
     #[test]
+    fn search_response_rejects_missing_search_id() {
+        let json = r#"{
+            "results": [],
+            "costUsd": 0.01
+        }"#;
+        assert!(serde_json::from_str::<SearchResponse>(json).is_err());
+    }
+
+    #[test]
+    fn search_response_rejects_missing_results() {
+        let json = r#"{
+            "searchId": "s123",
+            "costUsd": 0.01
+        }"#;
+        assert!(serde_json::from_str::<SearchResponse>(json).is_err());
+    }
+
+    #[test]
+    fn search_response_rejects_missing_cost_usd() {
+        let json = r#"{
+            "searchId": "s123",
+            "results": []
+        }"#;
+        assert!(serde_json::from_str::<SearchResponse>(json).is_err());
+    }
+
+    #[test]
     fn search_response_deserializes() {
         let json = r#"{
             "searchId": "s123",

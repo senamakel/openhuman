@@ -5,9 +5,9 @@ mod core_process;
 mod core_update;
 #[cfg(feature = "cef")]
 mod discord_scanner;
-mod python;
 #[cfg(feature = "cef")]
 mod imessage_scanner;
+mod python;
 #[cfg(feature = "cef")]
 mod slack_scanner;
 mod webview_accounts;

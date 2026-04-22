@@ -101,7 +101,7 @@ impl EventHandler for ProactiveMessageSubscriber {
         let DomainEvent::ProactiveMessageRequested {
             source,
             message,
-            job_name,
+            job_name: _,
         } = event
         else {
             return;
@@ -308,6 +308,7 @@ mod tests {
 
         sub.handle(&DomainEvent::CronJobTriggered {
             job_id: "j".into(),
+            job_name: "test-job".into(),
             job_type: "agent".into(),
         })
         .await;

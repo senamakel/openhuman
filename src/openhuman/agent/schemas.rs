@@ -252,8 +252,7 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<TriageEvaluateParams>(params)?;
 
         // Build a TriggerEnvelope from the RPC params. Source-specific
-        // variants are discriminated by `p.source`; composio is the
-        // only one today.
+        // variants are discriminated by `p.source`.
         let envelope = match p.source.as_str() {
             "composio" => {
                 let toolkit = p.toolkit.as_deref().unwrap_or("unknown");
@@ -263,9 +262,33 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
                     toolkit, trigger, "rpc", eid, p.payload,
                 )
             }
+            "webhook" => {
+                let tunnel_id = p.external_id.as_deref().unwrap_or("unknown");
+                let method = p.toolkit.as_deref().unwrap_or("POST");
+                let path = p.trigger.as_deref().unwrap_or("/");
+                crate::openhuman::agent::triage::TriggerEnvelope::from_webhook(
+                    tunnel_id, method, path, p.payload,
+                )
+            }
+            "cron" => {
+                let job_id = p.external_id.as_deref().unwrap_or("unknown");
+                let job_name = p.display_label.as_str();
+                crate::openhuman::agent::triage::TriggerEnvelope::from_cron(
+                    job_id,
+                    job_name,
+                    &p.payload.to_string(),
+                )
+            }
+            "external" => {
+                let caller_id = p.external_id.as_deref().unwrap_or("unknown");
+                let reason = p.display_label.as_str();
+                crate::openhuman::agent::triage::TriggerEnvelope::from_external(
+                    caller_id, reason, p.payload,
+                )
+            }
             other => {
                 return Err(format!(
-                    "unsupported trigger source `{other}` — only `composio` is supported today"
+                    "unsupported trigger source `{other}` — supported: composio, webhook, cron, external"
                 ));
             }
         };
@@ -445,7 +468,7 @@ mod tests {
     #[tokio::test]
     async fn triage_handler_rejects_unknown_source_and_to_json_maps_outcome() {
         let err = handle_triage_evaluate(Map::from_iter([
-            ("source".into(), Value::String("webhook".into())),
+            ("source".into(), Value::String("__unknown_source__".into())),
             ("display_label".into(), Value::String("lbl".into())),
             ("payload".into(), json!({})),
         ]))

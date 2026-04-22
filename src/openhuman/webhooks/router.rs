@@ -104,6 +104,7 @@ impl WebhookRouter {
             skill_id,
             tunnel_name,
             backend_tunnel_id,
+            None,
         )
     }
 
@@ -114,7 +115,37 @@ impl WebhookRouter {
         tunnel_name: Option<String>,
         backend_tunnel_id: Option<String>,
     ) -> Result<(), String> {
-        self.register_target(tunnel_uuid, "echo", "echo", tunnel_name, backend_tunnel_id)
+        self.register_target(
+            tunnel_uuid,
+            "echo",
+            "echo",
+            tunnel_name,
+            backend_tunnel_id,
+            None,
+        )
+    }
+
+    /// Register an agent-backed webhook tunnel.
+    ///
+    /// Requests arriving on this tunnel are routed directly into the
+    /// triage pipeline rather than the skill runtime. `agent_id`
+    /// optionally pins the target agent definition; when absent the
+    /// triage evaluator selects the agent.
+    pub fn register_agent(
+        &self,
+        tunnel_uuid: &str,
+        agent_id: Option<String>,
+        tunnel_name: Option<String>,
+        backend_tunnel_id: Option<String>,
+    ) -> Result<(), String> {
+        self.register_target(
+            tunnel_uuid,
+            "agent",
+            "agent",
+            tunnel_name,
+            backend_tunnel_id,
+            agent_id,
+        )
     }
 
     fn register_target(
@@ -124,6 +155,7 @@ impl WebhookRouter {
         skill_id: &str,
         tunnel_name: Option<String>,
         backend_tunnel_id: Option<String>,
+        agent_id: Option<String>,
     ) -> Result<(), String> {
         let mut routes = self.routes.write().map_err(|e| e.to_string())?;
 
@@ -137,8 +169,8 @@ impl WebhookRouter {
         }
 
         debug!(
-            "[webhooks] Registering tunnel {} → {} '{}'",
-            tunnel_uuid, target_kind, skill_id
+            "[webhooks] Registering tunnel {} → {} '{}' (agent={:?})",
+            tunnel_uuid, target_kind, skill_id, agent_id,
         );
 
         let tunnel_name_clone = tunnel_name.clone();
@@ -150,6 +182,7 @@ impl WebhookRouter {
                 skill_id: skill_id.to_string(),
                 tunnel_name,
                 backend_tunnel_id,
+                agent_id,
             },
         );
 

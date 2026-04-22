@@ -1,13 +1,15 @@
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 compile_error!("src-tauri host is desktop-only. Non-desktop targets are not supported.");
 
+#[cfg(feature = "cef")]
+mod cdp;
 mod core_process;
 mod core_update;
-mod notification_settings;
 #[cfg(feature = "cef")]
 mod discord_scanner;
 #[cfg(feature = "cef")]
 mod imessage_scanner;
+mod notification_settings;
 #[cfg(feature = "cef")]
 mod slack_scanner;
 #[cfg(feature = "cef")]
@@ -885,7 +887,6 @@ pub fn run() {
             webview_accounts::webview_account_hide,
             webview_accounts::webview_account_show,
             webview_accounts::webview_recipe_event,
-            webview_accounts::webview_account_eval,
             notification_settings::notification_settings_get,
             notification_settings::notification_settings_set,
             activate_main_window

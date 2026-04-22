@@ -50,6 +50,8 @@ const MAX_MESSAGES_PER_DAY_REBUILD: usize = 5000;
 
 #[cfg(target_os = "macos")]
 mod chatdb;
+#[cfg(target_os = "macos")]
+mod tick;
 
 #[cfg(target_os = "macos")]
 const SCAN_INTERVAL: Duration = Duration::from_secs(60);
@@ -61,7 +63,7 @@ const MAX_MESSAGES_PER_TICK: usize = 2000;
 /// the webview scanners for future multi-account support.
 #[cfg(target_os = "macos")]
 pub struct ScannerRegistry {
-    inner: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    inner: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
 #[cfg(target_os = "macos")]
@@ -75,10 +77,10 @@ impl ScannerRegistry {
     /// Spawn the scanner loop if not already running. Idempotent.
     pub fn ensure_scanner<R: Runtime>(self: Arc<Self>, app: AppHandle<R>, account_id: String) {
         let mut guard = self.inner.lock();
-        if guard.as_ref().map_or(false, |h| !h.is_finished()) {
+        if guard.is_some() {
             return;
         }
-        let handle = tokio::spawn(run_scanner(app, account_id));
+        let handle = tauri::async_runtime::spawn(run_scanner(app, account_id));
         *guard = Some(handle);
     }
 }
@@ -109,71 +111,109 @@ async fn run_scanner<R: Runtime>(app: AppHandle<R>, account_id: String) {
         cursor_path
     );
 
+    let deps = tick::HttpDeps;
     loop {
-        match chatdb::read_since(&db_path, last_rowid, MAX_MESSAGES_PER_TICK) {
-            Ok(messages) if messages.is_empty() => {
-                log::debug!("[imessage] no new messages since rowid={}", last_rowid);
-            }
-            Ok(messages) => {
-                // Remember max rowid we observed in THIS tick so cursor
-                // advances even if full-day rebuild fails partway.
-                let tick_max_rowid = messages.iter().map(|m| m.rowid).max().unwrap_or(last_rowid);
-
-                // Collect unique (chat_identifier, apple_ns_within_day)
-                // pairs touched by this tick — we rebuild the full day for
-                // each before upserting, so per-tick POSTs contain the
-                // complete conversation and not just the delta.
-                let day_keys = unique_chat_day_keys(&messages);
-                log::info!(
-                    "[imessage][{}] scan ok new_rows={} unique_days={} cursor={}",
-                    account_id,
-                    messages.len(),
-                    day_keys.len(),
-                    tick_max_rowid
-                );
-
-                for (chat_id, anchor_secs) in day_keys {
-                    let (start_ns, end_ns) = local_day_bounds_apple_ns(anchor_secs);
-                    let full_day = match chatdb::read_chat_day(
-                        &db_path,
-                        &chat_id,
-                        start_ns,
-                        end_ns,
-                        MAX_MESSAGES_PER_DAY_REBUILD,
-                    ) {
-                        Ok(msgs) => msgs,
-                        Err(e) => {
-                            log::warn!(
-                                "[imessage] full-day read failed chat={} err={}",
-                                chat_id,
-                                e
-                            );
-                            continue;
+        let input = tick::TickInput {
+            db_path: db_path.clone(),
+            last_rowid,
+            account_id: account_id.clone(),
+        };
+        match tick::run_single_tick(input, &deps).await {
+            Ok(outcome) => {
+                if outcome.skipped_unconnected {
+                    log::debug!("[imessage] not connected — skipping tick");
+                } else {
+                    log::info!(
+                        "[imessage][{}] tick ok attempted={} ingested={} cursor={}{}",
+                        account_id,
+                        outcome.groups_attempted,
+                        outcome.groups_ingested,
+                        outcome.new_rowid,
+                        if outcome.had_group_failure {
+                            " (group failure — cursor held)"
+                        } else {
+                            ""
                         }
-                    };
-                    if full_day.is_empty() {
-                        continue;
+                    );
+                    if !outcome.had_group_failure && outcome.new_rowid != last_rowid {
+                        last_rowid = outcome.new_rowid;
+                        if let Err(e) = write_cursor(&cursor_path, last_rowid) {
+                            log::warn!("[imessage] cursor persist failed err={}", e);
+                        }
                     }
-                    let day_ymd = seconds_to_ymd(anchor_secs);
-                    let key = format!("{}:{}", chat_id, day_ymd);
-                    let transcript = format_transcript(&full_day);
-                    if let Err(e) = ingest_group(&account_id, &key, transcript).await {
-                        log::warn!("[imessage] memory write failed key={} err={}", key, e);
-                    }
-                }
-
-                last_rowid = tick_max_rowid;
-                if let Err(e) = write_cursor(&cursor_path, last_rowid) {
-                    log::warn!("[imessage] cursor persist failed err={}", e);
                 }
             }
             Err(e) => {
-                log::warn!("[imessage] scan failed err={}", e);
+                log::warn!("[imessage] tick failed err={}", e);
             }
         }
 
         sleep(SCAN_INTERVAL).await;
     }
+}
+
+/// Match a chat identifier against the user-configured allowlist.
+///
+/// Semantics:
+/// - empty list → allow everything (no filter configured)
+/// - contains `*` → allow everything
+/// - otherwise → exact match on `chat_id` against any entry (whitespace-trimmed)
+#[cfg(target_os = "macos")]
+fn chat_allowed(chat_id: &str, allowed: &[String]) -> bool {
+    if allowed.is_empty() {
+        return true;
+    }
+    let chat_trim = chat_id.trim();
+    allowed
+        .iter()
+        .map(|s| s.trim())
+        .any(|entry| entry == "*" || entry.eq_ignore_ascii_case(chat_trim))
+}
+
+/// Ask the core for the current iMessage config via JSON-RPC.
+///
+/// Returns:
+/// - `Ok(Some(allowed_contacts))` when iMessage is connected (allow-list may
+///   be empty = "all chats")
+/// - `Ok(None)` when iMessage is not connected / config absent
+/// - `Err(_)` on transport or parse errors (caller should retry next tick)
+#[cfg(target_os = "macos")]
+async fn fetch_imessage_gate() -> anyhow::Result<Option<Vec<String>>> {
+    let url = std::env::var("OPENHUMAN_CORE_RPC_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:7788/rpc".into());
+    let body = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "openhuman.config_get",
+        "params": {}
+    });
+    let res = http_client().post(&url).json(&body).send().await?;
+    if !res.status().is_success() {
+        anyhow::bail!("config_get http {}", res.status());
+    }
+    let v: serde_json::Value = res.json().await?;
+    // JSON-RPC envelope is `{"result": {"logs": [...], "result": <RpcOutcome body>}}`
+    // so the config lives at `/result/result/config/...`, not `/result/config/...`.
+    let imessage = v
+        .pointer("/result/result/config/channels_config/imessage")
+        .cloned();
+    let Some(imessage) = imessage else {
+        return Ok(None);
+    };
+    if imessage.is_null() {
+        return Ok(None);
+    }
+    let contacts = imessage
+        .get("allowed_contacts")
+        .and_then(|c| c.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Ok(Some(contacts))
 }
 
 /// Collect `(chat_identifier, anchor_unix_seconds)` pairs touched by a set
@@ -485,6 +525,24 @@ mod tests {
         };
         let body = message_body(&m2);
         assert!(body.contains("fallback body"), "got {:?}", body);
+    }
+
+    #[test]
+    fn chat_allowed_empty_list_allows_all() {
+        assert!(chat_allowed("+15551234567", &[]));
+    }
+
+    #[test]
+    fn chat_allowed_wildcard_allows_all() {
+        assert!(chat_allowed("+15551234567", &["*".to_string()]));
+    }
+
+    #[test]
+    fn chat_allowed_matches_exact_entry_case_insensitive() {
+        let allowed = vec!["+15551234567".to_string(), "USER@Example.com".to_string()];
+        assert!(chat_allowed("+15551234567", &allowed));
+        assert!(chat_allowed("user@example.com", &allowed));
+        assert!(!chat_allowed("+15550000000", &allowed));
     }
 
     #[test]

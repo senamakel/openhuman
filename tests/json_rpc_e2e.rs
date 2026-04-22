@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::memory::all_memory_tree_registered_controllers;
 
 struct EnvVarGuard {
     key: &'static str,
@@ -767,6 +768,155 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
 
     mock_join.abort();
     rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_memory_tree_end_to_end() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let controllers = all_memory_tree_registered_controllers();
+    let expected_methods = vec![
+        "openhuman.memory_tree_ingest".to_string(),
+        "openhuman.memory_tree_list_chunks".to_string(),
+        "openhuman.memory_tree_get_chunk".to_string(),
+    ];
+    assert_eq!(controllers.len(), expected_methods.len());
+    for method in &expected_methods {
+        assert!(
+            controllers
+                .iter()
+                .any(|controller| controller.rpc_method_name() == *method),
+            "expected memory_tree controller registration for {method}"
+        );
+    }
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let ingest = post_json_rpc(
+        &rpc_base,
+        200,
+        &expected_methods[0],
+        json!({
+            "source_kind": "document",
+            "source_id": "notion:launch-plan",
+            "owner": "alice@example.com",
+            "tags": ["planning", "launch"],
+            "payload": {
+                "provider": "notion",
+                "title": "Launch Plan",
+                "body": "We decided to ship Phoenix on Friday after reviewing alice@example.com and the migration plan carefully. @bob will coordinate rollout, track #launch-q2 details, and update the Notion launch checklist with staging validation notes.",
+                "modified_at": 1700000000000_i64,
+                "source_ref": " notion://page/launch-plan "
+            }
+        }),
+    )
+    .await;
+    let ingest_outer = assert_no_jsonrpc_error(&ingest, "memory_tree_ingest");
+    let ingest_result = ingest_outer.get("result").unwrap_or(ingest_outer);
+    assert_eq!(
+        ingest_result.get("source_id"),
+        Some(&json!("notion:launch-plan"))
+    );
+    assert_eq!(ingest_result.get("chunks_written"), Some(&json!(1)));
+    assert_eq!(ingest_result.get("chunks_dropped"), Some(&json!(0)));
+    let chunk_ids = ingest_result
+        .get("chunk_ids")
+        .and_then(Value::as_array)
+        .expect("chunk_ids array");
+    assert_eq!(chunk_ids.len(), 1);
+
+    let list = post_json_rpc(
+        &rpc_base,
+        201,
+        &expected_methods[1],
+        json!({
+            "source_kind": "document",
+            "source_id": "notion:launch-plan",
+            "owner": "alice@example.com",
+            "limit": 0
+        }),
+    )
+    .await;
+    let list_outer = assert_no_jsonrpc_error(&list, "memory_tree_list_chunks");
+    let list_result = list_outer.get("result").unwrap_or(list_outer);
+    let chunks = list_result
+        .get("chunks")
+        .and_then(Value::as_array)
+        .expect("chunks array");
+    assert_eq!(chunks.len(), 1);
+    let chunk = &chunks[0];
+    assert_eq!(chunk.get("seq_in_source"), Some(&json!(0)));
+    assert_eq!(
+        chunk.pointer("/metadata/source_ref/value"),
+        Some(&json!("notion://page/launch-plan"))
+    );
+
+    let get_chunk = post_json_rpc(
+        &rpc_base,
+        202,
+        &expected_methods[2],
+        json!({
+            "id": chunk_ids[0].clone()
+        }),
+    )
+    .await;
+    let get_outer = assert_no_jsonrpc_error(&get_chunk, "memory_tree_get_chunk");
+    let get_result = get_outer.get("result").unwrap_or(get_outer);
+    assert_eq!(get_result.pointer("/chunk/id"), Some(&chunk_ids[0]));
+
+    let invalid_ingest = post_json_rpc(
+        &rpc_base,
+        203,
+        &expected_methods[0],
+        json!({
+            "source_kind": "document",
+            "source_id": "notion:bad",
+            "owner": "alice@example.com",
+            "payload": {
+                "provider": "notion",
+                "title": "Bad payload"
+            }
+        }),
+    )
+    .await;
+    assert!(
+        invalid_ingest.get("error").is_some(),
+        "expected invalid payload JSON-RPC error: {invalid_ingest}"
+    );
+
+    let invalid_list = post_json_rpc(
+        &rpc_base,
+        204,
+        &expected_methods[1],
+        json!({
+            "source_kind": "not-a-kind"
+        }),
+    )
+    .await;
+    assert!(
+        invalid_list.get("error").is_some(),
+        "expected invalid source_kind JSON-RPC error: {invalid_list}"
+    );
+
+    rpc_join.abort();
+    let _ = rpc_join.await;
+    mock_join.abort();
+    let _ = mock_join.await;
 }
 
 #[tokio::test]
@@ -2022,6 +2172,92 @@ async fn voice_status_returns_availability() {
         result.get("tts_available").and_then(Value::as_bool),
         Some(false),
         "tts should be unavailable without piper binary"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn notification_settings_roundtrip_and_disabled_ingest_skip() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let set = post_json_rpc(
+        &rpc_base,
+        4001,
+        "openhuman.notification_settings_set",
+        json!({
+            "provider": "gmail",
+            "enabled": false,
+            "importance_threshold": 0.8,
+            "route_to_orchestrator": false
+        }),
+    )
+    .await;
+    let set_result = assert_no_jsonrpc_error(&set, "notification_settings_set");
+    assert_eq!(set_result.get("ok").and_then(Value::as_bool), Some(true));
+
+    let get = post_json_rpc(
+        &rpc_base,
+        4002,
+        "openhuman.notification_settings_get",
+        json!({ "provider": "gmail" }),
+    )
+    .await;
+    let get_result = assert_no_jsonrpc_error(&get, "notification_settings_get");
+    let settings = get_result.get("settings").expect("settings object");
+    assert_eq!(
+        settings.get("enabled").and_then(Value::as_bool),
+        Some(false)
+    );
+    let threshold = settings
+        .get("importance_threshold")
+        .and_then(Value::as_f64)
+        .unwrap_or_default();
+    assert!(
+        (threshold - 0.8).abs() < 0.0001,
+        "expected threshold ~= 0.8, got {threshold}"
+    );
+    assert_eq!(
+        settings
+            .get("route_to_orchestrator")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+
+    let ingest = post_json_rpc(
+        &rpc_base,
+        4003,
+        "openhuman.notification_ingest",
+        json!({
+            "provider": "gmail",
+            "account_id": "acct-1",
+            "title": "subject",
+            "body": "body",
+            "raw_payload": { "source": "test" }
+        }),
+    )
+    .await;
+    let ingest_result = assert_no_jsonrpc_error(&ingest, "notification_ingest");
+    assert_eq!(
+        ingest_result.get("skipped").and_then(Value::as_bool),
+        Some(true)
     );
 
     mock_join.abort();

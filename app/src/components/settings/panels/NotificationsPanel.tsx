@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
+import { getBypassPrefs, setGlobalDnd } from '../../../services/webviewAccountService';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { type NotificationCategory, setPreference } from '../../../store/notificationSlice';
-import { getBypassPrefs, setGlobalDnd } from '../../../services/webviewAccountService';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 

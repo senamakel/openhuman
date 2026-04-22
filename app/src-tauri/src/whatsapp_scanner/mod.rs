@@ -240,7 +240,9 @@ async fn scan_once<R: Runtime>(
 
     let page_target = targets
         .iter()
-        .find(|t| t.kind == "page" && t.url.starts_with(url_prefix) && t.url.contains(url_fragment))
+        .find(|t| {
+            t.kind == "page" && t.url.starts_with(url_prefix) && t.url.ends_with(url_fragment)
+        })
         .ok_or_else(|| format!("no page target matching {url_prefix} fragment={url_fragment}"))?;
     let attach = cdp
         .call(
@@ -321,7 +323,9 @@ async fn scan_dom_once(
     let targets = parse_targets(&targets_v);
     let page_target = targets
         .iter()
-        .find(|t| t.kind == "page" && t.url.starts_with(url_prefix) && t.url.contains(url_fragment))
+        .find(|t| {
+            t.kind == "page" && t.url.starts_with(url_prefix) && t.url.ends_with(url_fragment)
+        })
         .ok_or_else(|| format!("no page target matching {url_prefix} fragment={url_fragment}"))?;
     let attach = cdp
         .call(

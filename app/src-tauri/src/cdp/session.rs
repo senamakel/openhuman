@@ -17,6 +17,7 @@
 use std::time::Duration;
 
 use serde_json::json;
+use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
 use super::{browser_ws_url, find_page_target_where, set_user_agent_override, CdpConn, UaSpec};
@@ -56,52 +57,53 @@ pub fn placeholder_data_url(account_id: &str) -> String {
 /// the call site — the caller is expected to only call this once per
 /// `webview_account_open`.
 ///
-/// **Shutdown**: currently no cancellation plumbing. When the webview
-/// closes, the session's CDP WebSocket drops (target is gone) and
-/// `run_session_cycle` returns with an error; the outer loop then fails
-/// every reconnect attempt until the process exits. Benign in practice —
-/// `attach_to_target` on a missing target is a cheap error — but a
-/// cancellation token from `webview_account_close` is worth adding in a
-/// follow-up if scanner churn becomes noisy in logs.
-pub fn spawn_session(account_id: String, real_url: String) {
-    tokio::spawn(async move {
-        log::info!(
-            "[cdp-session][{}] up real_url={} marker={}",
-            account_id,
-            real_url,
-            placeholder_marker(&account_id)
-        );
-        // Let the webview's target appear in CDP before we start hammering
-        // `/json/version`. The placeholder URL is tiny so this is quick.
-        sleep(Duration::from_millis(500)).await;
-        loop {
-            match run_session_cycle(&account_id, &real_url).await {
-                Ok(()) => {
-                    log::info!(
-                        "[cdp-session][{}] session ended cleanly, reconnecting",
-                        account_id
-                    );
-                }
-                Err(e) => {
-                    log::debug!("[cdp-session][{}] cycle failed: {}", account_id, e);
-                }
+/// **Shutdown**: returns the `JoinHandle` for the spawned loop so the
+/// caller (`webview_account_close` / `webview_account_purge`) can
+/// `abort()` it when the account goes away. Without abort the loop
+/// would keep retrying `attach_to_target` against a vanished target
+/// forever and accumulate across reopen cycles.
+pub fn spawn_session(account_id: String, real_url: String) -> JoinHandle<()> {
+    tokio::spawn(async move { run_session_forever(account_id, real_url).await })
+}
+
+async fn run_session_forever(account_id: String, real_url: String) {
+    log::info!(
+        "[cdp-session][{}] up real_url={} marker={}",
+        account_id,
+        real_url,
+        placeholder_marker(&account_id)
+    );
+    // Let the webview's target appear in CDP before we start hammering
+    // `/json/version`. The placeholder URL is tiny so this is quick.
+    sleep(Duration::from_millis(500)).await;
+    loop {
+        match run_session_cycle(&account_id, &real_url).await {
+            Ok(()) => {
+                log::info!(
+                    "[cdp-session][{}] session ended cleanly, reconnecting",
+                    account_id
+                );
             }
-            sleep(ATTACH_BACKOFF).await;
+            Err(e) => {
+                log::debug!("[cdp-session][{}] cycle failed: {}", account_id, e);
+            }
         }
-    });
+        sleep(ATTACH_BACKOFF).await;
+    }
 }
 
 async fn run_session_cycle(account_id: &str, real_url: &str) -> Result<(), String> {
     let browser_ws = browser_ws_url().await?;
     let mut cdp = CdpConn::open(&browser_ws).await?;
 
-    // The placeholder URL embeds the account id in both the URL payload AND
-    // the <title>. Match on either — the title field is populated as soon
-    // as the data URL document parses, which is effectively immediate.
+    // Account-unique match. Both the placeholder title and the real-URL
+    // fragment are appended verbatim, so we can use ends_with / exact
+    // equality instead of substring contains — that avoids cross-account
+    // collisions like `…account-abc` vs `…account-abcdef`.
     let marker = placeholder_marker(account_id);
     let fragment = target_url_fragment(account_id);
     let target = find_page_target_where(&mut cdp, |t| {
-        t.url.contains(&marker) || t.title.contains(&marker) || t.url.contains(&fragment)
+        t.title == marker || t.url.ends_with(&fragment)
     })
     .await?;
     log::info!(

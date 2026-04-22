@@ -69,12 +69,16 @@ pub fn ingest_payload(scan: &DomScan) -> Value {
         .iter()
         .enumerate()
         .map(|(idx, r)| {
+            // Always include `idx` so two chats with the same display
+            // name don't collapse into one id (memory-doc dedupe keys
+            // downstream use this id).
+            let id = if r.name.is_empty() {
+                format!("tg:row:{idx}")
+            } else {
+                format!("tg:{idx}:{}", r.name)
+            };
             json!({
-                "id": if r.name.is_empty() {
-                    format!("tg:row:{idx}")
-                } else {
-                    format!("tg:{}", r.name)
-                },
+                "id": id,
                 "from": if r.name.is_empty() { Value::Null } else { json!(r.name) },
                 "body": r.preview.clone().map(Value::String).unwrap_or(Value::Null),
                 "unread": r.unread,

@@ -106,7 +106,9 @@ async fn scan_once(
     let targets = parse_targets(&targets_v);
     let page_target = targets
         .iter()
-        .find(|t| t.kind == "page" && t.url.starts_with(url_prefix) && t.url.contains(url_fragment))
+        .find(|t| {
+            t.kind == "page" && t.url.starts_with(url_prefix) && t.url.ends_with(url_fragment)
+        })
         .ok_or_else(|| {
             format!(
                 "no page target matching {} fragment={}",
@@ -617,7 +619,7 @@ async fn dom_scan_once(
     let prefix = url_prefix.to_string();
     let fragment = url_fragment.to_string();
     let (mut cdp, session) = crate::cdp::connect_and_attach_matching(move |t| {
-        t.url.starts_with(&prefix) && t.url.contains(&fragment)
+        t.url.starts_with(&prefix) && t.url.ends_with(&fragment)
     })
     .await?;
     let scan = dom_snapshot::scan(&mut cdp, &session).await;

@@ -92,20 +92,11 @@ fn provider_recipe_js(provider: &str) -> Option<&'static str> {
     }
 }
 
-/// Whether this provider is supported at all — mirrors the old registry
-/// so `webview_account_open` can reject unknown providers early.
+/// Whether this provider is supported at all. Derived from
+/// `provider_url` so there's one canonical list — new providers added
+/// to the `provider_url` match automatically become "supported" here.
 fn provider_is_supported(provider: &str) -> bool {
-    matches!(
-        provider,
-        "whatsapp"
-            | "telegram"
-            | "linkedin"
-            | "gmail"
-            | "slack"
-            | "discord"
-            | "google-meet"
-            | "browserscan"
-    )
+    provider_url(provider).is_some()
 }
 
 /// Whether to pre-load `ua_spoof.js` for a given provider (wry only — cef
@@ -241,6 +232,11 @@ pub struct WebviewAccountsState {
     /// per-browser handler entries across account churn.
     #[cfg(feature = "cef")]
     browser_ids: Mutex<HashMap<String, i32>>,
+    /// account_id -> CDP session task. One long-lived task per account
+    /// keeps the UA override resident (see `cdp::session`); aborted on
+    /// close/purge so reopen cycles don't stack multiple live loops.
+    #[cfg(feature = "cef")]
+    cdp_sessions: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
 }
 
 /// Title prefix applied to every OS toast fired from an embedded webview.
@@ -495,6 +491,12 @@ pub async fn webview_account_open<R: Runtime>(
         .or_else(|| provider_url(&args.provider))
         .ok_or_else(|| format!("no url for provider: {}", args.provider))?
         .to_string();
+    // Validate the real URL up front — otherwise a malformed debug
+    // `args.url` would only fail later inside the async CDP session
+    // loop, which is much harder to surface to the caller.
+    let _real_url: Url = real_url_str
+        .parse()
+        .map_err(|e| format!("invalid provider url {real_url_str}: {e}"))?;
     // Under cef we open the webview at a tiny `data:` placeholder URL so
     // the CDP session opener can attach and apply the UA override BEFORE
     // the real provider URL loads. Under wry there's no CDP, so navigate
@@ -652,8 +654,17 @@ pub async fn webview_account_open<R: Runtime>(
     // Page.navigate from our placeholder URL to the real provider URL.
     // Also installs the `#openhuman-account-{id}` fragment the scanners
     // match on for multi-account disambiguation.
+    // Spawn the per-account CDP session opener, replacing any prior
+    // handle for this account (the old one would still be trying to
+    // attach to a target that's been torn down).
     #[cfg(feature = "cef")]
-    cdp::spawn_session(args.account_id.clone(), real_url_str.clone());
+    {
+        let handle = cdp::spawn_session(args.account_id.clone(), real_url_str.clone());
+        let mut sessions = state.cdp_sessions.lock().unwrap();
+        if let Some(old) = sessions.insert(args.account_id.clone(), handle) {
+            old.abort();
+        }
+    }
 
     // For providers we know how to scrape via CDP, kick off the IndexedDB
     // scanner. Compile-gated to `cef` because CDP only exists when the CEF
@@ -850,6 +861,13 @@ pub async fn webview_account_close<R: Runtime>(
                 browser_id
             );
         }
+        if let Some(task) = state.cdp_sessions.lock().unwrap().remove(&args.account_id) {
+            task.abort();
+            log::debug!(
+                "[cdp-session] aborted session task for account={}",
+                args.account_id
+            );
+        }
     }
     log::info!("[webview-accounts] closed label={}", label);
     Ok(())
@@ -912,6 +930,13 @@ pub async fn webview_account_purge<R: Runtime>(
                 "[notify-cef] purge unregistered handler account={} browser_id={}",
                 args.account_id,
                 browser_id
+            );
+        }
+        if let Some(task) = state.cdp_sessions.lock().unwrap().remove(&args.account_id) {
+            task.abort();
+            log::debug!(
+                "[cdp-session] purge aborted session task for account={}",
+                args.account_id
             );
         }
     }

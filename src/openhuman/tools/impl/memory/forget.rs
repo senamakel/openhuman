@@ -62,8 +62,10 @@ impl Tool for MemoryForgetTool {
             return Ok(ToolResult::error(error));
         }
 
+        // Legacy hack preserved for Phase A — Phase B will replace this with
+        // a clean `.forget(namespace, key)` once tool schemas are honest.
         let namespaced_key = format!("{}/{}", namespace.trim(), key);
-        match self.memory.forget(&namespaced_key).await {
+        match self.memory.forget("", &namespaced_key).await {
             Ok(true) => Ok(ToolResult::success(format!(
                 "Forgot memory: {namespaced_key}"
             ))),
@@ -104,6 +106,7 @@ mod tests {
     async fn forget_existing() {
         let (_tmp, mem) = test_mem();
         mem.store(
+            "",
             "global/temp",
             "temporary",
             MemoryCategory::Conversation,
@@ -120,7 +123,7 @@ mod tests {
         assert!(!result.is_error);
         assert!(result.output().contains("Forgot"));
 
-        assert!(mem.get("global/temp").await.unwrap().is_none());
+        assert!(mem.get("", "global/temp").await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -147,6 +150,7 @@ mod tests {
     async fn forget_blocked_in_readonly_mode() {
         let (_tmp, mem) = test_mem();
         mem.store(
+            "",
             "global/temp",
             "temporary",
             MemoryCategory::Conversation,
@@ -165,13 +169,14 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("read-only mode"));
-        assert!(mem.get("global/temp").await.unwrap().is_some());
+        assert!(mem.get("", "global/temp").await.unwrap().is_some());
     }
 
     #[tokio::test]
     async fn forget_blocked_when_rate_limited() {
         let (_tmp, mem) = test_mem();
         mem.store(
+            "",
             "global/temp",
             "temporary",
             MemoryCategory::Conversation,
@@ -190,6 +195,6 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("Rate limit exceeded"));
-        assert!(mem.get("global/temp").await.unwrap().is_some());
+        assert!(mem.get("", "global/temp").await.unwrap().is_some());
     }
 }

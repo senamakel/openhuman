@@ -82,10 +82,12 @@ impl Tool for MemoryStoreTool {
             return Ok(ToolResult::error(error));
         }
 
+        // Legacy hack preserved for Phase A — Phase B will replace this with
+        // a clean `.store(namespace, key, …)` once tool schemas are honest.
         let namespaced_key = format!("{}/{}", namespace.trim(), key);
         match self
             .memory
-            .store(&namespaced_key, content, category, None)
+            .store("", &namespaced_key, content, category, None)
             .await
         {
             Ok(()) => Ok(ToolResult::success(format!(
@@ -134,7 +136,7 @@ mod tests {
         assert!(!result.is_error);
         assert!(result.output().contains("lang"));
 
-        let entry = mem.get("global/lang").await.unwrap();
+        let entry = mem.get("", "global/lang").await.unwrap();
         assert!(entry.is_some());
         assert_eq!(entry.unwrap().content, "Prefers Rust");
     }
@@ -164,7 +166,7 @@ mod tests {
             .unwrap();
         assert!(!result.is_error);
 
-        let entry = mem.get("global/proj_note").await.unwrap().unwrap();
+        let entry = mem.get("", "global/proj_note").await.unwrap().unwrap();
         assert_eq!(entry.content, "Uses async runtime");
         assert_eq!(entry.category, MemoryCategory::Custom("project".into()));
     }
@@ -199,7 +201,7 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("read-only mode"));
-        assert!(mem.get("global/lang").await.unwrap().is_none());
+        assert!(mem.get("", "global/lang").await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -216,6 +218,6 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("Rate limit exceeded"));
-        assert!(mem.get("global/lang").await.unwrap().is_none());
+        assert!(mem.get("", "global/lang").await.unwrap().is_none());
     }
 }

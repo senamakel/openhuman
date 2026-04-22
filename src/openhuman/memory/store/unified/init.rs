@@ -118,6 +118,35 @@ impl UnifiedMemory {
         // User profile accumulation table.
         conn.execute_batch(super::profile::PROFILE_INIT_SQL)?;
 
+        // Idempotent legacy-namespace migration.
+        //
+        // Older writes via MemoryStoreTool packed the intended namespace into
+        // the key as `"{namespace}/{actual_key}"` and stored the row under the
+        // GLOBAL_NAMESPACE. Split those rows now so the new trait surface can
+        // rely on the `namespace` column.
+        //
+        // The anti-join guard prevents duplicate-split collisions if a
+        // post-split row already exists (UNIQUE(namespace, key) would otherwise
+        // fail). Safe to run on every boot.
+        let migrated = conn.execute(
+            "UPDATE memory_docs
+             SET namespace = substr(key, 1, instr(key, '/') - 1),
+                 key = substr(key, instr(key, '/') + 1)
+             WHERE namespace = ?1
+               AND instr(key, '/') > 0
+               AND NOT EXISTS (
+                 SELECT 1 FROM memory_docs m2
+                 WHERE m2.namespace = substr(memory_docs.key, 1, instr(memory_docs.key, '/') - 1)
+                   AND m2.key = substr(memory_docs.key, instr(memory_docs.key, '/') + 1)
+               )",
+            rusqlite::params![GLOBAL_NAMESPACE],
+        )?;
+        if migrated > 0 {
+            log::info!(
+                "[memory] migrated {migrated} legacy `ns/key` rows out of the `{GLOBAL_NAMESPACE}` namespace"
+            );
+        }
+
         Ok(Self {
             workspace_dir: workspace_dir.to_path_buf(),
             db_path,

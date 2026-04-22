@@ -75,7 +75,17 @@ impl Tool for MemoryRecallTool {
         // redundant token that matches almost every row (e.g. all `global/...` keys contain "global").
         // `namespace` is still required by the tool contract; unified memory scopes recall to the
         // global document namespace until multi-namespace recall is wired through the `Memory` trait.
-        match self.memory.recall(query, limit, None).await {
+        // Phase A: keep legacy global-only recall. Phase B will populate
+        // `RecallOpts::namespace` from the `namespace` tool arg.
+        match self
+            .memory
+            .recall(
+                query,
+                limit,
+                crate::openhuman::memory::RecallOpts::default(),
+            )
+            .await
+        {
             Ok(entries) if entries.is_empty() => Ok(ToolResult::success(
                 "No memories found matching that query.",
             )),
@@ -126,6 +136,7 @@ mod tests {
     async fn recall_finds_match() {
         let (_tmp, mem) = seeded_mem();
         mem.store(
+            "",
             "global/lang",
             "User prefers Rust",
             MemoryCategory::Core,
@@ -133,9 +144,15 @@ mod tests {
         )
         .await
         .unwrap();
-        mem.store("global/tz", "Timezone is EST", MemoryCategory::Core, None)
-            .await
-            .unwrap();
+        mem.store(
+            "",
+            "global/tz",
+            "Timezone is EST",
+            MemoryCategory::Core,
+            None,
+        )
+        .await
+        .unwrap();
 
         let tool = MemoryRecallTool::new(mem);
         let result = tool
@@ -152,6 +169,7 @@ mod tests {
         let (_tmp, mem) = seeded_mem();
         for i in 0..10 {
             mem.store(
+                "",
                 &format!("global/k{i}"),
                 &format!("Rust fact {i}"),
                 MemoryCategory::Core,

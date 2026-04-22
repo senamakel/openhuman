@@ -26,6 +26,15 @@ interface ChatErrorPayload {
   message?: string;
 }
 
+interface CoreNotificationPayload {
+  id: string;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  deep_link?: string | null;
+  timestamp_ms: number;
+}
+
 function windowIsFocused(): boolean {
   if (typeof document === 'undefined') return true;
   return document.hasFocus();
@@ -85,6 +94,20 @@ export function startNativeNotificationsService(): void {
     });
   });
 
+  // Core-originated notifications (cron completions, webhook failures,
+  // sub-agent completions) bridged over socket.io from the Rust event
+  // bus. See src/openhuman/notifications/bus.rs.
+  socketService.on('core_notification', (...args: unknown[]) => {
+    const p = (args[0] ?? {}) as CoreNotificationPayload;
+    if (!p.id || !p.title) return;
+    dispatchAndMaybeBanner(p.category, {
+      id: p.id,
+      title: truncate(p.title, 120),
+      body: truncate(p.body ?? '', 160),
+      deepLink: p.deep_link ?? undefined,
+    });
+  });
+
   socketService.on('disconnect', (...args: unknown[]) => {
     const reason = typeof args[0] === 'string' ? args[0] : 'unknown';
     dispatchAndMaybeBanner('system', {
@@ -106,6 +129,17 @@ export function __handleChatDoneForTests(payload: ChatDonePayload): void {
     title: 'Agent reply ready',
     body: truncate(payload.full_response?.trim() || 'Agent finished processing.', 160),
     deepLink: '/chat',
+  });
+}
+
+/** Exposed for tests — dispatch as if a core_notification arrived. */
+export function __handleCoreNotificationForTests(payload: CoreNotificationPayload): void {
+  if (!payload.id || !payload.title) return;
+  dispatchAndMaybeBanner(payload.category, {
+    id: payload.id,
+    title: truncate(payload.title, 120),
+    body: truncate(payload.body ?? '', 160),
+    deepLink: payload.deep_link ?? undefined,
   });
 }
 

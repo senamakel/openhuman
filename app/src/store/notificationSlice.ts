@@ -40,6 +40,10 @@ const notificationSlice = createSlice({
     notificationReceived(state, action: PayloadAction<NotificationItem>) {
       const item = action.payload;
       if (!state.preferences[item.category]) return;
+      // Dedupe: if we already have this id, leave the existing entry intact.
+      // Prevents duplicate entries from socket reconnection replays or multiple
+      // events sharing the same stable id (e.g. socket_disconnect).
+      if (state.items.some(i => i.id === item.id)) return;
       state.items.unshift(item);
       if (state.items.length > MAX_ITEMS) {
         state.items.length = MAX_ITEMS;

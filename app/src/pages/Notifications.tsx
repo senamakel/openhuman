@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -33,7 +32,7 @@ const Notifications = () => {
   const items = useAppSelector(s => s.notifications.items);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const unread = useMemo(() => selectUnreadCount(items), [items]);
+  const unread = selectUnreadCount(items);
 
   const handleClick = (item: NotificationItem) => {
     if (!item.read) dispatch(markRead({ id: item.id }));

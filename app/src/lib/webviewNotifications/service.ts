@@ -80,7 +80,10 @@ function handleFired(payload: WebviewNotificationFired): void {
       read: false,
       accountId,
       provider,
-      deepLink: `/accounts/${accountId}`,
+      // /accounts/:id is not a registered route — navigate to /home where the
+      // webview accounts sidebar lives and focusAccountFromNotification handles
+      // the per-account focus via Redux.
+      deepLink: '/home',
     })
   );
 }

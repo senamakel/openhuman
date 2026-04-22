@@ -92,8 +92,10 @@ export function startNativeNotificationsService(): void {
 
   disconnectListener = (...args: unknown[]) => {
     const reason = typeof args[0] === 'string' ? args[0] : 'unknown';
+    // Use a stable id so repeated disconnect events deduplicate in the slice
+    // rather than spamming the notification center on flaky networks.
     dispatchAndMaybeBanner('system', {
-      id: `socket_disconnect:${Date.now()}`,
+      id: 'socket_disconnect',
       title: 'Connection lost',
       body: `OpenHuman lost its connection to the core service (${truncate(reason, 80)}).`,
     });

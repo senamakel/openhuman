@@ -451,6 +451,12 @@ fn activate_main_window(app: AppHandle<AppRuntime>) -> Result<(), String> {
 /// Tauri command: fire a native OS notification from the frontend. Used by
 /// the in-app notification center to banner events (agent completions,
 /// connection drops, etc.) when the window is not focused.
+///
+/// Note: `tag` is accepted for forward-compatibility but is not forwarded to
+/// the OS-level builder. `tauri-plugin-notification` 2.x `NotificationBuilder`
+/// on desktop does not expose a per-notification numeric `id` for deduplication
+/// — the `identifier` field is the app bundle ID, not a per-notification key.
+/// Deduplication is enforced on the Redux side before this function is called.
 #[tauri::command]
 fn show_native_notification(
     app: AppHandle<AppRuntime>,

@@ -80,6 +80,8 @@ Windows installer behavior:
 
 ## ARM Linux Build (aarch64)
 
+<!-- TODO(follow-up): pnpm migration deferred to a later PR — requires lockfile, CI, Husky, and Tauri sidecar staging updates. Keeping yarn for now. -->
+
 The ARM Linux build requires special handling due to CEF and GTK dependencies.
 
 ### Prerequisites
@@ -93,7 +95,7 @@ sudo apt install xvfb
 
 ```bash
 cd app
-pnpm tauri build --target aarch64-unknown-linux-gnu
+yarn tauri:ensure && export CEF_PATH="$HOME/Library/Caches/tauri-cef" && yarn tauri build --target aarch64-unknown-linux-gnu
 ```
 
 ### Running the ARM binary

@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: tibdex/github-app-token@v1
+        uses: tibdex/github-app-token@b62db277bff0e2bf20ab98208296207f79eef7ae  # v1
         with:
           app_id: ${{ secrets.XGITHUB_APP_ID }}
           private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
@@ -31,8 +31,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          submodules: recursive
+          submodules: false
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Init submodules (with retry)
+        shell: bash
+        env:
+          SUBMODULE_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          GIT_INSTEADOF_KEY="url.https://x-access-token:${SUBMODULE_TOKEN}@github.com/.insteadOf"
+          trap 'git config --local --unset-all "${GIT_INSTEADOF_KEY}" 2>/dev/null || true' EXIT
+          git config --local "${GIT_INSTEADOF_KEY}" "https://github.com/"
+          for attempt in 1 2 3; do
+            echo "[submodules] attempt $attempt/3"
+            git submodule update --init --recursive --depth=1 && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "[submodules] all 3 attempts failed"
+              exit 1
+            fi
+            echo "[submodules] failed — waiting 30s before retry"
+            sleep 30
+          done
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2

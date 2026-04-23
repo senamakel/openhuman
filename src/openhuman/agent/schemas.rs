@@ -311,7 +311,7 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
 
         tracing::debug!(
             source = %envelope.source.slug(),
-            external_id = %envelope.external_id,
+            has_external_id = !envelope.external_id.is_empty(),
             "[rpc][agent] running triage pipeline"
         );
 
@@ -501,5 +501,70 @@ mod tests {
         let value =
             to_json(RpcOutcome::new(json!({ "ok": true }), Vec::new())).expect("json outcome");
         assert_eq!(value["ok"], json!(true));
+    }
+
+    // ── Envelope-routing tests ────────────────────────────────────────────
+    // These tests verify that each valid source string routes through param
+    // parsing and envelope construction without hitting a "unsupported source"
+    // error. The handlers proceed to `run_triage()` which will fail at the
+    // service layer (no config / runtime in unit-test context) — that's
+    // expected and distinct from param-level rejections.
+
+    #[tokio::test]
+    async fn triage_handler_webhook_source_builds_envelope_not_param_error() {
+        // Should NOT return "unsupported trigger source" — it reaches run_triage
+        // and fails there (service not available in tests).
+        let err = handle_triage_evaluate(Map::from_iter([
+            ("source".into(), Value::String("webhook".into())),
+            (
+                "display_label".into(),
+                Value::String("webhook/POST//hooks/test".into()),
+            ),
+            ("external_id".into(), Value::String("tunnel-uuid-1".into())),
+            ("toolkit".into(), Value::String("POST".into())),
+            ("trigger".into(), Value::String("/hooks/test".into())),
+            ("payload".into(), json!({ "event": "push" })),
+        ]))
+        .await
+        .expect_err("triage service not available in unit tests");
+        assert!(
+            !err.contains("unsupported trigger source"),
+            "webhook source must route to envelope construction, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn triage_handler_cron_source_builds_envelope_not_param_error() {
+        let err = handle_triage_evaluate(Map::from_iter([
+            ("source".into(), Value::String("cron".into())),
+            (
+                "display_label".into(),
+                Value::String("morning_briefing".into()),
+            ),
+            ("external_id".into(), Value::String("job-1".into())),
+            ("payload".into(), json!({ "output": "Briefing complete" })),
+        ]))
+        .await
+        .expect_err("triage service not available in unit tests");
+        assert!(
+            !err.contains("unsupported trigger source"),
+            "cron source must route to envelope construction, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn triage_handler_external_source_builds_envelope_not_param_error() {
+        let err = handle_triage_evaluate(Map::from_iter([
+            ("source".into(), Value::String("external".into())),
+            ("display_label".into(), Value::String("ci_pipeline".into())),
+            ("external_id".into(), Value::String("caller-abc".into())),
+            ("payload".into(), json!({ "ref": "main" })),
+        ]))
+        .await
+        .expect_err("triage service not available in unit tests");
+        assert!(
+            !err.contains("unsupported trigger source"),
+            "external source must route to envelope construction, got: {err}"
+        );
     }
 }

@@ -20,11 +20,19 @@ jobs:
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.XGITHUB_APP_ID }}
+          private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
           submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2

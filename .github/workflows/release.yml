@@ -267,12 +267,20 @@ jobs:
       OPENHUMAN_TELEGRAM_BOT_USERNAME: ${{ inputs.build_target == 'staging' && 'alphahumantest_bot' || 'openhumanaibot' }}
       VITE_TELEGRAM_BOT_USERNAME: ${{ inputs.build_target == 'staging' && 'alphahumantest_bot' || 'openhumanaibot' }}
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.XGITHUB_APP_ID }}
+          private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+
       - name: Checkout build ref
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 1
           submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure staging app environment
         if: inputs.build_target == 'staging'

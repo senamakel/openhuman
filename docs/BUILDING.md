@@ -102,14 +102,14 @@ The binary requires the CEF library path to be set:
 
 ```bash
 # Option 1: Direct invocation
-CEF_DIR=app/src-tauri/target/aarch64-unknown-linux-gnu/release/build/cef-dll-sys-06f9a023be70e68b/out/cef_linux_aarch64
+CEF_DIR="$(find app/src-tauri/target/aarch64-unknown-linux-gnu/release/build -maxdepth 3 -type d -path '*/out/cef_linux_aarch64' | head -n1)"
 REL_DIR=app/src-tauri/target/aarch64-unknown-linux-gnu/release
 LD_LIBRARY_PATH="$CEF_DIR:$REL_DIR/deps:$REL_DIR" $REL_DIR/OpenHuman --no-sandbox
 
 # Option 2: Wrapper script (recommended)
 # Create ~/bin/openhuman:
 #!/bin/bash
-CEF_DIR=/path/to/app/src-tauri/target/aarch64-unknown-linux-gnu/release/build/cef-dll-sys-06f9a023be70e68b/out/cef_linux_aarch64
+CEF_DIR="$(find /path/to/app/src-tauri/target/aarch64-unknown-linux-gnu/release/build -maxdepth 3 -type d -path '*/out/cef_linux_aarch64' | head -n1)"
 REL_DIR=/path/to/app/src-tauri/target/aarch64-unknown-linux-gnu/release
 export LD_LIBRARY_PATH="$CEF_DIR:$REL_DIR/deps:$REL_DIR"
 exec $REL_DIR/OpenHuman --no-sandbox "$@"
@@ -118,7 +118,7 @@ exec $REL_DIR/OpenHuman --no-sandbox "$@"
 ### DEB package install
 
 ```bash
-sudo dpkg -i app/src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/OpenHuman_0.52.28_arm64.deb
+sudo dpkg -i app/src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/OpenHuman_*_arm64.deb
 OpenHuman
 ```
 

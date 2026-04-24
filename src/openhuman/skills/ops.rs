@@ -1831,12 +1831,17 @@ pub fn uninstall_skill(
         .map_err(|e| format!("canonicalize {} failed: {e}", skills_root.display()))?;
 
     let candidate = skills_root.join(&trimmed);
-    if !candidate.exists() {
-        return Err(format!("skill '{trimmed}' is not installed"));
-    }
-
-    let canonical_candidate = std::fs::canonicalize(&candidate)
-        .map_err(|e| format!("canonicalize {} failed: {e}", candidate.display()))?;
+    // Avoid a TOCTOU check: instead of `candidate.exists()` + canonicalize,
+    // canonicalize directly and map NotFound to the friendly "not installed"
+    // message.  Other error kinds (permission denied, I/O error) keep the
+    // lower-level message for diagnosability.
+    let canonical_candidate = std::fs::canonicalize(&candidate).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            format!("skill '{trimmed}' is not installed")
+        } else {
+            format!("canonicalize {} failed: {e}", candidate.display())
+        }
+    })?;
 
     if !canonical_candidate.starts_with(&canonical_root) {
         log::warn!(
@@ -1859,6 +1864,11 @@ pub fn uninstall_skill(
         ));
     }
 
+    // Best-effort guard: reject directories that don't look like SKILL.md
+    // skills before we commit to removing them.  The subsequent
+    // `remove_dir_all` is the authoritative operation; a TOCTOU race here
+    // (file disappears between the check and the remove) is benign — the
+    // remove would fail with a clear error anyway.
     let skill_md = canonical_candidate.join(SKILL_MD);
     if !skill_md.exists() {
         return Err(format!(

@@ -9,6 +9,7 @@ import {
   KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
 import ConnectionBadge, { isMessagingId } from '../components/ConnectionBadge';
+import { ToastContainer } from '../components/intelligence/Toast';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import CreateSkillModal from '../components/skills/CreateSkillModal';
 import InstallSkillDialog from '../components/skills/InstallSkillDialog';
@@ -36,6 +37,7 @@ import { type ComposioConnection, deriveComposioState } from '../lib/composio/ty
 import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
 import { useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
+import type { ToastNotification } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
 import { subconsciousEscalationsDismiss } from '../utils/tauriCommands';
 
@@ -196,6 +198,14 @@ export default function Skills() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallCandidate, setUninstallCandidate] = useState<SkillSummary | null>(null);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
+    const newToast: ToastNotification = { ...toast, id: `toast-${Date.now()}-${Math.random()}` };
+    setToasts(prev => [...prev, newToast]);
+  }, []);
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
   const pendingEscalationId =
     location.state &&
     typeof location.state === 'object' &&
@@ -827,6 +837,11 @@ export default function Skills() {
               name: result.name,
               removedPath: result.removedPath,
             });
+            addToast({
+              type: 'success',
+              title: 'Skill uninstalled',
+              message: `"${result.name}" was removed successfully.`,
+            });
             // If the detail drawer was showing the skill we just removed,
             // close it — the resource tree is now stale and any `read_resource`
             // RPC would fail with a clean "not installed" error.
@@ -839,6 +854,7 @@ export default function Skills() {
           }}
         />
       )}
+      <ToastContainer notifications={toasts} onRemove={removeToast} />
     </div>
   );
 }

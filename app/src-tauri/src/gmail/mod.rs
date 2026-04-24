@@ -104,10 +104,7 @@ pub async fn cdp_search(
     }
 }
 
-pub async fn cdp_get_message(
-    account_id: &str,
-    message_id: String,
-) -> Result<GmailMessage, String> {
+pub async fn cdp_get_message(account_id: &str, message_id: String) -> Result<GmailMessage, String> {
     #[cfg(feature = "cef")]
     {
         reads::get_message(account_id, message_id).await
@@ -193,10 +190,7 @@ pub async fn gmail_get_message(
 }
 
 #[tauri::command]
-pub async fn gmail_send(
-    account_id: String,
-    request: GmailSendRequest,
-) -> Result<SendAck, String> {
+pub async fn gmail_send(account_id: String, request: GmailSendRequest) -> Result<SendAck, String> {
     cdp_send(&account_id, request).await
 }
 

@@ -631,10 +631,7 @@ pub fn run() {
             tauri::async_runtime::block_on(async {
                 match webview_apis::start().await {
                     Ok(port) => {
-                        std::env::set_var(
-                            webview_apis::server::PORT_ENV,
-                            port.to_string(),
-                        );
+                        std::env::set_var(webview_apis::server::PORT_ENV, port.to_string());
                         log::info!("[webview_apis] bridge ready on port {port}");
                     }
                     Err(err) => {

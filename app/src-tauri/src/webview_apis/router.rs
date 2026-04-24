@@ -15,9 +15,9 @@ use crate::gmail;
 pub async fn dispatch(method: &str, params: Map<String, Value>) -> Result<Value, String> {
     log::debug!("[webview_apis] dispatch method={method}");
     match method {
-        "gmail.list_labels" => serialize(
-            gmail::cdp_list_labels(&read_string(&params, "account_id")?).await,
-        ),
+        "gmail.list_labels" => {
+            serialize(gmail::cdp_list_labels(&read_string(&params, "account_id")?).await)
+        }
         "gmail.list_messages" => serialize(
             gmail::cdp_list_messages(
                 &read_string(&params, "account_id")?,
@@ -89,10 +89,7 @@ fn read_string(params: &Map<String, Value>, key: &str) -> Result<String, String>
         .ok_or_else(|| format!("missing required string param '{key}'"))
 }
 
-fn read_optional_string(
-    params: &Map<String, Value>,
-    key: &str,
-) -> Result<Option<String>, String> {
+fn read_optional_string(params: &Map<String, Value>, key: &str) -> Result<Option<String>, String> {
     match params.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(s)) => Ok(Some(s.clone())),

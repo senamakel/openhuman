@@ -61,9 +61,8 @@ where
             REQUEST_TIMEOUT.as_secs()
         )
     })??;
-    let parsed: T = serde_json::from_value(raw).map_err(|e| {
-        format!("[webview_apis] {method}: response deserialize failed: {e}")
-    })?;
+    let parsed: T = serde_json::from_value(raw)
+        .map_err(|e| format!("[webview_apis] {method}: response deserialize failed: {e}"))?;
     tracing::debug!(
         %method,
         ms = started.elapsed().as_millis() as u64,
@@ -100,8 +99,7 @@ impl Client {
             method: &method,
             params: &params,
         };
-        let frame = serde_json::to_string(&envelope)
-            .map_err(|e| format!("encode request: {e}"))?;
+        let frame = serde_json::to_string(&envelope).map_err(|e| format!("encode request: {e}"))?;
 
         let sender = self.ensure_connected().await?;
         if let Err(e) = sender.send(frame).await {

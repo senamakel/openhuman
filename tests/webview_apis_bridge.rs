@@ -83,11 +83,7 @@ async fn ensure_mock_server() -> u16 {
                             "error": format!("mock bridge: unhandled method '{method}'"),
                         }),
                     };
-                    if sink
-                        .send(Message::Text(resp.to_string()))
-                        .await
-                        .is_err()
-                    {
+                    if sink.send(Message::Text(resp.to_string())).await.is_err() {
                         break;
                     }
                 }

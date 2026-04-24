@@ -61,10 +61,7 @@ pub async fn search(
     ))
 }
 
-pub async fn get_message(
-    account_id: &str,
-    _message_id: String,
-) -> Result<GmailMessage, String> {
+pub async fn get_message(account_id: &str, _message_id: String) -> Result<GmailMessage, String> {
     log::debug!("[gmail][{account_id}] get_message (not implemented)");
     Err(format!(
         "gmail[{account_id}]: get_message not implemented — follow-up work"
@@ -196,7 +193,10 @@ mod tests {
 
     #[test]
     fn parse_aria_label_peels_trailing_count() {
-        assert_eq!(parse_aria_label("Inbox 23 unread"), ("Inbox".into(), Some(23)));
+        assert_eq!(
+            parse_aria_label("Inbox 23 unread"),
+            ("Inbox".into(), Some(23))
+        );
         assert_eq!(parse_aria_label("Drafts 4"), ("Drafts".into(), Some(4)));
         assert_eq!(parse_aria_label("Starred"), ("Starred".into(), None));
         assert_eq!(

@@ -76,8 +76,7 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::cron::all_cron_registered_controllers());
     // Webview APIs bridge — proxies connector calls (Gmail, …) through
     // a WebSocket to the Tauri shell so curl reaches the live webview.
-    controllers
-        .extend(crate::openhuman::webview_apis::all_webview_apis_registered_controllers());
+    controllers.extend(crate::openhuman::webview_apis::all_webview_apis_registered_controllers());
     // Agent definition and prompt inspection
     controllers.extend(crate::openhuman::agent::all_agent_registered_controllers());
     // System and process health monitoring

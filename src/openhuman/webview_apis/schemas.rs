@@ -221,8 +221,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_gmail_list_labels(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         require_string(&params, "account_id")?;
-        let labels: Vec<GmailLabel> =
-            client::request("gmail.list_labels", params).await?;
+        let labels: Vec<GmailLabel> = client::request("gmail.list_labels", params).await?;
         finish(RpcOutcome::single_log(
             labels,
             "[webview_apis] gmail_list_labels ok",
@@ -234,8 +233,7 @@ fn handle_gmail_list_messages(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         require_string(&params, "account_id")?;
         require_number(&params, "limit")?;
-        let messages: Vec<GmailMessage> =
-            client::request("gmail.list_messages", params).await?;
+        let messages: Vec<GmailMessage> = client::request("gmail.list_messages", params).await?;
         finish(RpcOutcome::single_log(
             messages,
             "[webview_apis] gmail_list_messages ok",

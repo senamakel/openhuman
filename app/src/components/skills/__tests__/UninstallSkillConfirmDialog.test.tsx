@@ -138,13 +138,12 @@ describe('UninstallSkillConfirmDialog', () => {
 
   it('disables buttons while the RPC is in flight', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
-    let resolveIt: ((v: {
-      name: string;
-      removedPath: string;
-      scope: SkillSummary['scope'];
-    }) => void) | null = null;
+    type ResolvePayload = { name: string; removedPath: string; scope: SkillSummary['scope'] };
+    // Typed as a function (never null at call site) — populated synchronously
+    // by the Promise constructor before `mockReturnValueOnce` returns.
+    let resolveIt!: (v: ResolvePayload) => void;
     vi.mocked(skillsApi.uninstallSkill).mockReturnValueOnce(
-      new Promise(resolve => {
+      new Promise<ResolvePayload>(resolve => {
         resolveIt = resolve;
       })
     );
@@ -167,7 +166,7 @@ describe('UninstallSkillConfirmDialog', () => {
     });
 
     // Cleanup — resolve the promise so the component settles before unmount.
-    resolveIt?.({
+    resolveIt({
       name: 'weather-helper',
       removedPath: '/Users/me/.openhuman/skills/weather-helper',
       scope: 'user',

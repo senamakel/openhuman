@@ -131,7 +131,15 @@ pub fn detect_webview_logins() -> Value {
     // tells SQLite to skip the WAL and lock dance and read pages
     // directly. We don't care about concurrent writes from CEF — a
     // stale read is fine for a "has the user logged in" heuristic.
-    let uri = format!("file:{}?mode=ro&immutable=1&nolock=1", path.display());
+    //
+    // The path component of a SQLite file: URI must be percent-encoded
+    // per <https://sqlite.org/uri.html> — otherwise spaces (common in
+    // macOS `/Users/John Doe/...`), `?`, `#`, `%`, and Windows `\`
+    // separators would break parsing and the open silently fails.
+    let uri = format!(
+        "file:{}?mode=ro&immutable=1&nolock=1",
+        sqlite_uri_path(&path)
+    );
     let conn = match Connection::open_with_flags(
         &uri,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
@@ -213,6 +221,20 @@ fn provider_has_session_cookie(conn: &Connection, provider: &Provider) -> bool {
             false
         }
     }
+}
+
+/// Encode a filesystem path for use as the path component of a SQLite
+/// `file:` URI.
+///
+/// Per <https://sqlite.org/uri.html>: backslashes (Windows) become
+/// forward slashes, then the path is percent-encoded so that spaces,
+/// `?`, `#`, and literal `%` don't get reinterpreted as URI syntax.
+/// We use `urlencoding::encode` and then put `/` separators back —
+/// `urlencoding` is RFC-3986-strict and would otherwise escape every
+/// `/` in the path, which SQLite doesn't want.
+fn sqlite_uri_path(path: &std::path::Path) -> String {
+    let raw = path.to_string_lossy().replace('\\', "/");
+    urlencoding::encode(&raw).replace("%2F", "/")
 }
 
 fn escape_like(s: &str) -> String {
@@ -356,6 +378,38 @@ mod tests {
             assert_eq!(v[p.key], Value::Bool(false));
         }
         std::env::remove_var(COOKIES_DB_ENV);
+    }
+
+    /// macOS users often have a space in their username
+    /// (`/Users/John Doe/...`); without percent-encoding, the SQLite
+    /// `file:` URI fails to parse and we'd silently report all-false.
+    #[test]
+    fn detects_cookies_when_path_contains_spaces() {
+        let _lock = lock_env();
+        let tmp = TempDir::new().unwrap();
+        let dir_with_space = tmp.path().join("dir with space");
+        std::fs::create_dir_all(&dir_with_space).unwrap();
+        let db = dir_with_space.join("Cookies");
+        make_cookies_db(&db, &[(".google.com", "SID")]);
+        std::env::set_var(COOKIES_DB_ENV, &db);
+        let v = detect_webview_logins();
+        assert_eq!(v["gmail"], Value::Bool(true));
+        std::env::remove_var(COOKIES_DB_ENV);
+    }
+
+    #[test]
+    fn sqlite_uri_path_encodes_reserved_chars() {
+        use std::path::Path;
+        // Spaces and percents inside the path get encoded; slashes
+        // remain literal so SQLite can parse the path component.
+        assert_eq!(
+            sqlite_uri_path(Path::new("/Users/John Doe/Cookies")),
+            "/Users/John%20Doe/Cookies"
+        );
+        assert_eq!(
+            sqlite_uri_path(Path::new("/tmp/100%off/Cookies")),
+            "/tmp/100%25off/Cookies"
+        );
     }
 
     #[test]

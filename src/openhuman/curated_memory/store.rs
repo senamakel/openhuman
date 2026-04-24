@@ -56,7 +56,10 @@ impl MemoryStore {
         let current = tokio::fs::read_to_string(&self.file_path).await?;
         let next = current.replace(needle, replacement);
         if next.chars().count() > self.char_limit {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "char limit"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("char limit {} exceeded", self.char_limit),
+            ));
         }
         atomic_write(&self.file_path, &next).await
     }

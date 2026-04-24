@@ -992,7 +992,21 @@ function startMockServer(port = DEFAULT_PORT) {
       socket.on("close", () => openSockets.delete(socket));
     });
     server.on("upgrade", (req, socket) => handleWebSocketUpgrade(req, socket));
-    server.on("error", reject);
+    server.on("error", (err) => {
+      // EADDRINUSE means another test environment in this Vitest run already
+      // started the mock server on this port.  Treat it as "already running"
+      // so the setup step succeeds rather than failing the entire test suite.
+      if (err.code === "EADDRINUSE") {
+        console.log(
+          `[MockServer] Port ${port} already in use — treating as shared server`,
+        );
+        server = null;
+        resolve({ port, alreadyRunning: true });
+      } else {
+        server = null;
+        reject(err);
+      }
+    });
     server.listen(port, "127.0.0.1", () => {
       console.log(`[MockServer] Listening on http://127.0.0.1:${port}`);
       resolve({ port });

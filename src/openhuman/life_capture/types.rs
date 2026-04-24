@@ -80,7 +80,7 @@ mod tests {
             id: uuid::Uuid::nil(),
             source: Source::Gmail,
             external_id: "gmail-thread-123/msg-1".into(),
-            ts: chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
+            ts: chrono::DateTime::from_timestamp_secs(1_700_000_000).unwrap(),
             author: Some(Person {
                 display_name: Some("Sarah Lee".into()),
                 email: Some("sarah@example.com".into()),

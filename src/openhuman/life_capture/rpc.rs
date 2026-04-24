@@ -55,6 +55,8 @@ pub async fn handle_get_stats(idx: &PersonalIndex) -> Result<RpcOutcome<Value>, 
     })
     .await
     .map_err(|e| {
+        // This branch fires only when the blocking task itself panicked — not
+        // for ordinary DB errors returned as Err(String) from inside the task.
         warn!("[life_capture] handle_get_stats: task panicked: {e}");
         format!("get_stats task panicked: {e}")
     })??;
@@ -150,5 +152,8 @@ pub async fn handle_search(
         "[life_capture] handle_search: {} hits returned",
         payload.len()
     );
-    Ok(RpcOutcome::new(Value::Array(payload), vec![]))
+    Ok(RpcOutcome::new(
+        serde_json::json!({ "hits": payload }),
+        vec![],
+    ))
 }

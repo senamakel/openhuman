@@ -30,7 +30,7 @@ pub async fn init_index(idx: Arc<PersonalIndex>) -> Result<(), &'static str> {
 }
 
 /// Initialise the embedder handle. Optional — called only when an embeddings
-/// API key is available (e.g. `OPENAI_API_KEY` or `OPENHUMAN_EMBEDDINGS_KEY`).
+/// API key is available (e.g. `OPENHUMAN_EMBEDDINGS_KEY` or `OPENAI_API_KEY`).
 pub async fn init_embedder(embedder: Arc<dyn Embedder>) -> Result<(), &'static str> {
     EMBEDDER
         .set(embedder)
@@ -50,7 +50,7 @@ pub fn get_index() -> Result<Arc<PersonalIndex>, &'static str> {
 pub fn get_embedder() -> Result<Arc<dyn Embedder>, &'static str> {
     EMBEDDER.get().cloned().ok_or(
         "life_capture embedder not configured — \
-         set OPENAI_API_KEY or OPENHUMAN_EMBEDDINGS_KEY",
+         set OPENHUMAN_EMBEDDINGS_KEY or OPENAI_API_KEY",
     )
 }
 

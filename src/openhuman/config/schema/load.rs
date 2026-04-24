@@ -1986,7 +1986,18 @@ mod tests {
 
     #[test]
     fn apply_env_overrides_commits_side_effects_to_runtime_proxy() {
-        use crate::openhuman::config::schema::proxy::runtime_proxy_config;
+        use crate::openhuman::config::schema::proxy::{
+            runtime_proxy_config, set_runtime_proxy_config,
+        };
+
+        // Hold the shared env lock so no other `apply_env_overrides` test
+        // runs in parallel and clobbers the process-global proxy config
+        // between our call and our assertion.
+        let _g = ENV_LOCK.lock().unwrap();
+
+        // Save the current proxy config so we can restore it afterwards and
+        // not taint other tests in the suite.
+        let saved_proxy = runtime_proxy_config();
 
         // Build a config with a proxy URL via the injectable seam.
         let mut cfg = Config::default();
@@ -2002,12 +2013,18 @@ mod tests {
         // `set_runtime_proxy_config` must have been called: the global should
         // reflect the proxy URL we injected.
         let runtime = runtime_proxy_config();
+        let enabled = runtime.enabled;
+        let http_proxy = runtime.http_proxy.clone();
+
+        // Restore proxy global before asserting so cleanup always runs.
+        set_runtime_proxy_config(saved_proxy);
+
         assert!(
-            runtime.enabled,
+            enabled,
             "runtime proxy must be enabled after apply_env_overrides"
         );
         assert_eq!(
-            runtime.http_proxy.as_deref(),
+            http_proxy.as_deref(),
             Some("http://proxy.test:8080"),
             "runtime proxy URL must match the env-injected value"
         );

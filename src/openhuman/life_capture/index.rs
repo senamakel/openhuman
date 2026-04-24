@@ -637,6 +637,8 @@ impl IndexReader {
                         substr(i.text, 1, 200) AS snip \
                  FROM item_vectors v JOIN items i ON i.id = v.item_id \
                  WHERE v.embedding MATCH ?1 AND k = ?2 \
+                   /* k = ?2 is the sqlite-vec KNN budget (internal candidate set); \
+                      LIMIT ?2 is the SQL row cap — both intentionally match. */ \
                    AND EXISTS (SELECT 1 FROM json_each(i.access_control_list) WHERE value = 'user:local') \
                  ORDER BY v.distance ASC \
                  LIMIT ?2",

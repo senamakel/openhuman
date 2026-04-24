@@ -9,16 +9,28 @@ pub trait Embedder: Send + Sync {
     fn dim(&self) -> usize;
 }
 
+/// Returns the expected output dimension for a known embedding model.
+/// Defaults to 1536 for unrecognised model names.
+pub fn model_dim(model: &str) -> usize {
+    if model == "text-embedding-3-large" {
+        3072
+    } else {
+        1536
+    }
+}
+
 #[derive(Clone)]
 pub struct HostedEmbedder {
     base_url: String,
     api_key: String,
     model: String,
+    dim: usize,
     http: reqwest::Client,
 }
 
 impl HostedEmbedder {
     pub fn new(base_url: String, api_key: String, model: String) -> Self {
+        let dim = model_dim(&model);
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .connect_timeout(std::time::Duration::from_secs(10))
@@ -28,6 +40,7 @@ impl HostedEmbedder {
             base_url,
             api_key,
             model,
+            dim,
             http,
         }
     }
@@ -104,7 +117,7 @@ impl Embedder for HostedEmbedder {
     }
 
     fn dim(&self) -> usize {
-        1536
+        self.dim
     }
 }
 

@@ -696,12 +696,12 @@ pub fn run() {
             // the core treats every provider as logged_out.
             if let Ok(cache_dir) = app.path().app_cache_dir() {
                 let cookies_db = cache_dir.join("cef").join("Default").join("Cookies");
-                log::info!(
-                    "[webview_accounts] exposing cookies DB to core: {}",
-                    cookies_db.display()
-                );
+                log::debug!("[webview_accounts] exposing cookies DB path to core");
                 std::env::set_var("OPENHUMAN_CEF_COOKIES_DB", &cookies_db);
             } else {
+                // Clear any inherited value so the core can't pick up a
+                // stale path from a previous run or the parent shell.
+                std::env::remove_var("OPENHUMAN_CEF_COOKIES_DB");
                 log::warn!(
                     "[webview_accounts] could not resolve app_cache_dir — core \
                      will report all webview providers as logged_out"

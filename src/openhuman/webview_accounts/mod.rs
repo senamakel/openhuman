@@ -249,7 +249,22 @@ fn escape_like(s: &str) -> String {
 mod tests {
     use super::*;
     use rusqlite::params;
+    use std::sync::{Mutex, MutexGuard};
     use tempfile::TempDir;
+
+    /// Serialise tests that mutate `COOKIES_DB_ENV`. Rust runs tests in
+    /// parallel by default, and `std::env::set_var` is process-global —
+    /// without this lock two tests can race and observe each other's
+    /// env mutations. Using a plain `Mutex` rather than pulling in
+    /// `serial_test` keeps the dev-deps surface flat.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Acquire the env lock for the duration of a test. Recovers from a
+    /// poisoned mutex (a previous test panicked) so a single failure
+    /// doesn't cascade into "every other test panics on lock".
+    fn lock_env() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
 
     fn make_cookies_db(path: &std::path::Path, rows: &[(&str, &str)]) {
         let conn = Connection::open(path).unwrap();
@@ -274,6 +289,7 @@ mod tests {
     /// missing. The welcome snapshot depends on this invariant.
     #[test]
     fn missing_env_returns_all_false() {
+        let _lock = lock_env();
         std::env::remove_var(COOKIES_DB_ENV);
         let v = detect_webview_logins();
         let obj = v.as_object().expect("object");
@@ -284,6 +300,7 @@ mod tests {
 
     #[test]
     fn detects_gmail_via_sid_cookie() {
+        let _lock = lock_env();
         let tmp = TempDir::new().unwrap();
         let db = tmp.path().join("Cookies");
         make_cookies_db(&db, &[(".google.com", "SID")]);
@@ -296,6 +313,7 @@ mod tests {
 
     #[test]
     fn detects_slack_and_linkedin() {
+        let _lock = lock_env();
         let tmp = TempDir::new().unwrap();
         let db = tmp.path().join("Cookies");
         make_cookies_db(
@@ -314,6 +332,7 @@ mod tests {
     /// gmail login — only real session cookies count.
     #[test]
     fn ignores_non_session_cookies() {
+        let _lock = lock_env();
         let tmp = TempDir::new().unwrap();
         let db = tmp.path().join("Cookies");
         make_cookies_db(&db, &[(".google.com", "NID"), (".google.com", "CONSENT")]);
@@ -325,6 +344,7 @@ mod tests {
 
     #[test]
     fn empty_env_is_same_as_missing() {
+        let _lock = lock_env();
         std::env::set_var(COOKIES_DB_ENV, "");
         let v = detect_webview_logins();
         assert_eq!(v["gmail"], Value::Bool(false));
@@ -333,6 +353,7 @@ mod tests {
 
     #[test]
     fn nonexistent_path_returns_all_false() {
+        let _lock = lock_env();
         std::env::set_var(COOKIES_DB_ENV, "/tmp/does-not-exist/Cookies");
         let v = detect_webview_logins();
         assert_eq!(v["gmail"], Value::Bool(false));
@@ -341,6 +362,7 @@ mod tests {
 
     #[test]
     fn corrupt_db_returns_all_false() {
+        let _lock = lock_env();
         let tmp = TempDir::new().unwrap();
         let db = tmp.path().join("Cookies");
         std::fs::write(&db, b"not a sqlite file").unwrap();

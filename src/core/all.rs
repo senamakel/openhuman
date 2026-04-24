@@ -563,6 +563,7 @@ mod tests {
     fn namespace_description_known_namespaces() {
         assert!(namespace_description("memory").is_some());
         assert!(namespace_description("memory_tree").is_some());
+        assert!(namespace_description("redirect_links").is_some());
         assert!(namespace_description("billing").is_some());
         assert!(namespace_description("config").is_some());
         assert!(namespace_description("health").is_some());

@@ -16,15 +16,15 @@ pub fn short_url_for(id: &str) -> String {
 }
 
 /// Parse a short URL back into its id component. Accepts both
-/// `openhuman://link/<id>` and bare `<id>`.
+/// `openhuman://link/<id>` and bare `<id>` (hex only).
 pub fn id_from_short(short: &str) -> Option<String> {
     let trimmed = short.trim();
-    if let Some(rest) = trimmed.strip_prefix(SHORT_URL_PREFIX) {
-        if rest.chars().all(|c| c.is_ascii_hexdigit()) && !rest.is_empty() {
-            return Some(rest.to_string());
-        }
+    let candidate = trimmed.strip_prefix(SHORT_URL_PREFIX).unwrap_or(trimmed);
+    if !candidate.is_empty() && candidate.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(candidate.to_ascii_lowercase())
+    } else {
+        None
     }
-    None
 }
 
 fn content_id(url: &str, len: usize) -> String {
@@ -39,10 +39,6 @@ pub fn shorten(config: &Config, url: &str) -> Result<RedirectLink> {
     }
 
     with_connection(config, |conn| {
-        if let Some(existing) = find_by_url(conn, url)? {
-            return Ok(existing);
-        }
-
         let mut len = DEFAULT_ID_LEN;
         let now = Utc::now();
         loop {
@@ -50,29 +46,47 @@ pub fn shorten(config: &Config, url: &str) -> Result<RedirectLink> {
                 anyhow::bail!("failed to allocate unique redirect id after expansion");
             }
             let id = content_id(url, len);
+
+            // Atomic insert. If either `id` or `url` already exists, the
+            // statement becomes a no-op — no PRIMARY KEY / UNIQUE error under
+            // concurrent calls, so we don't need a pre-read.
+            let affected = conn
+                .execute(
+                    "INSERT INTO redirect_links
+                        (id, url, created_at, last_used_at, hit_count)
+                     VALUES (?1, ?2, ?3, NULL, 0)
+                     ON CONFLICT DO NOTHING",
+                    params![id, url, now.to_rfc3339()],
+                )
+                .context("failed to insert redirect_link")?;
+
+            if affected > 0 {
+                return Ok(RedirectLink {
+                    id: id.clone(),
+                    url: url.to_string(),
+                    short_url: short_url_for(&id),
+                    created_at: now,
+                    last_used_at: None,
+                    hit_count: 0,
+                });
+            }
+
+            // Insert was a no-op. Either the URL is already stored (possibly
+            // under a longer id from a concurrent writer — idempotent return)
+            // or this id prefix collides with a different URL.
+            if let Some(existing) = find_by_url(conn, url)? {
+                return Ok(existing);
+            }
             match get_by_id(conn, &id)? {
                 Some(existing) if existing.url == url => return Ok(existing),
                 Some(_) => {
-                    // Hash-prefix collision with a different URL — lengthen the id.
+                    // Hash-prefix collision with a different URL — lengthen.
                     len += 2;
                     continue;
                 }
                 None => {
-                    conn.execute(
-                        "INSERT INTO redirect_links
-                            (id, url, created_at, last_used_at, hit_count)
-                         VALUES (?1, ?2, ?3, NULL, 0)",
-                        params![id, url, now.to_rfc3339()],
-                    )
-                    .context("failed to insert redirect_link")?;
-                    return Ok(RedirectLink {
-                        id: id.clone(),
-                        url: url.to_string(),
-                        short_url: short_url_for(&id),
-                        created_at: now,
-                        last_used_at: None,
-                        hit_count: 0,
-                    });
+                    // Race with a concurrent delete; retry this same length.
+                    continue;
                 }
             }
         }
@@ -262,6 +276,39 @@ mod tests {
         assert!(id_from_short("https://example.com/").is_none());
         assert!(id_from_short("openhuman://link/").is_none());
         assert!(id_from_short("openhuman://link/not-hex!").is_none());
+    }
+
+    #[test]
+    fn id_from_short_accepts_bare_id_and_normalizes_case() {
+        // The docstring promises bare-id acceptance — lock it in.
+        assert_eq!(id_from_short("abc123").as_deref(), Some("abc123"));
+        assert_eq!(id_from_short("  ABC123  ").as_deref(), Some("abc123"));
+        assert!(id_from_short("").is_none());
+        assert!(id_from_short("not-hex").is_none());
+    }
+
+    #[test]
+    fn shorten_handles_concurrent_calls_without_primary_key_error() {
+        // Regression test: the previous check-then-insert path raced under
+        // concurrent calls and hit a PRIMARY KEY constraint error. The
+        // ON CONFLICT DO NOTHING path must return the same link for every
+        // concurrent caller with the same URL.
+        use std::sync::Arc;
+        use std::thread;
+
+        let tmp = TempDir::new().unwrap();
+        let cfg = Arc::new(test_config(&tmp));
+        let url = "https://example.com/concurrent?x=1".to_string();
+
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let cfg = Arc::clone(&cfg);
+            let url = url.clone();
+            handles.push(thread::spawn(move || shorten(&cfg, &url).unwrap()));
+        }
+        let ids: Vec<String> = handles.into_iter().map(|h| h.join().unwrap().id).collect();
+        // Every concurrent writer must agree on a single id for the URL.
+        assert!(ids.iter().all(|id| id == &ids[0]));
     }
 
     #[test]

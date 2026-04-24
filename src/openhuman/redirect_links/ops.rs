@@ -129,8 +129,10 @@ pub async fn rl_shorten(config: &Config, url: &str) -> Result<RpcOutcome<Redirec
     Ok(RpcOutcome::single_log(
         link.clone(),
         format!(
-            "redirect_link shortened: {} -> {}",
-            link.url, link.short_url
+            "[redirect_links][rpc][shorten] id={} short_url={} original_url_len={}",
+            link.id,
+            link.short_url,
+            link.url.len()
         ),
     ))
 }
@@ -139,9 +141,12 @@ pub async fn rl_expand(config: &Config, id: &str) -> Result<RpcOutcome<Value>, S
     match store::expand(config, id).map_err(|e| e.to_string())? {
         Some(link) => Ok(RpcOutcome::new(
             serde_json::to_value(&link).map_err(|e| e.to_string())?,
-            vec![format!("redirect_link expanded: {}", link.id)],
+            vec![format!(
+                "[redirect_links][rpc][expand] id={} hit_count={}",
+                link.id, link.hit_count
+            )],
         )),
-        None => Err(format!("redirect_link not found: {id}")),
+        None => Err(format!("[redirect_links][rpc][expand] not found: id={id}")),
     }
 }
 
@@ -150,7 +155,7 @@ pub async fn rl_list(config: &Config, limit: Option<usize>) -> Result<RpcOutcome
     let links = store::list(config, limit).map_err(|e| e.to_string())?;
     Ok(RpcOutcome::new(
         json!({ "links": links }),
-        vec![format!("redirect_links listed: {}", links.len())],
+        vec![format!("[redirect_links][rpc][list] count={}", links.len())],
     ))
 }
 
@@ -158,7 +163,9 @@ pub async fn rl_remove(config: &Config, id: &str) -> Result<RpcOutcome<Value>, S
     let removed = store::remove(config, id).map_err(|e| e.to_string())?;
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": removed }),
-        vec![format!("redirect_link remove {id} -> {removed}")],
+        vec![format!(
+            "[redirect_links][rpc][remove] id={id} removed={removed}"
+        )],
     ))
 }
 
@@ -173,7 +180,7 @@ pub async fn rl_rewrite_inbound(
     let count = result.replacements.len();
     Ok(RpcOutcome::single_log(
         result,
-        format!("redirect_links rewrite_inbound replaced {count} urls"),
+        format!("[redirect_links][rpc][rewrite_inbound] replaced={count}"),
     ))
 }
 
@@ -185,7 +192,7 @@ pub async fn rl_rewrite_outbound(
     let count = result.replacements.len();
     Ok(RpcOutcome::single_log(
         result,
-        format!("redirect_links rewrite_outbound expanded {count} placeholders"),
+        format!("[redirect_links][rpc][rewrite_outbound] expanded={count}"),
     ))
 }
 

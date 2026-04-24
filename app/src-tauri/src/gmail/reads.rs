@@ -55,9 +55,7 @@ pub async fn list_messages(
         Ok(b) => b,
         Err(e) => {
             session::detach(&mut cdp, &session_id).await;
-            return Err(format!(
-                "gmail[{account_id}]: atom-feed fetch failed: {e}"
-            ));
+            return Err(format!("gmail[{account_id}]: atom-feed fetch failed: {e}"));
         }
     };
     session::detach(&mut cdp, &session_id).await;
@@ -115,10 +113,7 @@ pub async fn search(
     ))
 }
 
-pub async fn get_message(
-    account_id: &str,
-    message_id: String,
-) -> Result<GmailMessage, String> {
+pub async fn get_message(account_id: &str, message_id: String) -> Result<GmailMessage, String> {
     log::debug!("[gmail][{account_id}] get_message id={message_id}");
     let url = print_view_url(&message_id);
     let (mut cdp, session_id) = session::attach(account_id).await?;
@@ -126,9 +121,7 @@ pub async fn get_message(
         Ok(b) => b,
         Err(e) => {
             session::detach(&mut cdp, &session_id).await;
-            return Err(format!(
-                "gmail[{account_id}]: print-view fetch failed: {e}"
-            ));
+            return Err(format!("gmail[{account_id}]: print-view fetch failed: {e}"));
         }
     };
     session::detach(&mut cdp, &session_id).await;

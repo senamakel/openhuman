@@ -87,10 +87,7 @@ pub fn parse(message_id: &str, html: &str) -> Option<GmailMessage> {
             }
         }
         // Once we've seen To:, the next non-meta line opens the body.
-        if body_start_idx.is_none()
-            && to_line_idx.is_some()
-            && !looks_like_meta(trimmed)
-        {
+        if body_start_idx.is_none() && to_line_idx.is_some() && !looks_like_meta(trimmed) {
             body_start_idx = Some(i);
             break;
         }
@@ -207,10 +204,8 @@ fn insert_block_breaks(html: &str) -> String {
     // those too to get one field per line after the strip.
     let mut s = html.to_string();
     for tag in [
-        "<br", "</p", "</div", "</tr", "</li", "</h1", "</h2", "</h3", "</h4",
-        "</td", "</span", "</b>",
-        "<p ", "<p>", "<div ", "<div>", "<tr ", "<tr>", "<li ", "<li>",
-        "<td ", "<td>",
+        "<br", "</p", "</div", "</tr", "</li", "</h1", "</h2", "</h3", "</h4", "</td", "</span",
+        "</b>", "<p ", "<p>", "<div ", "<div>", "<tr ", "<tr>", "<li ", "<li>", "<td ", "<td>",
     ] {
         let lower = s.to_ascii_lowercase();
         if !lower.contains(tag) {
@@ -309,7 +304,14 @@ fn derive_snippet(body: &str) -> String {
     // snippet length.
     let collapsed: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
     if collapsed.len() > 180 {
-        format!("{}…", &collapsed[..collapsed.char_indices().nth(180).map(|(i, _)| i).unwrap_or(180)])
+        format!(
+            "{}…",
+            &collapsed[..collapsed
+                .char_indices()
+                .nth(180)
+                .map(|(i, _)| i)
+                .unwrap_or(180)]
+        )
     } else {
         collapsed
     }
@@ -358,12 +360,10 @@ fn decode_entities(s: &str) -> String {
                 "quot" => Some('"'),
                 "apos" => Some('\''),
                 "nbsp" => Some(' '),
-                t if t.starts_with("#x") || t.starts_with("#X") => {
-                    u32::from_str_radix(&t[2..], 16).ok().and_then(char::from_u32)
-                }
-                t if t.starts_with('#') => {
-                    t[1..].parse::<u32>().ok().and_then(char::from_u32)
-                }
+                t if t.starts_with("#x") || t.starts_with("#X") => u32::from_str_radix(&t[2..], 16)
+                    .ok()
+                    .and_then(char::from_u32),
+                t if t.starts_with('#') => t[1..].parse::<u32>().ok().and_then(char::from_u32),
                 _ => None,
             };
             match replaced {

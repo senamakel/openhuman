@@ -30,15 +30,21 @@ pub fn parse(body: &str) -> Vec<GmailMessage> {
     let mut out = Vec::new();
     for entry_xml in iter_tag(body, "entry") {
         let title = find_tag(entry_xml, "title").as_deref().map(decode_entities);
-        let summary = find_tag(entry_xml, "summary").as_deref().map(decode_entities);
+        let summary = find_tag(entry_xml, "summary")
+            .as_deref()
+            .map(decode_entities);
         let modified = find_tag(entry_xml, "modified");
         let issued = find_tag(entry_xml, "issued");
         let id_raw = find_tag(entry_xml, "id").unwrap_or_default();
         let id = strip_id_prefix(&id_raw);
         let link_href = find_link_href(entry_xml);
         let author_xml = find_tag(entry_xml, "author").unwrap_or_default();
-        let from_name = find_tag(&author_xml, "name").as_deref().map(decode_entities);
-        let from_email = find_tag(&author_xml, "email").as_deref().map(decode_entities);
+        let from_name = find_tag(&author_xml, "name")
+            .as_deref()
+            .map(decode_entities);
+        let from_email = find_tag(&author_xml, "email")
+            .as_deref()
+            .map(decode_entities);
         let from: Option<String> = match (from_name.as_deref(), from_email.as_deref()) {
             (Some(n), Some(e)) => Some(format!("{n} <{e}>")),
             (None, Some(e)) => Some(e.to_string()),
@@ -158,12 +164,10 @@ fn decode_entities(s: &str) -> String {
                 "gt" => Some('>'),
                 "quot" => Some('"'),
                 "apos" => Some('\''),
-                t if t.starts_with("#x") || t.starts_with("#X") => {
-                    u32::from_str_radix(&t[2..], 16).ok().and_then(char::from_u32)
-                }
-                t if t.starts_with('#') => {
-                    t[1..].parse::<u32>().ok().and_then(char::from_u32)
-                }
+                t if t.starts_with("#x") || t.starts_with("#X") => u32::from_str_radix(&t[2..], 16)
+                    .ok()
+                    .and_then(char::from_u32),
+                t if t.starts_with('#') => t[1..].parse::<u32>().ok().and_then(char::from_u32),
                 _ => None,
             };
             match replaced {
@@ -261,10 +265,7 @@ mod tests {
             msgs[0].snippet.as_deref(),
             Some("Quick status update <EOM>")
         );
-        assert_eq!(
-            msgs[0].from.as_deref(),
-            Some("Alice <alice@example.com>")
-        );
+        assert_eq!(msgs[0].from.as_deref(), Some("Alice <alice@example.com>"));
         assert!(msgs[0].unread);
         assert_eq!(msgs[0].labels, vec!["INBOX".to_string()]);
         assert!(msgs[0].date_ms.is_some());

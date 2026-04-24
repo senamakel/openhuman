@@ -34,9 +34,7 @@ pub async fn fetch(cdp: &mut CdpConn, session: &str, url: &str) -> Result<String
     // `Network.loadNetworkResource` needs a frameId to charge the
     // request against — we use the main frame of the target.
     let frame_id = main_frame_id(cdp, session).await?;
-    log::debug!(
-        "[gmail-cdp-fetch] session={session} frame={frame_id} url={url}"
-    );
+    log::debug!("[gmail-cdp-fetch] session={session} frame={frame_id} url={url}");
 
     // Network must be enabled for loadNetworkResource to work on some
     // CDP builds. Enabling is idempotent — safe to call every fetch.
@@ -124,10 +122,7 @@ async fn read_stream(cdp: &mut CdpConn, session: &str, handle: &str) -> Result<S
             )
             .await
             .map_err(|e| format!("IO.read: {e}"))?;
-        let data = chunk
-            .get("data")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let data = chunk.get("data").and_then(|v| v.as_str()).unwrap_or("");
         let is_base64 = chunk
             .get("base64Encoded")
             .and_then(|v| v.as_bool())
@@ -136,8 +131,8 @@ async fn read_stream(cdp: &mut CdpConn, session: &str, handle: &str) -> Result<S
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(data)
                 .map_err(|e| format!("IO.read base64 decode: {e}"))?;
-            let text = String::from_utf8(bytes)
-                .map_err(|e| format!("IO.read body not utf-8: {e}"))?;
+            let text =
+                String::from_utf8(bytes).map_err(|e| format!("IO.read body not utf-8: {e}"))?;
             out.push_str(&text);
         } else {
             // CDP already returns `data` as a JSON string — tokio-tungstenite
@@ -146,10 +141,7 @@ async fn read_stream(cdp: &mut CdpConn, session: &str, handle: &str) -> Result<S
             // byte-by-byte re-encoding.
             out.push_str(data);
         }
-        let eof = chunk
-            .get("eof")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let eof = chunk.get("eof").and_then(|v| v.as_bool()).unwrap_or(false);
         if eof {
             break;
         }

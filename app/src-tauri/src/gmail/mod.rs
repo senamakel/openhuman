@@ -2,47 +2,46 @@
 //!
 //! This is the first "data-connect-style" connector for OpenHuman: a
 //! typed API surface that reads (and eventually writes) Gmail state out
-//! of the logged-in webview. Consumers call the Tauri commands in this
-//! module via `invoke('gmail_<fn>', { accountId, … })` — the commands
-//! are the standardized API contract.
+//! of the logged-in webview. Consumers are:
+//!
+//! * **Frontend** via `invoke('gmail_<fn>', …)` — the
+//!   `#[tauri::command]` wrappers in this module.
+//! * **Core sidecar** via the webview_apis WebSocket bridge — the
+//!   router in `crate::webview_apis::router` calls the `cdp_*` helpers
+//!   below. Core-side JSON-RPC handlers in
+//!   `src/openhuman/webview_apis/` proxy through that bridge so curl
+//!   against `openhuman.gmail_*` reaches the live webview session.
 //!
 //! ## Standardized connector shape
 //!
-//! * Every op is one `#[tauri::command] async fn gmail_<fn>(…)` whose
-//!   arguments and return type are the public contract.
-//! * All ops take an `account_id: String` to disambiguate multi-account
-//!   webview setups. The account must already be open via
-//!   `webview_account_open` — the CDP session is discovered by the
-//!   `#openhuman-account-<id>` fragment that `cdp::session` appends to
-//!   the real URL.
-//! * Reads use `DOMSnapshot.captureSnapshot` and/or `Network.*` event
-//!   interception.
-//! * Writes use `Input.dispatchKeyEvent` / `Input.dispatchMouseEvent`
-//!   against the live UI.
+//! * Every op has one typed `cdp_<fn>` helper (the public surface both
+//!   callers share), plus one thin `#[tauri::command] gmail_<fn>`
+//!   wrapper for the frontend path.
+//! * All ops take `account_id` to disambiguate multi-account webviews.
+//!   The account must already be open via `webview_account_open` — the
+//!   CDP session is discovered by the `#openhuman-account-<id>`
+//!   fragment that `cdp::session` appends to the real URL.
+//! * Reads use `DOMSnapshot.captureSnapshot` and/or `Network.*` events.
+//! * Writes use `Input.dispatchKeyEvent` / `Input.dispatchMouseEvent`.
 //! * Nothing here injects JavaScript into the page.
 //!
 //! ## Current op coverage
 //!
-//! | Op                  | Status        |
-//! | ------------------- | ------------- |
-//! | `gmail_list_labels` | **working**   |
-//! | `gmail_list_messages` | stub (Network-MITM follow-up) |
-//! | `gmail_search`      | stub          |
-//! | `gmail_get_message` | stub          |
-//! | `gmail_send`        | stub          |
-//! | `gmail_trash`       | stub          |
-//! | `gmail_add_label`   | stub          |
-//!
-//! Stubs return a structured `Err(String)` so the API surface is
-//! visible end-to-end — debuggers can see every op registered and
-//! immediately tell which are live.
+//! | Op           | Status        |
+//! | ------------ | ------------- |
+//! | `list_labels` | **working**  |
+//! | `list_messages` | stub       |
+//! | `search`     | stub          |
+//! | `get_message` | stub         |
+//! | `send`       | stub          |
+//! | `trash`      | stub          |
+//! | `add_label`  | stub          |
 //!
 //! ## CEF-only
 //!
 //! CDP requires a remote-debugging port, which wry doesn't expose.
-//! When built without `--features cef` the commands return a clear
-//! error instead of being absent, so frontend code doesn't have to
-//! branch on the backend.
+//! Without `--features cef` the helpers return a structured error so
+//! callers see a clear message instead of a missing symbol.
 
 pub mod types;
 
@@ -56,18 +55,15 @@ mod writes;
 use types::{Ack, GmailLabel, GmailMessage, GmailSendRequest, SendAck};
 
 #[cfg(not(feature = "cef"))]
-const NO_CEF: &str = "gmail API is unavailable without the cef feature (CDP requires remote debugging)";
+const NO_CEF: &str =
+    "gmail API is unavailable without the cef feature (CDP requires remote debugging)";
 
-// ── Tauri commands ──────────────────────────────────────────────────────
-//
-// Keep these wrappers thin: parse args, delegate, return. The real
-// work lives in `reads` / `writes`.
+// ── Shared helpers (called by both Tauri IPC and the webview_apis bridge) ──
 
-#[tauri::command]
-pub async fn gmail_list_labels(account_id: String) -> Result<Vec<GmailLabel>, String> {
+pub async fn cdp_list_labels(account_id: &str) -> Result<Vec<GmailLabel>, String> {
     #[cfg(feature = "cef")]
     {
-        reads::list_labels(&account_id).await
+        reads::list_labels(account_id).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -76,15 +72,14 @@ pub async fn gmail_list_labels(account_id: String) -> Result<Vec<GmailLabel>, St
     }
 }
 
-#[tauri::command]
-pub async fn gmail_list_messages(
-    account_id: String,
+pub async fn cdp_list_messages(
+    account_id: &str,
     limit: u32,
     label: Option<String>,
 ) -> Result<Vec<GmailMessage>, String> {
     #[cfg(feature = "cef")]
     {
-        reads::list_messages(&account_id, limit, label).await
+        reads::list_messages(account_id, limit, label).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -93,15 +88,14 @@ pub async fn gmail_list_messages(
     }
 }
 
-#[tauri::command]
-pub async fn gmail_search(
-    account_id: String,
+pub async fn cdp_search(
+    account_id: &str,
     query: String,
     limit: u32,
 ) -> Result<Vec<GmailMessage>, String> {
     #[cfg(feature = "cef")]
     {
-        reads::search(&account_id, query, limit).await
+        reads::search(account_id, query, limit).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -110,14 +104,13 @@ pub async fn gmail_search(
     }
 }
 
-#[tauri::command]
-pub async fn gmail_get_message(
-    account_id: String,
+pub async fn cdp_get_message(
+    account_id: &str,
     message_id: String,
 ) -> Result<GmailMessage, String> {
     #[cfg(feature = "cef")]
     {
-        reads::get_message(&account_id, message_id).await
+        reads::get_message(account_id, message_id).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -126,14 +119,10 @@ pub async fn gmail_get_message(
     }
 }
 
-#[tauri::command]
-pub async fn gmail_send(
-    account_id: String,
-    request: GmailSendRequest,
-) -> Result<SendAck, String> {
+pub async fn cdp_send(account_id: &str, request: GmailSendRequest) -> Result<SendAck, String> {
     #[cfg(feature = "cef")]
     {
-        writes::send(&account_id, request).await
+        writes::send(account_id, request).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -142,11 +131,10 @@ pub async fn gmail_send(
     }
 }
 
-#[tauri::command]
-pub async fn gmail_trash(account_id: String, message_id: String) -> Result<Ack, String> {
+pub async fn cdp_trash(account_id: &str, message_id: String) -> Result<Ack, String> {
     #[cfg(feature = "cef")]
     {
-        writes::trash(&account_id, message_id).await
+        writes::trash(account_id, message_id).await
     }
     #[cfg(not(feature = "cef"))]
     {
@@ -155,19 +143,73 @@ pub async fn gmail_trash(account_id: String, message_id: String) -> Result<Ack, 
     }
 }
 
-#[tauri::command]
-pub async fn gmail_add_label(
-    account_id: String,
+pub async fn cdp_add_label(
+    account_id: &str,
     message_id: String,
     label: String,
 ) -> Result<Ack, String> {
     #[cfg(feature = "cef")]
     {
-        writes::add_label(&account_id, message_id, label).await
+        writes::add_label(account_id, message_id, label).await
     }
     #[cfg(not(feature = "cef"))]
     {
         let _ = (account_id, message_id, label);
         Err(NO_CEF.into())
     }
+}
+
+// ── Tauri commands (frontend path) ──────────────────────────────────────
+
+#[tauri::command]
+pub async fn gmail_list_labels(account_id: String) -> Result<Vec<GmailLabel>, String> {
+    cdp_list_labels(&account_id).await
+}
+
+#[tauri::command]
+pub async fn gmail_list_messages(
+    account_id: String,
+    limit: u32,
+    label: Option<String>,
+) -> Result<Vec<GmailMessage>, String> {
+    cdp_list_messages(&account_id, limit, label).await
+}
+
+#[tauri::command]
+pub async fn gmail_search(
+    account_id: String,
+    query: String,
+    limit: u32,
+) -> Result<Vec<GmailMessage>, String> {
+    cdp_search(&account_id, query, limit).await
+}
+
+#[tauri::command]
+pub async fn gmail_get_message(
+    account_id: String,
+    message_id: String,
+) -> Result<GmailMessage, String> {
+    cdp_get_message(&account_id, message_id).await
+}
+
+#[tauri::command]
+pub async fn gmail_send(
+    account_id: String,
+    request: GmailSendRequest,
+) -> Result<SendAck, String> {
+    cdp_send(&account_id, request).await
+}
+
+#[tauri::command]
+pub async fn gmail_trash(account_id: String, message_id: String) -> Result<Ack, String> {
+    cdp_trash(&account_id, message_id).await
+}
+
+#[tauri::command]
+pub async fn gmail_add_label(
+    account_id: String,
+    message_id: String,
+    label: String,
+) -> Result<Ack, String> {
+    cdp_add_label(&account_id, message_id, label).await
 }

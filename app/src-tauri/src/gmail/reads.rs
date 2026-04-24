@@ -17,7 +17,7 @@
 
 use super::session;
 use super::types::{GmailLabel, GmailMessage};
-use crate::cdp::{CdpConn, Snapshot};
+use crate::cdp::Snapshot;
 
 pub async fn list_labels(account_id: &str) -> Result<Vec<GmailLabel>, String> {
     log::debug!("[gmail][{account_id}] list_labels");
@@ -127,46 +127,44 @@ fn scrape_labels(snap: &Snapshot) -> Vec<GmailLabel> {
 /// Gmail's aria-labels look like:
 ///   `"Inbox 23 unread"`, `"Inbox, 23 unread messages"`,
 ///   `"Starred"`, `"Drafts 4"`, `"Spam, 1"`.
-/// Peel the name off the front and any trailing "N unread"-ish suffix.
+/// Peel any trailing `N unread(messages)?` / `N` count off and return
+/// the plain label name plus the parsed unread count if present.
 fn parse_aria_label(aria: &str) -> (String, Option<u64>) {
-    // Try to find a trailing number that looks like an unread count.
-    let mut unread: Option<u64> = None;
-    let name = aria.trim();
-    let lower = name.to_ascii_lowercase();
+    let mut name = aria.trim().to_string();
 
-    // Heuristic: last whitespace-separated token that parses as u64.
-    if let Some(last) = name.rsplit_whitespace().next() {
-        if let Ok(n) = last.trim_end_matches(',').parse::<u64>() {
-            unread = Some(n);
+    // 1. Strip English descriptors in order from most-specific to least.
+    //    Keep going until no more of these match, which covers labels
+    //    like "Spam, 1 unread messages" that chain two suffixes.
+    loop {
+        let lower = name.to_ascii_lowercase();
+        let stripped_len = ["unread messages", "unread", "messages"]
+            .iter()
+            .find(|suf| lower.ends_with(*suf))
+            .map(|suf| name.len() - suf.len());
+        match stripped_len {
+            Some(n) => {
+                name.truncate(n);
+                name = name.trim_end_matches([' ', ',']).to_string();
+            }
+            None => break,
         }
     }
-    // Strip common suffixes so the name we surface is just "Inbox" etc.
-    let mut name = name.to_string();
-    for suf in [
-        " unread messages",
-        " unread",
-        " messages",
-        ",",
-    ] {
-        if name.to_ascii_lowercase().ends_with(suf) {
-            let cut = name.len() - suf.len();
-            name.truncate(cut);
-            name = name.trim_end_matches(',').trim().to_string();
-        }
-    }
-    // If we stripped a count, drop the trailing digits.
-    if unread.is_some() {
-        // Remove any trailing digits and separator characters.
-        while let Some(ch) = name.chars().last() {
-            if ch.is_ascii_digit() || ch == ',' || ch == ' ' {
-                name.pop();
-            } else {
-                break;
+
+    // 2. Now name is e.g. "Inbox 23" or "Spam, 1" or "Starred". Peel off
+    //    a trailing integer (with any comma/space separator) as the
+    //    unread count.
+    let mut unread: Option<u64> = None;
+    if let Some(last) = name.split(|c: char| c == ' ' || c == ',').next_back() {
+        if !last.is_empty() {
+            if let Ok(n) = last.parse::<u64>() {
+                unread = Some(n);
+                let cut = name.len() - last.len();
+                name.truncate(cut);
+                name = name.trim_end_matches([' ', ',']).to_string();
             }
         }
     }
 
-    let _ = lower; // silence unused when debug build strips logs
     (name.trim().to_string(), unread)
 }
 

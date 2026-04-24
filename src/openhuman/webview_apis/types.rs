@@ -1,8 +1,9 @@
-//! Data shapes returned by the Gmail API commands.
+//! Core-side mirror of the Gmail shapes returned by the bridge.
 //!
-//! Keep these stable across ops — the UI / agent consumers rely on the
-//! shape, not the op that produced it. Owned `String` fields + `Vec<_>`
-//! throughout so they serialize cleanly over the Tauri IPC bridge.
+//! These must stay wire-compatible with
+//! `app/src-tauri/src/gmail/types.rs`. Kept as plain types here —
+//! there's no domain logic attached yet, and the controller schemas
+//! describe them via `TypeSchema::Object { … }` / `TypeSchema::Ref(…)`.
 
 use serde::{Deserialize, Serialize};
 
@@ -10,9 +11,7 @@ use serde::{Deserialize, Serialize};
 pub struct GmailLabel {
     pub id: String,
     pub name: String,
-    /// `"system"` (INBOX, SENT, TRASH, STARRED, …) or `"user"`.
     pub kind: String,
-    /// Unread count if surfaced in the sidebar, else `None`.
     pub unread: Option<u64>,
 }
 
@@ -21,24 +20,17 @@ pub struct GmailMessage {
     pub id: String,
     pub thread_id: Option<String>,
     pub from: Option<String>,
+    #[serde(default)]
     pub to: Vec<String>,
+    #[serde(default)]
     pub cc: Vec<String>,
     pub subject: Option<String>,
     pub snippet: Option<String>,
-    /// Plain-text body if available. HTML bodies are not decoded here.
     pub body: Option<String>,
-    /// Unix millis of the message's internal date, when surfaced.
     pub date_ms: Option<i64>,
+    #[serde(default)]
     pub labels: Vec<String>,
     pub unread: bool,
-}
-
-#[allow(dead_code)] // returned by get_thread once wired; shape is stable.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct GmailThread {
-    pub id: String,
-    pub subject: Option<String>,
-    pub messages: Vec<GmailMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]

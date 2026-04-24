@@ -52,7 +52,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "process", "sync", "time
 # WebSocket client for the Chrome DevTools Protocol (used to talk to the
 # embedded CEF instance over `--remote-debugging-port=9222` and read
 # IndexedDB / drive `Runtime.evaluate` for the WhatsApp recipe).
-tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

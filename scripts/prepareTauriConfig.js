@@ -1,44 +1,28 @@
+// Tauri config overrides applied at CI build time on top of the static
+// `app/src-tauri/tauri.conf.json`. Anything returned here is merged via
+// `tauri build --config <json>` and wins over the static file.
+//
+// The updater config (endpoint + minisign pubkey + createUpdaterArtifacts)
+// USED to live here, sourced from `UPDATER_PUBLIC_KEY` / `UPDATER_ENDPOINT`
+// env vars. That indirection caused a real outage class: if
+// `UPDATER_PUBLIC_KEY` (build-time override) drifted out of sync with the
+// `TAURI_SIGNING_PRIVATE_KEY` secret used to sign artifacts, every signed
+// installer was rejected by its own embedded pubkey at install time. The
+// static `tauri.conf.json` is now authoritative — change keys/endpoints by
+// editing that file and committing, not by rotating GH secrets.
+//
+// What's left here is genuinely build-target-specific and can't reasonably
+// live in static config: the Windows DigiCert SmartCard sign command, which
+// has to interpolate `KEYPAIR_ALIAS` from the runner's secret store.
 export default function prepareTauriConfig() {
-  // Production frontend always ships from dist; BASE_URL is for updater URLs.
-  const frontendDist = '../dist';
-
-  const config = {
-    build: { frontendDist, devUrl: null },
-    bundle: { windows: {} },
-    identifier: 'com.openhuman.app',
-  };
-
-  if (process.env.WITH_UPDATER === 'true') {
-    const repoSlug = process.env.UPDATER_REPO || 'tinyhumansai/openhuman';
-    const baseUrl =
-      process.env.BASE_URL ||
-      `https://github.com/${repoSlug}/releases/latest/download`;
-    const normalizedBaseUrl = String(baseUrl).replace(/\/+$/, '');
-    const updaterEndpoint =
-      process.env.UPDATER_ENDPOINT ||
-      process.env.UPDATER_GIST_URL ||
-      `${normalizedBaseUrl}/latest.json`;
-    const updaterPublicKey = process.env.UPDATER_PUBLIC_KEY;
-
-    if (!updaterPublicKey) {
-      throw new Error(
-        'WITH_UPDATER=true requires UPDATER_PUBLIC_KEY to be set',
-      );
-    }
-
-    config.plugins = {
-      updater: {
-        dialog: false,
-        endpoints: [updaterEndpoint],
-        pubkey: updaterPublicKey,
-      },
-    };
-
-    config.bundle.createUpdaterArtifacts = true;
-  }
+  const config = {};
 
   if (process.env.KEYPAIR_ALIAS) {
-    config.bundle.windows.signCommand = `smctl.exe sign --keypair-alias=${process.env.KEYPAIR_ALIAS} --input %1`;
+    config.bundle = {
+      windows: {
+        signCommand: `smctl.exe sign --keypair-alias=${process.env.KEYPAIR_ALIAS} --input %1`,
+      },
+    };
   }
 
   return config;

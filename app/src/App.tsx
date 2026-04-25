@@ -5,12 +5,12 @@ import { HashRouter as Router, useLocation, useNavigate } from 'react-router-dom
 import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
+import AppUpdatePrompt from './components/AppUpdatePrompt';
 import BottomTabBar from './components/BottomTabBar';
 import CommandProvider from './components/commands/CommandProvider';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
-import AppUpdatePrompt from './components/AppUpdatePrompt';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
 import MeshGradient from './components/MeshGradient';
 import OnboardingOverlay from './components/OnboardingOverlay';

@@ -1,21 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { useEffect, useRef, useState } from 'react';
 
 import {
-  type AppUpdateInfo,
   applyAppUpdate,
+  type AppUpdateInfo,
   checkAppUpdate,
   isTauri,
 } from '../utils/tauriCommands';
 
-type Phase =
-  | 'idle'
-  | 'prompt'
-  | 'checking'
-  | 'downloading'
-  | 'installing'
-  | 'restarting'
-  | 'error';
+type Phase = 'idle' | 'prompt' | 'checking' | 'downloading' | 'installing' | 'restarting' | 'error';
 
 const formatBytes = (n: number): string => {
   if (n < 1024) return `${n} B`;
@@ -75,12 +68,7 @@ export default function AppUpdatePrompt() {
     void (async () => {
       const statusUnlisten = await listen<string>('app-update:status', e => {
         const v = e.payload;
-        if (
-          v === 'checking' ||
-          v === 'downloading' ||
-          v === 'installing' ||
-          v === 'restarting'
-        ) {
+        if (v === 'checking' || v === 'downloading' || v === 'installing' || v === 'restarting') {
           setPhase(v);
         } else if (v === 'error') {
           setPhase('error');
@@ -138,10 +126,7 @@ export default function AppUpdatePrompt() {
       <div className="fixed bottom-4 right-4 z-[9999] w-[320px] animate-fade-up">
         <div className="bg-stone-900 border border-stone-700/50 rounded-2xl shadow-large overflow-hidden">
           <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-            <svg
-              className="w-4 h-4 text-primary-400"
-              viewBox="0 0 16 16"
-              fill="currentColor">
+            <svg className="w-4 h-4 text-primary-400" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 4zm0 7.5a1 1 0 100-2 1 1 0 000 2z" />
             </svg>
             <span className="text-sm font-medium text-white">Update available</span>

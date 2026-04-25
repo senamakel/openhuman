@@ -162,6 +162,30 @@ pub async fn cdp_add_label(
     }
 }
 
+/// Find the user's own LinkedIn profile URL by searching Gmail for any
+/// `from:linkedin.com` mail and regex-matching the body for
+/// `comm/in/<username>` (LinkedIn notification footer) or `/in/<username>`.
+///
+/// Search is driven through the live Gmail UI via `Input.dispatchKeyEvent`
+/// — no JS injection. Bodies are fetched via the print-view URL pattern
+/// (cookie-authenticated GET through the attached CDP session). Returns
+/// `None` when the search returns no rows or no row contains a parsable
+/// profile URL.
+///
+/// Used by the onboarding LinkedIn-enrichment pipeline as a stand-in
+/// for the Composio Gmail OAuth path that no longer ships.
+pub async fn cdp_find_linkedin_profile_url(account_id: &str) -> Result<Option<String>, String> {
+    #[cfg(feature = "cef")]
+    {
+        reads::find_linkedin_profile_url(account_id).await
+    }
+    #[cfg(not(feature = "cef"))]
+    {
+        let _ = account_id;
+        Err(NO_CEF.into())
+    }
+}
+
 // ── Tauri commands (frontend path) ──────────────────────────────────────
 
 // Entry-point logging at the Tauri command layer distinguishes
@@ -237,4 +261,14 @@ pub async fn gmail_add_label(
         "[gmail][tauri] gmail_add_label account_id={account_id} message_id={message_id} label={label}"
     );
     cdp_add_label(&account_id, message_id, label).await
+}
+
+/// Debug command — surfaces [`cdp_find_linkedin_profile_url`] to the
+/// frontend so the LinkedIn-enrichment Tauri pipeline can be exercised
+/// from the dev console (`invoke('gmail_find_linkedin_profile_url',
+/// { accountId })`) ahead of the full bridge / core wiring.
+#[tauri::command]
+pub async fn gmail_find_linkedin_profile_url(account_id: String) -> Result<Option<String>, String> {
+    log::info!("[gmail][tauri] gmail_find_linkedin_profile_url account_id={account_id}");
+    cdp_find_linkedin_profile_url(&account_id).await
 }

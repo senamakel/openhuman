@@ -3,6 +3,9 @@ import { Outlet, useNavigate } from 'react-router-dom';
 
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { userApi } from '../../services/api/userApi';
+import { purgeWebviewAccount } from '../../services/webviewAccountService';
+import { removeAccount } from '../../store/accountsSlice';
+import { useAppDispatch } from '../../store/hooks';
 import { getDefaultEnabledTools } from '../../utils/toolDefinitions';
 import BetaBanner from './components/BetaBanner';
 import { OnboardingContext, type OnboardingDraft } from './OnboardingContext';
@@ -14,6 +17,7 @@ import { OnboardingContext, type OnboardingDraft } from './OnboardingContext';
  */
 const OnboardingLayout = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { setOnboardingCompletedFlag, setOnboardingTasks, snapshot } = useCoreState();
   const [draft, setDraftState] = useState<OnboardingDraft>({ connectedSources: [] });
 
@@ -25,7 +29,21 @@ const OnboardingLayout = () => {
   const completeAndExit = useCallback(async () => {
     console.debug('[onboarding:layout] completeAndExit', {
       connectedSources: draft.connectedSources,
+      gmailAccountId: draft.gmailAccountId,
     });
+
+    // Tear down the kept-alive gmail webview, if any. SkillsStep opted
+    // into `keepAliveOnConnected` so ContextGatheringStep could drive
+    // its CDP session — we own the cleanup at the end of the flow.
+    if (draft.gmailAccountId) {
+      try {
+        await purgeWebviewAccount(draft.gmailAccountId);
+      } catch (e) {
+        console.warn('[onboarding:layout] failed to purge gmail webview', e);
+      }
+      dispatch(removeAccount({ accountId: draft.gmailAccountId }));
+    }
+
     await setOnboardingTasks({
       accessibilityPermissionGranted:
         snapshot.localState.onboardingTasks?.accessibilityPermissionGranted ?? false,
@@ -50,7 +68,15 @@ const OnboardingLayout = () => {
     }
 
     navigate('/home', { replace: true });
-  }, [draft.connectedSources, navigate, setOnboardingCompletedFlag, setOnboardingTasks, snapshot]);
+  }, [
+    draft.connectedSources,
+    draft.gmailAccountId,
+    dispatch,
+    navigate,
+    setOnboardingCompletedFlag,
+    setOnboardingTasks,
+    snapshot,
+  ]);
 
   const value = useMemo(
     () => ({ draft, setDraft, completeAndExit }),

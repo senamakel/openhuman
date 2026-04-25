@@ -942,6 +942,14 @@ pub fn run() {
             // Linux with "GTK has not been initialized".
             log::info!("[tray] deferring tray setup to RunEvent::Ready");
 
+            // CEF cold-start warmup was here — disabled while we triage a
+            // blank-webview report on first onboarding open. Restore once
+            // we can repro that the warmup child doesn't interfere with
+            // subsequent child-webview spawns on the main window. The
+            // build/test code we removed:
+            //   - 500ms post-setup timer
+            //   - parent.add_child("cef-warmup", about:blank, (-10000,-10000), 1x1)
+
             // Dev convenience: if OPENHUMAN_DEV_AUTO_WHATSAPP=<account-id>
             // is set, spawn that account's webview at startup so the
             // CDP/IndexedDB scanner can iterate without manual UI clicks.
@@ -1249,6 +1257,7 @@ pub fn run() {
             gmail::gmail_send,
             gmail::gmail_trash,
             gmail::gmail_add_label,
+            gmail::gmail_find_linkedin_profile_url,
             activate_main_window,
             show_native_notification
         ])

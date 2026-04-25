@@ -1,11 +1,23 @@
 import { useState } from 'react';
 
 import { ProviderIcon } from '../../../components/accounts/providerIcons';
-import WebviewLoginModal from '../components/WebviewLoginModal';
 import OnboardingNextButton from '../components/OnboardingNextButton';
+import WebviewLoginModal from '../components/WebviewLoginModal';
+
+export interface SkillsConnections {
+  /** Wire-format source ids (e.g. `webview:gmail`, `composio:notion`). */
+  sources: string[];
+  /**
+   * Account id of the embedded gmail webview the user just signed into,
+   * if any. Forwarded so downstream onboarding steps can drive that
+   * webview's CDP session (e.g. running the LinkedIn-enrichment Gmail
+   * scanner) without reopening the modal.
+   */
+  gmailAccountId?: string;
+}
 
 interface SkillsStepProps {
-  onNext: (connectedSources: string[]) => void | Promise<void>;
+  onNext: (connections: SkillsConnections) => void | Promise<void>;
   onBack?: () => void;
 }
 
@@ -17,13 +29,15 @@ interface SkillsStepProps {
  */
 const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
   const [loginOpen, setLoginOpen] = useState(false);
-  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailAccountId, setGmailAccountId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleConnected = () => {
-    console.debug('[onboarding:skills] gmail connected via webview');
-    setGmailConnected(true);
+  const gmailConnected = gmailAccountId != null;
+
+  const handleConnected = (accountId: string) => {
+    console.debug('[onboarding:skills] gmail connected via webview', { accountId });
+    setGmailAccountId(accountId);
     setLoginOpen(false);
   };
 
@@ -31,8 +45,8 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
     setError(null);
     setSubmitting(true);
     try {
-      const sources = gmailConnected ? ['webview:gmail'] : [];
-      await onNext(sources);
+      const sources = gmailAccountId != null ? ['webview:gmail'] : [];
+      await onNext({ sources, gmailAccountId: gmailAccountId ?? undefined });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
@@ -43,11 +57,10 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-soft animate-fade-up">
       <div className="text-center mb-4">
-        <h1 className="text-xl font-bold mb-2 text-stone-900">Connect your tools</h1>
+        <h1 className="text-xl font-bold mb-2 text-stone-900">Connect Your Socials</h1>
         <p className="text-stone-600 text-sm">
-          Sign in to the apps you already use so OpenHuman can build context for your agent.
-          You'll log in inside an embedded browser — your password never touches OpenHuman's
-          servers.
+          Sign in to the social apps you already use so OpenHuman can build context for your agent.
+          Your credentials stay saved securely within your device.
         </p>
       </div>
 
@@ -108,6 +121,10 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
           label="Gmail"
           onClose={() => setLoginOpen(false)}
           onConnected={handleConnected}
+          // Keep the gmail webview alive after sign-in so the next step
+          // (ContextGatheringStep / LinkedIn enrichment) can drive its
+          // CDP session without reopening the modal.
+          keepAliveOnConnected
         />
       )}
     </div>

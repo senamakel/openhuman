@@ -880,10 +880,10 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
             : 'flex-1 flex flex-col min-w-0 max-w-2xl bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden'
         }>
         {/* Chat header — only shown in page mode; the sidebar embed uses the
-            parent page's chrome instead. During welcome lockdown (#883)
-            the sidebar toggle and "+ New" are hidden because the user has
-            no sidebar to toggle and cannot spawn new threads. */}
-        {!isSidebar && (
+            parent page's chrome instead. Hidden entirely during welcome
+            lockdown (#883) so the onboarding chat is just the conversation
+            with no chrome around it. */}
+        {!isSidebar && !welcomeLocked && (
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-stone-100">
             {!welcomeLocked && (
               <button
@@ -1287,7 +1287,12 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 mb-2">
+          {/* Quota / usage pills — hidden during welcome lockdown so the
+              onboarding chat doesn't surface billing affordances. */}
+          <div
+            className={`flex items-center justify-end gap-2 mb-2 ${
+              welcomeLocked ? 'hidden' : ''
+            }`}>
             {(isLoadingBudget || teamUsage) && (
               <div className="relative group">
                 {teamUsage ? (

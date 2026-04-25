@@ -5,12 +5,15 @@ import ContextGatheringStep from '../steps/ContextGatheringStep';
 
 const ContextPage = () => {
   const navigate = useNavigate();
-  const { draft } = useOnboardingContext();
+  const { draft, completeAndExit } = useOnboardingContext();
 
   return (
     <ContextGatheringStep
       connectedSources={draft.connectedSources}
-      onNext={() => navigate('/onboarding/chat-provider')}
+      gmailAccountId={draft.gmailAccountId}
+      // Chat-provider step is disabled for now, so context-gathering is
+      // the final step when it runs — finish onboarding directly.
+      onNext={() => completeAndExit()}
       onBack={() => navigate('/onboarding/skills')}
     />
   );

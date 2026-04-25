@@ -7,6 +7,7 @@
  * progress animation while the pipeline runs and displays the log when
  * it finishes.
  */
+import { invoke } from '@tauri-apps/api/core';
 import { useRef, useState } from 'react';
 
 import Button from '../../../components/ui/Button';
@@ -16,6 +17,12 @@ import OnboardingNextButton from '../components/OnboardingNextButton';
 
 interface ContextGatheringStepProps {
   connectedSources: string[];
+  /**
+   * Account id of the gmail webview the user signed into in SkillsStep.
+   * Required for the webview-driven Gmail search path; absent means the
+   * pipeline can't run stage 1 and will skip enrichment.
+   */
+  gmailAccountId?: string;
   onNext: () => void | Promise<void>;
   onBack?: () => void;
 }
@@ -80,6 +87,7 @@ type StageStatus = 'pending' | 'active' | 'done' | 'skipped' | 'error';
 
 const ContextGatheringStep = ({
   connectedSources,
+  gmailAccountId,
   onNext,
   onBack: _onBack,
 }: ContextGatheringStepProps) => {
@@ -94,7 +102,9 @@ const ContextGatheringStep = ({
   const [error, setError] = useState<string | null>(null);
   const ranRef = useRef(false);
 
-  const hasGmail = connectedSources.some(s => s.includes('gmail'));
+  // Either path counts as "has gmail": a webview-driven session we can
+  // drive via CDP, or a Composio source the core can read via API.
+  const hasGmail = !!gmailAccountId || connectedSources.some(s => s.includes('gmail'));
 
   const handleStart = () => {
     if (ranRef.current) return;
@@ -114,47 +124,103 @@ const ContextGatheringStep = ({
   };
 
   async function runPipeline() {
-    console.debug('[onboarding:context] runPipeline started');
-    // Mark all stages as active (pipeline runs as one call).
+    console.debug('[onboarding:context] runPipeline started', { gmailAccountId });
     setStageStatuses(prev => ({ ...prev, 'gmail-search': 'active' }));
 
+    // Stage 1 (webview path): drive the live Gmail UI to search for
+    // `from:linkedin.com` and regex-extract the user's profile URL out
+    // of the matched bodies. Pure CDP — no JS injection, no Composio.
+    let profileUrl: string | null = null;
+    if (gmailAccountId) {
+      try {
+        profileUrl = (await invoke<string | null>('gmail_find_linkedin_profile_url', {
+          accountId: gmailAccountId,
+        })) ?? null;
+        console.debug('[onboarding:context] webview gmail search result', { profileUrl });
+        setStageStatuses(prev => ({
+          ...prev,
+          'gmail-search': profileUrl ? 'done' : 'skipped',
+        }));
+        setStageDetails(prev => ({
+          ...prev,
+          'gmail-search': profileUrl ?? 'No LinkedIn email found in mailbox',
+        }));
+      } catch (e) {
+        console.warn('[onboarding:context] webview gmail search failed', e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        setStageStatuses(prev => ({ ...prev, 'gmail-search': 'error' }));
+        setStageDetails(prev => ({ ...prev, 'gmail-search': errMsg }));
+      }
+    } else {
+      console.debug('[onboarding:context] no gmailAccountId — skipping stage 1');
+      setStageStatuses(prev => ({ ...prev, 'gmail-search': 'skipped' }));
+      setStageDetails(prev => ({ ...prev, 'gmail-search': 'Gmail not connected' }));
+    }
+
+    // Stages 2 + 3 (core pipeline): hand the URL we found to the core
+    // RPC, which scrapes via Apify and writes PROFILE.md. The core
+    // method now accepts an optional preset profile_url so we can skip
+    // its built-in Composio-driven search.
+    if (!profileUrl) {
+      // No URL → mark downstream stages skipped and finish.
+      setStageStatuses(prev => ({
+        ...prev,
+        'apify-scrape': 'skipped',
+        'build-profile': 'skipped',
+      }));
+      setFinished(true);
+      return;
+    }
+
+    setStageStatuses(prev => ({ ...prev, 'apify-scrape': 'active' }));
     try {
-      console.debug('[onboarding:context] calling learning_linkedin_enrichment');
-      const raw = await callCoreRpc<unknown>({ method: 'openhuman.learning_linkedin_enrichment' });
+      console.debug('[onboarding:context] calling learning_linkedin_enrichment with preset URL');
+      const raw = await callCoreRpc<unknown>({
+        method: 'openhuman.learning_linkedin_enrichment',
+        params: { profile_url: profileUrl },
+      });
       const result = unwrapCliEnvelope<EnrichmentResult>(raw);
       console.debug('[onboarding:context] enrichment result', {
         profileUrl: result.profile_url,
         logLines: result.log.length,
         hasProfileData: result.profile_data !== null,
       });
-      applyLogToStages(result.log, result.profile_url);
+      // Apply just the apify-scrape + build-profile stages; we already
+      // settled gmail-search above.
+      applyLogToStages(result.log, result.profile_url, ['apify-scrape', 'build-profile']);
     } catch (e) {
-      console.debug('[onboarding:context] pipeline error', e);
-      // Pipeline failed entirely — mark all pending stages as error.
+      console.debug('[onboarding:context] enrichment error', e);
       const errMsg = e instanceof Error ? e.message : 'Pipeline failed';
       setStageStatuses(prev => {
         const next = { ...prev };
         for (const s of STAGES) {
+          if (s.id === 'gmail-search') continue;
           if (next[s.id] === 'pending' || next[s.id] === 'active') {
             next[s.id] = 'error';
           }
         }
         return next;
       });
-      setStageDetails(prev => ({ ...prev, 'gmail-search': errMsg }));
+      setStageDetails(prev => ({ ...prev, 'apify-scrape': errMsg }));
     }
 
     setFinished(true);
   }
 
-  function applyLogToStages(log: string[], profileUrl: string | null) {
-    const nextStatuses: Record<string, StageStatus> = {};
-    const nextDetails: Record<string, string> = {};
+  function applyLogToStages(
+    log: string[],
+    profileUrl: string | null,
+    onlyStages?: readonly string[]
+  ) {
+    const allowedStages = onlyStages ? new Set(onlyStages) : null;
+    const nextStatusPatch: Record<string, StageStatus> = {};
+    const nextDetailPatch: Record<string, string> = {};
 
     for (const stage of STAGES) {
+      if (allowedStages && !allowedStages.has(stage.id)) continue;
+
       let status: StageStatus = 'skipped';
       let detail = '';
-
       for (const line of log) {
         if (stage.skipSignal && line.includes(stage.skipSignal)) {
           status = 'skipped';
@@ -172,18 +238,18 @@ const ContextGatheringStep = ({
           break;
         }
       }
-
-      nextStatuses[stage.id] = status;
-      if (detail) nextDetails[stage.id] = detail;
+      nextStatusPatch[stage.id] = status;
+      if (detail) nextDetailPatch[stage.id] = detail;
     }
 
-    // If we found a profile URL, show it on the search stage.
-    if (profileUrl && !nextDetails['gmail-search']) {
-      nextDetails['gmail-search'] = profileUrl;
+    // If we found a profile URL and the gmail-search stage is being
+    // updated this pass, surface the URL as its detail.
+    if (profileUrl && nextStatusPatch['gmail-search'] && !nextDetailPatch['gmail-search']) {
+      nextDetailPatch['gmail-search'] = profileUrl;
     }
 
-    setStageStatuses(nextStatuses);
-    setStageDetails(nextDetails);
+    setStageStatuses(prev => ({ ...prev, ...nextStatusPatch }));
+    setStageDetails(prev => ({ ...prev, ...nextDetailPatch }));
   }
 
   // ── Derived progress ──────────────────────────────────────────────
@@ -211,10 +277,9 @@ const ContextGatheringStep = ({
         className="rounded-2xl border border-stone-200 bg-white p-8 shadow-soft animate-fade-up"
         data-testid="context-gathering-intro">
         <div className="text-center mb-5">
-          <h1 className="text-xl font-bold mb-2 text-stone-900">Getting to know you</h1>
+          <h1 className="text-xl font-bold mb-2 text-stone-900">Getting To Know You</h1>
           <p className="text-stone-500 text-sm leading-relaxed max-w-sm mx-auto">
-            I can read what you've already connected and build a short profile so the first
-            conversation isn't cold. You're in charge — skip this and nothing is read.
+            I'm going to build a short profile about you so the first conversation isn't cold.
           </p>
         </div>
         <div className="rounded-xl border border-stone-100 bg-stone-50 p-4 mb-5 text-sm text-stone-600 leading-relaxed">

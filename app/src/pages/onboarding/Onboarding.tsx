@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import OnboardingLayout from './OnboardingLayout';
-import ChatProviderPage from './pages/ChatProviderPage';
+// import ChatProviderPage from './pages/ChatProviderPage';
 import ContextPage from './pages/ContextPage';
 import SkillsPage from './pages/SkillsPage';
 import WelcomePage from './pages/WelcomePage';
@@ -20,7 +20,10 @@ const Onboarding = () => {
         <Route path="welcome" element={<WelcomePage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="context" element={<ContextPage />} />
-        <Route path="chat-provider" element={<ChatProviderPage />} />
+        {/* Chat-provider step disabled for now — finalisation happens at
+            the end of SkillsPage / ContextPage instead. Uncomment when
+            the provider picker is ready to ship. */}
+        {/* <Route path="chat-provider" element={<ChatProviderPage />} /> */}
         <Route path="*" element={<Navigate to="welcome" replace />} />
       </Route>
     </Routes>

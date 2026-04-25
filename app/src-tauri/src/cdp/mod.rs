@@ -10,6 +10,7 @@
 
 pub mod conn;
 pub mod emulation;
+pub mod input;
 pub mod session;
 pub mod snapshot;
 pub mod target;
@@ -19,7 +20,8 @@ pub use emulation::{set_user_agent_override, UaSpec};
 pub use session::{
     placeholder_marker, placeholder_url, spawn_session, target_url_fragment, SpawnedSession,
 };
-pub use snapshot::Snapshot;
+#[allow(unused_imports)] // `Rect` re-export consumed once turn 2 lands; keep stable.
+pub use snapshot::{Rect, Snapshot};
 pub use target::{
     browser_ws_url, connect_and_attach_matching, detach_session, find_page_target_where,
 };

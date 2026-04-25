@@ -1,20 +1,25 @@
 import { useNavigate } from 'react-router-dom';
 
 import { useOnboardingContext } from '../OnboardingContext';
-import SkillsStep from '../steps/SkillsStep';
+import SkillsStep, { type SkillsConnections } from '../steps/SkillsStep';
 
 const SkillsPage = () => {
   const navigate = useNavigate();
-  const { setDraft } = useOnboardingContext();
+  const { setDraft, completeAndExit } = useOnboardingContext();
 
-  const handleNext = (connectedSources: string[]) => {
-    console.debug('[onboarding:skills-page] next', { connectedSources });
-    setDraft(prev => ({ ...prev, connectedSources }));
-    if (connectedSources.length === 0) {
-      // No sources connected — skip context gathering.
-      navigate('/onboarding/chat-provider');
-    } else {
+  const handleNext = async ({ sources, gmailAccountId }: SkillsConnections) => {
+    console.debug('[onboarding:skills-page] next', { sources, gmailAccountId });
+    setDraft(prev => ({ ...prev, connectedSources: sources, gmailAccountId }));
+
+    // Route to ContextGatheringStep when there's a gmail source the
+    // pipeline can drive — webview gmail (via CDP) or composio gmail
+    // (via API). Otherwise jump straight to onboarding completion.
+    const hasGmailWebview = sources.includes('webview:gmail') && !!gmailAccountId;
+    const hasComposioSource = sources.some(s => s.startsWith('composio:'));
+    if (hasGmailWebview || hasComposioSource) {
       navigate('/onboarding/context');
+    } else {
+      await completeAndExit();
     }
   };
 

@@ -33,6 +33,35 @@ struct CaptureSnapshot {
 struct DocumentSnap {
     #[serde(default)]
     nodes: NodeTreeSnap,
+    #[serde(default)]
+    layout: LayoutSnap,
+}
+
+/// Subset of `documents[i].layout` we care about. Each layout node
+/// references a DOM node by index and carries its `[x, y, w, h]` bounds
+/// in CSS pixels. Only populated when `includeDOMRects: true` is passed
+/// to `DOMSnapshot.captureSnapshot`.
+#[derive(Deserialize, Debug, Default)]
+struct LayoutSnap {
+    #[serde(rename = "nodeIndex", default)]
+    node_index: Vec<i32>,
+    #[serde(default)]
+    bounds: Vec<Vec<f64>>,
+}
+
+/// Element bounding rect in CSS pixels relative to the viewport.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl Rect {
+    pub fn center(self) -> (f64, f64) {
+        (self.x + self.width / 2.0, self.y + self.height / 2.0)
+    }
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -53,6 +82,10 @@ pub struct Snapshot {
     strings: Vec<String>,
     nodes: NodeTreeSnap,
     children: Vec<Vec<usize>>,
+    /// `rects[node_idx]` is `Some(Rect)` when layout info was requested
+    /// AND the node has a layout box (text + element nodes do; pure
+    /// metadata like `<head>` doesn't). `None` otherwise.
+    rects: Vec<Option<Rect>>,
 }
 
 impl Snapshot {
@@ -60,13 +93,29 @@ impl Snapshot {
     /// the parsed main-document tree. Iframes are ignored — none of the
     /// migrated providers render chat lists inside iframes.
     pub async fn capture(cdp: &mut CdpConn, session: &str) -> Result<Self, String> {
+        Self::capture_inner(cdp, session, false).await
+    }
+
+    /// Same as [`capture`] but also requests element bounding rects.
+    /// Use when the caller needs to drive `Input.dispatchMouseEvent` —
+    /// pulling rects on every snapshot adds protocol overhead, so the
+    /// cheap path stays cheap.
+    pub async fn capture_with_rects(cdp: &mut CdpConn, session: &str) -> Result<Self, String> {
+        Self::capture_inner(cdp, session, true).await
+    }
+
+    async fn capture_inner(
+        cdp: &mut CdpConn,
+        session: &str,
+        with_rects: bool,
+    ) -> Result<Self, String> {
         let raw = cdp
             .call(
                 "DOMSnapshot.captureSnapshot",
                 json!({
                     "computedStyles": [],
                     "includePaintOrder": false,
-                    "includeDOMRects": false,
+                    "includeDOMRects": with_rects,
                 }),
                 Some(session),
             )
@@ -74,12 +123,9 @@ impl Snapshot {
         let snap: CaptureSnapshot =
             serde_json::from_value(raw).map_err(|e| format!("decode DOMSnapshot: {e}"))?;
         let strings = snap.strings;
-        let nodes = snap
-            .documents
-            .into_iter()
-            .next()
-            .map(|d| d.nodes)
-            .unwrap_or_default();
+        let document = snap.documents.into_iter().next().unwrap_or_default();
+        let nodes = document.nodes;
+        let layout = document.layout;
         let count = nodes.node_type.len();
         let mut children: Vec<Vec<usize>> = vec![Vec::new(); count];
         for (i, &p) in nodes.parent_index.iter().enumerate() {
@@ -87,10 +133,33 @@ impl Snapshot {
                 children[p as usize].push(i);
             }
         }
+        let mut rects: Vec<Option<Rect>> = vec![None; count];
+        if with_rects {
+            for (layout_i, &node_i) in layout.node_index.iter().enumerate() {
+                if node_i < 0 {
+                    continue;
+                }
+                let node_i = node_i as usize;
+                if node_i >= count {
+                    continue;
+                }
+                let bounds = match layout.bounds.get(layout_i) {
+                    Some(b) if b.len() >= 4 => b,
+                    _ => continue,
+                };
+                rects[node_i] = Some(Rect {
+                    x: bounds[0],
+                    y: bounds[1],
+                    width: bounds[2],
+                    height: bounds[3],
+                });
+            }
+        }
         Ok(Self {
             strings,
             nodes,
             children,
+            rects,
         })
     }
 
@@ -143,6 +212,13 @@ impl Snapshot {
 
     pub fn children(&self, idx: usize) -> &[usize] {
         self.children.get(idx).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
+    /// Layout rect for `idx`. `None` when the snapshot was captured
+    /// without `includeDOMRects` OR the node has no layout box (e.g.
+    /// `<head>`, comment nodes, `display:none` elements).
+    pub fn rect(&self, idx: usize) -> Option<Rect> {
+        self.rects.get(idx).copied().flatten()
     }
 
     /// Depth-first pre-order walk of every descendant of `root` (including

@@ -32,7 +32,7 @@ describe('Onboarding SkillsStep', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Skip for Now' }));
-    expect(onNext).toHaveBeenCalledWith([]);
+    expect(onNext).toHaveBeenCalledWith({ sources: [], gmailAccountId: undefined });
   });
 
   it('opens the webview login modal when the gmail card is clicked', () => {
@@ -54,6 +54,9 @@ describe('Onboarding SkillsStep', () => {
     expect(screen.getByText('Connected')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(onNext).toHaveBeenCalledWith(['webview:gmail']);
+    expect(onNext).toHaveBeenCalledWith({
+      sources: ['webview:gmail'],
+      gmailAccountId: 'acct-test',
+    });
   });
 });

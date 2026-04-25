@@ -65,12 +65,25 @@ pub struct LinkedInEnrichmentResult {
     pub log: Vec<String>,
 }
 
-/// Run the full Gmail → LinkedIn �� Apify enrichment pipeline.
+/// Run the full Gmail → LinkedIn → Apify enrichment pipeline.
+///
+/// `preset_profile_url` lets callers skip the Gmail-search stage and
+/// supply a profile URL they already discovered out-of-band — currently
+/// the frontend obtains one via the webview-driven
+/// `gmail_find_linkedin_profile_url` Tauri command, which uses the
+/// logged-in Gmail webview's CDP session instead of a Composio token.
+/// When `None`, the function falls back to the Composio-driven Gmail
+/// search at [`search_gmail_for_linkedin`] (which currently errors
+/// because Composio Gmail was removed; callers should pass `Some` until
+/// a Composio-free fallback ships).
 ///
 /// Returns `Ok` with a result struct even if individual stages fail —
 /// partial progress is still useful. Only returns `Err` if we can't
 /// even build the integration client (i.e. user isn't signed in).
-pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedInEnrichmentResult> {
+pub async fn run_linkedin_enrichment(
+    config: &Config,
+    preset_profile_url: Option<String>,
+) -> anyhow::Result<LinkedInEnrichmentResult> {
     let client = build_client(config)
         .ok_or_else(|| anyhow::anyhow!("no integration client — user not signed in"))?;
 
@@ -82,43 +95,53 @@ pub async fn run_linkedin_enrichment(config: &Config) -> anyhow::Result<LinkedIn
     };
 
     // ── Stage 1: search Gmail for LinkedIn emails ───────────────────
-    tracing::info!("[linkedin_enrichment] stage 1: searching Gmail for LinkedIn emails");
-    result
-        .log
-        .push("Searching Gmail for LinkedIn emails...".into());
-
-    let profile_url = match search_gmail_for_linkedin(config).await {
-        Ok(Some(url)) => {
-            tracing::info!(url = %url, "[linkedin_enrichment] found LinkedIn profile URL");
-            result.log.push(format!("Found LinkedIn profile: {url}"));
-            result.stages.push(EnrichmentStage {
-                id: "gmail-search".into(),
-                status: StageStatus::Success,
-                detail: Some(url.clone()),
-            });
-            Some(url)
-        }
-        Ok(None) => {
-            tracing::info!("[linkedin_enrichment] no LinkedIn profile URL found in emails");
-            result
-                .log
-                .push("No LinkedIn profile URL found in emails.".into());
-            result.stages.push(EnrichmentStage {
-                id: "gmail-search".into(),
-                status: StageStatus::Skipped,
-                detail: Some("No LinkedIn profile URL found in emails".into()),
-            });
-            None
-        }
-        Err(e) => {
-            tracing::warn!(error = %e, "[linkedin_enrichment] Gmail search failed");
-            result.log.push(format!("Gmail search failed: {e}"));
-            result.stages.push(EnrichmentStage {
-                id: "gmail-search".into(),
-                status: StageStatus::Failed,
-                detail: Some(format!("Gmail search failed: {e}")),
-            });
-            None
+    let profile_url = if let Some(url) = preset_profile_url {
+        tracing::info!(url = %url, "[linkedin_enrichment] stage 1: using preset profile URL");
+        result.log.push(format!("Using preset LinkedIn profile: {url}"));
+        result.stages.push(EnrichmentStage {
+            id: "gmail-search".into(),
+            status: StageStatus::Success,
+            detail: Some(url.clone()),
+        });
+        Some(url)
+    } else {
+        tracing::info!("[linkedin_enrichment] stage 1: searching Gmail for LinkedIn emails");
+        result
+            .log
+            .push("Searching Gmail for LinkedIn emails...".into());
+        match search_gmail_for_linkedin(config).await {
+            Ok(Some(url)) => {
+                tracing::info!(url = %url, "[linkedin_enrichment] found LinkedIn profile URL");
+                result.log.push(format!("Found LinkedIn profile: {url}"));
+                result.stages.push(EnrichmentStage {
+                    id: "gmail-search".into(),
+                    status: StageStatus::Success,
+                    detail: Some(url.clone()),
+                });
+                Some(url)
+            }
+            Ok(None) => {
+                tracing::info!("[linkedin_enrichment] no LinkedIn profile URL found in emails");
+                result
+                    .log
+                    .push("No LinkedIn profile URL found in emails.".into());
+                result.stages.push(EnrichmentStage {
+                    id: "gmail-search".into(),
+                    status: StageStatus::Skipped,
+                    detail: Some("No LinkedIn profile URL found in emails".into()),
+                });
+                None
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "[linkedin_enrichment] Gmail search failed");
+                result.log.push(format!("Gmail search failed: {e}"));
+                result.stages.push(EnrichmentStage {
+                    id: "gmail-search".into(),
+                    status: StageStatus::Failed,
+                    detail: Some(format!("Gmail search failed: {e}")),
+                });
+                None
+            }
         }
     };
 

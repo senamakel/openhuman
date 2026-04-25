@@ -16,6 +16,7 @@ hint = "agentic"
 [tools]
 named = [
     "http_request",
+    "curl",
     "web_search",
     "web_search_tool",
     "file_read",

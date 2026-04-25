@@ -883,6 +883,8 @@ pub fn run() {
 
             app.manage(core_handle.clone());
             let app_handle_for_update = app.handle().clone();
+            let app_handle_for_test_trigger = app.handle().clone();
+            let core_handle_for_test_trigger = core_handle.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(err) = core_handle.ensure_running().await {
                     log::error!("[core] failed to start core process: {err}");
@@ -900,6 +902,72 @@ pub fn run() {
                 .await
                 {
                     log::warn!("[core-update] auto-update check failed (non-fatal): {err}");
+                }
+
+                // Test-only auto-trigger for the shell-app updater. Set
+                // OPENHUMAN_TEST_AUTO_APP_UPDATE=1 to reproduce the full
+                // download → install → relaunch flow without UI clicks
+                // (used by `scripts/test-app-update-local.sh`). Off by
+                // default — never fires in normal operation.
+                if std::env::var("OPENHUMAN_TEST_AUTO_APP_UPDATE").is_ok() {
+                    log::warn!(
+                        "[app-update] OPENHUMAN_TEST_AUTO_APP_UPDATE set — auto-triggering apply_app_update in 5s"
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    let app = app_handle_for_test_trigger;
+                    let state = core_handle_for_test_trigger;
+                    use tauri::Emitter;
+                    use tauri_plugin_updater::UpdaterExt;
+                    let _ = app.emit("app-update:status", "checking");
+                    let updater = match app.updater() {
+                        Ok(u) => u,
+                        Err(e) => {
+                            log::error!("[app-update] test-trigger: updater plugin not initialized: {e}");
+                            return;
+                        }
+                    };
+                    let update = match updater.check().await {
+                        Ok(Some(u)) => u,
+                        Ok(None) => {
+                            log::info!("[app-update] test-trigger: no update available");
+                            return;
+                        }
+                        Err(e) => {
+                            log::error!("[app-update] test-trigger: check failed: {e}");
+                            return;
+                        }
+                    };
+                    log::warn!(
+                        "[app-update] test-trigger: downloading {} → {}",
+                        app.package_info().version,
+                        update.version
+                    );
+                    let _ = app.emit("app-update:status", "downloading");
+                    let _guard = state.restart_lock().await;
+                    state.shutdown().await;
+                    let progress_app = app.clone();
+                    let install_app = app.clone();
+                    if let Err(e) = update
+                        .download_and_install(
+                            move |chunk_length, content_length| {
+                                let payload = serde_json::json!({
+                                    "chunk": chunk_length,
+                                    "total": content_length,
+                                });
+                                let _ = progress_app.emit("app-update:progress", payload);
+                            },
+                            move || {
+                                log::info!("[app-update] test-trigger: download complete — installing");
+                                let _ = install_app.emit("app-update:status", "installing");
+                            },
+                        )
+                        .await
+                    {
+                        log::error!("[app-update] test-trigger: download_and_install failed: {e}");
+                        return;
+                    }
+                    log::info!("[app-update] test-trigger: install complete — relaunching");
+                    app.restart();
                 }
             });
 

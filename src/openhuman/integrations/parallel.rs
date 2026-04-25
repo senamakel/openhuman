@@ -998,12 +998,15 @@ mod tests {
     }
 
     #[test]
-    fn search_response_rejects_missing_cost_usd() {
+    fn search_response_defaults_missing_cost_usd_to_zero() {
         let json = r#"{
             "searchId": "s123",
             "results": []
         }"#;
-        assert!(serde_json::from_str::<SearchResponse>(json).is_err());
+        let resp: SearchResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.search_id, "s123");
+        assert!(resp.results.is_empty());
+        assert_eq!(resp.cost_usd, 0.0);
     }
 
     #[test]

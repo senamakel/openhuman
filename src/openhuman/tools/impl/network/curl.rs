@@ -40,7 +40,7 @@ impl CurlTool {
             security,
             allowed_domains: normalize_allowed_domains(allowed_domains),
             workspace_dir,
-            dest_subdir,
+            dest_subdir: sanitize_dest_subdir(&dest_subdir),
             max_download_bytes,
             timeout_secs,
         }
@@ -162,15 +162,20 @@ impl Tool for CurlTool {
             .unwrap_or_else(|| serde_json::json!({}));
 
         if !self.security.can_act() {
+            tracing::debug!(target: "[curl]", url = %url, "blocked: autonomy read-only");
             return Ok(ToolResult::error("Action blocked: autonomy is read-only"));
         }
         if !self.security.record_action() {
+            tracing::debug!(target: "[curl]", url = %url, "blocked: rate limit");
             return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
         }
 
         let url = match self.validate_url(url) {
             Ok(v) => v,
-            Err(e) => return Ok(ToolResult::error(e.to_string())),
+            Err(e) => {
+                tracing::debug!(target: "[curl]", url = %url, reason = %e, "url validation failed");
+                return Ok(ToolResult::error(e.to_string()));
+            }
         };
 
         let dest = match dest_arg {
@@ -179,11 +184,15 @@ impl Tool for CurlTool {
         };
         let dest_path = match self.resolve_dest(&dest) {
             Ok(p) => p,
-            Err(e) => return Ok(ToolResult::error(e.to_string())),
+            Err(e) => {
+                tracing::debug!(target: "[curl]", url = %url, dest = %dest, reason = %e, "dest_path rejected");
+                return Ok(ToolResult::error(e.to_string()));
+            }
         };
 
         if let Some(parent) = dest_path.parent() {
             if let Err(e) = fs::create_dir_all(parent).await {
+                tracing::error!(target: "[curl]", url = %url, dest = %dest_path.display(), reason = %e, "create_dir_all failed");
                 return Ok(ToolResult::error(format!(
                     "Failed to create destination directory: {e}"
                 )));
@@ -198,7 +207,10 @@ impl Tool for CurlTool {
             crate::openhuman::config::apply_runtime_proxy_to_builder(builder, "tool.curl");
         let client = match builder.build() {
             Ok(c) => c,
-            Err(e) => return Ok(ToolResult::error(format!("HTTP client build failed: {e}"))),
+            Err(e) => {
+                tracing::error!(target: "[curl]", reason = %e, "HTTP client build failed");
+                return Ok(ToolResult::error(format!("HTTP client build failed: {e}")));
+            }
         };
 
         let mut request = client.get(&url);
@@ -214,11 +226,15 @@ impl Tool for CurlTool {
 
         let response = match request.send().await {
             Ok(r) => r,
-            Err(e) => return Ok(ToolResult::error(format!("Request failed: {e}"))),
+            Err(e) => {
+                tracing::error!(target: "[curl]", url = %url, reason = %e, "request send failed");
+                return Ok(ToolResult::error(format!("Request failed: {e}")));
+            }
         };
 
         let status = response.status();
         if !status.is_success() {
+            tracing::debug!(target: "[curl]", url = %url, status = %status.as_u16(), "non-success HTTP status");
             return Ok(ToolResult::error(format!(
                 "HTTP {} {}",
                 status.as_u16(),
@@ -236,9 +252,10 @@ impl Tool for CurlTool {
         let mut file = match fs::File::create(&dest_path).await {
             Ok(f) => f,
             Err(e) => {
+                tracing::error!(target: "[curl]", dest = %dest_path.display(), reason = %e, "fs::File::create failed");
                 return Ok(ToolResult::error(format!(
                     "Failed to create destination file: {e}"
-                )))
+                )));
             }
         };
 
@@ -250,7 +267,11 @@ impl Tool for CurlTool {
             let chunk = match chunk {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = fs::remove_file(&dest_path).await;
+                    drop(file);
+                    if let Err(rm) = fs::remove_file(&dest_path).await {
+                        tracing::debug!(target: "[curl]", dest = %dest_path.display(), reason = %rm, "cleanup remove_file failed");
+                    }
+                    tracing::error!(target: "[curl]", url = %url, bytes_written, reason = %e, "stream error");
                     return Ok(ToolResult::error(format!("Stream error: {e}")));
                 }
             };
@@ -258,7 +279,10 @@ impl Tool for CurlTool {
             if bytes_written.saturating_add(chunk.len() as u64) > self.max_download_bytes {
                 let _ = file.flush().await;
                 drop(file);
-                let _ = fs::remove_file(&dest_path).await;
+                if let Err(rm) = fs::remove_file(&dest_path).await {
+                    tracing::debug!(target: "[curl]", dest = %dest_path.display(), reason = %rm, "cleanup remove_file failed");
+                }
+                tracing::error!(target: "[curl]", url = %url, bytes_written, max = self.max_download_bytes, "size cap exceeded — download aborted");
                 return Ok(ToolResult::error(format!(
                     "Download exceeded max_download_bytes ({} bytes)",
                     self.max_download_bytes
@@ -266,7 +290,11 @@ impl Tool for CurlTool {
             }
 
             if let Err(e) = file.write_all(&chunk).await {
-                let _ = fs::remove_file(&dest_path).await;
+                drop(file);
+                if let Err(rm) = fs::remove_file(&dest_path).await {
+                    tracing::debug!(target: "[curl]", dest = %dest_path.display(), reason = %rm, "cleanup remove_file failed");
+                }
+                tracing::error!(target: "[curl]", dest = %dest_path.display(), bytes_written, reason = %e, "write_all failed");
                 return Ok(ToolResult::error(format!("Write failed: {e}")));
             }
             hasher.update(&chunk);
@@ -274,6 +302,11 @@ impl Tool for CurlTool {
         }
 
         if let Err(e) = file.flush().await {
+            drop(file);
+            if let Err(rm) = fs::remove_file(&dest_path).await {
+                tracing::debug!(target: "[curl]", dest = %dest_path.display(), reason = %rm, "cleanup remove_file failed");
+            }
+            tracing::error!(target: "[curl]", dest = %dest_path.display(), bytes_written, reason = %e, "flush failed");
             return Ok(ToolResult::error(format!("Flush failed: {e}")));
         }
 
@@ -281,6 +314,8 @@ impl Tool for CurlTool {
 
         tracing::debug!(
             target: "[curl]",
+            url = %url,
+            dest = %dest_path.display(),
             bytes = bytes_written,
             content_type = %content_type,
             sha256 = %sha256,
@@ -295,6 +330,30 @@ impl Tool for CurlTool {
         });
         Ok(ToolResult::success(payload.to_string()))
     }
+}
+
+/// Sanitize the configured `dest_subdir` so a malicious or misconfigured
+/// `[curl].dest_subdir` cannot escape the workspace via absolute paths
+/// or `..` segments. Drops disallowed components rather than panicking;
+/// falls back to `"downloads"` if everything is filtered out.
+fn sanitize_dest_subdir(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return "downloads".into();
+    }
+    let p = Path::new(trimmed);
+    let mut buf = PathBuf::new();
+    for component in p.components() {
+        match component {
+            Component::Normal(c) => buf.push(c),
+            // Drop everything else: absolute roots, prefixes, parent dirs, cur dirs.
+            _ => continue,
+        }
+    }
+    if buf.as_os_str().is_empty() {
+        return "downloads".into();
+    }
+    buf.to_string_lossy().into_owned()
 }
 
 #[cfg(test)]
@@ -312,6 +371,49 @@ mod tests {
             1024 * 1024,
             30,
         )
+    }
+
+    #[test]
+    fn sanitize_dest_subdir_strips_absolute_paths() {
+        assert_eq!(sanitize_dest_subdir("/etc/passwd"), "etc/passwd");
+        assert_eq!(sanitize_dest_subdir("//foo"), "foo");
+    }
+
+    #[test]
+    fn sanitize_dest_subdir_strips_parent_segments() {
+        assert_eq!(sanitize_dest_subdir("../../etc"), "etc");
+        assert_eq!(sanitize_dest_subdir("a/../b"), "a/b");
+    }
+
+    #[test]
+    fn sanitize_dest_subdir_falls_back_to_downloads() {
+        assert_eq!(sanitize_dest_subdir(""), "downloads");
+        assert_eq!(sanitize_dest_subdir("   "), "downloads");
+        assert_eq!(sanitize_dest_subdir(".."), "downloads");
+        assert_eq!(sanitize_dest_subdir("/"), "downloads");
+    }
+
+    #[test]
+    fn sanitize_dest_subdir_keeps_normal_paths() {
+        assert_eq!(sanitize_dest_subdir("downloads"), "downloads");
+        assert_eq!(sanitize_dest_subdir("artifacts/build"), "artifacts/build");
+    }
+
+    #[test]
+    fn new_sanitizes_malicious_dest_subdir() {
+        let tmp = TempDir::new().unwrap();
+        let t = CurlTool::new(
+            Arc::new(SecurityPolicy::default()),
+            vec!["example.com".into()],
+            tmp.path().to_path_buf(),
+            "../../etc".into(),
+            1024,
+            30,
+        );
+        let resolved = t.resolve_dest("file.txt").unwrap();
+        // Sanitizer reduced "../../etc" to "etc"; resolution must stay under workspace.
+        assert!(resolved.starts_with(tmp.path().join("etc")));
+        assert!(resolved.starts_with(tmp.path()));
     }
 
     #[test]

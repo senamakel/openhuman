@@ -47,12 +47,20 @@ impl McpHttpClient {
         let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(self.timeout_secs))
             .connect_timeout(Duration::from_secs(10))
-            .redirect(reqwest::redirect::Policy::limited(3));
+            .redirect(reqwest::redirect::Policy::none());
         let builder =
             crate::openhuman::config::apply_runtime_proxy_to_builder(builder, "tool.gitbooks");
         let client = builder.build()?;
 
-        tracing::debug!(target: "[gitbooks]", endpoint = %self.endpoint, tool = %name, "MCP tools/call");
+        // Log only the redacted host so query strings / path params /
+        // any future bearer-token-bearing endpoints don't leak into
+        // logs aggregated for triage.
+        tracing::debug!(
+            target: "[gitbooks]",
+            endpoint = %redact_endpoint(&self.endpoint),
+            tool = %name,
+            "MCP tools/call"
+        );
 
         let resp = client
             .post(&self.endpoint)
@@ -92,6 +100,25 @@ impl McpHttpClient {
             .clone();
         Ok(result)
     }
+}
+
+/// Reduce a configured endpoint URL to `scheme://host[:port]` for
+/// safe logging. Anything that doesn't parse as a recognisable
+/// http(s) URL is reported as `<redacted>` rather than echoed.
+fn redact_endpoint(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let (scheme, rest) = if let Some(r) = trimmed.strip_prefix("https://") {
+        ("https", r)
+    } else if let Some(r) = trimmed.strip_prefix("http://") {
+        ("http", r)
+    } else {
+        return "<redacted>".into();
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty() || authority.contains('@') {
+        return "<redacted>".into();
+    }
+    format!("{scheme}://{authority}")
 }
 
 /// Parse the first `data: {…}` line from a Streamable-HTTP SSE
@@ -273,6 +300,28 @@ impl Tool for GitbooksGetPageTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn redact_endpoint_keeps_only_origin() {
+        assert_eq!(
+            redact_endpoint("https://tinyhumans.gitbook.io/openhuman/~gitbook/mcp"),
+            "https://tinyhumans.gitbook.io"
+        );
+        assert_eq!(
+            redact_endpoint("http://example.com:8080/path?token=secret"),
+            "http://example.com:8080"
+        );
+    }
+
+    #[test]
+    fn redact_endpoint_rejects_userinfo_and_unknown_schemes() {
+        assert_eq!(
+            redact_endpoint("https://user:pass@example.com/x"),
+            "<redacted>"
+        );
+        assert_eq!(redact_endpoint("ftp://example.com"), "<redacted>");
+        assert_eq!(redact_endpoint(""), "<redacted>");
+    }
 
     #[test]
     fn parse_sse_extracts_data_frame() {

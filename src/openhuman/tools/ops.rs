@@ -107,6 +107,7 @@ pub fn all_tools_with_runtime(
         // returns a single text result. See
         // `agent::harness::subagent_runner` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
+        Box::new(CheckOnboardingStatusTool::new()),
         Box::new(CompleteOnboardingTool::new()),
         Box::new(CurrentTimeTool::new()),
         Box::new(CronAddTool::new(config.clone(), security.clone())),
@@ -398,6 +399,114 @@ mod tests {
     }
 
     #[test]
+    fn all_tools_always_registers_curl() {
+        // Regression guard: `curl` is always registered (gated only by
+        // the shared `http_request.allowed_domains` allowlist at call
+        // time, like `http_request`). `Write` permission level keeps it
+        // off agents that aren't allowed to modify the workspace.
+        let tmp = TempDir::new().unwrap();
+        let security = Arc::new(SecurityPolicy::default());
+        let mem_cfg = MemoryConfig {
+            backend: "markdown".into(),
+            ..MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> =
+            Arc::from(crate::openhuman::memory::create_memory(&mem_cfg, tmp.path()).unwrap());
+
+        let browser = BrowserConfig::default();
+        let http = crate::openhuman::config::HttpRequestConfig::default();
+        let cfg = test_config(&tmp);
+
+        let tools = all_tools(
+            Arc::new(cfg.clone()),
+            &security,
+            mem,
+            &browser,
+            &http,
+            tmp.path(),
+            &HashMap::new(),
+            &cfg,
+        );
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(
+            names.contains(&"curl"),
+            "curl must always be registered; got: {names:?}"
+        );
+    }
+
+    #[test]
+    fn all_tools_registers_gitbooks_when_enabled() {
+        let tmp = TempDir::new().unwrap();
+        let security = Arc::new(SecurityPolicy::default());
+        let mem_cfg = MemoryConfig {
+            backend: "markdown".into(),
+            ..MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> =
+            Arc::from(crate::openhuman::memory::create_memory(&mem_cfg, tmp.path()).unwrap());
+        let browser = BrowserConfig::default();
+        let http = crate::openhuman::config::HttpRequestConfig::default();
+        let mut cfg = test_config(&tmp);
+        cfg.gitbooks.enabled = true;
+
+        let tools = all_tools(
+            Arc::new(cfg.clone()),
+            &security,
+            mem,
+            &browser,
+            &http,
+            tmp.path(),
+            &HashMap::new(),
+            &cfg,
+        );
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(
+            names.contains(&"gitbooks_search"),
+            "gitbooks_search must register when gitbooks.enabled = true; got: {names:?}"
+        );
+        assert!(
+            names.contains(&"gitbooks_get_page"),
+            "gitbooks_get_page must register when gitbooks.enabled = true; got: {names:?}"
+        );
+    }
+
+    #[test]
+    fn all_tools_skips_gitbooks_when_disabled() {
+        let tmp = TempDir::new().unwrap();
+        let security = Arc::new(SecurityPolicy::default());
+        let mem_cfg = MemoryConfig {
+            backend: "markdown".into(),
+            ..MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> =
+            Arc::from(crate::openhuman::memory::create_memory(&mem_cfg, tmp.path()).unwrap());
+        let browser = BrowserConfig::default();
+        let http = crate::openhuman::config::HttpRequestConfig::default();
+        let mut cfg = test_config(&tmp);
+        cfg.gitbooks.enabled = false;
+
+        let tools = all_tools(
+            Arc::new(cfg.clone()),
+            &security,
+            mem,
+            &browser,
+            &http,
+            tmp.path(),
+            &HashMap::new(),
+            &cfg,
+        );
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(
+            !names.contains(&"gitbooks_search"),
+            "gitbooks_search must NOT register when gitbooks.enabled = false; got: {names:?}"
+        );
+        assert!(
+            !names.contains(&"gitbooks_get_page"),
+            "gitbooks_get_page must NOT register when gitbooks.enabled = false; got: {names:?}"
+        );
+    }
+
+    #[test]
     fn all_tools_includes_complete_onboarding() {
         // Regression guard: the `complete_onboarding` tool must be
         // present so the welcome agent can check setup status and
@@ -429,6 +538,10 @@ mod tests {
         assert!(
             names.contains(&"complete_onboarding"),
             "complete_onboarding must be registered in the default tool list; got: {names:?}"
+        );
+        assert!(
+            names.contains(&"check_onboarding_status"),
+            "check_onboarding_status must be registered in the default tool list; got: {names:?}"
         );
     }
 

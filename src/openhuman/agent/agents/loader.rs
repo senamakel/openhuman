@@ -454,6 +454,10 @@ mod tests {
         match &def.tools {
             ToolScope::Named(tools) => {
                 assert!(
+                    tools.iter().any(|t| t == "check_onboarding_status"),
+                    "welcome needs check_onboarding_status"
+                );
+                assert!(
                     tools.iter().any(|t| t == "complete_onboarding"),
                     "welcome needs complete_onboarding"
                 );

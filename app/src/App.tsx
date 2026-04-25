@@ -10,6 +10,7 @@ import CommandProvider from './components/commands/CommandProvider';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
+import AppUpdatePrompt from './components/AppUpdatePrompt';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
 import MeshGradient from './components/MeshGradient';
 import OnboardingOverlay from './components/OnboardingOverlay';
@@ -56,6 +57,7 @@ function App() {
                       <OnboardingOverlay />
                       <DictationHotkeyManager />
                       <LocalAIDownloadSnackbar />
+                      <AppUpdatePrompt />
                     </ServiceBlockingGate>
                   </CommandProvider>
                 </Router>

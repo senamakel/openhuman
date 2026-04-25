@@ -405,11 +405,15 @@ jobs:
           fi
       - name: Define Tauri configuration overrides
         id: config-overrides
-        # The updater pubkey + endpoint now live in
-        # `app/src-tauri/tauri.conf.json` rather than being injected here.
-        # `prepareTauriConfig.js` only reads `KEYPAIR_ALIAS` (Windows
-        # DigiCert sign command) at this point.
+        # Updater pubkey + endpoint live in `app/src-tauri/tauri.conf.json`
+        # (no env-var override → no risk of pubkey/private-key drift).
+        # `WITH_UPDATER=true` here only flips
+        # `bundle.createUpdaterArtifacts` so signed `.app.tar.gz` / `.sig`
+        # files are emitted; PR builds leave this unset and skip artifact
+        # signing entirely.
         uses: actions/github-script@v7
+        env:
+          WITH_UPDATER: "true"
         with:
           script: |
             const workspacePath = process.env.GITHUB_WORKSPACE.replace(/\\/g, '/');

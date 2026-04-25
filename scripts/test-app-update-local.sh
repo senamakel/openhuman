@@ -107,6 +107,13 @@ PY
 }
 
 set_version()        { patch_json "$CONF" "d['version'] = '$1'"; patch_json "$PKG" "d['version'] = '$1'"; }
+# Static config keeps `createUpdaterArtifacts: false` so PR builds without
+# signing secrets don't blow up. Both Build A and Build B in this script
+# need it on so we get the `.app.tar.gz` + `.sig` pair to host. Restored
+# on exit.
+enable_updater_artifacts() {
+  patch_json "$CONF" "d['bundle']['createUpdaterArtifacts'] = True"
+}
 # Tauri's updater plugin rejects non-https endpoints by default. The
 # `dangerousInsecureTransportProtocol` flag bypasses that check — only safe
 # for local testing, never set in committed config. Restored on exit.
@@ -119,6 +126,7 @@ d['plugins']['updater']['dangerousInsecureTransportProtocol'] = True"
 echo "[update-test] === Build A (v$OLD_VERSION) — installed app under test ==="
 set_version "$OLD_VERSION"
 set_endpoint_localhost "$ENDPOINT_URL"
+enable_updater_artifacts
 
 cd "$REPO_ROOT/app"
 echo "[update-test] running pnpm tauri:ensure (vendored CEF-aware tauri-cli)"

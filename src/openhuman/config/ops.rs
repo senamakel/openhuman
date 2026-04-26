@@ -563,11 +563,11 @@ pub async fn get_onboarding_completed() -> Result<RpcOutcome<bool>, String> {
 ///
 /// On a false→true transition, seeds the recurring morning-briefing
 /// cron job via [`crate::openhuman::cron::seed::seed_proactive_agents`].
-/// The proactive welcome agent is **no longer auto-fired here** — the
-/// renderer is responsible for invoking it explicitly via the
-/// `agent.spawn_welcome` RPC (wrapped by the Tauri shell command
-/// `spawn_welcome_agent`) once the chat surface is ready to receive
-/// proactive messages.
+/// The welcome agent is **no longer auto-fired here** — the renderer
+/// fires a hidden `chat_send` trigger through the normal dispatch path
+/// (see `OnboardingLayout.completeAndExit`) so the welcome runs in a
+/// real thread session and subsequent user messages continue the same
+/// conversation with full prior context.
 ///
 /// **`chat_onboarding_completed` is NOT flipped here.** That flag is
 /// the exclusive responsibility of the welcome agent: it is set to

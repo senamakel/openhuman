@@ -13,9 +13,8 @@
 //!   the list of connected Composio toolkits and the per-provider
 //!   webview-login heuristic (see `openhuman::webview_accounts`).
 //!
-//! Keeping this in one place lets the two tools stay small and lets
-//! [`crate::openhuman::agent::welcome_proactive`] build the same snapshot
-//! shape without pulling in tool code.
+//! Keeping this in one place lets the two tools stay small and share
+//! the same snapshot shape without pulling in tool code from elsewhere.
 
 use crate::openhuman::config::Config;
 use serde_json::{json, Value};

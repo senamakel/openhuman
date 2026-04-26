@@ -423,6 +423,86 @@ pub struct WebviewAccountsState {
     notification_bypass: Mutex<NotificationBypassPrefs>,
 }
 
+impl WebviewAccountsState {
+    /// Tear down every per-account resource owned by this state — used by
+    /// the app's `RunEvent::Exit` shutdown sequence so nothing outlives the
+    /// tokio runtime / `AppHandle` (issue #920).
+    ///
+    /// Aborts CDP session tasks and load watchdogs, closes every
+    /// `acct_*` child webview so CEF browsers tear down before
+    /// `cef::shutdown()` runs, and unregisters CEF notification handlers.
+    /// All collections are drained — repeat calls are cheap no-ops.
+    pub fn shutdown_all<R: Runtime>(&self, app: &AppHandle<R>) {
+        // Drain handles outside the close loop so we don't hold the mutex
+        // across `wv.close()` (which can re-enter via tauri events).
+        #[cfg(feature = "cef")]
+        {
+            let cdp_tasks: Vec<_> = self
+                .cdp_sessions
+                .lock()
+                .ok()
+                .map(|mut g| g.drain().collect())
+                .unwrap_or_default();
+            for (acct, task) in cdp_tasks {
+                task.abort();
+                log::debug!("[webview-accounts] shutdown abort cdp account={}", acct);
+            }
+            let watchdogs: Vec<_> = self
+                .load_watchdogs
+                .lock()
+                .ok()
+                .map(|mut g| g.drain().collect())
+                .unwrap_or_default();
+            for (acct, task) in watchdogs {
+                task.abort();
+                log::debug!(
+                    "[webview-accounts] shutdown abort watchdog account={}",
+                    acct
+                );
+            }
+            let browser_ids: Vec<_> = self
+                .browser_ids
+                .lock()
+                .ok()
+                .map(|mut g| g.drain().collect())
+                .unwrap_or_default();
+            for (acct, browser_id) in browser_ids {
+                tauri_runtime_cef::notification::unregister(browser_id);
+                log::debug!(
+                    "[notify-cef] shutdown unregistered handler account={} browser_id={}",
+                    acct,
+                    browser_id
+                );
+            }
+        }
+
+        let labels: Vec<(String, String)> = self
+            .inner
+            .lock()
+            .ok()
+            .map(|mut g| g.drain().collect())
+            .unwrap_or_default();
+        for (acct, label) in labels {
+            if let Some(wv) = app.get_webview(&label) {
+                if let Err(e) = wv.close() {
+                    log::warn!(
+                        "[webview-accounts] shutdown close({label}) failed account={acct}: {e}"
+                    );
+                }
+            }
+        }
+
+        if let Ok(mut g) = self.loaded_accounts.lock() {
+            g.clear();
+        }
+        if let Ok(mut g) = self.requested_bounds.lock() {
+            g.clear();
+        }
+
+        log::info!("[webview-accounts] shutdown_all complete");
+    }
+}
+
 #[derive(Debug, Clone)]
 struct NotificationBypassPrefs {
     global_dnd: bool,

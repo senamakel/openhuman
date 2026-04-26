@@ -718,6 +718,52 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "cef")]
+const CEF_PREWARM_LABEL: &str = "cef-prewarm";
+
+/// Spawn a hidden 1×1 child webview at `about:blank` on the main window so
+/// CEF's child-webview render path is hot before the user clicks an
+/// account. The first `webview_account_open` then skips the cold
+/// renderer-process spinup. Idempotent — bails if the prewarm webview
+/// already exists.
+#[cfg(feature = "cef")]
+fn spawn_cef_prewarm(app: &AppHandle<AppRuntime>) -> Result<(), String> {
+    use tauri::webview::WebviewBuilder;
+    use tauri::WebviewUrl;
+
+    if app.get_webview(CEF_PREWARM_LABEL).is_some() {
+        return Ok(());
+    }
+    let parent = app
+        .get_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let url: tauri::Url = "about:blank"
+        .parse()
+        .map_err(|e| format!("about:blank parse: {e}"))?;
+    let builder = WebviewBuilder::new(CEF_PREWARM_LABEL, WebviewUrl::External(url));
+    parent
+        .add_child(
+            builder,
+            tauri::LogicalPosition::new(-20000.0, -20000.0),
+            tauri::LogicalSize::new(1.0, 1.0),
+        )
+        .map_err(|e| format!("add_child failed: {e}"))?;
+    log::info!("[cef-prewarm] hidden warmup webview spawned");
+    Ok(())
+}
+
+/// Drop the prewarm webview if still alive. Called from `RunEvent::Exit`
+/// so its CEF browser is torn down before `cef::shutdown()` runs.
+#[cfg(feature = "cef")]
+fn teardown_cef_prewarm<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let Some(wv) = app.get_webview(CEF_PREWARM_LABEL) else {
+        return Err("no prewarm webview".into());
+    };
+    wv.close().map_err(|e| e.to_string())?;
+    log::info!("[cef-prewarm] teardown ok");
+    Ok(())
+}
+
 pub fn run() {
     let daemon_mode = is_daemon_mode();
 
@@ -986,13 +1032,40 @@ pub fn run() {
             // Linux with "GTK has not been initialized".
             log::info!("[tray] deferring tray setup to RunEvent::Ready");
 
-            // CEF cold-start warmup was here — disabled while we triage a
-            // blank-webview report on first onboarding open. Restore once
-            // we can repro that the warmup child doesn't interfere with
-            // subsequent child-webview spawns on the main window. The
-            // build/test code we removed:
-            //   - 500ms post-setup timer
-            //   - parent.add_child("cef-warmup", about:blank, (-10000,-10000), 1x1)
+            // CEF cold-start warmup. Spawns a 1×1 hidden child webview on
+            // the main window at `about:blank` so CEF's render-process /
+            // compositor for child webviews is hot before the user clicks
+            // an account — first cold open of a real provider drops from
+            // "spin up renderer + navigate" to just "navigate".
+            //
+            // Earlier builds had this disabled because of a "blank webview
+            // on first onboarding open" report; we now park the warmup at
+            // a far off-screen position and never reveal it (matching the
+            // 1×1-on-screen pattern used for cold account spawns), and
+            // tear it down in the shutdown sequence below. Disable at
+            // runtime with `OPENHUMAN_CEF_PREWARM=0` if it regresses.
+            #[cfg(feature = "cef")]
+            {
+                let prewarm_enabled = std::env::var("OPENHUMAN_CEF_PREWARM")
+                    .map(|v| {
+                        let v = v.trim().to_ascii_lowercase();
+                        !(v == "0" || v == "false" || v == "no" || v == "off")
+                    })
+                    .unwrap_or(true);
+                if prewarm_enabled {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        // Defer one tick so the main window finishes its
+                        // first paint before we attach a sibling webview.
+                        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                        if let Err(e) = spawn_cef_prewarm(&app_handle) {
+                            log::warn!("[cef-prewarm] failed (non-fatal): {e}");
+                        }
+                    });
+                } else {
+                    log::info!("[cef-prewarm] disabled via OPENHUMAN_CEF_PREWARM");
+                }
+            }
 
             // Dev convenience: if OPENHUMAN_DEV_AUTO_WHATSAPP=<account-id>
             // is set, spawn that account's webview at startup so the
@@ -1341,12 +1414,37 @@ pub fn run() {
                 }
             }
             RunEvent::Exit => {
+                // Orderly teardown (issue #920): close child webviews and
+                // abort our long-lived tokio tasks BEFORE the runtime
+                // drops, so CEF browsers tear down cleanly and no task
+                // is left holding an `AppHandle` clone past the runtime
+                // shutdown — both contributed to the macOS "abnormal
+                // exit" the OS reports against the app process.
+                log::info!("[app] RunEvent::Exit — running orderly shutdown");
+
+                #[cfg(feature = "cef")]
+                {
+                    if let Err(e) = teardown_cef_prewarm(app_handle) {
+                        log::debug!("[cef-prewarm] teardown skipped: {e}");
+                    }
+                }
+
+                if let Some(state) =
+                    app_handle.try_state::<webview_accounts::WebviewAccountsState>()
+                {
+                    state.shutdown_all(app_handle);
+                }
+
+                webview_apis::server::stop();
+
                 if let Some(core) = app_handle.try_state::<core_process::CoreProcessHandle>() {
                     let core = core.inner().clone();
                     tauri::async_runtime::block_on(async move {
                         core.shutdown().await;
                     });
                 }
+
+                log::info!("[app] RunEvent::Exit — shutdown complete");
             }
             _ => {}
         });

@@ -122,10 +122,12 @@ pub fn configured_cache_path_from_env() -> Option<PathBuf> {
 fn load_pending_purge_state(default_openhuman_dir: &Path) -> Result<PendingCefPurgeState, String> {
     let path = pending_purge_marker_path(default_openhuman_dir)?;
     if path.exists() {
-        let raw = std::fs::read_to_string(&path)
-            .map_err(|error| format!("read pending CEF purge marker {}: {error}", path.display()))?;
-        return toml::from_str(&raw)
-            .map_err(|error| format!("parse pending CEF purge marker {}: {error}", path.display()));
+        let raw = std::fs::read_to_string(&path).map_err(|error| {
+            format!("read pending CEF purge marker {}: {error}", path.display())
+        })?;
+        return toml::from_str(&raw).map_err(|error| {
+            format!("parse pending CEF purge marker {}: {error}", path.display())
+        });
     }
 
     // One-time read from the legacy in-tree file (older app versions).
@@ -331,10 +333,7 @@ mod tests {
 
     #[test]
     fn validate_user_id_accepts_typical_ids() {
-        assert_eq!(
-            validate_user_id_for_path("u-123").unwrap(),
-            "u-123"
-        );
+        assert_eq!(validate_user_id_for_path("u-123").unwrap(), "u-123");
         assert_eq!(
             validate_user_id_for_path("user@ex.com").unwrap(),
             "user@ex.com"

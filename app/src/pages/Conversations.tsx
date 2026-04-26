@@ -24,7 +24,6 @@ import {
   addMessageLocal,
   createNewThread,
   deleteThread,
-  fetchSuggestedQuestions,
   loadThreadMessages,
   loadThreads,
   persistReaction,
@@ -82,16 +81,8 @@ interface ConversationsProps {
 const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const {
-    threads,
-    selectedThreadId,
-    messages,
-    isLoadingMessages,
-    messagesError,
-    suggestedQuestions,
-    isLoadingSuggestions,
-    activeThreadId,
-  } = useAppSelector(state => state.thread);
+  const { threads, selectedThreadId, messages, isLoadingMessages, messagesError, activeThreadId } =
+    useAppSelector(state => state.thread);
 
   const { snapshot } = useCoreState();
   const welcomeLocked = isWelcomeLocked(snapshot);
@@ -232,12 +223,6 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
     // uses `dispatch`); the ref guards against duplicate fires.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatOnboardingCompleted]);
-
-  useEffect(() => {
-    if (selectedThreadId && messages.length === 0) {
-      dispatch(fetchSuggestedQuestions(selectedThreadId));
-    }
-  }, [selectedThreadId, messages.length, dispatch]);
 
   const location = useLocation();
   const { containerRef: messagesContainerRef, endRef: messagesEndRef } = useStickToBottom(
@@ -1217,25 +1202,6 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
             </div>
           )}
         </div>
-
-        {!hasVisibleMessages && suggestedQuestions.length > 0 && !isLoadingSuggestions && (
-          <div className="flex-shrink-0 px-4 py-3">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {suggestedQuestions.map((s, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    void handleSendMessage(s.text);
-                  }}
-                  disabled={isSending || !rustChat}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap bg-white text-stone-500 border border-stone-200 hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  {s.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="flex-shrink-0 border-t border-stone-200 px-4 py-3">
           {!welcomeLocked && (

@@ -10,7 +10,7 @@ use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
 use crate::openhuman::local_ai::{
     self, LocalAiAssetsStatus, LocalAiDownloadsProgress, LocalAiEmbeddingResult,
-    LocalAiSpeechResult, LocalAiTtsResult, Suggestion,
+    LocalAiSpeechResult, LocalAiTtsResult,
 };
 use crate::openhuman::providers::{self, ProviderRuntimeOptions};
 use crate::rpc::RpcOutcome;
@@ -180,33 +180,6 @@ pub async fn local_ai_summarize(
     Ok(RpcOutcome::single_log(
         summary,
         "local ai summarize completed",
-    ))
-}
-
-/// Suggests relevant follow-up questions based on the provided context.
-pub async fn local_ai_suggest_questions(
-    config: &Config,
-    context: Option<String>,
-    lines: Option<Vec<String>>,
-) -> Result<RpcOutcome<Vec<Suggestion>>, String> {
-    let service = local_ai::global(config);
-    let status = service.status();
-    if !matches!(status.state.as_str(), "ready") {
-        service.bootstrap(config).await;
-    }
-    let mut context = context.unwrap_or_default();
-    if context.trim().is_empty() {
-        if let Some(lines) = lines {
-            context = lines.join("\n");
-        }
-    }
-    let suggestions = service
-        .suggest_questions(config, &context)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        suggestions,
-        "local ai suggestions generated",
     ))
 }
 
@@ -709,18 +682,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("local ai is disabled"));
-    }
-
-    #[tokio::test]
-    async fn local_ai_suggest_questions_returns_empty_without_local_ai() {
-        // With local_ai disabled suggestions should silently produce an empty
-        // list rather than erroring (graceful degradation).
-        let tmp = tempfile::tempdir().unwrap();
-        let config = test_config(&tmp);
-        let outcome = local_ai_suggest_questions(&config, Some("topic".into()), None)
-            .await
-            .expect("suggestions should not error when disabled");
-        assert!(outcome.value.is_empty());
     }
 
     #[tokio::test]

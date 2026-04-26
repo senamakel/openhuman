@@ -3,8 +3,7 @@ use crate::openhuman::local_ai::model_ids;
 use crate::openhuman::local_ai::ollama_api::{
     ns_to_tps, ollama_base_url, OllamaGenerateOptions, OllamaGenerateRequest,
 };
-use crate::openhuman::local_ai::parse::{parse_suggestions, sanitize_inline_completion};
-use crate::openhuman::local_ai::types::Suggestion;
+use crate::openhuman::local_ai::parse::sanitize_inline_completion;
 
 use super::LocalAiService;
 
@@ -44,29 +43,6 @@ impl LocalAiService {
         };
         self.inference(config, system, prompt, max_tokens.or(Some(160)), no_think)
             .await
-    }
-
-    pub async fn suggest_questions(
-        &self,
-        config: &Config,
-        context: &str,
-    ) -> Result<Vec<Suggestion>, String> {
-        if !config.local_ai.enabled {
-            return Ok(Vec::new());
-        }
-        let system = "You create short suggested user prompts.";
-        let prompt = format!(
-            "Given this conversation context, produce up to {} short suggested next user prompts. Return one prompt per line with no numbering.\\n\\n{}",
-            config.local_ai.max_suggestions.max(1),
-            context
-        );
-        let raw = self
-            .inference(config, system, &prompt, Some(96), true)
-            .await?;
-        Ok(parse_suggestions(
-            &raw,
-            config.local_ai.max_suggestions.max(1),
-        ))
     }
 
     pub async fn inline_complete(
@@ -536,41 +512,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn suggest_questions_parses_line_separated_output() {
-        let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
-            .lock()
-            .expect("local ai test mutex");
-
-        let app = Router::new().route(
-            "/api/generate",
-            post(|| async {
-                Json(json!({
-                    "model": "test",
-                    "response": "What next?\nHow about this?\nTell me more.",
-                    "done": true
-                }))
-            }),
-        );
-        let base = spawn_mock(app).await;
-        unsafe {
-            std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", &base);
-        }
-
-        let mut config = enabled_config();
-        config.local_ai.max_suggestions = 3;
-        let service = ready_service(&config);
-        let suggestions = service
-            .suggest_questions(&config, "prior context")
-            .await
-            .expect("suggest_questions");
-        assert!(!suggestions.is_empty());
-
-        unsafe {
-            std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
-        }
-    }
-
-    #[tokio::test]
     async fn summarize_disabled_returns_error() {
         // When local_ai is disabled the summarize fn should short-circuit.
         let mut config = Config::default();
@@ -590,15 +531,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("local ai is disabled"));
-    }
-
-    #[tokio::test]
-    async fn suggest_questions_disabled_returns_empty() {
-        let mut config = Config::default();
-        config.local_ai.enabled = false;
-        let service = LocalAiService::new(&config);
-        let out = service.suggest_questions(&config, "ctx").await.unwrap();
-        assert!(out.is_empty());
     }
 
     #[tokio::test]

@@ -38,20 +38,9 @@ use cef::ImplBrowser;
 use crate::cdp;
 
 const RUNTIME_JS: &str = include_str!("runtime.js");
-// UA spoofing is handled via CDP `Emulation.setUserAgentOverride` for migrated
-// providers; the JS shim is retained for providers that still use the JS-bridge
-// ingest path (gmail / linkedin / google-meet) to survive fingerprint gates.
-const UA_SPOOF_JS: &str = include_str!("ua_spoof.js");
 const LINKEDIN_RECIPE_JS: &str = include_str!("../../recipes/linkedin/recipe.js");
 const GMAIL_RECIPE_JS: &str = include_str!("../../recipes/gmail/recipe.js");
 const GOOGLE_MEET_RECIPE_JS: &str = include_str!("../../recipes/google-meet/recipe.js");
-
-/// User agent we pretend to be for all external services. Web-app services
-/// (WhatsApp, Gmail, Google's login flow) reject "unknown" WebView UAs with
-/// upgrade-your-browser / unsupported-browser pages, so we announce as a
-/// recent desktop Chrome build for everything.
-const CHROME_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
-                         (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 /// Registered providers and their service URLs. Add a new arm here plus a
 /// recipe.js file under `recipes/<id>/` to support another provider.
@@ -66,14 +55,6 @@ fn provider_url(provider: &str) -> Option<&'static str> {
         "google-meet" => Some("https://meet.google.com/"),
         "zoom" => Some("https://zoom.us/"),
         "browserscan" => Some("https://www.browserscan.net/bot-detection"),
-        _ => None,
-    }
-}
-
-fn provider_user_agent(provider: &str) -> Option<&'static str> {
-    match provider {
-        "whatsapp" | "telegram" | "linkedin" | "gmail" | "slack" | "discord" | "google-meet"
-        | "zoom" | "browserscan" => Some(CHROME_UA),
         _ => None,
     }
 }
@@ -96,16 +77,6 @@ fn provider_recipe_js(provider: &str) -> Option<&'static str> {
 /// to the `provider_url` match automatically become "supported" here.
 fn provider_is_supported(provider: &str) -> bool {
     provider_url(provider).is_some()
-}
-
-/// Whether to pre-load `ua_spoof.js` for a given provider. Enabled for
-/// services known to run Chromium-specific fingerprinting checks that are
-/// not yet fully migrated to the CDP `Emulation.setUserAgentOverride` path.
-fn provider_ua_spoof(provider: &str) -> bool {
-    matches!(
-        provider,
-        "slack" | "gmail" | "linkedin" | "discord" | "google-meet" | "zoom" | "browserscan"
-    )
 }
 
 /// Host suffixes the embedded webview is allowed to navigate within. Any
@@ -1112,25 +1083,21 @@ fn data_directory_for<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Resul
 /// Produce the `initialization_script` payload for this webview.
 ///
 /// Empty for the 5 migrated providers (whatsapp, telegram, slack, discord,
-/// browserscan) — they load with ZERO injected JS; their scraping + UA
-/// override runs via CDP. The 3 deferred providers (gmail, linkedin,
-/// google-meet) still get the JS recipe bridge.
+/// browserscan) — they load with ZERO injected JS; their scraping runs via
+/// CDP, and the per-account CDP session opener (`cdp::session`) injects the
+/// notification-permission shim via `Page.addScriptToEvaluateOnNewDocument`
+/// before the real provider URL loads. The 3 deferred providers (gmail,
+/// linkedin, google-meet) still get the JS recipe bridge.
 fn build_init_script(account_id: &str, provider: &str) -> String {
-    let spoof = if provider_ua_spoof(provider) {
-        UA_SPOOF_JS
-    } else {
-        ""
-    };
     let Some(recipe_js) = provider_recipe_js(provider) else {
-        return spoof.to_string();
+        return String::new();
     };
     let ctx = serde_json::json!({
         "accountId": account_id,
         "provider": provider,
     });
     format!(
-        "{spoof}\n\nwindow.__OPENHUMAN_RECIPE_CTX__ = {ctx};\n\n{runtime}\n\n{recipe}\n",
-        spoof = spoof,
+        "window.__OPENHUMAN_RECIPE_CTX__ = {ctx};\n\n{runtime}\n\n{recipe}\n",
         ctx = ctx,
         runtime = RUNTIME_JS,
         recipe = recipe_js
@@ -1437,10 +1404,6 @@ pub async fn webview_account_open<R: Runtime>(
     // so third-party-site webviews are not remotely inspectable.
     if cfg!(debug_assertions) {
         builder = builder.devtools(true);
-    }
-
-    if let Some(ua) = provider_user_agent(&args.provider) {
-        builder = builder.user_agent(ua);
     }
 
     // Wire the native page-load signal so the frontend can hide its spinner as
@@ -2254,22 +2217,12 @@ mod tests {
     }
 
     #[test]
-    fn zoom_registered_in_user_agent() {
-        assert_eq!(provider_user_agent("zoom"), Some(CHROME_UA));
-    }
-
-    #[test]
     fn zoom_has_no_recipe_js_injection() {
         // Per the CLAUDE.md "no new JS injection" rule for CEF child
         // webviews, Zoom must rely solely on Rust `on_navigation` +
         // `on_new_window` (plus CDP from scanner modules, if any) — no
         // `recipe.js` should be registered.
         assert!(provider_recipe_js("zoom").is_none());
-    }
-
-    #[test]
-    fn zoom_enables_ua_spoof() {
-        assert!(provider_ua_spoof("zoom"));
     }
 
     #[test]

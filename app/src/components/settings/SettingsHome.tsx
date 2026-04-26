@@ -2,14 +2,18 @@ import { useState } from 'react';
 
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { persistor } from '../../store';
-import { resetOpenHumanDataAndRestartCore } from '../../utils/tauriCommands';
+import {
+  resetOpenHumanDataAndRestartCore,
+  restartApp,
+  scheduleCefProfilePurge,
+} from '../../utils/tauriCommands';
 import SettingsHeader from './components/SettingsHeader';
 import SettingsMenuItem from './components/SettingsMenuItem';
 import { useSettingsNavigation } from './hooks/useSettingsNavigation';
 
 const SettingsHome = () => {
   const { navigateToSettings } = useSettingsNavigation();
-  const { clearSession } = useCoreState();
+  const { clearSession, snapshot } = useCoreState();
   const [showLogoutAndClearModal, setShowLogoutAndClearModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +28,18 @@ const SettingsHome = () => {
   };
 
   const clearAllAppData = async () => {
+    const currentUserId = snapshot.auth.userId ?? snapshot.currentUser?._id ?? null;
+
+    // Queue the current user-scoped CEF profile for deletion on next launch.
+    // The active CEF browser process may still hold SQLite/cache file handles,
+    // so we delete after the shell restarts rather than relying on in-process
+    // removal to succeed everywhere.
+    try {
+      await scheduleCefProfilePurge(currentUserId);
+    } catch (err) {
+      console.warn('[Settings] Failed to queue CEF profile purge:', err);
+    }
+
     // 1. Logout — clear session in core (auth_clear_session). Best-effort:
     //    if the core process is wedged we still want to wipe local data.
     try {
@@ -55,11 +71,9 @@ const SettingsHome = () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
 
-    // 4. Hard-reload to reset in-memory Redux + React state. Without this
-    //    the live store still holds user/socket/account data even though
-    //    the persisted copy is gone — the UI would look logged-in until
-    //    the user manually refreshes.
-    window.location.reload();
+    // 4. Full app restart so the CEF runtime reboots into the fresh
+    //    pre-login profile instead of keeping the old browser process alive.
+    await restartApp();
   };
 
   const handleLogoutAndClearData = async () => {

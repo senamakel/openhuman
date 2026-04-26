@@ -27,6 +27,7 @@ import {
 } from '../services/coreStateApi';
 import {
   openhumanUpdateAnalyticsSettings,
+  restartApp,
   setOnboardingCompleted,
   storeSession,
   syncMemoryClientToken,
@@ -374,6 +375,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
   const storeSessionToken = useCallback(
     async (token: string, user?: object) => {
+      const previousIdentity = snapshotIdentity(getCoreStateSnapshot().snapshot);
       logoutGuardUntilRef.current = 0;
       await storeSession(token, user ?? {});
       try {
@@ -386,6 +388,15 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       await refreshTeams().catch(err => {
         log('refreshTeams failed after session store: %O', sanitizeError(err));
       });
+
+      const nextIdentity = snapshotIdentity(getCoreStateSnapshot().snapshot);
+      if (nextIdentity && previousIdentity !== nextIdentity) {
+        console.debug('[core-state] user changed; restarting app to switch CEF profile', {
+          previousIdentity,
+          nextIdentity,
+        });
+        await restartApp();
+      }
     },
     [refresh, refreshTeams]
   );

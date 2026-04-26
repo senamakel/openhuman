@@ -78,10 +78,7 @@ const OnboardingLayout = () => {
       dispatch(setWelcomeThreadId(newThread.id));
       welcomeReady = true;
     } catch (e) {
-      console.warn(
-        '[onboarding] failed to create welcome thread; skipping spawn_welcome_agent',
-        e
-      );
+      console.warn('[onboarding] failed to create welcome thread; skipping spawn_welcome_agent', e);
     }
 
     // Trigger the proactive welcome agent now that the welcome thread is

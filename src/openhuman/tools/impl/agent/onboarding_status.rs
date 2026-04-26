@@ -120,6 +120,58 @@ pub(crate) fn detect_auth(config: &Config) -> (bool, Value) {
 ///   for that provider. See `openhuman::webview_accounts`.
 /// * `exchange_count` / `ready_to_complete` / `ready_to_complete_reason`
 ///   — the gate the finalizer enforces.
+/// Walk `config.channels_config` and return the connected messaging-channel
+/// slugs in a stable order. Shared between `build_status_snapshot` and
+/// `format_status_markdown` so the channel list can't drift between the
+/// JSON and markdown views.
+fn detect_channels(config: &Config) -> Vec<&'static str> {
+    let cc = &config.channels_config;
+    let mut out: Vec<&'static str> = Vec::new();
+    if cc.telegram.is_some() {
+        out.push("telegram");
+    }
+    if cc.discord.is_some() {
+        out.push("discord");
+    }
+    if cc.slack.is_some() {
+        out.push("slack");
+    }
+    if cc.mattermost.is_some() {
+        out.push("mattermost");
+    }
+    if cc.email.is_some() {
+        out.push("email");
+    }
+    if cc.whatsapp.is_some() {
+        out.push("whatsapp");
+    }
+    if cc.signal.is_some() {
+        out.push("signal");
+    }
+    if cc.matrix.is_some() {
+        out.push("matrix");
+    }
+    if cc.imessage.is_some() {
+        out.push("imessage");
+    }
+    if cc.irc.is_some() {
+        out.push("irc");
+    }
+    if cc.lark.is_some() {
+        out.push("lark");
+    }
+    if cc.dingtalk.is_some() {
+        out.push("dingtalk");
+    }
+    if cc.linq.is_some() {
+        out.push("linq");
+    }
+    if cc.qq.is_some() {
+        out.push("qq");
+    }
+    out
+}
+
 pub(crate) fn build_status_snapshot(
     config: &Config,
     onboarding_status: &str,
@@ -130,51 +182,7 @@ pub(crate) fn build_status_snapshot(
     webview_logins: Value,
 ) -> Value {
     let (is_authenticated, auth_source) = detect_auth(config);
-
-    // ── Connected messaging channels ──────────────────────────────
-    let mut channels_connected: Vec<&str> = Vec::new();
-    if config.channels_config.telegram.is_some() {
-        channels_connected.push("telegram");
-    }
-    if config.channels_config.discord.is_some() {
-        channels_connected.push("discord");
-    }
-    if config.channels_config.slack.is_some() {
-        channels_connected.push("slack");
-    }
-    if config.channels_config.mattermost.is_some() {
-        channels_connected.push("mattermost");
-    }
-    if config.channels_config.email.is_some() {
-        channels_connected.push("email");
-    }
-    if config.channels_config.whatsapp.is_some() {
-        channels_connected.push("whatsapp");
-    }
-    if config.channels_config.signal.is_some() {
-        channels_connected.push("signal");
-    }
-    if config.channels_config.matrix.is_some() {
-        channels_connected.push("matrix");
-    }
-    if config.channels_config.imessage.is_some() {
-        channels_connected.push("imessage");
-    }
-    if config.channels_config.irc.is_some() {
-        channels_connected.push("irc");
-    }
-    if config.channels_config.lark.is_some() {
-        channels_connected.push("lark");
-    }
-    if config.channels_config.dingtalk.is_some() {
-        channels_connected.push("dingtalk");
-    }
-    if config.channels_config.linq.is_some() {
-        channels_connected.push("linq");
-    }
-    if config.channels_config.qq.is_some() {
-        channels_connected.push("qq");
-    }
+    let channels_connected = detect_channels(config);
 
     let composio_enabled = config.composio.enabled;
     let delegate_agents: Vec<&str> = config.agents.keys().map(|s| s.as_str()).collect();
@@ -231,50 +239,7 @@ pub(crate) fn format_status_markdown(
     webview_logins: &Value,
 ) -> String {
     let (is_authenticated, auth_source) = detect_auth(config);
-
-    let mut channels: Vec<&str> = Vec::new();
-    if config.channels_config.telegram.is_some() {
-        channels.push("telegram");
-    }
-    if config.channels_config.discord.is_some() {
-        channels.push("discord");
-    }
-    if config.channels_config.slack.is_some() {
-        channels.push("slack");
-    }
-    if config.channels_config.mattermost.is_some() {
-        channels.push("mattermost");
-    }
-    if config.channels_config.email.is_some() {
-        channels.push("email");
-    }
-    if config.channels_config.whatsapp.is_some() {
-        channels.push("whatsapp");
-    }
-    if config.channels_config.signal.is_some() {
-        channels.push("signal");
-    }
-    if config.channels_config.matrix.is_some() {
-        channels.push("matrix");
-    }
-    if config.channels_config.imessage.is_some() {
-        channels.push("imessage");
-    }
-    if config.channels_config.irc.is_some() {
-        channels.push("irc");
-    }
-    if config.channels_config.lark.is_some() {
-        channels.push("lark");
-    }
-    if config.channels_config.dingtalk.is_some() {
-        channels.push("dingtalk");
-    }
-    if config.channels_config.linq.is_some() {
-        channels.push("linq");
-    }
-    if config.channels_config.qq.is_some() {
-        channels.push("qq");
-    }
+    let channels = detect_channels(config);
 
     let active_channel = config
         .channels_config

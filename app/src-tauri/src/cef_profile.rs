@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -98,6 +99,61 @@ fn user_openhuman_dir(default_openhuman_dir: &Path, user_id: &str) -> Result<Pat
 
 fn cache_dir_for_user(default_openhuman_dir: &Path, user_id: &str) -> Result<PathBuf, String> {
     Ok(user_openhuman_dir(default_openhuman_dir, user_id)?.join("cef"))
+}
+
+/// `remove_dir_all` is only safe for CEF profile dirs we queued ourselves (under
+/// `.../users/<id>/cef`). Rejects absolute paths outside that tree, corrupted
+/// TOML, or anything that `canonicalize` would not place under
+/// `default_openhuman_dir/users/…/cef`.
+fn is_trusted_queued_purge_path(default_openhuman_dir: &Path, target: &Path) -> bool {
+    if !target.is_absolute() {
+        log::warn!(
+            "[cef-profile] refusing purge: path is not absolute (possible cwd-relative TOML injection) path={}",
+            target.display()
+        );
+        return false;
+    }
+    let Ok(data_root) = std::fs::canonicalize(default_openhuman_dir) else {
+        log::warn!(
+            "[cef-profile] refusing purge: could not canonicalize data root path={} (cannot validate purge target) target={}",
+            default_openhuman_dir.display(),
+            target.display()
+        );
+        return false;
+    };
+    let users_dir = data_root.join("users");
+    let Ok(users_canon) = std::fs::canonicalize(&users_dir) else {
+        log::warn!(
+            "[cef-profile] refusing purge: could not canonicalize `users` dir under {} (target={})",
+            data_root.display(),
+            target.display()
+        );
+        return false;
+    };
+    let Ok(canon) = std::fs::canonicalize(target) else {
+        log::warn!(
+            "[cef-profile] refusing purge: could not canonicalize target (symlink/permission?) path={}",
+            target.display()
+        );
+        return false;
+    };
+    if !canon.starts_with(&users_canon) {
+        log::warn!(
+            "[cef-profile] refusing purge: canonical path is not under users tree (possible malicious queue entry) data_root={} target_canon={}",
+            data_root.display(),
+            canon.display()
+        );
+        return false;
+    }
+    if canon.file_name() != Some(OsStr::new("cef")) {
+        log::warn!(
+            "[cef-profile] refusing purge: expected a .../users/<id>/cef directory, got file_name={:?} path={}",
+            canon.file_name(),
+            canon.display()
+        );
+        return false;
+    }
+    true
 }
 
 /// Marker file lives in the **parent** of the OpenHuman data root so a full
@@ -264,6 +320,15 @@ fn drain_pending_purges(default_openhuman_dir: &Path) -> Result<(), String> {
             );
             continue;
         }
+        if !is_trusted_queued_purge_path(default_openhuman_dir, &target) {
+            log::warn!(
+                "[cef-profile] skipping unsafe purge and retaining queue entry (will not delete) path={} raw_toml={}",
+                target.display(),
+                raw_path
+            );
+            remaining.push(raw_path.clone());
+            continue;
+        }
         match std::fs::remove_dir_all(&target) {
             Ok(()) => {
                 log::info!(
@@ -338,5 +403,131 @@ mod tests {
             validate_user_id_for_path("user@ex.com").unwrap(),
             "user@ex.com"
         );
+    }
+
+    /// `default_openhuman_dir` must have a parent (sibling marker uses `parent()`).
+    fn test_data_hierarchy() -> (tempfile::TempDir, PathBuf) {
+        let tmp = tempfile::tempdir().unwrap();
+        let data_root = tmp.path().join("oh_data");
+        std::fs::create_dir_all(&data_root).unwrap();
+        (tmp, data_root)
+    }
+
+    #[test]
+    fn legacy_purge_marker_migrates_to_sibling_file() {
+        let (_tmp, data_root) = test_data_hierarchy();
+        let legacy = data_root.join(LEGACY_PENDING_PURGE_IN_TREE);
+        let sibling = data_root
+            .parent()
+            .unwrap()
+            .join(PENDING_PURGE_STATE_FILE);
+        let body = r#"paths = []"#;
+        std::fs::write(&legacy, body).unwrap();
+        assert!(!sibling.exists());
+
+        let _ = load_pending_purge_state(&data_root).unwrap();
+
+        assert!(!legacy.exists());
+        assert!(sibling.exists());
+    }
+
+    #[test]
+    fn drain_removes_only_trusted_paths_and_clears_marker() {
+        let (_tmp, data_root) = test_data_hierarchy();
+        let cef = data_root.join("users").join("u1").join("cef");
+        std::fs::create_dir_all(&cef).unwrap();
+        std::fs::write(cef.join("x.txt"), b"x").unwrap();
+        let cef_s = cef.to_string_lossy().to_string();
+
+        let state = PendingCefPurgeState {
+            paths: vec![cef_s],
+        };
+        save_pending_purge_state(&data_root, &state).unwrap();
+
+        drain_pending_purges(&data_root).unwrap();
+
+        assert!(!cef.exists());
+        let marker = pending_purge_marker_path(&data_root).unwrap();
+        assert!(!marker.exists());
+    }
+
+    #[test]
+    fn drain_retains_malicious_queue_path_without_deleting() {
+        let (tmp, data_root) = test_data_hierarchy();
+        let outside = tmp.path().join("outside_sandbox");
+        std::fs::create_dir_all(&outside).unwrap();
+        let outside_s = outside.to_string_lossy().to_string();
+        let state = PendingCefPurgeState {
+            paths: vec![outside_s.clone()],
+        };
+        save_pending_purge_state(&data_root, &state).unwrap();
+
+        drain_pending_purges(&data_root).unwrap();
+
+        assert!(outside.exists());
+        let rest = load_pending_purge_state(&data_root).unwrap();
+        assert_eq!(rest.paths, vec![outside_s]);
+        let marker = pending_purge_marker_path(&data_root).unwrap();
+        assert!(marker.exists());
+    }
+
+    /// Path is under `users/…` but last component is not `cef` (reject, retain in queue).
+    #[test]
+    fn drain_does_not_remove_path_without_cef_final_segment() {
+        let (_tmp, data_root) = test_data_hierarchy();
+        let d = data_root.join("users").join("u1").join("data");
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("f"), b"1").unwrap();
+        save_pending_purge_state(
+            &data_root,
+            &PendingCefPurgeState {
+                paths: vec![d.to_string_lossy().to_string()],
+            },
+        )
+        .unwrap();
+
+        drain_pending_purges(&data_root).unwrap();
+
+        assert!(d.exists());
+        let after = load_pending_purge_state(&data_root).unwrap();
+        assert_eq!(after.paths.len(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn drain_retains_path_when_remove_dir_all_fails() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_tmp, data_root) = test_data_hierarchy();
+        let cef = data_root.join("users").join("u1").join("cef");
+        std::fs::create_dir_all(&cef).unwrap();
+        std::fs::write(cef.join("file.txt"), b"!").unwrap();
+        // Remove write on the cef dir so the contents cannot be unlinked.
+        let mut p = std::fs::metadata(&cef).unwrap().permissions();
+        p.set_mode(0o500);
+        if std::fs::set_permissions(&cef, p).is_err() {
+            return;
+        }
+        let cef_s = cef.to_string_lossy().to_string();
+        save_pending_purge_state(
+            &data_root,
+            &PendingCefPurgeState {
+                paths: vec![cef_s.clone()],
+            },
+        )
+        .unwrap();
+
+        drain_pending_purges(&data_root).unwrap();
+
+        // Restore for cleanup
+        let _ = std::fs::set_permissions(
+            &cef,
+            std::fs::Permissions::from_mode(0o700),
+        );
+        let _ = std::fs::remove_dir_all(&cef);
+
+        let after = load_pending_purge_state(&data_root).unwrap();
+        assert_eq!(after.paths, vec![cef_s]);
+        assert!(pending_purge_marker_path(&data_root).unwrap().exists());
     }
 }

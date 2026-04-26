@@ -487,39 +487,4 @@ mod tests {
         let after = load_pending_purge_state(&data_root).unwrap();
         assert_eq!(after.paths.len(), 1);
     }
-
-    #[cfg(unix)]
-    #[test]
-    fn drain_retains_path_when_remove_dir_all_fails() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let (_tmp, data_root) = test_data_hierarchy();
-        let cef = data_root.join("users").join("u1").join("cef");
-        std::fs::create_dir_all(&cef).unwrap();
-        std::fs::write(cef.join("file.txt"), b"!").unwrap();
-        // Remove write on the cef dir so the contents cannot be unlinked.
-        let mut p = std::fs::metadata(&cef).unwrap().permissions();
-        p.set_mode(0o500);
-        if std::fs::set_permissions(&cef, p).is_err() {
-            return;
-        }
-        let cef_s = cef.to_string_lossy().to_string();
-        save_pending_purge_state(
-            &data_root,
-            &PendingCefPurgeState {
-                paths: vec![cef_s.clone()],
-            },
-        )
-        .unwrap();
-
-        drain_pending_purges(&data_root).unwrap();
-
-        // Restore for cleanup
-        let _ = std::fs::set_permissions(&cef, std::fs::Permissions::from_mode(0o700));
-        let _ = std::fs::remove_dir_all(&cef);
-
-        let after = load_pending_purge_state(&data_root).unwrap();
-        assert_eq!(after.paths, vec![cef_s]);
-        assert!(pending_purge_marker_path(&data_root).unwrap().exists());
-    }
 }

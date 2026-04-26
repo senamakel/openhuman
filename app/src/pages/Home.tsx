@@ -102,8 +102,8 @@ const Home = () => {
         {/* Main card */}
         <div className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6 animate-fade-up">
           {/* Header row: logo + version + settings */}
-          <div className="flex items-center mb-4">
-            <span className="text-xs italic text-center text-stone-400">v{APP_VERSION}</span>
+          <div className="flex items-center justify-center mb-4">
+            <span className="text-xs text-center text-stone-400">v{APP_VERSION}</span>
           </div>
 
           {/* Welcome title */}

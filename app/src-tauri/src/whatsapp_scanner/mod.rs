@@ -84,13 +84,7 @@ pub struct ScanSnapshot {
 /// consumers don't need to care which one produced the event.
 pub fn spawn_scanner<R: Runtime>(app: AppHandle<R>, account_id: String, url_prefix: String) {
     tokio::spawn(async move {
-        // `cdp` module is cef-only; under wry the fragment is unused (no
-        // port 9222 means scan_once will fail on every tick anyway). Keep
-        // a fallback so this file still compiles on non-cef builds.
-        #[cfg(feature = "cef")]
         let fragment = crate::cdp::target_url_fragment(&account_id);
-        #[cfg(not(feature = "cef"))]
-        let fragment = String::new();
         log::info!(
             "[wa] scanner up account={} url_prefix={} fragment={} fast={:?} full={:?}",
             account_id,

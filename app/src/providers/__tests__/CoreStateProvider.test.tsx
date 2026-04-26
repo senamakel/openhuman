@@ -22,11 +22,11 @@ function makeSnapshot(overrides: {
     auth: {
       isAuthenticated: overrides.isAuthenticated ?? Boolean(overrides.userId),
       userId: overrides.userId ?? null,
-      user: overrides.authUser ?? null,
+      user: (overrides.authUser ?? null) as never,
       profileId: null,
     },
     sessionToken: overrides.sessionToken ?? null,
-    currentUser: overrides.currentUser ?? null,
+    currentUser: (overrides.currentUser ?? null) as never,
     onboardingCompleted: false,
     chatOnboardingCompleted: false,
     analyticsEnabled: false,

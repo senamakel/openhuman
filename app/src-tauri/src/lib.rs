@@ -5,6 +5,8 @@ compile_error!("src-tauri host is desktop-only. Non-desktop targets are not supp
 mod cdp;
 #[cfg(all(feature = "cef", target_os = "macos"))]
 mod cef_preflight;
+#[cfg(feature = "cef")]
+mod cef_profile;
 mod core_process;
 mod core_update;
 #[cfg(feature = "cef")]
@@ -328,6 +330,19 @@ async fn restart_core_process(
     let _guard = state.inner().restart_lock().await;
     log::debug!("[core] restart_core_process: acquired restart lock");
     state.inner().restart().await
+}
+
+#[tauri::command]
+async fn restart_app(app: tauri::AppHandle<AppRuntime>) -> Result<(), String> {
+    log::info!("[app] restart_app invoked from frontend");
+    app.restart();
+}
+
+#[cfg(feature = "cef")]
+#[tauri::command]
+async fn schedule_cef_profile_purge(user_id: Option<String>) -> Result<String, String> {
+    let queued = cef_profile::queue_profile_purge_for_user(user_id.as_deref())?;
+    Ok(queued.display().to_string())
 }
 
 /// Fire the proactive welcome agent on a detached core-side task.
@@ -762,6 +777,17 @@ pub fn run() {
     // here and exit cleanly with a message that names the lock-holder PID
     // and the workaround. Stale locks (PID dead) are removed and we
     // continue, matching Chromium's own startup recovery.
+    #[cfg(feature = "cef")]
+    match cef_profile::prepare_process_cache_path() {
+        Ok(path) => log::debug!("[cef-profile] startup cache path={}", path.display()),
+        Err(error) => {
+            log::error!(
+                "[cef-profile] failed to configure per-user CEF cache; refusing to start with shared/global cache: {error}"
+            );
+            std::process::exit(1);
+        }
+    }
+
     #[cfg(all(feature = "cef", target_os = "macos"))]
     if let Err(e) = cef_preflight::check_default_cache() {
         eprintln!("\n[openhuman] {e}\n");
@@ -920,8 +946,17 @@ pub fn run() {
             // providers (gmail, whatsapp, slack, …) already have a live
             // session cookie. Best-effort — if we can't resolve the path
             // the core treats every provider as logged_out.
-            if let Ok(cache_dir) = app.path().app_cache_dir() {
-                let cookies_db = cache_dir.join("cef").join("Default").join("Cookies");
+            if let Some(cache_dir) = {
+                #[cfg(feature = "cef")]
+                {
+                    cef_profile::configured_cache_path_from_env()
+                }
+                #[cfg(not(feature = "cef"))]
+                {
+                    None
+                }
+            } {
+                let cookies_db = cache_dir.join("Default").join("Cookies");
                 log::debug!("[webview_accounts] exposing cookies DB path to core");
                 std::env::set_var("OPENHUMAN_CEF_COOKIES_DB", &cookies_db);
             } else {
@@ -929,7 +964,7 @@ pub fn run() {
                 // stale path from a previous run or the parent shell.
                 std::env::remove_var("OPENHUMAN_CEF_COOKIES_DB");
                 log::warn!(
-                    "[webview_accounts] could not resolve app_cache_dir — core \
+                    "[webview_accounts] could not resolve configured CEF cache dir — core \
                      will report all webview providers as logged_out"
                 );
             }
@@ -1266,6 +1301,9 @@ pub fn run() {
             check_app_update,
             apply_app_update,
             restart_core_process,
+            restart_app,
+            #[cfg(feature = "cef")]
+            schedule_cef_profile_purge,
             spawn_welcome_agent,
             service_install_direct,
             service_start_direct,

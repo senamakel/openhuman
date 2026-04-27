@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { persistor } from '../../store';
+import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { openUrl } from '../../utils/openUrl';
 import {
   resetOpenHumanDataAndRestartCore,
   restartApp,
@@ -109,6 +111,25 @@ const SettingsHome = () => {
         </svg>
       ),
       onClick: () => navigateToSettings('account'),
+      dangerous: false,
+    },
+    {
+      id: 'billing',
+      title: 'Billing & Usage',
+      description: 'Subscription plan, credits, and payment methods',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
+          />
+        </svg>
+      ),
+      onClick: () => {
+        void openUrl(BILLING_DASHBOARD_URL);
+      },
       dangerous: false,
     },
     {

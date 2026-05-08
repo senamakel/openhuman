@@ -41,10 +41,11 @@ use crate::cdp::CdpConn;
 pub async fn install_camera_bridge_post_reload(
     cdp: &mut CdpConn,
     session: &str,
+    frame_bus_port: u16,
 ) -> Result<(), String> {
-    let js = super::build_camera_bridge_js();
+    let js = super::build_camera_bridge_js(frame_bus_port);
     log::info!(
-        "[meet-camera] inject session={session} bridge_chars={}",
+        "[meet-camera] inject session={session} bridge_chars={} frame_bus_port={frame_bus_port}",
         js.chars().count()
     );
     let res = cdp

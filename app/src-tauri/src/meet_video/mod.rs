@@ -36,6 +36,7 @@
 //!   them into the bridge JS as `data:image/svg+xml;base64,...` URIs,
 //!   keeping the bridge fully self-contained inside the Meet origin.
 
+pub mod frame_bus;
 pub mod inject;
 
 // SVG data URIs use URL encoding rather than base64 because:
@@ -61,14 +62,22 @@ const MASCOT_THINKING_SVG: &str = include_str!("../../../../remotion/public/Book
 const CAMERA_BRIDGE_TEMPLATE: &str = include_str!("camera_bridge.js");
 
 /// Build the page-side camera bridge JS with the mascot SVGs inlined as
-/// data URIs. Cheap to compute and stable per process; the inject path
-/// can memoize via `OnceLock` if it ever grows hot.
-pub fn build_camera_bridge_js() -> String {
+/// data URIs (used as the offline fallback when the WS frame bus is
+/// silent) and the loopback frame-bus port templated in. Cheap to
+/// compute and called once per session install; the inject path can
+/// memoize the SVGs via `OnceLock` if it ever grows hot.
+///
+/// `frame_bus_port` is the port returned by
+/// [`frame_bus::MeetVideoFrameBusState::start_session`]. Pass `0` if no
+/// bus is available — the bridge then falls back to drawing the static
+/// SVGs alone (matches pre-frame-bus behavior).
+pub fn build_camera_bridge_js(frame_bus_port: u16) -> String {
     let idle = svg_to_data_uri(MASCOT_IDLE_SVG);
     let thinking = svg_to_data_uri(MASCOT_THINKING_SVG);
     CAMERA_BRIDGE_TEMPLATE
         .replace("__OPENHUMAN_MASCOT_IDLE_DATAURI__", &idle)
         .replace("__OPENHUMAN_MASCOT_THINKING_DATAURI__", &thinking)
+        .replace("__OPENHUMAN_FRAME_BUS_PORT__", &frame_bus_port.to_string())
 }
 
 /// URL-encode an SVG into a `data:image/svg+xml` URI suitable for
@@ -119,11 +128,18 @@ mod tests {
 
     #[test]
     fn build_substitutes_both_dataurus() {
-        let js = build_camera_bridge_js();
+        let js = build_camera_bridge_js(0);
         assert!(!js.contains("__OPENHUMAN_MASCOT_IDLE_DATAURI__"));
         assert!(!js.contains("__OPENHUMAN_MASCOT_THINKING_DATAURI__"));
+        assert!(!js.contains("__OPENHUMAN_FRAME_BUS_PORT__"));
         let count = js.matches("data:image/svg+xml;charset=utf-8,").count();
         assert!(count >= 2, "expected at least 2 data URIs, got {count}");
+    }
+
+    #[test]
+    fn build_inlines_frame_bus_port() {
+        let js = build_camera_bridge_js(54321);
+        assert!(js.contains("54321"));
     }
 
     #[test]

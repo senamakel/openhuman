@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 /// Process-wide registry of active meet-agent sessions, keyed by
 /// `request_id`. Mirrors the shape of `meet_call::MeetCallState` so
@@ -114,12 +114,41 @@ pub async fn start<R: Runtime>(
     )
     .await?;
 
+    // Bring up the camera frame bus *before* the bridge install so the
+    // CEF-side bridge JS gets the WS port templated in and can connect
+    // immediately. Failure is non-fatal: the camera bridge falls back
+    // to the static SVG rasterizer when port=0 (see camera_bridge.js).
+    let frame_bus_port = if let Some(state) =
+        app.try_state::<crate::meet_video::frame_bus::MeetVideoFrameBusState>()
+    {
+        match state.start_session(request_id.clone()).await {
+            Ok(p) => {
+                if let Err(err) = app.emit(
+                    "meet-video:bus-started",
+                    serde_json::json!({ "request_id": request_id, "port": p }),
+                ) {
+                    log::debug!("[meet-audio] emit bus-started failed: {err}");
+                }
+                p
+            }
+            Err(err) => {
+                log::warn!(
+                    "[meet-audio] frame bus start failed: {err} — bridge will use SVG fallback"
+                );
+                0
+            }
+        }
+    } else {
+        log::warn!("[meet-audio] MeetVideoFrameBusState missing — bridge will use SVG fallback");
+        0
+    };
+
     // Install the page-side audio + captions bridges in one go. The
     // returned CDP session is shared by the speak pump and caption
     // listener — we open a second session for the listener so the
     // two run concurrently without serialising on a single CDP
     // mailbox.
-    let (speak, captions) = match inject::install_audio_bridge(&meet_url).await {
+    let (speak, captions) = match inject::install_audio_bridge(&meet_url, frame_bus_port).await {
         Ok((cdp, session)) => {
             // Spawn the caption listener on its own CDP attach so a
             // long Runtime.evaluate from one side never starves the
@@ -195,6 +224,19 @@ pub async fn stop<R: Runtime>(
     // Dropping `session` first releases the audio handler registration
     // (so CEF stops feeding us frames) and signals the pump to exit.
     drop(session);
+
+    // Tear down the camera frame bus and tell the renderer to unmount
+    // its hidden Remotion producer. Best-effort — the WS server task
+    // also exits when its Drop fires.
+    if let Some(state) = app.try_state::<crate::meet_video::frame_bus::MeetVideoFrameBusState>() {
+        state.stop_session(&request_id);
+    }
+    if let Err(err) = app.emit(
+        "meet-video:bus-stopped",
+        serde_json::json!({ "request_id": request_id }),
+    ) {
+        log::debug!("[meet-audio] emit bus-stopped failed: {err}");
+    }
 
     match rpc_call(
         "openhuman.meet_agent_stop_session",

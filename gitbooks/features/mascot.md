@@ -16,7 +16,7 @@ It is not a chrome ornament. The mascot is wired into the same pieces as the res
 
 ### It speaks, and lip-syncs to its own voice
 
-When the agent replies, the audio is generated through ElevenLabs and streamed to your speakers. At the same time, the mascot drives a viseme map against the audio so its mouth shapes match the words coming out. There's no separate "talking head" video — the same audio stream that you hear is the one driving the animation.
+When the agent replies, the audio is generated through a hosted TTS model and streamed to your speakers. At the same time, the mascot drives a viseme map against the audio so its mouth shapes match the words coming out. There's no separate "talking head" video — the same audio stream that you hear is the one driving the animation.
 
 See [Native Voice](native-tools/voice.md) for the speech-to-text, text-to-speech, and meeting plumbing the mascot rides on top of.
 
@@ -26,7 +26,7 @@ The mascot is OpenHuman's flagship voice integration. When you bring it into a G
 
 * It joins as a real participant via the embedded webview.
 * It hears everyone in the call through streaming speech-to-text and writes structured notes into the [Memory Tree](obsidian-wiki/memory-tree.md) as the meeting progresses.
-* When you ask it to speak — or it decides it has something useful to add — it generates the reply through ElevenLabs and **plays it back into the meeting as an outbound mic stream**, so other participants actually hear it.
+* When you ask it to speak — or it decides it has something useful to add — it generates the reply through the TTS model and **plays it back into the meeting as an outbound mic stream**, so other participants actually hear it.
 * The mascot's face is **piped into the meeting as the camera feed** via a fake-video pipeline, so the other participants see the mascot moving and lip-syncing in their grid, not a black tile.
 
 ### It moves and reacts to its surroundings

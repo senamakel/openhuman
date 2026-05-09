@@ -24,7 +24,7 @@ OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** that does t
 │ • Provider router (model routing) │
 │ • TokenJuice compression │
 │ • Native tools (search, fetch, fs, git, …) │
-│ • Voice (STT, ElevenLabs TTS, Meet agent) │
+│ • Voice (STT in, TTS out, Meet agent) │
 └──────────────────────────────────────────────────┘
  │
 ┌──────────────────────────────────────────────────┐

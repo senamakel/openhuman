@@ -37,7 +37,7 @@ When you talk to the agent, four things happen behind the scenes:
 * **Model routing**. The model parameter can be a hint (`hint:reasoning`, `hint:fast`, `hint:vision`). The [router](../features/model-routing/) resolves the hint to the right provider+model. One subscription, many models.
 * **Native tools**. A built-in [web search, web-fetch scraper, and full filesystem/git/lint/test/grep coder toolset](../features/native-tools/README.md) are wired in by default. No "install a plugin to read files" friction.
 * **TokenJuice compression**. Verbose tool output (git logs, large emails, build output) is compacted by a [rule overlay](../features/token-compression.md) before it ever enters the model's context. Sweeping through your last six months of email costs single-digit dollars instead of hundreds.
-* **Voice, when you want it**. STT in, [ElevenLabs TTS](../features/native-tools/voice.md) out, with a live Google Meet agent that can listen, take notes, and speak back into the call.
+* **Voice, when you want it**. STT in, [TTS](../features/native-tools/voice.md) out, with a live Google Meet agent that can listen, take notes, and speak back into the call.
 
 ## How they connect
 
@@ -61,7 +61,7 @@ When you talk to the agent, four things happen behind the scenes:
  │ Agent (model router) │
  │ + native tools │
  │ + TokenJuice compression │
- │ + voice in/out (ElevenLabs) │
+ │ + voice in/out (STT + TTS) │
  └────────────────────────────────┘
 ```
 

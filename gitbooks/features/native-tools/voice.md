@@ -1,7 +1,7 @@
 ---
 description: >-
-  Native voice — speech-to-text in, ElevenLabs text-to-speech out, mascot
-  lip-sync, and a live Google Meet agent that listens and speaks.
+  Native voice — speech-to-text in, text-to-speech out, mascot lip-sync,
+  and a live Google Meet agent that listens and speaks.
 icon: microphone
 ---
 
@@ -19,9 +19,9 @@ OpenHuman is voice-first when you want it to be. STT, TTS, and the live Google M
 
 Dictation can replace the active text input on your desktop, or be sent straight into a chat with the agent.
 
-## Text-to-speech via ElevenLabs
+## Text-to-speech
 
-Reply speech routes through **ElevenLabs**. The agent's responses can be spoken back in a voice you pick, with the timing and prosody you'd expect from ElevenLabs' models. Voice selection is configurable per user, and the mascot avatar lip-syncs to the audio stream via a viseme map.
+Reply speech routes through a hosted TTS model. The agent's responses can be spoken back in a voice you pick, with natural timing and prosody. Voice selection is configurable per user, and the mascot avatar lip-syncs to the audio stream via a viseme map.
 
 ## Live Google Meet agent
 
@@ -29,7 +29,7 @@ OpenHuman's flagship voice integration:
 
 * Joins a Google Meet via the embedded webview.
 * Streams audio out to STT in real time, transcribes everyone in the call, and writes structured notes into the [Memory Tree](../obsidian-wiki/memory-tree.md) as the meeting progresses.
-* When you ask it to speak (or it decides it has something useful to add), it generates audio with ElevenLabs and **plays it back into the meeting as an outbound camera/mic stream**, so other participants actually hear it.
+* When you ask it to speak (or it decides it has something useful to add), it generates audio through the TTS model and **plays it back into the meeting as an outbound camera/mic stream**, so other participants actually hear it.
 
 ## Privacy
 

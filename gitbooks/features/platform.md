@@ -41,7 +41,7 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 │ Rust core (`openhuman` sidecar) │
 │ • Memory Tree, integrations, auto-fetch │
 │ • Model router, TokenJuice, native tools │
-│ • Voice (STT, ElevenLabs TTS, Meet agent) │
+│ • Voice (STT in, TTS out, Meet agent) │
 └──────────────────────────────────────────────────┘
  │
 ┌──────────────────────────────────────────────────┐

@@ -353,10 +353,20 @@ jobs:
   # =========================================================================
   # Phase 3b: Build & push Docker image (runs parallel with build-desktop).
   #
-  # Publishes `ghcr.io/tinyhumansai/openhuman-core` with three tags per release:
-  #   - :latest                — moves on every prod cut
+  # Publishes `ghcr.io/tinyhumansai/openhuman-core` with two immutable tags
+  # per release:
   #   - :v<version>            — matches the GitHub Release tag (e.g. v1.2.4)
   #   - :<version>             — bare SemVer for tooling that strips the v
+  #
+  # `:latest` is intentionally NOT pushed here. If a downstream phase
+  # (build-cli-linux, publish-updater-manifest, the asset-validation gate
+  # in publish-release) fails, the immutable tags are deleted by
+  # cleanup-failed-release while the release is rolled back. Pushing
+  # :latest in this job would move the moving tag onto an image whose
+  # release got cleaned up, leaving downstream `docker pull …:latest`
+  # consumers on a build that has no GitHub Release behind it. The
+  # `tag-docker-latest` job below promotes :latest only after
+  # `publish-release` succeeds.
   #
   # linux/amd64 only for now. arm64 users pull the standalone CLI tarball
   # (`build-cli-linux` matrix) or build the image from source. Adding arm64
@@ -398,7 +408,6 @@ jobs:
           base="${REGISTRY}/${IMAGE_NAME}"
           {
             echo "tags<<EOF"
-            echo "${base}:latest"
             echo "${base}:${TAG}"
             echo "${base}:${VERSION}"
             echo "EOF"
@@ -569,7 +578,9 @@ jobs:
               // Operators on headless Linux servers pull these instead of the
               // Tauri bundle; cloud-deploy.md documents both arches.
               /^openhuman-core-.*-x86_64-unknown-linux-gnu\.tar\.gz$/,
+              /^openhuman-core-.*-x86_64-unknown-linux-gnu\.tar\.gz\.sha256$/,
               /^openhuman-core-.*-aarch64-unknown-linux-gnu\.tar\.gz$/,
+              /^openhuman-core-.*-aarch64-unknown-linux-gnu\.tar\.gz\.sha256$/,
             ];
             const missing = requiredPatterns.filter((pattern) => !names.some((name) => pattern.test(name)));
             if (missing.length > 0) {
@@ -590,6 +601,47 @@ jobs:
               draft: false,
             });
             core.info(`Published release ${releaseId}`);
+
+  # =========================================================================
+  # Phase 4b: Promote :latest to the just-published image.
+  #
+  # `build-docker` only pushed the immutable :v<version> / :<version> tags.
+  # We delay :latest until publish-release has actually flipped the GitHub
+  # Release out of draft, so a downstream failure (build-cli-linux,
+  # publish-updater-manifest, the asset-validation gate) cleans up the
+  # tagged image without leaving :latest pointing at a build that has no
+  # release behind it. Uses `docker buildx imagetools create` to add the
+  # extra tag without re-pulling the build context — it operates against
+  # the registry manifest, not local layers.
+  # =========================================================================
+  tag-docker-latest:
+    name: "Docker: tag :latest"
+    runs-on: ubuntu-latest
+    environment: Production
+    needs: [prepare-build, publish-release]
+    if: needs.publish-release.result == 'success'
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: tinyhumansai/openhuman-core
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote :latest
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          TAG: ${{ needs.prepare-build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          src="${REGISTRY}/${IMAGE_NAME}:${TAG}"
+          dst="${REGISTRY}/${IMAGE_NAME}:latest"
+          docker buildx imagetools create --tag "$dst" "$src"
 
   # =========================================================================
   # Phase 5: Record a single Sentry deploy marker once the release has

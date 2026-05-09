@@ -16,11 +16,11 @@ Your brain does this all day. It is exhausting, and things fall through the crac
 
 #### How OpenHuman helps
 
-**Auto-fetch builds a continuous record.** Every five minutes, OpenHuman pulls fresh data from every active [integration](../features/integrations.md) — Gmail, Slack, GitHub, Notion, Drive, Linear, Jira, Calendar — and folds the results into the [Memory Tree](../features/memory-tree.md). You don't log anything manually; the picture builds itself in the background.
+**Auto-fetch builds a continuous record.** Every five minutes, OpenHuman pulls fresh data from every active [integration](../features/integrations.md) — Gmail, Slack, GitHub, Notion, Drive, Linear, Jira, Calendar — and folds the results into the [Memory Tree](../features/obsidian-wiki/memory-tree.md). You don't log anything manually; the picture builds itself in the background.
 
 **Topic trees bridge your tools.** When you ask "what happened with the Q3 projections today?", you get a unified answer spanning every connected source — because the topic tree for "Q3 projections" was built from all of them.
 
-**Your wiki is yours.** Everything also lands as `.md` in `<workspace>/wiki/`. Open it in [Obsidian](../features/obsidian-wiki.md) at the end of the day to skim, or drop in your own meeting notes — they get ingested into the same trees.
+**Your wiki is yours.** Everything also lands as `.md` in `<workspace>/wiki/`. Open it in [Obsidian](../features/obsidian-wiki/) at the end of the day to skim, or drop in your own meeting notes — they get ingested into the same trees.
 
 **TokenJuice keeps it cheap.** Sweeping through dozens of long email threads or a busy Slack channel for a daily roll-up costs cents, not dollars, because [TokenJuice](../features/token-compression.md) compacts the noise before the model sees it.
 
@@ -34,12 +34,12 @@ Your brain does this all day. It is exhausting, and things fall through the crac
 
 #### Features that matter most here
 
-| Feature | Why it matters |
-| ------------------------------------------------------ | ------------------------------------------------------------- |
-| [Auto-fetch](../features/auto-fetch.md) | Continuous ingest from every connected tool, no manual logging |
-| [Memory Tree](../features/memory-tree.md) | Per-topic + per-day summaries that span every source |
-| [third-party integrations](../features/integrations.md) | One-click OAuth into 118+ services |
-| [Obsidian Wiki](../features/obsidian-wiki.md) | Audit and edit your memory by hand, in plain Markdown |
+| Feature                                                 | Why it matters                                                 |
+| ------------------------------------------------------- | -------------------------------------------------------------- |
+| [Auto-fetch](../features/auto-fetch.md)                 | Continuous ingest from every connected tool, no manual logging |
+| [Memory Tree](../features/obsidian-wiki/memory-tree.md) | Per-topic + per-day summaries that span every source           |
+| [third-party integrations](../features/integrations.md) | One-click OAuth into 118+ services                             |
+| [Obsidian Wiki](../features/obsidian-wiki/)             | Audit and edit your memory by hand, in plain Markdown          |
 
 #### A typical workflow
 

@@ -13,15 +13,15 @@ The top of the page shows the current system state (idle, ingesting, summarizing
 
 ### Memory Tree
 
-The Memory tab surfaces the live state of the [Memory Tree](../features/memory-tree.md):
+The Memory tab surfaces the live state of the [Memory Tree](../features/obsidian-wiki/memory-tree.md):
 
-| Metric | What it shows |
-| --- | --- |
-| **Storage** | Total size of `<workspace>/memory_tree/chunks.db` and the Obsidian vault. |
-| **Sources** | How many distinct sources have been ingested (one per Gmail label, Slack channel, document, etc.). |
-| **Chunks** | Total ≤3k-token chunks in the store. |
-| **Topics** | Number of topic trees materialized so far (per-entity summaries built from "hot" entities). |
-| **First / latest memory** | Timestamps of the oldest and newest chunks. |
+| Metric                    | What it shows                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Storage**               | Total size of `<workspace>/memory_tree/chunks.db` and the Obsidian vault.                          |
+| **Sources**               | How many distinct sources have been ingested (one per Gmail label, Slack channel, document, etc.). |
+| **Chunks**                | Total ≤3k-token chunks in the store.                                                               |
+| **Topics**                | Number of topic trees materialized so far (per-entity summaries built from "hot" entities).        |
+| **First / latest memory** | Timestamps of the oldest and newest chunks.                                                        |
 
 ### Memory Graph
 
@@ -29,7 +29,7 @@ A force-directed visualization of entities and their relationships, drawn from t
 
 ### Obsidian vault
 
-A **View vault in Obsidian** button opens `<workspace>/wiki/` directly via an `obsidian://open?path=...` deep link. See [Obsidian Wiki](../features/obsidian-wiki.md). You can also open the folder in any file browser — it's just Markdown.
+A **View vault in Obsidian** button opens `<workspace>/wiki/` directly via an `obsidian://open?path=...` deep link. See [Obsidian Wiki](../features/obsidian-wiki/). You can also open the folder in any file browser — it's just Markdown.
 
 ### Ingestion Activity
 

@@ -15,9 +15,9 @@ Every model in the world — all 200+ of them — shares the same fundamental li
 
 OpenHuman solves this with a stack that's calmly, deliberately different:
 
-**A local-first** [**Memory Tree**](features/memory-tree.md)**.** Every source you connect — Gmail, Slack, GitHub, Notion, your own notes — flows through a deterministic pipeline: canonical Markdown, ≤3k-token chunks, scored, folded into per-source / per-topic / per-day summary trees. Stored in SQLite on your machine. No vector-soup black box.
+**A local-first** [**Memory Tree**](features/obsidian-wiki/memory-tree.md)**.** Every source you connect — Gmail, Slack, GitHub, Notion, your own notes — flows through a deterministic pipeline: canonical Markdown, ≤3k-token chunks, scored, folded into per-source / per-topic / per-day summary trees. Stored in SQLite on your machine. No vector-soup black box.
 
-**An** [**Obsidian-style wiki**](features/obsidian-wiki.md) **on top of it.** The same chunks the agent reasons over land as `.md` files in a vault you can open in [Obsidian](https://obsidian.md), browse, edit, and link by hand. Inspired by [Karpathy's obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595). You can't trust a memory you can't read.
+**An** [**Obsidian-style wiki**](features/obsidian-wiki/) **on top of it.** The same chunks the agent reasons over land as `.md` files in a vault you can open in [Obsidian](https://obsidian.md), browse, edit, and link by hand. Inspired by [Karpathy's obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595). You can't trust a memory you can't read.
 
 [**118+ third-party integrations**](features/integrations.md)**, with** [**auto-fetch**](features/auto-fetch.md)**.** One-click OAuth into Gmail, GitHub, Slack, Notion, Stripe, Calendar, Drive, Linear, Jira and more. Every five minutes, OpenHuman pulls fresh data from every active connection and folds it into the Memory Tree without you asking.
 

@@ -7,11 +7,11 @@ icon: diagram-project
 
 # Memory Tree Pipeline
 
-The user-facing pitch of the [Memory Tree](../features/memory-tree.md) is simple: connect a source, the agent gets persistent memory of it. The pipeline that delivers on that pitch is **not** simple — it spans an HTTP-triggered ingest path, a job queue inside SQLite, a pool of background workers, three independent summary trees, and a daily UTC scheduler. This page walks through the whole thing.
+The user-facing pitch of the [Memory Tree](memory-tree.md) is simple: connect a source, the agent gets persistent memory of it. The pipeline that delivers on that pitch is **not** simple — it spans an HTTP-triggered ingest path, a job queue inside SQLite, a pool of background workers, three independent summary trees, and a daily UTC scheduler. This page walks through the whole thing.
 
 The diagram below is the source of truth. Every box maps to code under `src/openhuman/memory/tree/`.
 
-{% file src="../.gitbook/assets/memory-tree-pipeline (1).excalidraw" %}
+{% file src="../../.gitbook/assets/memory-tree-pipeline (1).excalidraw" %}
 Memory Tree Async Pipeline — leaf ingestion → jobs queue → workers → source / topic / global tree building.
 {% endfile %}
 
@@ -150,6 +150,6 @@ A few rules to keep the pipeline coherent:
 
 ## See also
 
-* [Memory Tree (user-facing)](../features/memory-tree.md) — the product surface this pipeline powers.
-* [Memory Context Window](memory-context-window.md) — how much of the resulting state lands in each agent turn.
-* [Local AI](../features/local-ai.md) — opt-in path for running embeddings + summarization on-device.
+* [Memory Tree (user-facing)](memory-tree.md) — the product surface this pipeline powers.
+* [Memory Context Window](/broken/pages/l8k1mXW6gnYt3tp2WIGd) — how much of the resulting state lands in each agent turn.
+* [Local AI](../local-ai.md) — opt-in path for running embeddings + summarization on-device.

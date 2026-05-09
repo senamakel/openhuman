@@ -4,7 +4,7 @@ icon: play
 
 # Getting Started
 
-This page walks you through setting up OpenHuman and running your first request. For OS-by-OS install commands, see [Install](install.md).
+This page walks you through setting up OpenHuman and running your first request. For OS-by-OS install commands, see [Install](/broken/pages/OyFFC8PaGMAWetIn8vKG).
 
 OpenHuman is open source under the GNU GPL3 license. The codebase is at [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman).
 
@@ -22,7 +22,7 @@ The first time you launch OpenHuman, the OS will prompt for the permissions the 
 
 ## Download & install
 
-Get the OpenHuman desktop app from [openhuman.ai](https://openhuman.ai) or via your platform's package manager. See [Install](install.md) for the full matrix (Homebrew, apt, npm, curl, .dmg, .msi, AppImage).
+Get the OpenHuman desktop app from [openhuman.ai](https://openhuman.ai) or via your platform's package manager. See [Install](/broken/pages/OyFFC8PaGMAWetIn8vKG) for the full matrix (Homebrew, apt, npm, curl, .dmg, .msi, AppImage).
 
 ***
 
@@ -38,16 +38,16 @@ When you first open OpenHuman, you'll be asked to sign in. Multiple sign-in opti
 
 ## Connect your first source
 
-OpenHuman works by connecting to your existing tools through [third-party integrations](../features/integrations.md). Each connection expands your [Memory Tree](../features/memory-tree.md). You choose what to connect, and you can revoke access at any time.
+OpenHuman works by connecting to your existing tools through [third-party integrations](../features/integrations.md). Each connection expands your [Memory Tree](../features/obsidian-wiki/memory-tree.md). You choose what to connect, and you can revoke access at any time.
 
 The 118+ catalog spans Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter / X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
 
 Recommended starting points:
 
-- **Gmail** — high-signal, has a native ingest path into the Memory Tree.
-- **Slack** — picks up workplace chat context fast.
-- **Notion** — for structured docs and exports.
-- **GitHub** — if you write code.
+* **Gmail** — high-signal, has a native ingest path into the Memory Tree.
+* **Slack** — picks up workplace chat context fast.
+* **Notion** — for structured docs and exports.
+* **GitHub** — if you write code.
 
 Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/auto-fetch.md) tick will start syncing it within five minutes.
 
@@ -59,19 +59,19 @@ Once a source is connected and auto-fetch has run a tick, try prompts like:
 
 **Briefings:**
 
-- "What do I need to know from the last 12 hours?"
-- "What's waiting on me?"
+* "What do I need to know from the last 12 hours?"
+* "What's waiting on me?"
 
 **Messaging queries:**
 
-- "Summarize what I missed today across my channels."
-- "What are the key decisions from this week?"
-- "Extract action items from my recent conversations."
+* "Summarize what I missed today across my channels."
+* "What are the key decisions from this week?"
+* "Extract action items from my recent conversations."
 
 **Cross-source queries:**
 
-- "Connect what my team discussed in Slack with what I was reviewing in Notion."
-- "What did Sarah say about the project across email and chat?"
+* "Connect what my team discussed in Slack with what I was reviewing in Notion."
+* "What did Sarah say about the project across email and chat?"
 
 OpenHuman picks the right model for each task automatically — see [Automatic Model Routing](../features/model-routing.md).
 
@@ -79,7 +79,7 @@ OpenHuman picks the right model for each task automatically — see [Automatic M
 
 ## Open the Obsidian vault
 
-The Memory tab has a **View vault in Obsidian** button. Click it to open `<workspace>/wiki/` in [Obsidian](https://obsidian.md). You can browse summaries, drop in your own notes, and even build manual links — the agent will see your edits next ingest. See [Obsidian Wiki](../features/obsidian-wiki.md).
+The Memory tab has a **View vault in Obsidian** button. Click it to open `<workspace>/wiki/` in [Obsidian](https://obsidian.md). You can browse summaries, drop in your own notes, and even build manual links — the agent will see your edits next ingest. See [Obsidian Wiki](../features/obsidian-wiki/).
 
 ***
 
@@ -87,8 +87,8 @@ The Memory tab has a **View vault in Obsidian** button. Click it to open `<works
 
 After your first request, explore what else OpenHuman can do:
 
-- **Skills** extend the assistant's capabilities — fetching data, running scheduled tasks, processing information.
-- **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
+* **Skills** extend the assistant's capabilities — fetching data, running scheduled tasks, processing information.
+* **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
 
 Learn more in [Skills & Integrations](../product/skills-and-integrations.md).
 
@@ -98,5 +98,5 @@ Learn more in [Skills & Integrations](../product/skills-and-integrations.md).
 
 OpenHuman is in early beta. Feedback and contributions make a real difference at this stage.
 
-- **GitHub:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman)
-- **Discord:** [discord.tinyhumans.ai](https://discord.tinyhumans.ai)
+* **GitHub:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman)
+* **Discord:** [discord.tinyhumans.ai](https://discord.tinyhumans.ai)

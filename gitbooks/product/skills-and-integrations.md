@@ -14,18 +14,18 @@ OpenHuman ships with backend-proxied access to **over a hundred third-party serv
 
 A non-exhaustive sample of what's in the catalog:
 
-| Category | Examples |
-| --- | --- |
-| **Email & calendar** | Gmail, Outlook, Google Calendar, Apple Calendar |
-| **Docs & storage** | Google Docs, Drive, Notion, Dropbox, Airtable |
-| **Code & dev** | GitHub, Linear, Jira, Figma |
-| **Comms** | Slack, Discord, Microsoft Teams, Telegram, WhatsApp |
-| **CRM & sales** | Salesforce, HubSpot |
-| **Commerce & payments** | Stripe, Shopify |
-| **Project management** | Asana, Trello |
-| **Social** | Twitter / X, Spotify, YouTube, Reddit, Facebook, Instagram |
+| Category                | Examples                                                   |
+| ----------------------- | ---------------------------------------------------------- |
+| **Email & calendar**    | Gmail, Outlook, Google Calendar, Apple Calendar            |
+| **Docs & storage**      | Google Docs, Drive, Notion, Dropbox, Airtable              |
+| **Code & dev**          | GitHub, Linear, Jira, Figma                                |
+| **Comms**               | Slack, Discord, Microsoft Teams, Telegram, WhatsApp        |
+| **CRM & sales**         | Salesforce, HubSpot                                        |
+| **Commerce & payments** | Stripe, Shopify                                            |
+| **Project management**  | Asana, Trello                                              |
+| **Social**              | Twitter / X, Spotify, YouTube, Reddit, Facebook, Instagram |
 
-Some toolkits — Gmail today, more in flight — also have **native providers** that ingest into the [Memory Tree](../features/memory-tree.md) directly. See [Third-party Integrations](../features/integrations.md) for the full picture.
+Some toolkits — Gmail today, more in flight — also have **native providers** that ingest into the [Memory Tree](../features/obsidian-wiki/memory-tree.md) directly. See [Third-party Integrations](../features/integrations.md) for the full picture.
 
 #### How connections work
 
@@ -43,8 +43,8 @@ You can revoke any connection at any time.
 
 Two capabilities ship native rather than as integrations because they're load-bearing for the desktop experience:
 
-* **[Voice](../features/voice.md)** — STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
-* **[Native tools](../features/native-tools.md)** — built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
+* [**Voice**](../features/voice.md) — STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+* [**Native tools**](../features/native-tools.md) — built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
 
 #### Skills
 

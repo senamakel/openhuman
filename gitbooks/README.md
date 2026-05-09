@@ -27,6 +27,8 @@ OpenHuman solves this with a stack that's calmly, deliberately different:
 
 [**Batteries included**](features/native-tools/README.md)**.** A complete agent toolbelt is wired in by default: [web search](features/native-tools/web-search.md), a [web-fetch scraper](features/native-tools/web-scraper.md), a full [coder toolset](features/native-tools/coder.md) (filesystem, git, lint, test, grep), [browser & computer control](features/native-tools/browser-and-computer.md), [cron & scheduling](features/native-tools/cron.md), [memory tools](features/native-tools/memory-tools.md), [agent coordination](features/native-tools/agent-coordination.md) for spawning sub-agents, and [native voice](features/native-tools/voice.md) — STT in, ElevenLabs TTS out, mascot lip-sync, and a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call. No "install a plugin to read files" friction.
 
+**Simple, UI-first.** A clean desktop experience and short onboarding paths take you from install to a working agent in a few clicks — no config-first setup, no terminal required. The agent has [a face](features/mascot.md): a desktop mascot that speaks, reacts to its surroundings, joins your Google Meets as a real participant, remembers you across weeks, and keeps thinking in the background even when you've stopped typing.
+
 Together, these turn OpenHuman into something fundamentally different from a chatbot. It is an AI agent that consumes large amounts of personal data at low cost, maintains a persistent and evolving understanding of your world, and takes proactive actions on your behalf.
 
 {% hint style="info" %}

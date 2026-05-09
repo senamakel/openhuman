@@ -26,6 +26,7 @@
   * [Third-party Integrations](features/native-tools/integrations.md)
   * [Agent Coordination](features/native-tools/agent-coordination.md)
   * [System & Utilities](features/native-tools/system-and-utilities.md)
+* [The Mascot](features/mascot.md)
 * [Subconscious Loop](features/subconscious.md)
 * [Privacy & Security](features/privacy-and-security.md)
 * [Platform & Availability](features/platform.md)

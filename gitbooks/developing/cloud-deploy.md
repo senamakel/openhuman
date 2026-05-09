@@ -33,7 +33,7 @@ in `app/.env.local` and launch.
 |----------------------------|----------|-----------------------------------------------------------------------|
 | `OPENHUMAN_CORE_TOKEN`     | yes      | Bearer token clients send to `/rpc`. Generate with `openssl rand -hex 32`. **Anyone with this token can drive the core.** |
 | `BACKEND_URL`              | yes      | Tinyhumans backend the core talks to (`https://api.tinyhumans.ai` for prod). |
-| `OPENHUMAN_APP_ENV`        | no       | `production` or `staging`. Defaults to `staging`.                     |
+| `OPENHUMAN_APP_ENV`        | no       | `production` or `staging`. Defaults to `production`.                  |
 | `OPENHUMAN_CORE_HOST`      | no       | Defaults to `0.0.0.0` in the container.                               |
 | `OPENHUMAN_CORE_PORT`      | no       | Defaults to `7788`.                                                   |
 | `RUST_LOG`                 | no       | `info` is fine; `debug` for triage.                                   |

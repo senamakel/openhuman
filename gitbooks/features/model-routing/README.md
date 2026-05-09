@@ -59,5 +59,5 @@ Routing isn't a UI dropdown. The agent loop itself emits hints based on what it'
 ## See also
 
 - [Smart Token Compression](../token-compression.md). what makes large reasoning calls affordable.
-- [Native Tools](../native-tools.md). different tool calls hint at different routes.
+- [Native Tools](../native-tools/README.md). different tool calls hint at different routes.
 - [Local AI (optional)](local-ai.md). lightweight chat hints can run on-device.

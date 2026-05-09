@@ -30,7 +30,7 @@ Each of these is a **per-feature opt-in flag**. Turning on local AI does not sil
 | **Chat (default)** | Frontier reasoning quality. Routed via the [model router](README.md) under one subscription. |
 | **Vision**         | Same.                                                                                               |
 | **STT**            | Backend-proxied transcription (`src/openhuman/voice/cloud_transcribe.rs`).                          |
-| **TTS**            | [ElevenLabs](../voice.md) under the hood (`reply_speech.rs`).                                       |
+| **TTS**            | [ElevenLabs](../native-tools/voice.md) under the hood (`reply_speech.rs`).                                       |
 | **Web search**     | Backend proxy (no API key on your machine).                                                         |
 
 For **lightweight or medium chat hints** (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](README.md) will prefer the local provider when local AI is enabled and Ollama is reachable. Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay cloud.

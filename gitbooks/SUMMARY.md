@@ -15,6 +15,8 @@
 * [Third-party Integrations (118+)](features/integrations.md)
 * [Smart Token Compression](features/token-compression.md)
 * [Automatic Model Routing](features/model-routing.md)
+* [The Mascot](features/mascot/README.md)
+  * [Meeting Agents](features/mascot/meeting-agents.md)
 * [Native Voice (ElevenLabs)](features/voice.md)
 * [Native Tools (search, scraper, coder)](features/native-tools.md)
 * [Local AI (optional)](features/local-ai.md)

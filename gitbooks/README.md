@@ -7,7 +7,7 @@ icon: diamond
 
 # Welcome to OpenHuman
 
-<figure><img src=".gitbook/assets/Screenshot 2026-05-08 at 9.39.39 PM.png" alt=""><figcaption></figcaption></figure>
+<figure><img src=".gitbook/assets/demo.png" alt=""><figcaption></figcaption></figure>
 
 OpenHuman is an open-source AI assistant designed to be the **memory** and **doer** for everything you do across your tools. Built on Rust + Tauri and licensed under GNU GPL3, it closes the gap between what AI models can do and what they actually know about _you_.
 
@@ -35,22 +35,22 @@ OpenHuman is not AGI. But it is a meaningful architectural step closer, with bet
 
 OpenHuman connects to your tools, pulls from them continuously, and turns the firehose into something structured any AI can act on.
 
-* It **fetches automatically** from every active integration every five minutes, so the agent already has tomorrow's context this morning.
-* It **compresses** millions of tokens of organizational noise into a deterministic Memory Tree of chunks, scores, entities, and summaries.
-* It **surfaces signals** that matter: decisions, action items, risks, sentiment shifts, and buried context you would otherwise miss.
-* It **routes intelligently**, picking the right model for each task and compacting tool output through TokenJuice so cost stays minimal even at scale.
-* It **speaks**, listens, and joins meetings, voice is a first-class surface, not an afterthought.
-* It **preserves privacy** by design. The Memory Tree's SQLite database and your Obsidian vault stay on your machine. Integration tokens are held by the OpenHuman backend, not on disk in plaintext on your laptop.
+- It **fetches automatically** from every active integration every five minutes, so the agent already has tomorrow's context this morning.
+- It **compresses** millions of tokens of organizational noise into a deterministic Memory Tree of chunks, scores, entities, and summaries.
+- It **surfaces signals** that matter: decisions, action items, risks, sentiment shifts, and buried context you would otherwise miss.
+- It **routes intelligently**, picking the right model for each task and compacting tool output through TokenJuice so cost stays minimal even at scale.
+- It **speaks**, listens, and joins meetings, voice is a first-class surface, not an afterthought.
+- It **preserves privacy** by design. The Memory Tree's SQLite database and your Obsidian vault stay on your machine. Integration tokens are held by the OpenHuman backend, not on disk in plaintext on your laptop.
 
 ## Who it's for
 
 OpenHuman is built for people and teams who operate across many conversations and tools, and feel the cost of it.
 
-* **Knowledge workers** who spend their days across 8+ applications and lose context every time they switch.
-* **Developers and power users** who want a memory and context layer that actually scales, and that they can audit by opening a folder of Markdown.
-* **High-volume communicators** who miss decisions, context, and follow-ups buried in message noise across multiple platforms.
-* **Traders and analysts** who need fast signal extraction and risk awareness across information channels.
-* **Distributed teams** who make decisions in chat but need structured follow-through in external tools.
+- **Knowledge workers** who spend their days across 8+ applications and lose context every time they switch.
+- **Developers and power users** who want a memory and context layer that actually scales, and that they can audit by opening a folder of Markdown.
+- **High-volume communicators** who miss decisions, context, and follow-ups buried in message noise across multiple platforms.
+- **Traders and analysts** who need fast signal extraction and risk awareness across information channels.
+- **Distributed teams** who make decisions in chat but need structured follow-through in external tools.
 
 ## What OpenHuman does not do
 

@@ -1,7 +1,7 @@
 <h1 align="center">OpenHuman</h1>
 
 <p align="center">
- <img src="./docs/mascot.gif" alt="The Tet" />
+ <img src="./gitbooks/.gitbook/assets/demo.png" alt="The Tet" />
 </p>
 
 <p align="center">
@@ -69,17 +69,17 @@ For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/develop
 
 High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data — not only chat.
 
-| | Claude Cowork | OpenClaw | Hermes Agent | OpenHuman |
-| --------------------- | ------------------ | ----------------- | ----------------- | ---------------------------------- |
-| **Open-source** | 🚫 Proprietary | ✅ MIT | ✅ MIT | ✅ GNU |
-| **Simple to start** | ✅ Desktop + CLI | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes |
-| **Cost** | ⚠️ Sub + add-ons | ⚠️ BYO models | ⚠️ BYO models | ✅ One sub + TokenJuice |
-| **Memory** | ✅ Chat-scoped | ⚠️ Plugin-reliant | ✅ Self-learning | 🚀 Memory Tree + Obsidian vault |
-| **Integrations** | ⚠️ Few connectors | ⚠️ BYO | ⚠️ BYO | 🚀 118+ via OAuth |
-| **Auto-fetch** | 🚫 None | 🚫 None | 🚫 None | ✅ 5-min sync into memory |
-| **API sprawl** | 🚫 Extra keys | 🚫 BYOK | 🚫 Multi-vendor | ✅ One account |
-| **Model routing** | 🚫 Single model | ⚠️ Manual | ⚠️ Manual | ✅ Built-in |
-| **Native tools** | ✅ Code-only | ✅ Code-only | ✅ Code-only | ✅ Code + search + scraper + voice |
+|                     | Claude Cowork     | OpenClaw          | Hermes Agent      | OpenHuman                          |
+| ------------------- | ----------------- | ----------------- | ----------------- | ---------------------------------- |
+| **Open-source**     | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GNU                             |
+| **Simple to start** | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes               |
+| **Cost**            | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
+| **Memory**          | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault    |
+| **Integrations**    | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 118+ via OAuth                  |
+| **Auto-fetch**      | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 5-min sync into memory          |
+| **API sprawl**      | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
+| **Model routing**   | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                        |
+| **Native tools**    | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + voice |
 
 # Star us on GitHub
 

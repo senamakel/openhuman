@@ -21,15 +21,18 @@ import {
  * requestAnimationFrame and feed both hooks via plain React context.
  */
 
-interface FrameConfig {
+export interface FrameConfig {
   fps: number;
   width: number;
   height: number;
   durationInFrames: number;
 }
 
-const FrameContext = createContext<number>(0);
-const FrameConfigContext = createContext<FrameConfig | null>(null);
+// Exported so callers (e.g. the meet camera frame producer) can plug in
+// a non-rAF tick source — rAF is throttled when the main window is
+// backgrounded behind another Tauri window, which freezes the mascot.
+export const FrameContext = createContext<number>(0);
+export const FrameConfigContext = createContext<FrameConfig | null>(null);
 
 export const useCurrentFrame = (): number => useContext(FrameContext);
 

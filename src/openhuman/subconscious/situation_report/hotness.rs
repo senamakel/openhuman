@@ -22,7 +22,9 @@ const MAX_DELTAS: usize = 10;
 pub async fn build_section(config: &Config, workspace_dir: &Path, _last_tick_at: f64) -> String {
     log::debug!("[subconscious::situation_report::hotness] building section");
 
-    // 1. Read current hotness from the memory_tree DB.
+    // 1. Read current hotness from the memory_tree DB. `is_user` joins
+    //    against the entity index (#1365) so reflection generation can
+    //    tell which movers are the user vs other people.
     let current = match read_current_hotness(config) {
         Ok(rows) => rows,
         Err(e) => {
@@ -32,7 +34,6 @@ pub async fn build_section(config: &Config, workspace_dir: &Path, _last_tick_at:
     };
 
     if current.is_empty() {
-        // Refresh snapshots to empty so future deltas are honest.
         let _ = update_snapshots(workspace_dir, &[]);
         return "## Hotness deltas\n\nNo entity hotness data yet.\n".to_string();
     }
@@ -47,26 +48,36 @@ pub async fn build_section(config: &Config, workspace_dir: &Path, _last_tick_at:
     });
     let prev_map: std::collections::HashMap<String, f64> = previous.into_iter().collect();
 
-    // 3. Compute deltas.
-    let mut deltas: Vec<(String, f64, f64)> = current
+    // 3. Compute deltas; carry is_user through.
+    let mut deltas: Vec<HotnessDelta> = current
         .iter()
-        .map(|(eid, score)| {
-            let prev = prev_map.get(eid).copied().unwrap_or(0.0);
-            (eid.clone(), *score, score - prev)
+        .map(|row| {
+            let prev = prev_map.get(&row.entity_id).copied().unwrap_or(0.0);
+            HotnessDelta {
+                entity_id: row.entity_id.clone(),
+                score: row.score,
+                delta: row.score - prev,
+                is_user: row.is_user,
+            }
         })
         .collect();
     // Highest |delta| first; ties broken by current score.
     deltas.sort_by(|a, b| {
-        b.2.abs()
-            .partial_cmp(&a.2.abs())
+        b.delta
+            .abs()
+            .partial_cmp(&a.delta.abs())
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // 4. Format top-K.
-    let top: Vec<&(String, f64, f64)> = deltas
+    let top: Vec<&HotnessDelta> = deltas
         .iter()
-        .filter(|(_, _, delta)| delta.abs() > f64::EPSILON)
+        .filter(|d| d.delta.abs() > f64::EPSILON)
         .take(MAX_DELTAS)
         .collect();
 
@@ -76,13 +87,23 @@ pub async fn build_section(config: &Config, workspace_dir: &Path, _last_tick_at:
     } else {
         let _ = writeln!(
             section,
-            "Top {} entity movers (score = post-delta, Δ = change):",
+            "Top {} entity movers (score = post-delta, Δ = change). \
+             Items tagged `(you)` are the user's own identifiers — \
+             reflect on these in second person; for everything else, \
+             reflect on what *others* are doing or talking about.",
             top.len()
         );
         section.push('\n');
-        for (eid, score, delta) in &top {
-            let arrow = if *delta > 0.0 { "▲" } else { "▼" };
-            let _ = writeln!(section, "- {arrow} {eid} (score={score:.2}, Δ={delta:+.2})");
+        for d in &top {
+            let arrow = if d.delta > 0.0 { "▲" } else { "▼" };
+            let self_marker = if d.is_user { " (you)" } else { "" };
+            let _ = writeln!(
+                section,
+                "- {arrow} {eid}{self_marker} (score={score:.2}, Δ={delta:+.2})",
+                eid = d.entity_id,
+                score = d.score,
+                delta = d.delta
+            );
         }
     }
 
@@ -91,27 +112,62 @@ pub async fn build_section(config: &Config, workspace_dir: &Path, _last_tick_at:
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0);
-    if let Err(e) = update_snapshots_with_now(workspace_dir, &current, now) {
+    let snapshot_pairs: Vec<(String, f64)> = current
+        .iter()
+        .map(|r| (r.entity_id.clone(), r.score))
+        .collect();
+    if let Err(e) = update_snapshots_with_now(workspace_dir, &snapshot_pairs, now) {
         log::warn!("[subconscious::situation_report::hotness] snapshot refresh failed: {e}");
     }
 
     section
 }
 
-/// Read `(entity_id, last_hotness)` rows from the memory_tree DB,
-/// filtering nulls. Returns rows ordered by score desc.
-fn read_current_hotness(config: &Config) -> anyhow::Result<Vec<(String, f64)>> {
+/// One row from `read_current_hotness`. `is_user` is OR'd across all
+/// indexed nodes for the entity — true if any mention of this entity in
+/// the tree resolved against the Composio identity registry.
+struct CurrentHotness {
+    entity_id: String,
+    score: f64,
+    is_user: bool,
+}
+
+/// Internal: a delta row with the carry-through identity flag.
+struct HotnessDelta {
+    entity_id: String,
+    score: f64,
+    delta: f64,
+    is_user: bool,
+}
+
+/// Read `(entity_id, last_hotness, is_user)` rows from the memory_tree
+/// DB, filtering nulls. The `is_user` flag is computed via a correlated
+/// subquery over `mem_tree_entity_index` (#1365): true iff any indexed
+/// row for this entity has `is_user = 1`.
+fn read_current_hotness(config: &Config) -> anyhow::Result<Vec<CurrentHotness>> {
     crate::openhuman::memory::tree::store::with_connection(config, |conn| {
         let mut stmt = conn.prepare(
-            "SELECT entity_id, last_hotness FROM mem_tree_entity_hotness
-             WHERE last_hotness IS NOT NULL
-             ORDER BY last_hotness DESC",
+            "SELECT h.entity_id,
+                    h.last_hotness,
+                    EXISTS (
+                        SELECT 1 FROM mem_tree_entity_index i
+                         WHERE i.entity_id = h.entity_id
+                           AND i.is_user = 1
+                    ) AS is_user
+               FROM mem_tree_entity_hotness h
+              WHERE h.last_hotness IS NOT NULL
+              ORDER BY h.last_hotness DESC",
         )?;
         let rows = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
                 let score: f64 = row.get(1)?;
-                Ok((id, score))
+                let is_user_int: i64 = row.get(2)?;
+                Ok(CurrentHotness {
+                    entity_id: id,
+                    score,
+                    is_user: is_user_int != 0,
+                })
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)

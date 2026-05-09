@@ -86,6 +86,18 @@ describe('resolveSystemRoute', () => {
     expect(resolveSystemRoute(makeSystem({ category: 'system' }))).toBe('/home');
   });
 
+  it('routes meetings category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'meetings' }))).toBe('/notifications');
+  });
+
+  it('routes reminders category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'reminders' }))).toBe('/notifications');
+  });
+
+  it('routes important category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'important' }))).toBe('/notifications');
+  });
+
   it('prefers deepLink over category default', () => {
     const item = makeSystem({ category: 'messages', deepLink: '/notifications' });
     expect(resolveSystemRoute(item)).toBe('/notifications');

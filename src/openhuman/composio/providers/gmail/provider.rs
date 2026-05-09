@@ -124,37 +124,20 @@ impl ComposioProvider for GmailProvider {
             return Err(format!("[composio:gmail] {ACTION_GET_PROFILE}: {err}"));
         }
 
+        // `data` is the inner Composio payload — paths here are relative
+        // to it. (The previous `data.*` paths were dead — `pick_str`
+        // does dotted-path traversal, so `data.emailAddress` looked for
+        // a nested `data.data.emailAddress` that never exists.)
         let data = &resp.data;
-        let email = pick_str(
-            data,
-            &[
-                "data.emailAddress",
-                "data.email",
-                "emailAddress",
-                "email",
-                "data.profile.emailAddress",
-            ],
-        );
-        let display_name = pick_str(
-            data,
-            &[
-                "data.name",
-                "data.profile.name",
-                "name",
-                "displayName",
-                "data.displayName",
-            ],
-        )
-        .or_else(|| email.clone());
+        let email = pick_str(data, &["emailAddress", "email", "profile.emailAddress"]);
+        // Don't fall back to the email when no name is returned — that
+        // produces duplicated `display_name == email` rows in the
+        // identity registry (#1365). Gmail's `GMAIL_GET_PROFILE` action
+        // doesn't return a name today, so this stays None.
+        let display_name = pick_str(data, &["name", "profile.name", "displayName"]);
         let profile_url = pick_str(
             data,
-            &[
-                "data.profileUrl",
-                "data.profile_url",
-                "data.profile.url",
-                "profileUrl",
-                "profile_url",
-            ],
+            &["display_url", "profileUrl", "profile_url", "profile.url"],
         );
 
         let profile = ProviderUserProfile {

@@ -1259,6 +1259,20 @@ pub fn run() {
             // send COOP/COEP headers, so without this flag the feature
             // silently disappears and huddle/call buttons no-op.
             ("--enable-features", Some("SharedArrayBuffer")),
+            // Defeat Chromium's modern throttlers that ignore the
+            // legacy `--disable-background-timer-throttling` flag.
+            // Empirically with that flag *alone*, the producer in the
+            // (visible but non-key) main window still got pinned to
+            // 1Hz worker timers as soon as the off-screen Meet window
+            // opened. These three feature flags are the canonical
+            // additional knobs (Electron / Puppeteer use them).
+            (
+                "--disable-features",
+                Some(
+                    "IntensiveWakeUpThrottling,CalculateNativeWinOcclusion,\
+                     AutofillActorMode,GlicActorUi,LensOverlay",
+                ),
+            ),
             // Allow autoplay (audio + video) without a prior user gesture.
             // CEF inherits Chromium's default policy, which leaves an
             // AudioContext suspended until the user interacts with the
@@ -1272,6 +1286,25 @@ pub fn run() {
             // surface in this webview, so dropping the gesture gate is
             // safe.
             ("--autoplay-policy", Some("no-user-gesture-required")),
+            // Background-throttling defeaters. The MeetCallProducer
+            // pumps mascot frames at 24 fps from the *main* OpenHuman
+            // window, but as soon as the off-screen Meet webview opens
+            // (or the user clicks anywhere outside main), macOS demotes
+            // the renderer's priority and Chromium throttles its
+            // setInterval / worker timers / rAF down to ~1 Hz — the
+            // mascot stream collapses to 1 fps. Page-level workarounds
+            // (silent AudioContext, muted <audio>) are unreliable in
+            // CEF: AudioContext starts suspended pre-gesture; the muted
+            // <audio> trick depends on the renderer being polled at all.
+            // The canonical fix is the Chromium command-line flag set
+            // Electron / Puppeteer use for the same scenario.
+            //
+            // Process-wide is fine: every CEF webview we own is part of
+            // the agent flow (no idle low-priority background tabs we
+            // care about saving battery on).
+            ("--disable-background-timer-throttling", None),
+            ("--disable-renderer-backgrounding", None),
+            ("--disable-backgrounding-occluded-windows", None),
         ];
         // Mascot fake-camera: bake the SVG into a one-frame Y4M and
         // point Chromium's fake-video-capture pipeline at it so any
@@ -1370,6 +1403,7 @@ pub fn run() {
     let builder = builder.manage(screen_capture::ScreenShareState::new());
     let builder = builder.manage(meet_call::MeetCallState::new());
     let builder = builder.manage(meet_audio::MeetAudioState::new());
+    let builder = builder.manage(meet_video::frame_bus::MeetVideoFrameBusState::new());
     builder
         .setup(move |app| {
             #[cfg(any(windows, target_os = "linux"))]
@@ -1797,6 +1831,47 @@ pub fn run() {
                     });
                 }
             }
+            // Dev helper: OPENHUMAN_DEV_AUTO_MEET_CALL=<https://meet.google.com/...>
+            // auto-spawns a meet-call window at startup so the camera +
+            // audio bridges + frame-bus + producer pipeline can be
+            // exercised end-to-end without manual UI clicks. Pair with
+            // `tail -F ~/.openhuman/logs/openhuman.<date>.log` to see
+            // the periodic [meet-camera] bridge stats logged by the
+            // diagnostics poller in meet_video::inject.
+            if let Ok(meet_url) = std::env::var("OPENHUMAN_DEV_AUTO_MEET_CALL") {
+                let meet_url = meet_url.trim().to_string();
+                if !meet_url.is_empty() {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        // Wait for the main window + core to be ready.
+                        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                        let state = app_handle.state::<meet_call::MeetCallState>();
+                        let request_id = format!(
+                            "dev-auto-{}",
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_secs())
+                                .unwrap_or(0)
+                        );
+                        let args = meet_call::OpenWindowArgs {
+                            request_id: request_id.clone(),
+                            meet_url: meet_url.clone(),
+                            display_name: "OpenHuman Dev".to_string(),
+                        };
+                        match meet_call::meet_call_open_window(app_handle.clone(), state, args)
+                            .await
+                        {
+                            Ok(label) => log::info!(
+                                "[dev-auto-meet] spawned label={label} request_id={request_id} url={meet_url}"
+                            ),
+                            Err(e) => log::error!(
+                                "[dev-auto-meet] failed: {e} (url={meet_url})"
+                            ),
+                        }
+                    });
+                }
+            }
+
             #[cfg(target_os = "macos")]
             {
                 use std::sync::Arc;

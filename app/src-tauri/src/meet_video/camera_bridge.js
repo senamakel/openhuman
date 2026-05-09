@@ -1,23 +1,41 @@
 // OpenHuman Meet camera bridge.
 //
-// Replaces the agent's outbound video stream with a programmatically
-// drawn mascot. Runs at document-start in the Meet webview (installed
-// via Page.addScriptToEvaluateOnNewDocument by `inject.rs`), so the
-// monkey-patches on `navigator.mediaDevices.{getUserMedia,
-// enumerateDevices}` are in place before Meet's app code requests the
-// camera.
+// Replaces the agent's outbound video stream with a pre-rendered mascot
+// frame stream produced by the main OpenHuman renderer (a hidden
+// Remotion composition). Runs post-reload via Runtime.evaluate (see
+// `inject.rs` for the rationale).
 //
-// The two `__OPENHUMAN_MASCOT_*_DATAURI__` placeholders are substituted
-// from Rust at install time with `data:image/svg+xml;base64,...` URIs
-// for the idle and thinking mascot SVGs, so the bridge is fully
-// self-contained — no network fetch from inside meet.google.com's
-// origin sandbox.
+// ## Frame source: WS frame bus, with static-SVG fallback
+//
+// Primary: connect to `ws://127.0.0.1:<frameBusPort>` (Rust-hosted, see
+// `frame_bus.rs`) and pump incoming binary JPEG frames straight onto
+// our 640×480 capture canvas. This is what the user sees in Meet.
+//
+// Fallback: if the WS hasn't delivered a frame in the last 500 ms (or
+// the port is 0 — meaning the producer never came up), draw the
+// inlined idle / thinking mascot SVGs with a gentle sine bob. Same
+// behavior the bridge had before the frame bus existed; keeps Meet
+// from showing a black or frozen camera if the producer crashes.
+//
+// The `__OPENHUMAN_*` placeholders are substituted from Rust at install
+// time so the script is fully self-contained — no network fetch from
+// inside meet.google.com's origin sandbox.
 (function () {
   if (window.__openhumanCameraBridge) return;
   const TAG = '[openhuman-camera-bridge]';
   const W = 640;
   const H = 480;
   const FPS = 30;
+  const FRAME_BUS_PORT = __OPENHUMAN_FRAME_BUS_PORT__;
+  // The static-SVG path is **cold-start only**: we use it before the
+  // first remote frame arrives so the camera isn't black during the
+  // ~1s producer connect handshake. Once any remote frame has been
+  // seen, we keep drawing the last bitmap forever — switching back to
+  // the static SVG when the producer hiccups would morph the mascot
+  // visually (different artwork) and read as flicker. Drawing a stale
+  // bitmap is much less jarring; if the producer truly dies the user
+  // sees a frozen feed (with a tiny synthetic bob to keep the codec
+  // sending), which we can detect via __openhumanCameraBridgeInfo.
   const TOGGLE_INTERVAL_MS = 5000;
 
   const MASCOTS = {
@@ -25,10 +43,26 @@
     thinking: '__OPENHUMAN_MASCOT_THINKING_DATAURI__',
   };
 
-  // Mood state. `currentMood` drives every frame; `setMood` is the
-  // public host-callable API and also the sink for the auto-toggle.
+  // Mood drives the fallback only — the WS path renders whatever the
+  // producer sends. Kept so `__openhumanSetMood` still works during
+  // outages.
   let currentMood = 'idle';
   const moodImgs = { idle: null, thinking: null };
+
+  // Latest bitmap from the WS frame bus + when it arrived. Tick loop
+  // reads both atomically; ImageBitmap is cheap to draw repeatedly.
+  let latestRemoteBitmap = null;
+  let latestRemoteAt = 0;
+  let remoteFrameCount = 0;
+  let droppedOutOfOrder = 0;
+  // Monotonic frame counter for out-of-order decode protection. WS
+  // messages can bunch up when the kernel coalesces TCP packets, and
+  // `createImageBitmap` is async — so two decodes can be in flight at
+  // once and finish in arbitrary order. Without a seq, an older frame
+  // can clobber a newer one and the mascot visibly rewinds.
+  let nextRecvSeq = 0;
+  let lastAcceptedSeq = -1;
+  let wsState = 'init';
 
   function loadImage(src) {
     return new Promise(function (resolve, reject) {
@@ -42,40 +76,123 @@
     });
   }
 
-  // Build the canvas + decode mascots once. Ready promise gates the
-  // capture-stream construction so getUserMedia callers always get a
-  // canvas with valid frames in flight.
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d', { alpha: false });
-  // Calm, off-white background — matches Meet's tile chrome.
   ctx.fillStyle = '#F7F4EE';
   ctx.fillRect(0, 0, W, H);
 
+  // Decode the fallback SVGs eagerly so they're ready the moment the
+  // WS path goes silent — the alternative is a noticeable flash of
+  // background while the decoder catches up.
   const ready = (async function () {
     try {
       moodImgs.idle = await loadImage(MASCOTS.idle);
       moodImgs.thinking = await loadImage(MASCOTS.thinking);
-      console.log(TAG, 'mascots decoded',
-        'idle=' + moodImgs.idle.naturalWidth + 'x' + moodImgs.idle.naturalHeight,
-        'thinking=' + moodImgs.thinking.naturalWidth + 'x' + moodImgs.thinking.naturalHeight);
+      console.log(TAG, 'fallback mascots decoded');
     } catch (err) {
-      console.warn(TAG, 'mascot decode failed', err);
+      console.warn(TAG, 'fallback mascot decode failed', err);
     }
   })();
 
-  // setInterval-driven render loop, NOT requestAnimationFrame: the
-  // meet window is frequently backgrounded behind the main openhuman
-  // window during the agent flow, and Chromium throttles rAF to ~0Hz
-  // in background tabs. setInterval keeps firing regardless of focus,
-  // which is what we need for the outbound camera to stay live.
-  // The small per-frame phase counter drives a gentle sine-wave bob
-  // so the camera reads as a live feed (Meet's outbound codec drops
-  // static frames, which can show up as a "frozen camera" banner).
+  // ---- WS frame bus consumer ------------------------------------------
+  // Exponential-ish reconnect on failure so a producer restart doesn't
+  // require a full page reload to pick the camera back up.
+  function connectWs() {
+    if (!FRAME_BUS_PORT) {
+      wsState = 'disabled';
+      console.log(TAG, 'frame bus port=0, fallback-only mode');
+      return;
+    }
+    const url = 'ws://127.0.0.1:' + FRAME_BUS_PORT;
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      console.warn(TAG, 'ws ctor failed', err);
+      wsState = 'errored';
+      setTimeout(connectWs, 1000);
+      return;
+    }
+    ws.binaryType = 'arraybuffer';
+    wsState = 'connecting';
+    ws.onopen = function () {
+      wsState = 'open';
+      console.log(TAG, 'frame bus connected', url);
+    };
+    ws.onmessage = async function (ev) {
+      if (!(ev.data instanceof ArrayBuffer)) return;
+      const mySeq = ++nextRecvSeq;
+      try {
+        const blob = new Blob([ev.data], { type: 'image/jpeg' });
+        // Decode off the main animation tick — createImageBitmap is
+        // async and hands back a GPU-friendly handle for drawImage.
+        const bitmap = await createImageBitmap(blob);
+        // If a newer frame already won the race, drop this stale one.
+        // Without this guard, bursty WS delivery + concurrent decodes
+        // can cause the mascot to visibly rewind one or two frames at
+        // a time — the "looks great then flickers" pattern.
+        if (mySeq <= lastAcceptedSeq) {
+          if (bitmap && bitmap.close) {
+            try { bitmap.close(); } catch (_) {}
+          }
+          droppedOutOfOrder++;
+          return;
+        }
+        if (latestRemoteBitmap && latestRemoteBitmap.close) {
+          try { latestRemoteBitmap.close(); } catch (_) {}
+        }
+        latestRemoteBitmap = bitmap;
+        latestRemoteAt = Date.now();
+        lastAcceptedSeq = mySeq;
+        remoteFrameCount++;
+      } catch (err) {
+        console.warn(TAG, 'frame decode failed', err);
+      }
+    };
+    ws.onclose = function () {
+      wsState = 'closed';
+      // Reconnect; the producer may simply have restarted.
+      setTimeout(connectWs, 500);
+    };
+    ws.onerror = function (err) {
+      // onclose fires after onerror — leave reconnect to onclose.
+      console.warn(TAG, 'frame bus ws error', err && err.message);
+    };
+  }
+  connectWs();
+
+  // ---- render loop -----------------------------------------------------
+  // setInterval, NOT requestAnimationFrame: Meet is frequently
+  // backgrounded behind the main openhuman window during the agent
+  // flow, and Chromium throttles rAF to ~0Hz in background tabs.
+  // setInterval keeps firing regardless of focus, which is what we need
+  // for the outbound camera to stay live.
   let frame = 0;
   function tick() {
     frame++;
+    if (latestRemoteBitmap) {
+      // Once any remote frame has arrived, we render only remote
+      // bitmaps for the rest of the session — even if the producer
+      // hiccups, holding the last bitmap is much less jarring than
+      // morphing back to the static SVG. A 1px synthetic bob keeps
+      // the WebRTC encoder from dropping the stream as "frozen" while
+      // we're holding a stale frame.
+      ctx.fillStyle = '#F7F4EE';
+      ctx.fillRect(0, 0, W, H);
+      const bw = latestRemoteBitmap.width || W;
+      const bh = latestRemoteBitmap.height || H;
+      const scale = Math.max(W / bw, H / bh);
+      const dw = bw * scale;
+      const dh = bh * scale;
+      const dx = (W - dw) / 2;
+      const dy = (H - dh) / 2 + (Math.sin(frame / (FPS * 2 / Math.PI)) * 0.5);
+      ctx.drawImage(latestRemoteBitmap, dx, dy, dw, dh);
+      return;
+    }
+    // Cold-start fallback: static SVG with a gentle bob so the camera
+    // isn't black during the producer's WS handshake.
     ctx.fillStyle = '#F7F4EE';
     ctx.fillRect(0, 0, W, H);
     const img = moodImgs[currentMood];
@@ -94,13 +211,9 @@
   }
   setInterval(tick, Math.round(1000 / FPS));
 
-  // Capture-stream once both mascots are decoded; before then the
-  // canvas just shows the background fill, which is fine — Meet won't
-  // ask for the camera until the user is past the lobby anyway.
   const stream = canvas.captureStream(FPS);
   const fakeVideoTrack = stream.getVideoTracks()[0];
   if (fakeVideoTrack) {
-    // Lie about device label so Meet's tile shows a friendly name.
     try {
       Object.defineProperty(fakeVideoTrack, 'label', {
         value: 'OpenHuman Mascot',
@@ -145,13 +258,7 @@
       return origGetUserMedia(constraints);
     }
     await ready;
-    // Run the existing chain (audio bridge + Chromium) with the full
-    // original constraints so it returns a properly assembled stream.
     const realStream = await origGetUserMedia(constraints);
-    // Drop whatever video track came back (the fake-camera Y4M) and
-    // splice our canvas track in. addTrack/removeTrack on a live
-    // MediaStream is the supported way to mutate a stream returned
-    // from getUserMedia without re-allocating it.
     try {
       realStream.getVideoTracks().forEach(function (t) {
         realStream.removeTrack(t);
@@ -168,13 +275,6 @@
     }
     return realStream;
   };
-
-  // Note: we deliberately do NOT override enumerateDevices. The
-  // process-level --use-fake-device-for-media-stream flag already
-  // surfaces a "Fake Video Capture" device, which Meet picks by
-  // default. Returning custom plain objects from enumerateDevices
-  // can break Meet's device-picker code paths that expect real
-  // MediaDeviceInfo instances.
 
   // ---- host API --------------------------------------------------------
   window.__openhumanSetMood = function (mood) {
@@ -195,17 +295,22 @@
       hasIdle: !!moodImgs.idle,
       hasThinking: !!moodImgs.thinking,
       frame: frame,
+      frameBusPort: FRAME_BUS_PORT,
+      wsState: wsState,
+      remoteFrameCount: remoteFrameCount,
+      droppedOutOfOrder: droppedOutOfOrder,
+      remoteFreshMs: latestRemoteAt ? (Date.now() - latestRemoteAt) : null,
     };
   };
 
-  // Default driver: toggle every 5s. Once the agent state machine wires
-  // host-side `set_mood` calls, we can drop this fallback — but having
-  // it on by default keeps the visible behavior even if the host loop
-  // never starts.
+  // Default fallback driver: toggle every 5s. Active only when the WS
+  // path is silent (the tick loop ignores `currentMood` while remote
+  // frames are fresh). Once the agent state machine wires real mood
+  // calls we can drop this.
   setInterval(function () {
     window.__openhumanSetMood(currentMood === 'idle' ? 'thinking' : 'idle');
   }, TOGGLE_INTERVAL_MS);
 
   window.__openhumanCameraBridge = true;
-  console.log(TAG, 'installed');
+  console.log(TAG, 'installed frame_bus_port=' + FRAME_BUS_PORT);
 })();

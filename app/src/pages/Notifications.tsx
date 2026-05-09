@@ -18,6 +18,9 @@ const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   agents: 'Agents',
   skills: 'Skills',
   system: 'System',
+  meetings: 'Meetings',
+  reminders: 'Reminders',
+  important: 'Important',
 };
 
 function formatTime(ts: number): string {

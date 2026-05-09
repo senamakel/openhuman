@@ -15,6 +15,9 @@ pub enum CoreNotificationCategory {
     Agents,
     Skills,
     System,
+    Meetings,
+    Reminders,
+    Important,
 }
 
 /// Wire payload emitted on the `core_notification` socket event. Short,

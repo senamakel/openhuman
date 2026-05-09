@@ -153,7 +153,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         memory: agent.memory_arc(),
         agent_config: agent.agent_config().clone(),
         skills: Arc::new(agent.skills().to_vec()),
-        memory_context: None, // Sub-agent queries memory via tools if needed
+        memory_context: Arc::new(None), // Sub-agent queries memory via tools if needed
         session_id: format!("triage-{}", uuid::Uuid::new_v4()),
         channel: "triage".to_string(),
         connected_integrations: agent.connected_integrations().to_vec(),
@@ -232,6 +232,7 @@ mod tests {
             },
             used_local: false,
             latency_ms: 9,
+            resolution_path: super::super::evaluator::TriageResolutionPath::Cloud,
         }
     }
 
@@ -245,6 +246,7 @@ mod tests {
             },
             used_local: false,
             latency_ms: 9,
+            resolution_path: super::super::evaluator::TriageResolutionPath::Cloud,
         }
     }
 

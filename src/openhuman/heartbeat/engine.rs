@@ -42,7 +42,7 @@ impl HeartbeatEngine {
         let sleep_secs = u64::from(interval_mins) * 60;
 
         loop {
-            time::sleep(Duration::from_secs(sleep_secs)).await;
+            self.run_event_planner_tick().await;
 
             if self.config.inference_enabled {
                 // Get the shared global engine (same instance as RPC handlers)
@@ -85,6 +85,34 @@ impl HeartbeatEngine {
                         warn!("[heartbeat] error reading tasks: {e}");
                     }
                 }
+            }
+
+            time::sleep(Duration::from_secs(sleep_secs)).await;
+        }
+    }
+
+    async fn run_event_planner_tick(&self) {
+        match crate::openhuman::config::Config::load_or_init().await {
+            Ok(config) => {
+                if !config.heartbeat.enabled {
+                    tracing::debug!("[heartbeat] planner skipped: heartbeat disabled");
+                    return;
+                }
+                let summary = crate::openhuman::heartbeat::planner::evaluate_and_dispatch(
+                    &config,
+                    chrono::Utc::now(),
+                )
+                .await;
+                tracing::debug!(
+                    source_events = summary.source_events,
+                    deliveries_attempted = summary.deliveries_attempted,
+                    deliveries_sent = summary.deliveries_sent,
+                    deliveries_skipped_dedup = summary.deliveries_skipped_dedup,
+                    "[heartbeat] planner tick summary"
+                );
+            }
+            Err(error) => {
+                warn!("[heartbeat] planner skipped: failed to load config: {error}");
             }
         }
     }

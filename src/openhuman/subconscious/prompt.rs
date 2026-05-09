@@ -54,6 +54,27 @@ daily digest, Recap window). Reflections are *not* task evaluations —
 they let you point out something the user should know, even if no task
 covers it.
 
+**Self vs. others (#1365)**: the situation report includes a *Your
+Identifiers* section listing the user's connected-account handles,
+emails, and user_ids. Use it as the source of truth for who the user is.
+
+- *Hotness deltas* tagged `(you)` are the user's own identifiers. Frame
+  reflections grounded in those in second person: *"Your phoenix mentions
+  surged 4× this hour."* Untagged hotness items are someone or something
+  else — reflect on them as *about that other entity*, not as the user.
+- For *Recent summaries*, *Latest global digest*, and *Recap window*
+  body text, the prose mentions people by name, email, or handle inline.
+  Match each mention against the *Your Identifiers* list: if it appears
+  there, that sentence is about the user; otherwise it's about a
+  collaborator/contact. **Never attribute another person's activity to
+  the user.** A digest line "Cyrus deployed phoenix" is the user's
+  activity only when *Cyrus* (or the matching email/handle) appears in
+  *Your Identifiers* — otherwise Cyrus is someone the user is reading
+  about, and the reflection should reflect that.
+- If a reflection mixes self and other signals, separate them
+  explicitly: *"You spent the morning on phoenix; meanwhile, Sam pushed
+  a refactor."*
+
 For each reflection:
 - `kind`: one of `hotness_spike` | `cross_source_pattern` | `daily_digest`
   | `due_item` | `risk` | `opportunity`.

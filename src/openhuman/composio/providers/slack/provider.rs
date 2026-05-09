@@ -55,6 +55,13 @@ const ACTION_LIST_CONVERSATIONS: &str = "SLACK_LIST_CONVERSATIONS";
 const ACTION_FETCH_HISTORY: &str = "SLACK_FETCH_CONVERSATION_HISTORY";
 /// Composio action slug for team/workspace profile fetch.
 const ACTION_FETCH_TEAM_INFO: &str = "SLACK_FETCH_TEAM_INFO";
+/// Composio action slug for Slack `auth.test` — returns the authed
+/// user's id, handle, and team. Required for self-identity capture.
+const ACTION_AUTH_TEST: &str = "SLACK_TEST_AUTH";
+/// Composio action slug for Slack `users.info` — returns the user's
+/// profile (email, real_name, avatar). Optional; needs `users:read.email`
+/// scope for the email field.
+const ACTION_USERS_INFO: &str = "SLACK_RETRIEVE_DETAILED_USER_INFORMATION";
 
 /// Default backfill window (days) applied when a channel has no
 /// cursor yet.
@@ -233,59 +240,142 @@ impl ComposioProvider for SlackProvider {
     ) -> Result<ProviderUserProfile, String> {
         tracing::debug!(
             connection_id = ?ctx.connection_id,
-            "[composio:slack] fetch_user_profile via {ACTION_FETCH_TEAM_INFO}"
+            "[composio:slack] fetch_user_profile via {ACTION_AUTH_TEST}"
         );
 
-        let resp = ctx
+        // Step 1 — auth.test: required. Returns user_id (canonical sender
+        // id on Slack messages), the user's handle, and the team.
+        let auth_resp = ctx
             .client
-            .execute_tool(ACTION_FETCH_TEAM_INFO, Some(json!({})))
+            .execute_tool(ACTION_AUTH_TEST, Some(json!({})))
             .await
-            .map_err(|e| format!("[composio:slack] {ACTION_FETCH_TEAM_INFO} failed: {e:#}"))?;
+            .map_err(|e| format!("[composio:slack] {ACTION_AUTH_TEST} failed: {e:#}"))?;
 
-        if !resp.successful {
-            let err = resp
+        if !auth_resp.successful {
+            let err = auth_resp
                 .error
                 .clone()
                 .unwrap_or_else(|| "provider reported failure".to_string());
-            return Err(format!("[composio:slack] {ACTION_FETCH_TEAM_INFO}: {err}"));
+            return Err(format!("[composio:slack] {ACTION_AUTH_TEST}: {err}"));
         }
 
-        let data = &resp.data;
-        let display_name = pick_str(data, &["data.team.name", "data.name", "team.name", "name"]);
-        let profile_url = pick_str(data, &["data.team.url", "data.url", "team.url", "url"]);
-        let email_domain = pick_str(
-            data,
-            &[
-                "data.team.email_domain",
-                "data.email_domain",
-                "team.email_domain",
-                "email_domain",
-            ],
-        );
-        let avatar_url = pick_str(
-            data,
-            &[
-                "data.team.icon.image_132",
-                "data.team.icon.image_68",
-                "team.icon.image_132",
-            ],
-        );
+        // `auth_data` is the inner Composio payload — paths are relative
+        // to it. Slack's auth.test returns user_id/user/team/team_id at
+        // the top of `data`.
+        let auth_data = &auth_resp.data;
+        let user_id = pick_str(auth_data, &["user_id"]);
+        let handle = pick_str(auth_data, &["user"]);
+        let team_id = pick_str(auth_data, &["team_id"]);
+        let team_name = pick_str(auth_data, &["team"]);
+
+        // Step 2 — users.info: optional. Needs `users:read.email` scope
+        // for `email`; falls back to `auth.test` data on missing-scope or
+        // any other failure so the profile still carries user_id+handle.
+        let mut display_name: Option<String> = None;
+        let mut email: Option<String> = None;
+        let mut avatar_url: Option<String> = None;
+
+        if let Some(uid) = user_id.as_deref() {
+            match ctx
+                .client
+                .execute_tool(ACTION_USERS_INFO, Some(json!({ "user": uid })))
+                .await
+            {
+                Ok(info) if info.successful => {
+                    let d = &info.data;
+                    email = pick_str(d, &["user.profile.email", "profile.email"]);
+                    display_name = pick_str(
+                        d,
+                        &[
+                            "user.profile.real_name",
+                            "user.real_name",
+                            "user.profile.display_name",
+                        ],
+                    );
+                    avatar_url = pick_str(d, &["user.profile.image_192", "user.profile.image_72"]);
+                }
+                Ok(info) => {
+                    tracing::info!(
+                        connection_id = ?ctx.connection_id,
+                        error = ?info.error,
+                        "[composio:slack] {ACTION_USERS_INFO} returned non-success — \
+                         falling back to auth.test data only (likely missing users:read scope)"
+                    );
+                }
+                Err(e) => {
+                    tracing::info!(
+                        connection_id = ?ctx.connection_id,
+                        error = %e,
+                        "[composio:slack] {ACTION_USERS_INFO} call failed — \
+                         falling back to auth.test data only"
+                    );
+                }
+            }
+        }
+
+        // Step 3 — team_info: optional. Adds workspace context to `extras`
+        // (email_domain, icon) so the prompt section / UI can show it.
+        let (team_email_domain, team_icon) = match ctx
+            .client
+            .execute_tool(ACTION_FETCH_TEAM_INFO, Some(json!({})))
+            .await
+        {
+            Ok(resp) if resp.successful => {
+                let d = &resp.data;
+                let domain = pick_str(d, &["team.email_domain", "email_domain"]);
+                let icon = pick_str(d, &["team.icon.image_132", "team.icon.image_68"]);
+                (domain, icon)
+            }
+            _ => (None, None),
+        };
+
+        // Display name preference: users.info real_name > auth.test handle
+        // > team_name (last-resort so the prompt isn't empty).
+        let final_display_name = display_name
+            .clone()
+            .or_else(|| handle.clone())
+            .or_else(|| team_name.clone());
+
+        // Profile URL: users.info doesn't return one for the user
+        // directly; the workspace URL is acceptable as a navigational
+        // fallback. (Slack user profile pages are workspace-scoped and
+        // not stably linkable from auth.test alone.)
+        let profile_url = pick_str(auth_data, &["url"]);
+
+        let avatar_url = avatar_url.or(team_icon);
 
         let profile = ProviderUserProfile {
             toolkit: "slack".to_string(),
             connection_id: ctx.connection_id.clone(),
-            display_name,
-            email: None,
-            username: None,
+            display_name: final_display_name,
+            email,
+            // username carries the platform-canonical sender id so the
+            // self-identity matcher can compare against Slack message
+            // sender_user_id directly. Handle moves into `extras` —
+            // `expand_identity_rows` lifts it back out as IdentityKind::Handle.
+            username: user_id,
             avatar_url,
             profile_url,
-            extras: json!({ "email_domain": email_domain, "raw": data }),
+            extras: json!({
+                "handle": handle,
+                "team_id": team_id,
+                "team_name": team_name,
+                "team_email_domain": team_email_domain,
+            }),
         };
 
+        let has_email = profile.email.is_some();
+        let email_domain = profile
+            .email
+            .as_deref()
+            .and_then(|e| e.split('@').nth(1))
+            .map(|d| d.to_string());
         tracing::info!(
             connection_id = ?profile.connection_id,
-            display_name = ?profile.display_name,
-            "[composio:slack] fetched team info"
+            has_email,
+            email_domain = ?email_domain,
+            has_user_id = profile.username.is_some(),
+            "[composio:slack] fetched user profile"
         );
         Ok(profile)
     }

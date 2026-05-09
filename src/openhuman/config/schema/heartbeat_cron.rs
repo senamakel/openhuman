@@ -18,10 +18,41 @@ pub struct HeartbeatConfig {
     /// Maximum token budget for the situation report (default 40k).
     #[serde(default = "default_context_budget")]
     pub context_budget_tokens: u32,
+    /// Enable proactive notifications for upcoming meetings.
+    #[serde(default = "default_true")]
+    pub notify_meetings: bool,
+    /// Enable proactive notifications for reminders and scheduled items.
+    #[serde(default = "default_true")]
+    pub notify_reminders: bool,
+    /// Enable proactive notifications for urgent/relevant events.
+    #[serde(default = "default_true")]
+    pub notify_relevant_events: bool,
+    /// Allow heartbeat proactive events to also deliver to active external channel.
+    /// Defaults to false and acts as an explicit consent gate.
+    #[serde(default)]
+    pub external_delivery_enabled: bool,
+    /// Maximum lookahead window for meeting notifications.
+    #[serde(default = "default_meeting_lookahead_minutes")]
+    pub meeting_lookahead_minutes: u32,
+    /// Maximum lookahead window for reminder notifications.
+    #[serde(default = "default_reminder_lookahead_minutes")]
+    pub reminder_lookahead_minutes: u32,
 }
 
 fn default_context_budget() -> u32 {
     40_000
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_meeting_lookahead_minutes() -> u32 {
+    120
+}
+
+fn default_reminder_lookahead_minutes() -> u32 {
+    30
 }
 
 impl Default for HeartbeatConfig {
@@ -31,6 +62,12 @@ impl Default for HeartbeatConfig {
             interval_minutes: 5,
             inference_enabled: true,
             context_budget_tokens: default_context_budget(),
+            notify_meetings: default_true(),
+            notify_reminders: default_true(),
+            notify_relevant_events: default_true(),
+            external_delivery_enabled: false,
+            meeting_lookahead_minutes: default_meeting_lookahead_minutes(),
+            reminder_lookahead_minutes: default_reminder_lookahead_minutes(),
         }
     }
 }

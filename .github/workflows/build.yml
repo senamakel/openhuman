@@ -68,6 +68,11 @@ jobs:
           cargo tauri build -c "$TAURI_CONFIG_OVERRIDE" --bundles deb
         env:
           NODE_ENV: production
+          # CI builds should point at staging, not production.
+          # Without these, APP_ENV is undefined in config.ts and
+          # DEFAULT_BACKEND_URL falls through to api.tinyhumans.ai.
+          VITE_OPENHUMAN_APP_ENV: staging
+          VITE_BACKEND_URL: https://staging-api.tinyhumans.ai
           CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
           CARGO_PROFILE_RELEASE_LTO: "false"

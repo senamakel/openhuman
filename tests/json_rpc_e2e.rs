@@ -1950,6 +1950,28 @@ async fn json_rpc_wallet_setup_round_trips_status() {
         Some("generated"),
         "expected setup source to persist: {persisted_result}"
     );
+    assert_eq!(
+        persisted_result
+            .get("mnemonicWordCount")
+            .and_then(Value::as_u64),
+        Some(12),
+        "expected mnemonicWordCount to persist: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result
+            .get("consentGranted")
+            .and_then(Value::as_bool),
+        Some(true),
+        "expected consentGranted to persist: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result
+            .get("accounts")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(4),
+        "expected persisted wallet accounts to remain intact: {persisted_result}"
+    );
 
     mock_join.abort();
     rpc_join.abort();

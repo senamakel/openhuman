@@ -13,9 +13,9 @@ describe('ConnectionsPanel — trust-surface polish', () => {
     expect(screen.getByRole('button', { name: /Crypto Trading Exchanges/ })).toBeInTheDocument();
   });
 
-  it('shows "Coming soon" badge on every option (current product state)', () => {
+  it('shows "Coming soon" badge on the three not-yet-shipped options (Web3 Wallet is now wired)', () => {
     renderWithProviders(<ConnectionsPanel />);
-    expect(screen.getAllByText(/Coming soon/i)).toHaveLength(4);
+    expect(screen.getAllByText(/Coming soon/i)).toHaveLength(3);
   });
 
   it('disables coming-soon rows so they are non-actionable', () => {

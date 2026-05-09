@@ -15,6 +15,18 @@ struct SetupWalletParams {
     accounts: Vec<WalletAccount>,
 }
 
+pub fn all_controller_schemas() -> Vec<ControllerSchema> {
+    all_wallet_controller_schemas()
+}
+
+pub fn all_registered_controllers() -> Vec<RegisteredController> {
+    all_wallet_registered_controllers()
+}
+
+pub fn schemas(function: &str) -> ControllerSchema {
+    wallet_schemas(function)
+}
+
 pub fn all_wallet_controller_schemas() -> Vec<ControllerSchema> {
     vec![wallet_schemas("status"), wallet_schemas("setup")]
 }

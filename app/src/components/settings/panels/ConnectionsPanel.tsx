@@ -84,20 +84,31 @@ const ConnectionsPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const navigate = useNavigate();
   const [walletStatus, setWalletStatus] = useState<WalletStatus | null>(null);
+  const [walletStatusState, setWalletStatusState] = useState<'loading' | 'ready' | 'error'>(
+    'loading'
+  );
 
   useEffect(() => {
     let active = true;
     fetchWalletStatus()
       .then(status => {
-        if (active) setWalletStatus(status);
+        if (active) {
+          setWalletStatus(status);
+          setWalletStatusState('ready');
+        }
       })
       .catch(() => {
-        if (active) setWalletStatus(null);
+        if (active) {
+          setWalletStatusState('error');
+        }
       });
     return () => {
       active = false;
     };
   }, []);
+
+  const walletReady = walletStatusState === 'ready';
+  const walletConfigured = walletReady && walletStatus?.configured === true;
 
   const connectOptions: ConnectOption[] = [
     {
@@ -117,11 +128,21 @@ const ConnectionsPanel = () => {
     {
       id: 'wallet',
       name: 'Web3 Wallet',
-      description: walletStatus?.configured
+      description: walletConfigured
         ? 'Local EVM, BTC, Solana, and Tron identities are configured from your recovery phrase.'
-        : 'Set up local EVM, BTC, Solana, and Tron identities from one recovery phrase.',
+        : walletReady
+          ? 'Set up local EVM, BTC, Solana, and Tron identities from one recovery phrase.'
+          : walletStatusState === 'error'
+            ? 'Could not check wallet status. Tap to retry from the Recovery Phrase panel.'
+            : 'Checking wallet status…',
       icon: <img src={MetamaskIcon} alt="Metamask" className="w-5 h-5" />,
-      statusLabel: walletStatus?.configured ? 'Configured' : undefined,
+      statusLabel: walletConfigured
+        ? 'Configured'
+        : walletReady
+          ? undefined
+          : walletStatusState === 'error'
+            ? 'Unavailable'
+            : 'Checking…',
     },
     {
       id: 'exchange',
@@ -165,7 +186,7 @@ const ConnectionsPanel = () => {
             ))}
           </div>
 
-          {walletStatus?.configured ? (
+          {walletConfigured && walletStatus ? (
             <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
               <div>
                 <p className="font-medium text-stone-900 text-sm">Wallet identities</p>

@@ -91,15 +91,23 @@ pub struct WalletStatus {
     pub updated_at_ms: Option<u64>,
 }
 
-fn wallet_state_path(config: &Config) -> Result<PathBuf, String> {
-    let state_dir = config.workspace_dir.join("state");
-    fs::create_dir_all(&state_dir).map_err(|e| {
-        format!(
-            "failed to create workspace state dir {}: {e}",
-            state_dir.display()
-        )
-    })?;
-    Ok(state_dir.join(WALLET_STATE_FILENAME))
+fn wallet_state_path(config: &Config) -> PathBuf {
+    config
+        .workspace_dir
+        .join("state")
+        .join(WALLET_STATE_FILENAME)
+}
+
+fn ensure_wallet_state_dir(path: &Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "failed to create workspace state dir {}: {e}",
+                parent.display()
+            )
+        })?;
+    }
+    Ok(())
 }
 
 fn corrupted_wallet_state_path(path: &Path) -> PathBuf {
@@ -135,7 +143,7 @@ fn quarantine_corrupted_wallet_state(path: &Path, reason: &str) {
 }
 
 fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWalletState>, String> {
-    let path = wallet_state_path(config)?;
+    let path = wallet_state_path(config);
     if !path.exists() {
         return Ok(None);
     }
@@ -153,8 +161,8 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
         }
     };
 
-    match serde_json::from_str::<StoredWalletState>(&raw) {
-        Ok(state) => Ok(Some(state)),
+    let state = match serde_json::from_str::<StoredWalletState>(&raw) {
+        Ok(state) => state,
         Err(error) => {
             warn!(
                 "{LOG_PREFIX} failed to parse {}; falling back to defaults: {}",
@@ -162,9 +170,26 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
                 error
             );
             quarantine_corrupted_wallet_state(&path, &error.to_string());
-            Ok(None)
+            return Ok(None);
         }
+    };
+
+    let validation_params = WalletSetupParams {
+        consent_granted: state.consent_granted,
+        source: state.source,
+        mnemonic_word_count: state.mnemonic_word_count,
+        accounts: state.accounts.clone(),
+    };
+    if let Err(validation_error) = validate_setup(&validation_params) {
+        warn!(
+            "{LOG_PREFIX} stored wallet state at {} failed validation: {validation_error}",
+            path.display()
+        );
+        quarantine_corrupted_wallet_state(&path, &validation_error);
+        return Ok(None);
     }
+
+    Ok(Some(state))
 }
 
 fn sync_parent_dir(path: &Path) -> Result<(), String> {
@@ -185,7 +210,8 @@ fn save_stored_wallet_state_unlocked(
     config: &Config,
     state: &StoredWalletState,
 ) -> Result<(), String> {
-    let path = wallet_state_path(config)?;
+    let path = wallet_state_path(config);
+    ensure_wallet_state_dir(&path)?;
     let payload = serde_json::to_string_pretty(state)
         .map_err(|e| format!("failed to serialize wallet state: {e}"))?;
     let parent = path

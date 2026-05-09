@@ -58,12 +58,14 @@
     "knip:production": "knip --config knip.json --production"
   },
   "dependencies": {
+    "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^3.0.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@reduxjs/toolkit": "^2.11.2",
     "@remotion/player": "4.0.454",
     "@remotion/zod-types": "4.0.454",
+    "@scure/base": "^2.2.0",
     "@scure/bip32": "^2.0.1",
     "@scure/bip39": "^2.0.1",
     "@sentry/react": "^10.38.0",

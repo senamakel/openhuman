@@ -1,35 +1,28 @@
 <h1 align="center">OpenHuman</h1>
 
 <p align="center">
-<a href="https://trendshift.io/repositories/23680" target="_blank"><img src="https://trendshift.io/api/badge/repositories/23680" alt="tinyhumansai%2Fopenhuman | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+ <img src="./docs/mascot.gif" alt="The Tet" />
 </p>
 
 <p align="center">
- <strong>The age of super intelligence is here. OpenHuman is your Personal AI super intelligence. Private, Simple and extremely powerful.</strong>
+ <a href="https://trendshift.io/repositories/23680" target="_blank"><img src="https://trendshift.io/api/badge/repositories/23680" alt="tinyhumansai%2Fopenhuman | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
+<p align="center">
+ <strong>OpenHuman is your Personal AI super intelligence. Private, Simple and extremely powerful.</strong>
 </p>
 
 <p align="center">
  <a href="https://discord.tinyhumans.ai/">Discord</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
- <a href="https://tinyhumans.gitbook.io/openhuman/">Docs</a>
-</p>
-<p align="center">
+ <a href="https://tinyhumans.gitbook.io/openhuman/">Docs</a> •
  <a href="https://x.com/intent/follow?screen_name=senamakel">Follow @senamakel (Creator)</a>
 </p>
 
 <p align="center">
  <img src="https://img.shields.io/badge/status-early%20beta-orange" alt="Early Beta" />
- <img src="https://img.shields.io/badge/platform-desktop-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platforms: desktop only" />
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="Latest Release" /></a>
-</p>
-
-<p align="center">
- <img src="./docs/the-tet.png" alt="The Tet" />
-</p>
-
-<p align="center" style="font-style: italic">
- "The Tet. What a brilliant machine" — Morgan Freeman as he reminisces about <a href="https://youtu.be/SveLVpqy_Rc?si=y83aZNokPiUjILN0&t=60">alien superintelligence</a> in the movie <em>Oblivion</em>
 </p>
 
 > **Early Beta** — Under active development. Expect rough edges.
@@ -72,11 +65,11 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](https://tinyhumans.gitbook.io/openhuman/developing/cloud-deploy) · [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-## OpenHuman vs other agents
+## OpenHuman vs Other Agent Harnesses
 
 High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data — not only chat.
 
-| | Claude Code/Cowork | OpenClaw | Hermes Agent | OpenHuman |
+| | Claude Cowork | OpenClaw | Hermes Agent | OpenHuman |
 | --------------------- | ------------------ | ----------------- | ----------------- | ---------------------------------- |
 | **Open-source** | 🚫 Proprietary | ✅ MIT | ✅ MIT | ✅ GNU |
 | **Simple to start** | ✅ Desktop + CLI | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes |
@@ -85,7 +78,7 @@ High-level comparison (products evolve—verify against each vendor). OpenHuman 
 | **Integrations** | ⚠️ Few connectors | ⚠️ BYO | ⚠️ BYO | 🚀 118+ via OAuth |
 | **Auto-fetch** | 🚫 None | 🚫 None | 🚫 None | ✅ 5-min sync into memory |
 | **API sprawl** | 🚫 Extra keys | 🚫 BYOK | 🚫 Multi-vendor | ✅ One account |
-| **Model routing** | 🚫 Single model | ⚠️ Manual | ⚠️ Manual | ✅ Hint-based (`hint:reasoning`) |
+| **Model routing** | 🚫 Single model | ⚠️ Manual | ⚠️ Manual | ✅ Built-in |
 | **Native tools** | ✅ Code-only | ✅ Code-only | ✅ Code-only | ✅ Code + search + scraper + voice |
 
 # Star us on GitHub

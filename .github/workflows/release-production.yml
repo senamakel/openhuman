@@ -43,18 +43,18 @@ concurrency:
 #        │
 #        ├─── create-release
 #        │         │
-#        │    ┌────┴────────────┐
-#        │    │                 │
-#        │  build-desktop    build-docker
-#        │  (reusable wf)    (GHCR image)
-#        │    │                 │
-#        │    └────┬────────────┘
-#        │         │
-#        │    publish-updater-manifest
-#        │         │
-#        │    publish-release
-#        │         │
-#        │    record-sentry-deploy
+#        │    ┌────┴───────────────┬────────────────┐
+#        │    │                    │                │
+#        │  build-desktop    build-cli-linux    build-docker
+#        │  (reusable wf)    (Linux tarballs)   (GHCR image)
+#        │    │                    │                │
+#        │    └────────┬───────────┴────────────────┘
+#        │             │
+#        │      publish-updater-manifest
+#        │             │
+#        │      publish-release
+#        │             │
+#        │      record-sentry-deploy
 #        │
 #        └─── cleanup-failed-release (on failure)
 #
@@ -351,7 +351,17 @@ jobs:
       build_sidecar: false
 
   # =========================================================================
-  # Phase 3b: Build & push Docker image (runs parallel with build-desktop)
+  # Phase 3b: Build & push Docker image (runs parallel with build-desktop).
+  #
+  # Publishes `ghcr.io/tinyhumansai/openhuman-core` with three tags per release:
+  #   - :latest                — moves on every prod cut
+  #   - :v<version>            — matches the GitHub Release tag (e.g. v1.2.4)
+  #   - :<version>             — bare SemVer for tooling that strips the v
+  #
+  # linux/amd64 only for now. arm64 users pull the standalone CLI tarball
+  # (`build-cli-linux` matrix) or build the image from source. Adding arm64
+  # via QEMU here triples build time on Rust-heavy stages; revisit when an
+  # `ubuntu-24.04-arm` runner is wired into a per-arch matrix + manifest job.
   # =========================================================================
   build-docker:
     name: "Docker: build and push"
@@ -376,9 +386,120 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute image tags
+        id: image-tags
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          TAG: ${{ needs.prepare-build.outputs.tag }}
+          VERSION: ${{ needs.prepare-build.outputs.version }}
+        run: |
+          set -euo pipefail
+          base="${REGISTRY}/${IMAGE_NAME}"
+          {
+            echo "tags<<EOF"
+            echo "${base}:latest"
+            echo "${base}:${TAG}"
+            echo "${base}:${VERSION}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.image-tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.prepare-build.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare-build.outputs.version }}
+            org.opencontainers.image.title=openhuman-core
+          cache-from: type=gha,scope=release-production
+          cache-to: type=gha,scope=release-production,mode=max
+      - name: Verify pushed image is pullable
+        run: |
+          set -euo pipefail
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare-build.outputs.tag }}"
+          docker pull "$image"
+          docker image inspect "$image" >/dev/null
 
   # =========================================================================
-  # Phase 3c: Generate and upload latest.json for the Tauri auto-updater.
+  # Phase 3c: Build standalone Linux openhuman-core tarballs and attach them
+  # to the GitHub Release. Operators on Linux servers without Docker pull a
+  # plain tarball + sha256 from the release page; cloud-deploy.md links here.
+  #
+  # arm64 uses GitHub-hosted ubuntu-24.04-arm to avoid QEMU emulation
+  # (matches release-packages.yml). If that runner is unavailable for the
+  # repo's plan, fall back to ubuntu-22.04 + cross-rs (see comment in
+  # release-packages.yml `build-cli-linux-arm64`).
+  # =========================================================================
+  build-cli-linux:
+    name: "CLI: ${{ matrix.target }}"
+    needs: [prepare-build, create-release]
+    if: needs.create-release.result == 'success'
+    environment: Production
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    steps:
+      - name: Checkout build ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-build.outputs.build_ref }}
+          fetch-depth: 1
+          submodules: recursive
+      - name: Install Rust (rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@1.93.0
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}-release
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libssl-dev build-essential cmake \
+            libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev \
+            clang
+      - name: Verify Sentry DSN is present
+        env:
+          OPENHUMAN_CORE_SENTRY_DSN: ${{ vars.OPENHUMAN_CORE_SENTRY_DSN || vars.OPENHUMAN_SENTRY_DSN }}
+        run: |
+          if [ -z "${OPENHUMAN_CORE_SENTRY_DSN}" ]; then
+            echo "::error::vars.OPENHUMAN_CORE_SENTRY_DSN (or legacy vars.OPENHUMAN_SENTRY_DSN) is empty — the Linux CLI tarball would ship without crash reporting."
+            exit 1
+          fi
+          echo "OPENHUMAN_CORE_SENTRY_DSN is set (length=${#OPENHUMAN_CORE_SENTRY_DSN})"
+      - name: Build openhuman-core binary
+        env:
+          OPENHUMAN_CORE_SENTRY_DSN: ${{ vars.OPENHUMAN_CORE_SENTRY_DSN || vars.OPENHUMAN_SENTRY_DSN }}
+          # Match the runtime release tag (`openhuman@<version>+<short_sha>`)
+          # baked elsewhere — see prepare-build.outputs.short_sha comment.
+          OPENHUMAN_BUILD_SHA: ${{ needs.prepare-build.outputs.short_sha }}
+          OPENHUMAN_APP_ENV: production
+        run: cargo build --release --bin openhuman-core
+      - name: Package and upload tarball to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPLOAD_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.prepare-build.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          bash scripts/release/package-cli-tarball.sh \
+            target/release/openhuman-core \
+            "$VERSION" \
+            "$TARGET"
+
+  # =========================================================================
+  # Phase 3d: Generate and upload latest.json for the Tauri auto-updater.
   # Runs after every platform has uploaded its updater artifact (.sig files
   # from createUpdaterArtifacts) so the manifest can reference all four
   # platform entries.
@@ -415,10 +536,12 @@ jobs:
       - prepare-build
       - create-release
       - build-desktop
+      - build-cli-linux
       - build-docker
       - publish-updater-manifest
     if: >-
       needs.build-desktop.result == 'success'
+      && needs.build-cli-linux.result == 'success'
       && needs.build-docker.result == 'success'
       && needs.publish-updater-manifest.result == 'success'
     steps:
@@ -442,6 +565,11 @@ jobs:
               // Auto-updater manifest — without this, installed clients can't
               // discover new releases via plugins.updater.endpoints.
               /^latest\.json$/,
+              // Linux standalone openhuman-core CLI tarballs (build-cli-linux).
+              // Operators on headless Linux servers pull these instead of the
+              // Tauri bundle; cloud-deploy.md documents both arches.
+              /^openhuman-core-.*-x86_64-unknown-linux-gnu\.tar\.gz$/,
+              /^openhuman-core-.*-aarch64-unknown-linux-gnu\.tar\.gz$/,
             ];
             const missing = requiredPatterns.filter((pattern) => !names.some((name) => pattern.test(name)));
             if (missing.length > 0) {
@@ -513,12 +641,15 @@ jobs:
       - prepare-build
       - create-release
       - build-desktop
+      - build-cli-linux
       - build-docker
       - publish-updater-manifest
     if: >-
       always()
       && needs.create-release.result == 'success'
       && (needs.build-desktop.result == 'failure' || needs.build-desktop.result ==
+      'cancelled'
+          || needs.build-cli-linux.result == 'failure' || needs.build-cli-linux.result ==
       'cancelled'
           || needs.build-docker.result == 'failure' || needs.build-docker.result ==
       'cancelled'
@@ -559,22 +690,31 @@ jobs:
                 throw e;
               }
             }
-      - name: Delete staging Docker image
+      - name: Delete published Docker image versions
+        # If `build-docker` already pushed but a downstream phase failed, the
+        # GHCR image would otherwise outlive the GitHub Release. Walk the
+        # `:v<version>` and `:<version>` tags we just pushed and remove the
+        # underlying package version. `:latest` is left alone — the previous
+        # release is still pointed at it, and clobbering the moving tag here
+        # would orphan downstream pulls.
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-build.outputs.tag }}
+          VERSION: ${{ needs.prepare-build.outputs.version }}
         run: |-
+          set -uo pipefail
           PACKAGE="openhuman-core"
-          STAGING_TAG="staging-${TAG}"
-          echo "Attempting to delete staging Docker tag: ${STAGING_TAG}"
-          # List package versions and find the staging tag
-          VERSION_ID="$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions" \
-            --paginate --jq ".[] | select(.metadata.container.tags[] == \"${STAGING_TAG}\") | .id" 2>/dev/null | head -1)"
-          if [ -n "$VERSION_ID" ]; then
-            gh api -X DELETE "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions/${VERSION_ID}" || true
-            echo "Deleted staging image version ${VERSION_ID}"
-          else
-            echo "Staging tag ${STAGING_TAG} not found or already deleted"
-          fi
+          for IMAGE_TAG in "${TAG}" "${VERSION}"; do
+            echo "Attempting to delete Docker tag: ${IMAGE_TAG}"
+            VERSION_ID="$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions" \
+              --paginate --jq ".[] | select(.metadata.container.tags[]? == \"${IMAGE_TAG}\") | .id" 2>/dev/null | head -1)"
+            if [ -n "$VERSION_ID" ]; then
+              gh api -X DELETE "/orgs/tinyhumansai/packages/container/${PACKAGE}/versions/${VERSION_ID}" || true
+              echo "Deleted image version ${VERSION_ID} (tag ${IMAGE_TAG})"
+            else
+              echo "Tag ${IMAGE_TAG} not found or already deleted"
+            fi
+          done

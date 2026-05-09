@@ -182,11 +182,13 @@ jobs:
       # No publish-updater-manifest job in staging — producing .sig artifacts
       # would just leave them stranded in the Actions artifact tree.
       with_updater: false
-      # Standalone openhuman-core CLI is shipped via the production GHCR
-      # docker image (build-docker in release-production.yml) and via
-      # brew / homebrew packages updated manually — the staging Actions
-      # artifact had no real consumer. Set `build_sidecar: true` here to
-      # re-enable the matrix-built CLI artifact + its Sentry DIF upload.
+      # Standalone openhuman-core CLI ships from the production cut only:
+      # `build-docker` pushes `ghcr.io/tinyhumansai/openhuman-core` and
+      # `build-cli-linux` attaches Linux x86_64 / aarch64 tarballs to the
+      # GitHub Release (see release-production.yml). Staging does not
+      # publish either surface — the matrix-built sidecar artifact had no
+      # real consumer. Set `build_sidecar: true` to re-enable a per-platform
+      # CLI Actions artifact + its Sentry DIF upload for QA spot-checks.
       build_sidecar: false
 
   # =========================================================================

@@ -109,6 +109,33 @@ doctl apps update <app-id> --spec .do/app.yaml
 Works on any host with Docker Engine ≥ 24 and the Compose plugin.
 DigitalOcean Droplet, Hetzner, Linode, EC2, a home server.
 
+Each production release publishes a multi-tagged image to GHCR:
+
+```bash
+docker pull ghcr.io/tinyhumansai/openhuman-core:latest        # tracks the latest prod cut
+docker pull ghcr.io/tinyhumansai/openhuman-core:v1.2.4        # pinned by GitHub Release tag
+docker pull ghcr.io/tinyhumansai/openhuman-core:1.2.4         # pinned by SemVer
+```
+
+The image is `linux/amd64`. arm64 hosts pull the standalone tarball
+attached to the same GitHub Release (`openhuman-core-<version>-aarch64-unknown-linux-gnu.tar.gz`)
+or build the image from source on an arm64 builder.
+
+Quick run with a published image:
+
+```bash
+docker run -d --name openhuman-core -p 7788:7788 \
+  -e OPENHUMAN_CORE_TOKEN="$(openssl rand -hex 32)" \
+  -e BACKEND_URL=https://api.tinyhumans.ai \
+  -e OPENHUMAN_APP_ENV=production \
+  -v openhuman-workspace:/home/openhuman/.openhuman \
+  ghcr.io/tinyhumansai/openhuman-core:latest
+```
+
+Or use the in-repo Compose file (still builds the image locally from
+`Dockerfile`; switch the `image:` field to `ghcr.io/tinyhumansai/openhuman-core:latest`
+in `docker-compose.yml` to consume the published image instead):
+
 ```bash
 # On the server:
 git clone https://github.com/tinyhumansai/openhuman.git
@@ -128,6 +155,29 @@ docker compose up -d
 docker compose ps
 curl -fsS http://localhost:7788/health
 ```
+
+### Headless install without Docker
+
+If you can't run Docker on the host, grab the standalone CLI tarball
+attached to the latest [GitHub Release](https://github.com/tinyhumansai/openhuman/releases/latest):
+
+```bash
+# Pick the tarball that matches your host arch.
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64)  TARGET=x86_64-unknown-linux-gnu  ;;
+  aarch64) TARGET=aarch64-unknown-linux-gnu ;;
+  *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+esac
+VERSION=1.2.4   # set to the release you want
+curl -fsSL "https://github.com/tinyhumansai/openhuman/releases/download/v${VERSION}/openhuman-core-${VERSION}-${TARGET}.tar.gz" \
+  | tar -xz -C /usr/local/bin
+openhuman-core --version
+```
+
+Then run `openhuman-core serve` under your service manager of choice
+(systemd, supervisord, …) with the same environment variables documented
+above.
 
 The Compose file ([`docker-compose.yml`](../../docker-compose.yml)) maps the core
 on `:7788`, mounts a named volume `openhuman-workspace` for persistence, and

@@ -30,6 +30,11 @@ jobs:
   retrigger:
     name: Retrigger CodeRabbit
     runs-on: ubuntu-22.04
+    # XGITHUB_APP_ID / XGITHUB_APP_PRIVATE_KEY are scoped to the Production
+    # environment (same as release-production.yml). Without this declaration
+    # the secrets resolve to empty and tibdex/github-app-token errors with
+    # "Input required and not supplied: app_id".
+    environment: Production
     steps:
       - name: Generate GitHub App token
         id: app-token

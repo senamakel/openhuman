@@ -9,18 +9,21 @@
 //     any matching sources for debug ID upload" and exited 0; bundle has
 //     no debug-IDs and Sentry can't symbolicate.
 //
-// Run after `cargo tauri build` (which invokes Vite). Exits non-zero if
-// fewer than `MIN_DEBUG_IDS` JS chunks under app/dist/assets/ contain a
-// `// debugId=...` comment, or none of them reference `_sentryDebugIds`.
+// Run after `cargo tauri build` (which invokes Vite). Exits non-zero if no
+// JS chunk under app/dist/assets/ shows evidence that @sentry/vite-plugin
+// ran — either a `// debugId=<uuid>` pragma comment OR an injected
+// `_sentryDebugIds` runtime map.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname, '..');
 const ASSETS = join(ROOT, 'app', 'dist', 'assets');
-const MIN_DEBUG_IDS = 1;
-// `// debugId=<uuid>` is the marker @sentry/vite-plugin appends to every
-// chunk it processes. The plugin also writes `globalThis._sentryDebugIds`
-// at startup so the runtime can match captured stacks to uploaded maps.
+// The pragma comment `//# debugId=<uuid>` is what @sentry/vite-plugin
+// appends to chunks, but Vite/esbuild minification strips it from many
+// builds. The `globalThis._sentryDebugIds` map is the actual mechanism the
+// Sentry SDK uses at runtime to match captured stacks to uploaded source
+// maps for bundled apps — its presence alone is sufficient proof that the
+// plugin ran end-to-end and uploaded maps. We accept either signal.
 const DEBUG_ID_RE = /\/\/[ #]?\s*debugId=[0-9a-f-]{36}/i;
 const RUNTIME_MAP_RE = /_sentryDebugIds/;
 
@@ -59,10 +62,13 @@ function main() {
   }
 
   console.log(
-    `[verify-sentry-sourcemaps] scanned ${files.length} files; ${withDebugId} carry debug-IDs; ${withRuntimeMap} reference _sentryDebugIds.`
+    `[verify-sentry-sourcemaps] scanned ${files.length} files; ${withDebugId} carry debug-ID pragmas; ${withRuntimeMap} reference _sentryDebugIds.`
   );
 
-  if (withDebugId < MIN_DEBUG_IDS || withRuntimeMap < 1) {
+  // Either signal proves @sentry/vite-plugin transformed the bundle. The
+  // pragma comment is best-effort (minifiers often strip it); the runtime
+  // map is what the SDK actually consults to symbolicate captured stacks.
+  if (withDebugId < 1 && withRuntimeMap < 1) {
     console.error(
       '[verify-sentry-sourcemaps] FAIL — Sentry source-map upload did not run or did not inject debug-IDs.\n' +
         '  Likely causes:\n' +

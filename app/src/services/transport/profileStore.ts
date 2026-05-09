@@ -15,6 +15,8 @@
  */
 import debug from 'debug';
 
+import { getIsIOS } from '../../lib/platform';
+
 const log = debug('transport:profile-store');
 
 // -- types -------------------------------------------------------------------
@@ -87,36 +89,82 @@ function desktopDelete(id: string): void {
   log('[profile-store] deleted id=%s', id);
 }
 
-// -- iOS backend stub --------------------------------------------------------
-// TODO(Layer 5): Replace with tauri-plugin-stronghold or tauri-plugin-keychain
-// when iOS Tauri target is wired. Until then, this module is desktop-only.
-// The interface matches so Layer 5 can swap the backend without callers changing.
+// -- iOS backend (pragmatic interim) ----------------------------------------
+//
+// iOS WebView storage is sandboxed per-app by the OS, so localStorage is
+// protected from other apps on a non-jailbroken device.
+//
+// SECURITY TODO(post-Layer-7): migrate to Keychain via tauri-plugin-keychain
+// or a custom Swift Tauri command.  Threat model for the interim solution:
+//   PROTECTED: other apps (iOS sandbox), remote attackers.
+//   NOT PROTECTED: jailbroken device, malicious WebView injection.
+// For a v1 demo paired with a sandboxed WKWebView on a stock iOS device this
+// is acceptable.  The key material (devicePrivkey, sessionToken) should be
+// migrated to the Secure Enclave before public release.
+
+// iOS uses the same localStorage implementation as desktop.  The functions
+// are identical because the iOS WKWebView localStorage is app-sandboxed.
+// This section is left as a named seam so Layer 7 can swap just the iOS path.
+
+function iosList(): string[] {
+  return desktopList();
+}
+
+function iosSave(profile: ConnectionProfile): void {
+  desktopSave(profile);
+  log('[profile-store:ios] saved id=%s kind=%s', profile.id, profile.kind);
+}
+
+function iosGet(id: string): ConnectionProfile | null {
+  return desktopGet(id);
+}
+
+function iosDelete(id: string): void {
+  desktopDelete(id);
+  log('[profile-store:ios] deleted id=%s', id);
+}
+
+// -- platform selector -------------------------------------------------------
+// We import getIsIOS() (not the isIOS constant) so that test overrides via
+// setTestPlatform() are respected on each call rather than frozen at module
+// load time (which is when the isIOS constant is evaluated).
+function onIOS(): boolean {
+  return getIsIOS();
+}
 
 // -- public API --------------------------------------------------------------
 
 /** Save or update a profile. */
 export function saveProfile(profile: ConnectionProfile): void {
-  desktopSave(profile);
+  if (onIOS()) {
+    iosSave(profile);
+  } else {
+    desktopSave(profile);
+  }
 }
 
 /** Load a profile by id. Returns null if not found. */
 export function getProfile(id: string): ConnectionProfile | null {
-  return desktopGet(id);
+  return onIOS() ? iosGet(id) : desktopGet(id);
 }
 
 /** List all stored profile IDs. */
 export function listProfileIds(): string[] {
-  return desktopList();
+  return onIOS() ? iosList() : desktopList();
 }
 
 /** Load all stored profiles. */
 export function listProfiles(): ConnectionProfile[] {
-  return desktopList()
-    .map(desktopGet)
-    .filter((p): p is ConnectionProfile => p !== null);
+  const ids = onIOS() ? iosList() : desktopList();
+  const getter = onIOS() ? iosGet : desktopGet;
+  return ids.map(getter).filter((p): p is ConnectionProfile => p !== null);
 }
 
 /** Delete a profile. */
 export function deleteProfile(id: string): void {
-  desktopDelete(id);
+  if (onIOS()) {
+    iosDelete(id);
+  } else {
+    desktopDelete(id);
+  }
 }

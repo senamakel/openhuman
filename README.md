@@ -51,15 +51,9 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 - **[Auto-fetch from your stack](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — Every twenty minutes the core walks each active connection and pulls fresh data into the memory tree. No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
 
+- **Batteries included** — Web search, a web-fetch [scraper](https://tinyhumans.gitbook.io/openhuman/features/native-tools), a full coder toolset (filesystem, git, lint, test, grep), and [native voice](https://tinyhumans.gitbook.io/openhuman/features/voice) (STT in, ElevenLabs TTS out, mascot lip-sync, live Google Meet agent) are wired in by default. [Model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing) sends each task to the right LLM — reasoning, fast, or vision — under one subscription. No "install a plugin to read files" friction. [Optional local AI via Ollama](https://tinyhumans.gitbook.io/openhuman/features/local-ai) for on-device workloads.
+
 - **[Smart token compression (TokenJuice)](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — Verbose tool output (git, npm, cargo, docker, large emails) is compacted by a rule overlay before it ever enters LLM context. Sweeping through thousands of emails stays cheap because the model never sees the noise.
-
-- **[Automatic model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — Tasks pick their model. `hint:reasoning` lands on a strong reasoning model, `hint:fast` on a fast one, vision goes to a vision model — all under one subscription, with zero per-provider key juggling.
-
-- **[Native voice (ElevenLabs)](https://tinyhumans.gitbook.io/openhuman/features/voice)** — STT in, ElevenLabs TTS out, with mascot lip-sync. Includes a live Google Meet agent that listens, takes notes and can speak back in your meetings.
-
-- **[Native search, scraper and coder](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** — Built-in web search, web-fetch scraper, and a full filesystem / git / lint / test / grep toolset wired into the agent out of the box. No "install a plugin to read files" friction.
-
-- **[Optional local AI (via Ollama)](https://tinyhumans.gitbook.io/openhuman/features/local-ai)** — Off by default. Opt in per-workload to keep memory embeddings, summary-tree building, and background reflection loops on your machine. Chat / vision / voice stay cloud — the local path is scoped to the workloads where on-device actually pays.
 
 - **[Messaging channels](https://tinyhumans.gitbook.io/openhuman/features/integrations#messaging-channels)** and **[privacy & security](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)** — Inbound/outbound across the channels you already use, with workflow data that stays on device, encrypted locally, treated as yours.
 

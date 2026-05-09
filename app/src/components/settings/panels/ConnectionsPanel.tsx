@@ -1,5 +1,4 @@
-import type { ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import BinanceIcon from '../../../assets/icons/binance.svg';

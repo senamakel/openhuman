@@ -234,17 +234,51 @@ upload_symbols() {
         "--log-level=warn"
     )
 
-    # Find and upload all debug symbol files
-    if [[ -d "${symbols_path}" ]]; then
-        # Upload .dwp (dwarf packages), .debug files, and .pdb files
-        # Debug symbols are indexed by debug-ID, not release-scoped
-        log_info "Scanning for debug symbols in ${symbols_path}..."
-        sentry-cli "${upload_args[@]}" "${symbols_path}" || {
-            log_warn "Some debug symbols may have failed to upload"
-        }
-    else
-        log_warn "Symbols path does not exist: ${symbols_path}"
-        log_info "Looking for any release artifacts..."
+    # Find and upload all debug symbol files. The output is captured so the
+    # script can verify *something* was actually uploaded — sentry-cli exits
+    # 0 even when it found zero DIFs, which silently breaks symbolication
+    # for the Tauri shell and standalone core CLI exactly the way #1403
+    # caught for the frontend. Fail loudly here so CI catches it on the
+    # build that produced the empty target dir, not weeks later when an
+    # event arrives unsymbolicated.
+    if [[ ! -d "${symbols_path}" ]]; then
+        log_error "Symbols path does not exist: ${symbols_path}"
+        log_error "Expected Cargo target dir with build artifacts. Did the build step complete?"
+        exit 1
+    fi
+
+    log_info "Scanning for debug symbols in ${symbols_path}..."
+    local upload_log
+    upload_log="$(mktemp)"
+    if ! sentry-cli "${upload_args[@]}" "${symbols_path}" 2>&1 | tee "${upload_log}"; then
+        log_error "sentry-cli upload-dif exited non-zero"
+        rm -f "${upload_log}"
+        exit 1
+    fi
+
+    # sentry-cli prints "Found N debug information files" when scanning, and
+    # "Uploaded N missing debug information files" / "No new debug
+    # information files to upload" after the upload phase. We accept either
+    # "Found > 0" or "Uploaded > 0" — the second covers re-runs where the
+    # DIFs are already on Sentry's side. Empty input dirs print neither and
+    # fall through to the failure branch.
+    local found=0 uploaded=0 already=0
+    if grep -qE 'Found [1-9][0-9]* debug information' "${upload_log}"; then
+        found=1
+    fi
+    if grep -qE 'Uploaded [1-9][0-9]* missing debug information' "${upload_log}"; then
+        uploaded=1
+    fi
+    if grep -qE 'No new debug information files to upload|already exist' "${upload_log}"; then
+        already=1
+    fi
+    rm -f "${upload_log}"
+
+    if [[ "${found}" -eq 0 && "${uploaded}" -eq 0 && "${already}" -eq 0 ]]; then
+        log_error "sentry-cli upload-dif found zero debug information files in ${symbols_path}"
+        log_error "Production Sentry events from this build will NOT be symbolicated. (#1403)"
+        log_error "Likely causes: build profile produced no DWARF/PDB/dSYM, wrong target dir, or ${symbols_path} was cleaned before this step."
+        exit 1
     fi
 
     # Finalize the release

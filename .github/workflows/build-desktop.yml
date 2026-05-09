@@ -458,12 +458,17 @@ jobs:
         run: |
           set -euo pipefail
           dif_dir="app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}"
-          if [ -d "$dif_dir" ]; then
-            echo "==> Uploading symbols from $dif_dir to ${SENTRY_PROJECT}"
-            bash scripts/upload_sentry_symbols.sh "$VERSION" "$dif_dir"
-          else
-            echo "==> Skipping $dif_dir (not present)"
+          # Hard-fail when the target dir is missing instead of silently
+          # skipping (#1403). If we got past `cargo tauri build` with
+          # SENTRY_AUTH_TOKEN set and this directory doesn't exist, the
+          # build is broken and shipping it would leak un-symbolicated
+          # crashes to production.
+          if [ ! -d "$dif_dir" ]; then
+            echo "::error::Tauri DIF dir not present: $dif_dir — cargo tauri build did not produce a target tree for ${MATRIX_TARGET}." >&2
+            exit 1
           fi
+          echo "==> Uploading symbols from $dif_dir to ${SENTRY_PROJECT}"
+          bash scripts/upload_sentry_symbols.sh "$VERSION" "$dif_dir"
 
       # The standalone openhuman-core CLI has its own `sentry::init` in
       # `src/main.rs` and reports to `openhuman-core`. Only built when the
@@ -482,12 +487,16 @@ jobs:
         run: |
           set -euo pipefail
           dif_dir="target/${MATRIX_TARGET}/${PROFILE}"
-          if [ -d "$dif_dir" ]; then
-            echo "==> Uploading symbols from $dif_dir to ${SENTRY_PROJECT}"
-            bash scripts/upload_sentry_symbols.sh "$VERSION" "$dif_dir"
-          else
-            echo "==> Skipping $dif_dir (not present)"
+          # build_sidecar only runs `cargo build --bin openhuman` for the
+          # standalone CLI, so this dir must exist when we reach this step.
+          # Hard-fail on miss (#1403) so we never ship a sidecar with
+          # un-symbolicated production crashes.
+          if [ ! -d "$dif_dir" ]; then
+            echo "::error::Core CLI DIF dir not present: $dif_dir — sidecar cargo build did not produce a target tree for ${MATRIX_TARGET}." >&2
+            exit 1
           fi
+          echo "==> Uploading symbols from $dif_dir to ${SENTRY_PROJECT}"
+          bash scripts/upload_sentry_symbols.sh "$VERSION" "$dif_dir"
 
       # ---- Linux + Windows installer upload ---------------------------------
       # When uploading to a GH Release: push .deb / .AppImage / .msi / .exe

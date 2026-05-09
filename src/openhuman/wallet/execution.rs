@@ -459,13 +459,11 @@ pub async fn balances() -> Result<RpcOutcome<Vec<BalanceInfo>>, String> {
 pub async fn prepare_transfer(
     params: PrepareTransferParams,
 ) -> Result<RpcOutcome<PreparedTransaction>, String> {
-    let account = require_account(params.chain).await?;
     let to = validate_address(&params.to_address)?;
     let amount = validate_amount(&params.amount_raw)?;
     if amount == 0 {
         return Err("transfer amount must be greater than zero".to_string());
     }
-
     let native = native_asset(params.chain);
     let (kind, asset_symbol, decimals) = match params.asset_symbol.as_deref().map(str::trim) {
         None | Some("") => (
@@ -478,12 +476,13 @@ pub async fn prepare_transfer(
             native.symbol.to_string(),
             native.decimals,
         ),
-        Some(sym) => (
-            PreparedKind::TokenTransfer,
-            sym.to_string(),
-            native.decimals,
-        ),
+        Some(sym) => {
+            return Err(format!(
+                "unsupported asset_symbol '{sym}'; only native assets are listed in wallet.supported_assets today"
+            ));
+        }
     };
+    let account = require_account(params.chain).await?;
 
     let now = now_ms();
     let quote = PreparedTransaction {
@@ -763,6 +762,22 @@ mod tests {
             .await
             .unwrap_err();
             assert!(err.contains("must differ"), "got: {err}");
+        });
+    }
+
+    #[test]
+    fn prepare_transfer_rejects_unsupported_asset_symbol() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let err = prepare_transfer(PrepareTransferParams {
+                chain: WalletChain::Evm,
+                to_address: "0xabc".into(),
+                amount_raw: "1".into(),
+                asset_symbol: Some("USDC".into()),
+            })
+            .await
+            .unwrap_err();
+            assert!(err.contains("unsupported asset_symbol"), "got: {err}");
         });
     }
 

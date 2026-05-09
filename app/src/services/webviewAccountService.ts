@@ -57,6 +57,14 @@ interface IngestPayload {
   isSeed?: boolean;
 }
 
+interface LinkedInConversationPayload {
+  chatId: string;
+  chatName?: string | null;
+  day: string; // YYYY-MM-DD UTC
+  messages: IngestMessage[];
+  isSeed?: boolean;
+}
+
 interface NotificationClickPayload {
   account_id: string;
   provider: string;
@@ -321,6 +329,23 @@ function handleRecipeEvent(evt: RecipeEventPayload) {
     return;
   }
 
+  if (evt.kind === 'linkedin_conversation') {
+    void persistLinkedInConversation(
+      accountId,
+      evt.payload as unknown as LinkedInConversationPayload
+    );
+    return;
+  }
+
+  if (evt.kind === 'linkedin_requests') {
+    const requests = (evt.payload as { requests: Array<{ name: string; subtitle: string | null }> })
+      .requests;
+    if (requests && requests.length > 0) {
+      log('linkedin: %d pending connection request(s) for account=%s', requests.length, accountId);
+    }
+    return;
+  }
+
   if (evt.kind === 'notify') {
     const payload = evt.payload as RecipeNotifyPayload;
     const title = String(payload.title ?? '').trim();
@@ -474,6 +499,75 @@ async function persistWhatsappChatDay(accountId: string, ingest: IngestPayload):
     );
   } catch (err) {
     errLog('whatsapp memory write failed %s key=%s: %o', namespace, key, err);
+  }
+}
+
+async function persistLinkedInConversation(
+  accountId: string,
+  payload: LinkedInConversationPayload
+): Promise<void> {
+  const { chatId, day } = payload;
+  const chatName = payload.chatName ?? chatId;
+  const raw = payload.messages ?? [];
+  if (raw.length === 0) return;
+
+  // Stable namespace. Key is scoped by whether this is a full thread
+  // snapshot (isSeed=true → canonical key) or a list-panel snippet
+  // (isSeed=false → :preview suffix). This prevents a later list-poll
+  // from overwriting a richer thread transcript with a single preview line.
+  const namespace = `linkedin:${accountId}`;
+  const key = payload.isSeed ? `${chatId}:${day}` : `${chatId}:${day}:preview`;
+
+  const sorted = [...raw].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+  const transcriptLines = sorted.map(m => {
+    const tsSec = m.timestamp ?? 0;
+    const hhmm = tsSec ? new Date(tsSec * 1000).toISOString().slice(11, 16) + 'Z' : '--:--';
+    const who = m.fromMe ? 'me' : (m.from ?? '?');
+    const body = (m.body ?? '').replace(/\r?\n/g, ' ').trim();
+    return `[${hhmm}] ${who}: ${body}`;
+  });
+
+  const header =
+    `# LinkedIn — ${chatName} — ${day}\n` +
+    `chat_id: ${chatId}\n` +
+    `account_id: ${accountId}\n` +
+    `messages: ${sorted.length}\n\n`;
+  const content = header + transcriptLines.join('\n');
+  const title = `LinkedIn · ${chatName} · ${day}`;
+
+  try {
+    await callCoreRpc({
+      method: 'openhuman.memory_doc_ingest',
+      params: {
+        namespace,
+        key,
+        title,
+        content,
+        source_type: 'linkedin-web',
+        priority: 'medium',
+        tags: ['linkedin', 'chat-transcript', day],
+        metadata: {
+          provider: 'linkedin',
+          account_id: accountId,
+          chat_id: chatId,
+          chat_name: chatName,
+          day,
+          message_count: sorted.length,
+          is_seed: !!payload.isSeed,
+        },
+        category: 'core',
+      },
+    });
+    log(
+      'linkedin: ingested %d msg(s) into %s key=%s (seed=%s)',
+      sorted.length,
+      namespace,
+      key,
+      !!payload.isSeed
+    );
+  } catch (err) {
+    errLog('linkedin memory write failed %s key=%s: %o', namespace, key, err);
   }
 }
 

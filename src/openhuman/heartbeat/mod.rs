@@ -6,6 +6,8 @@
 //! (memory, graph, skills) using the local Ollama model.
 
 pub mod engine;
+pub mod planner;
+pub mod rpc;
 mod schemas;
 pub use schemas::{
     all_controller_schemas as all_heartbeat_controller_schemas,

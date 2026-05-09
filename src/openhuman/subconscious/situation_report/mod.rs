@@ -4,14 +4,19 @@
 //! from the memory tree:
 //!
 //! 1. **Environment** (kept): host/OS/workspace/time anchor.
-//! 2. **Pending Tasks** (kept): subconscious task list from SQLite.
-//! 3. **Hotness deltas** (new): top movers in `mem_tree_entity_hotness`
-//!    since the last tick. Highest signal density.
-//! 4. **Recently-sealed summaries** (new): rows from `mem_tree_summaries`
+//! 2. **Your Identifiers** (#1365): the user's connected-account
+//!    identifiers (Slack/Gmail/Notion handles, emails, user_ids) so the
+//!    reflection LLM can disambiguate body-text mentions — "Cyrus said X"
+//!    is the user iff `Cyrus` (or the email/handle) appears in this list.
+//! 3. **Pending Tasks** (kept): subconscious task list from SQLite.
+//! 4. **Hotness deltas** (new): top movers in `mem_tree_entity_hotness`
+//!    since the last tick. Highest signal density. Items tagged `(you)`
+//!    are the user's own identifiers (#1365).
+//! 5. **Recently-sealed summaries** (new): rows from `mem_tree_summaries`
 //!    grouped by tree.
-//! 5. **Latest global L0 digest** (new): most recent daily digest body.
-//! 6. **`query_global` recap window** (new): since `last_tick_at`.
-//! 7. **Recent reflections** (new): the last N reflections from the
+//! 6. **Latest global L0 digest** (new): most recent daily digest body.
+//! 7. **`query_global` recap window** (new): since `last_tick_at`.
+//! 8. **Recent reflections** (new): the last N reflections from the
 //!    subconscious store, used by the LLM as anti-double-emit context.
 //!
 //! Sections are appended in priority order; truncation drops the tail
@@ -59,7 +64,13 @@ pub async fn build_situation_report(
     let env_section = build_environment_section(workspace_dir);
     append_section(&mut report, &mut remaining, &env_section);
 
-    // Section 2: pending subconscious tasks.
+    // Section 2 (#1365): the user's connected-account identifiers, so
+    // the reflection LLM can disambiguate "Cyrus said X" from body text
+    // — that's the user iff the identifier list claims it.
+    let identifiers_section = build_identifiers_section();
+    append_section(&mut report, &mut remaining, &identifiers_section);
+
+    // Section 3: pending subconscious tasks.
     let tasks_section = build_tasks_section(workspace_dir);
     append_section(&mut report, &mut remaining, &tasks_section);
 
@@ -106,6 +117,37 @@ fn build_environment_section(workspace_dir: &Path) -> String {
         std::env::consts::OS,
         now.format("%Y-%m-%d %H:%M:%S %Z"),
     )
+}
+
+/// Render the user's connected-account identifiers (#1365) so the
+/// reflection LLM can correlate body-text mentions back to the user.
+/// Empty string when no providers are connected — the section just
+/// disappears rather than rendering an empty header.
+fn build_identifiers_section() -> String {
+    let identities = crate::openhuman::composio::providers::profile::load_connected_identities();
+    if identities.is_empty() {
+        return String::new();
+    }
+    let body = crate::openhuman::composio::providers::profile::render_connected_identities_section(
+        &identities,
+    );
+    if body.trim().is_empty() {
+        return String::new();
+    }
+    // The shared renderer emits "## Connected Identities". Rename the
+    // heading for the situation-report context so the LLM knows this is
+    // *the user's* identity surface, not a list of contacts.
+    let renamed = body.replacen("## Connected Identities", "## Your Identifiers", 1);
+    let mut out = renamed;
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out.push_str(
+        "\nWhen body text in later sections mentions any of the above (name, email, \
+         handle, or user_id), treat it as the user's own activity. Anything else is \
+         someone else.\n",
+    );
+    out
 }
 
 fn build_tasks_section(workspace_dir: &Path) -> String {

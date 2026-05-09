@@ -470,6 +470,110 @@ pub async fn composio_get_user_profile(
     ))
 }
 
+/// `openhuman.composio_refresh_all_identities` — re-fetch the user
+/// profile for every active connection and persist via `identity_set`.
+/// Used to populate kind-tagged `user_profile` rows on existing
+/// connections after the #1365 schema rewrite without waiting for the
+/// next periodic sync tick.
+///
+/// Best-effort per connection: a failure on one toolkit does not abort
+/// the others. Returns aggregate counts plus a per-connection trail in
+/// the envelope messages.
+pub async fn composio_refresh_all_identities(
+    config: &Config,
+) -> OpResult<RpcOutcome<RefreshIdentitiesReport>> {
+    tracing::info!("[composio] rpc refresh_all_identities");
+    let client = resolve_client(config)?;
+    let conns = client
+        .list_connections()
+        .await
+        .map_err(|e| format!("[composio] list_connections failed: {e:#}"))?;
+
+    let mut report = RefreshIdentitiesReport::default();
+    let mut messages: Vec<String> = Vec::with_capacity(conns.connections.len() + 1);
+
+    for conn in conns.connections {
+        if !conn.is_active() {
+            report.skipped_inactive += 1;
+            continue;
+        }
+        let toolkit = conn.toolkit.clone();
+        let connection_id = conn.id.clone();
+
+        let Some(provider) = get_provider(&toolkit) else {
+            tracing::debug!(
+                toolkit = %toolkit,
+                connection_id = %connection_id,
+                "[composio] refresh_all_identities: no native provider — skipping"
+            );
+            report.skipped_no_provider += 1;
+            messages.push(format!(
+                "{toolkit}/{connection_id}: skipped (no native provider)"
+            ));
+            continue;
+        };
+
+        let ctx = ProviderContext {
+            config: Arc::new(config.clone()),
+            client: client.clone(),
+            toolkit: toolkit.clone(),
+            connection_id: Some(connection_id.clone()),
+        };
+
+        match provider.fetch_user_profile(&ctx).await {
+            Ok(profile) => {
+                let rows = provider.identity_set(&profile);
+                report.refreshed += 1;
+                report.rows_written += rows;
+                tracing::debug!(
+                    toolkit = %toolkit,
+                    connection_id = %connection_id,
+                    rows_written = rows,
+                    "[composio] refresh_all_identities: identity_set ok"
+                );
+                messages.push(format!("{toolkit}/{connection_id}: {rows} row(s)"));
+            }
+            Err(e) => {
+                report.failed += 1;
+                tracing::warn!(
+                    toolkit = %toolkit,
+                    connection_id = %connection_id,
+                    error = %e,
+                    "[composio] refresh_all_identities: fetch_user_profile failed"
+                );
+                messages.push(format!("{toolkit}/{connection_id}: ERROR — {e}"));
+            }
+        }
+    }
+
+    let summary = format!(
+        "composio: refreshed {ok}/{tried} active conn(s) — {rows} rows; \
+         {fail} failed, {nopv} skipped (no provider), {inact} inactive",
+        ok = report.refreshed,
+        // `tried` is the count of active connections we actually scanned —
+        // include `skipped_no_provider` so the denominator covers the full
+        // active set, not just provider-backed ones (#1381 review).
+        tried = report.refreshed + report.failed + report.skipped_no_provider,
+        rows = report.rows_written,
+        fail = report.failed,
+        nopv = report.skipped_no_provider,
+        inact = report.skipped_inactive,
+    );
+    let mut envelope = vec![summary];
+    envelope.extend(messages);
+    Ok(RpcOutcome::new(report, envelope))
+}
+
+/// Aggregate result of [`composio_refresh_all_identities`].
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RefreshIdentitiesReport {
+    pub refreshed: usize,
+    pub failed: usize,
+    pub skipped_no_provider: usize,
+    pub skipped_inactive: usize,
+    pub rows_written: usize,
+}
+
 /// `openhuman.composio_sync` — run a sync pass for a connected account
 /// by dispatching to the toolkit's registered provider. `reason` is
 /// `"manual"` by default; the periodic scheduler passes `"periodic"`

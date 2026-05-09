@@ -23,6 +23,21 @@ const CATEGORIES: { id: NotificationCategory; title: string; description: string
     title: 'System',
     description: 'Connection issues, background process errors, updates.',
   },
+  {
+    id: 'meetings',
+    title: 'Meetings',
+    description: 'Upcoming meetings and calendar events detected by heartbeat.',
+  },
+  {
+    id: 'reminders',
+    title: 'Reminders',
+    description: 'Upcoming reminders and scheduled tasks from cron jobs.',
+  },
+  {
+    id: 'important',
+    title: 'Important events',
+    description: 'Urgent or time-sensitive events surfaced from connected sources.',
+  },
 ];
 
 const NotificationsPanel = () => {

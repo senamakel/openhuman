@@ -82,6 +82,9 @@ CREATE INDEX IF NOT EXISTS idx_mem_tree_score_dropped
     ON mem_tree_score(dropped);
 
 -- Phase 2 (#708): inverted index entity_id -> node_id for retrieval.
+-- is_user (#1365) is set at index time via the Composio identity registry
+-- (is_self_identity_any_toolkit). Default 0 so legacy rows read back as
+-- non-user until the backfill job re-tags them.
 CREATE TABLE IF NOT EXISTS mem_tree_entity_index (
     entity_id              TEXT NOT NULL,
     node_id                TEXT NOT NULL,
@@ -91,6 +94,7 @@ CREATE TABLE IF NOT EXISTS mem_tree_entity_index (
     score                  REAL NOT NULL,
     timestamp_ms           INTEGER NOT NULL,
     tree_id                TEXT,
+    is_user                INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (entity_id, node_id)
 );
 
@@ -719,6 +723,16 @@ pub(crate) fn with_connection<T>(
     // disk via `content_path` or falling back to the SQL `content`
     // preview. Nullable so legacy chunks keep working unchanged.
     add_column_if_missing(&conn, "mem_tree_chunks", "raw_refs_json", "TEXT")?;
+    // #1365: is_user flag on indexed entity rows. Set at write time by
+    // running the canonical id through the Composio identity registry
+    // (`is_self_identity_any_toolkit`). Default 0 so legacy rows read
+    // back as "not user" until the backfill job re-tags them.
+    add_column_if_missing(
+        &conn,
+        "mem_tree_entity_index",
+        "is_user",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
     f(&conn)
 }
 

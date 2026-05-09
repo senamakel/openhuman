@@ -87,6 +87,15 @@ export function resolveSystemRoute(item: NotificationItem): string {
     case 'system':
       log('[notification-router] system id=%s category=system → /home', item.id);
       return ROUTES.home;
+    case 'meetings':
+      log('[notification-router] system id=%s category=meetings → /notifications', item.id);
+      return ROUTES.notifications;
+    case 'reminders':
+      log('[notification-router] system id=%s category=reminders → /notifications', item.id);
+      return ROUTES.notifications;
+    case 'important':
+      log('[notification-router] system id=%s category=important → /notifications', item.id);
+      return ROUTES.notifications;
     default:
       log(
         '[notification-router] system id=%s category=%s → /notifications (fallback)',

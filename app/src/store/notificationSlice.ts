@@ -1,9 +1,17 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { REHYDRATE } from 'redux-persist';
 
 import type { IntegrationNotification } from '../types/notifications';
 import { resetUserScopedState } from './resetActions';
 
-export type NotificationCategory = 'messages' | 'agents' | 'skills' | 'system';
+export type NotificationCategory =
+  | 'messages'
+  | 'agents'
+  | 'skills'
+  | 'system'
+  | 'meetings'
+  | 'reminders'
+  | 'important';
 
 export interface NotificationItem {
   id: string;
@@ -22,6 +30,9 @@ export interface NotificationPreferences {
   agents: boolean;
   skills: boolean;
   system: boolean;
+  meetings: boolean;
+  reminders: boolean;
+  important: boolean;
 }
 
 export interface NotificationState {
@@ -37,7 +48,15 @@ const MAX_ITEMS = 200;
 
 const initialState: NotificationState = {
   items: [],
-  preferences: { messages: true, agents: true, skills: true, system: true },
+  preferences: {
+    messages: true,
+    agents: true,
+    skills: true,
+    system: true,
+    meetings: true,
+    reminders: true,
+    important: true,
+  },
   integrationItems: [],
   integrationUnreadCount: 0,
   integrationLoading: false,
@@ -134,6 +153,23 @@ const notificationSlice = createSlice({
   },
   extraReducers: builder => {
     builder.addCase(resetUserScopedState, () => initialState);
+    // Backfill any new preference keys that may be absent on older persisted
+    // state (e.g. meetings/reminders/important added after initial release).
+    // This ensures state.preferences[item.category] never returns undefined
+    // for a valid NotificationCategory after rehydration.
+    builder.addCase(REHYDRATE, (state, action) => {
+      const rehydrateAction = action as {
+        type: typeof REHYDRATE;
+        key: string;
+        payload?: { preferences?: Partial<NotificationPreferences> };
+      };
+      // Only process the REHYDRATE action that belongs to this slice's persist key.
+      if (rehydrateAction.key !== 'notifications') return;
+      const payload = rehydrateAction.payload;
+      if (payload?.preferences) {
+        state.preferences = { ...initialState.preferences, ...payload.preferences };
+      }
+    });
   },
 });
 

@@ -11,6 +11,7 @@
 //!   - `composio.list_github_repos`   → `openhuman.composio_list_github_repos`
 //!   - `composio.create_trigger`      → `openhuman.composio_create_trigger`
 //!   - `composio.get_user_profile`    → `openhuman.composio_get_user_profile`
+//!   - `composio.refresh_all_identities` → `openhuman.composio_refresh_all_identities`
 //!   - `composio.sync`                → `openhuman.composio_sync`
 
 use serde::de::DeserializeOwned;
@@ -67,6 +68,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("list_github_repos"),
         schemas("create_trigger"),
         schemas("get_user_profile"),
+        schemas("refresh_all_identities"),
         schemas("sync"),
         schemas("list_trigger_history"),
         schemas("get_user_scopes"),
@@ -115,6 +117,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_user_profile"),
             handler: handle_get_user_profile,
+        },
+        RegisteredController {
+            schema: schemas("refresh_all_identities"),
+            handler: handle_refresh_all_identities,
         },
         RegisteredController {
             schema: schemas("sync"),
@@ -332,6 +338,23 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 ty: TypeSchema::Json,
                 comment: "Normalized profile: { toolkit, connectionId, displayName?, email?, \
                           username?, avatarUrl?, extras }.",
+                required: true,
+            }],
+        },
+        "refresh_all_identities" => ControllerSchema {
+            namespace: "composio",
+            function: "refresh_all_identities",
+            description:
+                "Re-fetch user profile for every active Composio connection and persist as \
+                 IdentityKind-tagged rows in user_profile (#1365). Best-effort per connection \
+                 — failures don't abort the others.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "report",
+                ty: TypeSchema::Json,
+                comment: "{ refreshed, failed, skippedNoProvider, skippedInactive, \
+                          rowsWritten } — aggregate counts; per-connection trail in envelope \
+                          messages.",
                 required: true,
             }],
         },
@@ -651,6 +674,13 @@ fn handle_get_user_profile(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let connection_id = read_required_non_empty(&params, "connection_id")?;
         to_json(super::ops::composio_get_user_profile(&config, &connection_id).await?)
+    })
+}
+
+fn handle_refresh_all_identities(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(super::ops::composio_refresh_all_identities(&config).await?)
     })
 }
 

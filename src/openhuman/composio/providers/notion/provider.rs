@@ -101,43 +101,28 @@ impl ComposioProvider for NotionProvider {
             return Err(format!("[composio:notion] {ACTION_GET_ABOUT_ME}: {err}"));
         }
 
+        // `data` is already the inner Composio response payload — paths
+        // here are relative to it. For bot-token connections the
+        // top-level `name` is the *integration's* name (e.g. "Composio"),
+        // and the actual owning user lives at `bot.owner.user.*`. Probe
+        // the bot-owner paths first so identity reflects the user (#1365).
         let data = &resp.data;
-        let display_name = pick_str(
-            data,
-            &[
-                "data.name",
-                "data.user.name",
-                "name",
-                "data.bot.owner.user.name",
-            ],
-        );
+        let display_name = pick_str(data, &["bot.owner.user.name", "user.name", "name"]);
         let email = pick_str(
             data,
             &[
-                "data.person.email",
-                "data.user.person.email",
+                "bot.owner.user.person.email",
+                "user.person.email",
                 "person.email",
                 "email",
             ],
         );
-        let username = pick_str(
-            data,
-            &["data.bot.owner.user.id", "data.id", "id", "data.user.id"],
-        );
+        let username = pick_str(data, &["bot.owner.user.id", "user.id", "id"]);
         let avatar_url = pick_str(
             data,
-            &["data.avatar_url", "data.user.avatar_url", "avatar_url"],
+            &["bot.owner.user.avatar_url", "user.avatar_url", "avatar_url"],
         );
-        let profile_url = pick_str(
-            data,
-            &[
-                "data.url",
-                "data.profile_url",
-                "data.profile.url",
-                "url",
-                "profile_url",
-            ],
-        );
+        let profile_url = pick_str(data, &["url", "profile_url", "profile.url"]);
 
         Ok(ProviderUserProfile {
             toolkit: "notion".to_string(),

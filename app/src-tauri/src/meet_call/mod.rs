@@ -21,26 +21,59 @@
 //! `whatsapp_scanner` pattern) handles the join page. No JS is injected
 //! into this webview — per the project rule for embedded provider
 //! webviews.
+//!
+//! ## Scanner teardown and the 60-second navigation block
+//!
+//! `meet_scanner::spawn` returns an `AbortHandle` that we store in
+//! `MeetCallState`. When a close signal arrives — whether from the user
+//! clicking our "Leave" button (`meet_call_close_window`) **or** from the
+//! OS title bar — `WindowEvent::CloseRequested` fires and we abort the
+//! scanner immediately. Without this abort the scanner's CDP polling loops
+//! (NAME_INPUT_BUDGET + JOIN_BUTTON_BUDGET, up to 60 s) keep WebSocket
+//! connections open to CEF's debugging endpoint. CEF waits for all active
+//! CDP sessions to detach before completing renderer shutdown, so an
+//! un-cancelled scanner delays `WindowEvent::Destroyed` — and therefore
+//! the `meet-call:closed` frontend event — by up to 60 s, blocking
+//! navigation. See issue #1378.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use serde::Deserialize;
 use tauri::{webview::WebviewWindowBuilder, AppHandle, Emitter, Manager, Runtime, WebviewUrl};
+use tokio::task::AbortHandle;
 use url::Url;
 
 use crate::meet_scanner;
 
 /// Per-process registry of open Meet webview windows, keyed by
 /// `request_id` so the frontend can ask us to close a specific call.
-#[derive(Default)]
+///
+/// `scanner_aborts` stores the abort handle returned by
+/// [`meet_scanner::spawn`] so `CloseRequested` can cancel the join
+/// automation before CEF starts renderer shutdown. Aborting the scanner
+/// drops its CDP connections, which unblocks the window destruction
+/// sequence. See the module-level doc for details.
 pub struct MeetCallState {
-    inner: Mutex<std::collections::HashMap<String, String>>, // request_id -> window label
+    /// request_id → window label
+    inner: Mutex<HashMap<String, String>>,
+    /// request_id → scanner task abort handle
+    scanner_aborts: Mutex<HashMap<String, AbortHandle>>,
 }
 
 impl MeetCallState {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            inner: Mutex::new(HashMap::new()),
+            scanner_aborts: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for MeetCallState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -136,16 +169,22 @@ pub async fn meet_call_open_window<R: Runtime>(
         .insert(request_id.clone(), label.clone());
 
     // Kick off the CDP-driven join automation: dismiss the device-check,
-    // type the display name, and click "Ask to join". Fire-and-forget —
-    // the user can finish manually if any step times out. Pass the
-    // normalised URL so the scanner can attach to the right CEF target
-    // when more than one Meet window is open.
-    meet_scanner::spawn(
+    // type the display name, and click "Ask to join". Store the returned
+    // AbortHandle so we can cancel the task on close (see CloseRequested
+    // handler below). Without cancellation the scanner's polling loops
+    // keep CDP connections open and delay CEF renderer shutdown by up to
+    // 60 s (issue #1378).
+    let scanner_abort = meet_scanner::spawn(
         app.clone(),
         request_id.clone(),
         parsed.to_string(),
         args.display_name.clone(),
     );
+    state
+        .scanner_aborts
+        .lock()
+        .unwrap()
+        .insert(request_id.clone(), scanner_abort);
 
     // Start the live meet-agent audio loop: registers a CEF audio
     // handler keyed by the meet URL, opens a core session, and spawns
@@ -168,65 +207,113 @@ pub async fn meet_call_open_window<R: Runtime>(
         });
     }
 
-    // Emit a `closed` event when the user dismisses the window AND clean
-    // up the per-call data directory. The data dir holds an isolated CEF
-    // profile (cookies, cache) we explicitly want to throw away after
-    // each call so the next anonymous join doesn't reuse stale state and
-    // disk doesn't grow unboundedly across many calls.
+    // Register window lifecycle handlers.
+    //
+    // CloseRequested — fires for both programmatic window.close() calls
+    // and OS title-bar close. We abort the scanner here so CEF does not
+    // wait for in-flight CDP polling loops before completing renderer
+    // shutdown. This is the primary fix for the 60-second navigation
+    // block described in issue #1378.
+    //
+    // Destroyed — fires once the renderer is fully torn down. We emit
+    // the frontend close event, stop the audio loop, and purge the
+    // isolated CEF data directory.
     {
         let app_for_event = app.clone();
         let label_for_event = label.clone();
         let request_id_for_event = request_id.clone();
         let data_dir_for_event = data_dir.clone();
         window.on_window_event(move |event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if let Some(state) = app_for_event.try_state::<MeetCallState>() {
-                    state.inner.lock().unwrap().remove(&request_id_for_event);
-                }
-                if let Err(err) = app_for_event.emit(
-                    "meet-call:closed",
-                    serde_json::json!({
-                        "request_id": request_id_for_event,
-                        "label": label_for_event,
-                    }),
-                ) {
-                    log::debug!("[meet-call] emit closed failed: {err}");
-                }
-                log::info!(
-                    "[meet-call] window destroyed label={label_for_event} request_id={request_id_for_event}"
-                );
-                // Tear down the meet-agent audio loop *before* the
-                // data dir wipe so the audio handler registration
-                // releases CEF cleanly while the browser is still
-                // shutting down.
-                {
-                    let app_for_audio = app_for_event.clone();
-                    let request_id_for_audio = request_id_for_event.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(err) =
-                            crate::meet_audio::stop(app_for_audio, request_id_for_audio.clone())
-                                .await
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    // Abort the scanner task so its CDP connections are
+                    // dropped before CEF starts tearing down the renderer.
+                    // This unblocks the window destruction sequence and
+                    // ensures `meet-call:closed` reaches the frontend
+                    // promptly rather than after a 60-second stall.
+                    //
+                    // abort() is idempotent — safe to call if the scanner
+                    // already finished naturally.
+                    if let Some(state) = app_for_event.try_state::<MeetCallState>() {
+                        if let Some(abort) = state
+                            .scanner_aborts
+                            .lock()
+                            .unwrap()
+                            .remove(&request_id_for_event)
                         {
+                            abort.abort();
+                            log::info!(
+                                "[meet-call] scanner aborted on close request_id={request_id_for_event}"
+                            );
+                        }
+                    }
+                }
+
+                tauri::WindowEvent::Destroyed => {
+                    if let Some(state) = app_for_event.try_state::<MeetCallState>() {
+                        state.inner.lock().unwrap().remove(&request_id_for_event);
+                        // Defensive: if CloseRequested didn't fire (e.g. the
+                        // window was destroyed by the OS without a prior close
+                        // signal), abort the scanner here as a fallback.
+                        if let Some(abort) = state
+                            .scanner_aborts
+                            .lock()
+                            .unwrap()
+                            .remove(&request_id_for_event)
+                        {
+                            abort.abort();
                             log::debug!(
-                                "[meet-call] meet_audio stop err request_id={request_id_for_audio} err={err}"
+                                "[meet-call] scanner aborted on destroy (fallback) request_id={request_id_for_event}"
+                            );
+                        }
+                    }
+                    if let Err(err) = app_for_event.emit(
+                        "meet-call:closed",
+                        serde_json::json!({
+                            "request_id": request_id_for_event,
+                            "label": label_for_event,
+                        }),
+                    ) {
+                        log::debug!("[meet-call] emit closed failed: {err}");
+                    }
+                    log::info!(
+                        "[meet-call] window destroyed label={label_for_event} request_id={request_id_for_event}"
+                    );
+                    // Tear down the meet-agent audio loop *before* the
+                    // data dir wipe so the audio handler registration
+                    // releases CEF cleanly while the browser is still
+                    // shutting down.
+                    {
+                        let app_for_audio = app_for_event.clone();
+                        let request_id_for_audio = request_id_for_event.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(err) =
+                                crate::meet_audio::stop(app_for_audio, request_id_for_audio.clone())
+                                    .await
+                            {
+                                log::debug!(
+                                    "[meet-call] meet_audio stop err request_id={request_id_for_audio} err={err}"
+                                );
+                            }
+                        });
+                    }
+
+                    // CEF may still be flushing the profile to disk on
+                    // teardown; do the rmdir off the UI thread so any
+                    // last-second writes don't race the delete.
+                    let dir_to_purge = data_dir_for_event.clone();
+                    let request_id_for_purge = request_id_for_event.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(err) = std::fs::remove_dir_all(&dir_to_purge) {
+                            log::debug!(
+                                "[meet-call] data-dir cleanup skipped request_id={request_id_for_purge} dir={} err={err}",
+                                dir_to_purge.display()
                             );
                         }
                     });
                 }
 
-                // CEF may still be flushing the profile to disk on
-                // teardown; do the rmdir off the UI thread so any
-                // last-second writes don't race the delete.
-                let dir_to_purge = data_dir_for_event.clone();
-                let request_id_for_purge = request_id_for_event.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(err) = std::fs::remove_dir_all(&dir_to_purge) {
-                        log::debug!(
-                            "[meet-call] data-dir cleanup skipped request_id={request_id_for_purge} dir={} err={err}",
-                            dir_to_purge.display()
-                        );
-                    }
-                });
+                _ => {}
             }
         });
     }
@@ -234,6 +321,12 @@ pub async fn meet_call_open_window<R: Runtime>(
     Ok(label)
 }
 
+/// Close the Meet webview for the given `request_id`.
+///
+/// Aborts the scanner task before signalling `window.close()` so that
+/// CEF does not wait for in-flight CDP polling to complete. This keeps
+/// the window destruction fast regardless of which phase the scanner is
+/// currently in (issue #1378).
 #[tauri::command]
 pub async fn meet_call_close_window<R: Runtime>(
     app: AppHandle<R>,
@@ -241,16 +334,33 @@ pub async fn meet_call_close_window<R: Runtime>(
     request_id: String,
 ) -> Result<bool, String> {
     let request_id = sanitize_request_id(&request_id)?;
+
+    // Abort the scanner before closing so its CDP connections are
+    // dropped immediately. The CloseRequested handler will also try to
+    // abort, but doing it here first means the scanner is gone before
+    // CEF even receives the close signal.
+    if let Some(abort) = state.scanner_aborts.lock().unwrap().remove(&request_id) {
+        abort.abort();
+        log::info!("[meet-call] scanner aborted before window close request_id={request_id}");
+    }
+
     let label = match state.inner.lock().unwrap().get(&request_id).cloned() {
         Some(label) => label,
-        None => return Ok(false),
+        None => {
+            log::debug!("[meet-call] close: no window for request_id={request_id}");
+            return Ok(false);
+        }
     };
     if let Some(window) = app.get_webview_window(&label) {
+        log::info!("[meet-call] closing window label={label} request_id={request_id}");
         window
             .close()
             .map_err(|e| format!("[meet-call] window.close failed: {e}"))?;
         return Ok(true);
     }
+    // Window was in state but not found in Tauri — clean up stale entry.
+    state.inner.lock().unwrap().remove(&request_id);
+    log::debug!("[meet-call] cleaned up stale entry for request_id={request_id}");
     Ok(false)
 }
 
@@ -329,5 +439,50 @@ mod tests {
     #[test]
     fn truncate_for_title_passes_short_names_through() {
         assert_eq!(truncate_for_title("Alice"), "Alice");
+    }
+
+    #[tokio::test]
+    async fn meet_call_state_scanner_aborts_insert_and_remove() {
+        // Verify the scanner_aborts map works as a round-trip store:
+        // inserting then removing returns Some, and a second remove returns
+        // None (abort is idempotent so the consume-once pattern is safe).
+        let state = MeetCallState::new();
+
+        // Spawn a pending task so we have a valid AbortHandle.
+        let h = tokio::spawn(std::future::pending::<()>());
+        let abort_handle = h.abort_handle();
+        h.abort(); // Clean up the task immediately.
+
+        state
+            .scanner_aborts
+            .lock()
+            .unwrap()
+            .insert("req-1".into(), abort_handle);
+
+        assert!(
+            state
+                .scanner_aborts
+                .lock()
+                .unwrap()
+                .remove("req-1")
+                .is_some(),
+            "first remove must return the stored handle"
+        );
+        assert!(
+            state
+                .scanner_aborts
+                .lock()
+                .unwrap()
+                .remove("req-1")
+                .is_none(),
+            "second remove must return None — handle already consumed"
+        );
+    }
+
+    #[test]
+    fn meet_call_state_default_is_empty() {
+        let state = MeetCallState::default();
+        assert!(state.inner.lock().unwrap().is_empty());
+        assert!(state.scanner_aborts.lock().unwrap().is_empty());
     }
 }

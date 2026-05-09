@@ -13,7 +13,7 @@ This page explains why CEF is in the bundle, what the codebase uses it for today
 
 ## Why CEF instead of a stock webview
 
-Stock Tauri uses each platform's native webview — WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux. Those work fine for rendering the OpenHuman app itself. They have one fatal limitation for our use case: **none of them expose Chrome DevTools Protocol (CDP)**.
+Stock Tauri uses each platform's native webview. WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux. Those work fine for rendering the OpenHuman app itself. They have one fatal limitation for our use case: **none of them expose Chrome DevTools Protocol (CDP)**.
 
 CDP is the load-bearing primitive. Every "watch what's happening inside Slack / WhatsApp / Telegram / Discord / Meet" feature in OpenHuman talks to those embedded apps via CDP, not via injected JavaScript. CDP gives us:
 
@@ -62,19 +62,19 @@ Each scan emits `webview:event` payloads and POSTs `openhuman.memory_doc_ingest`
 
 ### Google Meet mascot camera
 
-The flashiest CEF trick. The Meet agent doesn't just _attend_ a meeting — it **broadcasts** itself as a camera. This works because CEF lets us:
+The flashiest CEF trick. The Meet agent doesn't just _attend_ a meeting, it **broadcasts** itself as a camera. This works because CEF lets us:
 
 1. Inject a tiny bridge (`camera_bridge.js`) via `Page.addScriptToEvaluateOnNewDocument` before any Meet code runs.
 2. Override `navigator.mediaDevices.getUserMedia` so it returns a `MediaStream` from a hidden 640×480 canvas instead of a real camera.
 3. Render the mascot SVG on that canvas, swapping mood states (idle, thinking, talking) via `window.__openhumanSetMood(...)` driven from Rust over CDP.
 
-There's also a build-time path that rasterizes the mascot SVG to Y4M and uses CEF's native `--use-file-for-fake-video-capture` flag — a fully native fake-camera source with no JS at all.
+There's also a build-time path that rasterizes the mascot SVG to Y4M and uses CEF's native `--use-file-for-fake-video-capture` flag, a fully native fake-camera source with no JS at all.
 
 Code: [`app/src-tauri/src/meet_video/`](https://github.com/tinyhumansai/openhuman/tree/main/app/src-tauri/src/meet_video).
 
 ### Native notification interception
 
-The fork at `feat/cef-notification-intercept` adds renderer-side shims for `Notification.permission`, `Notification.requestPermission()`, and `navigator.permissions.query({name: "notifications"})`. These now install in the real `tauri-runtime-cef` path on every runtime code path — so when Slack checks if it can show notifications, the answer is consistent with what CEF's permission callbacks already granted.
+The fork at `feat/cef-notification-intercept` adds renderer-side shims for `Notification.permission`, `Notification.requestPermission()`, and `navigator.permissions.query({name: "notifications"})`. These now install in the real `tauri-runtime-cef` path on every runtime code path, so when Slack checks if it can show notifications, the answer is consistent with what CEF's permission callbacks already granted.
 
 This is the bulk of `docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`. It's why Slack stops asking the same permission five times in a session.
 
@@ -117,7 +117,7 @@ The plumbing is already there. A `@openhuman/browser_task` skill could spin up a
 
 ### Headless CEF for server-side replay
 
-The same scanner pattern (long-lived WebSocket → IDB walk + DOM snapshot) works without a UI. Headless CEF in the core sidecar could replay sessions on a schedule — useful for users who host the core in the cloud and want auto-fetch from sources that don't expose a clean OAuth API.
+The same scanner pattern (long-lived WebSocket → IDB walk + DOM snapshot) works without a UI. Headless CEF in the core sidecar could replay sessions on a schedule, useful for users who host the core in the cloud and want auto-fetch from sources that don't expose a clean OAuth API.
 
 ### Privacy hooks at the browser-process layer
 
@@ -125,7 +125,7 @@ CEF's `CefRequestHandler` already lets us intercept network requests. A small st
 
 ### CDP-driven testing framework
 
-The scanner pattern — spawn webview, walk IDB, snapshot DOM, evaluate one ephemeral expression — is structurally identical to E2E test orchestration. We could ship `@openhuman/web_test` as a public skill: `connect_cef → snapshot → evaluate → assert`. Tests written in plain Rust against any web app, no Selenium / Playwright dependency.
+The scanner pattern, spawn webview, walk IDB, snapshot DOM, evaluate one ephemeral expression, is structurally identical to E2E test orchestration. We could ship `@openhuman/web_test` as a public skill: `connect_cef → snapshot → evaluate → assert`. Tests written in plain Rust against any web app, no Selenium / Playwright dependency.
 
 ### Renderer ↔ Rust message channel
 
@@ -133,10 +133,9 @@ Today every CDP `Runtime.evaluate` is fire-and-forget. A long-lived bidirectiona
 
 ### Multi-account merge
 
-Each connected account gets its own profile and its own IDB. CDP can snapshot one account's IDB, decrypt-merge with another's, and upsert into a shared memory doc — e.g. one unified Slack memory across three workspaces.
+Each connected account gets its own profile and its own IDB. CDP can snapshot one account's IDB, decrypt-merge with another's, and upsert into a shared memory doc, e.g. one unified Slack memory across three workspaces.
 
 ## See also
 
-* [Webview Integration](/broken/pages/qKYPRr16dx5Vomiw5iaH) — playbook for adding a new provider.
-* [`docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`](../../docs/TAURI_CEF_FINDINGS_AND_CHANGES.md) — the notification-permission deep dive.
-* [`CLAUDE.md`](../../CLAUDE.md) — the canonical "no new JS injection" rule.
+* [`docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`](../../docs/TAURI_CEF_FINDINGS_AND_CHANGES.md). the notification-permission deep dive.
+* [`CLAUDE.md`](../../CLAUDE.md). the canonical "no new JS injection" rule.

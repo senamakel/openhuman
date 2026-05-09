@@ -74,7 +74,7 @@ saveMockRequestLog('after-connect-click', getRequestLog());
 
 `captureCheckpoint` numbers captures so the run dir reads chronologically.
 `captureFailureArtifacts` is wired into `wdio.conf.ts` and fires
-automatically on any failing test — specs should not call it directly.
+automatically on any failing test, specs should not call it directly.
 
 ## What is intentionally out of scope
 

@@ -7,15 +7,15 @@ icon: file-zipper
 
 # Smart Token Compression
 
-LLM tokens are expensive — and verbose tool output is where most of them go to die. A `git status` in a busy repo, a `cargo build` log, a 600-message email thread, a `docker ps -a` against a real cluster — each of these can balloon a context window for almost no information gain.
+LLM tokens are expensive, and verbose tool output is where most of them go to die. A `git status` in a busy repo, a `cargo build` log, a 600-message email thread, a `docker ps -a` against a real cluster, each of these can balloon a context window for almost no information gain.
 
 OpenHuman ships with **TokenJuice**, a port of [vincentkoc/tokenjuice](https://github.com/vincentkoc/tokenjuice) integrated directly into the tool-execution path. Before any tool result reaches the model, TokenJuice runs the output through a rule overlay that strips the noise and keeps the signal.
 
 ## Three-layer rule overlay
 
-Rules are JSON, and they merge in this order — later layers override earlier ones:
+Rules are JSON, and they merge in this order, later layers override earlier ones:
 
-<table><thead><tr><th width="134.41796875">Layer</th><th>Path</th><th>Purpose</th></tr></thead><tbody><tr><td><strong>Builtin</strong></td><td>shipped with the binary</td><td>sensible defaults for git, npm, cargo, docker, kubectl, ls, etc.</td></tr><tr><td><strong>User</strong></td><td><code>~/.config/tokenjuice/rules/</code></td><td>your personal overrides — apply across every project</td></tr><tr><td><strong>Project</strong></td><td><code>.tokenjuice/rules/</code></td><td>repo-specific overrides — checked in, shared with the team</td></tr></tbody></table>
+<table><thead><tr><th width="134.41796875">Layer</th><th>Path</th><th>Purpose</th></tr></thead><tbody><tr><td><strong>Builtin</strong></td><td>shipped with the binary</td><td>sensible defaults for git, npm, cargo, docker, kubectl, ls, etc.</td></tr><tr><td><strong>User</strong></td><td><code>~/.config/tokenjuice/rules/</code></td><td>your personal overrides, apply across every project</td></tr><tr><td><strong>Project</strong></td><td><code>.tokenjuice/rules/</code></td><td>repo-specific overrides, checked in, shared with the team</td></tr></tbody></table>
 
 Each rule names a tool/command pattern and a reduction strategy (truncate, dedup lines, fold whitespace, drop matching regexes, summarize sections, …). New rules are just JSON files; no recompile required.
 
@@ -47,5 +47,5 @@ Implementation: `src/openhuman/tokenjuice/` (`classify.rs`, `reduce.rs`, `rules/
 
 ## See also
 
-* [Native Tools](native-tools.md) — most heavy tool output flows through TokenJuice.
-* [Memory Tree](obsidian-wiki/memory-tree.md) — the downstream consumer of compressed output.
+* [Native Tools](native-tools.md). most heavy tool output flows through TokenJuice.
+* [Memory Tree](obsidian-wiki/memory-tree.md). the downstream consumer of compressed output.

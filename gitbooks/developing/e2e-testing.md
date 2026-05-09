@@ -79,9 +79,9 @@ Requires Docker Desktop or Colima. The repo is bind-mounted so builds persist be
 
 `app/test/e2e/helpers/platform.ts` exports:
 
-- `isTauriDriver()` — `true` on Linux (tauri-driver session)
-- `isMac2()` — `true` on macOS (Appium Mac2 session)
-- `supportsExecuteScript()` — `true` when `browser.execute()` works (tauri-driver only)
+- `isTauriDriver()`, `true` on Linux (tauri-driver session)
+- `isMac2()`, `true` on macOS (Appium Mac2 session)
+- `supportsExecuteScript()`, `true` when `browser.execute()` works (tauri-driver only)
 
 ### Element helpers
 
@@ -108,7 +108,7 @@ Requires Docker Desktop or Colima. The repo is bind-mounted so builds persist be
 
 ### Writing cross-platform specs
 
-1. **Use helpers** from `element-helpers.ts` — never use raw `XCUIElementType*` selectors in specs
+1. **Use helpers** from `element-helpers.ts`, never use raw `XCUIElementType*` selectors in specs
 2. **Use `clickNativeButton(text)`** instead of inline button-clicking code
 3. **Use `hasAppChrome()`** instead of checking for `XCUIElementTypeMenuBar`
 4. **Use `waitForWebView()`** instead of checking for `XCUIElementTypeWebView`
@@ -185,10 +185,10 @@ The first Docker build compiles Rust + tauri-driver from source. Subsequent runs
 
 Tests notification RPC methods via the live core sidecar and the Notifications UI page:
 
-- `notification_ingest` — creates a new notification via core RPC
-- `notification_list` — verifies the ingested notification is returned
-- `notification_mark_read` — marks a notification as read
-- `notification_stats` — checks aggregate statistics shape
+- `notification_ingest`, creates a new notification via core RPC
+- `notification_list`, verifies the ingested notification is returned
+- `notification_mark_read`, marks a notification as read
+- `notification_stats`, checks aggregate statistics shape
 - UI: Notifications page renders the integration notifications section (`[data-testid="integration-notifications-section"]`)
 - UI: Notifications page shows the System Events section (`[data-testid="system-events-section"]`)
 
@@ -198,7 +198,7 @@ Tests notification RPC methods via the live core sidecar and the Notifications U
 bash app/scripts/e2e-run-spec.sh test/e2e/specs/notifications.spec.ts notifications
 ```
 
-**Platform note**: RPC tests (`notification_ingest`, `notification_list`, `notification_mark_read`, `notification_stats`) run on both Linux (tauri-driver) and macOS (Appium Mac2). UI assertions (Notifications page sections) require Linux / tauri-driver because `browser.execute()` is unavailable on Mac2 — those tests auto-skip when `supportsExecuteScript()` returns `false`.
+**Platform note**: RPC tests (`notification_ingest`, `notification_list`, `notification_mark_read`, `notification_stats`) run on both Linux (tauri-driver) and macOS (Appium Mac2). UI assertions (Notifications page sections) require Linux / tauri-driver because `browser.execute()` is unavailable on Mac2, those tests auto-skip when `supportsExecuteScript()` returns `false`.
 
 ---
 

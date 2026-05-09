@@ -5,7 +5,7 @@ icon: vial
 
 # Testing Strategy
 
-How OpenHuman tests its product. Source of truth for "where does my test go?". Companion to [`TEST-COVERAGE-MATRIX.md`](./TEST-COVERAGE-MATRIX.md).
+How OpenHuman tests its product. Source of truth for "where does my test go?". Companion to [`TEST-COVERAGE-MATRIX.md`](../../docs/TEST-COVERAGE-MATRIX.md).
 
 ---
 
@@ -17,7 +17,7 @@ How OpenHuman tests its product. Source of truth for "where does my test go?". C
 | **Rust integration** | `tests/*.rs` at repo root                                                                                                                             | Full domain wiring with real Tokio runtime, mock external services, JSON-RPC end-to-end (`tests/json_rpc_e2e.rs`), domain × domain interactions | `pnpm test:rust` (which calls `bash scripts/test-rust-with-mock.sh`)                                                       |
 | **Vitest unit**      | Co-located as `*.test.ts(x)` next to source under `app/src/**`, or under `app/src/**/__tests__/`                                                      | React components, hooks, store slices, pure utilities, service-layer adapters                                                                   | `pnpm test:unit`                                                                                                           |
 | **WDIO E2E**         | `app/test/e2e/specs/*.spec.ts`                                                                                                                        | Full desktop flow: UI → Tauri → core sidecar → JSON-RPC; user-visible behaviour                                                                 | Linux CI: `tauri-driver` (port 4444). macOS local: Appium Mac2 (port 4723). See [E2E Testing](e2e-testing.md). |
-| **Manual smoke**     | [`docs/RELEASE-MANUAL-SMOKE.md`](./RELEASE-MANUAL-SMOKE.md)                                                                                           | OS-level surfaces drivers cannot assert: TCC permission prompts, Gatekeeper, code signing, DMG install, OS-native toasts                        | Human at release-cut, signed off in release PR                                                                             |
+| **Manual smoke**     | [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md)                                                                                           | OS-level surfaces drivers cannot assert: TCC permission prompts, Gatekeeper, code signing, DMG install, OS-native toasts                        | Human at release-cut, signed off in release PR                                                                             |
 
 ---
 
@@ -64,11 +64,11 @@ A spec that asserts only the happy path is incomplete.
 
 ## Determinism rules
 
-- No wall-clock waits — use `waitForApp`, `waitForAppReady`, `waitForWebView` helpers, or explicit element-readiness predicates.
-- No shared filesystem state — every E2E spec runs inside an isolated `OPENHUMAN_WORKSPACE` (created/cleaned by `app/scripts/e2e-run-spec.sh`).
-- No order-dependent specs — each spec must pass when run alone.
+- No wall-clock waits, use `waitForApp`, `waitForAppReady`, `waitForWebView` helpers, or explicit element-readiness predicates.
+- No shared filesystem state, every E2E spec runs inside an isolated `OPENHUMAN_WORKSPACE` (created/cleaned by `app/scripts/e2e-run-spec.sh`).
+- No order-dependent specs, each spec must pass when run alone.
 - No reliance on absolute coordinates or animation timing.
-- No real keyboard via `browser.keys()` on tauri-driver — synthesize via `browser.execute(...)` (see `command-palette.spec.ts` for the pattern).
+- No real keyboard via `browser.keys()` on tauri-driver, synthesize via `browser.execute(...)` (see `command-palette.spec.ts` for the pattern).
 
 ---
 
@@ -76,11 +76,11 @@ A spec that asserts only the happy path is incomplete.
 
 - **Mock backend bootstrapping**: `startMockServer` / `stopMockServer` in `app/test/e2e/mock-server.ts`.
 - **Auth shortcut**: `triggerAuthDeepLink` / `triggerAuthDeepLinkBypass` in `helpers/deep-link-helpers.ts` skips real OAuth.
-- **Element helpers**: `clickNativeButton`, `waitForWebView`, `clickToggle` in `helpers/element-helpers.ts` — use these instead of raw `XCUIElementType*` selectors.
+- **Element helpers**: `clickNativeButton`, `waitForWebView`, `clickToggle` in `helpers/element-helpers.ts`, use these instead of raw `XCUIElementType*` selectors.
 - **Shared flows**: `completeOnboardingIfVisible`, `navigateViaHash`, `navigateToSkills`, `walkOnboarding` in `helpers/shared-flows.ts`.
-- **Core RPC from spec**: `callOpenhumanRpc` in `helpers/core-rpc.ts` — drives the sidecar directly when a UI step would be brittle.
+- **Core RPC from spec**: `callOpenhumanRpc` in `helpers/core-rpc.ts`, drives the sidecar directly when a UI step would be brittle.
 - **Platform guards**: `isTauriDriver`, `isMac2`, `supportsExecuteScript` in `helpers/platform.ts`.
-- **Artifact capture on failure**: `captureFailureArtifacts` runs from `wdio.conf.ts` — screenshots + DOM dumps land under `app/test/e2e/artifacts/`.
+- **Artifact capture on failure**: `captureFailureArtifacts` runs from `wdio.conf.ts`, screenshots + DOM dumps land under `app/test/e2e/artifacts/`.
 
 ---
 
@@ -88,8 +88,8 @@ A spec that asserts only the happy path is incomplete.
 
 - WDIO specs: `<feature-area>-flow.spec.ts` for end-to-end product flows; `<feature>.spec.ts` for narrower surfaces.
 - Vitest co-location: prefer `Component.tsx` + `Component.test.tsx` siblings; use `__tests__/` only when grouping multiple related tests.
-- Rust integration tests: snake_case file matching the surface — `<feature>_e2e.rs` for JSON-RPC-driven flows, `<feature>_integration.rs` for cross-domain.
-- Each `describe` / `mod tests` block maps to a feature-list ID range — link the matrix row in a comment if the mapping is non-obvious.
+- Rust integration tests: snake_case file matching the surface, `<feature>_e2e.rs` for JSON-RPC-driven flows, `<feature>_integration.rs` for cross-domain.
+- Each `describe` / `mod tests` block maps to a feature-list ID range, link the matrix row in a comment if the mapping is non-obvious.
 
 ---
 
@@ -125,7 +125,7 @@ bash app/scripts/e2e-run-spec.sh test/e2e/specs/<your-spec>.spec.ts <id>
 
 ## Not driver-automatable — manual smoke required
 
-Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trust boundaries or hardware paths. The complete checklist + sign-off block lives in [`docs/RELEASE-MANUAL-SMOKE.md`](./RELEASE-MANUAL-SMOKE.md) — that file is the source of truth for what must be verified per release. Examples of what it covers:
+Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trust boundaries or hardware paths. The complete checklist + sign-off block lives in [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md), that file is the source of truth for what must be verified per release. Examples of what it covers:
 
 - macOS TCC permission prompts (Accessibility, Input Monitoring, Screen Recording, Microphone)
 - Gatekeeper signature validation on first launch
@@ -134,13 +134,13 @@ Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trus
 - Auto-update download + relaunch
 - OS-native notification toasts on Linux (no display server visible to the driver beyond Xvfb)
 
-If a feature has no automated coverage AND is not on the manual smoke list, treat it as untested — open a coverage gap.
+If a feature has no automated coverage AND is not on the manual smoke list, treat it as untested, open a coverage gap.
 
 ---
 
 ## Coverage matrix as the contract
 
-Every feature leaf in the [coverage matrix](./TEST-COVERAGE-MATRIX.md) maps to:
+Every feature leaf in the [coverage matrix](../../docs/TEST-COVERAGE-MATRIX.md) maps to:
 
 1. A test path or paths, **or**
 2. A justified `🚫` with a manual-smoke entry.

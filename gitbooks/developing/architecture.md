@@ -27,7 +27,7 @@ The desktop app **WebView** loads the UI from `app/`; heavy RPC and skills run i
 
 ## Platform reach
 
-**Supported today (end users):** desktop — Windows, macOS, Linux (native installers).
+**Supported today (end users):** desktop. Windows, macOS, Linux (native installers).
 
 **Not supported yet:** Android, iOS, standalone web client (may exist as experimental targets in the repo; do not treat as product-ready).
 
@@ -95,9 +95,9 @@ OpenHuman chose Tauri + Rust over Electron for fundamental performance and secur
 | Memory safety             | Compile-time guaranteed                                  | Runtime exceptions           |
 | TLS implementation        | rustls (no OpenSSL dependency)                           | Chromium's BoringSSL         |
 
-**Why this matters for a crypto platform**: Traders and analysts run OpenHuman alongside resource-intensive tools — charting software, multiple browser tabs, trading terminals. A native binary with sub-500ms startup means the app feels native and stays out of the way. Zero GC pauses means real-time price feeds and alerts are never delayed by memory management.
+**Why this matters for a crypto platform**: Traders and analysts run OpenHuman alongside resource-intensive tools, charting software, multiple browser tabs, trading terminals. A native binary with sub-500ms startup means the app feels native and stays out of the way. Zero GC pauses means real-time price feeds and alerts are never delayed by memory management.
 
-The **Tokio async runtime** drives all I/O — WebSocket connections, HTTP requests, file operations, and inter-skill communication — as non-blocking tasks on a thread pool. Thousands of concurrent operations (skill executions, cron jobs, socket events) share a small fixed set of OS threads.
+The **Tokio async runtime** drives all I/O. WebSocket connections, HTTP requests, file operations, and inter-skill communication, as non-blocking tasks on a thread pool. Thousands of concurrent operations (skill executions, cron jobs, socket events) share a small fixed set of OS threads.
 
 ---
 
@@ -128,7 +128,7 @@ Desktop Mode:                          Web Mode:
 - **Handshake**: WebSocket connect, Engine.IO OPEN (extracts `sid`, `pingInterval`, `pingTimeout`), Socket.IO CONNECT with JWT auth, CONNECT ACK
 - **Keep-alive**: Responds to Engine.IO PING with PONG; timeout threshold = `pingInterval + pingTimeout + 5s` (default: 50 seconds)
 - **Reconnection**: Exponential backoff from 1 second to 30 seconds max. Resets to 1s after a successful connection is lost; keeps growing if connection was never established
-- **CORS bypass**: The Rust `reqwest` HTTP client makes external API calls directly — no browser CORS restrictions apply
+- **CORS bypass**: The Rust `reqwest` HTTP client makes external API calls directly, no browser CORS restrictions apply
 
 The socket connection is **shared across all skills**. When events arrive, the socket manager routes them to the appropriate skill via async message channels. This eliminates per-skill connection overhead entirely.
 
@@ -163,7 +163,7 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 +---------------------------------------------------------------+
 ```
 
-**QuickJS Runtime** (`rquickjs`): Each skill gets its own QuickJS `AsyncRuntime` and `AsyncContext` — fully isolated memory spaces with no cross-skill access.
+**QuickJS Runtime** (`rquickjs`): Each skill gets its own QuickJS `AsyncRuntime` and `AsyncContext`, fully isolated memory spaces with no cross-skill access.
 
 | Parameter                      | Value       |
 | ------------------------------ | ----------- |
@@ -173,7 +173,7 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 | Graceful stop timeout          | 5 seconds   |
 | Message channel buffer         | 64 messages |
 
-**Message-passing architecture**: Skills communicate with the core engine through async MPSC channels — no shared mutable state. The registry routes tool calls, server events, cron triggers, and lifecycle commands to the correct skill instance via its channel sender.
+**Message-passing architecture**: Skills communicate with the core engine through async MPSC channels, no shared mutable state. The registry routes tool calls, server events, cron triggers, and lifecycle commands to the correct skill instance via its channel sender.
 
 **Bridge APIs** expose platform capabilities to skill JavaScript code:
 
@@ -207,7 +207,7 @@ Skills are synced from a GitHub repository and discovered at runtime. Platform f
 
 ## AI & Tool Protocol (MCP)
 
-OpenHuman implements the **Model Context Protocol** — a JSON-RPC 2.0 layer over Socket.io that lets AI models discover and invoke tools exposed by skills.
+OpenHuman implements the **Model Context Protocol**, a JSON-RPC 2.0 layer over Socket.io that lets AI models discover and invoke tools exposed by skills.
 
 ```
 User Prompt
@@ -239,7 +239,7 @@ AI Response to User
 
 **Transport**: 30-second timeout per request, `mcp:` event prefix, request IDs tracked in a pending response map. Tool names are namespaced as `skillId__toolName` for unambiguous routing.
 
-**Tool sync**: The `tool:sync` event broadcasts the complete tool inventory — skill ID, name, connection status, and tool list — on every socket connect and skill state change. The backend AI system always has an up-to-date view of available capabilities.
+**Tool sync**: The `tool:sync` event broadcasts the complete tool inventory, skill ID, name, connection status, and tool list, on every socket connect and skill state change. The backend AI system always has an up-to-date view of available capabilities.
 
 **AI Memory System**:
 
@@ -253,9 +253,6 @@ AI Response to User
 | Sessions           | JSONL transcripts with compaction and tool compression |
 
 Memory encryption keys derive from user credentials via Argon2id, ensuring memory files are unreadable without authentication. The hybrid search combines semantic understanding (vector similarity) with keyword precision (SQLite FTS5) for reliable recall.
-
-Skill sync now also feeds a bounded **user working memory** layer (preferences, goals, constraints, recurring entities) via the core runtime sync worker. See [`docs/SKILL-WORKING-MEMORY.md`](./SKILL-WORKING-MEMORY.md) for hook locations, privacy rules, and extension guidance.
-
 ---
 
 ## Security Architecture
@@ -278,13 +275,13 @@ Skill sync now also feeds a bounded **user working memory** layer (preferences, 
 +-------------------------------------------------------------------+
 ```
 
-- **Credential storage**: OS keychain integration via the `keyring` crate (macOS Keychain, Windows Credential Manager, Linux Secret Service) — desktop only
+- **Credential storage**: OS keychain integration via the `keyring` crate (macOS Keychain, Windows Credential Manager, Linux Secret Service), desktop only
 - **Memory encryption**: AES-256-GCM with Argon2id key derivation. All AI memory is encrypted at rest
 - **Skill sandboxing**: Each QuickJS instance has enforced memory limits (64 MB default) and stack limits (512 KB). No cross-skill memory access
 - **Auth handoff**: Web-to-desktop authentication uses single-use login tokens with 5-minute TTL, exchanged via Rust HTTP client (bypasses CORS)
-- **Network TLS**: All WebSocket and HTTP connections use rustls — no dependency on platform OpenSSL
+- **Network TLS**: All WebSocket and HTTP connections use rustls, no dependency on platform OpenSSL
 - **State management**: Sensitive data lives in Redux (memory) and OS keychain (persistent). No localStorage for credentials or tokens
-- **Prompt injection guard**: User prompts are normalized/scored and enforced server-side (`allow | review | block`) before model/tool execution. See [`docs/PROMPT_INJECTION_GUARD.md`](./PROMPT_INJECTION_GUARD.md)
+- **Prompt injection guard**: User prompts are normalized/scored and enforced server-side (`allow | review | block`) before model/tool execution. See [`docs/PROMPT_INJECTION_GUARD.md`](../../docs/PROMPT_INJECTION_GUARD.md)
 
 ---
 

@@ -51,7 +51,7 @@ Together this is what makes OpenHuman a viable coding partner instead of a chat 
 
 ## Why ship them natively
 
-A plugin-only model means tools live in different processes, behind RPC, with their own auth and packaging stories. That's fine for open-ended extensibility — but for the **core** tools every agent needs (read a file, search the web, edit code), shipping them in-process means:
+A plugin-only model means tools live in different processes, behind RPC, with their own auth and packaging stories. That's fine for open-ended extensibility, but for the **core** tools every agent needs (read a file, search the web, edit code), shipping them in-process means:
 
 - Consistent error handling.
 - Zero install friction.
@@ -60,5 +60,5 @@ A plugin-only model means tools live in different processes, behind RPC, with th
 
 ## See also
 
-- [Smart Token Compression](token-compression.md) — what keeps tool output costs bounded.
-- [Third-party Integrations](integrations.md) — for the long tail of third-party services.
+- [Smart Token Compression](token-compression.md). what keeps tool output costs bounded.
+- [Third-party Integrations](integrations.md). for the long tail of third-party services.

@@ -7,12 +7,12 @@ icon: diagram-project
 
 # Memory Tree Pipeline
 
-The user-facing pitch of the [Memory Tree](memory-tree.md) is simple: connect a source, the agent gets persistent memory of it. The pipeline that delivers on that pitch is **not** simple — it spans an HTTP-triggered ingest path, a job queue inside SQLite, a pool of background workers, three independent summary trees, and a daily UTC scheduler. This page walks through the whole thing.
+The user-facing pitch of the [Memory Tree](memory-tree.md) is simple: connect a source, the agent gets persistent memory of it. The pipeline that delivers on that pitch is **not** simple, it spans an HTTP-triggered ingest path, a job queue inside SQLite, a pool of background workers, three independent summary trees, and a daily UTC scheduler. This page walks through the whole thing.
 
 The diagram below is the source of truth. Every box maps to code under `src/openhuman/memory/tree/`.
 
 {% file src="../../.gitbook/assets/memory-tree-pipeline (1).excalidraw" %}
-Memory Tree Async Pipeline — leaf ingestion → jobs queue → workers → source / topic / global tree building.
+Memory Tree Async Pipeline, leaf ingestion → jobs queue → workers → source / topic / global tree building.
 {% endfile %}
 
 ## The six lanes
@@ -73,7 +73,7 @@ Code: `src/openhuman/memory/tree/store.rs`, `jobs/queue.rs`.
 
 Bootstrap: `jobs::start(workspace_dir)` is called once at process startup. It:
 
-* Calls `recover_stale_locks()` — any job whose `locked_until_ms` is in the past becomes `pending` again. Crashes don't strand work.
+* Calls `recover_stale_locks()`, any job whose `locked_until_ms` is in the past becomes `pending` again. Crashes don't strand work.
 * Spawns **3 worker tasks** (configurable, but 3 is the default and what production runs).
 * Wires a `tokio::sync::Notify` so the ingest path can wake workers immediately, with a **5-second polling fallback** so a missed notify doesn't strand work.
 * Holds a shared `Semaphore(3)` for LLM-bound steps so concurrent embedding / summarization calls can't blow past the configured budget.
@@ -95,11 +95,11 @@ Code: `src/openhuman/memory/tree/jobs/{worker.rs, handlers/}`.
 
 Three independent trees are built from the same leaf stream.
 
-**Source tree** — one per source. New leaves land in the L0 buffer. When the buffer fills (or `flush_stale` fires), `seal` writes an L1 summary; if the L1 buffer fills, the cascade continues up.
+**Source tree**, one per source. New leaves land in the L0 buffer. When the buffer fills (or `flush_stale` fires), `seal` writes an L1 summary; if the L1 buffer fills, the cascade continues up.
 
-**Topic tree** — one per high-hotness entity. The `topic_route` handler runs a curator check (is this entity hot enough to deserve its own tree?) and, if it passes, calls `append_buffer` against the topic's tree.
+**Topic tree**, one per high-hotness entity. The `topic_route` handler runs a curator check (is this entity hot enough to deserve its own tree?) and, if it passes, calls `append_buffer` against the topic's tree.
 
-**Global tree** — one tree, growing one node per UTC day. The `digest_daily` handler builds yesterday's daily node and `append_daily_and_cascade` walks it up the global hierarchy.
+**Global tree**, one tree, growing one node per UTC day. The `digest_daily` handler builds yesterday's daily node and `append_daily_and_cascade` walks it up the global hierarchy.
 
 Code: `src/openhuman/memory/tree/{tree_source, tree_topic, tree_global}/`.
 
@@ -125,7 +125,7 @@ pending_extraction ──► admitted ──► buffered ──► sealed
 ```
 
 * `extract_chunk` decides `admitted` vs `dropped` based on the deep score.
-* `append_buffer` moves admitted leaves into a buffer — `buffered`.
+* `append_buffer` moves admitted leaves into a buffer, `buffered`.
 * `seal` writes the buffer's contents into a summary and marks each leaf `sealed`.
 * `dropped` leaves stop here. Their chunk row stays for provenance, but no buffer / summary references them.
 
@@ -135,7 +135,7 @@ This is why retrieval can show provenance without re-running the pipeline: the c
 
 Three reasons:
 
-1. **Crash safety.** A worker panic, a process kill, a power loss — none of them lose admitted-but-not-yet-sealed work. The job row is durable in SQLite; the next start picks it up.
+1. **Crash safety.** A worker panic, a process kill, a power loss, none of them lose admitted-but-not-yet-sealed work. The job row is durable in SQLite; the next start picks it up.
 2. **Retries with backoff.** `attempts` + `available_at_ms` + `last_error` give us per-job retry without ad-hoc retry loops in business logic.
 3. **One throttle for LLM cost.** All summarization paths share a single semaphore, so a burst of new sources can't accidentally fan out to 50 concurrent embeddings calls.
 
@@ -150,6 +150,5 @@ A few rules to keep the pipeline coherent:
 
 ## See also
 
-* [Memory Tree (user-facing)](memory-tree.md) — the product surface this pipeline powers.
-* [Memory Context Window](/broken/pages/l8k1mXW6gnYt3tp2WIGd) — how much of the resulting state lands in each agent turn.
-* [Local AI](../local-ai.md) — opt-in path for running embeddings + summarization on-device.
+* [Memory Tree (user-facing)](memory-tree.md). the product surface this pipeline powers.
+* [Local AI](../local-ai.md). opt-in path for running embeddings + summarization on-device.

@@ -4,7 +4,7 @@ icon: layer-plus
 
 # Platform & Availability
 
-OpenHuman is a native desktop application — not a browser extension, not an Electron wrapper. Built on **React + Tauri v2** with a **Rust core**, it ships small, starts fast, and stays out of the way.
+OpenHuman is a native desktop application, not a browser extension, not an Electron wrapper. Built on **React + Tauri v2** with a **Rust core**, it ships small, starts fast, and stays out of the way.
 
 ***
 
@@ -16,8 +16,6 @@ OpenHuman is a native desktop application — not a browser extension, not an El
 | **Windows** | x64, ARM64           | `.msi` installer           |
 | **Linux**   | x64, ARM64           | AppImage, `.deb`, apt      |
 
-See [Install](/broken/pages/OyFFC8PaGMAWetIn8vKG) for setup on each platform.
-
 ***
 
 ## Why native matters
@@ -28,7 +26,7 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 
 **Fast startup.** No browser engine to initialize. Ready to accept requests immediately.
 
-**OS-level security.** Credentials live in your platform's secure keychain — macOS Keychain, Windows Credential Manager, Linux Secret Service. Sensitive data never sits in browser storage or plain text files. The local Memory Tree's SQLite database lives in your workspace folder, owned by you.
+**OS-level security.** Credentials live in your platform's secure keychain, macOS Keychain, Windows Credential Manager, Linux Secret Service. Sensitive data never sits in browser storage or plain text files. The local Memory Tree's SQLite database lives in your workspace folder, owned by you.
 
 ***
 
@@ -63,7 +61,7 @@ The desktop app maintains a persistent connection to the OpenHuman backend. Resp
 
 ## Offline behavior
 
-Your local state persists on your device. Preferences, settings, and connected-source configurations remain available offline. The local Memory Tree is fully accessible — you can browse the [Obsidian vault](../features/obsidian-wiki/) and read your existing notes without any network connection.
+Your local state persists on your device. Preferences, settings, and connected-source configurations remain available offline. The local Memory Tree is fully accessible, you can browse the [Obsidian vault](../features/obsidian-wiki/) and read your existing notes without any network connection.
 
 Auto-fetch and live LLM calls require connectivity. When the network returns, the next 5-minute tick picks up where it left off.
 
@@ -71,4 +69,4 @@ Auto-fetch and live LLM calls require connectivity. When the network returns, th
 
 ## Auto-update
 
-The desktop shell auto-updates itself via Tauri's updater plugin against a manifest published on GitHub Releases. The OpenHuman core sidecar ships inside the same bundle, so a shell update upgrades both. See [Auto-update](/broken/pages/nD6VkS4K7taRc7cwDSus).
+The desktop shell auto-updates itself via Tauri's updater plugin against a manifest published on GitHub Releases. The OpenHuman core sidecar ships inside the same bundle, so a shell update upgrades both.

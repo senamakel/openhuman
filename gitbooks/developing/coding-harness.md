@@ -10,10 +10,10 @@ agents. This page is the canonical map: which tool the model should
 reach for, what permissions it needs, and where the implementation
 lives.
 
-It is intentionally a flat catalog — not a guide on how the agent
+It is intentionally a flat catalog, not a guide on how the agent
 loop dispatches tools. For that, see
 [`gitbooks/developing/architecture.md`](architecture.md) and
-[`src/openhuman/tools/`](../src/openhuman/tools/).
+[`src/openhuman/tools/`](../../src/openhuman/tools/).
 
 Tracking issue: [#1205](https://github.com/tinyhumansai/openhuman/issues/1205).
 
@@ -46,46 +46,46 @@ alias in parentheses is the conceptual role.
 
 ### Navigation
 
-- **`file_read { path }`** — read a workspace-relative file (≤10 MB).
+- **`file_read { path }`**. read a workspace-relative file (≤10 MB).
   Path-sandboxed and symlink-escape blocked.
-- **`grep { pattern, path?, max_matches?, case_insensitive? }`** —
+- **`grep { pattern, path?, max_matches?, case_insensitive? }`**.
   regex search across files. Returns `path:line:text` lines, capped.
   Skips `.git`, `node_modules`, `target`, `.next`, `dist`, `build`,
   `.cache`.
-- **`glob { pattern, max_results? }`** — list files matching a glob
+- **`glob { pattern, max_results? }`**. list files matching a glob
   (e.g. `src/**/*.rs`). Sorted newest-first. Same skip set as `grep`.
-- **`list { path? }`** — non-recursive directory listing. Each line is
+- **`list { path? }`**. non-recursive directory listing. Each line is
   `<kind>\t<name>` where kind is `dir`, `file`, or `link`.
 
 ### Editing
 
-- **`file_write { path, content }`** — overwrite (or create) a file.
-- **`edit { path, old_string, new_string, replace_all? }`** — exact
+- **`file_write { path, content }`**. overwrite (or create) a file.
+- **`edit { path, old_string, new_string, replace_all? }`**. exact
   string-replace. By default `old_string` must be unique in the file
   (so the model can't accidentally rewrite every occurrence); set
   `replace_all` to override.
-- **`apply_patch { edits[] }`** — atomic batch of `edit` operations
+- **`apply_patch { edits[] }`**. atomic batch of `edit` operations
   across one or more files. Validation runs over the whole batch
   first; if any edit fails (path not allowed, non-unique match, file
   too large, …) **no** files are written.
 
 ### Execution
 
-- **`shell { command }`** — run a vetted shell command. Use this only
+- **`shell { command }`**. run a vetted shell command. Use this only
   when the right primitive doesn't already exist (e.g. `grep` should
   almost always replace `shell { command: "grep ..." }`).
 
 ### Interaction & control flow
 
-- **`ask_clarification` (canonical `question`)** — pause the run and
+- **`ask_clarification` (canonical `question`)**. pause the run and
   ask the user a structured question. Resumes with the answer once
   the user replies.
-- **`spawn_subagent` (canonical `task`)** — delegate a focused unit of
+- **`spawn_subagent` (canonical `task`)**. delegate a focused unit of
   work to a child agent. Returns a single text result.
-- **`todowrite { todos[] }`** — replace the agent's lightweight todo
+- **`todowrite { todos[] }`**. replace the agent's lightweight todo
   list. Each item is `{content, status}` where `status ∈
   {pending, in_progress, completed}`. Only one `in_progress` allowed.
-- **`plan_exit { plan }`** — emit a `[plan_exit]` marker plus the
+- **`plan_exit { plan }`**. emit a `[plan_exit]` marker plus the
   plan text, signaling that the plan-mode pass is done and the
   harness should hand off to a build-mode pass. The plan→build
   switch on the harness side is follow-up work; the marker is stable
@@ -93,9 +93,9 @@ alias in parentheses is the conceptual role.
 
 ### Web research
 
-- **`web_search` (canonical `websearch`)** — backend-proxied search
+- **`web_search` (canonical `websearch`)**. backend-proxied search
   via Parallel. Returns ranked excerpts.
-- **`web_fetch` (canonical `webfetch`)** — single-purpose `GET` →
+- **`web_fetch` (canonical `webfetch`)**. single-purpose `GET` →
   text body, capped. Reuses the same `allowed_domains` gate as
   `http_request`. Reach for `web_fetch` when reading docs/READMEs;
   reach for `http_request` only when you need methods, headers, or
@@ -103,18 +103,18 @@ alias in parentheses is the conceptual role.
 
 ### Code intelligence
 
-- **`lsp { kind, language, file, line?, character?, symbol? }`** —
+- **`lsp { kind, language, file, line?, character?, symbol? }`**.
   capability-gated. Registered only when `OPENHUMAN_LSP_ENABLED=1`.
-  Schema is stable; the language-server backend is a follow-up — the
+  Schema is stable; the language-server backend is a follow-up, the
   current implementation returns a clear `not yet implemented` error
   when called, so callers can feature-detect.
 
 ## Permissions and modes
 
 Permissions live on the [`Tool`
-trait](../src/openhuman/tools/traits.rs). Each tool returns one of:
+trait](../../src/openhuman/tools/traits.rs). Each tool returns one of:
 `None`, `ReadOnly`, `Write`, `Execute`, `Dangerous`. Channels can set
-a maximum permission level — anything above is rejected before
+a maximum permission level, anything above is rejected before
 execution.
 
 Today's coding-harness mapping:
@@ -172,6 +172,6 @@ baseline PR:
 - Richer permission model (per-tool channel allowlists, per-call
   approval policies).
 - Controller-registry exposure of the new agent-only tools to
-  JSON-RPC. Today they remain agent-only — the registry already
+  JSON-RPC. Today they remain agent-only, the registry already
   exposes `tools_web_search` (and friends) where the Tauri shell
   needs them.

@@ -92,7 +92,7 @@ Query: enabled, not completed, `next_run_at <= now` or never run.
 
 ### 3. Log as in_progress
 
-Each due task gets a single log row inserted with `decision = "in_progress"`. This row is updated in place as the task progresses — no duplicate rows.
+Each due task gets a single log row inserted with `decision = "in_progress"`. This row is updated in place as the task progresses, no duplicate rows.
 
 ### 4. Evaluate with local model
 
@@ -197,11 +197,11 @@ Escalations related to skills (detected by keywords: skill, oauth, notion, gmail
 
 Tracked in `EngineState.consecutive_failures`. Increments when the entire LLM evaluation fails (Ollama down, network error). Resets to 0 on any successful tick. Surfaced in the UI status bar as "N failed" in coral.
 
-Individual task execution failures do NOT increment this counter — they are logged per-task but the tick itself is considered successful.
+Individual task execution failures do NOT increment this counter, they are logged per-task but the tick itself is considered successful.
 
 ### last_tick_at advancement
 
-`last_tick_at` only advances on successful ticks. If the LLM evaluation fails or the tick is cancelled, `last_tick_at` stays unchanged so the next tick's situation report covers the same time range — nothing is missed.
+`last_tick_at` only advances on successful ticks. If the LLM evaluation fails or the tick is cancelled, `last_tick_at` stays unchanged so the next tick's situation report covers the same time range, nothing is missed.
 
 ---
 
@@ -311,4 +311,4 @@ Chronological list of task evaluations. Each entry shows timestamp, colored dot,
 
 ### Run Now
 
-Triggers a manual tick. The tick runs in the background — the RPC returns immediately and the UI polls for updates.
+Triggers a manual tick. The tick runs in the background, the RPC returns immediately and the UI polls for updates.

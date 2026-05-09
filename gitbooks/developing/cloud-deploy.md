@@ -9,7 +9,7 @@ OpenHuman is a desktop app, but its **Rust core** (`openhuman-core`) is a
 headless JSON-RPC server that can be hosted in the cloud. Deploying the core
 separately is useful for:
 
-- Multi-device access — point several desktop clients at the same hosted core
+- Multi-device access, point several desktop clients at the same hosted core
 - Internal testers without local Rust toolchains
 - Long-running cron jobs / webhooks that should outlive a laptop session
 
@@ -21,7 +21,7 @@ This guide covers three deploy paths, easiest first:
 
 What gets deployed in every path: a single container running
 `openhuman-core serve` on port `7788`, behind the provider's TLS. The desktop
-app already knows how to talk to a remote core — set
+app already knows how to talk to a remote core, set
 `OPENHUMAN_CORE_RPC_URL=https://your-host/rpc` and `OPENHUMAN_CORE_TOKEN=...`
 in `app/.env.local` and launch.
 
@@ -40,9 +40,9 @@ in `app/.env.local` and launch.
 
 Endpoints exposed by the running container:
 
-- `GET /health` — public liveness probe. Used by every deploy path's healthcheck.
-- `POST /rpc` — bearer-protected JSON-RPC entrypoint.
-- `GET /events`, `GET /ws/dictation` — public streaming channels.
+- `GET /health`, public liveness probe. Used by every deploy path's healthcheck.
+- `POST /rpc`, bearer-protected JSON-RPC entrypoint.
+- `GET /events`, `GET /ws/dictation`, public streaming channels.
 
 The `OPENHUMAN_WORKSPACE` directory (`/home/openhuman/.openhuman` inside the
 container) holds the core's config, sqlite databases, and skill state. **Mount
@@ -54,7 +54,7 @@ restart.
 ## 1. DigitalOcean App Platform: one-click
 
 Click the button below to create a new App Platform application from this
-repository's [`.do/app.yaml`](../.do/app.yaml):
+repository's [`.do/app.yaml`](../../.do/app.yaml):
 
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/tinyhumansai/openhuman/tree/main)
 
@@ -65,7 +65,7 @@ Then, in the App Platform UI, **before the first deploy completes**:
    (`openssl rand -hex 32`). Mark it encrypted.
 3. If you are deploying staging, change `OPENHUMAN_APP_ENV` to `staging` and
    `BACKEND_URL` to `https://staging-api.tinyhumans.ai`.
-4. Hit **Save** — App Platform redeploys with the new secret.
+4. Hit **Save**. App Platform redeploys with the new secret.
 
 App Platform handles TLS, restart-on-crash, log streaming, and rolling
 redeploys on `git push` (set `deploy_on_push: true` in `.do/app.yaml` to
@@ -106,7 +106,7 @@ doctl apps update <app-id> --spec .do/app.yaml
 
 ## 3. Any VPS via Docker Compose
 
-Works on any host with Docker Engine ≥ 24 and the Compose plugin —
+Works on any host with Docker Engine ≥ 24 and the Compose plugin.
 DigitalOcean Droplet, Hetzner, Linode, EC2, a home server.
 
 ```bash
@@ -129,7 +129,7 @@ docker compose ps
 curl -fsS http://localhost:7788/health
 ```
 
-The Compose file ([`docker-compose.yml`](../docker-compose.yml)) maps the core
+The Compose file ([`docker-compose.yml`](../../docker-compose.yml)) maps the core
 on `:7788`, mounts a named volume `openhuman-workspace` for persistence, and
 sets `restart: unless-stopped` so the core comes back after host reboots.
 
@@ -178,9 +178,9 @@ calls to the remote core; nothing else changes.
 
 ## Smoke test
 
-The repo ships [`.github/workflows/deploy-smoke.yml`](../.github/workflows/deploy-smoke.yml),
+The repo ships [`.github/workflows/deploy-smoke.yml`](../../.github/workflows/deploy-smoke.yml),
 which runs on every PR that touches the deploy artifacts. It builds the
-Docker image, boots it, and polls `/health` — so a regression in the cloud
+Docker image, boots it, and polls `/health`, so a regression in the cloud
 deploy path fails CI before it lands on `main`.
 
 To run the same check locally:

@@ -13,8 +13,8 @@ Different parts of an agent want different models. Long reasoning wants a fronti
 
 The model parameter on any chat call can take one of two shapes:
 
-- **Concrete model name** — e.g. `anthropic/claude-sonnet-4`. Routes to the default provider with that exact model.
-- **Hint prefix** — e.g. `hint:reasoning`. Looks the hint up in the route table and resolves to a `(provider, model)` pair.
+- **Concrete model name**. e.g. `anthropic/claude-sonnet-4`. Routes to the default provider with that exact model.
+- **Hint prefix**. e.g. `hint:reasoning`. Looks the hint up in the route table and resolves to a `(provider, model)` pair.
 
 ```rust
 // src/openhuman/providers/router.rs
@@ -44,13 +44,13 @@ The exact mappings are configurable; the defaults ship sensible per-provider rou
 
 ## One subscription
 
-Routing happens behind a single OpenHuman subscription. You don't hold separate API keys for Anthropic, OpenAI, Google etc. — the backend brokers access, and the router picks the right one per task. That's the "one subscription, many providers" promise from the README, made concrete.
+Routing happens behind a single OpenHuman subscription. You don't hold separate API keys for Anthropic, OpenAI, Google etc., the backend brokers access, and the router picks the right one per task. That's the "one subscription, many providers" promise from the README, made concrete.
 
 ## Overriding routes
 
-- **Globally** — config TOML (`Config` struct in `src/openhuman/config/schema/types.rs`) can supply a custom route table at startup.
-- **Per call** — pass a concrete model name (no `hint:` prefix) and the router falls through to the default provider with that exact model.
-- **For a skill** — skills can pin a hint or a model in their manifest.
+- **Globally**. config TOML (`Config` struct in `src/openhuman/config/schema/types.rs`) can supply a custom route table at startup.
+- **Per call**. pass a concrete model name (no `hint:` prefix) and the router falls through to the default provider with that exact model.
+- **For a skill**. skills can pin a hint or a model in their manifest.
 
 ## Why this isn't just "model switcher"
 
@@ -58,5 +58,5 @@ Routing isn't a UI dropdown. The agent loop itself emits hints based on what it'
 
 ## See also
 
-- [Smart Token Compression](token-compression.md) — what makes large reasoning calls affordable.
-- [Native Tools](native-tools.md) — different tool calls hint at different routes.
+- [Smart Token Compression](token-compression.md). what makes large reasoning calls affordable.
+- [Native Tools](native-tools.md). different tool calls hint at different routes.

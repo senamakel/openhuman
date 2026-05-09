@@ -4,7 +4,7 @@ icon: play
 
 # Getting Started
 
-This page walks you through setting up OpenHuman and running your first request. For OS-by-OS install commands, see [Install](/broken/pages/OyFFC8PaGMAWetIn8vKG).
+This page walks you through setting up OpenHuman and running your first request. 
 
 OpenHuman is open source under the GNU GPL3 license. The codebase is at [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman).
 
@@ -22,7 +22,7 @@ The first time you launch OpenHuman, the OS will prompt for the permissions the 
 
 ## Download & install
 
-Get the OpenHuman desktop app from [openhuman.ai](https://openhuman.ai) or via your platform's package manager. See [Install](/broken/pages/OyFFC8PaGMAWetIn8vKG) for the full matrix (Homebrew, apt, npm, curl, .dmg, .msi, AppImage).
+Get the OpenHuman desktop app from [openhuman.ai](https://openhuman.ai) or via your platform's package manager.
 
 ***
 
@@ -44,10 +44,10 @@ The 118+ catalog spans Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Li
 
 Recommended starting points:
 
-* **Gmail** — high-signal, has a native ingest path into the Memory Tree.
-* **Slack** — picks up workplace chat context fast.
-* **Notion** — for structured docs and exports.
-* **GitHub** — if you write code.
+* **Gmail**. high-signal, has a native ingest path into the Memory Tree.
+* **Slack**. picks up workplace chat context fast.
+* **Notion**. for structured docs and exports.
+* **GitHub**. if you write code.
 
 Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/auto-fetch.md) tick will start syncing it within five minutes.
 
@@ -73,13 +73,13 @@ Once a source is connected and auto-fetch has run a tick, try prompts like:
 * "Connect what my team discussed in Slack with what I was reviewing in Notion."
 * "What did Sarah say about the project across email and chat?"
 
-OpenHuman picks the right model for each task automatically — see [Automatic Model Routing](../features/model-routing.md).
+OpenHuman picks the right model for each task automatically, see [Automatic Model Routing](../features/model-routing.md).
 
 ***
 
 ## Open the Obsidian vault
 
-The Memory tab has a **View vault in Obsidian** button. Click it to open `<workspace>/wiki/` in [Obsidian](https://obsidian.md). You can browse summaries, drop in your own notes, and even build manual links — the agent will see your edits next ingest. See [Obsidian Wiki](../features/obsidian-wiki/).
+The Memory tab has a **View vault in Obsidian** button. Click it to open `<workspace>/wiki/` in [Obsidian](https://obsidian.md). You can browse summaries, drop in your own notes, and even build manual links, the agent will see your edits next ingest. See [Obsidian Wiki](../features/obsidian-wiki/).
 
 ***
 
@@ -87,7 +87,7 @@ The Memory tab has a **View vault in Obsidian** button. Click it to open `<works
 
 After your first request, explore what else OpenHuman can do:
 
-* **Skills** extend the assistant's capabilities — fetching data, running scheduled tasks, processing information.
+* **Skills** extend the assistant's capabilities, fetching data, running scheduled tasks, processing information.
 * **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
 
 Learn more in [Skills & Integrations](../features/integrations.md).

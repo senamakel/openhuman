@@ -9,7 +9,7 @@ icon: microchip
 
 OpenHuman can run a local model on your machine for the workloads where keeping data on-device matters most: **memory embeddings, summary-tree building, and background reasoning loops**. It is **opt-in** and ships **off** by default.
 
-This is a deliberate scoping. The previous design tried to put chat, vision, STT and TTS all on-device with Gemma 3 — and the result was a heavy, hardware-sensitive footprint that fought with what the rest of the product needed to be. Today, the things that benefit most from being local (recurring, low-latency, privacy-sensitive memory work) run local; the things that benefit most from frontier models (chat, reasoning, vision) stay cloud.
+This is a deliberate scoping. The previous design tried to put chat, vision, STT and TTS all on-device with Gemma 3, and the result was a heavy, hardware-sensitive footprint that fought with what the rest of the product needed to be. Today, the things that benefit most from being local (recurring, low-latency, privacy-sensitive memory work) run local; the things that benefit most from frontier models (chat, reasoning, vision) stay cloud.
 
 ## What runs local when you turn it on
 
@@ -21,7 +21,7 @@ This is a deliberate scoping. The previous design tried to put chat, vision, STT
 | **Learning / reflection** | small chat model                  | `src/openhuman/learning/reflection.rs` — passes that consolidate what was learned.                                |
 | **Subconscious**          | small chat model                  | `src/openhuman/subconscious/executor.rs` — background evaluation loop.                                            |
 
-Each of these is a **per-feature opt-in flag**. Turning on local AI does not silently route everything through it — you choose the workloads.
+Each of these is a **per-feature opt-in flag**. Turning on local AI does not silently route everything through it, you choose the workloads.
 
 ## What stays in the cloud
 
@@ -40,7 +40,7 @@ For **lightweight or medium chat hints** (`hint:reaction`, `hint:classify`, `hin
 Under the hood, OpenHuman uses [Ollama](https://ollama.com) and talks to it over Ollama's OpenAI-compatible `/v1` endpoint. That means:
 
 * The `OpenAiCompatibleProvider` (`src/openhuman/providers/compatible.rs`) wraps Ollama exactly the way it wraps a remote OpenAI-style provider. No special-case code path.
-* The provider router creates a _health-gated_ local provider on startup. If Ollama is not reachable, requests transparently fall back to the remote provider — no broken state.
+* The provider router creates a _health-gated_ local provider on startup. If Ollama is not reachable, requests transparently fall back to the remote provider, no broken state.
 * Models are pulled on demand by Ollama and cached in its own store. OpenHuman doesn't ship the weights itself.
 
 ## Opting in
@@ -56,7 +56,7 @@ Local AI is gated by two flags in the core config (`src/openhuman/config/schema/
 | `local_ai.usage.learning_reflection` | `false` | Use local for learning passes.                                      |
 | `local_ai.usage.subconscious`        | `false` | Use local for the subconscious loop.                                |
 
-In the desktop app, **Settings → AI & Skills → Local AI** exposes presets — pick one ("embeddings only", "memory + reflection", "everything local") and the right combination of flags is set for you. Status (Ollama reachability, model availability, per-subsystem enablement) is surfaced live via `openhuman.local_ai_status`.
+In the desktop app, **Settings → AI & Skills → Local AI** exposes presets, pick one ("embeddings only", "memory + reflection", "everything local") and the right combination of flags is set for you. Status (Ollama reachability, model availability, per-subsystem enablement) is surfaced live via `openhuman.local_ai_status`.
 
 ## When to turn it on
 
@@ -66,7 +66,7 @@ Local AI is worth turning on if any of these are true:
 * You want **summary-tree building** to work offline.
 * You're privacy-sensitive about background reflection ("subconscious") loops.
 
-It is **not** worth turning on if you only have a few sources connected — the cloud path is faster and the privacy benefit is small. There is also a hardware cost: Ollama and a small Gemma model want a few GB of RAM and pull a few GB of weights.
+It is **not** worth turning on if you only have a few sources connected, the cloud path is faster and the privacy benefit is small. There is also a hardware cost: Ollama and a small Gemma model want a few GB of RAM and pull a few GB of weights.
 
 ## What you'll need
 
@@ -78,6 +78,6 @@ OpenHuman handles the rest: lifecycle (`src/openhuman/local_ai/service.rs`), API
 
 ## See also
 
-* [Memory Tree](obsidian-wiki/memory-tree.md) — what local embeddings + summarization power.
-* [Automatic Model Routing](model-routing.md) — how lightweight chat hints prefer the local provider.
-* [Privacy & Security](../features/privacy-and-security.md) — what moves on-device when you opt in.
+* [Memory Tree](obsidian-wiki/memory-tree.md). what local embeddings + summarization power.
+* [Automatic Model Routing](model-routing.md). how lightweight chat hints prefer the local provider.
+* [Privacy & Security](../features/privacy-and-security.md). what moves on-device when you opt in.

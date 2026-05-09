@@ -57,7 +57,7 @@ OpenHuman’s desktop UI is a **React 19** app (`app/src/`) that:
 - Connects to the backend with **REST** (`apiClient`) and **Socket.io** (`socketService`)
 - Calls the **Rust core** process over HTTP via **`coreRpcClient`** / Tauri **`core_rpc_relay`** (JSON-RPC methods implemented in repo root `src/openhuman/`, exposed through `core_server`)
 - Loads **AI prompts** from bundled `src/openhuman/agent/prompts` (repo root) and from Tauri **`ai_get_config`** when packaged
-- Uses a **minimal MCP-style** helper layer under `lib/mcp/` (transport, validation) — not a large in-repo Telegram MCP tool bundle
+- Uses a **minimal MCP-style** helper layer under `lib/mcp/` (transport, validation), not a large in-repo Telegram MCP tool bundle
 
 ### Entry points
 
@@ -119,12 +119,12 @@ The desktop app does not bake the core RPC URL or the API host into the
 bundle as a hard requirement. At runtime the app resolves them in this order
 (highest first):
 
-1. **Login-screen RPC URL field** — saved via `utils/configPersistence` and
+1. **Login-screen RPC URL field**, saved via `utils/configPersistence` and
    restored on next launch. End users configure the sidecar address here, not
    by hand-editing `config.toml` or `.env` files.
-2. **Tauri `core_rpc_url` command** — the port the bundled sidecar is
+2. **Tauri `core_rpc_url` command**, the port the bundled sidecar is
    listening on for this process.
-3. **`VITE_OPENHUMAN_CORE_RPC_URL`** — build-time fallback for development.
+3. **`VITE_OPENHUMAN_CORE_RPC_URL`**, build-time fallback for development.
 4. The hardcoded `http://127.0.0.1:7788/rpc` default.
 
 Once the RPC handshake succeeds, `services/backendUrl` calls
@@ -133,14 +133,14 @@ fields) from the loaded core `Config`. `VITE_BACKEND_URL` is only used as a
 web fallback when the app runs outside Tauri.
 
 Components that need the backend URL should call `useBackendUrl()` (or
-`getBackendUrl()` from non-React code) — they must not import the static
+`getBackendUrl()` from non-React code), they must not import the static
 `BACKEND_URL` constant from `utils/config`, which represents the build-time
 value only.
 
 ### Related docs
 
-- Rust architecture: [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
-- Tauri shell: [`../src-tauri/01-architecture.md`](../src-tauri/01-architecture.md)
+- Rust architecture: [Architecture](architecture.md)
+- Tauri shell: [Tauri Shell](tauri-shell.md)
 
 
 ## State Management
@@ -1968,7 +1968,7 @@ function SettingsModal() {
 #### Configuration (`utils/config.ts`)
 
 Build-time environment variable access. These constants only carry the value
-that was baked into the bundle — for the **runtime** URL the app actually
+that was baked into the bundle, for the **runtime** URL the app actually
 talks to, see `services/backendUrl` and `hooks/useBackendUrl` below.
 
 ```typescript
@@ -1979,7 +1979,7 @@ export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.exam
 export const DEBUG = import.meta.env.VITE_DEBUG === 'true';
 ```
 
-**Usage (build-time only — feature flags, debug toggles, …):**
+**Usage (build-time only, feature flags, debug toggles, …):**
 
 ```typescript
 import { DEBUG } from '../utils/config';

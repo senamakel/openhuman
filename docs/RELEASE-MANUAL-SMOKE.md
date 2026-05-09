@@ -1,6 +1,6 @@
 # Release Manual Smoke Checklist
 
-Run this checklist on every release-cut. Sign-off lives in the release PR description (paste the checklist with checked items + the sign-off block at the bottom). Owns OS-level surfaces that drivers cannot assert — everything else is automated under WDIO, Vitest, or Rust integration tests (see [`TESTING-STRATEGY.md`](./TESTING-STRATEGY.md)).
+Run this checklist on every release-cut. Sign-off lives in the release PR description (paste the checklist with checked items + the sign-off block at the bottom). Owns OS-level surfaces that drivers cannot assert — everything else is automated under WDIO, Vitest, or Rust integration tests (see [Testing Strategy](../gitbooks/developing/testing-strategy.md)).
 
 This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-MATRIX.md`](./TEST-COVERAGE-MATRIX.md). If a feature has neither automated coverage nor an entry on this checklist, treat it as untested and open a coverage gap.
 
@@ -58,7 +58,7 @@ Applies to every release, all platforms.
 
 ### 0.52.x — current
 
-- [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [`RELEASE_POLICY.md`](./RELEASE_POLICY.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
+- [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [Release Policy](../gitbooks/developing/release-policy.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
 - [ ] **Gmail connect succeeds on a fresh install from `releases/latest`** — Per release-policy step 4. Expected: token exchange completes, inbox lists in-app.
 
 ---

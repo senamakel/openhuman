@@ -50,4 +50,4 @@ This is real, not a demo: see commits `0bc74575` (live note-taking), `f1203479` 
 ## See also
 
 * [Memory Tree](obsidian-wiki/memory-tree.md). where Meet transcripts and notes live.
-* [Automatic Model Routing](model-routing.md). Meet's brain uses `hint:fast` for low-latency conversational turns.
+* [Automatic Model Routing](model-routing/README.md). Meet's brain uses `hint:fast` for low-latency conversational turns.

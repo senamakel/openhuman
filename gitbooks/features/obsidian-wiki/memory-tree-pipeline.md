@@ -151,4 +151,4 @@ A few rules to keep the pipeline coherent:
 ## See also
 
 * [Memory Tree (user-facing)](memory-tree.md). the product surface this pipeline powers.
-* [Local AI](../local-ai.md). opt-in path for running embeddings + summarization on-device.
+* [Local AI](../model-routing/local-ai.md). opt-in path for running embeddings + summarization on-device.

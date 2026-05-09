@@ -15,7 +15,7 @@ This is a deliberate scoping. The previous design tried to put chat, vision, STT
 
 | Workload                  | Default model                     | Implementation                                                                                                    |
 | ------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Memory embeddings**     | `all-minilm:latest`               | `src/openhuman/embeddings/ollama.rs` — used by the [Memory Tree](obsidian-wiki/memory-tree.md) for vector search. |
+| **Memory embeddings**     | `all-minilm:latest`               | `src/openhuman/embeddings/ollama.rs` — used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
 | **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `src/openhuman/tree_summarizer/ops.rs` — source / topic / global summary builders for the Memory Tree.            |
 | **Heartbeat loop**        | small chat model                  | `src/openhuman/heartbeat/` — periodic background reflection.                                                      |
 | **Learning / reflection** | small chat model                  | `src/openhuman/learning/reflection.rs` — passes that consolidate what was learned.                                |
@@ -27,13 +27,13 @@ Each of these is a **per-feature opt-in flag**. Turning on local AI does not sil
 
 | Workload           | Why cloud                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
-| **Chat (default)** | Frontier reasoning quality. Routed via the [model router](model-routing.md) under one subscription. |
+| **Chat (default)** | Frontier reasoning quality. Routed via the [model router](README.md) under one subscription. |
 | **Vision**         | Same.                                                                                               |
 | **STT**            | Backend-proxied transcription (`src/openhuman/voice/cloud_transcribe.rs`).                          |
-| **TTS**            | [ElevenLabs](voice.md) under the hood (`reply_speech.rs`).                                          |
+| **TTS**            | [ElevenLabs](../voice.md) under the hood (`reply_speech.rs`).                                       |
 | **Web search**     | Backend proxy (no API key on your machine).                                                         |
 
-For **lightweight or medium chat hints** (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](model-routing.md) will prefer the local provider when local AI is enabled and Ollama is reachable. Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay cloud.
+For **lightweight or medium chat hints** (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](README.md) will prefer the local provider when local AI is enabled and Ollama is reachable. Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay cloud.
 
 ## How it works
 
@@ -78,6 +78,6 @@ OpenHuman handles the rest: lifecycle (`src/openhuman/local_ai/service.rs`), API
 
 ## See also
 
-* [Memory Tree](obsidian-wiki/memory-tree.md). what local embeddings + summarization power.
-* [Automatic Model Routing](model-routing.md). how lightweight chat hints prefer the local provider.
-* [Privacy & Security](../features/privacy-and-security.md). what moves on-device when you opt in.
+* [Memory Tree](../obsidian-wiki/memory-tree.md). what local embeddings + summarization power.
+* [Automatic Model Routing](README.md). how lightweight chat hints prefer the local provider.
+* [Privacy & Security](../privacy-and-security.md). what moves on-device when you opt in.

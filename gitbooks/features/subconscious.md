@@ -5,310 +5,180 @@ icon: loader
 
 # Subconscious Loop
 
-Background task evaluation and execution system. Periodically checks user-defined and system tasks against the current workspace state, decides what to do, and either acts autonomously or escalates to the user.
+A background task evaluation and execution system. On a periodic tick, it loads a list of user-defined and system tasks, reads the current state of your workspace, decides what to do about each one, and either acts autonomously or escalates to you for approval.
+
+Think of it as the agent's idle thread: the part that keeps thinking after you've stopped typing.
 
 ---
 
-## Architecture
+## How a tick works
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Heartbeat Engine                      │
-│              (sleeps N minutes between ticks)            │
+│                    Heartbeat                            │
+│           (sleeps a few minutes between ticks)          │
 └──────────────────────┬──────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│                  Subconscious Engine                     │
+│                  Subconscious Engine                    │
 │                                                         │
-│  1. Load due tasks from SQLite                          │
-│  2. Insert in_progress log entries                      │
-│  3. Build situation report (memory + workspace state)   │
-│  4. Evaluate tasks with local Ollama model              │
-│  5. Execute decisions (act / noop / escalate)           │
-│  6. Update log entries in place                         │
+│  1. Load due tasks                                      │
+│  2. Mark each one in-progress                           │
+│  3. Build a situation report (memory + workspace)       │
+│  4. Evaluate every task with the local model            │
+│  5. Execute the decision (act / noop / escalate)        │
+│  6. Write the outcome back to the activity log          │
 └─────────────────────────────────────────────────────────┘
                        │
            ┌───────────┼───────────┐
            ▼           ▼           ▼
          noop         act       escalate
-        (skip)    (execute)   (agentic-v1)
+        (skip)    (execute)   (deeper agent)
 ```
 
-### Key files
-
-| File | Purpose |
-|------|---------|
-| `src/openhuman/heartbeat/engine.rs` | Periodic scheduler, delegates to subconscious engine |
-| `src/openhuman/subconscious/engine.rs` | Core tick logic, state management, overlap guard |
-| `src/openhuman/subconscious/executor.rs` | Task execution routing (local model vs agentic-v1) |
-| `src/openhuman/subconscious/prompt.rs` | Prompt builders for evaluation and execution |
-| `src/openhuman/subconscious/store.rs` | SQLite persistence (tasks, log, escalations) |
-| `src/openhuman/subconscious/types.rs` | Data types and enums |
-| `src/openhuman/subconscious/situation_report.rs` | Builds context from memory and workspace state |
-| `src/openhuman/subconscious/global.rs` | Global singleton shared between heartbeat and RPC |
-| `src/openhuman/subconscious/schemas.rs` | RPC endpoint handlers |
-| `app/src/hooks/useSubconscious.ts` | Frontend hook for data fetching and actions |
-| `app/src/pages/Intelligence.tsx` | UI rendering (Subconscious tab) |
-| `app/src/utils/tauriCommands/subconscious.ts` | TypeScript RPC wrappers |
+Each tick is independent. If a tick is still running when the next one starts (slow model call, network blip), the new tick takes over and the old one's in-progress entries are marked cancelled. Ticks never stack.
 
 ---
 
-## Task Types
+## Task types
 
 ### System tasks
 
-Seeded automatically on engine initialization. Cannot be deleted, only disabled.
+Seeded automatically when the engine starts. Cannot be deleted, only disabled. The defaults cover things you'd want any assistant watching for:
 
-Default system tasks:
 - Check connected skills for errors or disconnections
 - Review new memory updates for actionable items
-- Monitor system health (Ollama, memory, connections)
+- Monitor system health (local model, memory, connections)
 
-Additional system tasks are imported from `HEARTBEAT.md` in the workspace directory (one task per `- ` line).
+You can extend the system task set by listing additional ones in a `HEARTBEAT.md` file in your workspace, one task per line.
 
 ### User tasks
 
-Added manually via the UI. Can be toggled on/off and deleted.
+Anything you add manually from the UI. Toggle on/off, edit, delete. Examples:
 
-Examples:
 - "Check urgent emails" (read-only)
 - "Send daily summary to Slack" (write intent)
 - "Summarize Notion updates" (read-only)
 
 ---
 
-## Tick Lifecycle
+## Decisions
 
-### 1. Overlap guard
+For every due task, the local model returns one of three decisions:
 
-Each tick gets a monotonically increasing generation counter. If a new tick starts while the old one is still running (e.g., slow LLM call), the old tick's results are discarded and its `in_progress` log entries are marked as `cancelled`.
+| Decision    | Meaning                                              |
+| ----------- | ---------------------------------------------------- |
+| Skip        | Nothing relevant right now                           |
+| Act         | Something relevant found, execute the task          |
+| Escalate    | Needs deeper reasoning, hand off to the cloud agent |
 
-The heartbeat uses `tokio::time::sleep` (not `interval`) so ticks never stack up.
-
-### 2. Load due tasks
-
-Query: enabled, not completed, `next_run_at <= now` or never run.
-
-### 3. Log as in_progress
-
-Each due task gets a single log row inserted with `decision = "in_progress"`. This row is updated in place as the task progresses, no duplicate rows.
-
-### 4. Evaluate with local model
-
-The local Ollama model receives all due tasks + a situation report and returns a per-task decision:
-
-| Decision | Meaning |
-|----------|---------|
-| `noop` | Nothing relevant right now |
-| `act` | Something relevant found — execute the task |
-| `escalate` | Needs deeper reasoning — hand off to agentic-v1 |
-
-### 5. Execute
-
-Routing depends on the decision and the task's intent:
+How that decision gets executed depends on whether the task has **write intent** (it asks the agent to take an action) or is **read-only** (it asks the agent to look and report):
 
 ```
-Decision: noop
-  → Update log to "noop", advance schedule
+Decision: Skip
+  → Log "nothing new", schedule the next run
 
-Decision: act
-  ├─ Task has write intent (needs_tools = true)
-  │   → Execute with local model
-  │
-  └─ Task is read-only
-      → Execute with local model
+Decision: Act
+  → Execute on the local model (read or write)
 
-Decision: escalate
-  ├─ Task has write intent (needs_tools = true)
-  │   → Run agentic-v1 with full permissions
-  │   → No approval needed (user explicitly asked for the write action)
+Decision: Escalate
+  ├─ Write-intent task
+  │   → Run the cloud agent with full permissions
+  │   → No approval needed (you explicitly asked for the action)
   │
-  └─ Task is read-only
-      → Run agentic-v1 in analysis-only mode
-      → If response contains "RECOMMENDED ACTION:" (unsolicited write)
-      │   → Create escalation for user approval
-      │   → On approval → run agentic-v1 with full permissions
+  └─ Read-only task
+      → Run the cloud agent in analysis-only mode
+      → If the agent surfaces an unsolicited recommended action
+      │   → Create an escalation card for your approval
+      │   → On approval → re-run with full permissions
       └─ Otherwise → log result, done
 ```
 
-### 6. Update log entry
+Every task evaluation lands in the activity log with a colored dot and a short status:
 
-The same row inserted in step 3 is updated to the final state:
-
-| Decision | Dot color | Text |
-|----------|-----------|------|
-| `in_progress` | Blue (pulsing) | "Evaluating..." |
-| `act` | Green | Result text |
-| `noop` | Gray | "Nothing new" |
-| `escalate` | Amber | "Waiting for approval" |
-| `failed` | Coral | Error message |
-| `cancelled` | Gray | "Cancelled" |
-| `dismissed` | Gray | "Skipped" |
+| State            | Color           | Text                   |
+| ---------------- | --------------- | ---------------------- |
+| In progress      | Blue (pulsing)  | "Evaluating…"          |
+| Acted            | Green           | Result text            |
+| Skipped          | Gray            | "Nothing new"          |
+| Awaiting approval | Amber          | "Waiting for approval" |
+| Failed           | Coral           | Error message          |
+| Cancelled        | Gray            | "Cancelled"            |
+| Dismissed        | Gray            | "Skipped"              |
 
 ---
 
-## Execution Models
+## Two models, one loop
 
-### Local Ollama model
+| Stage                                 | Where it runs                  | Why                                                   |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------------- |
+| Per-task evaluation (every tick)      | Local model (Ollama)           | Free, no rate limit, fine on-device                   |
+| Text-only execution (summarize, check)| Local model                    | Same                                                  |
+| Tool-using execution (send, post, …)  | Cloud agent                    | Tools, larger context, retries on rate-limit          |
+| Analysis mode for escalated reads     | Cloud agent (read-only)        | Deeper reasoning when the local model defers          |
 
-Used for:
-- Task evaluation (all tasks, every tick)
-- Text-only task execution (summarize, check, monitor, review)
-
-No cost, no rate limits, runs on-device.
-
-### agentic-v1 (cloud)
-
-Used for:
-- Tool-required task execution (send, post, delete, create)
-- Analysis-only mode for read-only tasks escalated by the local model
-
-Rate-limit retry: up to 3 attempts with exponential backoff (2s, 4s, 8s) on 429 errors.
+The split keeps the loop cheap: you only pay for cloud calls when a task actually needs them.
 
 ---
 
-## Approval Gate
+## Approval gate
 
-Approval is only required when the AI wants to take a **write action that the user didn't explicitly request**.
+Approval is only required when the agent wants to take a **write action that you didn't explicitly ask for**.
 
-| Task intent | AI wants to write | Approval needed? |
-|-------------|-------------------|-----------------|
-| "Send digest to Slack" (write) | Yes | No — user asked for it |
-| "Check urgent emails" (read) | No | No — read-only result |
-| "Check urgent emails" (read) | Yes (wants to forward them) | **Yes** — unsolicited write |
+| Task intent                      | Agent wants to write     | Approval needed?           |
+| -------------------------------- | ------------------------ | -------------------------- |
+| "Send digest to Slack" (write)   | Yes                      | No, you asked for it      |
+| "Check urgent emails" (read)     | No                       | No, read-only result      |
+| "Check urgent emails" (read)     | Yes (forward them)       | **Yes**, unsolicited write |
 
 The approval flow:
-1. agentic-v1 runs in analysis-only mode
-2. Response contains `RECOMMENDED ACTION: Forward 3 urgent emails to #team-alerts`
-3. Escalation card appears in UI under "Approval Needed"
-4. User clicks "Go ahead" → agentic-v1 runs again with full permissions
-5. Or user clicks "Skip" → nothing happens
 
-### Skill-related escalations
+1. The cloud agent runs in analysis-only mode.
+2. It surfaces a recommendation, e.g. *"forward 3 urgent emails to #team-alerts."*
+3. An escalation card appears in the UI under **Approval Needed**.
+4. **Go ahead** re-runs with full permissions.
+5. **Skip** does nothing.
 
-Escalations related to skills (detected by keywords: skill, oauth, notion, gmail, integration, disconnect, re-auth) show a "Fix in Skills" button that navigates to the Skills page instead of "Go ahead".
+Skill-related escalations (broken integration, expired OAuth, missing scope) show a **Fix in Skills** button that takes you straight to the Skills page instead.
 
 ---
 
-## Failure Handling
+## Failure handling
 
-### Consecutive failure counter
+A failure counter tracks consecutive ticks where the whole evaluation step failed (local model down, network out). It resets to zero on any successful tick and shows up in the UI status bar in coral when non-zero.
 
-Tracked in `EngineState.consecutive_failures`. Increments when the entire LLM evaluation fails (Ollama down, network error). Resets to 0 on any successful tick. Surfaced in the UI status bar as "N failed" in coral.
+Per-task failures don't trip this counter, the tick itself is still considered successful.
 
-Individual task execution failures do NOT increment this counter, they are logged per-task but the tick itself is considered successful.
-
-### last_tick_at advancement
-
-`last_tick_at` only advances on successful ticks. If the LLM evaluation fails or the tick is cancelled, `last_tick_at` stays unchanged so the next tick's situation report covers the same time range, nothing is missed.
+If a tick fails or is cancelled, the engine doesn't advance its "last seen" timestamp, so the next successful tick covers the same window. Nothing in your workspace gets skipped.
 
 ---
 
 ## Configuration
 
-In `config.toml` under `[heartbeat]`:
+The loop is configurable in the desktop app:
 
-```toml
-[heartbeat]
-enabled = true              # Enable the heartbeat loop
-interval_minutes = 5        # Tick interval (minimum 5)
-inference_enabled = true    # Enable local model evaluation
-context_budget_tokens = 40000  # Max tokens for situation report
-```
-
-Defaults: `enabled = true`, `interval_minutes = 5`, `inference_enabled = true`.
+- **Enable / disable.** Turn the entire background loop on or off.
+- **Tick interval.** How often a tick fires. Defaults to 5 minutes; that's also the minimum.
+- **Inference.** Whether the local model evaluates tasks each tick. Disable this if you'd rather only run things via the manual **Run Now** button.
+- **Context budget.** How much of the workspace situation report can be passed in at once. The default is sane; raise it for richer context, lower it for tighter cost.
 
 ---
 
-## SQLite Schema
+## In the UI
 
-Database: `{workspace_dir}/subconscious/subconscious.db`
+Lives under **Intelligence → Subconscious**.
 
-### subconscious_tasks
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT PK | UUID |
-| title | TEXT | Task description |
-| source | TEXT | `"system"` or `"user"` |
-| recurrence | TEXT | `"pending"`, `"once"`, or `"cron:expr"` |
-| enabled | INTEGER | 1 = active, 0 = paused |
-| last_run_at | REAL | Unix timestamp of last evaluation |
-| next_run_at | REAL | Unix timestamp of next scheduled run |
-| completed | INTEGER | 1 = done (one-off tasks) |
-| created_at | REAL | Unix timestamp |
-
-### subconscious_log
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT PK | UUID |
-| task_id | TEXT | FK to tasks |
-| tick_at | REAL | Unix timestamp of the tick |
-| decision | TEXT | `in_progress`, `act`, `noop`, `escalate`, `failed`, `cancelled`, `dismissed` |
-| result | TEXT | Result text or error message |
-| duration_ms | INTEGER | Execution duration |
-| created_at | REAL | Unix timestamp |
-
-### subconscious_escalations
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT PK | UUID |
-| task_id | TEXT | FK to tasks |
-| log_id | TEXT | FK to log entry |
-| title | TEXT | Escalation title |
-| description | TEXT | What needs approval |
-| priority | TEXT | `critical`, `important`, `normal` |
-| status | TEXT | `pending`, `approved`, `dismissed` |
-| created_at | REAL | Unix timestamp |
-| resolved_at | REAL | When approved/dismissed |
+- **Status bar.** Task count, total ticks, last tick time, failure counter (if any).
+- **Active Tasks.** System tasks (read-only, with a "default" badge) and your own tasks (toggle + delete).
+- **Approval Needed.** Amber cards for pending escalations. Each has a title, description, and priority. Buttons: **Go ahead**, **Fix in Skills** (when relevant), or **Skip**.
+- **Activity Log.** Chronological feed of every task evaluation, colored dot + result. Auto-refreshes while anything is in progress.
+- **Run Now.** Manually trigger a tick. Returns immediately; the UI polls for the result.
 
 ---
 
-## RPC Endpoints
+## See also
 
-All under `openhuman.subconscious_*`:
-
-| Method | Description |
-|--------|-------------|
-| `subconscious_status` | Get engine status (enabled, ticks, failures) |
-| `subconscious_trigger` | Manually trigger a tick (runs in background, returns immediately) |
-| `subconscious_tasks_list` | List all tasks |
-| `subconscious_tasks_add` | Add a user task |
-| `subconscious_tasks_update` | Update task (title, enabled, recurrence) |
-| `subconscious_tasks_remove` | Remove a user task (system tasks can only be disabled) |
-| `subconscious_log_list` | List activity log entries |
-| `subconscious_escalations_list` | List escalations (filterable by status) |
-| `subconscious_escalations_approve` | Approve and execute an escalation |
-| `subconscious_escalations_dismiss` | Dismiss an escalation |
-
----
-
-## UI (Intelligence Page → Subconscious Tab)
-
-### Status bar
-
-Shows: task count, total ticks, last tick time, consecutive failures (if > 0).
-
-### Active Tasks
-
-- **System tasks**: displayed as plain text with green dot and "default" badge. No controls.
-- **User tasks**: toggle switch (enable/disable) + delete button on hover.
-- **Add task**: text input + "Add" button at the bottom.
-
-### Approval Needed
-
-Amber cards for pending escalations. Each shows title, description, priority badge.
-- **"Go ahead"**: approve and execute the write action.
-- **"Fix in Skills"**: shown for skill-related escalations, navigates to Skills page.
-- **"Skip"**: dismiss without executing.
-
-### Activity Log
-
-Chronological list of task evaluations. Each entry shows timestamp, colored dot, and result text. Auto-polls every 2s while any entries are `in_progress`.
-
-### Run Now
-
-Triggers a manual tick. The tick runs in the background, the RPC returns immediately and the UI polls for updates.
+- [Memory Tree](obsidian-wiki/memory-tree.md), what the situation report reads from.
+- [Auto-fetch from Integrations](integrations/auto-fetch.md), how the workspace stays fresh between ticks.
+- [Local AI (optional)](model-routing/local-ai.md), the on-device model that powers evaluation.

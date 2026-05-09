@@ -14,7 +14,7 @@ OpenHuman ships with backend-proxied access to **118+ third-party services**. Co
 Once a service is connected, it shows up in three places at once:
 
 1. As an **agent tool**, the model can call it directly.
-2. As a **memory source**, [auto-fetch](auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every twenty minutes.
+2. As a **memory source**, [auto-fetch](auto-fetch.md) syncs it into the [Memory Tree](../obsidian-wiki/memory-tree.md) every twenty minutes.
 3. As a **profile signal**, your activity across services feeds your personalization.
 
 ## Some of what's in the catalog
@@ -66,16 +66,16 @@ Beyond third-party services, OpenHuman has **skills**, small sandboxed modules t
 
 Two capabilities ship native rather than as integrations because they're load-bearing for the desktop experience:
 
-* [**Voice**](voice.md). STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
-* [**Native tools**](native-tools.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
+* [**Voice**](../voice.md). STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+* [**Native tools**](../native-tools.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
 
 ## Privacy boundary
 
 OpenHuman's core never calls any third-party API directly. All requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on disk in plaintext on your machine, and the agent only sees the _results_ of tool calls, not the credentials.
 
-See [Privacy & Security](privacy-and-security.md) for the full boundary.
+See [Privacy & Security](../privacy-and-security.md) for the full boundary.
 
 ## See also
 
 * [Auto-fetch from Integrations](auto-fetch.md)
-* [Memory Tree](obsidian-wiki/memory-tree.md)
+* [Memory Tree](../obsidian-wiki/memory-tree.md)

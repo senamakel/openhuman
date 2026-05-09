@@ -7,11 +7,11 @@ icon: arrows-rotate
 
 # Auto-fetch from Integrations
 
-Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman is the opposite. It pulls from your stack continuously, so by the time you ask "what landed in my inbox overnight?" the answer is already in the [Memory Tree](obsidian-wiki/memory-tree.md).
+Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman is the opposite. It pulls from your stack continuously, so by the time you ask "what landed in my inbox overnight?" the answer is already in the [Memory Tree](../obsidian-wiki/memory-tree.md).
 
 ## How it works
 
-A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](integrations.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
+A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](README.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -43,7 +43,7 @@ A few things matter here:
 
 Each provider is responsible for shaping its own ingest. The Gmail provider, for example, fetches a page of new messages, runs the email canonicalizer, and pipes the result through the same `ingest` path the manual UI uses, chunks land in SQLite, summary bucket fills, topic tree gets dirtied for any entities touched.
 
-Other providers (GitHub, Slack, Notion, …) follow the same shape: fetch new items since cursor → canonicalize → ingest into the [Memory Tree](obsidian-wiki/memory-tree.md).
+Other providers (GitHub, Slack, Notion, …) follow the same shape: fetch new items since cursor → canonicalize → ingest into the [Memory Tree](../obsidian-wiki/memory-tree.md).
 
 ## Why a 20-minute tick
 
@@ -57,6 +57,6 @@ The original design ran at 60 seconds. With several connected providers, that me
 
 ## See also
 
-* [Third-party Integrations](integrations.md). the connector layer auto-fetch runs on top of.
-* [Memory Tree](obsidian-wiki/memory-tree.md). where everything ends up.
-* [Smart Token Compression](token-compression.md). what keeps "fetch everything" cheap.
+* [Third-party Integrations](README.md). the connector layer auto-fetch runs on top of.
+* [Memory Tree](../obsidian-wiki/memory-tree.md). where everything ends up.
+* [Smart Token Compression](../token-compression.md). what keeps "fetch everything" cheap.

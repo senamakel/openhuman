@@ -18,7 +18,7 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 **No training on your data.** Your conversations, your Memory Tree, and your personal information are never used to train AI models or improve systems.
 
-**Optional [Local AI](../features/local-ai.md).** If you want embeddings and summary-tree building to stay on your machine, opt in. Heartbeat / learning / subconscious loops can be moved on-device the same way.
+**Optional [Local AI](../features/model-routing/local-ai.md).** If you want embeddings and summary-tree building to stay on your machine, opt in. Heartbeat / learning / subconscious loops can be moved on-device the same way.
 
 ***
 
@@ -35,9 +35,9 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 | | |
 | --- | --- |
-| **LLM calls** | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](../features/model-routing.md). |
+| **LLM calls** | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](../features/model-routing/README.md). |
 | **Web search proxy** | The native [web search tool](../features/native-tools.md) calls a backend proxy so you don't carry a search API key. |
-| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/integrations.md). |
+| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/integrations/README.md). |
 | **TTS streaming** | [ElevenLabs](../features/voice.md) audio streams. Audio is generated and discarded — not retained. |
 
 ***
@@ -46,7 +46,7 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 OpenHuman accesses an integration only after you complete its OAuth flow. Each connection has its own scope; you can revoke any of them at any time from the Skills tab.
 
-[Auto-fetch](../features/auto-fetch.md) does run continuously while a connection is active, that is the whole point. But it is bound by:
+[Auto-fetch](../features/integrations/auto-fetch.md) does run continuously while a connection is active, that is the whole point. But it is bound by:
 
 - The **OAuth scope** you granted that integration.
 - A **per-provider sync interval** (e.g. Gmail every 15 min by default).

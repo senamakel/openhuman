@@ -38,7 +38,7 @@ When you first open OpenHuman, you'll be asked to sign in. Multiple sign-in opti
 
 ## Connect your first source
 
-OpenHuman works by connecting to your existing tools through [third-party integrations](../features/integrations.md). Each connection expands your [Memory Tree](../features/obsidian-wiki/memory-tree.md). You choose what to connect, and you can revoke access at any time.
+OpenHuman works by connecting to your existing tools through [third-party integrations](../features/integrations/README.md). Each connection expands your [Memory Tree](../features/obsidian-wiki/memory-tree.md). You choose what to connect, and you can revoke access at any time.
 
 The 118+ catalog spans Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter / X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
 
@@ -49,7 +49,7 @@ Recommended starting points:
 * **Notion**. for structured docs and exports.
 * **GitHub**. if you write code.
 
-Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/auto-fetch.md) tick will start syncing it within twenty minutes.
+Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/integrations/auto-fetch.md) tick will start syncing it within twenty minutes.
 
 ***
 
@@ -73,7 +73,7 @@ Once a source is connected and auto-fetch has run a tick, try prompts like:
 * "Connect what my team discussed in Slack with what I was reviewing in Notion."
 * "What did Sarah say about the project across email and chat?"
 
-OpenHuman picks the right model for each task automatically, see [Automatic Model Routing](../features/model-routing.md).
+OpenHuman picks the right model for each task automatically, see [Automatic Model Routing](../features/model-routing/README.md).
 
 ***
 
@@ -90,7 +90,7 @@ After your first request, explore what else OpenHuman can do:
 * **Skills** extend the assistant's capabilities, fetching data, running scheduled tasks, processing information.
 * **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
 
-Learn more in [Skills & Integrations](../features/integrations.md).
+Learn more in [Skills & Integrations](../features/integrations/README.md).
 
 ***
 

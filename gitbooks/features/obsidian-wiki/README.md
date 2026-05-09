@@ -50,4 +50,4 @@ It's also the cleanest possible export: stop using OpenHuman tomorrow and you ke
 ## See also
 
 * [Memory Tree](memory-tree.md). the pipeline that produces the vault.
-* [Auto-fetch from Integrations](../auto-fetch.md). how the vault grows on its own.
+* [Auto-fetch from Integrations](../integrations/auto-fetch.md). how the vault grows on its own.

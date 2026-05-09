@@ -24,17 +24,17 @@ The same chunks the agent reasons over are written as `.md` files in `<workspace
 
 You can't trust a memory you can't read. The vault is the inverse of the usual "AI memory" black box.
 
-### 3. [third-party integrations](../features/integrations.md) feeding the tree on autopilot
+### 3. [third-party integrations](../features/integrations/README.md) feeding the tree on autopilot
 
 OpenHuman ships with **118+ third-party integrations**. Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, and more. Connecting any of them is a one-click OAuth flow.
 
-Once connected, the [auto-fetch scheduler](../features/auto-fetch.md) ticks every twenty minutes, pulls fresh data from every active connection, and pipes the results through the same ingest path the manual UI uses. By the time you ask "what landed in my inbox overnight?", the answer is already in the memory tree.
+Once connected, the [auto-fetch scheduler](../features/integrations/auto-fetch.md) ticks every twenty minutes, pulls fresh data from every active connection, and pipes the results through the same ingest path the manual UI uses. By the time you ask "what landed in my inbox overnight?", the answer is already in the memory tree.
 
 ### 4. An agent with the right tools, the right model, and a budget
 
 When you talk to the agent, four things happen behind the scenes:
 
-* **Model routing**. The model parameter can be a hint (`hint:reasoning`, `hint:fast`, `hint:vision`). The [router](../features/model-routing.md) resolves the hint to the right provider+model. One subscription, many models.
+* **Model routing**. The model parameter can be a hint (`hint:reasoning`, `hint:fast`, `hint:vision`). The [router](../features/model-routing/README.md) resolves the hint to the right provider+model. One subscription, many models.
 * **Native tools**. A built-in [web search, web-fetch scraper, and full filesystem/git/lint/test/grep coder toolset](../features/native-tools.md) are wired in by default. No "install a plugin to read files" friction.
 * **TokenJuice compression**. Verbose tool output (git logs, large emails, build output) is compacted by a [rule overlay](../features/token-compression.md) before it ever enters the model's context. Sweeping through your last six months of email costs single-digit dollars instead of hundreds.
 * **Voice, when you want it**. STT in, [ElevenLabs TTS](../features/voice.md) out, with a live Google Meet agent that can listen, take notes, and speak back into the call.

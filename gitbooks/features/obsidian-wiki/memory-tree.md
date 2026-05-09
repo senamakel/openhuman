@@ -42,7 +42,7 @@ retrieval       ── search · drill_down · topic · global · fetch
 
 The hot path (`canonicalize → chunk → stage → fast-score → persist → enqueue extract jobs`) is fast. Heavy work, embeddings, entity extraction, sealing summary buckets, daily digests, runs in background workers out of the `jobs/` queue so the UI never blocks.
 
-Embeddings and summary-tree building can run **on-device via Ollama** if you turn on [Local AI](../local-ai.md); otherwise they go through the OpenHuman backend like any other model call.
+Embeddings and summary-tree building can run **on-device via Ollama** if you turn on [Local AI](../model-routing/local-ai.md); otherwise they go through the OpenHuman backend like any other model call.
 
 ## Three trees, three scopes
 
@@ -75,7 +75,7 @@ Trees give you compression _and_ navigation. Embeddings still live inside (in `s
 
 ## Triggering ingest
 
-* **Automatic**. every active integration is auto-fetched every twenty minutes; see [Auto-fetch](../auto-fetch.md).
+* **Automatic**. every active integration is auto-fetched every twenty minutes; see [Auto-fetch](../integrations/auto-fetch.md).
 * **Manual**. the Memory tab in the desktop app exposes a "Run ingest" trigger per source.
 * **RPC**. `openhuman.memory_tree_ingest` for advanced workflows.
 
@@ -103,12 +103,12 @@ Open it from the bottom navigation bar.
 
 **Search & retrieval.** A search bar over the Memory Tree. Source-scoped, topic-scoped or global queries are all supported, and any result links back to the underlying chunk file in your Obsidian vault for full provenance.
 
-**Routing.** The Intelligence tab also surfaces which model the agent is using per task, see [Automatic Model Routing](../model-routing.md).
+**Routing.** The Intelligence tab also surfaces which model the agent is using per task, see [Automatic Model Routing](../model-routing/README.md).
 
 ## See also
 
 * [Obsidian Wiki](./). open the vault in Obsidian and edit it directly.
-* [Auto-fetch from Integrations](../auto-fetch.md). how the tree stays fresh.
+* [Auto-fetch from Integrations](../integrations/auto-fetch.md). how the tree stays fresh.
 * [Smart Token Compression](../token-compression.md). what makes ingesting "everything" cheap.
-* [Local AI (optional)](../local-ai.md). opt in to keep embeddings and summary-tree building on-device.
+* [Local AI (optional)](../model-routing/local-ai.md). opt in to keep embeddings and summary-tree building on-device.
 * [Memory Tree Pipeline](memory-tree-pipeline.md). contributor-facing deep dive on the async queue, workers and tree-state machine.

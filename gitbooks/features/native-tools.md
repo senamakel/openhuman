@@ -61,4 +61,4 @@ A plugin-only model means tools live in different processes, behind RPC, with th
 ## See also
 
 - [Smart Token Compression](token-compression.md). what keeps tool output costs bounded.
-- [Third-party Integrations](integrations.md). for the long tail of third-party services.
+- [Third-party Integrations](integrations/README.md). for the long tail of third-party services.

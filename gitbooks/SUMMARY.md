@@ -11,23 +11,17 @@
 * [Obsidian-Style Memory](features/obsidian-wiki/README.md)
   * [Memory Tree](features/obsidian-wiki/memory-tree.md)
   * [Memory Tree Pipeline](features/obsidian-wiki/memory-tree-pipeline.md)
-* [Auto-fetch from Integrations](features/auto-fetch.md)
-* [Third-party Integrations (118+)](features/integrations.md)
+* [Third-party Integrations (118+)](features/integrations/README.md)
+  * [Auto-fetch from Integrations](features/integrations/auto-fetch.md)
 * [Smart Token Compression](features/token-compression.md)
-* [Automatic Model Routing](features/model-routing.md)
+* [Automatic Model Routing](features/model-routing/README.md)
+  * [Local AI (optional)](features/model-routing/local-ai.md)
 * [Native Voice (ElevenLabs)](features/voice.md)
 * [Native Tools (search, scraper, coder)](features/native-tools.md)
-* [Local AI (optional)](features/local-ai.md)
 * [Subconscious Loop](features/subconscious.md)
 * [Privacy & Security](features/privacy-and-security.md)
 * [Platform & Availability](features/platform.md)
 * [Architecture](features/architecture.md)
-
-## Settings Reference
-
-* [Account & Security](settings-reference/account-and-security.md)
-* [Automation & Channels](settings-reference/automation-and-channels.md)
-* [AI & Skills](settings-reference/ai-and-skills.md)
 
 ## Developing
 

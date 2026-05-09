@@ -1,6 +1,6 @@
 ---
 description: >-
-  TokenJuice — a rule overlay that compacts verbose tool output before it ever
+  TokenJuice - a rule overlay that compacts verbose tool output before it ever
   enters LLM context. Sweeping through thousands of emails stays cheap.
 icon: file-zipper
 ---

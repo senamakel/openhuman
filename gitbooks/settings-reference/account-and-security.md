@@ -1,4 +1,7 @@
 ---
+description: >-
+  Settings reference for billing, account profile, sign-in providers, and
+  device-level security controls.
 icon: user-lock
 ---
 

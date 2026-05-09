@@ -1,5 +1,5 @@
 ---
-description: How to build OpenHuman from source — toolchain, vendored Tauri CLI, sidecar staging.
+description: How to build OpenHuman from source - toolchain, vendored Tauri CLI, sidecar staging.
 icon: wrench
 ---
 
@@ -105,7 +105,7 @@ pnpm tauri build --target aarch64-unknown-linux-gnu
 
 The binary requires the CEF library path to be set:
 
-### Option 1 — Direct invocation
+### Option 1 - Direct invocation
 
 ```bash
 REL_DIR=app/src-tauri/target/aarch64-unknown-linux-gnu/release
@@ -114,7 +114,7 @@ export LD_LIBRARY_PATH="$CEF_DIR:$REL_DIR/deps:$REL_DIR${LD_LIBRARY_PATH:+:$LD_L
 "$REL_DIR/OpenHuman" --no-sandbox
 ```
 
-### Option 2 — Wrapper script (recommended)
+### Option 2 - Wrapper script (recommended)
 
 Save to `~/bin/openhuman` and make it executable (`chmod +x ~/bin/openhuman`):
 

@@ -1,6 +1,6 @@
 ---
 description: >-
-  One subscription, many models. Tasks pick their model via hint prefixes —
+  One subscription, many models. Tasks pick their model via hint prefixes -
   reasoning goes to a strong model, fast paths go to a fast one, vision to vision.
 icon: route
 ---

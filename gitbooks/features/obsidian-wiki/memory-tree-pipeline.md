@@ -1,6 +1,6 @@
 ---
 description: >-
-  Deep dive into the Memory Tree's async pipeline — how leaves get from "user
+  Deep dive into the Memory Tree's async pipeline - how leaves get from "user
   sent a message" to "global digest summarized for the day".
 icon: diagram-project
 ---
@@ -48,7 +48,7 @@ Storage: SQLite at `<workspace>/memory_tree/chunks.db`. Tables:
 
 | Table                   | What's there                                                     |
 | ----------------------- | ---------------------------------------------------------------- |
-| `mem_tree_chunks`       | The chunks themselves — body hash, provenance, lifecycle status. |
+| `mem_tree_chunks`       | The chunks themselves - body hash, provenance, lifecycle status. |
 | `mem_tree_score`        | Per-chunk score rows (fast + deep).                              |
 | `mem_tree_entity_index` | Entity → chunk lookup for topic-tree hotness.                    |
 | `mem_tree_jobs`         | The job queue (see below).                                       |
@@ -62,7 +62,7 @@ Storage: SQLite at `<workspace>/memory_tree/chunks.db`. Tables:
 | ------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `kind`                                | One of `extract_chunk`, `append_buffer`, `seal`, `topic_route`, `digest_daily`, `flush_stale`. |
 | `payload_json`                        | Job-specific args.                                                                             |
-| `dedupe_key`                          | Coalesces duplicate enqueues — re-running an idempotent job costs one row, not N.              |
+| `dedupe_key`                          | Coalesces duplicate enqueues - re-running an idempotent job costs one row, not N.              |
 | `status`                              | `pending` / `running` / `done` / `failed`.                                                     |
 | `attempts` / `last_error`             | Retry bookkeeping.                                                                             |
 | `available_at_ms` / `locked_until_ms` | Scheduling and worker leasing.                                                                 |

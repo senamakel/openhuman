@@ -1,7 +1,7 @@
 ---
 description: >-
-  118+ third-party integrations — Gmail, Notion, GitHub, Slack, Stripe, Calendar
-  and more — with one-click OAuth and zero API keys.
+  118+ third-party integrations - Gmail, Notion, GitHub, Slack, Stripe, Calendar
+  and more - with one-click OAuth and zero API keys.
 icon: plug
 ---
 

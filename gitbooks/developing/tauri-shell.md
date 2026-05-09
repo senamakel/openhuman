@@ -1,5 +1,5 @@
 ---
-description: The desktop host (`app/src-tauri/`) — Tauri v2 + WebView, IPC, sidecar lifecycle, core bridge.
+description: The desktop host (`app/src-tauri/`) - Tauri v2 + WebView, IPC, sidecar lifecycle, core bridge.
 icon: desktop
 ---
 

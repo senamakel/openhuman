@@ -1,6 +1,6 @@
 ---
 description: >-
-  Native voice — speech-to-text in, ElevenLabs text-to-speech out, mascot
+  Native voice - speech-to-text in, ElevenLabs text-to-speech out, mascot
   lip-sync, and a live Google Meet agent that listens and speaks.
 icon: microphone
 ---

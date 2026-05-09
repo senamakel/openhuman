@@ -39,7 +39,7 @@ A complete toolset for working on real codebases:
 | --- | --- |
 | `file_read` | Read a file (with line numbers, like `cat -n`). |
 | `file_write` | Write a new file. |
-| `edit_file` | Targeted edits — match-and-replace with strict uniqueness checks. |
+| `edit_file` | Targeted edits - match-and-replace with strict uniqueness checks. |
 | `apply_patch` | Apply a unified diff. |
 | `glob_search` | Find files by glob pattern. |
 | `grep` | Ripgrep-style search across the tree. |

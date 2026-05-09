@@ -1,4 +1,7 @@
 ---
+description: >-
+  Settings reference for desktop automation, messaging channels, and
+  per-integration auto-fetch schedules.
 icon: nfc-signal
 ---
 

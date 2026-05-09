@@ -1,5 +1,5 @@
 ---
-description: Hosting the headless openhuman-core in the cloud — DigitalOcean App Platform or Docker Compose on any VPS.
+description: Hosting the headless openhuman-core in the cloud - DigitalOcean App Platform or Docker Compose on any VPS.
 icon: cloud
 ---
 
@@ -87,7 +87,7 @@ If you'd rather not click through the UI:
 # One-time: install doctl and authenticate.
 doctl auth init
 
-# Edit .do/app.yaml — set OPENHUMAN_CORE_TOKEN to a real value (or pass it in
+# Edit .do/app.yaml - set OPENHUMAN_CORE_TOKEN to a real value (or pass it in
 # at create time via --spec with envsubst). Then:
 doctl apps create --spec .do/app.yaml
 
@@ -116,7 +116,7 @@ cd openhuman
 
 # Configure secrets:
 cp .env.example .env
-# Edit .env — at minimum:
+# Edit .env - at minimum:
 #   BACKEND_URL=https://api.tinyhumans.ai
 #   OPENHUMAN_CORE_TOKEN=<openssl rand -hex 32>
 #   OPENHUMAN_APP_ENV=production

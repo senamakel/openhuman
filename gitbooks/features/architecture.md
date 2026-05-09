@@ -1,4 +1,7 @@
 ---
+description: >-
+  High-level shape of the OpenHuman system (desktop shell, Rust core, Memory
+  Tree, agent loop). Pointer to the deep developer architecture in the repo.
 icon: code-branch
 ---
 
@@ -31,7 +34,7 @@ OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** that does t
 │ React frontend (app/src/) │
 │ • Screens, navigation │
 │ • Talks to core over `coreRpcClient` │
-│ • No business logic — presentation only │
+│ • No business logic - presentation only │
 └──────────────────────────────────────────────────┘
 ```
 

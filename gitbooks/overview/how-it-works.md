@@ -1,4 +1,8 @@
 ---
+description: >-
+  The four moving parts of OpenHuman (Memory Tree, Obsidian vault,
+  integrations on autopilot, agent with model routing and native tools)
+  and how they fit together.
 icon: brain
 ---
 
@@ -8,7 +12,7 @@ OpenHuman has a simple shape: connect your tools, let it pull from them continuo
 
 ## The four moving parts
 
-### 1. A local-first knowledge base — the [Memory Tree](../features/obsidian-wiki/memory-tree.md)
+### 1. A local-first knowledge base - the [Memory Tree](../features/obsidian-wiki/memory-tree.md)
 
 Everything OpenHuman knows about you lives in a SQLite database and a Markdown vault inside your workspace. The pipeline is:
 

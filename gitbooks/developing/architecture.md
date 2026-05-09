@@ -1,5 +1,5 @@
 ---
-description: Deep architecture reference for the OpenHuman codebase — repo layout, runtime scope, dual-socket sync, RPC flow.
+description: Deep architecture reference for the OpenHuman codebase - repo layout, runtime scope, dual-socket sync, RPC flow.
 icon: code-branch
 ---
 
@@ -7,7 +7,7 @@ icon: code-branch
 
 **AI-powered super assistant for crypto communities, built on Rust.**
 
-OpenHuman is a cross-platform communication and automation platform purpose-built for the cryptocurrency ecosystem. A single React + Rust (Tauri) codebase can target multiple platforms; **what we document and ship for users today is desktop only** — **Windows, macOS, and Linux**. Android, iOS, and web are **not** supported in current docs or releases. The stack includes a sandboxed JavaScript skills engine, persistent Rust-native WebSocket infrastructure, and an AI tool protocol that lets language models invoke any connected service in real time.
+OpenHuman is a cross-platform communication and automation platform purpose-built for the cryptocurrency ecosystem. A single React + Rust (Tauri) codebase can target multiple platforms; **what we document and ship for users today is desktop only** - **Windows, macOS, and Linux**. Android, iOS, and web are **not** supported in current docs or releases. The stack includes a sandboxed JavaScript skills engine, persistent Rust-native WebSocket infrastructure, and an AI tool protocol that lets language models invoke any connected service in real time.
 
 ---
 
@@ -16,7 +16,7 @@ OpenHuman is a cross-platform communication and automation platform purpose-buil
 | Path                    | Contents                                                                                                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`app/`**              | Yarn workspace **`openhuman-app`**: Vite/React UI (`app/src/`), Tauri shell (`app/src-tauri/`), Vitest tests                                                       |
-| **Repo root `src/`**    | Rust **`openhuman_core`** library + **`openhuman`** CLI binary — `core_server`, JSON-RPC, QuickJS skills runtime (`src/openhuman/skills/`), channels, memory, etc. |
+| **Repo root `src/`**    | Rust **`openhuman_core`** library + **`openhuman`** CLI binary - `core_server`, JSON-RPC, QuickJS skills runtime (`src/openhuman/skills/`), channels, memory, etc. |
 | **`Cargo.toml`** (root) | Builds `openhuman` binary (`cargo build --bin openhuman`) staged into `app/src-tauri/binaries/` for the desktop bundle                                             |
 | **`skills/`**           | Skill packages consumed by the runtime                                                                                                                             |
 | **`docs/`**             | This book + per-tree guides (`docs/src/`, `docs/src-tauri/`)                                                                                                       |

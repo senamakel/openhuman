@@ -1,5 +1,5 @@
 ---
-description: The agent's code-focused tool surface — what's exposed, where to add more.
+description: The agent's code-focused tool surface - what's exposed, where to add more.
 icon: code
 ---
 

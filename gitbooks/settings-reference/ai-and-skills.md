@@ -1,4 +1,7 @@
 ---
+description: >-
+  Settings reference for picking the local AI tier, switching cloud vs local
+  mode, and managing skills.
 icon: head-side-circuit
 ---
 

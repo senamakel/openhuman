@@ -1,5 +1,5 @@
 ---
-description: The React + Vite frontend (`app/src/`) — architecture, state, services, providers, routing, components, hooks.
+description: The React + Vite frontend (`app/src/`) - architecture, state, services, providers, routing, components, hooks.
 icon: browsers
 ---
 
@@ -93,14 +93,14 @@ Redux Provider
 ```
 App.tsx
   ├─ Redux store + persistor
-  ├─ UserProvider — user profile / workspace context
-  ├─ SocketProvider — connects socketService when token present
-  ├─ AIProvider — AI session / memory client coordination
-  ├─ SkillProvider — skills catalog and sync
+  ├─ UserProvider - user profile / workspace context
+  ├─ SocketProvider - connects socketService when token present
+  ├─ AIProvider - AI session / memory client coordination
+  ├─ SkillProvider - skills catalog and sync
   └─ AppRoutes
-       ├─ PublicRoute — e.g. Welcome on `/`
-       ├─ ProtectedRoute — onboarding, home, skills, settings, …
-       └─ DefaultRedirect — unauthenticated users
+       ├─ PublicRoute - e.g. Welcome on `/`
+       ├─ ProtectedRoute - onboarding, home, skills, settings, …
+       └─ DefaultRedirect - unauthenticated users
 ```
 
 ### Services layer (conceptual)
@@ -416,7 +416,7 @@ app/src/services/
   │   └─ Tauri: coordinates with Rust-side socket via utils/tauriSocket.ts
   ├─ coreRpcClient.ts
   │   └─ invoke('core_rpc_relay', …) → local openhuman core (JSON-RPC)
-  └─ services/api/* — domain REST modules (auth, user, teams, …)
+  └─ services/api/* - domain REST modules (auth, user, teams, …)
 ```
 
 ### API Client (`services/apiClient.ts`)

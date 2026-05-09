@@ -1,4 +1,7 @@
 ---
+description: >-
+  What OpenHuman ships as (native React + Tauri v2 desktop app with a Rust
+  core), supported platforms, and what's in scope today.
 icon: layer-plus
 ---
 
@@ -34,7 +37,7 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ Tauri shell — windowing, OS integration │
+│ Tauri shell - windowing, OS integration │
 └──────────────────────────────────────────────────┘
  │ JSON-RPC ↕
 ┌──────────────────────────────────────────────────┐
@@ -45,7 +48,7 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 └──────────────────────────────────────────────────┘
  │
 ┌──────────────────────────────────────────────────┐
-│ React frontend — screens, navigation │
+│ React frontend - screens, navigation │
 └──────────────────────────────────────────────────┘
 ```
 

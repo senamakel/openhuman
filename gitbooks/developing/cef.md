@@ -53,7 +53,7 @@ Each provider has a **scanner module** in [`app/src-tauri/src/`](https://github.
 | ------------------ | ------------------------------- | -------------------------------------------------------------------- |
 | `whatsapp_scanner` | 2s DOM tick + 30s full IDB walk | Reads message stores, pulls media metadata                           |
 | `telegram_scanner` | Same                            | Plus QR-login hand-off to native Telegram Desktop                    |
-| `slack_scanner`    | 30s IDB walk                    | Pure IDB — no DOM scrape needed                                      |
+| `slack_scanner`    | 30s IDB walk                    | Pure IDB - no DOM scrape needed                                      |
 | `discord_scanner`  | Periodic                        | Channel + DM state via CDP                                           |
 | `meet_scanner`     | Periodic                        | Live captions + participant state during calls                       |
 | `imessage_scanner` | Periodic                        | **No webview.** Reads `~/Library/Messages/chat.db` directly on macOS |

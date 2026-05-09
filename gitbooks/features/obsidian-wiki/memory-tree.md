@@ -58,8 +58,8 @@ Inside your workspace (default `~/.openhuman`, or whatever `OPENHUMAN_WORKSPACE`
 
 | Path                    | What's there                                                    |
 | ----------------------- | --------------------------------------------------------------- |
-| `memory_tree/chunks.db` | SQLite — chunks, scores, summaries, entity index, jobs, hotness |
-| `wiki/`                 | The Markdown vault — see [Obsidian Wiki](./)                    |
+| `memory_tree/chunks.db` | SQLite - chunks, scores, summaries, entity index, jobs, hotness |
+| `wiki/`                 | The Markdown vault - see [Obsidian Wiki](./)                    |
 
 Everything is local. Nothing about your raw data leaves your machine unless you explicitly send a chat message that includes it.
 
@@ -79,7 +79,7 @@ Trees give you compression _and_ navigation. Embeddings still live inside (in `s
 * **Manual**. the Memory tab in the desktop app exposes a "Run ingest" trigger per source.
 * **RPC**. `openhuman.memory_tree_ingest` for advanced workflows.
 
-## In the desktop app — the Intelligence tab
+## In the desktop app - the Intelligence tab
 
 Open it from the bottom navigation bar.
 

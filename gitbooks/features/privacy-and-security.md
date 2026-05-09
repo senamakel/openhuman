@@ -1,4 +1,7 @@
 ---
+description: >-
+  What stays on your machine vs. what crosses the OpenHuman backend, where
+  OAuth tokens live, and how to revoke or wipe data.
 icon: shield
 ---
 
@@ -26,8 +29,8 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 | | |
 | --- | --- |
-| **Memory Tree SQLite database** | Local — `<workspace>/memory_tree/chunks.db`. |
-| **Obsidian Markdown vault** | Local — `<workspace>/wiki/`. Yours to read, edit, copy, delete. |
+| **Memory Tree SQLite database** | Local - `<workspace>/memory_tree/chunks.db`. |
+| **Obsidian Markdown vault** | Local - `<workspace>/wiki/`. Yours to read, edit, copy, delete. |
 | **Audio capture buffers** | Local. Discarded after STT. |
 | **Local model state** | Local. |
 
@@ -38,7 +41,7 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 | **LLM calls** | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](../features/model-routing.md). |
 | **Web search proxy** | The native [web search tool](../features/native-tools.md) calls a backend proxy so you don't carry a search API key. |
 | **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/integrations.md). |
-| **TTS streaming** | [ElevenLabs](../features/voice.md) audio streams. Audio is generated and discarded — not retained. |
+| **TTS streaming** | [ElevenLabs](../features/voice.md) audio streams. Audio is generated and discarded - not retained. |
 
 ***
 

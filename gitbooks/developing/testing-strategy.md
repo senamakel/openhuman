@@ -1,5 +1,5 @@
 ---
-description: How OpenHuman tests its product — Vitest, cargo test, WDIO E2E. Where each test goes.
+description: How OpenHuman tests its product - Vitest, cargo test, WDIO E2E. Where each test goes.
 icon: vial
 ---
 
@@ -21,14 +21,14 @@ How OpenHuman tests its product. Source of truth for "where does my test go?". C
 
 ---
 
-## Decision tree — where does my test go?
+## Decision tree - where does my test go?
 
 ```text
 Is the change behind the JSON-RPC boundary (in `src/`)?
-├─ YES — does it cross domains or talk to external services?
+├─ YES - does it cross domains or talk to external services?
 │   ├─ YES → Rust integration (tests/*.rs)
 │   └─ NO  → Rust unit (next to source)
-└─ NO — change is in `app/`
+└─ NO - change is in `app/`
     ├─ Is it a pure function, hook, slice, or component in isolation?
     │   └─ YES → Vitest unit (*.test.tsx co-located)
     └─ Is it user-visible AND it crosses UI ⇄ Tauri ⇄ sidecar ⇄ JSON-RPC?
@@ -116,14 +116,14 @@ pnpm test:unit
 # Rust integration with mock backend
 pnpm test:rust
 
-# E2E (slow — run when behaviour changes user-visibly)
+# E2E (slow - run when behaviour changes user-visibly)
 pnpm test:e2e:build
 bash app/scripts/e2e-run-spec.sh test/e2e/specs/<your-spec>.spec.ts <id>
 ```
 
 ---
 
-## Not driver-automatable — manual smoke required
+## Not driver-automatable - manual smoke required
 
 Some surfaces cannot be driven by WDIO / Appium because they cross OS-level trust boundaries or hardware paths. The complete checklist + sign-off block lives in [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md), that file is the source of truth for what must be verified per release. Examples of what it covers:
 

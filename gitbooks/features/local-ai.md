@@ -15,11 +15,11 @@ This is a deliberate scoping. The previous design tried to put chat, vision, STT
 
 | Workload                  | Default model                     | Implementation                                                                                                    |
 | ------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Memory embeddings**     | `all-minilm:latest`               | `src/openhuman/embeddings/ollama.rs` — used by the [Memory Tree](obsidian-wiki/memory-tree.md) for vector search. |
-| **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `src/openhuman/tree_summarizer/ops.rs` — source / topic / global summary builders for the Memory Tree.            |
-| **Heartbeat loop**        | small chat model                  | `src/openhuman/heartbeat/` — periodic background reflection.                                                      |
-| **Learning / reflection** | small chat model                  | `src/openhuman/learning/reflection.rs` — passes that consolidate what was learned.                                |
-| **Subconscious**          | small chat model                  | `src/openhuman/subconscious/executor.rs` — background evaluation loop.                                            |
+| **Memory embeddings**     | `all-minilm:latest`               | `src/openhuman/embeddings/ollama.rs` - used by the [Memory Tree](obsidian-wiki/memory-tree.md) for vector search. |
+| **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `src/openhuman/tree_summarizer/ops.rs` - source / topic / global summary builders for the Memory Tree.            |
+| **Heartbeat loop**        | small chat model                  | `src/openhuman/heartbeat/` - periodic background reflection.                                                      |
+| **Learning / reflection** | small chat model                  | `src/openhuman/learning/reflection.rs` - passes that consolidate what was learned.                                |
+| **Subconscious**          | small chat model                  | `src/openhuman/subconscious/executor.rs` - background evaluation loop.                                            |
 
 Each of these is a **per-feature opt-in flag**. Turning on local AI does not silently route everything through it, you choose the workloads.
 

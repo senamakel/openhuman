@@ -1,4 +1,5 @@
 ---
+description: Terms and conditions governing use of the OpenHuman service.
 icon: file-contract
 ---
 

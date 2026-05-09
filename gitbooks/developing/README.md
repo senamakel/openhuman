@@ -1,6 +1,6 @@
 ---
 description: >-
-  Contributor-facing documentation for OpenHuman — how to build, test, ship, and
+  Contributor-facing documentation for OpenHuman - how to build, test, ship, and
   extend the app and core.
 icon: code-branch
 ---
@@ -13,10 +13,10 @@ OpenHuman is open source under GNU GPL3 and lives at [github.com/tinyhumansai/op
 
 | Path        | What's there                                                                                                       |
 | ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `app/`      | Yarn workspace `openhuman-app` — Vite + React frontend (`app/src/`) and the Tauri desktop host (`app/src-tauri/`). |
-| `src/`      | Rust crate `openhuman_core` and the `openhuman` CLI binary — domains, MCP routing, JSON-RPC.                       |
+| `app/`      | Yarn workspace `openhuman-app` - Vite + React frontend (`app/src/`) and the Tauri desktop host (`app/src-tauri/`). |
+| `src/`      | Rust crate `openhuman_core` and the `openhuman` CLI binary - domains, MCP routing, JSON-RPC.                       |
 | `docs/`     | Remaining deep developer reference (memory pipeline diagrams, telegram-login, sentry, agent flows, etc.).          |
-| `gitbooks/` | Public-facing documentation — this site.                                                                           |
+| `gitbooks/` | Public-facing documentation - this site.                                                                           |
 
 The high-level shape lives in [Architecture](../features/architecture.md). The deep developer architecture lives in [Architecture](architecture.md).
 

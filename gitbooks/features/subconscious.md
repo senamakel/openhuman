@@ -101,8 +101,8 @@ The local Ollama model receives all due tasks + a situation report and returns a
 | Decision | Meaning |
 |----------|---------|
 | `noop` | Nothing relevant right now |
-| `act` | Something relevant found — execute the task |
-| `escalate` | Needs deeper reasoning — hand off to agentic-v1 |
+| `act` | Something relevant found - execute the task |
+| `escalate` | Needs deeper reasoning - hand off to agentic-v1 |
 
 ### 5. Execute
 
@@ -174,9 +174,9 @@ Approval is only required when the AI wants to take a **write action that the us
 
 | Task intent | AI wants to write | Approval needed? |
 |-------------|-------------------|-----------------|
-| "Send digest to Slack" (write) | Yes | No — user asked for it |
-| "Check urgent emails" (read) | No | No — read-only result |
-| "Check urgent emails" (read) | Yes (wants to forward them) | **Yes** — unsolicited write |
+| "Send digest to Slack" (write) | Yes | No - user asked for it |
+| "Check urgent emails" (read) | No | No - read-only result |
+| "Check urgent emails" (read) | Yes (wants to forward them) | **Yes** - unsolicited write |
 
 The approval flow:
 1. agentic-v1 runs in analysis-only mode

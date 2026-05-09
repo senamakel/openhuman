@@ -4,62 +4,75 @@ icon: code-branch
 
 # Architecture
 
-OpenHuman is built on the OpenClaw architecture and open-sourced under the GNU GPL3 license. This page explains how the major components connect.
+OpenHuman is open-sourced under GNU GPL3. This page is the high-level shape of the system; the deep developer architecture lives in [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md) in the repo.
 
-#### The four pillars
+## The shape
 
-OpenHuman's architecture rests on four pillars that work together:
+OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** that does the heavy lifting.
 
-<figure><img src="../.gitbook/assets/V15 — Three Pillars@2x.png" alt=""><figcaption></figcaption></figure>
+```
+┌──────────────────────────────────────────────────┐
+│  Tauri shell (app/src-tauri/)                    │
+│   • windowing, OS integration, sidecar lifecycle │
+│   • CEF child webviews for Composio providers    │
+└──────────────────────────────────────────────────┘
+            │ JSON-RPC (HTTP) ↕
+┌──────────────────────────────────────────────────┐
+│  Rust core (`openhuman` binary, `src/`)          │
+│   • Memory Tree pipeline                         │
+│   • Composio adapters + auto-fetch scheduler     │
+│   • Provider router (model routing)              │
+│   • TokenJuice compression                       │
+│   • Native tools (search, fetch, fs, git, …)     │
+│   • Voice (STT, ElevenLabs TTS, Meet agent)      │
+└──────────────────────────────────────────────────┘
+            │
+┌──────────────────────────────────────────────────┐
+│  React frontend (app/src/)                       │
+│   • Screens, navigation                          │
+│   • Talks to core over `coreRpcClient`           │
+│   • No business logic — presentation only        │
+└──────────────────────────────────────────────────┘
+```
 
-**Neocortex** is the memory engine. It ingests data from connected sources, builds knowledge graphs, manages tiered memory, and provides the recall capabilities that power both conscious queries and subconscious processing. Detailed in Neocortex.
+**Where logic lives:**
 
-**Local processing** runs AI models directly on your device. Gemma 3 handles chat, vision analysis (for Screen Intelligence), speech-to-text, and text-to-speech. This layer processes raw screen captures, handles Auto-complete suggestions, and manages local encryption. No raw data leaves this layer.
+- **Rust core** — all business logic. Memory Tree, integrations, model routing, tools, voice. Authoritative.
+- **Tauri shell** — windowing, process lifecycle, IPC. A delivery vehicle, not where features live.
+- **React frontend** — UI and orchestration. Calls into core via JSON-RPC.
 
-<figure><img src="/broken/files/9CaipntgroxxUYuIrQXB" alt=""><figcaption></figcaption></figure>
+## Data flow
 
-**Multi-agent orchestration** distributes work across specialized agents rather than relying on a single monolithic model. An orchestrator agent manages routing, personality, and context distribution. Specialist agents handle specific domains: communication analysis, document synthesis, task management, trading. Agents execute in parallel, not sequentially, enabling real-time responsiveness.
+1. **Connect** — OAuth into a [Composio integration](../features/composio-integrations.md). Backend stores the token; core never sees it in plaintext.
+2. **Auto-fetch** — Every five minutes the [scheduler](../features/auto-fetch.md) walks every active connection and asks each native provider to sync.
+3. **Canonicalize** — Provider output (an email page, a GitHub diff, a Slack channel dump) is normalized into provenance-tagged Markdown.
+4. **Chunk** — Markdown is split into ≤3k-token deterministic chunks.
+5. **Store** — Chunks land in SQLite (`<workspace>/memory_tree/chunks.db`) and as `.md` files in `<workspace>/wiki/`.
+6. **Score** — Background workers run embeddings, entity extraction, hotness scoring.
+7. **Summarize** — Source / topic / global summary trees are built and refreshed from the chunk pool.
+8. **Retrieve** — When you ask a question, the agent queries the Memory Tree (search / drill down / topic / global / fetch).
+9. **Compress** — Tool output and large source data go through [TokenJuice](../features/token-compression.md) before entering LLM context.
+10. **Route** — The [router](../features/model-routing.md) picks the right provider+model for the task hint.
 
-**Privacy-preserving inference** ensures that raw data never leaves the user's device. Data is encrypted on-device with AES-256-GCM. Encryption keys never leave the device. Only compressed metadata and summaries are processed server-side. Detailed in [Privacy & Security](../product/privacy-and-security.md).
+## Privacy boundary
 
-#### How data flows
+Stays on your machine:
 
-<figure><img src="/broken/files/7fx1YutriAn2pnRrusN7" alt=""><figcaption></figcaption></figure>
+- The Memory Tree SQLite DB.
+- The Obsidian Markdown vault.
+- Audio capture buffers and any local model state.
 
-1. **Local capture.** Screen Intelligence captures your screen activity. The on-device vision model processes raw screenshots into structured summaries. Raw screenshots are discarded after processing.
-2. **Ingestion.** Data arrives from connected sources: Telegram, Slack, Gmail, Notion, blockchain wallets, and others. Each source has its own connector that handles authentication and data retrieval. Screen activity summaries from the local layer are also ingested.
-3. **Compression.** Neocortex processes raw data on-device. Semantic deduplication removes noise. Entity resolution links references across sources. Temporal weighting prioritizes recency. The output is a compressed knowledge graph, not raw text.
-4. **Storage.** The knowledge graph is stored in Neocortex's tiered memory system. Raw data is discarded after compression. Only structured metadata and summaries persist.
-5. **Conscious processing.** When you make a request, the orchestrator routes it to the appropriate specialist agent(s). Those agents query Neocortex for relevant context, process your request, and return a result.
-6. **Subconscious processing.** Independent of your requests, the subconscious system triggers periodic memory recalls from Neocortex. These feed into a self-learning loop that surfaces proactive insights, patterns, and recommendations.
-7. **Output.** Results are presented to you directly or exported to connected tools like Notion and Google Sheets. Only structured, compressed intelligence leaves the device. Raw data never does.
+Goes through the OpenHuman backend (under one subscription):
 
-#### Local Models
+- LLM calls (model providers).
+- Web search proxy.
+- Composio OAuth and tool proxying.
+- TTS streaming.
 
-The desktop app runs the following models on your device hardware:
+See [Privacy & Security](../product/privacy-and-security.md) for the full picture.
 
-**Gemma 3 (chat):** Handles conversational interactions, query processing, and response generation locally. For requests that require deeper reasoning or larger context, processing is routed to the server-side intelligence layer.
+## Open source
 
-**Gemma 3 (vision):** Processes screen captures from Screen Intelligence. Analyzes visual content to produce structured summaries of what is on screen: application names, visible text, interface elements, and user activity context.
-
-**Speech-to-text:** Converts voice input to text locally. No audio data is sent to any server.
-
-**Text-to-speech:** Generates spoken responses locally for voice interaction.
-
-All local models run on your device's CPU. No GPU is required, though GPU acceleration is used when available. The models are optimized for low memory footprint and fast inference.
-
-#### Model-agnostic design
-
-OpenHuman is not locked to any single AI model. The compression engine and memory layer sit on top of the AI infrastructure, not inside it. Today the system works with specific models. Tomorrow it could feed context to any model: GPT, Claude, Gemini, Llama, Mistral, or whatever comes next.
-
-This is a deliberate architectural choice. AI models are commoditizing. Performance is converging. The real differentiator is the context you feed the model, and OpenHuman owns the context layer.
-
-#### Open source
-
-OpenHuman is publicly available on GitHub under the GNU GPL3 license.
-
-**GitHub:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman)
-
-**Neocortex benchmarks:** [github.com/tinyhumansai/neocortex/tree/main/benchmarks](https://github.com/tinyhumansai/neocortex/tree/main/benchmarks)
-
-Contributions, feedback, and issues are welcomed. The project is in early alpha.
+- **Repo:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) — GNU GPL3.
+- **Issues and PRs** are welcome. The project is in early beta.
+- For contributors, the canonical developer guide is [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md).

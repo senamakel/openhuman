@@ -4,37 +4,39 @@ icon: '2'
 
 # Individual Power Users
 
-You live in messaging. Dozens of active Telegram groups, Slack channels, DMs, and threads. Every morning starts with a wall of unread messages. The important stuff is buried under memes, noise, and repetitive discussions.
+You live in messaging. Dozens of active Slack channels, Telegram groups, DMs, threads, plus an inbox that never quite hits zero. Every morning starts with a wall of unread context.
 
 #### The problem
 
-High-volume messaging creates information overload that gets worse as you join more groups. Reading everything is impossible. Skimming means you miss decisions, commitments, and context that matter.
+High-volume comms create information overload that gets worse as you join more groups. Reading everything is impossible; skimming means you miss decisions, commitments, and replies you owe people.
 
 #### How OpenHuman helps
 
-**Compression turns noise into signal.** Neocortex strips 80%+ redundant messages from group chats through semantic deduplication. What remains: decisions, action items, risks, sentiment shifts, and things that need your attention.
+**Auto-fetch keeps the picture fresh.** Every five minutes, OpenHuman pulls new messages from your active [Composio integrations](../features/composio-integrations.md) — Gmail, Slack, GitHub, Notion — and folds them into the [Memory Tree](../features/memory-tree.md). By the time you sit down with coffee, the briefing is already pre-computed.
 
-**Briefings replace scrolling.** Ask one question, get a compressed summary. 247 messages become a 30-second read.
+**Topic trees catch the things waiting on you.** As entities (people, projects) get more activity, their topic tree gets refreshed. "Things waiting on a reply from me" becomes a real query, not a manual scrub.
 
-**Nothing falls through the cracks.** The subconscious catches buried context: approaching deadlines, unanswered questions directed at you, sentiment shifts in communities you moderate.
+**TokenJuice keeps it cheap.** Sweeping through hundreds of emails for a daily briefing costs cents, not dollars, because [TokenJuice](../features/token-compression.md) compacts the noise before the model ever sees it.
+
+**Your wiki is yours.** All the same data lands in `<workspace>/wiki/` as Markdown. Open it in [Obsidian](../features/obsidian-wiki.md) when you want to wander through it by hand.
 
 #### Example prompts
 
 * "What do I need to know from the last 12 hours?"
 * "Are there any messages waiting for my response?"
-* "Summarize the key decisions from #engineering this week"
-* "What are the most heated discussions across my groups right now?"
-* "Extract all action items assigned to me from the last 3 days"
+* "Summarize the key decisions from #engineering this week."
+* "Extract all action items assigned to me from the last 3 days."
+* "What did Sarah say about the Q4 roadmap across email and Slack?"
 
 #### Features that matter most here
 
-| Feature                   | Why it matters                                               |
-| ------------------------- | ------------------------------------------------------------ |
-| Neocortex compression     | Strips noise, surfaces signal from thousands of messages     |
-| Subconscious intelligence | Catches buried context and approaching deadlines proactively |
-| Telegram integration      | Full access to chats, search, history, and message actions   |
-| Signal extraction         | Decisions, action items, and risks identified automatically  |
+| Feature                                                | Why it matters                                                  |
+| ------------------------------------------------------ | --------------------------------------------------------------- |
+| [Auto-fetch](../features/auto-fetch.md)                | Your inbox/Slack/etc. lands in memory without you asking        |
+| [Memory Tree topic summaries](../features/memory-tree.md) | Per-entity recaps surface what's outstanding                    |
+| [TokenJuice](../features/token-compression.md)         | Daily sweeps stay cheap even across thousands of messages       |
+| [Composio integrations](../features/composio-integrations.md) | One-click OAuth into 118+ services                              |
 
 #### When this use case is strongest
 
-Power Users get the most value when active in 10+ conversations. If you have 2-3 quiet channels, the manual approach works fine.
+You're juggling 10+ active conversations across at least two or three platforms. If you have two quiet channels and a tidy inbox, the manual approach works fine.

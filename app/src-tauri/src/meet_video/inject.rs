@@ -117,21 +117,21 @@ pub fn spawn_diagnostics_poller(meet_url: String) {
     if !enabled {
         return;
     }
-    log::info!("[meet-camera-diag] poller starting meet_url_chars={}", meet_url.chars().count());
+    log::info!(
+        "[meet-camera-diag] poller starting meet_url_chars={}",
+        meet_url.chars().count()
+    );
     tauri::async_runtime::spawn(async move {
         // Allow the bridge time to install before the first poll.
         tokio::time::sleep(Duration::from_secs(3)).await;
-        let (mut cdp, session) = match crate::cdp::connect_and_attach_matching(|t| {
-            t.url.starts_with(&meet_url)
-        })
-        .await
-        {
-            Ok(pair) => pair,
-            Err(err) => {
-                log::warn!("[meet-camera-diag] cdp attach failed: {err}");
-                return;
-            }
-        };
+        let (mut cdp, session) =
+            match crate::cdp::connect_and_attach_matching(|t| t.url.starts_with(&meet_url)).await {
+                Ok(pair) => pair,
+                Err(err) => {
+                    log::warn!("[meet-camera-diag] cdp attach failed: {err}");
+                    return;
+                }
+            };
         let mut last_frames: u64 = 0;
         let mut last_dropped: u64 = 0;
         let mut tick = 0u64;
@@ -172,13 +172,28 @@ pub fn spawn_diagnostics_poller(meet_url: String) {
                     continue;
                 }
             };
-            let frames = parsed.get("remoteFrameCount").and_then(|x| x.as_u64()).unwrap_or(0);
-            let dropped = parsed.get("droppedOutOfOrder").and_then(|x| x.as_u64()).unwrap_or(0);
-            let ws_state = parsed.get("wsState").and_then(|x| x.as_str()).unwrap_or("?");
+            let frames = parsed
+                .get("remoteFrameCount")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
+            let dropped = parsed
+                .get("droppedOutOfOrder")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
+            let ws_state = parsed
+                .get("wsState")
+                .and_then(|x| x.as_str())
+                .unwrap_or("?");
             let frame = parsed.get("frame").and_then(|x| x.as_u64()).unwrap_or(0);
             let fresh_ms = parsed.get("remoteFreshMs").and_then(|x| x.as_u64());
-            let mood = parsed.get("currentMood").and_then(|x| x.as_str()).unwrap_or("?");
-            let port = parsed.get("frameBusPort").and_then(|x| x.as_u64()).unwrap_or(0);
+            let mood = parsed
+                .get("currentMood")
+                .and_then(|x| x.as_str())
+                .unwrap_or("?");
+            let port = parsed
+                .get("frameBusPort")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
             let delta_frames = frames.saturating_sub(last_frames);
             let delta_dropped = dropped.saturating_sub(last_dropped);
             let fps = (delta_frames as f32) / 2.0;

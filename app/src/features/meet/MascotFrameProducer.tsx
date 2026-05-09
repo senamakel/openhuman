@@ -165,9 +165,7 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
     // once the media is actually playing.
     void keepAliveAudio
       .play()
-      .catch(err =>
-        console.warn('[meet-video-producer] silent audio play() failed', err)
-      );
+      .catch(err => console.warn('[meet-video-producer] silent audio play() failed', err));
 
     // ── WS connect ─────────────────────────────────────────────────────
     const url = `ws://127.0.0.1:${session.port}`;
@@ -255,8 +253,7 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
           worker_ticks: workerTicks,
           encode_started: encodeStarted,
           encode_completed: encodeCompleted,
-          encode_avg_ms:
-            encodeCompleted > 0 ? Math.round(encodeMsTotal / encodeCompleted) : 0,
+          encode_avg_ms: encodeCompleted > 0 ? Math.round(encodeMsTotal / encodeCompleted) : 0,
           inflight_skips: inflightSkips,
           ws_state: ws.readyState,
           frame: frameAtTickRef.current,
@@ -278,8 +275,7 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
       // worker setInterval drifting under throttling.
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
       const elapsedMs = Date.now() - startTimeRef.current;
-      const nextFrame =
-        Math.floor((elapsedMs / 1000) * PRODUCER_FPS) % MASCOT_LOOP_FRAMES;
+      const nextFrame = Math.floor((elapsedMs / 1000) * PRODUCER_FPS) % MASCOT_LOOP_FRAMES;
       setFrame(prev => (prev === nextFrame ? prev : nextFrame));
       frameAtTickRef.current = nextFrame;
 

@@ -21,7 +21,7 @@ Each rule names a tool/command pattern and a reduction strategy (truncate, dedup
 
 ## Why this matters for memory
 
-TokenJuice is what makes [auto-fetch](auto-fetch.md) economically viable. When the Gmail provider syncs a page of 200 messages, TokenJuice compacts each canonicalized email _before_ it enters the model that builds summaries. The same applies to GitHub diffs, Slack channel dumps, and any other firehose source.
+TokenJuice is what makes [auto-fetch](obsidian-wiki/auto-fetch.md) economically viable. When the Gmail provider syncs a page of 200 messages, TokenJuice compacts each canonicalized email _before_ it enters the model that builds summaries. The same applies to GitHub diffs, Slack channel dumps, and any other firehose source.
 
 Concretely: ingesting your last six months of email through a frontier model costs single-digit dollars instead of hundreds.
 
@@ -47,5 +47,5 @@ Implementation: `src/openhuman/tokenjuice/` (`classify.rs`, `reduce.rs`, `rules/
 
 ## See also
 
-* [Native Tools](native-tools.md). most heavy tool output flows through TokenJuice.
+* [Native Tools](native-tools/README.md). most heavy tool output flows through TokenJuice.
 * [Memory Tree](obsidian-wiki/memory-tree.md). the downstream consumer of compressed output.

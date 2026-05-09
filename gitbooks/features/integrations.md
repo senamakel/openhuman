@@ -14,7 +14,7 @@ OpenHuman ships with backend-proxied access to **118+ third-party services**. Co
 Once a service is connected, it shows up in three places at once:
 
 1. As an **agent tool**, the model can call it directly.
-2. As a **memory source**, [auto-fetch](auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every five minutes.
+2. As a **memory source**, [auto-fetch](obsidian-wiki/auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every twenty minutes.
 3. As a **profile signal**, your activity across services feeds your personalization.
 
 ## Some of what's in the catalog
@@ -38,7 +38,7 @@ Some services have **native providers**. Rust modules that know how to ingest th
 
 ## How connections work
 
-Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](auto-fetch.md) on the next 5-minute tick.
+Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](obsidian-wiki/auto-fetch.md) on the next 20-minute tick.
 
 Each integration shows its current status:
 
@@ -50,7 +50,7 @@ You can revoke any connection at any time from the Skills tab.
 
 ## Messaging channels
 
-Three integrations are special. OpenHuman uses them to *talk back* to you, not just read from them:
+Three integrations are special. OpenHuman uses them to _talk back_ to you, not just read from them:
 
 * **Telegram**. the primary messaging channel. Two-way: send and receive messages, manage chats, search history, create groups, 80+ actions on your behalf. All actions run through your own encrypted credentials.
 * **Discord**. send and receive messages via Discord. Connect your account to receive OpenHuman messages there.
@@ -66,8 +66,8 @@ Beyond third-party services, OpenHuman has **skills**, small sandboxed modules t
 
 Two capabilities ship native rather than as integrations because they're load-bearing for the desktop experience:
 
-* [**Voice**](voice.md). STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
-* [**Native tools**](native-tools.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
+* [**Voice**](native-tools/voice.md). STT in, TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+* [**Native tools**](native-tools/README.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
 
 ## Privacy boundary
 
@@ -77,5 +77,5 @@ See [Privacy & Security](privacy-and-security.md) for the full boundary.
 
 ## See also
 
-* [Auto-fetch from Integrations](auto-fetch.md)
+* [Auto-fetch from Integrations](obsidian-wiki/auto-fetch.md)
 * [Memory Tree](obsidian-wiki/memory-tree.md)

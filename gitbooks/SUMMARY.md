@@ -3,33 +3,34 @@
 ## Overview
 
 * [Welcome to OpenHuman](README.md)
-* [How It Works](overview/how-it-works.md)
 * [Getting Started](overview/getting-started.md)
 
 ## Features
 
+* [Realtime Mascot](features/mascot/README.md)
+  * [Meeting Agents](features/mascot/meeting-agents.md)
 * [Obsidian-Style Memory](features/obsidian-wiki/README.md)
   * [Memory Tree](features/obsidian-wiki/memory-tree.md)
-  * [Memory Tree Pipeline](features/obsidian-wiki/memory-tree-pipeline.md)
-* [Auto-fetch from Integrations](features/auto-fetch.md)
+  * [Auto-fetch from Integrations](features/obsidian-wiki/auto-fetch.md)
 * [Third-party Integrations (118+)](features/integrations.md)
 * [Smart Token Compression](features/token-compression.md)
-* [Automatic Model Routing](features/model-routing.md)
-* [The Mascot](features/mascot/README.md)
-  * [Meeting Agents](features/mascot/meeting-agents.md)
-* [Native Voice (ElevenLabs)](features/voice.md)
-* [Native Tools (search, scraper, coder)](features/native-tools.md)
-* [Local AI (optional)](features/local-ai.md)
+* [Automatic Model Routing](features/model-routing/README.md)
+  * [Local AI (optional)](features/model-routing/local-ai.md)
+* [Available Tools](features/native-tools/README.md)
+  * [Web Search](features/native-tools/web-search.md)
+  * [Web Scraper](features/native-tools/web-scraper.md)
+  * [Coder](features/native-tools/coder.md)
+  * [Browser & Computer Control](features/native-tools/browser-and-computer.md)
+  * [Cron & Scheduling](features/native-tools/cron.md)
+  * [Voice](features/native-tools/voice.md)
+  * [Memory Tools](features/native-tools/memory-tools.md)
+  * [Third-party Integrations](features/native-tools/integrations.md)
+  * [Agent Coordination](features/native-tools/agent-coordination.md)
+  * [System & Utilities](features/native-tools/system-and-utilities.md)
 * [Subconscious Loop](features/subconscious.md)
 * [Privacy & Security](features/privacy-and-security.md)
 * [Platform & Availability](features/platform.md)
-* [Architecture](features/architecture.md)
-
-## Settings Reference
-
-* [Account & Security](settings-reference/account-and-security.md)
-* [Automation & Channels](settings-reference/automation-and-channels.md)
-* [AI & Skills](settings-reference/ai-and-skills.md)
+* [Cloud Deploy](features/cloud-deploy.md)
 
 ## Developing
 
@@ -38,12 +39,12 @@
 * [Testing Strategy](developing/testing-strategy.md)
 * [E2E Testing](developing/e2e-testing.md)
 * [Release Policy](developing/release-policy.md)
-* [Cloud Deploy](developing/cloud-deploy.md)
 * [Chromium Embedded Framework](developing/cef.md)
-* [Coding Harness](developing/coding-harness.md)
 * [Agent Observability](developing/agent-observability.md)
-* [Frontend (app/src/)](developing/frontend.md)
-* [Tauri Shell (app/src-tauri/)](developing/tauri-shell.md)
+* [Architecture](developing/architecture/README.md)
+  * [Agent Harness](developing/architecture/agent-harness.md)
+  * [Frontend (app/src/)](developing/architecture/frontend.md)
+  * [Tauri Shell (app/src-tauri/)](developing/architecture/tauri-shell.md)
 
 ## Legal
 

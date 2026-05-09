@@ -30,7 +30,7 @@ Because the transcript is being structured live, the mascot can answer questions
 
 The agent is not muted. When you address it directly ("Ghosty, can you pull up the numbers from last quarter?"), or when it decides it has something useful to add, it generates a reply on the fly using the project's normal LLM stack and speaks it into the meeting.
 
-Conversational turns are routed through the fast model tier (see [Automatic Model Routing](../model-routing.md)) so the latency feels like talking to a person who's listening, not waiting on a chatbot.
+Conversational turns are routed through the fast model tier (see [Automatic Model Routing](../model-routing/README.md)) so the latency feels like talking to a person who's listening, not waiting on a chatbot.
 
 ### 4. It speaks - its own TTS audio plays back into the call
 
@@ -49,8 +49,8 @@ This is the difference between a transcription bot and a meeting *agent*.
 While the call is happening, the mascot has access to the same tool surface it has on your desktop:
 
 * **[Memory Tree](../obsidian-wiki/memory-tree.md)** - recall prior meetings, decisions, open threads, who said what last time, what's been promised.
-* **[Auto-fetch from integrations](../auto-fetch.md)** and **[third-party integrations](../integrations.md)** - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
-* **[Native tools](../native-tools.md)** - search the web, scrape a page, run a quick code/data lookup, all without leaving the call.
+* **[Auto-fetch from integrations](../obsidian-wiki/auto-fetch.md)** and **[third-party integrations](../integrations.md)** - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
+* **[Native tools](../native-tools/README.md)** - search the web, scrape a page, run a quick code/data lookup, all without leaving the call.
 * **[Subconscious Loop](../subconscious.md)** outputs - anything it has been working on in the background is already on hand.
 
 So when someone in the call asks "wait, didn't we decide to drop the Q3 launch last month?", the mascot doesn't just transcribe the question. It answers it - with the actual decision, the meeting it was made in, and who agreed.
@@ -81,7 +81,7 @@ The result, in practice, is that participants stop treating it like a bot and st
 Curious how this is wired up:
 
 * Brain - `src/openhuman/meet_agent/brain.rs` (LLM turns, speak/no-speak decisions, tool calls).
-* Voice plumbing - `src/openhuman/voice/` (STT in, TTS out, hallucination filter, postprocess). See [Native Voice](../voice.md).
+* Voice plumbing - `src/openhuman/voice/` (STT in, TTS out, hallucination filter, postprocess). See [Native Voice](../native-tools/voice.md).
 * Mascot canvas as outbound camera - `app/src/features/meet/MascotFrameProducer.tsx` and the Tauri-side `mascot_native_window.rs` window.
 * Embedded Meet webview - see [Chromium Embedded Framework](../../developing/cef.md). The Meet child webview ships with **zero injected JavaScript**; everything host-side runs natively via CDP.
 * Notable commits to read for context - `0bc74575` (live note-taking), `f1203479` (real LLM turns + tuned TTS), `b6d05cb4` (mascot canvas as outbound camera), `f5dce783` (mascot frame pipeline + off-screen meet window).
@@ -89,7 +89,7 @@ Curious how this is wired up:
 ## See also
 
 * [The Mascot](README.md) - the on-screen character itself, outside of meetings.
-* [Native Voice](../voice.md) - STT / TTS that the meeting agent rides on.
+* [Native Voice](../native-tools/voice.md) - STT / TTS that the meeting agent rides on.
 * [Memory Tree](../obsidian-wiki/memory-tree.md) - where transcripts and decisions land.
-* [Native Tools](../native-tools.md) - what the mascot can reach for mid-call.
-* [Automatic Model Routing](../model-routing.md) - why conversational turns feel low-latency.
+* [Native Tools](../native-tools/README.md) - what the mascot can reach for mid-call.
+* [Automatic Model Routing](../model-routing/README.md) - why conversational turns feel low-latency.

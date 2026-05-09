@@ -1,9 +1,11 @@
 ---
-description: The React + Vite frontend (`app/src/`) - architecture, state, services, providers, routing, components, hooks.
+description: >-
+  The React + Vite frontend (`app/src/`) - architecture, state, services,
+  providers, routing, components, hooks.
 icon: browsers
 ---
 
-# Frontend (`app/src/`)
+# Frontend (app/src/)
 
 The OpenHuman desktop UI: a Vite + React 19 tree under `app/src/` (Yarn workspace `openhuman-app`). It uses Redux Toolkit with persistence for session state, talks to the backend over REST + Socket.io, and calls the Rust core sidecar via JSON-RPC (`coreRpcClient` / Tauri `core_rpc_relay`). Heavy logic lives in the core, not here.
 
@@ -11,22 +13,22 @@ This is one consolidated reference. Use the table of contents above (or your rea
 
 ## Quick reference
 
-| Section | Covers |
-| --- | --- |
-| [Architecture](#architecture-overview) | Provider chain, build, layout, conventions |
-| [State Management](#state-management) | Redux Toolkit slices, selectors, persistence |
-| [Services Layer](#services-layer) | `apiClient`, `socketService`, `coreRpcClient` |
-| [Providers](#providers) | `User`, `Socket`, `AI`, `Skill` providers |
-| [Pages & Routing](#pages-routing) | `HashRouter`, route guards, main routes |
-| [Components](#components) | UI / settings component patterns |
-| [Hooks & Utilities](#hooks-utilities) | Shared hooks, helpers, config |
+| Section                                           | Covers                                        |
+| ------------------------------------------------- | --------------------------------------------- |
+| [Architecture](frontend.md#architecture-overview) | Provider chain, build, layout, conventions    |
+| [State Management](frontend.md#state-management)  | Redux Toolkit slices, selectors, persistence  |
+| [Services Layer](frontend.md#services-layer)      | `apiClient`, `socketService`, `coreRpcClient` |
+| [Providers](frontend.md#providers)                | `User`, `Socket`, `AI`, `Skill` providers     |
+| [Pages & Routing](frontend.md#pages-routing)      | `HashRouter`, route guards, main routes       |
+| [Components](frontend.md#components)              | UI / settings component patterns              |
+| [Hooks & Utilities](frontend.md#hooks-utilities)  | Shared hooks, helpers, config                 |
 
 ## Scale
 
-| Metric | Value |
-| --- | --- |
-| TypeScript / TSX files under `app/src/` | ~285 (`find app/src -name '*.ts' -o -name '*.tsx' \| wc -l` to refresh) |
-| Test runner | Vitest (`app/test/vitest.config.ts`) |
+| Metric                                  | Value                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| TypeScript / TSX files under `app/src/` | \~285 (`find app/src -name '*.ts' -o -name '*.tsx' \| wc -l` to refresh) |
+| Test runner                             | Vitest (`app/test/vitest.config.ts`)                                     |
 
 ## Directory layout
 
@@ -46,18 +48,17 @@ app/src/
 └── assets/                 # Icons and static assets
 ```
 
-
 ## Architecture overview
 
 ### System architecture
 
 OpenHuman’s desktop UI is a **React 19** app (`app/src/`) that:
 
-- Uses **Redux Toolkit** with persistence for session-related state
-- Connects to the backend with **REST** (`apiClient`) and **Socket.io** (`socketService`)
-- Calls the **Rust core** process over HTTP via **`coreRpcClient`** / Tauri **`core_rpc_relay`** (JSON-RPC methods implemented in repo root `src/openhuman/`, exposed through `core_server`)
-- Loads **AI prompts** from bundled `src/openhuman/agent/prompts` (repo root) and from Tauri **`ai_get_config`** when packaged
-- Uses a **minimal MCP-style** helper layer under `lib/mcp/` (transport, validation), not a large in-repo Telegram MCP tool bundle
+* Uses **Redux Toolkit** with persistence for session-related state
+* Connects to the backend with **REST** (`apiClient`) and **Socket.io** (`socketService`)
+* Calls the **Rust core** process over HTTP via **`coreRpcClient`** / Tauri **`core_rpc_relay`** (JSON-RPC methods implemented in repo root `src/openhuman/`, exposed through `core_server`)
+* Loads **AI prompts** from bundled `src/openhuman/agent/prompts` (repo root) and from Tauri **`ai_get_config`** when packaged
+* Uses a **minimal MCP-style** helper layer under `lib/mcp/` (transport, validation), not a large in-repo Telegram MCP tool bundle
 
 ### Entry points
 
@@ -115,33 +116,21 @@ services/
 
 #### Runtime config precedence
 
-The desktop app does not bake the core RPC URL or the API host into the
-bundle as a hard requirement. At runtime the app resolves them in this order
-(highest first):
+The desktop app does not bake the core RPC URL or the API host into the bundle as a hard requirement. At runtime the app resolves them in this order (highest first):
 
-1. **Login-screen RPC URL field**, saved via `utils/configPersistence` and
-   restored on next launch. End users configure the sidecar address here, not
-   by hand-editing `config.toml` or `.env` files.
-2. **Tauri `core_rpc_url` command**, the port the bundled sidecar is
-   listening on for this process.
+1. **Login-screen RPC URL field**, saved via `utils/configPersistence` and restored on next launch. End users configure the sidecar address here, not by hand-editing `config.toml` or `.env` files.
+2. **Tauri `core_rpc_url` command**, the port the bundled sidecar is listening on for this process.
 3. **`VITE_OPENHUMAN_CORE_RPC_URL`**, build-time fallback for development.
 4. The hardcoded `http://127.0.0.1:7788/rpc` default.
 
-Once the RPC handshake succeeds, `services/backendUrl` calls
-`openhuman.config_resolve_api_url` to pull `api_url` (and other safe client
-fields) from the loaded core `Config`. `VITE_BACKEND_URL` is only used as a
-web fallback when the app runs outside Tauri.
+Once the RPC handshake succeeds, `services/backendUrl` calls `openhuman.config_resolve_api_url` to pull `api_url` (and other safe client fields) from the loaded core `Config`. `VITE_BACKEND_URL` is only used as a web fallback when the app runs outside Tauri.
 
-Components that need the backend URL should call `useBackendUrl()` (or
-`getBackendUrl()` from non-React code), they must not import the static
-`BACKEND_URL` constant from `utils/config`, which represents the build-time
-value only.
+Components that need the backend URL should call `useBackendUrl()` (or `getBackendUrl()` from non-React code), they must not import the static `BACKEND_URL` constant from `utils/config`, which represents the build-time value only.
 
 ### Related docs
 
-- Rust architecture: [Architecture](architecture.md)
-- Tauri shell: [Tauri Shell](tauri-shell.md)
-
+* Rust architecture: [Architecture](../architecture.md)
+* Tauri shell: [Tauri Shell](tauri-shell.md)
 
 ## State Management
 
@@ -202,14 +191,14 @@ interface AuthState {
 
 **Actions:**
 
-- `setToken(token: string)` - Store JWT after login
-- `clearToken()` - Remove token on logout
-- `setOnboarded({ userId, isOnboarded })` - Mark user as onboarded
+* `setToken(token: string)` - Store JWT after login
+* `clearToken()` - Remove token on logout
+* `setOnboarded({ userId, isOnboarded })` - Mark user as onboarded
 
 **Selectors (`store/authSelectors.ts`):**
 
-- `selectToken` - Get current JWT
-- `selectIsOnboarded(userId)` - Check if user completed onboarding
+* `selectToken` - Get current JWT
+* `selectIsOnboarded(userId)` - Check if user completed onboarding
 
 #### Socket Slice (`store/socketSlice.ts`)
 
@@ -228,14 +217,14 @@ interface SocketState {
 
 **Actions:**
 
-- `setSocketStatus({ userId, status })` - Update connection status
-- `setSocketId({ userId, socketId })` - Store socket ID
-- `clearSocketState(userId)` - Clear user's socket state
+* `setSocketStatus({ userId, status })` - Update connection status
+* `setSocketId({ userId, socketId })` - Store socket ID
+* `clearSocketState(userId)` - Clear user's socket state
 
 **Selectors (`store/socketSelectors.ts`):**
 
-- `selectSocketStatus(userId)` - Get connection status
-- `selectIsSocketConnected(userId)` - Boolean connected check
+* `selectSocketStatus(userId)` - Get connection status
+* `selectIsSocketConnected(userId)` - Boolean connected check
 
 #### User Slice (`store/userSlice.ts`)
 
@@ -253,10 +242,10 @@ interface UserState {
 
 **Actions:**
 
-- `setUser(user)` - Store user profile
-- `setUserLoading(loading)` - Set loading state
-- `setUserError(error)` - Set error state
-- `clearUser()` - Clear profile on logout
+* `setUser(user)` - Store user profile
+* `setUserLoading(loading)` - Set loading state
+* `setUserError(error)` - Set error state
+* `clearUser()` - Clear profile on logout
 
 #### Telegram Slice (`store/telegram/`)
 
@@ -264,11 +253,11 @@ Complex nested state management for Telegram integration.
 
 **Files:**
 
-- `index.ts` - Slice exports (actions, thunks)
-- `types.ts` - Entity and state interfaces
-- `reducers.ts` - Synchronous reducers
-- `extraReducers.ts` - Async thunk handlers
-- `thunks.ts` - Async operations
+* `index.ts` - Slice exports (actions, thunks)
+* `types.ts` - Entity and state interfaces
+* `reducers.ts` - Synchronous reducers
+* `extraReducers.ts` - Async thunk handlers
+* `thunks.ts` - Async operations
 
 **State Structure:**
 
@@ -287,29 +276,29 @@ telegram.byUser[telegramUserId] = {
 
 **Reducers:**
 
-- `setCurrentUser` - Store authenticated Telegram user
-- `setSessionString` - Store MTProto session (for persistence)
-- `setConnectionStatus` - Update connection state
-- `setAuthStatus` - Update authentication state
-- `addChat` / `updateChat` - Manage chat list
-- `addMessage` / `updateMessage` - Manage message history
-- `setThreads` - Store thread data
+* `setCurrentUser` - Store authenticated Telegram user
+* `setSessionString` - Store MTProto session (for persistence)
+* `setConnectionStatus` - Update connection state
+* `setAuthStatus` - Update authentication state
+* `addChat` / `updateChat` - Manage chat list
+* `addMessage` / `updateMessage` - Manage message history
+* `setThreads` - Store thread data
 
 **Thunks (`store/telegram/thunks.ts`):**
 
-- `initializeTelegram(userId)` - Initialize MTProto client
-- `connectTelegram(userId)` - Establish Telegram connection
-- `fetchChats(userId)` - Load chat list
-- `fetchMessages({ userId, chatId })` - Load message history
-- `disconnectTelegram(userId)` - Clean disconnect
+* `initializeTelegram(userId)` - Initialize MTProto client
+* `connectTelegram(userId)` - Establish Telegram connection
+* `fetchChats(userId)` - Load chat list
+* `fetchMessages({ userId, chatId })` - Load message history
+* `disconnectTelegram(userId)` - Clean disconnect
 
 **Selectors (`store/telegramSelectors.ts`):**
 
-- `selectTelegramState(userId)` - Get full Telegram state
-- `selectTelegramConnectionStatus(userId)` - Get connection status
-- `selectTelegramAuthStatus(userId)` - Get auth status
-- `selectTelegramChats(userId)` - Get chat list
-- `selectTelegramMessages(userId, chatId)` - Get messages for chat
+* `selectTelegramState(userId)` - Get full Telegram state
+* `selectTelegramConnectionStatus(userId)` - Get connection status
+* `selectTelegramAuthStatus(userId)` - Get auth status
+* `selectTelegramChats(userId)` - Get chat list
+* `selectTelegramMessages(userId, chatId)` - Get messages for chat
 
 ### Typed Hooks
 
@@ -325,15 +314,15 @@ export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 #### What's Persisted
 
-- `auth.token` - JWT for authentication
-- `auth.isOnboardedByUser` - Per-user onboarding status
-- `telegram.byUser` - Telegram state (sessions, chats, etc.)
+* `auth.token` - JWT for authentication
+* `auth.isOnboardedByUser` - Per-user onboarding status
+* `telegram.byUser` - Telegram state (sessions, chats, etc.)
 
 #### What's NOT Persisted
 
-- `socket` - Connection state (reconnects on app start)
-- `user.loading` / `user.error` - Transient UI states
-- Telegram loading/error states
+* `socket` - Connection state (reconnects on app start)
+* `user.loading` / `user.error` - Transient UI states
+* Telegram loading/error states
 
 #### Storage Backend
 
@@ -396,9 +385,7 @@ function MyComponent({ userId }) {
 4. **Per-user state scoping** - Key state by user ID
 5. **Avoid localStorage** - Use Redux-Persist instead
 
----
-
-
+***
 
 ## Services Layer
 
@@ -425,10 +412,10 @@ HTTP REST client for backend communication.
 
 #### Features
 
-- Fetch-based implementation
-- Auto-injects JWT from Redux store
-- Typed request/response handling
-- Error handling with typed errors
+* Fetch-based implementation
+* Auto-injects JWT from Redux store
+* Typed request/response handling
+* Error handling with typed errors
 
 #### Usage
 
@@ -501,10 +488,10 @@ Socket.io client singleton for real-time communication.
 
 #### Features
 
-- Singleton pattern - single connection per app
-- Auth token passed in socket `auth` object
-- Transports: polling first, then WebSocket upgrade
-- Auto-reconnection handling
+* Singleton pattern - single connection per app
+* Auth token passed in socket `auth` object
+* Transports: polling first, then WebSocket upgrade
+* Auto-reconnection handling
 
 #### API
 
@@ -618,9 +605,7 @@ These wrap user profile loading, AI/memory client coordination, and skills catal
 4. **Handle errors gracefully** - Retry for transient failures
 5. **Pass auth via proper channels** - Socket auth object, not query string
 
----
-
-
+***
 
 ## Providers
 
@@ -666,9 +651,9 @@ Manages realtime connectivity: **web** uses the JS Socket.io client; **Tauri** b
 
 #### Responsibilities
 
-- Connect when `auth.token` is available; disconnect when cleared
-- In Tauri: install listeners once, connect Rust socket, coordinate daemon lifecycle (`useDaemonLifecycle`)
-- Update Redux socket slice / connection status
+* Connect when `auth.token` is available; disconnect when cleared
+* In Tauri: install listeners once, connect Rust socket, coordinate daemon lifecycle (`useDaemonLifecycle`)
+* Update Redux socket slice / connection status
 
 #### Implementation
 
@@ -715,8 +700,8 @@ Minimal user context provider (most user state is in Redux).
 
 #### Responsibilities
 
-- Legacy user context for compatibility
-- May be deprecated in favor of Redux
+* Legacy user context for compatibility
+* May be deprecated in favor of Redux
 
 #### Implementation
 
@@ -810,8 +795,8 @@ useEffect(() => {
 
 Example:
 
-- `SocketContext` provides `socket` instance and `emit` method
-- Redux stores `socketStatus` and `socketId`
+* `SocketContext` provides `socket` instance and `emit` method
+* Redux stores `socketStatus` and `socketId`
 
 ### Testing Providers
 
@@ -856,9 +841,7 @@ test('SocketProvider connects when token is available', () => {
 });
 ```
 
----
-
-
+***
 
 ## Pages & Routing
 
@@ -998,9 +981,9 @@ Landing page for unauthenticated users.
 
 **Features:**
 
-- App introduction and branding
-- CTA to login/signup
-- Public route (redirects if authenticated)
+* App introduction and branding
+* CTA to login/signup
+* Public route (redirects if authenticated)
 
 #### Login Page (`pages/Login.tsx`)
 
@@ -1008,9 +991,9 @@ Authentication page.
 
 **Features:**
 
-- Telegram OAuth button
-- Opens `/auth/telegram?platform=desktop` in browser
-- Handles deep link callback
+* Telegram OAuth button
+* Opens `/auth/telegram?platform=desktop` in browser
+* Handles deep link callback
 
 ```typescript
 export function Login() {
@@ -1033,10 +1016,10 @@ Main dashboard after authentication.
 
 **Features:**
 
-- Protected route (requires auth + onboarded)
-- Connection status indicators
-- Navigation to settings modal
-- Future: Chat list, messages, etc.
+* Protected route (requires auth + onboarded)
+* Connection status indicators
+* Navigation to settings modal
+* Future: Chat list, messages, etc.
 
 ```typescript
 export function Home() {
@@ -1280,9 +1263,7 @@ const location = useLocation();
 const { itemId } = location.state;
 ```
 
----
-
-
+***
 
 ## Components
 
@@ -1437,10 +1418,10 @@ const [showModal, setShowModal] = useState(false);
 
 **Features:**
 
-- QR code login flow
-- Phone number login flow
-- Connection status display
-- Error handling
+* QR code login flow
+* Phone number login flow
+* Connection status display
+* Error handling
 
 #### GmailConnectionIndicator
 
@@ -1636,7 +1617,7 @@ export function ConnectionsPanel() {
 
 #### Settings Hooks
 
-##### useSettingsNavigation
+**useSettingsNavigation**
 
 URL-based navigation for settings modal.
 
@@ -1660,7 +1641,7 @@ navigateBack(); // → /settings
 closeModal(); // → previous non-settings route
 ```
 
-##### useSettingsAnimation
+**useSettingsAnimation**
 
 Animation state management.
 
@@ -1680,7 +1661,7 @@ const { animationClass } = useSettingsAnimation();
 
 #### Settings Components
 
-##### SettingsHeader
+**SettingsHeader**
 
 User profile section at top of settings.
 
@@ -1693,7 +1674,7 @@ interface SettingsHeaderProps {
 <SettingsHeader user={user} onClose={handleClose} />
 ```
 
-##### SettingsMenuItem
+**SettingsMenuItem**
 
 Individual menu item with icon and chevron.
 
@@ -1714,7 +1695,7 @@ interface SettingsMenuItemProps {
 />
 ```
 
-##### SettingsBackButton
+**SettingsBackButton**
 
 Back navigation button.
 
@@ -1726,7 +1707,7 @@ interface SettingsBackButtonProps {
 <SettingsBackButton onClick={navigateBack} />
 ```
 
-##### SettingsPanelLayout
+**SettingsPanelLayout**
 
 Wrapper for settings panels.
 
@@ -1794,9 +1775,7 @@ const [isOpen, setIsOpen] = useState(false);
 />
 ```
 
----
-
-
+***
 
 ## Hooks & Utilities
 
@@ -1904,7 +1883,7 @@ function ProfileHeader() {
 
 #### Settings Modal Hooks
 
-##### useSettingsNavigation (`components/settings/hooks/useSettingsNavigation.ts`)
+**useSettingsNavigation (`components/settings/hooks/useSettingsNavigation.ts`)**
 
 URL-based navigation for settings modal.
 
@@ -1937,7 +1916,7 @@ function SettingsMenu() {
 }
 ```
 
-##### useSettingsAnimation (`components/settings/hooks/useSettingsAnimation.ts`)
+**useSettingsAnimation (`components/settings/hooks/useSettingsAnimation.ts`)**
 
 Animation state management for settings modal.
 
@@ -1967,9 +1946,7 @@ function SettingsModal() {
 
 #### Configuration (`utils/config.ts`)
 
-Build-time environment variable access. These constants only carry the value
-that was baked into the bundle, for the **runtime** URL the app actually
-talks to, see `services/backendUrl` and `hooks/useBackendUrl` below.
+Build-time environment variable access. These constants only carry the value that was baked into the bundle, for the **runtime** URL the app actually talks to, see `services/backendUrl` and `hooks/useBackendUrl` below.
 
 ```typescript
 // Build-time fallback only (used outside Tauri).
@@ -1989,9 +1966,7 @@ if (DEBUG) {
 }
 ```
 
-> **Do not** import `BACKEND_URL` directly to make API calls. Resolve the URL
-> at runtime so the core sidecar's `api_url` (set on the login screen via
-> `openhuman.config_resolve_api_url`) takes effect:
+> **Do not** import `BACKEND_URL` directly to make API calls. Resolve the URL at runtime so the core sidecar's `api_url` (set on the login screen via `openhuman.config_resolve_api_url`) takes effect:
 >
 > ```typescript
 > // React components
@@ -2296,6 +2271,4 @@ const user = await apiClient.get<User>('/users/me');
 // user is typed as User
 ```
 
----
-
-
+***

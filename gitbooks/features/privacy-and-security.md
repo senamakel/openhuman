@@ -1,7 +1,4 @@
 ---
-description: >-
-  What stays on your machine vs. what crosses the OpenHuman backend, where
-  OAuth tokens live, and how to revoke or wipe data.
 icon: shield
 ---
 
@@ -21,27 +18,27 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 **No training on your data.** Your conversations, your Memory Tree, and your personal information are never used to train AI models or improve systems.
 
-**Optional [Local AI](../features/local-ai.md).** If you want embeddings and summary-tree building to stay on your machine, opt in. Heartbeat / learning / subconscious loops can be moved on-device the same way.
+**Optional** [**Local AI**](model-routing/local-ai.md)**.** If you want embeddings and summary-tree building to stay on your machine, opt in. Heartbeat / learning / subconscious loops can be moved on-device the same way.
 
 ***
 
 ## What stays on your machine
 
-| | |
-| --- | --- |
-| **Memory Tree SQLite database** | Local - `<workspace>/memory_tree/chunks.db`. |
-| **Obsidian Markdown vault** | Local - `<workspace>/wiki/`. Yours to read, edit, copy, delete. |
-| **Audio capture buffers** | Local. Discarded after STT. |
-| **Local model state** | Local. |
+|                                 |                                                                 |
+| ------------------------------- | --------------------------------------------------------------- |
+| **Memory Tree SQLite database** | Local - `<workspace>/memory_tree/chunks.db`.                    |
+| **Obsidian Markdown vault**     | Local - `<workspace>/wiki/`. Yours to read, edit, copy, delete. |
+| **Audio capture buffers**       | Local. Discarded after STT.                                     |
+| **Local model state**           | Local.                                                          |
 
 ## What the OpenHuman backend handles
 
-| | |
-| --- | --- |
-| **LLM calls** | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](../features/model-routing.md). |
-| **Web search proxy** | The native [web search tool](../features/native-tools.md) calls a backend proxy so you don't carry a search API key. |
-| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/integrations.md). |
-| **TTS streaming** | [ElevenLabs](../features/voice.md) audio streams. Audio is generated and discarded - not retained. |
+|                                    |                                                                                                                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **LLM calls**                      | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](model-routing/). |
+| **Web search proxy**               | The native [web search tool](native-tools/web-search.md) calls a backend proxy so you don't carry a search API key.                                                                   |
+| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](integrations.md).                                                                                 |
+| **TTS streaming**                  | Hosted [text-to-speech](native-tools/voice.md) audio streams. Audio is generated and discarded - not retained.                                                                          |
 
 ***
 
@@ -49,11 +46,11 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 OpenHuman accesses an integration only after you complete its OAuth flow. Each connection has its own scope; you can revoke any of them at any time from the Skills tab.
 
-[Auto-fetch](../features/auto-fetch.md) does run continuously while a connection is active, that is the whole point. But it is bound by:
+[Auto-fetch](obsidian-wiki/auto-fetch.md) does run continuously while a connection is active, that is the whole point. But it is bound by:
 
-- The **OAuth scope** you granted that integration.
-- A **per-provider sync interval** (e.g. Gmail every 15 min by default).
-- A **daily budget** per connection that caps API usage.
+* The **OAuth scope** you granted that integration.
+* A **per-provider sync interval** (e.g. Gmail every 15 min by default).
+* A **daily budget** per connection that caps API usage.
 
 If you revoke a connection, the next tick stops syncing it; chunks already in your local Memory Tree remain there because they're yours.
 
@@ -67,7 +64,7 @@ Because canonicalization, chunking, scoring and summary trees all run **inside y
 
 Compression and locality together become the privacy architecture.
 
-<figure><img src="../.gitbook/assets/V17. Privacy Shield@2x.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/V17 - Privacy Shield@2x.png" alt=""><figcaption></figcaption></figure>
 
 ## Security
 
@@ -75,7 +72,7 @@ Compression and locality together become the privacy architecture.
 
 **Sandboxed skills.** Each skill runs in its own isolated execution environment with enforced memory and resource limits. Skills cannot access each other's data, the host system's file system, or your credentials.
 
-**Workspace-scoped tools.** The native [filesystem tools](../features/native-tools.md) operate within the workspace the user opens; they do not have ambient access to the rest of the disk.
+**Workspace-scoped tools.** The native [filesystem tools](native-tools/coder.md) operate within the workspace the user opens; they do not have ambient access to the rest of the disk.
 
 **Short-lived tokens.** Authentication tokens between the app and the backend are time-limited.
 

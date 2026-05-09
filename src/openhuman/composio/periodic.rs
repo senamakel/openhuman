@@ -37,13 +37,13 @@ use super::providers::{get_provider, ProviderContext, SyncReason};
 /// from per-provider `sync_interval_secs` — this just bounds how long
 /// past a provider's interval we might fire.
 ///
-/// 5 min trades a little staleness for noticeably less foreground load:
+/// 20 min trades a little staleness for noticeably less foreground load:
 /// each tick triggers an HTTP fetch + DB write per due connection, and
 /// for users with several connected providers the old 60s cadence kept
 /// the laptop visibly busy. Per-provider `sync_interval_secs` still
 /// caps the *minimum* delay between actual syncs — this only loosens
 /// the upper bound.
-const TICK_SECONDS: u64 = 300;
+const TICK_SECONDS: u64 = 1200;
 
 /// Process-wide guard so the scheduler is only started once even
 /// when both `start_channels` and `bootstrap_skill_runtime` call into
@@ -236,7 +236,7 @@ mod tests {
     fn tick_seconds_is_sane_default() {
         // Sanity check: don't accidentally ship a 1-second tick.
         assert!(TICK_SECONDS >= 30);
-        assert!(TICK_SECONDS <= 600);
+        assert!(TICK_SECONDS <= 3600);
     }
 
     #[test]

@@ -111,7 +111,7 @@ The CDP surface is general-purpose. Today it powers memory ingest from a fixed l
 
 ### Browser automation as a first-class agent tool
 
-Today the agent has [native tools](../features/native-tools.md) for filesystem, git, web search, and web fetch. The next obvious tool is **"drive a real browser session"**: log into a SaaS the user is already authed in, fill a form, scrape a paginated table, download an export.
+Today the agent has [native tools](../features/native-tools/README.md) for filesystem, git, web search, and web fetch. The next obvious tool is **"drive a real browser session"**: log into a SaaS the user is already authed in, fill a form, scrape a paginated table, download an export.
 
 The plumbing is already there. A `@openhuman/browser_task` skill could spin up a dedicated CEF webview, drive it via CDP from the core, and surface the result as a tool call. The user's existing per-account profiles mean no re-auth.
 

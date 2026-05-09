@@ -13,14 +13,21 @@ Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman i
 
 A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](../integrations/README.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
 
-```mermaid
-flowchart TD
-    Tick["every 20 min"] --> Loop["for each active connection<br/>(Gmail, Notion, GitHub, …)"]
-    Loop --> State["check sync_state (toolkit, connection_id)<br/>• last sync timestamp<br/>• daily budget<br/>• dedup set<br/>• cursor"]
-    State --> Gate{"interval elapsed?"}
-    Gate -- yes --> Sync["provider.sync()"]
-    Gate -- no --> Skip["skip this connection"]
-    Sync --> Record["record_sync_success(ts)"]
+```
+every 20 min
+    |
+    v
+for each active connection (Gmail, Notion, GitHub, ...)
+    |
+    +--> check sync_state (toolkit, connection_id)
+    |       - last sync timestamp
+    |       - daily budget
+    |       - dedup set
+    |       - cursor
+    |
+    +--> if interval elapsed -> provider.sync()
+            |
+            +--> on success -> record_sync_success(ts)
 ```
 
 A few things matter here:

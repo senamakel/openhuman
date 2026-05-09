@@ -13,18 +13,29 @@ The Memory Tree is OpenHuman's knowledge base. It is not a vector database with 
 
 Every source you connect feeds the same pipeline:
 
-```mermaid
-flowchart TD
-    Adapters["source adapters<br/>(chat / email / document)"]
-    Canon["canonicalize<br/>normalised Markdown + provenance metadata"]
-    Chunker["chunker<br/>deterministic IDs, ≤3k-token bounded segments"]
-    ContentStore["content_store<br/>atomic .md files on disk (body + tags)"]
-    Store["store<br/>persistence (chunks, scores, summaries, jobs)"]
-    Score["score<br/>signals + embeddings + entity extraction"]
-    Trees["source / topic / global trees<br/>per-scope summary trees"]
-    Retrieval["retrieval<br/>search · drill_down · topic · global · fetch"]
-
-    Adapters --> Canon --> Chunker --> ContentStore --> Store --> Score --> Trees --> Retrieval
+```
+source adapters (chat / email / document)
+        |
+        v
+canonicalize    normalised Markdown + provenance metadata
+        |
+        v
+chunker         deterministic IDs, <=3k-token bounded segments
+        |
+        v
+content_store   atomic .md files on disk (body + tags)
+        |
+        v
+store           persistence (chunks, scores, summaries, jobs)
+        |
+        v
+score           signals + embeddings + entity extraction
+        |
+        v
+source / topic / global trees   per-scope summary trees
+        |
+        v
+retrieval       search / drill_down / topic / global / fetch
 ```
 
 The hot path (canonicalize → chunk → fast-score → persist → enqueue follow-up work) is fast. Heavy work - embeddings, entity extraction, sealing summary buckets, daily digests - runs in background workers so the UI never blocks.
@@ -115,11 +126,10 @@ A scheduler loop runs independently of the ingest path. At 00:00 UTC each day it
 
 Each chunk moves through a small state machine:
 
-```mermaid
-flowchart LR
-    Pending["pending_extraction"] --> Admitted["admitted"]
-    Pending --> Dropped["dropped"]
-    Admitted --> Buffered["buffered"] --> Sealed["sealed"]
+```
+pending_extraction --> admitted --> buffered --> sealed
+        \
+         --> dropped
 ```
 
 * Extraction decides `admitted` vs `dropped` based on the deep score.

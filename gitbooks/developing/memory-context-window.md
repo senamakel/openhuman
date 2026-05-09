@@ -1,3 +1,8 @@
+---
+description: How much long-term memory the agent injects per session — Minimal / Balanced / Extended / Maximum presets.
+icon: memory
+---
+
 # Long-term memory window
 
 User-facing setting that controls how much long-term memory OpenHuman injects

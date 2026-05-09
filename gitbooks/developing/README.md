@@ -44,7 +44,7 @@ The high-level shape lives in [Architecture](../technology/architecture.md). The
 Anything not yet migrated lives under [`docs/`](https://github.com/tinyhumansai/openhuman/tree/main/docs) in the repo. Notable references:
 
 - [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md) — canonical architecture.
-- [`docs/MEMORY_CONTEXT_WINDOW.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/MEMORY_CONTEXT_WINDOW.md) — memory subsystem internals.
+- [Memory Context Window](memory-context-window.md) — long-term memory injection presets.
 - [`docs/PROMPT_INJECTION_GUARD.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/PROMPT_INJECTION_GUARD.md) — security model.
 - [`docs/skills-runtime-isolation.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/skills-runtime-isolation.md) — QuickJS isolation guarantees.
 - [`docs/src/`](https://github.com/tinyhumansai/openhuman/tree/main/docs/src) — frontend chapter docs.

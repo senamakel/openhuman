@@ -8,7 +8,7 @@ on:
       - .dockerignore
       - docker-compose.yml
       - .do/app.yaml
-      - docs/CLOUD_DEPLOY.md
+      - gitbooks/developing/cloud-deploy.md
       - .github/workflows/deploy-smoke.yml
       - Cargo.toml
       - Cargo.lock
@@ -20,7 +20,7 @@ on:
       - .dockerignore
       - docker-compose.yml
       - .do/app.yaml
-      - docs/CLOUD_DEPLOY.md
+      - gitbooks/developing/cloud-deploy.md
       - .github/workflows/deploy-smoke.yml
       - Cargo.toml
       - Cargo.lock

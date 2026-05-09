@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// bounded (`Maximum` ≈ 8 000 chars of recall + ≈ 128 000 chars of root
 /// summary, ≈ 32k tokens) so users cannot accidentally blow up prompts.
 ///
-/// See `docs/MEMORY_CONTEXT_WINDOW.md` for the user-facing tradeoff
+/// See `gitbooks/developing/memory-context-window.md` for the user-facing tradeoff
 /// guidance and the per-preset numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "lowercase")]

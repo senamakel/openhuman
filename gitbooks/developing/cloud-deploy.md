@@ -1,3 +1,8 @@
+---
+description: Hosting the headless openhuman-core in the cloud — DigitalOcean App Platform or Docker Compose on any VPS.
+icon: cloud
+---
+
 # Cloud deployment
 
 OpenHuman is a desktop app, but its **Rust core** (`openhuman-core`) is a

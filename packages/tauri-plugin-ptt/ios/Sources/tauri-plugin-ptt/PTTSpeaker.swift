@@ -6,9 +6,9 @@ import os.log
 
 private let log = Logger(subsystem: "ai.openhuman.ptt", category: "PTTSpeaker")
 
-/// Wraps `AVSpeechSynthesizer` and delegates lifecycle events back to
-/// `PTTPlugin` via closures so the plugin can emit Tauri events.
-final class PTTSpeaker: NSObject, AVSpeechSynthesizerDelegate {
+// AVSpeechSynthesizer is not Sendable; PTT operations are serialized by the
+// plugin's command actor above, so the unchecked conformance is sound here.
+final class PTTSpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     // MARK: - State
 
     private let synthesizer = AVSpeechSynthesizer()

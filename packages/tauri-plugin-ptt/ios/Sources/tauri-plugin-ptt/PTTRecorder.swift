@@ -44,6 +44,11 @@ final class PTTRecorder {
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
 
+    // Latest partial transcript captured inside the recognitionTask result
+    // handler. SFSpeechRecognitionTask exposes no `result` property, so we
+    // mirror it here for stopListening() to read on tear-down.
+    private var latestTranscript = ""
+
     private var isRecording = false
 
     /// Emitted for each partial result while the user speaks.
@@ -145,6 +150,7 @@ final class PTTRecorder {
 
             if let result {
                 let text = result.bestTranscription.formattedString
+                self.latestTranscript = text
                 log.debug("[ptt] PTTRecorder: partial text_len=\(text.count)")
                 self.onPartialTranscript?(text)
             }
@@ -181,7 +187,8 @@ final class PTTRecorder {
         recognitionRequest?.endAudio()
         recognitionTask?.finish()
 
-        let finalText = recognitionTask?.result?.bestTranscription.formattedString ?? ""
+        let finalText = latestTranscript
+        latestTranscript = ""
         log.debug("[ptt] PTTRecorder: final text_len=\(finalText.count)")
 
         cleanupEngine()
@@ -212,6 +219,7 @@ final class PTTRecorder {
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         cleanupEngine()
+        latestTranscript = ""
         AudioSessionManager.shared.deactivate()
         isRecording = false
     }

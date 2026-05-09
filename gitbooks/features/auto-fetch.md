@@ -1,6 +1,6 @@
 ---
 description: >-
-  Every five minutes, OpenHuman walks every active integration and folds new
+  Every twenty minutes, OpenHuman walks every active integration and folds new
   data into your memory tree. No prompts, no polling loops you have to write.
 icon: arrows-rotate
 ---
@@ -11,11 +11,11 @@ Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman i
 
 ## How it works
 
-A single periodic scheduler ticks every five minutes. On each tick it walks every active [integration](integrations.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
+A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](integrations.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ every 5 min │
+│ every 20 min │
 │ │ │
 │ ▼ │
 │ for each active connection (Gmail, Notion, GitHub, …): │
@@ -34,7 +34,7 @@ A single periodic scheduler ticks every five minutes. On each tick it walks ever
 
 A few things matter here:
 
-* **One global tick, not one task per connection.** The number of connections per user is small; a single 5-minute tick is enough and keeps bookkeeping trivial.
+* **One global tick, not one task per connection.** The number of connections per user is small; a single 20-minute tick is enough and keeps bookkeeping trivial.
 * **State is per `(toolkit, connection_id)`.** Each connection has its own cursor, its own last-sync timestamp, its own dedup set, its own daily budget. Restarts rebuild this from local KV, a missed periodic sync is harmless because the next tick after restart picks it back up.
 * **Native syncs are shared with event-driven paths.** When a webhook or `on_connection_created` event fires a non-periodic sync, it stamps the same sync\_state, so the scheduler doesn't redundantly re-fire.
 * **Errors are logged and swallowed.** The scheduler must never panic out of its loop, or periodic sync stops silently for the rest of the process lifetime.
@@ -45,9 +45,9 @@ Each provider is responsible for shaping its own ingest. The Gmail provider, for
 
 Other providers (GitHub, Slack, Notion, …) follow the same shape: fetch new items since cursor → canonicalize → ingest into the [Memory Tree](obsidian-wiki/memory-tree.md).
 
-## Why a 5-minute tick
+## Why a 20-minute tick
 
-The original design ran at 60 seconds. With several connected providers, that meant a steady drumbeat of HTTP fetches and DB writes, visibly busy on a laptop. Five minutes trades a little staleness for noticeably less foreground load. The per-provider `sync_interval_secs` still caps the _minimum_ delay between actual syncs; the global tick only loosens the upper bound.
+The original design ran at 60 seconds. With several connected providers, that meant a steady drumbeat of HTTP fetches and DB writes, visibly busy on a laptop. Twenty minutes trades a little staleness for noticeably less foreground load. The per-provider `sync_interval_secs` still caps the _minimum_ delay between actual syncs; the global tick only loosens the upper bound.
 
 ## Tuning and visibility
 

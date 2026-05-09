@@ -24,7 +24,7 @@ Configure the default messaging channel and auth modes.
 
 #### Auto-fetch & Cron Jobs
 
-OpenHuman runs a global [auto-fetch](../features/auto-fetch.md) tick every five minutes that walks every active connection and pulls fresh data into the [Memory Tree](../features/obsidian-wiki/memory-tree.md). On top of that:
+OpenHuman runs a global [auto-fetch](../features/auto-fetch.md) tick every twenty minutes that walks every active connection and pulls fresh data into the [Memory Tree](../features/obsidian-wiki/memory-tree.md). On top of that:
 
 **Core Cron Jobs:** System-level jobs in the OpenHuman core scheduler database.
 

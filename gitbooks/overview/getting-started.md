@@ -49,7 +49,7 @@ Recommended starting points:
 * **Notion**. for structured docs and exports.
 * **GitHub**. if you write code.
 
-Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/auto-fetch.md) tick will start syncing it within five minutes.
+Click **Connect** on any integration, complete the OAuth flow, and the next [auto-fetch](../features/auto-fetch.md) tick will start syncing it within twenty minutes.
 
 ***
 

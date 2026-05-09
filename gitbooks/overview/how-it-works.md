@@ -28,7 +28,7 @@ You can't trust a memory you can't read. The vault is the inverse of the usual "
 
 OpenHuman ships with **118+ third-party integrations**. Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, and more. Connecting any of them is a one-click OAuth flow.
 
-Once connected, the [auto-fetch scheduler](../features/auto-fetch.md) ticks every five minutes, pulls fresh data from every active connection, and pipes the results through the same ingest path the manual UI uses. By the time you ask "what landed in my inbox overnight?", the answer is already in the memory tree.
+Once connected, the [auto-fetch scheduler](../features/auto-fetch.md) ticks every twenty minutes, pulls fresh data from every active connection, and pipes the results through the same ingest path the manual UI uses. By the time you ask "what landed in my inbox overnight?", the answer is already in the memory tree.
 
 ### 4. An agent with the right tools, the right model, and a budget
 
@@ -45,7 +45,7 @@ When you talk to the agent, four things happen behind the scenes:
 ┌────────────────────────────────────────────────────────────┐
 │ Third-party services (118+) │
 │ ▲ ▲ │
-│ one-click auto-fetch every 5 min │
+│ one-click auto-fetch every 20 min │
 └──────┼───────────┼─────────────────────────────────────────┘
  │ │
  ▼ ▼

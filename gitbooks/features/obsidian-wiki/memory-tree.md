@@ -75,7 +75,7 @@ Trees give you compression _and_ navigation. Embeddings still live inside (in `s
 
 ## Triggering ingest
 
-* **Automatic**. every active integration is auto-fetched every five minutes; see [Auto-fetch](../auto-fetch.md).
+* **Automatic**. every active integration is auto-fetched every twenty minutes; see [Auto-fetch](../auto-fetch.md).
 * **Manual**. the Memory tab in the desktop app exposes a "Run ingest" trigger per source.
 * **RPC**. `openhuman.memory_tree_ingest` for advanced workflows.
 

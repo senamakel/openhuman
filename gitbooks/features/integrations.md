@@ -14,7 +14,7 @@ OpenHuman ships with backend-proxied access to **118+ third-party services**. Co
 Once a service is connected, it shows up in three places at once:
 
 1. As an **agent tool**, the model can call it directly.
-2. As a **memory source**, [auto-fetch](auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every five minutes.
+2. As a **memory source**, [auto-fetch](auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every twenty minutes.
 3. As a **profile signal**, your activity across services feeds your personalization.
 
 ## Some of what's in the catalog
@@ -38,7 +38,7 @@ Some services have **native providers**. Rust modules that know how to ingest th
 
 ## How connections work
 
-Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](auto-fetch.md) on the next 5-minute tick.
+Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](auto-fetch.md) on the next 20-minute tick.
 
 Each integration shows its current status:
 

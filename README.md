@@ -49,7 +49,7 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)** — A local-first knowledge base built from your data and your activity. Everything you connect is canonicalized into ≤3k-token Markdown chunks, scored, and folded into hierarchical summary trees stored in **SQLite on your machine**. The same chunks land as `.md` files in an Obsidian-compatible vault you can open, browse and edit — inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595).
 
-- **[Auto-fetch from your stack](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — Every five minutes the core walks each active connection and pulls fresh data into the memory tree. No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
+- **[Auto-fetch from your stack](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — Every twenty minutes the core walks each active connection and pulls fresh data into the memory tree. No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
 
 - **[Smart token compression (TokenJuice)](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — Verbose tool output (git, npm, cargo, docker, large emails) is compacted by a rule overlay before it ever enters LLM context. Sweeping through thousands of emails stays cheap because the model never sees the noise.
 
@@ -65,6 +65,14 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](https://tinyhumans.gitbook.io/openhuman/developing/cloud-deploy) · [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
+## Memory in minutes, not weeks
+
+Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
+
+OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch) pull from every integration on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) canonicalizes everything into ≤3k-token Markdown chunks scored and folded into hierarchical summary trees — Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk, queryable SQLite under the hood. One sync pass and the agent has read your inbox, your calendar, your repos, your docs. No training period. No "give it a few weeks."
+
+Connect → sync → ingest → done.
+
 ## OpenHuman vs Other Agent Harnesses
 
 High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data — not only chat.
@@ -76,7 +84,7 @@ High-level comparison (products evolve—verify against each vendor). OpenHuman 
 | **Cost**            | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
 | **Memory**          | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault    |
 | **Integrations**    | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 118+ via OAuth                  |
-| **Auto-fetch**      | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 5-min sync into memory          |
+| **Auto-fetch**      | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory          |
 | **API sprawl**      | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
 | **Model routing**   | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                        |
 | **Native tools**    | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + voice |

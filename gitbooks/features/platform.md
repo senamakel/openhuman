@@ -63,7 +63,7 @@ The desktop app maintains a persistent connection to the OpenHuman backend. Resp
 
 Your local state persists on your device. Preferences, settings, and connected-source configurations remain available offline. The local Memory Tree is fully accessible, you can browse the [Obsidian vault](../features/obsidian-wiki/) and read your existing notes without any network connection.
 
-Auto-fetch and live LLM calls require connectivity. When the network returns, the next 5-minute tick picks up where it left off.
+Auto-fetch and live LLM calls require connectivity. When the network returns, the next 20-minute tick picks up where it left off.
 
 ***
 

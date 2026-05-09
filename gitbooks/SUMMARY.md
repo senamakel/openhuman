@@ -36,17 +36,6 @@
 * [Subconscious Loop](product/subconscious.md)
 * [Cloud Deploy](product/cloud-deploy.md)
 
-## Use Cases
-
-* [Overview](use-cases/overview.md)
-* [Knowledge Workers](use-cases/knowledge-workers.md)
-* [Individual Power Users](use-cases/individual-power-users.md)
-* [Traders and Analysts](use-cases/traders-and-analysts.md)
-* [DAO and Web3 Communities](use-cases/dao-and-web3-communities.md)
-* [Community Managers & Moderators](use-cases/community-managers-and-moderators.md)
-* [Distributed Teams](use-cases/distributed-teams.md)
-* [Service Providers & Contributors](use-cases/service-providers-and-contributors.md)
-
 ## Developing
 
 * [Overview](developing/README.md)

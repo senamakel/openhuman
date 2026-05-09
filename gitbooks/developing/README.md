@@ -18,7 +18,7 @@ OpenHuman is open source under GNU GPL3 and lives at [github.com/tinyhumansai/op
 | `docs/`     | Remaining deep developer reference (memory pipeline diagrams, telegram-login, sentry, agent flows, etc.).          |
 | `gitbooks/` | Public-facing documentation — this site.                                                                           |
 
-The high-level shape lives in [Architecture](../product/architecture.md). The deep developer architecture lives in [Architecture](architecture.md).
+The high-level shape lives in [Architecture](../features/architecture.md). The deep developer architecture lives in [Architecture](architecture.md).
 
 ## Start here
 
@@ -30,7 +30,7 @@ The high-level shape lives in [Architecture](../product/architecture.md). The de
 ## Building features
 
 * [**Skills**](/broken/pages/FlgZn0fqfml1B1piRDP7) — how skills are discovered, fetched, installed, initialized, executed and synced.
-* [**Subconscious Loop**](../product/subconscious.md) — background task evaluation against the workspace.
+* [**Subconscious Loop**](../features/subconscious.md) — background task evaluation against the workspace.
 * [**Conscious Loop**](/broken/pages/3E8LUI7rYDOmXWtegL46) — actionable-item extraction from the memory tree.
 * [**Webview Integration**](/broken/pages/qKYPRr16dx5Vomiw5iaH) — adding a new third-party webview-based integration.
 

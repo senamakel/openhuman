@@ -57,7 +57,7 @@ OpenHuman is built for people and teams who operate across many conversations an
 OpenHuman does not claim to be AGI. It does not take actions in your connected platforms without your explicit instruction. It does not store your raw message data on someone else's server. It does not train on your data.
 
 {% hint style="info" %}
-Privacy is a core architectural decision, not a checkbox. The full privacy design is covered in [Privacy & Security](product/privacy-and-security.md).
+Privacy is a core architectural decision, not a checkbox. The full privacy design is covered in [Privacy & Security](features/privacy-and-security.md).
 {% endhint %}
 
 ## How to think about OpenHuman

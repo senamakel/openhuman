@@ -61,7 +61,7 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 - **[Optional local AI (via Ollama)](https://tinyhumans.gitbook.io/openhuman/features/local-ai)** — Off by default. Opt in per-workload to keep memory embeddings, summary-tree building, and background reflection loops on your machine. Chat / vision / voice stay cloud — the local path is scoped to the workloads where on-device actually pays.
 
-- **[Messaging channels](https://tinyhumans.gitbook.io/openhuman/product/messaging-channels), [teams & orgs](https://tinyhumans.gitbook.io/openhuman/product/teams), [privacy & security](https://tinyhumans.gitbook.io/openhuman/product/privacy-and-security)** — Inbound/outbound across the channels you already use, shared workspaces for collaborating with an agent across a team, and workflow data that stays on device, encrypted locally, treated as yours.
+- **[Messaging channels](https://tinyhumans.gitbook.io/openhuman/features/integrations#messaging-channels)** and **[privacy & security](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)** — Inbound/outbound across the channels you already use, with workflow data that stays on device, encrypted locally, treated as yours.
 
 For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](https://tinyhumans.gitbook.io/openhuman/developing/cloud-deploy) · [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 

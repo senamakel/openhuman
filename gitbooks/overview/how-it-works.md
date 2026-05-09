@@ -72,7 +72,7 @@ When you talk to the agent, four things happen behind the scenes:
 * Audio capture and dictation buffers.
 * Any local model state.
 
-What goes through the OpenHuman backend: model calls (under one subscription), web search proxy, integration OAuth tokens, TTS streaming. See [Privacy & Security](../product/privacy-and-security.md) for the full boundary.
+What goes through the OpenHuman backend: model calls (under one subscription), web search proxy, integration OAuth tokens, TTS streaming. See [Privacy & Security](../features/privacy-and-security.md) for the full boundary.
 
 ## Limitations
 

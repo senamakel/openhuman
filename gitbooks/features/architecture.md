@@ -69,7 +69,7 @@ Goes through the OpenHuman backend (under one subscription):
 - Integration OAuth and tool proxying.
 - TTS streaming.
 
-See [Privacy & Security](../product/privacy-and-security.md) for the full picture.
+See [Privacy & Security](../features/privacy-and-security.md) for the full picture.
 
 ## Open source
 

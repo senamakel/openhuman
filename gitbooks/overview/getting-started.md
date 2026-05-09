@@ -90,7 +90,7 @@ After your first request, explore what else OpenHuman can do:
 * **Skills** extend the assistant's capabilities — fetching data, running scheduled tasks, processing information.
 * **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
 
-Learn more in [Skills & Integrations](../product/skills-and-integrations.md).
+Learn more in [Skills & Integrations](../features/integrations.md).
 
 ***
 

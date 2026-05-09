@@ -80,4 +80,4 @@ OpenHuman handles the rest: lifecycle (`src/openhuman/local_ai/service.rs`), API
 
 * [Memory Tree](obsidian-wiki/memory-tree.md) — what local embeddings + summarization power.
 * [Automatic Model Routing](model-routing.md) — how lightweight chat hints prefer the local provider.
-* [Privacy & Security](../product/privacy-and-security.md) — what moves on-device when you opt in.
+* [Privacy & Security](../features/privacy-and-security.md) — what moves on-device when you opt in.

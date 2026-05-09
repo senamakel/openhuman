@@ -67,6 +67,7 @@
 * [Subconscious Loop](developing/subconscious.md)
 * [Conscious Loop](developing/conscious-loop.md)
 * [Webview Integration](developing/webview-integration.md)
+* [Chromium Embedded Framework](developing/cef.md)
 * [Coding Harness](developing/coding-harness.md)
 * [Agent Observability](developing/agent-observability.md)
 * [Memory Context Window](developing/memory-context-window.md)

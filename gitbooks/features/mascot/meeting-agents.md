@@ -1,8 +1,8 @@
 ---
 description: >-
-  The mascot can join a Google Meet as a real participant - it listens,
-  takes notes, speaks back into the call, animates its face into the camera
-  grid, and uses tools mid-meeting. Not a notetaker. A participant.
+  The mascot can join meetings as a real participant - it listens, takes notes,
+  speaks back into the call, animates its face into the camera grid, and uses
+  tools mid-meeting. More than just a notetaker.
 icon: video
 ---
 
@@ -24,13 +24,13 @@ Under the hood the meeting brain lives in `src/openhuman/meet_agent/brain.rs`, a
 
 Inbound audio from the meeting is captured and pushed through streaming speech-to-text in real time. The transcript is diarized per speaker, cleaned up by the same hallucination filter and postprocessor used for desktop dictation, and folded into the [Memory Tree](../obsidian-wiki/memory-tree.md) as the meeting unfolds - under the right people, the right topics, the right project, with backlinks the mascot can use later.
 
-Because the transcript is being structured live, the mascot can answer questions about *this* meeting (or any prior meeting with the same people) while it is still happening.
+Because the transcript is being structured live, the mascot can answer questions about _this_ meeting (or any prior meeting with the same people) while it is still happening.
 
 ### 3. It interacts - it answers, it asks, it follows up
 
 The agent is not muted. When you address it directly ("Ghosty, can you pull up the numbers from last quarter?"), or when it decides it has something useful to add, it generates a reply on the fly using the project's normal LLM stack and speaks it into the meeting.
 
-Conversational turns are routed through the fast model tier (see [Automatic Model Routing](../model-routing/README.md)) so the latency feels like talking to a person who's listening, not waiting on a chatbot.
+Conversational turns are routed through the fast model tier (see [Automatic Model Routing](../model-routing/)) so the latency feels like talking to a person who's listening, not waiting on a chatbot.
 
 ### 4. It speaks - its own TTS audio plays back into the call
 
@@ -44,52 +44,52 @@ Other participants don't see a black tile or a static avatar. They see an animat
 
 ### 6. It uses tools mid-meeting - this is the part a notetaker can't do
 
-This is the difference between a transcription bot and a meeting *agent*.
+This is the difference between a transcription bot and a meeting _agent_.
 
 While the call is happening, the mascot has access to the same tool surface it has on your desktop:
 
-* **[Memory Tree](../obsidian-wiki/memory-tree.md)** - recall prior meetings, decisions, open threads, who said what last time, what's been promised.
-* **[Auto-fetch from integrations](../obsidian-wiki/auto-fetch.md)** and **[third-party integrations](../integrations/README.md)** - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
-* **[Native tools](../native-tools/README.md)** - search the web, scrape a page, run a quick code/data lookup, all without leaving the call.
-* **[Subconscious Loop](../subconscious.md)** outputs - anything it has been working on in the background is already on hand.
+- [**Memory Tree**](../obsidian-wiki/memory-tree.md) - recall prior meetings, decisions, open threads, who said what last time, what's been promised.
+- [**Auto-fetch from integrations**](../obsidian-wiki/auto-fetch.md) and [**third-party integrations**](../integrations/) - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
+- [**Native tools**](../native-tools/) - search the web, scrape a page, run a quick code/data lookup, all without leaving the call.
+- [**Subconscious Loop**](../subconscious.md) outputs - anything it has been working on in the background is already on hand.
 
 So when someone in the call asks "wait, didn't we decide to drop the Q3 launch last month?", the mascot doesn't just transcribe the question. It answers it - with the actual decision, the meeting it was made in, and who agreed.
 
-That moves it from *notetaker* to *the most informed participant in the room*.
+That moves it from _notetaker_ to _the most informed participant in the room_.
 
 ## Why it feels alive
 
 A meeting agent that only transcribes is a tool. A meeting agent that participates is a presence. The Meet integration is deliberately built to make the mascot feel like a real attendee, not a recording device:
 
-* It has a **face on the camera grid** that lip-syncs and reacts, not a black square or a logo.
-* It has its **own voice** that plays into the call, not into your speakers.
-* It has **persistent memory** of the people in the room, the project, the prior decisions - so it can be addressed by name and answer in context.
-* It has **tools** so it can act on what's said, not just record it.
-* It runs the **subconscious loop** between meetings - so when it joins your next call, it has already done the homework on what was promised in the last one.
+- It has a **face on the camera grid** that lip-syncs and reacts, not a black square or a logo.
+- It has its **own voice** that plays into the call, not into your speakers.
+- It has **persistent memory** of the people in the room, the project, the prior decisions - so it can be addressed by name and answer in context.
+- It has **tools** so it can act on what's said, not just record it.
+- It runs the **subconscious loop** between meetings - so when it joins your next call, it has already done the homework on what was promised in the last one.
 
 The result, in practice, is that participants stop treating it like a bot and start treating it like a colleague who happens to be very fast at looking things up.
 
 ## Setup, controls, privacy
 
-* **Joining a call.** You can hand the mascot a Google Meet link from the desktop app; it will open the embedded Meet webview, join with the configured display name, and switch its camera tile to the mascot canvas.
-* **Mic and camera control.** The agent's mic is the TTS injection stream, not your real microphone. The agent's camera is the mascot frame producer, not your real webcam. You can mute the agent's mic from the app at any time, the same way you'd mute yourself in Meet.
-* **Transcripts and memory.** Live transcripts land in the [Memory Tree](../obsidian-wiki/memory-tree.md) the same way any other source does - under the people in the call, the project, and the topics that came up. They are local-first and follow the project's [Privacy & Security](../privacy-and-security.md) rules.
-* **No covert recording.** The agent appears as a normal participant in the grid; everyone in the call can see it and see when it's speaking.
+- **Joining a call.** You can hand the mascot a Google Meet link from the desktop app; it will open the embedded Meet webview, join with the configured display name, and switch its camera tile to the mascot canvas.
+- **Mic and camera control.** The agent's mic is the TTS injection stream, not your real microphone. The agent's camera is the mascot frame producer, not your real webcam. You can mute the agent's mic from the app at any time, the same way you'd mute yourself in Meet.
+- **Transcripts and memory.** Live transcripts land in the [Memory Tree](../obsidian-wiki/memory-tree.md) the same way any other source does - under the people in the call, the project, and the topics that came up. They are local-first and follow the project's [Privacy & Security](../privacy-and-security.md) rules.
+- **No covert recording.** The agent appears as a normal participant in the grid; everyone in the call can see it and see when it's speaking.
 
 ## Implementation pointers (for developers)
 
 Curious how this is wired up:
 
-* Brain - `src/openhuman/meet_agent/brain.rs` (LLM turns, speak/no-speak decisions, tool calls).
-* Voice plumbing - `src/openhuman/voice/` (STT in, TTS out, hallucination filter, postprocess). See [Native Voice](../native-tools/voice.md).
-* Mascot canvas as outbound camera - `app/src/features/meet/MascotFrameProducer.tsx` and the Tauri-side `mascot_native_window.rs` window.
-* Embedded Meet webview - see [Chromium Embedded Framework](../../developing/cef.md). The Meet child webview ships with **zero injected JavaScript**; everything host-side runs natively via CDP.
-* Notable commits to read for context - `0bc74575` (live note-taking), `f1203479` (real LLM turns + tuned TTS), `b6d05cb4` (mascot canvas as outbound camera), `f5dce783` (mascot frame pipeline + off-screen meet window).
+- Brain - `src/openhuman/meet_agent/brain.rs` (LLM turns, speak/no-speak decisions, tool calls).
+- Voice plumbing - `src/openhuman/voice/` (STT in, TTS out, hallucination filter, postprocess). See [Native Voice](../native-tools/voice.md).
+- Mascot canvas as outbound camera - `app/src/features/meet/MascotFrameProducer.tsx` and the Tauri-side `mascot_native_window.rs` window.
+- Embedded Meet webview - see [Chromium Embedded Framework](../../developing/cef.md). The Meet child webview ships with **zero injected JavaScript**; everything host-side runs natively via CDP.
+- Notable commits to read for context - `0bc74575` (live note-taking), `f1203479` (real LLM turns + tuned TTS), `b6d05cb4` (mascot canvas as outbound camera), `f5dce783` (mascot frame pipeline + off-screen meet window).
 
 ## See also
 
-* [The Mascot](README.md) - the on-screen character itself, outside of meetings.
-* [Native Voice](../native-tools/voice.md) - STT / TTS that the meeting agent rides on.
-* [Memory Tree](../obsidian-wiki/memory-tree.md) - where transcripts and decisions land.
-* [Native Tools](../native-tools/README.md) - what the mascot can reach for mid-call.
-* [Automatic Model Routing](../model-routing/README.md) - why conversational turns feel low-latency.
+- [The Mascot](./) - the on-screen character itself, outside of meetings.
+- [Native Voice](../native-tools/voice.md) - STT / TTS that the meeting agent rides on.
+- [Memory Tree](../obsidian-wiki/memory-tree.md) - where transcripts and decisions land.
+- [Native Tools](../native-tools/) - what the mascot can reach for mid-call.
+- [Automatic Model Routing](../model-routing/) - why conversational turns feel low-latency.

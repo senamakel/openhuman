@@ -63,6 +63,9 @@ OpenHuman is the first agent harness that gets to know in minutes. Insipired by 
  <img src="./gitbooks/.gitbook/assets/image.png" alt="The Tet" />
 </p>
 
+> OpenHuman summarizes and compress all your documents, emails & chats; and creates a memory graph lets your agent remember everything about you.
+
+
 Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
 
 OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) pull from every integration on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) canonicalizes everything into ≤3k-token Markdown chunks scored and folded into hierarchical summary trees: a Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk, queryable SQLite under the hood. One sync pass and the agent has read your inbox, your calendar, your repos, your docs. No training period. No "give it a few weeks."

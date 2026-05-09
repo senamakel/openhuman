@@ -38,7 +38,10 @@ pub async fn stop_listening<R: Runtime>(
 ) -> Result<TranscriptResult> {
     log::debug!("[ptt] command: stop_listening");
     let result = ptt.inner().stop_listening()?;
-    log::debug!("[ptt] stop_listening returned text_len={}", result.text.len());
+    log::debug!(
+        "[ptt] stop_listening returned text_len={}",
+        result.text.len()
+    );
     Ok(result)
 }
 
@@ -57,7 +60,11 @@ pub async fn speak<R: Runtime>(
     rate: Option<f32>,
 ) -> Result<()> {
     log::debug!("[ptt] command: speak text_len={}", text.len());
-    ptt.inner().speak(SpeakRequest { text, voice_id, rate })
+    ptt.inner().speak(SpeakRequest {
+        text,
+        voice_id,
+        rate,
+    })
 }
 
 // ── cancel_speech ────────────────────────────────────────────────────────────

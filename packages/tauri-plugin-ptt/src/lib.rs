@@ -53,12 +53,16 @@ unsafe impl<R: Runtime> Sync for PttHandle<R> {}
 impl<R: Runtime> PttHandle<R> {
     #[cfg(mobile)]
     fn new(inner: mobile::PttMobile<R>) -> Self {
-        Self { inner_mobile: inner }
+        Self {
+            inner_mobile: inner,
+        }
     }
 
     #[cfg(not(mobile))]
     fn new_stub() -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self {
+            _marker: std::marker::PhantomData,
+        }
     }
 
     pub fn start_listening(&self) -> Result<()> {

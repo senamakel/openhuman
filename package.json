@@ -32,7 +32,10 @@
     "debug": "bash scripts/debug/cli.sh",
     "test:install-ps1": "pwsh -NoProfile -File scripts/tests/OpenHumanWindowsInstall.Tests.ps1",
     "rust:check": "pnpm --filter openhuman-app rust:check",
-    "typecheck": "pnpm --filter openhuman-app compile"
+    "typecheck": "pnpm --filter openhuman-app compile",
+    "tauri:ios:init": "bash scripts/ios-init.sh",
+    "tauri:ios:dev": "pnpm --filter openhuman-app tauri:ios:dev",
+    "tauri:ios:build": "pnpm --filter openhuman-app tauri:ios:build"
   },
   "devDependencies": {
     "husky": "^9.1.7",

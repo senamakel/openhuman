@@ -23,15 +23,16 @@
  *   - Any new PTT press cancels active TTS first.
  */
 import debug from 'debug';
-import {
-  type FC,
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type FC, type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  cancelSpeech,
+  onError as onPttError,
+  onTranscriptPartial,
+  speak,
+  startListening,
+  stopListening,
+} from 'tauri-plugin-ptt-api';
 
 import { YellowMascot } from '../../features/human/Mascot';
 import { useHumanMascot } from '../../features/human/useHumanMascot';
@@ -43,14 +44,6 @@ import {
   subscribeChatEvents,
 } from '../../services/chatService';
 import { deleteProfile, listProfiles } from '../../services/transport/profileStore';
-import {
-  cancelSpeech,
-  onError as onPttError,
-  onTranscriptPartial,
-  speak,
-  startListening,
-  stopListening,
-} from 'tauri-plugin-ptt-api';
 
 const log = debug('ios:mascot-screen');
 const logErr = debug('ios:mascot-screen:error');
@@ -311,39 +304,36 @@ export const MascotScreen: FC = () => {
 
   // -- shared send (declared before PTT handlers so it is in scope) -----------
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      log('[ios] sendMessage len=%d thread_id=%s', text.length, IOS_THREAD_ID);
+  const sendMessage = useCallback(async (text: string) => {
+    log('[ios] sendMessage len=%d thread_id=%s', text.length, IOS_THREAD_ID);
 
-      const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', text };
-      const assistantId = `asst-${Date.now()}`;
-      streamingIdRef.current = assistantId;
+    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', text };
+    const assistantId = `asst-${Date.now()}`;
+    streamingIdRef.current = assistantId;
 
-      setMessages(prev => [
-        ...prev,
-        userMsg,
-        { id: assistantId, role: 'assistant', text: '', streaming: true },
-      ]);
-      setIsSending(true);
+    setMessages(prev => [
+      ...prev,
+      userMsg,
+      { id: assistantId, role: 'assistant', text: '', streaming: true },
+    ]);
+    setIsSending(true);
 
-      try {
-        await chatSend({ threadId: IOS_THREAD_ID, message: text, model: IOS_CHAT_MODEL });
-        log('[ios] chatSend enqueued thread_id=%s', IOS_THREAD_ID);
-      } catch (err) {
-        logErr('[ios] chatSend failed: %o', err);
-        streamingIdRef.current = null;
-        setIsSending(false);
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantId
-              ? { ...m, text: 'Failed to send. Check your connection.', streaming: false }
-              : m
-          )
-        );
-      }
-    },
-    []
-  );
+    try {
+      await chatSend({ threadId: IOS_THREAD_ID, message: text, model: IOS_CHAT_MODEL });
+      log('[ios] chatSend enqueued thread_id=%s', IOS_THREAD_ID);
+    } catch (err) {
+      logErr('[ios] chatSend failed: %o', err);
+      streamingIdRef.current = null;
+      setIsSending(false);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === assistantId
+            ? { ...m, text: 'Failed to send. Check your connection.', streaming: false }
+            : m
+        )
+      );
+    }
+  }, []);
 
   // -- PTT handlers ----------------------------------------------------------
 
@@ -352,7 +342,9 @@ export const MascotScreen: FC = () => {
     log('[ios] PTT down — starting listening');
 
     // Cancel any in-progress TTS before starting a new recording.
-    cancelSpeech().catch((err: unknown) => logErr('[ios] cancelSpeech on PTT down failed: %o', err));
+    cancelSpeech().catch((err: unknown) =>
+      logErr('[ios] cancelSpeech on PTT down failed: %o', err)
+    );
 
     pttActiveRef.current = true;
     setPttActive(true);

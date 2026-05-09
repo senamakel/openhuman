@@ -1,8 +1,8 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { persistLocalWalletFromMnemonic } from '../../../features/wallet/setupLocalWalletFromMnemonic';
 import { useCoreState } from '../../../providers/CoreStateProvider';
 import {
-  deriveAesKeyFromMnemonic,
   generateMnemonicPhrase,
   MNEMONIC_GENERATE_WORD_COUNT,
   validateMnemonicPhrase,
@@ -174,12 +174,15 @@ const RecoveryPhrasePanel = () => {
         phraseToUse = mnemonic;
       }
 
-      const aesKey = deriveAesKeyFromMnemonic(phraseToUse);
       if (!user?._id) {
         setError('User not loaded. Please sign in again or refresh the page.');
         return;
       }
-      await setEncryptionKey(aesKey);
+      await persistLocalWalletFromMnemonic({
+        mnemonic: phraseToUse,
+        source: mode === 'generate' ? 'generated' : 'imported',
+        setEncryptionKey,
+      });
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
@@ -218,7 +221,9 @@ const RecoveryPhrasePanel = () => {
                 </svg>
               </div>
               <p className="text-sm font-medium text-sage-500">Recovery phrase saved</p>
-              <p className="text-xs text-stone-500">Returning to settings...</p>
+              <p className="text-xs text-stone-500">
+                Multi-chain wallet identities are ready. Returning to settings...
+              </p>
             </div>
           ) : (
             <>
@@ -227,7 +232,8 @@ const RecoveryPhrasePanel = () => {
                   <div className="mb-4 space-y-3">
                     <p className="text-sm text-stone-600 leading-relaxed">
                       Write down these {MNEMONIC_GENERATE_WORD_COUNT} words in order and store them
-                      somewhere safe. This phrase encrypts your data.
+                      somewhere safe. This phrase secures your local encryption key and your EVM,
+                      BTC, Solana, and Tron wallet identities.
                     </p>
                     <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200/70">
                       <svg
@@ -243,7 +249,8 @@ const RecoveryPhrasePanel = () => {
                         />
                       </svg>
                       <p className="text-xs text-amber-800 leading-relaxed">
-                        This phrase can never be recovered if lost.
+                        This phrase can never be recovered if lost and should stay fully local to
+                        your device.
                       </p>
                     </div>
                   </div>
@@ -311,7 +318,7 @@ const RecoveryPhrasePanel = () => {
                       className="mt-0.5 w-4 h-4 rounded border-stone-500 text-primary-500 focus:ring-primary-500"
                     />
                     <span className="text-sm text-stone-700">
-                      I have saved my recovery phrase in a safe place
+                      I saved this phrase and consent to using it for local wallet setup
                     </span>
                   </label>
                 </>
@@ -319,8 +326,9 @@ const RecoveryPhrasePanel = () => {
                 <>
                   <div className="mb-4">
                     <p className="text-sm text-stone-600 leading-relaxed">
-                      Enter your recovery phrase below, or paste the full phrase into any field (12
-                      words for new backups; 24-word phrases from older versions still work).
+                      Enter your recovery phrase below to restore your local wallet identities, or
+                      paste the full phrase into any field (12 words for new backups; 24-word
+                      phrases from older versions still work).
                     </p>
                   </div>
 

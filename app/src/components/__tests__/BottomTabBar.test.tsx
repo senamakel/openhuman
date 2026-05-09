@@ -45,7 +45,7 @@ async function renderBottomTabBar(pathname = '/home', hasToken = true) {
       onboardingCompleted: true,
       chatOnboardingCompleted: true,
       analyticsEnabled: false,
-      localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
+      localState: { encryptionKey: null, onboardingTasks: null },
       runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
     },
     isBootstrapping: false,

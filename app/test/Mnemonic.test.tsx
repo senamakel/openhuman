@@ -106,7 +106,7 @@ beforeEach(() => {
 describe('Mnemonic — generate mode: initial render', () => {
   it('renders the "Your Recovery Phrase" heading', () => {
     renderWithUser();
-    expect(screen.getByText('Your Recovery Phrase')).toBeInTheDocument();
+    expect(screen.getByText('Your Recovery Phrase')).toBeTruthy();
   });
 
   it('renders all 24 words from the generated mnemonic', () => {
@@ -118,33 +118,33 @@ describe('Mnemonic — generate mode: initial render', () => {
 
   it('renders 24 numbered word tiles', () => {
     renderWithUser();
-    expect(screen.getByText('1.')).toBeInTheDocument();
-    expect(screen.getByText('24.')).toBeInTheDocument();
+    expect(screen.getByText('1.')).toBeTruthy();
+    expect(screen.getByText('24.')).toBeTruthy();
   });
 
   it('renders the Copy to Clipboard button', () => {
     renderWithUser();
-    expect(screen.getByRole('button', { name: /copy to clipboard/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy to clipboard/i })).toBeTruthy();
   });
 
   it('renders the amber warning notice', () => {
     renderWithUser();
-    expect(screen.getByText(/can never be recovered if lost/i)).toBeInTheDocument();
+    expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
   });
 
   it('renders the confirmation checkbox unchecked', () => {
     renderWithUser();
-    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
   });
 
   it('renders the Continue button disabled before confirmation', () => {
     renderWithUser();
-    expect(continueButton()).toBeDisabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('renders the "I already have a recovery phrase" link', () => {
     renderWithUser();
-    expect(screen.getByText('I already have a recovery phrase')).toBeInTheDocument();
+    expect(screen.getByText('I already have a recovery phrase')).toBeTruthy();
   });
 });
 
@@ -156,7 +156,7 @@ describe('Mnemonic — generate mode: confirmation checkbox', () => {
   it('enables the Continue button when checkbox is checked', () => {
     renderWithUser();
     fireEvent.click(screen.getByRole('checkbox'));
-    expect(continueButton()).toBeEnabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('disables the Continue button again when checkbox is unchecked', () => {
@@ -164,7 +164,7 @@ describe('Mnemonic — generate mode: confirmation checkbox', () => {
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
     fireEvent.click(checkbox);
-    expect(continueButton()).toBeDisabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -193,7 +193,7 @@ describe('Mnemonic — generate mode: copy to clipboard', () => {
       fireEvent.click(screen.getByRole('button', { name: /copy to clipboard/i }));
     });
 
-    await waitFor(() => expect(screen.getByText('Copied to Clipboard')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Copied to Clipboard')).toBeTruthy());
   });
 
   it('resets "Copied" text back to "Copy to Clipboard" after 3 s', async () => {
@@ -211,7 +211,7 @@ describe('Mnemonic — generate mode: copy to clipboard', () => {
     });
 
     // Now the 3-second reset timer has also been run
-    expect(screen.queryByText('Copied to Clipboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Copied to Clipboard')).toBeNull();
     vi.useRealTimers();
   });
 
@@ -234,7 +234,7 @@ describe('Mnemonic — generate mode: copy to clipboard', () => {
       fireEvent.click(screen.getByRole('button', { name: /copy to clipboard/i }));
     });
 
-    await waitFor(() => expect(screen.getByText('Copied to Clipboard')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Copied to Clipboard')).toBeTruthy());
     expect(execCommand).toHaveBeenCalledWith('copy');
     execCommand.mockRestore();
   });
@@ -248,7 +248,7 @@ describe('Mnemonic — mode switching', () => {
   it('switches to import mode on "I already have a recovery phrase" click', () => {
     renderWithUser();
     switchToImport();
-    expect(screen.getByText('Import Recovery Phrase')).toBeInTheDocument();
+    expect(screen.getByText('Import Recovery Phrase')).toBeTruthy();
   });
 
   it('shows 24 text inputs in import mode', () => {
@@ -261,7 +261,7 @@ describe('Mnemonic — mode switching', () => {
     renderWithUser();
     switchToImport();
     fireEvent.click(screen.getByText('Generate a new recovery phrase instead'));
-    expect(screen.getByText('Your Recovery Phrase')).toBeInTheDocument();
+    expect(screen.getByText('Your Recovery Phrase')).toBeTruthy();
   });
 
   it('resets error when switching modes', async () => {
@@ -270,19 +270,19 @@ describe('Mnemonic — mode switching', () => {
     fireEvent.click(continueButton()); // disabled, won't trigger, so force via import mode
     // Switch to import mode and back — confirmed state should reset
     switchToImport();
-    expect(screen.queryByText(/please enter all/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/please enter all/i)).toBeNull();
   });
 
   it('resets confirmation when switching from generate to import and back', () => {
     renderWithUser();
     fireEvent.click(screen.getByRole('checkbox'));
-    expect(continueButton()).toBeEnabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(false);
 
     switchToImport();
     fireEvent.click(screen.getByText('Generate a new recovery phrase instead'));
 
     // Confirmed state is reset — Continue should be disabled again
-    expect(continueButton()).toBeDisabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -309,19 +309,19 @@ describe('Mnemonic — import mode: word input', () => {
   });
 
   it('Continue button stays disabled until all 24 words are filled', () => {
-    expect(continueButton()).toBeDisabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(true);
 
     const inputs = screen.getAllByRole('textbox');
     // Fill only 23 words
     for (let i = 0; i < 23; i++) {
       fireEvent.change(inputs[i], { target: { value: 'abandon' } });
     }
-    expect(continueButton()).toBeDisabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Continue button becomes enabled when all 24 words are filled (via paste)', () => {
     fillAllImportWords();
-    expect(continueButton()).toBeEnabled();
+    expect((continueButton() as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('distributes pasted multi-word phrase across inputs starting at index 0', () => {
@@ -382,7 +382,7 @@ describe('Mnemonic — import mode: validation', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeTruthy());
   });
 
   it('shows error when the 24-word phrase is invalid (BIP39)', async () => {
@@ -393,7 +393,7 @@ describe('Mnemonic — import mode: validation', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeTruthy());
   });
 
   it('shows "Valid recovery phrase" text when phrase passes BIP39 validation', async () => {
@@ -404,7 +404,7 @@ describe('Mnemonic — import mode: validation', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText('Valid recovery phrase')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Valid recovery phrase')).toBeTruthy());
   });
 });
 
@@ -428,7 +428,7 @@ describe('Mnemonic — handleContinue: generate mode', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText('Securing Your Data...')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Securing Your Data...')).toBeTruthy());
 
     await act(async () => {
       resolveEncryptionKey();
@@ -485,7 +485,7 @@ describe('Mnemonic — handleContinue: generate mode', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText('crypto failure')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('crypto failure')).toBeTruthy());
   });
 
   it('does not navigate when unconfirmed in generate mode', async () => {
@@ -545,7 +545,7 @@ describe('Mnemonic — handleContinue: import mode', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/invalid recovery phrase/i)).toBeTruthy());
     expect(mockDeriveAesKey).not.toHaveBeenCalled();
   });
 
@@ -564,7 +564,7 @@ describe('Mnemonic — handleContinue: import mode', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText(/user not loaded/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/user not loaded/i)).toBeTruthy());
   });
 
   it('shows an error when setEncryptionKey throws during import', async () => {
@@ -578,7 +578,7 @@ describe('Mnemonic — handleContinue: import mode', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText('encryption error')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('encryption error')).toBeTruthy());
   });
 });
 
@@ -602,8 +602,8 @@ describe('Mnemonic — loading state', () => {
     await act(async () => {
       fireEvent.click(btn);
     });
-    await waitFor(() => expect(screen.getByText('Securing Your Data...')).toBeInTheDocument());
-    expect(btn).toBeDisabled();
+    await waitFor(() => expect(screen.getByText('Securing Your Data...')).toBeTruthy());
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
 
     await act(async () => {
       resolveEncryptionKey();
@@ -622,8 +622,8 @@ describe('Mnemonic — loading state', () => {
       fireEvent.click(continueButton());
     });
 
-    await waitFor(() => expect(screen.getByText('oops')).toBeInTheDocument());
-    expect(screen.queryByText('Securing Your Data...')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('oops')).toBeTruthy());
+    expect(screen.queryByText('Securing Your Data...')).toBeNull();
   });
 });
 

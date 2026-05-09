@@ -11,10 +11,22 @@ vi.mock('../../../../providers/CoreStateProvider', () => ({
   }),
 }));
 
+vi.mock('../../../../services/walletApi', () => ({
+  setupLocalWallet: vi.fn(async () => ({
+    configured: true,
+    onboardingCompleted: true,
+    consentGranted: true,
+    source: 'generated',
+    mnemonicWordCount: 12,
+    accounts: [],
+    updatedAtMs: Date.now(),
+  })),
+}));
+
 describe('RecoveryPhrasePanel — trust-surface polish', () => {
   it('renders the amber warning callout in generate mode', () => {
     const { container } = renderWithProviders(<RecoveryPhrasePanel />);
-    expect(screen.getByText(/can never be recovered if lost/i)).toBeInTheDocument();
+    expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
     // Polish guarantee: the disclaimer lives in its own amber callout,
     // not buried in body text.
     expect(container.querySelector('.bg-amber-50')).not.toBeNull();
@@ -23,12 +35,12 @@ describe('RecoveryPhrasePanel — trust-surface polish', () => {
   it('renders import-mode intro copy when switching modes', () => {
     renderWithProviders(<RecoveryPhrasePanel />);
     fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
-    expect(screen.getByText(/Enter your recovery phrase below/i)).toBeInTheDocument();
+    expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
   it('uses palette token text-stone-700 on the confirm-checkbox label (not opacity)', () => {
     const { container } = renderWithProviders(<RecoveryPhrasePanel />);
-    const label = screen.getByText(/I have saved my recovery phrase in a safe place/i);
+    const label = screen.getByText(/consent to using it for local wallet setup/i);
     expect(label.className).toContain('text-stone-700');
     // Sanity: the old opacity hack is gone from this label.
     expect(label.className).not.toContain('opacity-80');

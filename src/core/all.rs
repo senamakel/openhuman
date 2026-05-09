@@ -182,6 +182,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::billing::all_billing_registered_controllers());
     // Team and role management
     controllers.extend(crate::openhuman::team::all_team_registered_controllers());
+    // Local wallet metadata and onboarding status
+    controllers.extend(crate::openhuman::wallet::all_wallet_registered_controllers());
     // Local assistive surfaces over third-party provider apps
     controllers.extend(
         crate::openhuman::provider_surfaces::all_provider_surfaces_registered_controllers(),
@@ -277,6 +279,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::referral::all_referral_controller_schemas());
     schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
     schemas.extend(crate::openhuman::team::all_team_controller_schemas());
+    schemas.extend(crate::openhuman::wallet::all_wallet_controller_schemas());
     schemas.extend(crate::openhuman::provider_surfaces::all_provider_surfaces_controller_schemas());
     schemas.extend(crate::openhuman::text_input::all_text_input_controller_schemas());
     schemas.extend(crate::openhuman::voice::all_voice_controller_schemas());
@@ -357,6 +360,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
         "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
         "team" => Some("Team member management, invites, and role changes via the backend."),
+        "wallet" => Some("Local wallet onboarding status and derived multi-chain account metadata."),
         "provider_surfaces" => Some(
             "Local-first assistive surfaces for provider events, respond queues, and drafts.",
         ),

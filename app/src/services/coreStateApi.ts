@@ -17,7 +17,6 @@ export interface OnboardingTasks {
 
 export interface UpdateCoreLocalStateParams {
   encryptionKey?: string | null;
-  primaryWalletAddress?: string | null;
   onboardingTasks?: OnboardingTasks | null;
 }
 
@@ -40,11 +39,7 @@ interface AppStateSnapshotResult {
    * never observe `undefined` here.
    */
   meetAutoOrchestratorHandoff?: boolean;
-  localState: {
-    encryptionKey?: string | null;
-    primaryWalletAddress?: string | null;
-    onboardingTasks?: OnboardingTasks | null;
-  };
+  localState: { encryptionKey?: string | null; onboardingTasks?: OnboardingTasks | null };
   runtime: {
     screenIntelligence: AccessibilityStatus;
     localAi: LocalAiStatus;

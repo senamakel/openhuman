@@ -2,9 +2,9 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState }
 import { useNavigate } from 'react-router-dom';
 
 import LottieAnimation from '../components/LottieAnimation';
+import { persistLocalWalletFromMnemonic } from '../features/wallet/setupLocalWalletFromMnemonic';
 import { useCoreState } from '../providers/CoreStateProvider';
 import {
-  deriveAesKeyFromMnemonic,
   generateMnemonicPhrase,
   MNEMONIC_GENERATE_WORD_COUNT,
   validateMnemonicPhrase,
@@ -155,14 +155,17 @@ const Mnemonic = () => {
         phraseToUse = mnemonic;
       }
 
-      const aesKey = deriveAesKeyFromMnemonic(phraseToUse);
       if (!user?._id) {
         const msg = 'User not loaded. Please sign in again or refresh the page.';
         setError(msg);
         console.error('[Mnemonic] Cannot save encryption key: user not loaded');
         return;
       }
-      await setEncryptionKey(aesKey);
+      await persistLocalWalletFromMnemonic({
+        mnemonic: phraseToUse,
+        source: mode === 'generate' ? 'generated' : 'imported',
+        setEncryptionKey,
+      });
       navigate('/home');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
@@ -191,8 +194,8 @@ const Mnemonic = () => {
                 <h1 className="text-xl font-bold mb-2">Your Recovery Phrase</h1>
                 <p className="opacity-70 text-sm">
                   Write down these {MNEMONIC_GENERATE_WORD_COUNT} words in order and store them
-                  somewhere safe. This phrase is used to encrypt your data and can never be
-                  recovered if lost.
+                  somewhere safe. This phrase unlocks your local encryption key and your EVM, BTC,
+                  Solana, and Tron wallet identities, and can never be recovered if lost.
                 </p>
               </div>
 
@@ -263,7 +266,7 @@ const Mnemonic = () => {
                   className="mt-0.5 w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-500"
                 />
                 <span className="text-sm text-stone-600">
-                  I have saved my recovery phrase in a safe place
+                  I saved this phrase and consent to using it for local wallet setup on this device
                 </span>
               </label>
             </>
@@ -272,8 +275,9 @@ const Mnemonic = () => {
               <div className="text-center mb-4">
                 <h1 className="text-xl font-bold mb-2">Import Recovery Phrase</h1>
                 <p className="opacity-70 text-sm">
-                  Enter your recovery phrase below, or paste the full phrase into any field (12
-                  words for new backups; 24-word phrases from older versions still work).
+                  Enter your recovery phrase below to restore your local encryption key and wallet
+                  identities, or paste the full phrase into any field (12 words for new backups;
+                  24-word phrases from older versions still work).
                 </p>
               </div>
 

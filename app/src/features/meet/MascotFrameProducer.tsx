@@ -259,7 +259,9 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
           frame: frameAtTickRef.current,
         });
         ws.send(payload);
-      } catch (_) {}
+      } catch (_) {
+        // diagnostics best-effort; swallow to avoid breaking the worker tick.
+      }
       workerTicks = 0;
       encodeStarted = 0;
       encodeCompleted = 0;
@@ -292,13 +294,13 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
       if (!svg) return;
       inflightRef.current = true;
       encodeStarted++;
-      const startedAt = performance.now();
+      const startedAt = window.performance.now();
       void encodeAndSend(svg, serializer, ctx, ws)
         .then(ok => {
           if (ok) {
             sentFramesRef.current++;
             encodeCompleted++;
-            encodeMsTotal += performance.now() - startedAt;
+            encodeMsTotal += window.performance.now() - startedAt;
           }
         })
         .finally(() => {
@@ -416,8 +418,8 @@ async function encodeAndSend(
     const svgBlob = new Blob([xml], { type: 'image/svg+xml' });
     let bitmap: ImageBitmap;
     try {
-      bitmap = await createImageBitmap(svgBlob);
-    } catch (err) {
+      bitmap = await window.createImageBitmap(svgBlob);
+    } catch (_err) {
       // Some Chromium builds reject SVG blobs in createImageBitmap;
       // fall back to the <img> decode path.
       const url = URL.createObjectURL(svgBlob);

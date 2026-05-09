@@ -1,48 +1,72 @@
 ---
-description: >-
-  Contributor-facing documentation for OpenHuman — how to build, test, ship, and
-  extend the app and core.
+description: Build, run, test, and ship OpenHuman from source.
 icon: code-branch
 ---
 
-# Overview
+# Developing OpenHuman
 
-OpenHuman is open source under GNU GPL3 and lives at [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman). This section is for contributors and people running OpenHuman from source.
+OpenHuman is open source under GPLv3 at [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman). This section is for contributors and anyone running OpenHuman from source.
+
+If you just want to use the app, head to [Getting Started](../overview/getting-started.md). If you're here to read the architecture, hack on a feature, or land a PR, you're in the right place.
+
+---
 
 ## Where things live
 
-| Path        | What's there                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `app/`      | Yarn workspace `openhuman-app` — Vite + React frontend (`app/src/`) and the Tauri desktop host (`app/src-tauri/`). |
-| `src/`      | Rust crate `openhuman_core` and the `openhuman` CLI binary — domains, MCP routing, JSON-RPC.                       |
-| `docs/`     | Remaining deep developer reference (memory pipeline diagrams, telegram-login, sentry, agent flows, etc.).          |
-| `gitbooks/` | Public-facing documentation — this site.                                                                           |
+| Path        | What's there                                                                                                |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `app/`      | pnpm workspace `openhuman-app`. Vite + React frontend (`app/src/`) and the Tauri desktop host (`app/src-tauri/`). |
+| `src/`      | Rust crate `openhuman_core` and the `openhuman` CLI binary. Domains, JSON-RPC, MCP routing.                 |
+| `gitbooks/` | This site (the public-facing docs).                                                                         |
+| `docs/`     | Older deep references not yet migrated to GitBook (memory pipeline diagrams, agent flows, etc.).            |
 
-The high-level shape lives in [Architecture](../features/architecture.md). The deep developer architecture lives in [Architecture](architecture.md).
+`CLAUDE.md` at the repo root is the source of truth for AI agents working on the codebase. Same rules apply to humans.
+
+---
 
 ## Start here
 
-* [**Getting Set Up**](getting-set-up.md). building from source, toolchain, vendored Tauri CLI, sidecar staging.
-* [**Testing Strategy**](testing-strategy.md). Vitest, cargo test, WDIO E2E. Where each test goes.
-* [**E2E Testing**](e2e-testing.md). running end-to-end specs locally and in CI.
-* [**Release Policy**](release-policy.md). release cadence, version policy, OAuth-and-installer rules.
+If it's your first time pulling the repo:
 
-## Building features
+1. [**Getting Set Up**](getting-set-up.md). Toolchain, dependencies, the vendored Tauri CLI, sidecar staging — everything `pnpm dev` needs to actually start.
+2. [**Architecture**](architecture.md). How the desktop app, the Rust core sidecar, the JSON-RPC bridge, and the dual sockets fit together. Read this before you make non-trivial changes.
+3. [**Frontend**](frontend.md) and [**Tauri Shell**](tauri-shell.md). The React app and the desktop host that wraps it.
 
-* [**Subconscious Loop**](../features/subconscious.md). background task evaluation against the workspace.
+---
 
-## Working with agents
+## Testing
 
-* [**Coding Harness**](coding-harness.md). the agent's code-focused tool surface and how to extend it.
-* [**Agent Observability**](agent-observability.md). the artifact-capture layer that makes E2E tests debuggable.
+OpenHuman ships with three test layers. Know which one your change belongs in:
 
-## Other contributor docs
+- [**Testing Strategy**](testing-strategy.md). When to write Vitest vs cargo tests vs WDIO.
+- [**E2E Testing**](e2e-testing.md). WDIO/Appium specs, dual-platform setup (Linux tauri-driver, macOS Appium Mac2), and how to run a single spec locally.
+- [**Agent Observability**](agent-observability.md). The artifact-capture layer that makes E2E and agent runs debuggable after the fact.
 
-Anything not yet migrated lives under [`docs/`](https://github.com/tinyhumansai/openhuman/tree/main/docs) in the repo. Notable references:
+PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new behavior, not just the happy path.
 
-* [Architecture](architecture.md). canonical architecture.
-* [`docs/PROMPT_INJECTION_GUARD.md`](../../docs/PROMPT_INJECTION_GUARD.md). security model.
-* [Frontend chapter](frontend.md). React app structure (`app/src/`).
-* [Tauri shell chapter](tauri-shell.md). desktop host (`app/src-tauri/`).
+---
 
-[`CLAUDE.md`](../../CLAUDE.md) is the source of truth for AI agents working on the codebase, with the same rules contributors are expected to follow.
+## Shipping
+
+- [**Release Policy**](release-policy.md). Version policy, release cadence, OAuth + installer rules.
+- [**Cloud Deploy**](cloud-deploy.md). Backend/cloud-side deployment when a change crosses the desktop boundary.
+
+---
+
+## Going deeper
+
+- [**Coding Harness**](coding-harness.md). The agent's code-focused tool surface and how to extend it.
+- [**Chromium Embedded Framework**](cef.md). How embedded provider webviews work, why they don't run injected JS, and what the per-provider scanners do instead.
+
+For features still being built, the [Subconscious Loop](../features/subconscious.md) page covers the background task evaluation system end-to-end.
+
+---
+
+## Contributing
+
+- Open issues and PRs at [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman).
+- PRs target `main`. Push to your fork, not upstream.
+- Follow [`CONTRIBUTING.md`](https://github.com/tinyhumansai/openhuman/blob/main/CONTRIBUTING.md) and the issue/PR templates.
+- Keep changes focused. A bug fix doesn't need surrounding cleanup; a one-shot operation doesn't need a helper.
+
+Help building toward AGI doesn't have to mean shipping a kernel — bugfixes, docs, integrations, and tests all move the bar.

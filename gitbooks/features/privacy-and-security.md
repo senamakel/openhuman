@@ -64,7 +64,7 @@ Because canonicalization, chunking, scoring and summary trees all run **inside y
 
 Compression and locality together become the privacy architecture.
 
-<figure><img src="../.gitbook/assets/V17. Privacy Shield@2x.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/V17 — Privacy Shield@2x.png" alt=""><figcaption></figcaption></figure>
 
 ## Security
 

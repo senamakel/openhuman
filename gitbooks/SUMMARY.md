@@ -70,6 +70,7 @@
 * [Coding Harness](developing/coding-harness.md)
 * [Agent Observability](developing/agent-observability.md)
 * [Memory Context Window](developing/memory-context-window.md)
+* [Memory Tree Pipeline](developing/memory-tree-pipeline.md)
 
 ### Frontend (app/src/)
 

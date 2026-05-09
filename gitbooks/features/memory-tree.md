@@ -83,3 +83,4 @@ Trees give you compression *and* navigation. Embeddings still live inside (in `s
 - [Auto-fetch from Integrations](auto-fetch.md) — how the tree stays fresh.
 - [Smart Token Compression](token-compression.md) — what makes ingesting "everything" cheap.
 - [Local AI (optional)](local-ai.md) — opt in to keep embeddings and summary-tree building on-device.
+- [Memory Tree Pipeline](../developing/memory-tree-pipeline.md) — contributor-facing deep dive on the async queue, workers and tree-state machine.

@@ -1,9 +1,8 @@
 ---
 description: >-
-  External events from connected integrations (a new Gmail message, a Notion
-  edit, a Stripe charge, an inbound Slack DM) flow into OpenHuman as
-  triggers, get classified by a triage agent, and can fire off agent
-  actions automatically.
+  Live events from connected integrations (a new Gmail message, a Notion edit,
+  a Stripe charge) arrive as triggers, get classified by a triage agent, and
+  can fire agent actions automatically.
 icon: bolt
 ---
 

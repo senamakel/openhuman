@@ -1,8 +1,8 @@
 ---
 description: >-
-  The mascot can join meetings as a real participant - it listens, takes notes,
-  speaks back into the call, animates its face into the camera grid, and uses
-  tools mid-meeting. More than just a notetaker.
+  The mascot joins meetings as a real participant: listens, takes notes, speaks
+  back into the call, animates its face into the camera grid, and uses tools
+  mid-meeting. More than a notetaker.
 icon: video
 ---
 

@@ -1,8 +1,8 @@
 ---
 description: >-
-  OpenHuman is a personal AI assistant that runs on your desktop, connects to
-  118+ services, builds a local-first memory of your life from them,
-  self-reflects and can do interact with you in audio/video
+  Personal AI assistant for your desktop. Connects to 118+ services, builds a
+  local-first memory of your life, self-reflects, and can interact with you
+  over audio and video.
 icon: diamond
 ---
 

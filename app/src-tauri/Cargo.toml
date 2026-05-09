@@ -126,6 +126,9 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
 # Uses stock @tauri-apps/cli (not the vendored CEF CLI) — see iOS build scripts.
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-barcode-scanner = "2"
+# Push-to-talk + TTS plugin (Layer 6). Wraps AVAudioEngine + SFSpeechRecognizer
+# + AVSpeechSynthesizer via a Swift package under packages/tauri-plugin-ptt/ios/.
+tauri-plugin-ptt = { path = "../../packages/tauri-plugin-ptt" }
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", default-features = false, features = ["signal"] }

@@ -8,6 +8,11 @@
     "core:default",
     "core:event:default",
     "barcode-scanner:allow-scan",
-    "barcode-scanner:allow-cancel"
+    "barcode-scanner:allow-cancel",
+    "ptt:allow-start-listening",
+    "ptt:allow-stop-listening",
+    "ptt:allow-speak",
+    "ptt:allow-cancel-speech",
+    "ptt:allow-list-voices"
   ]
 }

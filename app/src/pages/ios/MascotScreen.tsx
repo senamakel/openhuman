@@ -6,7 +6,7 @@
  *   - YellowMascot canvas (fills the upper ~60% of screen)
  *   - Scrolling transcript of messages above the input row
  *   - Text input row pinned to bottom
- *   - Disabled PTT round button (Layer 6 placeholder)
+ *   - PTT round button (hold to talk, release to send)
  *
  * Chat:
  *   - Sends via openhuman.channel_web_chat RPC (same as desktop chat).
@@ -14,12 +14,23 @@
  *     mascot face transitions and transcript display.
  *   - Uses useHumanMascot() to drive face/viseme state.
  *
- * PTT:
- *   - Placeholder button — disabled, tooltip "PTT coming soon".
- *   - Layer 6 will replace it with the real plugin call.
+ * PTT (Layer 6):
+ *   - onPointerDown -> startListening(); pttActive = true.
+ *   - onPointerUp   -> stopListening() -> send transcript as chat message.
+ *   - onTranscriptPartial -> shows live caption above button.
+ *   - onError -> surfaces a toast.
+ *   - Agent reply is spoken via speak() once chat_done fires.
+ *   - Any new PTT press cancels active TTS first.
  */
 import debug from 'debug';
-import { type FC, type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type FC,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { YellowMascot } from '../../features/human/Mascot';
@@ -32,6 +43,14 @@ import {
   subscribeChatEvents,
 } from '../../services/chatService';
 import { deleteProfile, listProfiles } from '../../services/transport/profileStore';
+import {
+  cancelSpeech,
+  onError as onPttError,
+  onTranscriptPartial,
+  speak,
+  startListening,
+  stopListening,
+} from 'tauri-plugin-ptt-api';
 
 const log = debug('ios:mascot-screen');
 const logErr = debug('ios:mascot-screen:error');
@@ -93,33 +112,44 @@ const MascotChatTranscript: FC<TranscriptProps> = ({ messages }) => {
   );
 };
 
-// -- PTT placeholder ---------------------------------------------------------
+// -- PTT button ---------------------------------------------------------------
 
-const PTTButton: FC = () => {
-  const [showTooltip, setShowTooltip] = useState(false);
+interface PTTButtonProps {
+  active: boolean;
+  partialText: string;
+  onDown: () => void;
+  onUp: () => void;
+}
 
+const PTTButton: FC<PTTButtonProps> = ({ active, partialText, onDown, onUp }) => {
   return (
-    <div className="relative flex items-center justify-center">
-      {showTooltip && (
+    <div className="relative flex flex-col items-center justify-center gap-1">
+      {partialText && (
         <div
           className="absolute bottom-full mb-2 px-3 py-1.5 rounded-lg bg-black/80 text-white text-xs
-                     whitespace-nowrap pointer-events-none z-10">
-          PTT coming soon
+                     max-w-[200px] text-center pointer-events-none z-10">
+          {partialText}
         </div>
       )}
-      {/* Layer 6 will wire this button to the PTT Swift plugin.
-          The onClick hook will be: startPTT() / stopPTT() from the plugin. */}
       <button
         type="button"
-        disabled
-        aria-label="Push to talk (coming soon)"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        onTouchStart={() => setShowTooltip(true)}
-        onTouchEnd={() => setShowTooltip(false)}
-        className="w-14 h-14 rounded-full bg-white/10 border border-white/20
-                   flex items-center justify-center opacity-40 cursor-not-allowed
-                   transition-opacity">
+        aria-label="Push to talk"
+        onPointerDown={e => {
+          // setPointerCapture is not available in jsdom test environments.
+          if (typeof e.currentTarget.setPointerCapture === 'function') {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }
+          onDown();
+        }}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+        className={`w-14 h-14 rounded-full border flex items-center justify-center
+                   transition-all select-none touch-none
+                   ${
+                     active
+                       ? 'bg-[#4A83DD] border-[#4A83DD] scale-110'
+                       : 'bg-white/10 border-white/20 opacity-80'
+                   }`}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z" fill="white" />
           <path
@@ -142,17 +172,44 @@ const PTTButton: FC = () => {
   );
 };
 
+// -- toast -------------------------------------------------------------------
+
+interface ToastProps {
+  message: string;
+  onDismiss: () => void;
+}
+
+const Toast: FC<ToastProps> = ({ message, onDismiss }) => (
+  <div
+    role="alert"
+    className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50
+               px-4 py-2 rounded-xl bg-red-500/90 text-white text-sm
+               max-w-[80%] text-center shadow-lg"
+    onClick={onDismiss}>
+    {message}
+  </div>
+);
+
 // -- main component ----------------------------------------------------------
 
 export const MascotScreen: FC = () => {
   const navigate = useNavigate();
-  const { face } = useHumanMascot({ speakReplies: false });
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  // PTT state
+  const [pttActive, setPttActive] = useState(false);
+  const [partialText, setPartialText] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+
   const streamingIdRef = useRef<string | null>(null);
+  // Ref tracks whether PTT session is live — readable from async callbacks
+  // without a stale closure over the pttActive state variable.
+  const pttActiveRef = useRef(false);
+
+  const { face } = useHumanMascot({ listening: pttActive });
 
   // Derive label from stored profile.
   const pairedLabel = (() => {
@@ -162,7 +219,8 @@ export const MascotScreen: FC = () => {
 
   log('[ios] mascot screen mounted pairedLabel=%s', pairedLabel);
 
-  // Subscribe to chat events for transcript streaming.
+  // -- chat event subscription -----------------------------------------------
+
   useEffect(() => {
     const unsub = subscribeChatEvents({
       onTextDelta: (e: ChatTextDeltaEvent) => {
@@ -180,6 +238,15 @@ export const MascotScreen: FC = () => {
           prev.map(m => (m.id === sid ? { ...m, text: e.full_response, streaming: false } : m))
         );
         setIsSending(false);
+
+        // Speak the assistant reply via TTS. Do not speak if the user is
+        // already recording again (PTT pressed before the reply arrived).
+        if (e.full_response && !pttActiveRef.current) {
+          log('[ios] TTS: speaking assistant reply len=%d', e.full_response.length);
+          speak(e.full_response).catch((err: unknown) => {
+            logErr('[ios] TTS speak error: %o', err);
+          });
+        }
       },
       onError: (e: ChatErrorEvent) => {
         logErr(
@@ -204,14 +271,49 @@ export const MascotScreen: FC = () => {
     return unsub;
   }, []);
 
-  const handleSend = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      const text = inputText.trim();
-      if (!text || isSending) return;
+  // -- PTT event subscription ------------------------------------------------
 
-      log('[ios] sending message len=%d thread_id=%s', text.length, IOS_THREAD_ID);
-      setInputText('');
+  useEffect(() => {
+    let unlistenPartial: (() => void) | undefined;
+    let unlistenError: (() => void) | undefined;
+
+    onTranscriptPartial(text => {
+      log('[ios] PTT partial text_len=%d', text.length);
+      setPartialText(text);
+    })
+      .then((fn: () => void) => {
+        unlistenPartial = fn;
+      })
+      .catch((err: unknown) => logErr('[ios] PTT partial listener setup failed: %o', err));
+
+    onPttError(err => {
+      logErr('[ios] PTT error code=%s message=%s', err.code, err.message);
+      // An interruption may have stopped the recorder without onPointerUp
+      // being called — reset PTT state so the button is not stuck active.
+      if (pttActiveRef.current) {
+        pttActiveRef.current = false;
+        setPttActive(false);
+        setPartialText('');
+      }
+      setToast(err.message);
+      setTimeout(() => setToast(null), 4000);
+    })
+      .then((fn: () => void) => {
+        unlistenError = fn;
+      })
+      .catch((err: unknown) => logErr('[ios] PTT error listener setup failed: %o', err));
+
+    return () => {
+      unlistenPartial?.();
+      unlistenError?.();
+    };
+  }, []);
+
+  // -- shared send (declared before PTT handlers so it is in scope) -----------
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      log('[ios] sendMessage len=%d thread_id=%s', text.length, IOS_THREAD_ID);
 
       const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', text };
       const assistantId = `asst-${Date.now()}`;
@@ -240,7 +342,64 @@ export const MascotScreen: FC = () => {
         );
       }
     },
-    [inputText, isSending]
+    []
+  );
+
+  // -- PTT handlers ----------------------------------------------------------
+
+  const handlePttDown = useCallback(() => {
+    if (isSending) return;
+    log('[ios] PTT down — starting listening');
+
+    // Cancel any in-progress TTS before starting a new recording.
+    cancelSpeech().catch((err: unknown) => logErr('[ios] cancelSpeech on PTT down failed: %o', err));
+
+    pttActiveRef.current = true;
+    setPttActive(true);
+    setPartialText('');
+
+    startListening().catch((err: unknown) => {
+      logErr('[ios] startListening failed: %o', err);
+      pttActiveRef.current = false;
+      setPttActive(false);
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast(msg);
+      setTimeout(() => setToast(null), 4000);
+    });
+  }, [isSending]);
+
+  const handlePttUp = useCallback(() => {
+    if (!pttActiveRef.current) return;
+    log('[ios] PTT up — stopping listening');
+
+    pttActiveRef.current = false;
+    setPttActive(false);
+
+    stopListening()
+      .then((result: { text: string; isFinal: boolean }) => {
+        const text = result.text.trim();
+        setPartialText('');
+        log('[ios] PTT transcript text_len=%d', text.length);
+        if (!text) return;
+        void sendMessage(text);
+      })
+      .catch((err: unknown) => {
+        logErr('[ios] stopListening failed: %o', err);
+        setPartialText('');
+      });
+  }, [sendMessage]);
+
+  const handleSend = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      const text = inputText.trim();
+      if (!text || isSending) return;
+      setInputText('');
+      // Cancel any active TTS when the user types a new message.
+      cancelSpeech().catch(() => undefined);
+      await sendMessage(text);
+    },
+    [inputText, isSending, sendMessage]
   );
 
   function handleDisconnect() {
@@ -251,7 +410,7 @@ export const MascotScreen: FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0f1117] text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#0f1117] text-white overflow-hidden relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-safe-top py-3 border-b border-white/10 shrink-0">
         <div className="flex flex-col">
@@ -279,11 +438,19 @@ export const MascotScreen: FC = () => {
       {/* Transcript */}
       <MascotChatTranscript messages={messages} />
 
+      {/* Toast */}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+
       {/* Input row */}
       <div className="shrink-0 border-t border-white/10 px-4 pb-safe-bottom py-3">
         <form onSubmit={e => void handleSend(e)} className="flex items-center gap-3">
-          {/* PTT placeholder — Layer 6 will enable this */}
-          <PTTButton />
+          {/* PTT button — Layer 6 live implementation */}
+          <PTTButton
+            active={pttActive}
+            partialText={partialText}
+            onDown={handlePttDown}
+            onUp={handlePttUp}
+          />
 
           {/* Text input */}
           <input

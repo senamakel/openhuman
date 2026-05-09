@@ -1197,8 +1197,8 @@ pub fn run() {
 
     tauri::Builder::default()
         // TODO(Layer 5): register iOS-specific plugins (deep-link, notification, etc.)
-        // TODO(Layer 6): register tauri-plugin-ptt
         .plugin(tauri_plugin_barcode_scanner::init())
+        .plugin(tauri_plugin_ptt::init())
         .invoke_handler(tauri::generate_handler![app_quit])
         .build(tauri::generate_context!())
         .expect("error while building tauri application for iOS")

@@ -24,6 +24,11 @@ export default defineConfig({
       process: "process/browser",
       util: "util",
       os: "os-browserify/browser",
+      // Resolve workspace package imports for tests that import the PTT plugin.
+      "tauri-plugin-ptt-api": path.resolve(
+        configDir,
+        "../../packages/tauri-plugin-ptt/guest-js/index.ts"
+      ),
     },
   },
   test: {
@@ -37,7 +42,12 @@ export default defineConfig({
     mockReset: false,
     restoreMocks: false,
     setupFiles: ["src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "test/*.test.{ts,tsx}"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "test/*.test.{ts,tsx}",
+      // tauri-plugin-ptt guest-js unit tests (no iOS toolchain required).
+      "../packages/tauri-plugin-ptt/guest-js/**/*.test.ts",
+    ],
     hookTimeout: 30000,
     testTimeout: 30000,
     coverage: {

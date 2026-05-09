@@ -57,17 +57,17 @@ For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/develop
 
 ## Context in minutes, not weeks
 
-OpenHuman is the first agent harness that gets to know you in minutes. Insipired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Connect → sync → ingest → done.
+OpenHuman is the first agent harness that gets to know you in minutes. Inspired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Connect → sync → ingest → done.
 
 <p align="center">
  <img src="./gitbooks/.gitbook/assets/image.png" alt="The Tet" />
 </p>
 
-> OpenHuman summarizes and compress all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.
+> OpenHuman summarizes and compresses all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.
 
 Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
 
-OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) pull context on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) compresses everything into Markdown chunks that is stored into a Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk.
+OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) pull context on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) compresses everything into Markdown chunks stored in a Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk.
 
 One sync pass and the agent has understood your inbox, your calendar, your repos, your docs, your messages. All local & privately. No training period. No "give it a few weeks.". It becomes you, controlled by you.
 

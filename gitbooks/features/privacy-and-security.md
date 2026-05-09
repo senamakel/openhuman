@@ -36,9 +36,9 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 |                                    |                                                                                                                                                                            |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **LLM calls**                      | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](model-routing/). |
-| **Web search proxy**               | The native [web search tool](native-tools.md) calls a backend proxy so you don't carry a search API key.                                                                   |
+| **Web search proxy**               | The native [web search tool](native-tools/web-search.md) calls a backend proxy so you don't carry a search API key.                                                                   |
 | **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](integrations.md).                                                                                 |
-| **TTS streaming**                  | [ElevenLabs](voice.md) audio streams. Audio is generated and discarded — not retained.                                                                                     |
+| **TTS streaming**                  | [ElevenLabs](native-tools/voice.md) audio streams. Audio is generated and discarded — not retained.                                                                                     |
 
 ***
 
@@ -72,7 +72,7 @@ Compression and locality together become the privacy architecture.
 
 **Sandboxed skills.** Each skill runs in its own isolated execution environment with enforced memory and resource limits. Skills cannot access each other's data, the host system's file system, or your credentials.
 
-**Workspace-scoped tools.** The native [filesystem tools](native-tools.md) operate within the workspace the user opens; they do not have ambient access to the rest of the disk.
+**Workspace-scoped tools.** The native [filesystem tools](native-tools/coder.md) operate within the workspace the user opens; they do not have ambient access to the rest of the disk.
 
 **Short-lived tokens.** Authentication tokens between the app and the backend are time-limited.
 

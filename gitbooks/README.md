@@ -21,9 +21,9 @@ OpenHuman solves this with a stack that's calmly, deliberately different:
 
 [**118+ third-party integrations**](features/integrations.md)**, with** [**auto-fetch**](features/obsidian-wiki/auto-fetch.md)**.** One-click OAuth into Gmail, GitHub, Slack, Notion, Stripe, Calendar, Drive, Linear, Jira and more. Every twenty minutes, OpenHuman pulls fresh data from every active connection and folds it into the Memory Tree without you asking.
 
-**An agent built for big data.** [Smart token compression (TokenJuice)](features/token-compression.md) compacts verbose tool output before it ever enters the model's context, so sweeping through your last six months of email costs single-digit dollars. [Automatic model routing](features/model-routing/) sends each task to the right model, `hint:reasoning` to a frontier model, `hint:fast` to a cheap one, vision to vision, all under one subscription. Built-in [native tools](features/native-tools.md) cover web search, scraping, and a full filesystem/git/lint/test/grep coder loop.
+**An agent built for big data.** [Smart token compression (TokenJuice)](features/token-compression.md) compacts verbose tool output before it ever enters the model's context, so sweeping through your last six months of email costs single-digit dollars. [Automatic model routing](features/model-routing/) sends each task to the right model, `hint:reasoning` to a frontier model, `hint:fast` to a cheap one, vision to vision, all under one subscription. Built-in [native tools](features/native-tools/README.md) cover web search, scraping, and a full filesystem/git/lint/test/grep coder loop.
 
-[**Native voice (ElevenLabs)**](features/voice.md)**.** STT in, ElevenLabs TTS out, mascot lip-sync, and a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+[**Native voice (ElevenLabs)**](features/native-tools/voice.md)**.** STT in, ElevenLabs TTS out, mascot lip-sync, and a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
 
 Together, these turn OpenHuman into something fundamentally different from a chatbot. It is an AI agent that consumes large amounts of personal data at low cost, maintains a persistent and evolving understanding of your world, and takes proactive actions on your behalf.
 

@@ -47,5 +47,5 @@ Implementation: `src/openhuman/tokenjuice/` (`classify.rs`, `reduce.rs`, `rules/
 
 ## See also
 
-* [Native Tools](native-tools.md). most heavy tool output flows through TokenJuice.
+* [Native Tools](native-tools/README.md). most heavy tool output flows through TokenJuice.
 * [Memory Tree](obsidian-wiki/memory-tree.md). the downstream consumer of compressed output.

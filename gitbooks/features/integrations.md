@@ -66,8 +66,8 @@ Beyond third-party services, OpenHuman has **skills**, small sandboxed modules t
 
 Two capabilities ship native rather than as integrations because they're load-bearing for the desktop experience:
 
-* [**Voice**](voice.md). STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
-* [**Native tools**](native-tools.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
+* [**Voice**](native-tools/voice.md). STT in, ElevenLabs TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+* [**Native tools**](native-tools/README.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
 
 ## Privacy boundary
 

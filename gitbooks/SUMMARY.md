@@ -55,6 +55,20 @@
 * [Distributed Teams](use-cases/distributed-teams.md)
 * [Service Providers & Contributors](use-cases/service-providers-and-contributors.md)
 
+## Developing
+
+* [Overview](developing/README.md)
+* [Getting Set Up](developing/getting-set-up.md)
+* [Testing Strategy](developing/testing-strategy.md)
+* [E2E Testing](developing/e2e-testing.md)
+* [Release Policy](developing/release-policy.md)
+* [Skills](developing/skills.md)
+* [Subconscious Loop](developing/subconscious.md)
+* [Conscious Loop](developing/conscious-loop.md)
+* [Webview Integration](developing/webview-integration.md)
+* [Coding Harness](developing/coding-harness.md)
+* [Agent Observability](developing/agent-observability.md)
+
 ## Resources
 
 * [FAQ & Troubleshooting](resources/faq.md)

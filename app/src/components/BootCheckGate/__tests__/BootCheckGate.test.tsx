@@ -24,10 +24,12 @@ vi.mock('../../../lib/bootCheck', () => ({
   runBootCheck: (...args: unknown[]) => mockRunBootCheck(...args),
 }));
 
+const mockTestCoreRpcConnection = vi.fn();
 vi.mock('../../../services/coreRpcClient', () => ({
   callCoreRpc: vi.fn(),
   clearCoreRpcUrlCache: vi.fn(),
   clearCoreRpcTokenCache: vi.fn(),
+  testCoreRpcConnection: (...args: unknown[]) => mockTestCoreRpcConnection(...args),
 }));
 
 vi.mock('../../../utils/configPersistence', () => ({
@@ -183,6 +185,144 @@ describe('BootCheckGate — picker (unset mode)', () => {
       }),
       expect.any(Object)
     );
+  });
+});
+
+describe('BootCheckGate — picker test connection', () => {
+  beforeEach(() => {
+    mockTestCoreRpcConnection.mockReset();
+  });
+
+  function fillCloudInputs(url = 'https://core.example.com/rpc', token = 'tok-abc') {
+    fireEvent.click(screen.getByText('Cloud'));
+    fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
+      target: { value: url },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), { target: { value: token } });
+  }
+
+  it('shows Connected on a 200 response', async () => {
+    mockTestCoreRpcConnection.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ result: { ok: true } }),
+    } as unknown as Response);
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-ok')).toBeInTheDocument();
+    });
+    expect(mockTestCoreRpcConnection).toHaveBeenCalledWith(
+      'https://core.example.com/rpc',
+      'tok-abc'
+    );
+  });
+
+  it('shows Auth failed on a 401 response', async () => {
+    mockTestCoreRpcConnection.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'unauthorized' }),
+    } as unknown as Response);
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-auth')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Auth failed on a 403 response', async () => {
+    mockTestCoreRpcConnection.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    } as unknown as Response);
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-auth')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Unreachable when fetch rejects', async () => {
+    mockTestCoreRpcConnection.mockRejectedValue(new Error('network down'));
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-unreachable')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('test-status-unreachable').textContent).toMatch(/network down/);
+  });
+
+  it('shows Unreachable on non-2xx non-auth response', async () => {
+    mockTestCoreRpcConnection.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    } as unknown as Response);
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-unreachable')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('test-status-unreachable').textContent).toMatch(/HTTP 500/);
+  });
+
+  it('does not call the test endpoint when URL is missing', () => {
+    renderGate();
+    fireEvent.click(screen.getByText('Cloud'));
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(mockTestCoreRpcConnection).not.toHaveBeenCalled();
+    expect(screen.getByText('Please enter a core URL.')).toBeInTheDocument();
+  });
+
+  it('does not call the test endpoint when token is missing', () => {
+    renderGate();
+    fireEvent.click(screen.getByText('Cloud'));
+    fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
+      target: { value: 'https://core.example.com/rpc' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(mockTestCoreRpcConnection).not.toHaveBeenCalled();
+    expect(screen.getByText(/Please enter the core auth token/i)).toBeInTheDocument();
+  });
+
+  it('clears a stale ok status when the user edits inputs again', async () => {
+    mockTestCoreRpcConnection.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    } as unknown as Response);
+
+    renderGate();
+    fillCloudInputs();
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-status-ok')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+      target: { value: 'tok-def' },
+    });
+
+    expect(screen.queryByTestId('test-status-ok')).not.toBeInTheDocument();
   });
 });
 

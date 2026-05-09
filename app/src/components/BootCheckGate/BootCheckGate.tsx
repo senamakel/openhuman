@@ -14,7 +14,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { type BootCheckResult, runBootCheck } from '../../lib/bootCheck';
 import { bootCheckTransport } from '../../services/bootCheckService';
-import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
+import {
+  clearCoreRpcTokenCache,
+  clearCoreRpcUrlCache,
+  testCoreRpcConnection,
+} from '../../services/coreRpcClient';
 import { type CoreMode, resetCoreMode, setCoreMode } from '../../store/coreModeSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
@@ -63,12 +67,98 @@ interface PickerProps {
   onConfirm: (mode: CoreMode) => void;
 }
 
+type TestStatus =
+  | { kind: 'idle' }
+  | { kind: 'testing' }
+  | { kind: 'ok' }
+  | { kind: 'auth' }
+  | { kind: 'unreachable'; reason: string };
+
 function ModePicker({ onConfirm }: PickerProps) {
   const [selected, setSelected] = useState<'local' | 'cloud'>('local');
   const [cloudUrl, setCloudUrl] = useState('');
   const [cloudToken, setCloudToken] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [testStatus, setTestStatus] = useState<TestStatus>({ kind: 'idle' });
+
+  /**
+   * Validate the cloud URL + token inputs against a live core before we
+   * commit the mode. We hit the public `core.ping` (auth-bypass) to confirm
+   * reachability, then re-issue the same JSON-RPC envelope with the bearer
+   * token to confirm `/rpc` accepts it. This catches the two most common
+   * paste-time mistakes — wrong URL, wrong/missing token — with one click,
+   * before the user lands on the unreachable result screen.
+   *
+   * Tokens are never logged: only `tokenLen` is emitted via the existing
+   * picker debug line, and any error messages from the network/JSON parse
+   * paths are passed through verbatim without the bearer value.
+   */
+  const validateInputs = (): { url: string; token: string } | null => {
+    const trimmedUrl = cloudUrl.trim();
+    if (!trimmedUrl) {
+      setUrlError('Please enter a core URL.');
+      return null;
+    }
+    try {
+      const parsed = new URL(trimmedUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setUrlError('URL must start with http:// or https://');
+        return null;
+      }
+    } catch {
+      setUrlError('Please enter a valid URL (e.g. https://core.example.com/rpc)');
+      return null;
+    }
+    setUrlError(null);
+
+    const trimmedToken = cloudToken.trim();
+    if (!trimmedToken) {
+      setTokenError('Please enter the core auth token.');
+      return null;
+    }
+    setTokenError(null);
+
+    return { url: trimmedUrl, token: trimmedToken };
+  };
+
+  const handleTestConnection = async () => {
+    const validated = validateInputs();
+    if (!validated) return;
+
+    setTestStatus({ kind: 'testing' });
+    log(
+      '[boot-check] picker — testing cloud connection url=%s tokenLen=%d',
+      validated.url,
+      validated.token.length
+    );
+
+    try {
+      const response = await testCoreRpcConnection(validated.url, validated.token);
+      if (response.status === 401 || response.status === 403) {
+        log('[boot-check] picker — test failed: auth (status=%d)', response.status);
+        setTestStatus({ kind: 'auth' });
+        return;
+      }
+      if (!response.ok) {
+        log('[boot-check] picker — test failed: HTTP %d', response.status);
+        setTestStatus({ kind: 'unreachable', reason: `HTTP ${response.status} from /rpc` });
+        return;
+      }
+      // Drain the body — response.ok with JSON-RPC error is still reachable.
+      try {
+        await response.json();
+      } catch {
+        // Non-JSON body is unusual but doesn't disprove reachability.
+      }
+      log('[boot-check] picker — test succeeded');
+      setTestStatus({ kind: 'ok' });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Connection failed';
+      logError('[boot-check] picker — test errored: %o', err);
+      setTestStatus({ kind: 'unreachable', reason });
+    }
+  };
 
   const handleContinue = () => {
     if (selected === 'local') {
@@ -77,40 +167,15 @@ function ModePicker({ onConfirm }: PickerProps) {
       return;
     }
 
-    // Basic URL validation: must be http(s)
-    const trimmedUrl = cloudUrl.trim();
-    if (!trimmedUrl) {
-      setUrlError('Please enter a core URL.');
-      return;
-    }
-    try {
-      const parsed = new URL(trimmedUrl);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        setUrlError('URL must start with http:// or https://');
-        return;
-      }
-    } catch {
-      setUrlError('Please enter a valid URL (e.g. https://core.example.com/rpc)');
-      return;
-    }
-    setUrlError(null);
-
-    // Cloud cores require a bearer token (OPENHUMAN_CORE_TOKEN). Without one
-    // every /rpc call would 401 and the user would be stuck on the boot
-    // gate; require it up front rather than failing later.
-    const trimmedToken = cloudToken.trim();
-    if (!trimmedToken) {
-      setTokenError('Please enter the core auth token.');
-      return;
-    }
-    setTokenError(null);
+    const validated = validateInputs();
+    if (!validated) return;
 
     log(
       '[boot-check] picker — user selected cloud mode url=%s tokenLen=%d',
-      trimmedUrl,
-      trimmedToken.length
+      validated.url,
+      validated.token.length
     );
-    onConfirm({ kind: 'cloud', url: trimmedUrl, token: trimmedToken });
+    onConfirm({ kind: 'cloud', url: validated.url, token: validated.token });
   };
 
   return (
@@ -162,6 +227,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                 onChange={e => {
                   setCloudUrl(e.target.value);
                   setUrlError(null);
+                  setTestStatus({ kind: 'idle' });
                 }}
                 className="rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-ocean-500 focus:outline-none"
               />
@@ -180,6 +246,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                 onChange={e => {
                   setCloudToken(e.target.value);
                   setTokenError(null);
+                  setTestStatus({ kind: 'idle' });
                 }}
                 className="rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-ocean-500 focus:outline-none"
               />
@@ -188,6 +255,31 @@ function ModePicker({ onConfirm }: PickerProps) {
                 Stored on this device only. Required for remote cores — the desktop sends it as{' '}
                 <code>Authorization: Bearer …</code> on every RPC.
               </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={testStatus.kind === 'testing'}
+                className="rounded-lg border border-stone-600 px-3 py-1.5 text-xs text-stone-100 hover:bg-stone-800 disabled:opacity-60">
+                {testStatus.kind === 'testing' ? 'Testing…' : 'Test connection'}
+              </button>
+              {testStatus.kind === 'ok' && (
+                <span className="text-xs text-emerald-400" data-testid="test-status-ok">
+                  Connected ✓
+                </span>
+              )}
+              {testStatus.kind === 'auth' && (
+                <span className="text-xs text-coral-400" data-testid="test-status-auth">
+                  Auth failed — check the token (got 401/403).
+                </span>
+              )}
+              {testStatus.kind === 'unreachable' && (
+                <span className="text-xs text-coral-400" data-testid="test-status-unreachable">
+                  Unreachable: {testStatus.reason}
+                </span>
+              )}
             </div>
           </div>
         )}

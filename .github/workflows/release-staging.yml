@@ -15,7 +15,8 @@ concurrency:
 #
 #   prepare-build
 #        │
-#   build-desktop          (delegated to .github/workflows/build-desktop.yml)
+#        ├── build-desktop      (delegated to .github/workflows/build-desktop.yml)
+#        ├── build-docker       (build only — no GHCR push on staging)
 #        │
 #   record-sentry-deploy
 #        │
@@ -192,6 +193,45 @@ jobs:
       build_sidecar: false
 
   # =========================================================================
+  # Phase 2b: Build the openhuman-core Docker image without pushing.
+  # Mirrors the production `build-docker` job so a Dockerfile regression
+  # surfaces on the staging cut — no GHCR push, no `:staging-*` tag
+  # pollution. `deploy-smoke.yml` already covers the build path on PRs
+  # that touch Dockerfile / src; this is the equivalent gate at the
+  # staging-tag boundary so a green staging cut means the next prod
+  # promotion's GHCR push will succeed too.
+  # =========================================================================
+  build-docker:
+    name: "Docker: build (no push)"
+    needs: [prepare-build]
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - name: Checkout build ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-build.outputs.build_ref }}
+          fetch-depth: 1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          platforms: linux/amd64
+          tags: openhuman-core:staging-${{ needs.prepare-build.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.prepare-build.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare-build.outputs.version }}
+            org.opencontainers.image.title=openhuman-core
+          cache-from: type=gha,scope=release-staging
+          cache-to: type=gha,scope=release-staging,mode=max
+
+  # =========================================================================
   # Phase 3: Record a single Sentry deploy marker once the matrix is
   # complete. Lives in its own job (not inside the reusable workflow)
   # because `sentry-cli releases deploys ... new` does NOT deduplicate by
@@ -204,7 +244,7 @@ jobs:
     name: Record Sentry deploy marker
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, build-desktop]
+    needs: [prepare-build, build-desktop, build-docker]
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
@@ -242,11 +282,12 @@ jobs:
     name: Remove staging tag if build failed
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, build-desktop]
+    needs: [prepare-build, build-desktop, build-docker]
     if: >-
       always()
       && needs.prepare-build.result == 'success'
-      && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled')
+      && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
+          || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled')
     steps:
       - name: Delete remote staging tag
         uses: actions/github-script@v7

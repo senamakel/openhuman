@@ -46,44 +46,31 @@ irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/instal
 
 # What is OpenHuman?
 
-OpenHuman is an open-source agentic assistant that is designed to integrate with you in your daily life. Here's what makes OpenHuman special:
+OpenHuman is an open-source agentic assistant designed to integrate with you in your daily life. Each bullet links to the deeper writeup in the [docs](https://tinyhumans.gitbook.io/openhuman/).
 
-- **Simple, UI-first** — A **clean** desktop experience and short onboarding paths so you can go from install to a **working agent in a few clicks**, without a config-first setup. You don't need a terminal to run OpenHuman.
+- **Simple, UI-first** — A clean desktop experience and short onboarding paths so you can go from install to a working agent in a few clicks, without a config-first setup. No terminal required.
 
-- **One subscription, many providers** — You only need **one** account to get access to many agentic APIs (AI models, search, webhooks/tunnels and other third-party APIs), simplifying the experience to get a powerful agent going.
+- **One subscription, many providers** — One account gets you access to many agentic APIs (AI models, search, webhooks/tunnels, third-party APIs).
 
-- **118+ third-party integrations** — Plug into **Gmail**, **Notion**, **GitHub**, **Slack**, **Stripe**, **Calendar**, **Drive**, **Linear**, **Jira** and the rest of your stack with **one-click OAuth**. No API keys to wire by hand, and every connection is exposed to the agent as a typed tool.
+- **[118+ third-party integrations](https://tinyhumans.gitbook.io/openhuman/features/integrations)** — Plug into Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and the rest of your stack with **one-click OAuth**. Every connection is exposed to the agent as a typed tool.
 
-- **Memory Tree + Obsidian Wiki** — A **local-first** knowledge base built from your data and your activity. Everything you connect is canonicalized into Markdown chunks, scored, and folded into hierarchical summary trees stored in **SQLite on your machine**. The same chunks land as `.md` files in an **Obsidian-compatible vault** you can open, browse and edit directly — inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595).
+- **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)** — A local-first knowledge base built from your data and your activity. Everything you connect is canonicalized into ≤3k-token Markdown chunks, scored, and folded into hierarchical summary trees stored in **SQLite on your machine**. The same chunks land as `.md` files in an Obsidian-compatible vault you can open, browse and edit — inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595).
 
-- **Auto-fetch from your stack** — Every five minutes the core walks each active connection and pulls fresh data into the memory tree (e.g. Gmail → canonical Markdown → chunks → summaries). No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
+- **[Auto-fetch from your stack](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — Every five minutes the core walks each active connection and pulls fresh data into the memory tree. No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
 
-- **Smart token compression (TokenJuice)** — Verbose tool output (git, npm, cargo, docker, large emails) is compacted by a **rule overlay** before it ever enters LLM context. Sweeping through thousands of emails or large repos stays **cheap** because the model never sees the noise.
+- **[Smart token compression (TokenJuice)](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — Verbose tool output (git, npm, cargo, docker, large emails) is compacted by a rule overlay before it ever enters LLM context. Sweeping through thousands of emails stays cheap because the model never sees the noise.
 
-- **Automatic model routing** — Tasks pick their model. A `hint:reasoning` request lands on a strong reasoning model, `hint:fast` on a fast one, vision goes to a vision model — all under **one subscription**, with zero per-provider key juggling.
+- **[Automatic model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — Tasks pick their model. `hint:reasoning` lands on a strong reasoning model, `hint:fast` on a fast one, vision goes to a vision model — all under one subscription, with zero per-provider key juggling.
 
-- **Native voice (ElevenLabs)** — STT in, **ElevenLabs** TTS out, with mascot lip-sync. Includes a live **Google Meet agent** that listens, takes notes and can speak back in your meetings.
+- **[Native voice (ElevenLabs)](https://tinyhumans.gitbook.io/openhuman/features/voice)** — STT in, ElevenLabs TTS out, with mascot lip-sync. Includes a live Google Meet agent that listens, takes notes and can speak back in your meetings.
 
-- **Native search, scraper and coder** — A built-in **web search**, **web-fetch** scraper, and a full **filesystem / git / lint / test / grep** toolset are wired into the agent out of the box. No "install a plugin to read files" friction.
+- **[Native search, scraper and coder](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** — Built-in web search, web-fetch scraper, and a full filesystem / git / lint / test / grep toolset wired into the agent out of the box. No "install a plugin to read files" friction.
 
-- **Optional local AI (via Ollama)** — Off by default. Opt in per-workload to keep **memory embeddings**, **summary-tree building**, and the **background reflection loops** (heartbeat / learning / subconscious) on your machine. Chat / vision / voice stay cloud — the local path is **scoped to the workloads where on-device actually pays**, not a "run everything on Gemma 3" overreach.
+- **[Optional local AI (via Ollama)](https://tinyhumans.gitbook.io/openhuman/features/local-ai)** — Off by default. Opt in per-workload to keep memory embeddings, summary-tree building, and background reflection loops on your machine. Chat / vision / voice stay cloud — the local path is scoped to the workloads where on-device actually pays.
 
-Architecture: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture). Contributor orientation: [`CONTRIBUTING.md`](./CONTRIBUTING.md). Running from source: [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up). Cloud-hosting the headless core: [Cloud Deploy](https://tinyhumans.gitbook.io/openhuman/developing/cloud-deploy).
+- **[Messaging channels](https://tinyhumans.gitbook.io/openhuman/product/messaging-channels), [teams & orgs](https://tinyhumans.gitbook.io/openhuman/product/teams), [privacy & security](https://tinyhumans.gitbook.io/openhuman/product/privacy-and-security)** — Inbound/outbound across the channels you already use, shared workspaces for collaborating with an agent across a team, and workflow data that stays on device, encrypted locally, treated as yours.
 
-## Highlights
-
-- **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree)** — local-first knowledge base: ingest → canonical Markdown → ≤3k-token chunks → SQLite with hierarchical summary trees.
-- **[Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)** — every memory chunk also lives as a `.md` file in an Obsidian-compatible vault you can open and edit (Karpathy-style).
-- **[Third-party Integrations (118+)](https://tinyhumans.gitbook.io/openhuman/features/integrations)** — one-click OAuth into Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more.
-- **[Auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — every five minutes, fresh data from each active connection is folded into the memory tree.
-- **[Smart Token Compression](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — TokenJuice rule overlay compacts verbose tool output before it enters LLM context.
-- **[Automatic Model Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — `hint:reasoning`, `hint:fast`, `hint:vision` map to the right provider+model per task.
-- **[Native Voice (ElevenLabs)](https://tinyhumans.gitbook.io/openhuman/features/voice)** — STT in, ElevenLabs TTS out, mascot lip-sync, live Google Meet agent.
-- **[Native Tools](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** — built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset.
-- **[Local AI (optional)](https://tinyhumans.gitbook.io/openhuman/features/local-ai)** — opt-in Ollama path for memory embeddings, summary-tree building, and background reflection loops.
-- **[Messaging Channels](https://tinyhumans.gitbook.io/openhuman/product/messaging-channels)** — inbound/outbound across the channels you already use, routed through your agent.
-- **[Teams & Organizations](https://tinyhumans.gitbook.io/openhuman/product/teams)** — shared workspaces for collaborating with an agent across a team.
-- **[Privacy & Security](https://tinyhumans.gitbook.io/openhuman/product/privacy-and-security)** — workflow data stays on device, encrypted locally, and treated as yours.
+For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](https://tinyhumans.gitbook.io/openhuman/developing/cloud-deploy) · [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## OpenHuman vs other agents
 

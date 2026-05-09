@@ -14,8 +14,17 @@
 import { execFileSync } from "node:child_process";
 
 const RATE_LIMIT_MARKER = "rate limited by coderabbit.ai";
+// CR's review summaries carry this marker; rate-limit comments also include it
+// alongside RATE_LIMIT_MARKER, so always check rate-limit first.
+const REVIEW_SUMMARY_MARKER = "summarize by coderabbit.ai";
+// "Actions performed" acks (e.g. response to `@coderabbitai review`) carry this
+// marker but no review content — they must NOT count as recovery.
+const ACTION_ACK_MARKER = "auto-generated reply by CodeRabbit";
 const RETRIGGER_BODY = "@coderabbitai review";
 const CR_LOGINS = new Set(["coderabbitai", "coderabbitai[bot]"]);
+// If we already posted `@coderabbitai review` but CR has only ack'd (or stayed
+// silent) for this long, assume CR was secondarily rate-limited and retry.
+const STALE_RETRIGGER_SEC = 10 * 60;
 
 function gh(args, { input } = {}) {
   return execFileSync("gh", args, {
@@ -143,25 +152,36 @@ function analyzePr(comments, graceSec) {
 
   if (!latestRateLimit) return { status: "no-rate-limit" };
 
-  // If CR has already posted a non-rate-limit comment AFTER the rate limit,
-  // it has effectively recovered — skip.
-  if (
-    latestCr !== latestRateLimit &&
-    new Date(latestCr.created_at) > new Date(latestRateLimit.created_at) &&
-    !latestCr.body.includes(RATE_LIMIT_MARKER)
-  ) {
-    return { status: "review-since" };
-  }
+  // CR has effectively recovered ONLY if a real review summary landed after
+  // the rate-limit. The `summarize by coderabbit.ai` marker uniquely identifies
+  // walkthrough/review comments; rate-limit comments include it too, so also
+  // require absence of the rate-limit marker. "Actions performed" acks carry
+  // the ACTION_ACK_MARKER instead and must not count as recovery.
+  const realReviewSince = crComments.find(
+    (c) =>
+      new Date(c.created_at) > new Date(latestRateLimit.created_at) &&
+      c.body.includes(REVIEW_SUMMARY_MARKER) &&
+      !c.body.includes(RATE_LIMIT_MARKER),
+  );
+  if (realReviewSince) return { status: "review-since" };
 
-  // If anyone (us or otherwise) has already posted `@coderabbitai review`
-  // after the rate limit, don't double-trigger.
-  const retriggerSince = comments.find(
+  // If anyone has posted `@coderabbitai review` since the rate limit AND it's
+  // recent, don't double-trigger. If it's stale and CR still hasn't posted a
+  // real review, CR was likely silently rate-limited again — fall through and
+  // retrigger.
+  const retriggersSince = comments.filter(
     (c) =>
       new Date(c.created_at) > new Date(latestRateLimit.created_at) &&
       c.body.trim().toLowerCase().startsWith(RETRIGGER_BODY),
   );
-  if (retriggerSince) {
-    return { status: "already-retriggered", at: retriggerSince.created_at };
+  const lastRetrigger = retriggersSince[retriggersSince.length - 1];
+  if (lastRetrigger) {
+    const ageSec =
+      (Date.now() - new Date(lastRetrigger.created_at).getTime()) / 1000;
+    if (ageSec < STALE_RETRIGGER_SEC) {
+      return { status: "already-retriggered", at: lastRetrigger.created_at };
+    }
+    // Stale retrigger with no real review since — fall through to retrigger.
   }
 
   const waitSec = parseWaitSeconds(latestRateLimit.body);

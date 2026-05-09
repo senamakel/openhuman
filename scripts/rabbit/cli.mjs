@@ -157,9 +157,16 @@ function analyzePr(comments, graceSec) {
   // walkthrough/review comments; rate-limit comments include it too, so also
   // require absence of the rate-limit marker. "Actions performed" acks carry
   // the ACTION_ACK_MARKER instead and must not count as recovery.
+  // Anchor "since" comparisons to whichever is later: the rate-limit comment's
+  // creation or its last edit. CR edits the same comment to refresh the wait,
+  // so a comment created before the latest edit is no longer evidence of
+  // recovery.
+  const limitSinceTs = new Date(
+    latestRateLimit.updated_at || latestRateLimit.created_at,
+  );
   const realReviewSince = crComments.find(
     (c) =>
-      new Date(c.created_at) > new Date(latestRateLimit.created_at) &&
+      new Date(c.created_at) > limitSinceTs &&
       c.body.includes(REVIEW_SUMMARY_MARKER) &&
       !c.body.includes(RATE_LIMIT_MARKER),
   );
@@ -171,7 +178,7 @@ function analyzePr(comments, graceSec) {
   // retrigger.
   const retriggersSince = comments.filter(
     (c) =>
-      new Date(c.created_at) > new Date(latestRateLimit.created_at) &&
+      new Date(c.created_at) > limitSinceTs &&
       c.body.trim().toLowerCase().startsWith(RETRIGGER_BODY),
   );
   const lastRetrigger = retriggersSince[retriggersSince.length - 1];
@@ -189,22 +196,26 @@ function analyzePr(comments, graceSec) {
     return { status: "ready", reason: "unparseable wait — assuming elapsed" };
   }
 
+  // CR edits the same rate-limit comment on each retry instead of posting a
+  // fresh one — it rewrites the wait timer and bumps `updated_at`. Anchor the
+  // expiry to the latest update, not the original post, otherwise stale waits
+  // always look elapsed and we trigger straight into a closed window.
+  const limitAnchor = latestRateLimit.updated_at || latestRateLimit.created_at;
   const expiresAt =
-    new Date(latestRateLimit.created_at).getTime() +
-    (waitSec + graceSec) * 1000;
+    new Date(limitAnchor).getTime() + (waitSec + graceSec) * 1000;
   const now = Date.now();
   if (now < expiresAt) {
     return {
       status: "waiting",
       remainingSec: Math.ceil((expiresAt - now) / 1000),
-      ratedLimitedAt: latestRateLimit.created_at,
+      ratedLimitedAt: limitAnchor,
     };
   }
 
   return {
     status: "ready",
     waitSec,
-    ratedLimitedAt: latestRateLimit.created_at,
+    ratedLimitedAt: limitAnchor,
   };
 }
 

@@ -18,7 +18,7 @@ Trading groups move fast. By the time you verify a claim, the opportunity has pa
 
 **Historical context at query speed.** "What did this group say about SOL in January?" returns compressed history from months of indexed data.
 
-**On-chain + off-chain fusion.** When wallet data is connected, Neocortex correlates on-chain activity with off-chain discussions.
+**On-chain + off-chain fusion.** When wallet data is connected, the Memory Tree's topic trees correlate on-chain activity with off-chain discussions across the same entities.
 
 #### Example prompts
 

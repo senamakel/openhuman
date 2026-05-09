@@ -4,13 +4,7 @@ icon: '1'
 
 # Knowledge Workers
 
-##
-
-***
-
-### Knowledge Workers
-
-You work across 8+ applications every day. Email, Slack, spreadsheets, documents, browsers, design tools, project boards. Each app switch costs you context. By the end of the day, the thread connecting your morning research to your afternoon decisions has frayed. You spend as much time reconstructing context as you do acting on it.
+You work across 8+ applications every day. Email, Slack, spreadsheets, documents, design tools, project boards, your code editor. Each app switch costs you context. By the end of the day, the thread connecting your morning research to your afternoon decisions has frayed. You spend as much time reconstructing context as you do acting on it.
 
 OpenHuman turns that fragmented workflow into cumulative awareness.
 
@@ -22,39 +16,41 @@ Your brain does this all day. It is exhausting, and things fall through the crac
 
 #### How OpenHuman helps
 
-**Screen Intelligence tracks your work across applications.** Every app you use, every document you view, every conversation on screen is captured and summarized locally. You build a continuous record of your workday without logging anything manually. Capture frequency is configurable (default: 1 frame per second) and sensitive apps can be excluded.
+**Auto-fetch builds a continuous record.** Every five minutes, OpenHuman pulls fresh data from every active [Composio integration](../features/composio-integrations.md) — Gmail, Slack, GitHub, Notion, Drive, Linear, Jira, Calendar — and folds the results into the [Memory Tree](../features/memory-tree.md). You don't log anything manually; the picture builds itself in the background.
 
-**Inline Autocomplete reflects your real context.** When you start typing that summary email at 2pm, the completions already know the Q3 numbers from the spreadsheet, the concerns raised in Slack, and the names of the people involved. Your typing becomes faster and more accurate because the AI has the same context you do.
+**Topic trees bridge your tools.** When you ask "what happened with the Q3 projections today?", you get a unified answer spanning every connected source — because the topic tree for "Q3 projections" was built from all of them.
 
-**Cross-source queries bridge your tools.** Instead of opening three apps to reconstruct a decision chain, you ask one question: "What happened with the Q3 projections today?" and get a unified answer spanning your screen activity, messages, and documents.
+**Your wiki is yours.** Everything also lands as `.md` in `<workspace>/wiki/`. Open it in [Obsidian](../features/obsidian-wiki.md) at the end of the day to skim, or drop in your own meeting notes — they get ingested into the same trees.
+
+**TokenJuice keeps it cheap.** Sweeping through dozens of long email threads or a busy Slack channel for a daily roll-up costs cents, not dollars, because [TokenJuice](../features/token-compression.md) compacts the noise before the model sees it.
 
 #### Example prompts
 
-* "What was I working on before the standup?"
-* "Summarize everything I saw related to Project Atlas today"
-* "What was on that dashboard I was looking at this morning?"
+* "What did I miss while I was heads-down this morning?"
+* "Summarize everything related to Project Atlas across email, Slack and Jira."
 * "What did the team discuss about the launch timeline while I was heads-down in the doc?"
-* "Connect what Sarah said in Slack with the spreadsheet I was reviewing"
+* "Connect what Sarah said in Slack with the spreadsheet I was reviewing."
+* "What did I commit to today, with sources?"
 
 #### Features that matter most here
 
-| Feature              | Why it matters                                                      |
-| -------------------- | ------------------------------------------------------------------- |
-| Screen Intelligence  | Builds continuous work context across all your apps                 |
-| Inline Autocomplete  | Speeds up writing by reflecting your actual project context         |
-| Neocortex memory     | Retains context across days and weeks, not just the current session |
-| Cross-source queries | One question spans screen activity, messaging, and documents        |
+| Feature                                                | Why it matters                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| [Auto-fetch](../features/auto-fetch.md)                | Continuous ingest from every connected tool, no manual logging |
+| [Memory Tree](../features/memory-tree.md)              | Per-topic + per-day summaries that span every source          |
+| [Composio integrations](../features/composio-integrations.md) | One-click OAuth into 118+ services                            |
+| [Obsidian Wiki](../features/obsidian-wiki.md)          | Audit and edit your memory by hand, in plain Markdown         |
 
 #### A typical workflow
 
-**Morning:** You open your laptop. Screen Intelligence starts capturing as you check email, review a Jira board, scan Slack channels, and open a Google Doc.
+**Morning:** You open your laptop. Auto-fetch quietly catches up on Gmail, Slack and GitHub from overnight. The first thing you ask is "what's waiting on me?" and get a 30-second briefing.
 
-**Midday:** You ask "What are the open threads I need to respond to?" OpenHuman returns: two Slack messages waiting for reply, an email you read but did not respond to, and a comment on the Google Doc you were editing.
+**Midday:** You jump from Slack to Notion to a code review. You don't have to remember each detail — the topic tree for the project absorbs it all.
 
-**Afternoon:** You start drafting a project update. Inline Autocomplete suggests phrasing that references this morning's spreadsheet data and yesterday's Slack decisions. You finish in half the time.
+**Afternoon:** You're drafting a status update. You ask "what did the team commit to this week, with attribution?" and get a clean list pulled from #engineering, #product and Linear.
 
-**End of day:** You ask "What did I commit to today?" and get a clean list with source attribution.
+**End of day:** You open the Obsidian vault and skim today's global digest. If something is wrong, you fix the Markdown by hand and the agent sees the correction next ingest.
 
 #### When this use case is strongest
 
-Knowledge Workers get the most value when they work across many applications daily and frequently need to reference earlier work. If your workflow is single-app, Screen Intelligence adds less value.
+Knowledge Workers get the most value when they work across many applications daily and frequently need to reference earlier work. If your workflow is single-app, OpenHuman's cross-source advantage matters less.

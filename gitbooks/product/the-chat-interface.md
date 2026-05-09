@@ -4,7 +4,7 @@ icon: message-lines
 
 # The Chat Interface
 
-Chat is where you talk to OpenHuman. Ask questions, give instructions, draft messages, request summaries, or have OpenHuman act on your behalf across connected platforms. All processing is powered by your local AI model with context from your Neocortex knowledge graph.
+Chat is where you talk to OpenHuman. Ask questions, give instructions, draft messages, request summaries, or have OpenHuman act on your behalf across connected platforms. Every turn is grounded in your [Memory Tree](../features/memory-tree.md), with the [model router](../features/model-routing.md) picking the right model for the task.
 
 #### Threads
 
@@ -45,7 +45,7 @@ Compression Score is the right mode when you feel overwhelmed and need to triage
 
 Shown when you have not yet connected any sources. OpenHuman opens with the message "Your AI is smart. It just doesn't know you yet."
 
-Two recommended connections are surfaced: Telegram (\~2 min, highest signal) and Screen Intelligence (on-device, \~5s capture). Sample prompts let you explore what OpenHuman can do before you connect anything:
+Recommended connections are surfaced first — Gmail and Slack typically give the highest signal in the first few minutes after connecting. Sample prompts let you explore what OpenHuman can do before you connect anything:
 
 * "What can you actually do?"
 * "Show me a compression demo"
@@ -54,7 +54,7 @@ Cold Start is the empty state that turns into Briefing-first once you connect a 
 
 #### Message Input
 
-Type your message in the input field at the bottom. Press Enter or click the send button to submit. Click the microphone icon to dictate using Voice Intelligence (local speech-to-text).
+Type your message in the input field at the bottom. Press Enter or click the send button to submit. Click the microphone icon to dictate via [voice STT](../features/voice.md); the agent can speak its replies back through ElevenLabs TTS.
 
 #### Inference Budget Indicator
 

@@ -7,21 +7,20 @@ icon: location-dot
 
 #### Chat
 
-Your primary interaction surface. Talk to OpenHuman, ask questions, give instructions, and receive compressed intelligence from your connected data sources. Messages are processed by the local AI model running on your device.
+Your primary interaction surface. Talk to OpenHuman — questions, instructions, voice. Every turn is grounded in your [Memory Tree](../features/memory-tree.md), with the [model router](../features/model-routing.md) picking the right model per task.
 
 #### Skills
 
-View and configure OpenHuman's capabilities. Skills are organized in three groups:
+View and configure OpenHuman's capabilities and integrations:
 
-**Built-in Skills** are core desktop capabilities: Screen Intelligence, Text Auto-Complete, and Voice Speech To Text. Each has an "Open settings" button for configuration.
-
-**Channel Integrations** connect messaging platforms. Telegram and Discord are available, each requiring configuration before use.
-
-**3rd Party Skills** connect external data sources. Gmail and Notion are currently available. Each shows connection status, local storage size, and file count.
+- **[Composio integrations](../features/composio-integrations.md)** — 118+ services with one-click OAuth (Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more). Each shows connection status, last sync, and storage size.
+- **Channel integrations** — messaging surfaces like Telegram and Discord, configurable as inbound/outbound channels for the agent.
+- **[Native voice](../features/voice.md)** — STT, ElevenLabs TTS and the Meet agent, configured here.
+- **Skills** — sandboxed custom logic that runs inside OpenHuman.
 
 #### Intelligence
 
-The window into OpenHuman's memory and reasoning. View your knowledge graph, memory statistics, ingestion activity, and extracted insights. Run analysis to extract actionable items from your connected skills. Includes sub-tabs for Memory (active), Subconscious (coming soon), and Dreams (coming soon).
+The window into your [Memory Tree](../features/memory-tree.md): metrics, the entity graph, ingest activity heatmap, and a search bar for retrieval. The **View vault in Obsidian** button opens `<workspace>/wiki/` directly — see [Obsidian Wiki](../features/obsidian-wiki.md).
 
 #### Rewards
 

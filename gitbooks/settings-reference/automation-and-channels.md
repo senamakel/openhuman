@@ -4,51 +4,37 @@ icon: nfc-signal
 
 # Automation & Channels
 
-### Automation & Channels
-
-Navigate to Settings > Automation & Channels. Configure desktop automation, screen capture, messaging, autocomplete, and scheduled jobs.
+Navigate to **Settings → Automation & Channels**. Configure desktop automation, messaging channels, and the auto-fetch schedule for each connected integration.
 
 #### Accessibility Automation
 
-Desktop permissions, assisted controls, and safety-bound sessions.
+Desktop permissions and assisted controls.
 
 **Permissions:** Accessibility (GRANTED/DENIED) and Input Monitoring (GRANTED/DENIED). Buttons: Request Accessibility, Open Input Monitoring, Refresh Status.
 
-**Features:** Three toggles: Screen Monitoring (observe screen for context), Device Control (interact with UI elements), Predictive Input (provide input predictions).
-
-**Session:** Status (Running/Stopped), remaining time, frames captured (ephemeral), panic stop shortcut (Cmd+Shift+.). Start Session, Stop Session, and Analyze Now buttons.
-
-**Vision Summaries:** Processed summaries from the most recent session.
-
-#### Screen Intelligence
-
-Window capture policy, vision summaries, and memory ingestion. See the full [Screen Intelligence](../features/screen-intelligence.md) page for detailed setup.
-
-#### Inline Autocomplete
-
-Predictive text style, app filters, and live completion controls. See the full [Inline Autocomplete](../features/inline-autocomplete.md) page for detailed setup.
+**Features:** Toggles for Device Control (interact with UI elements) and Predictive Input (provide input predictions).
 
 #### Messaging Channels
 
-Configure default messaging channel and auth modes.
+Configure the default messaging channel and auth modes.
 
 **Default Messaging Channel:** Choose between Telegram, Discord, or Web. Shows active route status.
 
-**Channel Integrations:** Configure auth modes for Telegram and Discord. Click channel name to open its configuration page.
+**Channel Integrations:** Configure auth modes for Telegram and Discord. Click a channel name to open its configuration page.
 
-#### Cron Jobs
+#### Auto-fetch & Cron Jobs
 
-Scheduled jobs that keep your data sources in sync.
+OpenHuman runs a global [auto-fetch](../features/auto-fetch.md) tick every five minutes that walks every active connection and pulls fresh data into the [Memory Tree](../features/memory-tree.md). On top of that:
 
 **Core Cron Jobs:** System-level jobs in the OpenHuman core scheduler database.
 
-**Runtime Skill Cron Settings:** Per-skill sync intervals.
+**Per-integration sync intervals:** Each [Composio integration](../features/composio-integrations.md) declares its own minimum interval between syncs. The defaults are sensible; you can override them here.
 
-| Skill  | Default Sync Interval |
-| ------ | --------------------- |
-| Gmail  | Every 15 minutes      |
-| Notion | Every 20 minutes      |
+| Integration | Default sync interval |
+| ----------- | --------------------- |
+| Gmail       | every 15 minutes      |
+| Notion      | every 20 minutes      |
 
-Adjust intervals using the dropdown next to each skill. More frequent syncing keeps data fresher but uses more inference budget.
+More frequent syncing keeps data fresher but uses more inference budget. [TokenJuice](../features/token-compression.md) keeps the cost bounded even at high frequencies.
 
-Click "Refresh Cron Jobs" to reload the schedule.
+Click **Refresh Cron Jobs** to reload the schedule.

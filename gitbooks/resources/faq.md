@@ -8,85 +8,71 @@ icon: question
 
 #### What is OpenHuman?
 
-OpenHuman is a personal AI assistant that runs local AI models on your device and connects to your communication platforms and productivity tools. It helps you build continuous awareness across your digital life through Screen Intelligence, Auto-complete, conversation analysis, signal extraction, and structured workflows.
+OpenHuman is a personal AI assistant that runs natively on your desktop. It connects to 118+ third-party services through Composio, pulls data from them automatically, builds a local-first [Memory Tree](../features/memory-tree.md) you can browse as a Markdown vault in Obsidian, and gives you an agent with native voice, smart model routing, and built-in coder/search/scraper tools.
 
 ***
 
-#### What is Neocortex
+#### What is the Memory Tree?
 
-Neocortex is OpenHuman's memory engine. It is a human-like AI memory system that can work with over 1 billion tokens of data. It indexes 10 million tokens in under 10 seconds, costs $1 to index 5 million tokens, and runs on a MacBook Air CPU with no GPU required. Unlike vector databases, Neocortex understands time, entities, and relationships. It builds knowledge graphs and manages memory through tiered compression inspired by how the human brain works. Learn more in Neocortex.
+The Memory Tree is OpenHuman's knowledge base. It's a deterministic pipeline that turns every source you connect — chats, emails, documents, integration sync results — into canonical Markdown, ≤3k-token chunks, scored and folded into per-source / per-topic / per-day summary trees. Stored in SQLite on your machine; the same chunks live as `.md` files in your Obsidian vault. See [Memory Tree](../features/memory-tree.md).
 
 ***
 
 #### What does "Big Data AI" mean?
 
-Every AI model today is a prompt engine. You type something, it responds, and the context disappears. OpenHuman is different. It compresses your entire organizational life, messages, documents, tools, transactions, into a structured knowledge graph that persists and evolves. This is what we mean by Big Data AI: an AI that operates on months of your real data, not just the prompt you typed right now.
+Every AI model today is a prompt engine. You type something, it responds, and the context disappears. OpenHuman is different. It compresses your entire organizational life — messages, documents, tools, transactions — into a structured, queryable Memory Tree that persists and evolves. This is what we mean by Big Data AI: an agent that operates on months of your real data, not just the prompt you typed right now.
 
 #### **How is OpenHuman different from ChatGPT, Claude, or Gemini?**
 
-Those models are brilliant at reasoning and generation. But they are stateless. They know nothing about your actual life beyond what you paste into the chat window. OpenHuman is the context layer that makes those models useful. It compresses your organizational data into structured intelligence that any AI can reason over. Think of it this way: ChatGPT is the brain. OpenHuman is the memory.
+Those models are brilliant at reasoning. But they are stateless. They know nothing about your actual life beyond what you paste into the chat window. OpenHuman is the context layer that makes those models useful. It compresses your organizational data into structured intelligence any AI can reason over. Think of it this way: ChatGPT is the brain. OpenHuman is the memory.
 
 ***
 
 #### **How is OpenHuman different from other AI memory solutions like Mem0, SuperMemory, or MemGPT?**
 
-Most AI memory solutions use vector databases that retrieve whatever is semantically similar, but similarity alone says nothing about importance. They also cannot support consciousness-like systems or process data accurately at scale beyond 10 million tokens. Neocortex is architecturally different: it uses tiered memory, knowledge graphs, temporal weighting, and semantic deduplication. It processes 10 million tokens in under 10 seconds and supports over 1 billion tokens total. It does this with zero LLM dependency.
+Most "AI memory" stacks are vector databases with a thin wrapper. Vector similarity is one signal among many — it answers "what is similar?" but says nothing about importance, recency, or provenance. The Memory Tree is structurally different: deterministic chunking, per-scope summary trees (source / topic / global), entity-driven hotness, and every chunk auditable as a `.md` file in your [Obsidian vault](../features/obsidian-wiki.md). You can read the memory by hand. You can fix it by hand.
 
 ***
 
 #### **Is OpenHuman open source?**
 
-Yes. OpenHuman is built on the OpenClaw architecture and licensed under GNU GPL3. The full codebase is available on [GitHub](https://github.com/tinyhumansai/openhuman). Neocortex benchmarks are also open-sourced. Contributions and feedback are welcomed.
+Yes. OpenHuman is open-sourced under GNU GPL3. The full codebase is available on [GitHub](https://github.com/tinyhumansai/openhuman). Contributions and feedback are welcomed.
 
 ***
 
 #### **Is OpenHuman AGI?**
 
-No. OpenHuman is not AGI, and we do not claim it is. It is a meaningful architectural step closer to AGI, with innovations in memory (Neocortex) and consciousness-like processing (the subconscious system) that go beyond what existing agentic systems offer. But it operates within defined boundaries and requires human judgment.
+No. OpenHuman is not AGI, and we do not claim it is. It is a meaningful architectural step closer, with a memory layer and an agent loop that go beyond what stateless chat assistants offer. But it operates within defined boundaries and requires human judgment.
 
 ***
 
-#### **Does Screen Intelligence see everything on my screen?**
+#### **What does auto-fetch do?**
 
-Only for the apps you allow. Screen Intelligence captures screenshots approximately every 5 seconds and processes them using the on-device vision model. You control which applications are included through per-app permissions. You can exclude any application, such as banking, medical, or personal apps. Raw screenshots are processed locally and discarded. Only compressed text summaries are stored. No raw screen images are ever sent to any server.
-
-***
-
-#### **Can I turn off Screen Intelligence?**
-
-Yes. Screen Intelligence is entirely optional. You can disable it at any time from settings. OpenHuman continues to function with your other connected sources and manual queries.
+Every five minutes, OpenHuman walks every active [Composio connection](../features/composio-integrations.md), checks per-connection sync state (last timestamp, dedup set, daily budget), and — if enough time has elapsed — pulls fresh data and folds it into the Memory Tree. By the time you ask "what landed in my inbox overnight?", the answer is already there. See [Auto-fetch](../features/auto-fetch.md).
 
 ***
-
-#### **Does Auto-complete send my typing to a server?**
-
-No. Auto-complete runs entirely on the local model using cached memory context from Neocortex. No keystroke data, text input, or completion suggestions leave your device.
 
 #### Does OpenHuman read all my messages?
 
-No. OpenHuman only processes messages **when you ask it to** and only within the scope of your request.
-
-If you ask it to summarize a specific conversation, it reads that conversation. If you do not reference a source, it is not accessed. There is no background monitoring or continuous scanning.
+OpenHuman processes whatever you've connected — that's the whole point. But you choose what to connect, and you can revoke any connection at any time. There is no continuous scanning of anything you haven't explicitly authorized through OAuth.
 
 ***
 
 #### Is my data safe?
 
-Yes. OpenHuman is designed around zero retention of message content. Data is processed to produce an output and then discarded. Your conversations are never stored long-term, and they are never used to train AI models.
-
-On desktop platforms, credentials are stored in your operating system's secure keychain. All communication between the app and OpenHuman's servers is encrypted.
+The Memory Tree's SQLite database and the Obsidian vault stay on your machine. Composio OAuth tokens are held by the OpenHuman backend, never in plaintext on your laptop. On desktop, OS-level credentials live in your platform keychain. All communication between the app and OpenHuman's servers is encrypted in transit.
 
 ***
 
 #### Does OpenHuman store my messages?
 
-Messages are processed only to fulfill your request. They are **not permanently stored or reused** beyond producing the requested output. Derived intelligence like summaries and workflow records may persist, but raw message content does not.
+Source data is canonicalized into Markdown chunks and stored in your **local** memory tree. The OpenHuman backend processes the *requests* you make through it (LLM calls, web search, Composio proxying) but does not retain a copy of your raw source data.
 
 ***
 
 #### Can OpenHuman send messages on my behalf?
 
-OpenHuman can send messages, manage chats, and perform 80+ actions through your connected Telegram account. All actions use your own encrypted credentials and run locally. You control which capabilities are active through the Skills settings
+Yes — through your connected Composio integrations. Telegram, Slack, Gmail and the rest expose action-style tools the agent can call when you ask. All actions go through the connections you've authorized; you control which capabilities are active.
 
 ***
 
@@ -94,10 +80,11 @@ OpenHuman can send messages, manage chats, and perform 80+ actions through your 
 
 OpenHuman is useful for anyone who:
 
-* Manages high-volume communication across multiple platforms and groups
-* Needs to stay on top of decisions, action items, and context without reading everything
-* Works in distributed teams, communities, or coordination-heavy environments
-* Wants structured outputs from conversations, exportable to tools like Notion or Google Sheets
+* Manages high-volume communication across multiple platforms.
+* Needs to stay on top of decisions, action items and context without reading everything.
+* Works in distributed teams or coordination-heavy environments.
+* Wants structured outputs from conversations, exportable to tools like Notion or Google Sheets.
+* Wants a memory they can audit by opening a folder of Markdown.
 
 You do not need to be technical to use it.
 
@@ -105,19 +92,19 @@ You do not need to be technical to use it.
 
 #### What platforms does OpenHuman support?
 
-OpenHuman runs natively on **macOS, Windows, Linux, Android, and iOS**, with a **web version** for browser access. Your account and settings sync across all platforms.
+OpenHuman ships natively on **macOS, Windows and Linux** desktop. See [Install](../overview/install.md).
 
 ***
 
 #### What integrations are available?
 
-OpenHuman currently integrates with **Telegram** (read and analyze conversations), **Notion** (export structured outputs), and **Google Sheets** (export tabular data and reports). More integrations are planned.
+118+ services via [Composio](../features/composio-integrations.md): Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter/X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
 
 ***
 
 #### How much does OpenHuman cost?
 
-OpenHuman offers individual and team plans with core analysis included. Deeper features are available in higher tiers. A credit system provides usage-metered flexibility, and credits can be earned through referrals.
+OpenHuman offers individual and team plans with core features included. Deeper features are available in higher tiers. [Smart token compression](../features/token-compression.md) keeps usage costs low even when sweeping large amounts of data.
 
 See [Pricing](../product/pricing.md) for details.
 
@@ -135,9 +122,9 @@ If a summary feels incomplete, the most common cause is overly broad scope. When
 
 #### Important context seems missing
 
-OpenHuman only processes the data required to fulfill a request. If relevant context exists outside the scope of that request, it will not be included.
+If relevant context exists but isn't surfacing, the source may not have been auto-fetched recently or may not be connected at all.
 
-**Solution:** Expand the scope explicitly by referencing additional conversations or extending the time range.
+**Solution:** Check the Memory tab — under each source, the last sync timestamp tells you when auto-fetch last pulled data. You can also trigger a manual ingest.
 
 ***
 
@@ -145,90 +132,38 @@ OpenHuman only processes the data required to fulfill a request. If relevant con
 
 OpenHuman interprets conversations probabilistically. Tone, sarcasm, and informal language can be misread, especially in fast-moving or meme-heavy discussions.
 
-**Solution:** Refine the request or re-run analysis with a narrower scope. Outputs should be treated as assistance rather than ground truth.
+**Solution:** Refine the request or re-run analysis with a narrower scope. Because every chunk is also a Markdown file in your Obsidian vault, you can audit any claim back to the original source.
 
 ***
 
-#### **Screen Intelligence summaries seem inaccurate**
+#### Auto-fetch doesn't seem to be running
 
-The on-device vision model processes screenshots locally. Accuracy depends on screen clarity, text size, and application complexity. Highly dynamic interfaces, very small text, or applications with unusual layouts may produce less precise summaries.
+Check that the integration is still connected (Skills tab → status should be **Connected**). Auto-fetch runs every five minutes globally; per-provider intervals cap the *minimum* delay between actual syncs. If a provider's daily budget is exhausted, sync pauses until the next day.
 
-**Solution:** Check your per-app permissions to ensure the relevant app is included. For applications with small text, increasing display zoom may improve capture quality. If summaries for a specific app are consistently poor, you can exclude it and rely on other context sources instead.
-
-***
-
-#### **Auto-complete suggestions feel irrelevant**
-
-Auto-complete draws on your Neocortex memory context. If you have recently connected sources or just started using Screen Intelligence, the memory may not yet have enough context to generate relevant suggestions.
-
-**Solution:** Give it time. As more data is indexed, suggestion quality improves. You can also check that your most relevant connected sources are active and that Screen Intelligence is enabled for the applications where you do most of your work.
-
-#### Trust or risk signals feel inaccurate
-
-Trust and risk intelligence is indicative, not authoritative. Signals may lag real-world changes or surface false positives.
-
-**Solution:** Use these signals as inputs into your judgment rather than standalone decisions. Over time, as more outcomes accumulate within the same context, signal quality improves.
+**Solution:** Reconnect the integration if status shows an error. Look at logs with `RUST_LOG=openhuman_core::openhuman::composio=debug` for sync activity.
 
 ***
 
 #### A source does not appear in analysis
 
-OpenHuman can only analyze sources you have connected and that fall within the scope of your request.
-
-**Solution:** Ensure the source is connected in your settings and explicitly referenced or selected in your request. OpenHuman does not automatically include all connected sources by default.
-
-***
-
-#### Integrations do not update as expected
-
-Integrations only run when explicitly triggered by your action. OpenHuman does not continuously sync or poll external tools.
-
-**Solution:** If an export fails, check that the integration is still connected and that permissions are valid. Retrying the action after resolving any permission or availability issues usually succeeds.
+OpenHuman can only analyze sources you have connected. If you've connected something but it isn't appearing, give auto-fetch a tick or two — first ingest can take a few minutes for high-volume sources.
 
 ***
 
 #### Performance feels slow
 
-Response time depends on request complexity, data volume, and current system load.
+Response time depends on request complexity, data volume, and current model latency.
 
-**Solution:** Large scopes and long histories require more processing. Narrowing scope and intent improves responsiveness. During early rollout phases, performance may vary as capacity is tuned.
+**Solution:** Large scopes and long histories require more processing. Narrowing scope improves responsiveness. The [model router](../features/model-routing.md) routes by hint — `hint:fast` calls land on a cheap fast model; `hint:reasoning` on a more expensive frontier one.
 
 ***
 
 #### Revoking access and residual data
 
-When access to a source or integration is revoked, OpenHuman immediately stops processing data from that source.
-
-Previously exported outputs (such as summaries written to Notion or Google Sheets) remain where they were written. OpenHuman does not retain message content after revocation.
-
-***
-
-#### When to contact support
-
-If an issue persists after refining scope, checking permissions, and retrying the request, support may be required.
-
-Support is intended for system-level issues, not for disputing interpretations or outcomes. OpenHuman does not adjudicate trust or risk disagreements.
+When you revoke a Composio connection, OpenHuman immediately stops syncing it. Chunks that were ingested before revocation remain in your local Memory Tree (they're yours) — you can delete them by hand from the Markdown vault if you want them gone.
 
 ***
 
 #### **What are the system requirements?**
 
-OpenHuman requires macOS. The Lightweight model tier works on machines with 4 GB+ RAM. The recommended Performance tier requires 16 GB+ RAM and Apple Silicon. The app detects your hardware and recommends the best tier automatically.
-
-***
-
-#### **How often does OpenHuman sync my email and Notion?**
-
-Gmail syncs every 15 minutes and Notion every 20 minutes by default. You can adjust these intervals in Settings > Automation & Channels > Cron Jobs.
-
-***
-
-#### **What is the panic stop shortcut?**
-
-Press Cmd+Shift+. to immediately stop all Screen Intelligence capture. Useful if you navigate to sensitive content unexpectedly.
-
-***
-
-#### **What apps are excluded from Screen Intelligence by default?**
-
-1password, keychain, and wallet are in the default denylist. You can add more apps in Settings > Automation & Channels > Screen Intelligence under the Denylist field.
+OpenHuman runs on macOS, Windows and Linux. 8 GB+ RAM recommended; 16 GB+ for heavier workloads. See [Install](../overview/install.md).

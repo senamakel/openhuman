@@ -4,16 +4,23 @@
 
 * [Welcome to OpenHuman](README.md)
 * [How It Works](overview/how-it-works.md)
+* [Install](overview/install.md)
 * [Getting Started](overview/getting-started.md)
 * [App Navigation](overview/app-navigation.md)
+* [Auto-update](overview/auto-update.md)
 
-## FEATURES
+## Features
 
-* [Screen Intelligence](features/screen-intelligence.md)
-* [Inline Autocomplete](features/inline-autocomplete.md)
-* [Voice Speech To Text](features/voice-speech-to-text.md)
+* [Memory Tree](features/memory-tree.md)
+* [Obsidian Wiki](features/obsidian-wiki.md)
+* [Auto-fetch from Integrations](features/auto-fetch.md)
+* [Composio Integrations (118+)](features/composio-integrations.md)
+* [Smart Token Compression](features/token-compression.md)
+* [Automatic Model Routing](features/model-routing.md)
+* [Native Voice (ElevenLabs)](features/voice.md)
+* [Native Tools (search, scraper, coder)](features/native-tools.md)
 
-## SETTINGS REFERENCE
+## Settings Reference
 
 * [Account & Security](settings-reference/account-and-security.md)
 * [Automation & Channels](settings-reference/automation-and-channels.md)
@@ -22,8 +29,6 @@
 
 ## Technology
 
-* [Neocortex](technology/neocortex.md)
-* [The Subconscious](technology/the-subconscious.md)
 * [Architecture](technology/architecture.md)
 
 ## Product
@@ -52,6 +57,7 @@
 ## Resources
 
 * [FAQ & Troubleshooting](resources/faq.md)
+* [Design Language](resources/design-language.md)
 
 ## Legal
 

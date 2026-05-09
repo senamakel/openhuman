@@ -8,6 +8,7 @@ pub mod prompt_sections;
 pub mod reflection;
 pub mod schemas;
 pub mod tool_tracker;
+pub mod transcript_ingest;
 pub mod user_profile;
 
 pub use prompt_sections::{LearnedContextSection, UserProfileSection};

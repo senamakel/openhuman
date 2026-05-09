@@ -809,6 +809,12 @@ impl Agent {
         // librarian task that's idempotent across reruns.
         if result.is_ok() && self.context.should_extract_session_memory() {
             self.spawn_session_memory_extraction();
+            // Sibling pipeline (#1399): heuristic transcript ingestion
+            // turns the just-written transcript into durable
+            // conversational memory + reflections so a brand-new chat
+            // can recover continuity. Background-only, never blocks the
+            // user-facing turn return.
+            self.spawn_transcript_ingestion();
         }
 
         result
@@ -1472,6 +1478,49 @@ impl Agent {
                         sm.mark_extraction_failed();
                     }
                 }
+            }
+        });
+    }
+
+    /// Spawn a background task that ingests the current session
+    /// transcript into the conversational-memory store.
+    ///
+    /// Issue #1399: complements `spawn_session_memory_extraction`. The
+    /// archivist path writes dense bullets into `MEMORY.md`; this path
+    /// extracts importance-tagged, provenance-bearing memories via the
+    /// heuristic [`crate::openhuman::learning::transcript_ingest`]
+    /// pipeline. The two are deliberately independent so the prompt
+    /// retrieval layer can pull from `conversation_memory` without
+    /// needing the archivist's extraction to have fired this session.
+    ///
+    /// Fire-and-forget: failures are logged, never propagated.
+    pub(super) fn spawn_transcript_ingestion(&self) {
+        let Some(path) = self.session_transcript_path.clone() else {
+            log::debug!("[transcript_ingest] no session transcript path yet — skipping spawn");
+            return;
+        };
+        let memory = std::sync::Arc::clone(&self.memory);
+
+        tokio::spawn(async move {
+            match crate::openhuman::learning::transcript_ingest::ingest_transcript_path(
+                memory.as_ref(),
+                &path,
+            )
+            .await
+            {
+                Ok(report) => tracing::info!(
+                    transcript = %path.display(),
+                    extracted = report.extracted,
+                    stored = report.stored,
+                    deduped = report.deduped,
+                    reflections_stored = report.reflections_stored,
+                    "[transcript_ingest] background ingest complete"
+                ),
+                Err(err) => tracing::warn!(
+                    transcript = %path.display(),
+                    error = %err,
+                    "[transcript_ingest] background ingest failed — will retry next threshold window"
+                ),
             }
         });
     }

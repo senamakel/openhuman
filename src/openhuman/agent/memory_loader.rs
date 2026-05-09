@@ -3,6 +3,17 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use super::harness::memory_context::{WORKING_MEMORY_KEY_PREFIX, WORKING_MEMORY_LIMIT};
+use crate::openhuman::learning::transcript_ingest::CONVERSATION_MEMORY_NAMESPACE;
+
+/// Maximum number of `[Prior conversations]` lines surfaced into the prompt
+/// at the start of a fresh chat. Tight cap on purpose: this block is meant
+/// to recover continuity for high-importance facts, not to dump session
+/// history into context. See issue #1399.
+const PRIOR_CONVERSATION_LIMIT: usize = 3;
+/// Only the importance prefix `high.` survives into the prompt block.
+/// Medium/low entries stay queryable via the on-demand memory tool but
+/// do not auto-pollute every fresh chat.
+const PRIOR_CONVERSATION_KEY_PREFIX: &str = "high.";
 
 #[async_trait]
 pub trait MemoryLoader: Send + Sync {
@@ -165,6 +176,76 @@ impl MemoryLoader for DefaultMemoryLoader {
             context.push_str(&line);
         }
 
+        // ── Prior conversations (issue #1399) ─────────────────────────
+        // High-importance, transcript-derived facts from earlier chats.
+        // Namespace-scoped recall keeps this block small and tightly
+        // bounded — only entries the heuristic extractor flagged as
+        // `high.*` are eligible, and only the first short snippet of
+        // each is included so the block never crowds out the user's
+        // actual message.
+        let prior_query = format!("{} {}", CONVERSATION_MEMORY_NAMESPACE, user_message);
+        let prior_entries = memory
+            .recall(
+                &prior_query,
+                PRIOR_CONVERSATION_LIMIT * 4,
+                crate::openhuman::memory::RecallOpts {
+                    namespace: Some(CONVERSATION_MEMORY_NAMESPACE),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap_or_default();
+
+        let mut appended_prior_header = false;
+        let mut prior_added = 0usize;
+        for entry in prior_entries
+            .into_iter()
+            .filter(|e| e.key.starts_with(PRIOR_CONVERSATION_KEY_PREFIX))
+            .filter(|e| match e.score {
+                Some(score) => score >= self.min_relevance_score,
+                None => true,
+            })
+        {
+            if prior_added >= PRIOR_CONVERSATION_LIMIT {
+                break;
+            }
+            // The stored content is two lines:
+            //   [high preference] I prefer Postgres ...
+            //   [provenance] {"thread_id":"thr_…", ...}
+            // For the prompt we keep only the first line so the block
+            // stays compact. Provenance survives in the underlying
+            // memory entry and is queryable through the memory tool.
+            let primary = entry
+                .content
+                .lines()
+                .find(|l| !l.trim_start().starts_with("[provenance]"))
+                .unwrap_or(&entry.content)
+                .trim();
+            if primary.is_empty() {
+                continue;
+            }
+            if !appended_prior_header {
+                let section = "[Prior conversations]\n";
+                if context.len() + section.len() > budget {
+                    break;
+                }
+                context.push_str(section);
+                appended_prior_header = true;
+            }
+            let line = format!("- {primary}\n");
+            if context.len() + line.len() > budget {
+                tracing::debug!(
+                    budget,
+                    current_len = context.len(),
+                    skipped_line_len = line.len(),
+                    "[memory_loader] context budget reached while appending prior conversations"
+                );
+                break;
+            }
+            context.push_str(&line);
+            prior_added += 1;
+        }
+
         if context.is_empty() {
             return Ok(String::new());
         }
@@ -251,6 +332,57 @@ mod tests {
             session_id: None,
             score,
         }
+    }
+
+    #[tokio::test]
+    async fn loader_surfaces_prior_conversation_high_importance_only() {
+        // Prior chat extracted two memories: one high-importance preference
+        // and one medium-importance unresolved task. Only the high one
+        // should make it into the loader's prompt block (#1399).
+        let mem = MockMemory {
+            entries: vec![
+                MemoryEntry {
+                    id: "id-1".into(),
+                    key: "high.preference.aaaaaaaaaaaa".into(),
+                    content: "[high preference] I prefer Postgres for new services.\n[provenance] {\"thread_id\":\"thr_old\"}".into(),
+                    namespace: Some(super::CONVERSATION_MEMORY_NAMESPACE.to_string()),
+                    category: MemoryCategory::Conversation,
+                    timestamp: "2026-04-22T00:00:00Z".into(),
+                    session_id: Some("thr_old".into()),
+                    score: Some(0.9),
+                },
+                MemoryEntry {
+                    id: "id-2".into(),
+                    key: "med.unresolved_task.bbbbbbbbbbbb".into(),
+                    content: "[med unresolved_task] still need to migrate auth.".into(),
+                    namespace: Some(super::CONVERSATION_MEMORY_NAMESPACE.to_string()),
+                    category: MemoryCategory::Conversation,
+                    timestamp: "2026-04-22T00:00:00Z".into(),
+                    session_id: None,
+                    score: Some(0.9),
+                },
+            ],
+        };
+
+        let loader = DefaultMemoryLoader::default();
+        let out = loader
+            .load_context(&mem, "what should I default to for storage?")
+            .await
+            .expect("loader must succeed");
+
+        assert!(
+            out.contains("[Prior conversations]"),
+            "expected prior conversations block, got:\n{out}"
+        );
+        assert!(out.contains("Postgres"));
+        assert!(
+            !out.contains("migrate auth"),
+            "med-importance entries must not auto-surface, got:\n{out}"
+        );
+        assert!(
+            !out.contains("[provenance]"),
+            "provenance is not rendered into the prompt block, got:\n{out}"
+        );
     }
 
     #[tokio::test]

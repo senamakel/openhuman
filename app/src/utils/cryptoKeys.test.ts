@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   deriveAesKeyFromMnemonic,
+  deriveBtcAddressFromMnemonic,
   deriveEvmAddressFromMnemonic,
+  deriveSolanaAddressFromMnemonic,
+  deriveTronAddressFromMnemonic,
+  deriveWalletAccountsFromMnemonic,
   generateMnemonicPhrase,
   MNEMONIC_GENERATE_WORD_COUNT,
   validateMnemonicPhrase,
@@ -125,5 +129,54 @@ describe('deriveEvmAddressFromMnemonic', () => {
     const hasUpper = hex !== hex.toLowerCase();
     const hasLower = hex !== hex.toUpperCase();
     expect(hasUpper && hasLower).toBe(true);
+  });
+});
+
+describe('deriveBtcAddressFromMnemonic', () => {
+  it('returns the well-known address for the all-abandon mnemonic', () => {
+    expect(deriveBtcAddressFromMnemonic(KNOWN_MNEMONIC)).toBe('1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA');
+  });
+});
+
+describe('deriveSolanaAddressFromMnemonic', () => {
+  it('returns the well-known address for the all-abandon mnemonic', () => {
+    expect(deriveSolanaAddressFromMnemonic(KNOWN_MNEMONIC)).toBe(
+      'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk'
+    );
+  });
+});
+
+describe('deriveTronAddressFromMnemonic', () => {
+  it('returns the well-known address for the all-abandon mnemonic', () => {
+    expect(deriveTronAddressFromMnemonic(KNOWN_MNEMONIC)).toBe(
+      'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH'
+    );
+  });
+});
+
+describe('deriveWalletAccountsFromMnemonic', () => {
+  it('returns one derived identity per supported chain in a stable order', () => {
+    expect(deriveWalletAccountsFromMnemonic(KNOWN_MNEMONIC)).toEqual([
+      {
+        chain: 'evm',
+        address: '0x9858EfFD232B4033E47d90003D41EC34EcaEda94',
+        derivationPath: "m/44'/60'/0'/0/0",
+      },
+      {
+        chain: 'btc',
+        address: '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA',
+        derivationPath: "m/44'/0'/0'/0/0",
+      },
+      {
+        chain: 'solana',
+        address: 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk',
+        derivationPath: "m/44'/501'/0'/0'",
+      },
+      {
+        chain: 'tron',
+        address: 'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH',
+        derivationPath: "m/44'/195'/0'/0/0",
+      },
+    ]);
   });
 });

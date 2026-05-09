@@ -16,7 +16,6 @@ export interface CoreOnboardingTasks {
 
 export interface CoreLocalState {
   encryptionKey: string | null;
-  primaryWalletAddress: string | null;
   onboardingTasks: CoreOnboardingTasks | null;
 }
 
@@ -77,7 +76,7 @@ const emptySnapshot: CoreAppSnapshot = {
   chatOnboardingCompleted: false,
   analyticsEnabled: false,
   meetAutoOrchestratorHandoff: false,
-  localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
+  localState: { encryptionKey: null, onboardingTasks: null },
   runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
 };
 

@@ -1874,6 +1874,109 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
     rpc_join.abort();
 }
 
+#[tokio::test]
+async fn json_rpc_wallet_setup_round_trips_status() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let initial_status = post_json_rpc(&rpc_base, 1005, "openhuman.wallet_status", json!({})).await;
+    let initial_body = assert_no_jsonrpc_error(&initial_status, "wallet_status_initial");
+    let initial_result = initial_body.get("result").unwrap_or(initial_body);
+    assert_eq!(
+        initial_result.get("configured").and_then(Value::as_bool),
+        Some(false),
+        "expected wallet to start unconfigured: {initial_result}"
+    );
+
+    let setup = post_json_rpc(
+        &rpc_base,
+        1006,
+        "openhuman.wallet_setup",
+        json!({
+            "consentGranted": true,
+            "source": "generated",
+            "mnemonicWordCount": 12,
+            "accounts": [
+                { "chain": "evm", "address": "0x9858EfFD232B4033E47d90003D41EC34EcaEda94", "derivationPath": "m/44'/60'/0'/0/0" },
+                { "chain": "btc", "address": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA", "derivationPath": "m/44'/0'/0'/0/0" },
+                { "chain": "solana", "address": "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk", "derivationPath": "m/44'/501'/0'/0'" },
+                { "chain": "tron", "address": "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH", "derivationPath": "m/44'/195'/0'/0/0" }
+            ]
+        }),
+    )
+    .await;
+    let setup_body = assert_no_jsonrpc_error(&setup, "wallet_setup");
+    let setup_result = setup_body.get("result").unwrap_or(setup_body);
+    assert_eq!(
+        setup_result.get("configured").and_then(Value::as_bool),
+        Some(true),
+        "expected wallet setup to configure the wallet: {setup_result}"
+    );
+    assert_eq!(
+        setup_result
+            .get("accounts")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(4),
+        "expected four wallet accounts after setup: {setup_result}"
+    );
+
+    let persisted_status =
+        post_json_rpc(&rpc_base, 1007, "openhuman.wallet_status", json!({})).await;
+    let persisted_body = assert_no_jsonrpc_error(&persisted_status, "wallet_status_persisted");
+    let persisted_result = persisted_body.get("result").unwrap_or(persisted_body);
+    assert_eq!(
+        persisted_result.get("configured").and_then(Value::as_bool),
+        Some(true),
+        "expected configured wallet status after setup: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result.get("source").and_then(Value::as_str),
+        Some("generated"),
+        "expected setup source to persist: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result
+            .get("mnemonicWordCount")
+            .and_then(Value::as_u64),
+        Some(12),
+        "expected mnemonicWordCount to persist: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result
+            .get("consentGranted")
+            .and_then(Value::as_bool),
+        Some(true),
+        "expected consentGranted to persist: {persisted_result}"
+    );
+    assert_eq!(
+        persisted_result
+            .get("accounts")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(4),
+        "expected persisted wallet accounts to remain intact: {persisted_result}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 /// #883 — when `chat_onboarding_completed` is unset in config.toml (fresh
 /// user), the `openhuman.app_state_snapshot` RPC must surface the flag as
 /// `false` so the React welcome-lockdown kicks in.

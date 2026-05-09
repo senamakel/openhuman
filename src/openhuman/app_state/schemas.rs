@@ -12,8 +12,6 @@ struct UpdateLocalStateParams {
     #[serde(default)]
     encryption_key: Option<Option<String>>,
     #[serde(default)]
-    primary_wallet_address: Option<Option<String>>,
-    #[serde(default)]
     onboarding_tasks: Option<Option<super::ops::StoredOnboardingTasks>>,
 }
 
@@ -61,10 +59,6 @@ pub fn app_state_schemas(function: &str) -> ControllerSchema {
                     "Set or clear the locally stored encryption key.",
                 ),
                 optional_json(
-                    "primaryWalletAddress",
-                    "Set or clear the locally stored wallet address.",
-                ),
-                optional_json(
                     "onboardingTasks",
                     "Set or clear locally stored onboarding task progress.",
                 ),
@@ -105,7 +99,6 @@ fn handle_update_local_state(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid params: {e}"))?;
         crate::openhuman::app_state::update_local_state(StoredAppStatePatch {
             encryption_key: payload.encryption_key,
-            primary_wallet_address: payload.primary_wallet_address,
             onboarding_tasks: payload.onboarding_tasks,
         })
         .await?
@@ -150,7 +143,7 @@ mod tests {
         let s = app_state_schemas("update_local_state");
         assert_eq!(s.namespace, "app_state");
         assert_eq!(s.function, "update_local_state");
-        assert_eq!(s.inputs.len(), 3);
+        assert_eq!(s.inputs.len(), 2);
         for input in &s.inputs {
             assert!(!input.required, "input '{}' should be optional", input.name);
         }
@@ -195,7 +188,6 @@ mod tests {
         let params: UpdateLocalStateParams =
             serde_json::from_value(serde_json::Value::Object(Map::new())).unwrap();
         assert!(params.encryption_key.is_none());
-        assert!(params.primary_wallet_address.is_none());
         assert!(params.onboarding_tasks.is_none());
     }
 

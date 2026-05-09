@@ -61,8 +61,6 @@ pub struct StoredAppState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub primary_wallet_address: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub onboarding_tasks: Option<StoredOnboardingTasks>,
 }
 
@@ -106,8 +104,6 @@ pub struct RuntimeSnapshot {
 pub struct StoredAppStatePatch {
     #[serde(default)]
     pub encryption_key: Option<Option<String>>,
-    #[serde(default)]
-    pub primary_wallet_address: Option<Option<String>>,
     #[serde(default)]
     pub onboarding_tasks: Option<Option<StoredOnboardingTasks>>,
 }
@@ -469,13 +465,12 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     let runtime = build_runtime_snapshot(&config).await;
 
     debug!(
-        "{LOG_PREFIX} snapshot auth={} onboarding={} chat_onboarding={} analytics={} meet_handoff={} wallet_present={} si_active={} local_ai_state={} autocomplete_phase={} service_state={:?}",
+        "{LOG_PREFIX} snapshot auth={} onboarding={} chat_onboarding={} analytics={} meet_handoff={} si_active={} local_ai_state={} autocomplete_phase={} service_state={:?}",
         auth.is_authenticated,
         config.onboarding_completed,
         config.chat_onboarding_completed,
         config.observability.analytics_enabled,
         config.meet.auto_orchestrator_handoff,
-        local_state.primary_wallet_address.is_some(),
         runtime.screen_intelligence.session.active,
         runtime.local_ai.state,
         runtime.autocomplete.phase,
@@ -512,13 +507,6 @@ pub async fn update_local_state(
         });
     }
 
-    if let Some(primary_wallet_address) = patch.primary_wallet_address {
-        current.primary_wallet_address = primary_wallet_address.and_then(|value| {
-            let trimmed = value.trim().to_string();
-            (!trimmed.is_empty()).then_some(trimmed)
-        });
-    }
-
     if let Some(onboarding_tasks) = patch.onboarding_tasks {
         current.onboarding_tasks = onboarding_tasks;
     }
@@ -526,9 +514,8 @@ pub async fn update_local_state(
     save_stored_app_state_unlocked(&config, &current)?;
 
     debug!(
-        "{LOG_PREFIX} local state updated encryption_key={} wallet={} onboarding_tasks={}",
+        "{LOG_PREFIX} local state updated encryption_key={} onboarding_tasks={}",
         current.encryption_key.is_some(),
-        current.primary_wallet_address.is_some(),
         current.onboarding_tasks.is_some()
     );
 

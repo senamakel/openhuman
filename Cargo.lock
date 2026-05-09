@@ -4621,6 +4621,7 @@ dependencies = [
  "whatsapp-rust-tokio-transport",
  "whatsapp-rust-ureq-http-client",
  "whisper-rs",
+ "x25519-dalek",
  "xz2",
  "zip",
 ]

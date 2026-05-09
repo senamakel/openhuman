@@ -57,7 +57,7 @@ For contributors: [Architecture](https://tinyhumans.gitbook.io/openhuman/develop
 
 ## Context in minutes, not weeks
 
-OpenHuman is the first agent harness that gets to know in minutes. Insipired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Connect → sync → ingest → done.
+OpenHuman is the first agent harness that gets to know you in minutes. Insipired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Connect → sync → ingest → done.
 
 <p align="center">
  <img src="./gitbooks/.gitbook/assets/image.png" alt="The Tet" />
@@ -65,10 +65,11 @@ OpenHuman is the first agent harness that gets to know in minutes. Insipired by 
 
 > OpenHuman summarizes and compress all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.
 
-
 Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
 
-OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) pull from every integration on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) canonicalizes everything into ≤3k-token Markdown chunks scored and folded into hierarchical summary trees: a Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk, queryable SQLite under the hood. One sync pass and the agent has read your inbox, your calendar, your repos, your docs. No training period. No "give it a few weeks."
+OpenHuman skips the wait. Connect your accounts, let [auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) pull context on a 20-minute loop, and the [Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) compresses everything into Markdown chunks that is stored into a Karpathy-style [Obsidian wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki) on disk.
+
+One sync pass and the agent has understood your inbox, your calendar, your repos, your docs, your messages. All local & privately. No training period. No "give it a few weeks.". It becomes you, controlled by you.
 
 ## OpenHuman vs Other Agent Harnesses
 
@@ -81,7 +82,7 @@ High-level comparison (products evolve, so verify against each vendor). OpenHuma
 | **Cost**            | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
 | **Memory**          | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault    |
 | **Integrations**    | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 118+ via OAuth                  |
-| **Auto-fetch**      | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory          |
+| **Auto-fetch**      | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory         |
 | **API sprawl**      | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
 | **Model routing**   | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                        |
 | **Native tools**    | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + voice |

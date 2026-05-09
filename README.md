@@ -50,44 +50,53 @@ OpenHuman is an open-source agentic assistant that is designed to integrate with
 
 - **Simple, UI-first** — A **clean** desktop experience and short onboarding paths so you can go from install to a **working agent in a few clicks**, without a config-first setup. You don't need a terminal to run OpenHuman.
 
-- **One subscription, many providers** — You only need **one** account to get access to many agentic APIs (AI Models, Search, Webhooks/Tunnels and other 3rd party APIs etc..), simplifying the experience to get a powerful agent going.
+- **One subscription, many providers** — You only need **one** account to get access to many agentic APIs (AI models, search, webhooks/tunnels and other third-party APIs), simplifying the experience to get a powerful agent going.
 
-- **Rich Skills** — Plug into **Gmail**, **Slack**, **Notion**, and the rest of your stack via **rich, feature-backed skills**. Connections are typically **one click** through setup wizards instead of wiring APIs by hand. Workflow data is kept **on device**, **encrypted locally**, and treated as **yours**: encryption and sensitive context stay **on your machine**. **Webhooks** give **instant feedback** into the agent when external systems or skills emit events, so the loop stays tight without constant polling.
+- **118+ integrations via Composio** — Plug into **Gmail**, **Notion**, **GitHub**, **Slack**, **Stripe**, **Calendar**, **Drive**, **Linear**, **Jira** and the rest of your stack with **one-click OAuth**. No API keys to wire by hand, and every connection is exposed to the agent as a typed tool.
 
-- **Local knowledge base** — Built from **your data and your activity**. How you work across tools, sessions, and connected services—so the agent gets **rich, workflow-aware context**, not a one-off chat transcript. Everything is **stored on your machine** and compounding over time without becoming a cloud dossier. **Channels**, **skills** and ongoing **conversations** feed the same loop so day-to-day context does not reset every session.
+- **Memory Tree + Obsidian Wiki** — A **local-first** knowledge base built from your data and your activity. Everything you connect is canonicalized into Markdown chunks, scored, and folded into hierarchical summary trees stored in **SQLite on your machine**. The same chunks land as `.md` files in an **Obsidian-compatible vault** you can open, browse and edit directly — inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595).
 
-- **Local AI model** — The **Rust core** exposes **local AI** paths (and the desktop bundle can ship **local/bundled runners** where applicable) for the workloads above—vision snippets, speech helpers, summarization, tooling—so sensitive steps can stay **off the cloud** when you choose.
+- **Auto-fetch from your stack** — Every five minutes the core walks each active connection and pulls fresh data into the memory tree (e.g. Gmail → canonical Markdown → chunks → summaries). No prompts, no polling loops you have to write — the agent already has tomorrow's context this morning.
 
-- **Deep desktop integrations** — OpenHuman is a **native desktop** assistant, not a web-only chat: **memory-aware keyboard autocomplete**, **voice** (**STT** listening and **TTS** replies), **screen intelligence** that understands what is on screen and feeds your local context, plus windowing and OS-level permissions—so the agent meets you **on the machine**, not trapped in a browser tab.
+- **Smart token compression (TokenJuice)** — Verbose tool output (git, npm, cargo, docker, large emails) is compacted by a **rule overlay** before it ever enters LLM context. Sweeping through thousands of emails or large repos stays **cheap** because the model never sees the noise.
+
+- **Automatic model routing** — Tasks pick their model. A `hint:reasoning` request lands on a strong reasoning model, `hint:fast` on a fast one, vision goes to a vision model — all under **one subscription**, with zero per-provider key juggling.
+
+- **Native voice (ElevenLabs)** — STT in, **ElevenLabs** TTS out, with mascot lip-sync. Includes a live **Google Meet agent** that listens, takes notes and can speak back in your meetings.
+
+- **Native search, scraper and coder** — A built-in **web search**, **web-fetch** scraper, and a full **filesystem / git / lint / test / grep** toolset are wired into the agent out of the box. No "install a plugin to read files" friction.
 
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orientation: [`CONTRIBUTING.md`](./CONTRIBUTING.md). Running from source: [`docs/install.md`](docs/install.md#running-from-source). Cloud-hosting the headless core: [`docs/CLOUD_DEPLOY.md`](docs/CLOUD_DEPLOY.md).
 
 ## Highlights
 
-- **[Neocortex](https://tinyhumans.gitbook.io/openhuman/technology/neocortex)** — local-first knowledge base that learns from your data and activity, compounding context across tools and sessions.
-- **[The Subconscious](https://tinyhumans.gitbook.io/openhuman/technology/the-subconscious)** — background self-learning loops that turn everyday usage into workflow-aware intelligence.
-- **[Screen Intelligence](https://tinyhumans.gitbook.io/openhuman/features/screen-intelligence)** — the agent sees what's on your screen and feeds it into your local context.
-- **[Inline Autocomplete](https://tinyhumans.gitbook.io/openhuman/features/inline-autocomplete)** — memory-aware keyboard autocomplete anywhere on your desktop.
-- **[Voice (STT + TTS)](https://tinyhumans.gitbook.io/openhuman/features/voice-speech-to-text)** — speak to OpenHuman and hear it reply, natively on the desktop.
-- **[Skills & Integrations](https://tinyhumans.gitbook.io/openhuman/product/skills-and-integrations)** — one-click skills for Gmail, Slack, Notion and the rest of your stack, with local encryption and webhooks for instant feedback.
+- **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree)** — local-first knowledge base: ingest → canonical Markdown → ≤3k-token chunks → SQLite with hierarchical summary trees.
+- **[Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)** — every memory chunk also lives as a `.md` file in an Obsidian-compatible vault you can open and edit (Karpathy-style).
+- **[Composio Integrations (118+)](https://tinyhumans.gitbook.io/openhuman/features/composio-integrations)** — one-click OAuth into Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more.
+- **[Auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — every five minutes, fresh data from each active connection is folded into the memory tree.
+- **[Smart Token Compression](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — TokenJuice rule overlay compacts verbose tool output before it enters LLM context.
+- **[Automatic Model Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — `hint:reasoning`, `hint:fast`, `hint:vision` map to the right provider+model per task.
+- **[Native Voice (ElevenLabs)](https://tinyhumans.gitbook.io/openhuman/features/voice)** — STT in, ElevenLabs TTS out, mascot lip-sync, live Google Meet agent.
+- **[Native Tools](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** — built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset.
 - **[Messaging Channels](https://tinyhumans.gitbook.io/openhuman/product/messaging-channels)** — inbound/outbound across the channels you already use, routed through your agent.
 - **[Teams & Organizations](https://tinyhumans.gitbook.io/openhuman/product/teams)** — shared workspaces for collaborating with an agent across a team.
-- **[Rewards & Achievements](https://tinyhumans.gitbook.io/openhuman/product/rewards-and-achievements)** — gamified progression as your agent grows with you.
 - **[Privacy & Security](https://tinyhumans.gitbook.io/openhuman/product/privacy-and-security)** — workflow data stays on device, encrypted locally, and treated as yours.
 
 ## OpenHuman vs other agents
 
-High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and ship **deep desktop** features—not only chat.
+High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data — not only chat.
 
-|                         | Claude Code/Cowork | OpenClaw          | Hermes Agent      | OpenHuman              |
-| ----------------------- | ------------------ | ----------------- | ----------------- | ---------------------- |
-| **Open-source**         | 🚫 Proprietary     | ✅ MIT            | ✅ MIT            | ✅ GNU                 |
-| **Simple to start**     | ✅ Desktop + CLI   | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes   |
-| **Cost**                | ⚠️ Sub + add-ons   | ⚠️ BYO models     | ⚠️ BYO models     | ✅ Local-friendly      |
-| **Memory & KB**         | ✅ Chat-scoped     | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Local KB + learning |
-| **API sprawl**          | 🚫 Extra keys      | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account         |
-| **Extensibility**       | ✅ MCP             | ✅ SKILL.md       | ✅ SKILL.md       | 🚀 Rich Skills         |
-| **Desktop integration** | ⚠️ Basic           | ⚠️ Light          | ⚠️ Light          | ✅ STT/TTS/screen/more |
+|                       | Claude Code/Cowork | OpenClaw          | Hermes Agent      | OpenHuman                          |
+| --------------------- | ------------------ | ----------------- | ----------------- | ---------------------------------- |
+| **Open-source**       | 🚫 Proprietary     | ✅ MIT            | ✅ MIT            | ✅ GNU                             |
+| **Simple to start**   | ✅ Desktop + CLI   | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes               |
+| **Cost**              | ⚠️ Sub + add-ons   | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
+| **Memory**            | ✅ Chat-scoped     | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault   |
+| **Integrations**      | ⚠️ Few connectors  | ⚠️ BYO            | ⚠️ BYO            | 🚀 118+ via Composio (OAuth)       |
+| **Auto-fetch**        | 🚫 None            | 🚫 None           | 🚫 None           | ✅ 5-min sync into memory          |
+| **API sprawl**        | 🚫 Extra keys      | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
+| **Model routing**     | 🚫 Single model    | ⚠️ Manual         | ⚠️ Manual         | ✅ Hint-based (`hint:reasoning`)   |
+| **Native tools**      | ✅ Code-only       | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + voice |
 
 # Star us on GitHub
 

@@ -1,5 +1,17 @@
 #!/usr/bin/env sh
 
+# Bail out immediately on Ctrl+C / SIGTERM. Without this trap, an interrupt
+# only kills the current pnpm subprocess; the script then captures its 130
+# exit, mistakes it for a normal failure, and runs the next pnpm step.
+abort() {
+  echo
+  echo "Pre-push aborted."
+  trap - INT TERM
+  kill -- -$$ 2>/dev/null
+  exit 130
+}
+trap abort INT TERM
+
 # Windows Git Bash can miss Node/Pnpm in PATH when hooks run.
 # Recover from common PATH drift by hydrating from where.exe.
 has_node() {

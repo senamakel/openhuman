@@ -49,7 +49,7 @@ This is the difference between a transcription bot and a meeting *agent*.
 While the call is happening, the mascot has access to the same tool surface it has on your desktop:
 
 * **[Memory Tree](../obsidian-wiki/memory-tree.md)** - recall prior meetings, decisions, open threads, who said what last time, what's been promised.
-* **[Auto-fetch from integrations](../obsidian-wiki/auto-fetch.md)** and **[third-party integrations](../integrations.md)** - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
+* **[Auto-fetch from integrations](../obsidian-wiki/auto-fetch.md)** and **[third-party integrations](../integrations/README.md)** - pull a thread from Slack, an email, a Linear ticket, a Notion doc, a calendar entry, a file from Drive.
 * **[Native tools](../native-tools/README.md)** - search the web, scrape a page, run a quick code/data lookup, all without leaving the call.
 * **[Subconscious Loop](../subconscious.md)** outputs - anything it has been working on in the background is already on hand.
 

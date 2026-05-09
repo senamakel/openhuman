@@ -11,7 +11,7 @@ Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman i
 
 ## How it works
 
-A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](../integrations.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
+A single periodic scheduler ticks every twenty minutes. On each tick it walks every active [integration](../integrations/README.md), looks up the matching native provider, and, if enough time has elapsed since that connection's last sync, calls `provider.sync(ctx, SyncReason::Periodic)`.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -57,6 +57,6 @@ The original design ran at 60 seconds. With several connected providers, that me
 
 ## See also
 
-* [Third-party Integrations](../integrations.md). the connector layer auto-fetch runs on top of.
+* [Third-party Integrations](../integrations/README.md). the connector layer auto-fetch runs on top of.
 * [Memory Tree](memory-tree.md). where everything ends up.
 * [Smart Token Compression](../token-compression.md). what keeps "fetch everything" cheap.

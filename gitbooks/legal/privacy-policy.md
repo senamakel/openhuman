@@ -69,7 +69,7 @@ Information may be processed in locations outside your country of residence. Whe
 
 ## Your Rights
 
-Depending on your location, you may have rights to access, correct, delete, restrict processing of, or withdraw consent for your personal data, as well as request data portability. Requests can be done on the dashboard at any time or may be submitted to privacy@\[yourdomain].com.
+Depending on your location, you may have rights to access, correct, delete, restrict processing of, or withdraw consent for your personal data, as well as request data portability. Requests can be done on the dashboard at any time or may be submitted to privacy@tinyhumans.ai.
 
 ## Changes to This Policy
 

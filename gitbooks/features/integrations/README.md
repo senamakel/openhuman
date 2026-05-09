@@ -11,11 +11,12 @@ OpenHuman ships with backend-proxied access to **118+ third-party services**. Co
 
 (Under the hood, the connector layer is powered by [Composio](https://composio.dev). You will not need to think about it.)
 
-Once a service is connected, it shows up in three places at once:
+Once a service is connected, it shows up in four places at once:
 
 1. As an **agent tool**, the model can call it directly.
-2. As a **memory source**, [auto-fetch](obsidian-wiki/auto-fetch.md) syncs it into the [Memory Tree](obsidian-wiki/memory-tree.md) every twenty minutes.
+2. As a **memory source**, [auto-fetch](../obsidian-wiki/auto-fetch.md) syncs it into the [Memory Tree](../obsidian-wiki/memory-tree.md) every twenty minutes.
 3. As a **profile signal**, your activity across services feeds your personalization.
+4. As a **trigger source**, live events (a new email, a new charge, an inbound DM) flow into the [Triggers](triggers.md) pipeline and can fire off agent actions automatically.
 
 ## Some of what's in the catalog
 
@@ -38,7 +39,7 @@ Some services have **native providers**. Rust modules that know how to ingest th
 
 ## How connections work
 
-Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](obsidian-wiki/auto-fetch.md) on the next 20-minute tick.
+Click **Connect** on any integration. A browser window opens for OAuth. Once you sign in, the connection becomes active and OpenHuman starts syncing it through [auto-fetch](../obsidian-wiki/auto-fetch.md) on the next 20-minute tick.
 
 Each integration shows its current status:
 
@@ -66,16 +67,17 @@ Beyond third-party services, OpenHuman has **skills**, small sandboxed modules t
 
 Two capabilities ship native rather than as integrations because they're load-bearing for the desktop experience:
 
-* [**Voice**](native-tools/voice.md). STT in, TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
-* [**Native tools**](native-tools/README.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
+* [**Voice**](../native-tools/voice.md). STT in, TTS out, plus a live Google Meet agent that joins meetings, transcribes them into your Memory Tree, and can speak back into the call.
+* [**Native tools**](../native-tools/README.md). built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset that the agent uses out of the box.
 
 ## Privacy boundary
 
 OpenHuman's core never calls any third-party API directly. All requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on disk in plaintext on your machine, and the agent only sees the _results_ of tool calls, not the credentials.
 
-See [Privacy & Security](privacy-and-security.md) for the full boundary.
+See [Privacy & Security](../privacy-and-security.md) for the full boundary.
 
 ## See also
 
-* [Auto-fetch from Integrations](obsidian-wiki/auto-fetch.md)
-* [Memory Tree](obsidian-wiki/memory-tree.md)
+* [Triggers](triggers.md), live events from connected integrations and how they fire agent actions.
+* [Auto-fetch from Integrations](../obsidian-wiki/auto-fetch.md)
+* [Memory Tree](../obsidian-wiki/memory-tree.md)

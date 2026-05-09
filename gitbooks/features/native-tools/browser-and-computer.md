@@ -23,7 +23,7 @@ The browser surface runs through CEF (Chromium Embedded Framework) and includes 
 
 ## What it's good for
 
-* Driving sites that don't have an API or a [native integration](integrations.md).
+* Driving sites that don't have an API or a [native integration](../integrations/README.md).
 * Multi-step UI flows where a single screenshot isn't enough.
 * Automating local apps from inside a chat.
 

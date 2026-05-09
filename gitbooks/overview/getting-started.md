@@ -42,7 +42,7 @@ The first screen is **"Sign in! Let's Cook"**. Multiple sign-in options are avai
 
 ## 3. Onboarding flow
 
-After sign-in, OpenHuman runs you through a short routed onboarding under `/onboarding/*`. The flow is intentionally tiny - three real steps, then you're in.
+After sign-in, OpenHuman runs you through a short routed onboarding under `/onboarding/*`. The flow is intentionally tiny: five short steps and you're in.
 
 ### Step 1 - Welcome ("Hi. I'm OpenHuman.")
 
@@ -54,7 +54,7 @@ OpenHuman asks you to connect **Gmail** as the first source. Gmail is high-signa
 
 You connect via OAuth. Nothing is read until the next [auto-fetch](../features/obsidian-wiki/auto-fetch.md) tick.
 
-You can connect more sources later - the full [118+ catalog](../features/integrations.md) is available from **Settings**.
+You can connect more sources later - the full [118+ catalog](../features/integrations/README.md) is available from **Settings**.
 
 ### Step 3 - Building your profile ("Almost there!")
 

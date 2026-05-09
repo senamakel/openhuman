@@ -29,7 +29,7 @@ There's also a one-shot `schedule` tool in [System & Utilities](system-and-utili
 
 ## How it ties back to the rest
 
-Every cron run is just a normal agent invocation, so it can use any other tool - search the web, query the [Memory Tree](../obsidian-wiki/memory-tree.md), call a [third-party integration](integrations.md), send a message. Run history is recorded so you can see what each tick produced.
+Every cron run is just a normal agent invocation, so it can use any other tool - search the web, query the [Memory Tree](../obsidian-wiki/memory-tree.md), call a [third-party integration](../integrations/README.md), send a message. Run history is recorded so you can see what each tick produced.
 
 ## See also
 

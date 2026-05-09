@@ -5,7 +5,7 @@ icon: plug
 
 # Third-party Integrations
 
-OpenHuman's agent can call into [118+ third-party services](../integrations.md) - Gmail, Notion, GitHub, Slack, Stripe, Calendar, and the long tail - through a single proxied tool surface.
+OpenHuman's agent can call into [118+ third-party services](../integrations/README.md) - Gmail, Notion, GitHub, Slack, Stripe, Calendar, and the long tail - through a single proxied tool surface.
 
 ## How it shows up to the agent
 
@@ -28,6 +28,6 @@ OpenHuman's core never calls any third-party API directly. All requests go throu
 
 ## See also
 
-* [Third-party Integrations (catalog)](../integrations.md) - the user-facing pitch, OAuth flow, and connection management.
+* [Third-party Integrations (catalog)](../integrations/README.md) - the user-facing pitch, OAuth flow, and connection management.
 * [Auto-fetch](../obsidian-wiki/auto-fetch.md) - how connected services flow into the Memory Tree.
 * [Privacy & Security](../privacy-and-security.md) - the full boundary.

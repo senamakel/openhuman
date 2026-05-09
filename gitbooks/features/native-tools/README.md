@@ -32,12 +32,12 @@ A plugin-only model means tools live in different processes, behind RPC, with th
 | [Cron & Scheduling](cron.md) | Recurring jobs, one-off reminders, scheduled agent runs. |
 | [Voice](voice.md) | Speech-to-text in, text-to-speech out, live Google Meet agent. |
 | [Memory Tools](memory-tools.md) | Recall, store, forget, and search the [Memory Tree](../obsidian-wiki/memory-tree.md). |
-| [Third-party Integrations](integrations.md) | The agent's view of the [118+ connected services](../integrations.md). |
+| [Third-party Integrations](../integrations/README.md) | The agent's view of the [118+ connected services](../integrations/README.md). |
 | [Agent Coordination](agent-coordination.md) | Spawn subagents, delegate to skills, plan, ask the user. |
 | [System & Utilities](system-and-utilities.md) | Shell, node, SQL, current time, push notifications, LSP. |
 
 ## See also
 
 * [Smart Token Compression](../token-compression.md) - what keeps tool output costs bounded.
-* [Third-party Integrations](../integrations.md) - the user-facing pitch and OAuth flow for the 118+ catalog.
+* [Third-party Integrations](../integrations/README.md) - the user-facing pitch and OAuth flow for the 118+ catalog.
 * [Privacy & Security](../privacy-and-security.md) - the boundary every tool runs inside.

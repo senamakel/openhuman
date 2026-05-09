@@ -40,7 +40,7 @@ Aggregated views of group health, contribution patterns, and risk signals — su
 
 ## Distributed Teams
 
-Decisions live in chat. OpenHuman extracts actions and decisions across channels into structured records you can drop into Notion or Google Sheets via [Composio](../features/composio-integrations.md). Cross-channel topic trees catch contradictions ("Alex committed to Friday in #engineering, but Maria flagged Monday in #design") before they become standup surprises.
+Decisions live in chat. OpenHuman extracts actions and decisions across channels into structured records you can drop into Notion or Google Sheets via [third-party integrations](../features/integrations.md). Cross-channel topic trees catch contradictions ("Alex committed to Friday in #engineering, but Maria flagged Monday in #design") before they become standup surprises.
 
 ***
 

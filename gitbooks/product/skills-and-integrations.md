@@ -4,13 +4,13 @@ icon: screwdriver
 
 # Skills & Integrations
 
-OpenHuman extends its capabilities through two surfaces: **Composio integrations** (third-party services) and **Skills** (custom logic that runs inside the app). Both are accessible from the Skills tab in the bottom navigation.
+OpenHuman extends its capabilities through two surfaces: **third-party integrations** (third-party services) and **Skills** (custom logic that runs inside the app). Both are accessible from the Skills tab in the bottom navigation.
 
 <figure><img src="../.gitbook/assets/9. Skills &#x26; Integrations@2x.png" alt=""><figcaption></figcaption></figure>
 
-#### Composio Integrations (118+)
+#### Third-party Integrations (118+)
 
-OpenHuman ships with backend-proxied access to **over a hundred third-party services** through Composio. Each connects via a one-click OAuth flow and shows up as both an agent tool and a memory source.
+OpenHuman ships with backend-proxied access to **over a hundred third-party services**. Each connects via a one-click OAuth flow and shows up as both an agent tool and a memory source.
 
 A non-exhaustive sample of what's in the catalog:
 
@@ -25,7 +25,7 @@ A non-exhaustive sample of what's in the catalog:
 | **Project management** | Asana, Trello |
 | **Social** | Twitter / X, Spotify, YouTube, Reddit, Facebook, Instagram |
 
-Some toolkits — Gmail today, more in flight — also have **native providers** that ingest into the [Memory Tree](../features/memory-tree.md) directly. See [Composio Integrations](../features/composio-integrations.md) for the full picture.
+Some toolkits — Gmail today, more in flight — also have **native providers** that ingest into the [Memory Tree](../features/memory-tree.md) directly. See [Third-party Integrations](../features/integrations.md) for the full picture.
 
 #### How connections work
 
@@ -54,6 +54,6 @@ Skills install from the Skills tab and integrate with the same Memory Tree as ev
 
 #### Privacy
 
-Composio tokens are held by the OpenHuman backend, not stored in plaintext on your machine. The core never calls Composio APIs directly — every integration request is proxied. Ingest results land in your local Memory Tree and Obsidian vault; the **chunks live on your machine**.
+Integration tokens are held by the OpenHuman backend, not stored in plaintext on your machine. The core never calls integration APIs directly — every integration request is proxied. Ingest results land in your local Memory Tree and Obsidian vault; the **chunks live on your machine**.
 
 See [Privacy & Security](privacy-and-security.md) for the full boundary.

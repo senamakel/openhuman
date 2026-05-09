@@ -5,31 +5,31 @@
 </p>
 
 <p align="center">
-  <strong>The age of super intelligence is here. OpenHuman is your Personal AI super intelligence. Private, Simple and extremely powerful.</strong>
+ <strong>The age of super intelligence is here. OpenHuman is your Personal AI super intelligence. Private, Simple and extremely powerful.</strong>
 </p>
 
 <p align="center">
-  <a href="https://discord.tinyhumans.ai/">Discord</a> •
-  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
-  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
-  <a href="https://tinyhumans.gitbook.io/openhuman/">Docs</a>
+ <a href="https://discord.tinyhumans.ai/">Discord</a> •
+ <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
+ <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
+ <a href="https://tinyhumans.gitbook.io/openhuman/">Docs</a>
 </p>
 <p align="center">
-  <a href="https://x.com/intent/follow?screen_name=senamakel">Follow @senamakel (Creator)</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/status-early%20beta-orange" alt="Early Beta" />
-  <img src="https://img.shields.io/badge/platform-desktop-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platforms: desktop only" />
-  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="Latest Release" /></a>
+ <a href="https://x.com/intent/follow?screen_name=senamakel">Follow @senamakel (Creator)</a>
 </p>
 
 <p align="center">
-  <img src="./docs/the-tet.png" alt="The Tet" />
+ <img src="https://img.shields.io/badge/status-early%20beta-orange" alt="Early Beta" />
+ <img src="https://img.shields.io/badge/platform-desktop-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platforms: desktop only" />
+ <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="Latest Release" /></a>
+</p>
+
+<p align="center">
+ <img src="./docs/the-tet.png" alt="The Tet" />
 </p>
 
 <p align="center" style="font-style: italic">
-  "The Tet. What a brilliant machine" — Morgan Freeman as he reminisces about <a href="https://youtu.be/SveLVpqy_Rc?si=y83aZNokPiUjILN0&t=60">alien superintelligence</a> in the movie <em>Oblivion</em>
+ "The Tet. What a brilliant machine" — Morgan Freeman as he reminisces about <a href="https://youtu.be/SveLVpqy_Rc?si=y83aZNokPiUjILN0&t=60">alien superintelligence</a> in the movie <em>Oblivion</em>
 </p>
 
 > **Early Beta** — Under active development. Expect rough edges.
@@ -52,7 +52,7 @@ OpenHuman is an open-source agentic assistant that is designed to integrate with
 
 - **One subscription, many providers** — You only need **one** account to get access to many agentic APIs (AI models, search, webhooks/tunnels and other third-party APIs), simplifying the experience to get a powerful agent going.
 
-- **118+ integrations via Composio** — Plug into **Gmail**, **Notion**, **GitHub**, **Slack**, **Stripe**, **Calendar**, **Drive**, **Linear**, **Jira** and the rest of your stack with **one-click OAuth**. No API keys to wire by hand, and every connection is exposed to the agent as a typed tool.
+- **118+ third-party integrations** — Plug into **Gmail**, **Notion**, **GitHub**, **Slack**, **Stripe**, **Calendar**, **Drive**, **Linear**, **Jira** and the rest of your stack with **one-click OAuth**. No API keys to wire by hand, and every connection is exposed to the agent as a typed tool.
 
 - **Memory Tree + Obsidian Wiki** — A **local-first** knowledge base built from your data and your activity. Everything you connect is canonicalized into Markdown chunks, scored, and folded into hierarchical summary trees stored in **SQLite on your machine**. The same chunks land as `.md` files in an **Obsidian-compatible vault** you can open, browse and edit directly — inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595).
 
@@ -74,7 +74,7 @@ Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orient
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree)** — local-first knowledge base: ingest → canonical Markdown → ≤3k-token chunks → SQLite with hierarchical summary trees.
 - **[Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)** — every memory chunk also lives as a `.md` file in an Obsidian-compatible vault you can open and edit (Karpathy-style).
-- **[Composio Integrations (118+)](https://tinyhumans.gitbook.io/openhuman/features/composio-integrations)** — one-click OAuth into Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more.
+- **[Third-party Integrations (118+)](https://tinyhumans.gitbook.io/openhuman/features/integrations)** — one-click OAuth into Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more.
 - **[Auto-fetch](https://tinyhumans.gitbook.io/openhuman/features/auto-fetch)** — every five minutes, fresh data from each active connection is folded into the memory tree.
 - **[Smart Token Compression](https://tinyhumans.gitbook.io/openhuman/features/token-compression)** — TokenJuice rule overlay compacts verbose tool output before it enters LLM context.
 - **[Automatic Model Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — `hint:reasoning`, `hint:fast`, `hint:vision` map to the right provider+model per task.
@@ -89,30 +89,30 @@ Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orient
 
 High-level comparison (products evolve—verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data — not only chat.
 
-|                       | Claude Code/Cowork | OpenClaw          | Hermes Agent      | OpenHuman                          |
+| | Claude Code/Cowork | OpenClaw | Hermes Agent | OpenHuman |
 | --------------------- | ------------------ | ----------------- | ----------------- | ---------------------------------- |
-| **Open-source**       | 🚫 Proprietary     | ✅ MIT            | ✅ MIT            | ✅ GNU                             |
-| **Simple to start**   | ✅ Desktop + CLI   | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes               |
-| **Cost**              | ⚠️ Sub + add-ons   | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
-| **Memory**            | ✅ Chat-scoped     | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault   |
-| **Integrations**      | ⚠️ Few connectors  | ⚠️ BYO            | ⚠️ BYO            | 🚀 118+ via Composio (OAuth)       |
-| **Auto-fetch**        | 🚫 None            | 🚫 None           | 🚫 None           | ✅ 5-min sync into memory          |
-| **API sprawl**        | 🚫 Extra keys      | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
-| **Model routing**     | 🚫 Single model    | ⚠️ Manual         | ⚠️ Manual         | ✅ Hint-based (`hint:reasoning`)   |
-| **Native tools**      | ✅ Code-only       | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + voice |
+| **Open-source** | 🚫 Proprietary | ✅ MIT | ✅ MIT | ✅ GNU |
+| **Simple to start** | ✅ Desktop + CLI | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes |
+| **Cost** | ⚠️ Sub + add-ons | ⚠️ BYO models | ⚠️ BYO models | ✅ One sub + TokenJuice |
+| **Memory** | ✅ Chat-scoped | ⚠️ Plugin-reliant | ✅ Self-learning | 🚀 Memory Tree + Obsidian vault |
+| **Integrations** | ⚠️ Few connectors | ⚠️ BYO | ⚠️ BYO | 🚀 118+ via OAuth |
+| **Auto-fetch** | 🚫 None | 🚫 None | 🚫 None | ✅ 5-min sync into memory |
+| **API sprawl** | 🚫 Extra keys | 🚫 BYOK | 🚫 Multi-vendor | ✅ One account |
+| **Model routing** | 🚫 Single model | ⚠️ Manual | ⚠️ Manual | ✅ Hint-based (`hint:reasoning`) |
+| **Native tools** | ✅ Code-only | ✅ Code-only | ✅ Code-only | ✅ Code + search + scraper + voice |
 
 # Star us on GitHub
 
 _Building toward AGI and artificial consciousness? Star the repo and help others find the path._
 
 <p align="center">
-  <a href="https://www.star-history.com/#tinyhumansai/openhuman&type=date&legend=top-left">
-    <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&theme=dark&legend=top-left" />
-     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&legend=top-left" />
-     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&legend=top-left" />
-    </picture>
-  </a>
+ <a href="https://www.star-history.com/#tinyhumansai/openhuman&type=date&legend=top-left">
+ <picture>
+ <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&theme=dark&legend=top-left" />
+ <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&legend=top-left" />
+ <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=tinyhumansai/openhuman&type=date&legend=top-left" />
+ </picture>
+ </a>
 </p>
 
 # Contributors Hall of Fame
@@ -120,5 +120,5 @@ _Building toward AGI and artificial consciousness? Star the repo and help others
 Show some love and end up in the hall of fame
 
 <a href="https://github.com/tinyhumansai/openhuman/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman contributors" />
+ <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman contributors" />
 </a>

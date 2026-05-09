@@ -12,7 +12,7 @@ High-volume comms create information overload that gets worse as you join more g
 
 #### How OpenHuman helps
 
-**Auto-fetch keeps the picture fresh.** Every five minutes, OpenHuman pulls new messages from your active [Composio integrations](../features/composio-integrations.md) — Gmail, Slack, GitHub, Notion — and folds them into the [Memory Tree](../features/memory-tree.md). By the time you sit down with coffee, the briefing is already pre-computed.
+**Auto-fetch keeps the picture fresh.** Every five minutes, OpenHuman pulls new messages from your active [third-party integrations](../features/integrations.md) — Gmail, Slack, GitHub, Notion — and folds them into the [Memory Tree](../features/memory-tree.md). By the time you sit down with coffee, the briefing is already pre-computed.
 
 **Topic trees catch the things waiting on you.** As entities (people, projects) get more activity, their topic tree gets refreshed. "Things waiting on a reply from me" becomes a real query, not a manual scrub.
 
@@ -30,12 +30,12 @@ High-volume comms create information overload that gets worse as you join more g
 
 #### Features that matter most here
 
-| Feature                                                | Why it matters                                                  |
+| Feature | Why it matters |
 | ------------------------------------------------------ | --------------------------------------------------------------- |
-| [Auto-fetch](../features/auto-fetch.md)                | Your inbox/Slack/etc. lands in memory without you asking        |
-| [Memory Tree topic summaries](../features/memory-tree.md) | Per-entity recaps surface what's outstanding                    |
-| [TokenJuice](../features/token-compression.md)         | Daily sweeps stay cheap even across thousands of messages       |
-| [Composio integrations](../features/composio-integrations.md) | One-click OAuth into 118+ services                              |
+| [Auto-fetch](../features/auto-fetch.md) | Your inbox/Slack/etc. lands in memory without you asking |
+| [Memory Tree topic summaries](../features/memory-tree.md) | Per-entity recaps surface what's outstanding |
+| [TokenJuice](../features/token-compression.md) | Daily sweeps stay cheap even across thousands of messages |
+| [third-party integrations](../features/integrations.md) | One-click OAuth into 118+ services |
 
 #### When this use case is strongest
 

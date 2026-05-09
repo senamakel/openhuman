@@ -14,7 +14,7 @@
 * [Memory Tree](features/memory-tree.md)
 * [Obsidian Wiki](features/obsidian-wiki.md)
 * [Auto-fetch from Integrations](features/auto-fetch.md)
-* [Composio Integrations (118+)](features/composio-integrations.md)
+* [Third-party Integrations (118+)](features/integrations.md)
 * [Smart Token Compression](features/token-compression.md)
 * [Automatic Model Routing](features/model-routing.md)
 * [Native Voice (ElevenLabs)](features/voice.md)

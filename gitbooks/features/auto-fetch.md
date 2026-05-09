@@ -1,7 +1,7 @@
 ---
 description: >-
-  Every five minutes, OpenHuman walks every active integration and folds new
-  data into your memory tree. No prompts, no polling loops you have to write.
+ Every five minutes, OpenHuman walks every active integration and folds new
+ data into your memory tree. No prompts, no polling loops you have to write.
 icon: arrows-rotate
 ---
 
@@ -11,24 +11,24 @@ Most "AI assistants" are reactive: you ask, they think, they answer. OpenHuman i
 
 ## How it works
 
-A single periodic scheduler ticks every five minutes. On each tick it walks every active [Composio connection](composio-integrations.md), looks up the matching native provider, and — if enough time has elapsed since that connection's last sync — calls `provider.sync(ctx, SyncReason::Periodic)`.
+A single periodic scheduler ticks every five minutes. On each tick it walks every active [integration](integrations.md), looks up the matching native provider, and — if enough time has elapsed since that connection's last sync — calls `provider.sync(ctx, SyncReason::Periodic)`.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  every 5 min                                             │
-│      │                                                   │
-│      ▼                                                   │
-│  for each active connection (Gmail, Notion, GitHub, …):  │
-│      │                                                   │
-│      ├─ check sync_state (toolkit, connection_id)        │
-│      │   • last sync timestamp                           │
-│      │   • daily budget                                  │
-│      │   • dedup set                                     │
-│      │   • cursor                                        │
-│      │                                                   │
-│      ├─ if interval elapsed → provider.sync()            │
-│      │                                                   │
-│      └─ on success → record_sync_success(ts)             │
+│ every 5 min │
+│ │ │
+│ ▼ │
+│ for each active connection (Gmail, Notion, GitHub, …): │
+│ │ │
+│ ├─ check sync_state (toolkit, connection_id) │
+│ │ • last sync timestamp │
+│ │ • daily budget │
+│ │ • dedup set │
+│ │ • cursor │
+│ │ │
+│ ├─ if interval elapsed → provider.sync() │
+│ │ │
+│ └─ on success → record_sync_success(ts) │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -53,10 +53,10 @@ The original design ran at 60 seconds. With several connected providers, that me
 
 - **Per-provider interval** — each native provider declares its own `sync_interval_secs`, so high-traffic toolkits (Gmail) can sync more often than low-traffic ones (Stripe).
 - **Daily budget** — every connection has a daily request budget to keep API costs and rate limits sane.
-- **Logs** — sync activity is logged with `[composio]` prefixes; tail them with `RUST_LOG=openhuman_core::openhuman::composio=debug`.
+- **Logs** — sync activity is logged in the core logs at debug level.
 
 ## See also
 
-- [Composio Integrations](composio-integrations.md) — the connector layer auto-fetch runs on top of.
+- [Third-party Integrations](integrations.md) — the connector layer auto-fetch runs on top of.
 - [Memory Tree](memory-tree.md) — where everything ends up.
 - [Smart Token Compression](token-compression.md) — what keeps "fetch everything" cheap.

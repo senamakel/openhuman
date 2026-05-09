@@ -1,7 +1,7 @@
 ---
 description: >-
-  Every memory chunk also lives as a Markdown file in an Obsidian-compatible
-  vault you can open and edit. Inspired by Karpathy's obsidian-wiki workflow.
+ Every memory chunk also lives as a Markdown file in an Obsidian-compatible
+ vault you can open and edit. Inspired by Karpathy's obsidian-wiki workflow.
 icon: book-open
 ---
 
@@ -16,9 +16,9 @@ The design is directly inspired by [Andrej Karpathy's obsidian-wiki workflow](ht
 ```
 <workspace>/
 └── wiki/
-    ├── summaries/          # auto-generated source / topic / global summaries
-    ├── notes/              # your hand-written notes (free-form)
-    └── …                   # one folder per Composio toolkit you've connected
+ ├── summaries/ # auto-generated source / topic / global summaries
+ ├── notes/ # your hand-written notes (free-form)
+ └── … # one folder per connected toolkit you've connected
 ```
 
 The `summaries/` folder is laid out hierarchically — by date for the global tree, by source for source trees, by entity for topic trees. Each file's frontmatter carries provenance (source ids, time range, scope) so the agent can trace any claim back to the chunks that produced it.

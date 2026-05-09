@@ -10,11 +10,11 @@ OpenHuman is a native desktop application — not a browser extension, not an El
 
 ## Supported platforms
 
-| Platform    | Architectures        | Distribution               |
+| Platform | Architectures | Distribution |
 | ----------- | -------------------- | -------------------------- |
-| **macOS**   | Intel, Apple Silicon | `.dmg` installer, Homebrew |
-| **Windows** | x64, ARM64           | `.msi` installer           |
-| **Linux**   | x64, ARM64           | AppImage, `.deb`, apt      |
+| **macOS** | Intel, Apple Silicon | `.dmg` installer, Homebrew |
+| **Windows** | x64, ARM64 | `.msi` installer |
+| **Linux** | x64, ARM64 | AppImage, `.deb`, apt |
 
 See [Install](../overview/install.md) for setup on each platform.
 
@@ -36,18 +36,18 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Tauri shell — windowing, OS integration         │
+│ Tauri shell — windowing, OS integration │
 └──────────────────────────────────────────────────┘
-            │ JSON-RPC ↕
+ │ JSON-RPC ↕
 ┌──────────────────────────────────────────────────┐
-│  Rust core (`openhuman` sidecar)                 │
-│   • Memory Tree, Composio, auto-fetch            │
-│   • Model router, TokenJuice, native tools       │
-│   • Voice (STT, ElevenLabs TTS, Meet agent)      │
+│ Rust core (`openhuman` sidecar) │
+│ • Memory Tree, integrations, auto-fetch │
+│ • Model router, TokenJuice, native tools │
+│ • Voice (STT, ElevenLabs TTS, Meet agent) │
 └──────────────────────────────────────────────────┘
-            │
+ │
 ┌──────────────────────────────────────────────────┐
-│  React frontend — screens, navigation            │
+│ React frontend — screens, navigation │
 └──────────────────────────────────────────────────┘
 ```
 

@@ -1,7 +1,7 @@
 ---
 description: >-
-  Built-in web search, web-fetch scraper, and a full filesystem / git / lint /
-  test / grep coder toolset. No "install a plugin" friction.
+ Built-in web search, web-fetch scraper, and a full filesystem / git / lint /
+ test / grep coder toolset. No "install a plugin" friction.
 icon: toolbox
 ---
 
@@ -61,4 +61,4 @@ A plugin-only model means tools live in different processes, behind RPC, with th
 ## See also
 
 - [Smart Token Compression](token-compression.md) — what keeps tool output costs bounded.
-- [Composio Integrations](composio-integrations.md) — for the long tail of third-party services.
+- [Third-party Integrations](integrations.md) — for the long tail of third-party services.

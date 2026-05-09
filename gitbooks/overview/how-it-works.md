@@ -24,9 +24,9 @@ The same chunks the agent reasons over are written as `.md` files in `<workspace
 
 You can't trust a memory you can't read. The vault is the inverse of the usual "AI memory" black box.
 
-### 3. [Composio integrations](../features/composio-integrations.md) feeding the tree on autopilot
+### 3. [third-party integrations](../features/integrations.md) feeding the tree on autopilot
 
-OpenHuman ships with **118+ third-party integrations** through Composio — Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, and more. Connecting any of them is a one-click OAuth flow.
+OpenHuman ships with **118+ third-party integrations** — Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, and more. Connecting any of them is a one-click OAuth flow.
 
 Once connected, the [auto-fetch scheduler](../features/auto-fetch.md) ticks every five minutes, pulls fresh data from every active connection, and pipes the results through the same ingest path the manual UI uses. By the time you ask "what landed in my inbox overnight?", the answer is already in the memory tree.
 
@@ -43,26 +43,26 @@ When you talk to the agent, four things happen behind the scenes:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  Composio (118+ services)                                  │
-│      ▲           ▲                                         │
-│  one-click    auto-fetch every 5 min                       │
+│ Third-party services (118+) │
+│ ▲ ▲ │
+│ one-click auto-fetch every 5 min │
 └──────┼───────────┼─────────────────────────────────────────┘
-       │           │
-       ▼           ▼
+ │ │
+ ▼ ▼
 ┌────────────────────────────────────────────────────────────┐
-│  Memory Tree (canonical MD → chunks → scored → summaries)  │
-│      │                                                     │
-│      ├─ SQLite ──────────── agent retrieval                │
-│      └─ Markdown vault ──── you, in Obsidian               │
+│ Memory Tree (canonical MD → chunks → scored → summaries) │
+│ │ │
+│ ├─ SQLite ──────────── agent retrieval │
+│ └─ Markdown vault ──── you, in Obsidian │
 └────────────────────────────────────────────────────────────┘
-              ▲                          │
-              │                          ▼
-        agent reads      ┌────────────────────────────────┐
-                         │  Agent (model router)          │
-                         │  + native tools                │
-                         │  + TokenJuice compression      │
-                         │  + voice in/out (ElevenLabs)   │
-                         └────────────────────────────────┘
+ ▲ │
+ │ ▼
+ agent reads ┌────────────────────────────────┐
+ │ Agent (model router) │
+ │ + native tools │
+ │ + TokenJuice compression │
+ │ + voice in/out (ElevenLabs) │
+ └────────────────────────────────┘
 ```
 
 ## What stays on your machine
@@ -72,7 +72,7 @@ When you talk to the agent, four things happen behind the scenes:
 - Audio capture and dictation buffers.
 - Any local model state.
 
-What goes through the OpenHuman backend: model calls (under one subscription), web search proxy, Composio OAuth tokens, TTS streaming. See [Privacy & Security](../product/privacy-and-security.md) for the full boundary.
+What goes through the OpenHuman backend: model calls (under one subscription), web search proxy, integration OAuth tokens, TTS streaming. See [Privacy & Security](../product/privacy-and-security.md) for the full boundary.
 
 ## Limitations
 

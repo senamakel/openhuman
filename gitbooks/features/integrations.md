@@ -5,9 +5,11 @@ description: >-
 icon: plug
 ---
 
-# Composio Integrations
+# Third-party Integrations
 
-OpenHuman ships with backend-proxied access to **118+ third-party services** via Composio. Connecting any of them is a one-click OAuth flow inside the app — there are no API keys to wire by hand, and no plugin marketplace to navigate.
+OpenHuman ships with backend-proxied access to **118+ third-party services**. Connecting any of them is a one-click OAuth flow inside the app — there are no API keys to wire by hand, and no plugin marketplace to navigate.
+
+(Under the hood, the connector layer is powered by [Composio](https://composio.dev). You will not need to think about it.)
 
 Once a service is connected, it shows up in three places at once:
 
@@ -30,19 +32,13 @@ The catalog spans productivity, business, social, messaging and Google. A non-ex
 | **Project management** | Asana, Trello |
 | **Social** | Twitter / X, Spotify, YouTube |
 
-The full list lives in `src/openhuman/composio/providers/catalogs*.rs` and is wired into the JSON-RPC controller registry.
-
 ## Native vs proxied
 
-Some toolkits have **native providers** — Rust modules under `src/openhuman/composio/providers/<toolkit>/` that know how to ingest the toolkit into the memory tree (e.g. Gmail's `ingest_page_into_memory_tree`). Others are exposed as **proxied tools** only: the agent can call them, but there's no auto-ingest yet. New native providers are added as features land.
+Some services have **native providers** — Rust modules that know how to ingest the service into the Memory Tree directly (e.g. Gmail's native ingest path). Others are exposed as **proxied tools** only: the agent can call them, but there's no automatic ingest yet. New native providers are added as features land.
 
 ## Privacy boundary
 
-OpenHuman's core never calls the Composio API directly. All requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on disk in plaintext on your machine, and the agent only sees the *results* of tool calls — not the credentials.
-
-## RPC surface
-
-For developers, every toolkit is exposed under the `openhuman.composio_*` JSON-RPC namespace — list connections, trigger a sync, fetch a profile, etc. See `src/openhuman/composio/rpc.rs`.
+OpenHuman's core never calls any third-party API directly. All requests go through the OpenHuman backend, which handles OAuth tokens and rate limiting. Your tokens never sit on disk in plaintext on your machine, and the agent only sees the *results* of tool calls — not the credentials.
 
 ## See also
 

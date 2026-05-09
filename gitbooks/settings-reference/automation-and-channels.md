@@ -28,12 +28,12 @@ OpenHuman runs a global [auto-fetch](../features/auto-fetch.md) tick every five 
 
 **Core Cron Jobs:** System-level jobs in the OpenHuman core scheduler database.
 
-**Per-integration sync intervals:** Each [Composio integration](../features/composio-integrations.md) declares its own minimum interval between syncs. The defaults are sensible; you can override them here.
+**Per-integration sync intervals:** Each [integration](../features/integrations.md) declares its own minimum interval between syncs. The defaults are sensible; you can override them here.
 
 | Integration | Default sync interval |
 | ----------- | --------------------- |
-| Gmail       | every 15 minutes      |
-| Notion      | every 20 minutes      |
+| Gmail | every 15 minutes |
+| Notion | every 20 minutes |
 
 More frequent syncing keeps data fresher but uses more inference budget. [TokenJuice](../features/token-compression.md) keeps the cost bounded even at high frequencies.
 

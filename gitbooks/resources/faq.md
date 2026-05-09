@@ -8,7 +8,7 @@ icon: question
 
 #### What is OpenHuman?
 
-OpenHuman is a personal AI assistant that runs natively on your desktop. It connects to 118+ third-party services through Composio, pulls data from them automatically, builds a local-first [Memory Tree](../features/memory-tree.md) you can browse as a Markdown vault in Obsidian, and gives you an agent with native voice, smart model routing, and built-in coder/search/scraper tools.
+OpenHuman is a personal AI assistant that runs natively on your desktop. It connects to 118+ third-party services with one-click OAuth, pulls data from them automatically, builds a local-first [Memory Tree](../features/memory-tree.md) you can browse as a Markdown vault in Obsidian, and gives you an agent with native voice, smart model routing, and built-in coder/search/scraper tools.
 
 ***
 
@@ -48,7 +48,7 @@ No. OpenHuman is not AGI, and we do not claim it is. It is a meaningful architec
 
 #### **What does auto-fetch do?**
 
-Every five minutes, OpenHuman walks every active [Composio connection](../features/composio-integrations.md), checks per-connection sync state (last timestamp, dedup set, daily budget), and — if enough time has elapsed — pulls fresh data and folds it into the Memory Tree. By the time you ask "what landed in my inbox overnight?", the answer is already there. See [Auto-fetch](../features/auto-fetch.md).
+Every five minutes, OpenHuman walks every active [integration](../features/integrations.md), checks per-connection sync state (last timestamp, dedup set, daily budget), and — if enough time has elapsed — pulls fresh data and folds it into the Memory Tree. By the time you ask "what landed in my inbox overnight?", the answer is already there. See [Auto-fetch](../features/auto-fetch.md).
 
 ***
 
@@ -60,19 +60,19 @@ OpenHuman processes whatever you've connected — that's the whole point. But yo
 
 #### Is my data safe?
 
-The Memory Tree's SQLite database and the Obsidian vault stay on your machine. Composio OAuth tokens are held by the OpenHuman backend, never in plaintext on your laptop. On desktop, OS-level credentials live in your platform keychain. All communication between the app and OpenHuman's servers is encrypted in transit.
+The Memory Tree's SQLite database and the Obsidian vault stay on your machine. Integration OAuth tokens are held by the OpenHuman backend, never in plaintext on your laptop. On desktop, OS-level credentials live in your platform keychain. All communication between the app and OpenHuman's servers is encrypted in transit.
 
 ***
 
 #### Does OpenHuman store my messages?
 
-Source data is canonicalized into Markdown chunks and stored in your **local** memory tree. The OpenHuman backend processes the *requests* you make through it (LLM calls, web search, Composio proxying) but does not retain a copy of your raw source data.
+Source data is canonicalized into Markdown chunks and stored in your **local** memory tree. The OpenHuman backend processes the *requests* you make through it (LLM calls, web search, integration proxying) but does not retain a copy of your raw source data.
 
 ***
 
 #### Can OpenHuman send messages on my behalf?
 
-Yes — through your connected Composio integrations. Telegram, Slack, Gmail and the rest expose action-style tools the agent can call when you ask. All actions go through the connections you've authorized; you control which capabilities are active.
+Yes — through your connected third-party integrations. Telegram, Slack, Gmail and the rest expose action-style tools the agent can call when you ask. All actions go through the connections you've authorized; you control which capabilities are active.
 
 ***
 
@@ -98,7 +98,7 @@ OpenHuman ships natively on **macOS, Windows and Linux** desktop. See [Install](
 
 #### What integrations are available?
 
-118+ services via [Composio](../features/composio-integrations.md): Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter/X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
+118+ services via [third-party integrations](../features/integrations.md): Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter/X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
 
 ***
 
@@ -140,7 +140,7 @@ OpenHuman interprets conversations probabilistically. Tone, sarcasm, and informa
 
 Check that the integration is still connected (Skills tab → status should be **Connected**). Auto-fetch runs every five minutes globally; per-provider intervals cap the *minimum* delay between actual syncs. If a provider's daily budget is exhausted, sync pauses until the next day.
 
-**Solution:** Reconnect the integration if status shows an error. Look at logs with `RUST_LOG=openhuman_core::openhuman::composio=debug` for sync activity.
+**Solution:** Reconnect the integration if status shows an error. Check the agent logs for sync activity.
 
 ***
 
@@ -160,7 +160,7 @@ Response time depends on request complexity, data volume, and current model late
 
 #### Revoking access and residual data
 
-When you revoke a Composio connection, OpenHuman immediately stops syncing it. Chunks that were ingested before revocation remain in your local Memory Tree (they're yours) — you can delete them by hand from the Markdown vault if you want them gone.
+When you revoke a integration, OpenHuman immediately stops syncing it. Chunks that were ingested before revocation remain in your local Memory Tree (they're yours) — you can delete them by hand from the Markdown vault if you want them gone.
 
 ***
 

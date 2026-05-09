@@ -1,7 +1,7 @@
 ---
 description: >-
-  OpenHuman is a personal AI assistant that runs on your desktop, connects to
-  118+ services, and builds a local-first memory of your life from them.
+ OpenHuman is a personal AI assistant that runs on your desktop, connects to
+ 118+ services, and builds a local-first memory of your life from them.
 icon: diamond
 ---
 
@@ -17,7 +17,7 @@ OpenHuman solves this with a stack that's calmly, deliberately different:
 
 **An [Obsidian-style wiki](features/obsidian-wiki.md) on top of it.** The same chunks the agent reasons over land as `.md` files in a vault you can open in [Obsidian](https://obsidian.md), browse, edit, and link by hand. Inspired by [Karpathy's obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595). You can't trust a memory you can't read.
 
-**[118+ integrations via Composio](features/composio-integrations.md), with [auto-fetch](features/auto-fetch.md).** One-click OAuth into Gmail, GitHub, Slack, Notion, Stripe, Calendar, Drive, Linear, Jira and more. Every five minutes, OpenHuman pulls fresh data from every active connection and folds it into the Memory Tree without you asking.
+**[118+ third-party integrations](features/integrations.md), with [auto-fetch](features/auto-fetch.md).** One-click OAuth into Gmail, GitHub, Slack, Notion, Stripe, Calendar, Drive, Linear, Jira and more. Every five minutes, OpenHuman pulls fresh data from every active connection and folds it into the Memory Tree without you asking.
 
 **An agent built for big data.** [Smart token compression (TokenJuice)](features/token-compression.md) compacts verbose tool output before it ever enters the model's context, so sweeping through your last six months of email costs single-digit dollars. [Automatic model routing](features/model-routing.md) sends each task to the right model — `hint:reasoning` to a frontier model, `hint:fast` to a cheap one, vision to vision — all under one subscription. Built-in [native tools](features/native-tools.md) cover web search, scraping, and a full filesystem/git/lint/test/grep coder loop.
 
@@ -43,7 +43,7 @@ It **routes intelligently**, picking the right model for each task and compactin
 
 It **speaks**, listens, and joins meetings — voice is a first-class surface, not an afterthought.
 
-It **preserves privacy** by design. The Memory Tree's SQLite database and your Obsidian vault stay on your machine. Composio tokens are held by the OpenHuman backend, not on disk in plaintext on your laptop.
+It **preserves privacy** by design. The Memory Tree's SQLite database and your Obsidian vault stay on your machine. Integration tokens are held by the OpenHuman backend, not on disk in plaintext on your laptop.
 
 ## Who it's for
 

@@ -13,7 +13,7 @@ Your primary interaction surface. Talk to OpenHuman — questions, instructions,
 
 View and configure OpenHuman's capabilities and integrations:
 
-- **[Composio integrations](../features/composio-integrations.md)** — 118+ services with one-click OAuth (Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more). Each shows connection status, last sync, and storage size.
+- **[third-party integrations](../features/integrations.md)** — 118+ services with one-click OAuth (Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira and more). Each shows connection status, last sync, and storage size.
 - **Channel integrations** — messaging surfaces like Telegram and Discord, configurable as inbound/outbound channels for the agent.
 - **[Native voice](../features/voice.md)** — STT, ElevenLabs TTS and the Meet agent, configured here.
 - **Skills** — sandboxed custom logic that runs inside OpenHuman.

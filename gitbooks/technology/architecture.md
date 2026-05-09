@@ -12,26 +12,26 @@ OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** that does t
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Tauri shell (app/src-tauri/)                    │
-│   • windowing, OS integration, sidecar lifecycle │
-│   • CEF child webviews for Composio providers    │
+│ Tauri shell (app/src-tauri/) │
+│ • windowing, OS integration, sidecar lifecycle │
+│ • CEF child webviews for integration providers │
 └──────────────────────────────────────────────────┘
-            │ JSON-RPC (HTTP) ↕
+ │ JSON-RPC (HTTP) ↕
 ┌──────────────────────────────────────────────────┐
-│  Rust core (`openhuman` binary, `src/`)          │
-│   • Memory Tree pipeline                         │
-│   • Composio adapters + auto-fetch scheduler     │
-│   • Provider router (model routing)              │
-│   • TokenJuice compression                       │
-│   • Native tools (search, fetch, fs, git, …)     │
-│   • Voice (STT, ElevenLabs TTS, Meet agent)      │
+│ Rust core (`openhuman` binary, `src/`) │
+│ • Memory Tree pipeline │
+│ • Integration adapters + auto-fetch scheduler │
+│ • Provider router (model routing) │
+│ • TokenJuice compression │
+│ • Native tools (search, fetch, fs, git, …) │
+│ • Voice (STT, ElevenLabs TTS, Meet agent) │
 └──────────────────────────────────────────────────┘
-            │
+ │
 ┌──────────────────────────────────────────────────┐
-│  React frontend (app/src/)                       │
-│   • Screens, navigation                          │
-│   • Talks to core over `coreRpcClient`           │
-│   • No business logic — presentation only        │
+│ React frontend (app/src/) │
+│ • Screens, navigation │
+│ • Talks to core over `coreRpcClient` │
+│ • No business logic — presentation only │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -43,7 +43,7 @@ OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** that does t
 
 ## Data flow
 
-1. **Connect** — OAuth into a [Composio integration](../features/composio-integrations.md). Backend stores the token; core never sees it in plaintext.
+1. **Connect** — OAuth into a [integration](../features/integrations.md). Backend stores the token; core never sees it in plaintext.
 2. **Auto-fetch** — Every five minutes the [scheduler](../features/auto-fetch.md) walks every active connection and asks each native provider to sync.
 3. **Canonicalize** — Provider output (an email page, a GitHub diff, a Slack channel dump) is normalized into provenance-tagged Markdown.
 4. **Chunk** — Markdown is split into ≤3k-token deterministic chunks.
@@ -66,7 +66,7 @@ Goes through the OpenHuman backend (under one subscription):
 
 - LLM calls (model providers).
 - Web search proxy.
-- Composio OAuth and tool proxying.
+- Integration OAuth and tool proxying.
 - TTS streaming.
 
 See [Privacy & Security](../product/privacy-and-security.md) for the full picture.

@@ -38,7 +38,7 @@ When you first open OpenHuman, you'll be asked to sign in. Multiple sign-in opti
 
 ## Connect your first source
 
-OpenHuman works by connecting to your existing tools through [Composio](../features/composio-integrations.md). Each connection expands your [Memory Tree](../features/memory-tree.md). You choose what to connect, and you can revoke access at any time.
+OpenHuman works by connecting to your existing tools through [third-party integrations](../features/integrations.md). Each connection expands your [Memory Tree](../features/memory-tree.md). You choose what to connect, and you can revoke access at any time.
 
 The 118+ catalog spans Gmail, Notion, GitHub, Slack, Stripe, Calendar, Drive, Linear, Jira, Outlook, Dropbox, Airtable, Salesforce, HubSpot, Figma, Asana, Trello, Telegram, WhatsApp, Discord, Microsoft Teams, Twitter / X, Reddit, Spotify, YouTube, Facebook, Instagram and more.
 
@@ -88,7 +88,7 @@ The Memory tab has a **View vault in Obsidian** button. Click it to open `<works
 After your first request, explore what else OpenHuman can do:
 
 - **Skills** extend the assistant's capabilities — fetching data, running scheduled tasks, processing information.
-- **Integrations** let you push structured results to Notion, Google Sheets, and other tools through Composio.
+- **Integrations** let you push structured results to Notion, Google Sheets, and other connected tools.
 
 Learn more in [Skills & Integrations](../product/skills-and-integrations.md).
 

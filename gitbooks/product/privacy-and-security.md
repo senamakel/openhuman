@@ -12,7 +12,7 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 **The Memory Tree is local.** The SQLite database (`<workspace>/memory_tree/chunks.db`) and the Markdown vault (`<workspace>/wiki/`) live on your machine. The agent reads from them locally; nothing about your raw source data sits on the OpenHuman backend.
 
-**Composio tokens are held by the backend, not on your laptop.** OAuth tokens are never written to disk in plaintext on your device. The OpenHuman backend brokers each Composio request — the core never speaks Composio's API directly.
+**Integration tokens are held by the backend, not on your laptop.** OAuth tokens are never written to disk in plaintext on your device. The OpenHuman backend brokers each integration request — the core never speaks any third-party API directly.
 
 **OS-level credential storage.** Sensitive tokens are stored in your platform's secure keychain — macOS Keychain, Windows Credential Manager, Linux Secret Service.
 
@@ -37,7 +37,7 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 | --- | --- |
 | **LLM calls** | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](../features/model-routing.md). |
 | **Web search proxy** | The native [web search tool](../features/native-tools.md) calls a backend proxy so you don't carry a search API key. |
-| **Composio OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/composio-integrations.md). |
+| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](../features/integrations.md). |
 | **TTS streaming** | [ElevenLabs](../features/voice.md) audio streams. Audio is generated and discarded — not retained. |
 
 ***

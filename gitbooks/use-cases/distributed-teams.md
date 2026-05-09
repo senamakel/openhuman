@@ -14,13 +14,13 @@ Chat is fast but ephemeral. Action items live in threads nobody revisits. Accoun
 
 #### How OpenHuman helps
 
-**Cross-channel ingest, on autopilot.** [Auto-fetch](../features/auto-fetch.md) pulls from Slack, Discord, GitHub, Linear, Jira, Notion and Gmail every five minutes — every channel you've connected through [Composio](../features/composio-integrations.md) — and folds the results into a single [Memory Tree](../features/memory-tree.md).
+**Cross-channel ingest, on autopilot.** [Auto-fetch](../features/auto-fetch.md) pulls from Slack, Discord, GitHub, Linear, Jira, Notion and Gmail every five minutes — every channel you've connected through [third-party integrations](../features/integrations.md) — and folds the results into a single [Memory Tree](../features/memory-tree.md).
 
 **Decision and action extraction.** The agent can pull commitments out of chat with attribution and source links. Because every chunk is also a `.md` file in your [Obsidian vault](../features/obsidian-wiki.md), you can audit any extracted commitment back to the original message.
 
 **Contradiction detection.** Topic trees aggregate per entity (per project, per ticket) across channels, so the agent can flag conflicting commitments before they become surprises.
 
-**Structured exports.** Decisions and action items can be written straight into Notion or Google Sheets via the same Composio surface — no manual transcription.
+**Structured exports.** Decisions and action items can be written straight into Notion or Google Sheets via the same same integration surface — no manual transcription.
 
 #### Example prompts
 

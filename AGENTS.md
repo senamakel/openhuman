@@ -167,7 +167,7 @@ curl -s http://127.0.0.1:18473/__admin/health
 
 ### E2E tests (WDIO — dual platform)
 
-Full guide: [`docs/E2E-TESTING.md`](docs/E2E-TESTING.md).
+Full guide: [`gitbooks/developing/e2e-testing.md`](gitbooks/developing/e2e-testing.md).
 
 Two automation backends:
 - **Linux (CI default)**: `tauri-driver` (WebDriver, port 4444) — drives the debug binary directly
@@ -454,7 +454,7 @@ let resp: BillingChargeResponse = request_native_global(
 
 ## App theme & design system
 
-**Design intent**: Premium, calm visual language — ocean primary (`#4A83DD`), sage / amber / coral semantic colors, Inter + Cabinet Grotesk + JetBrains Mono, Tailwind with custom radii/spacing/shadows. Details: [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md).
+**Design intent**: Premium, calm visual language — ocean primary (`#4A83DD`), sage / amber / coral semantic colors, Inter + Cabinet Grotesk + JetBrains Mono, Tailwind with custom radii/spacing/shadows. Details: [`gitbooks/resources/design-language.md`](gitbooks/resources/design-language.md).
 
 ## Desktop shell (Tauri) vs application code
 

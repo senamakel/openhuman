@@ -20,7 +20,7 @@ import { startMockServer, stopMockServer } from '../mock-server';
  * memory sidecar easy to bisect.
  *
  * Failure path: forget-then-recall must return zero hits — that's the
- * 8.1.3 edge assertion required by docs/TESTING-STRATEGY.md.
+ * 8.1.3 edge assertion required by gitbooks/developing/testing-strategy.md.
  */
 function stepLog(message: string, context?: unknown): void {
   const stamp = new Date().toISOString();

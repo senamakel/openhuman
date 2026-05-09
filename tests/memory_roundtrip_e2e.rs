@@ -124,7 +124,7 @@ async fn doc_put_then_recall_memories_returns_canary() {
 
 /// 8.1.3 forget — clear_namespace must scrub the namespace so subsequent
 /// recalls do not see the canary content. Failure-path / edge-case assertion
-/// required by docs/TESTING-STRATEGY.md.
+/// required by gitbooks/developing/testing-strategy.md.
 #[tokio::test]
 async fn clear_namespace_removes_canary_from_recall() {
     let _lock = env_lock();

@@ -3,7 +3,7 @@
 //! Reads `~/Library/Messages/chat.db` on macOS (read-only) and emits one
 //! `openhuman.memory_doc_ingest` JSON-RPC call per `(chat_identifier, day)`
 //! group — matching the convention codified in
-//! `docs/webview-integration-playbook.md` and used by the WhatsApp scanner.
+//! `gitbooks/developing/webview-integration.md` and used by the WhatsApp scanner.
 //!
 //! Unlike the webview scanners this needs no CEF / CDP / DOM / IDB — iMessage
 //! persists everything in a local SQLite file. One tick is enough; no

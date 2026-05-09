@@ -1351,7 +1351,7 @@ pub fn run() {
         // Auto-updater for the Tauri shell. Endpoint and minisign pubkey live
         // in `tauri.conf.json` under `plugins.updater`. Releases are signed at
         // build time with `TAURI_SIGNING_PRIVATE_KEY` (+ `_PASSWORD`); see
-        // docs/AUTO_UPDATE.md for the full pipeline.
+        // gitbooks/overview/auto-update.md for the full pipeline.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(dictation_hotkeys::DictationHotkeyState(
             std::sync::Mutex::new(Vec::new()),

@@ -2,7 +2,7 @@
 
 **AI assistant for communities — React + Tauri v2 desktop app with a Rust core (JSON-RPC / CLI).**
 
-Narrative architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Frontend: [`docs/src/README.md`](docs/src/README.md). Tauri shell: [`docs/src-tauri/README.md`](docs/src-tauri/README.md). Coding-harness tool surface: [`docs/CODING_HARNESS.md`](docs/CODING_HARNESS.md).
+Narrative architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Frontend: [`docs/src/README.md`](docs/src/README.md). Tauri shell: [`docs/src-tauri/README.md`](docs/src-tauri/README.md). Coding-harness tool surface: [`gitbooks/developing/coding-harness.md`](gitbooks/developing/coding-harness.md).
 
 ---
 
@@ -117,7 +117,7 @@ Used by both unit and Rust tests.
 
 ### E2E (WDIO — dual platform)
 
-Full guide: [`docs/E2E-TESTING.md`](docs/E2E-TESTING.md).
+Full guide: [`gitbooks/developing/e2e-testing.md`](gitbooks/developing/e2e-testing.md).
 - **Linux (CI)**: `tauri-driver` (WebDriver :4444).
 - **macOS (local)**: Appium Mac2 (XCUITest :4723) on the `.app` bundle.
 - Specs: `app/test/e2e/specs/*.spec.ts`. Helpers in `app/test/e2e/helpers/`. Config: `app/test/wdio.conf.ts`.
@@ -233,7 +233,7 @@ Each domain owns a `bus.rs` with its `EventHandler` impls — e.g. `cron/bus.rs`
 
 ## Design
 
-Premium, calm visual language — ocean primary `#4A83DD`, sage / amber / coral semantics, Inter + Cabinet Grotesk + JetBrains Mono, Tailwind with custom radii/spacing/shadows. See [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md).
+Premium, calm visual language — ocean primary `#4A83DD`, sage / amber / coral semantics, Inter + Cabinet Grotesk + JetBrains Mono, Tailwind with custom radii/spacing/shadows. See [`gitbooks/resources/design-language.md`](gitbooks/resources/design-language.md).
 
 ## Shell vs app code
 

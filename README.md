@@ -68,7 +68,7 @@ OpenHuman is an open-source agentic assistant that is designed to integrate with
 
 - **Optional local AI (via Ollama)** — Off by default. Opt in per-workload to keep **memory embeddings**, **summary-tree building**, and the **background reflection loops** (heartbeat / learning / subconscious) on your machine. Chat / vision / voice stay cloud — the local path is **scoped to the workloads where on-device actually pays**, not a "run everything on Gemma 3" overreach.
 
-Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orientation: [`CONTRIBUTING.md`](./CONTRIBUTING.md). Running from source: [`docs/install.md`](docs/install.md#running-from-source). Cloud-hosting the headless core: [`docs/CLOUD_DEPLOY.md`](docs/CLOUD_DEPLOY.md).
+Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orientation: [`CONTRIBUTING.md`](./CONTRIBUTING.md). Running from source: [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up). Cloud-hosting the headless core: [`docs/CLOUD_DEPLOY.md`](docs/CLOUD_DEPLOY.md).
 
 ## Highlights
 

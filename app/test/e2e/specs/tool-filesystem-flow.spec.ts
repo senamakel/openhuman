@@ -23,7 +23,7 @@ import { startMockServer, stopMockServer } from '../mock-server';
  * UI⇄Tauri⇄sidecar wiring honours the same gates over JSON-RPC.
  *
  * Failure path (6.1.3): a parent-traversal request must be rejected by the
- * sidecar — that's the denial assertion required by docs/TESTING-STRATEGY.md.
+ * sidecar — that's the denial assertion required by gitbooks/developing/testing-strategy.md.
  *
  * Side-effect verification: every successful write is asserted twice — once
  * from the response payload (bytes_written) and once by reading the resulting

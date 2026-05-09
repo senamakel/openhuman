@@ -17,7 +17,7 @@ Rule: prefer `current_time`, `cron_*`, `memory_*`, `memory_tree`, `read_workspac
 ## Tier 3 — Spawn a sub-agent (inline)
 Apply when: the task requires specialised execution (writing code, crawling docs, running shell, calling an external integration) that the orchestrator cannot do directly.
 Cost: full sub-agent turn (~1-5k tokens depending on archetype).
-Rule: spawn the narrowest archetype that can complete the task. Prefer inline spawn (`spawn_worker_thread` with no dedicated thread) for tasks that complete in <5 turns.
+Rule: spawn the narrowest archetype that can complete the task. Prefer inline spawn (`spawn_subagent`) for tasks that complete in <5 turns.
 
 ## Tier 4 — Spawn a dedicated worker thread
 Apply when: the task is long (>5 turns estimated), produces a large transcript, or the user explicitly wants it tracked as a separate thread.

@@ -149,7 +149,23 @@ impl Tool for SpawnWorkerThreadTool {
 
         let threads = conversations::list_threads(parent.workspace_dir.clone())
             .map_err(|e| anyhow::anyhow!(e))?;
-        if let Some(current_thread) = threads.iter().find(|t| t.id == current_thread_id) {
+        // Fail-closed depth guard: if the current thread ID is not the
+        // sentinel "unknown" but can't be found in the thread store, we
+        // don't know whether we're in a worker context — block rather
+        // than allow. An unrecognised thread is treated as an implicit
+        // depth violation so a misconfigured or ephemeral call-site
+        // cannot bypass the cap.
+        let known_thread = threads.iter().find(|t| t.id == current_thread_id);
+        if current_thread_id != "unknown" && known_thread.is_none() {
+            tracing::warn!(
+                agent_id = %agent_id,
+                current_thread_id = %current_thread_id,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "[spawn_worker_thread] depth guard blocked spawn: current thread not found in store (fail-closed)"
+            );
+            return Ok(ToolResult::error("Worker threads cannot spawn other worker threads. Depth is capped at 1. Use spawn_subagent for inline delegation instead."));
+        }
+        if let Some(current_thread) = known_thread {
             if current_thread.labels.contains(&"worker".to_string())
                 || current_thread.parent_thread_id.is_some()
             {
@@ -426,6 +442,43 @@ mod tests {
                 assert!(result
                     .output()
                     .contains("cannot spawn other worker threads"));
+            })
+            .await;
+        })
+        .await;
+    }
+
+    /// When the current thread ID is a real (non-"unknown") value that
+    /// does not exist in the thread store, the depth guard must block
+    /// rather than allow. This is the fail-closed case: we can't confirm
+    /// the caller is NOT in a worker context, so we refuse.
+    #[tokio::test]
+    async fn rejects_if_thread_not_in_store() {
+        let temp = TempDir::new().unwrap();
+        // Do NOT create any thread in the store.
+        let thread_id = "unregistered-thread-abc";
+
+        crate::openhuman::providers::thread_context::with_thread_id(thread_id.to_string(), async {
+            let parent = test_parent_ctx(temp.path().to_path_buf());
+            with_parent_context(parent, async {
+                let tool = SpawnWorkerThreadTool::new();
+                let result = tool
+                    .execute(json!({
+                        "agent_id": "researcher",
+                        "prompt": "do it",
+                        "task_title": "Task"
+                    }))
+                    .await
+                    .unwrap();
+
+                assert!(result.is_error, "expected error for unregistered thread");
+                assert!(
+                    result
+                        .output()
+                        .contains("cannot spawn other worker threads"),
+                    "unexpected message: {}",
+                    result.output()
+                );
             })
             .await;
         })

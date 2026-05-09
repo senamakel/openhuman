@@ -11,6 +11,7 @@ import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePan
 import ConnectionsPanel from '../components/settings/panels/ConnectionsPanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
+import DevicesPanel from '../components/settings/panels/DevicesPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import LocalModelPanel from '../components/settings/panels/LocalModelPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
@@ -301,6 +302,8 @@ const Settings = () => {
         <Route path="intelligence" element={<Intelligence />} />
         <Route path="webhooks-triggers" element={<Webhooks />} />
         <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
+        {/* Mobile devices */}
+        <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
         {/* About / updates */}
         <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
         {/* Fallback */}

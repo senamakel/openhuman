@@ -34,7 +34,8 @@ export type SettingsRoute =
   | 'notification-routing'
   | 'intelligence'
   | 'webhooks-triggers'
-  | 'composio-triggers';
+  | 'composio-triggers'
+  | 'devices';
 
 export interface BreadcrumbItem {
   label: string;
@@ -109,6 +110,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     // shorter `notifications` prefix.
     if (path.includes('/settings/notification-routing')) return 'notification-routing';
     if (path.includes('/settings/notifications')) return 'notifications';
+    if (path.includes('/settings/devices')) return 'devices';
     return 'home';
   };
 
@@ -226,6 +228,9 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
 
       // Notifications panel sits at the top level of Settings.
       case 'notifications':
+        return [settingsCrumb];
+
+      case 'devices':
         return [settingsCrumb];
 
       case 'home':

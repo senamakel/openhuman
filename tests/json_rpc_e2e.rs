@@ -1977,6 +1977,164 @@ async fn json_rpc_wallet_setup_round_trips_status() {
     rpc_join.abort();
 }
 
+/// #1396 — wallet execution surface: balances/supported_assets/chain_status
+/// read tools, prepare_transfer + execute_prepared write boundary.
+#[tokio::test]
+async fn json_rpc_wallet_execution_surface_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _evm_provider_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_EVM");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Configure wallet (required precondition for balances / prepare_*).
+    let setup = post_json_rpc(
+        &rpc_base,
+        2001,
+        "openhuman.wallet_setup",
+        json!({
+            "consentGranted": true,
+            "source": "imported",
+            "mnemonicWordCount": 12,
+            "accounts": [
+                { "chain": "evm", "address": "0x9858EfFD232B4033E47d90003D41EC34EcaEda94", "derivationPath": "m/44'/60'/0'/0/0" },
+                { "chain": "btc", "address": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA", "derivationPath": "m/44'/0'/0'/0/0" },
+                { "chain": "solana", "address": "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk", "derivationPath": "m/44'/501'/0'/0'" },
+                { "chain": "tron", "address": "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH", "derivationPath": "m/44'/195'/0'/0/0" }
+            ]
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&setup, "wallet_setup_for_execution");
+
+    // supported_assets: 4 natives.
+    let assets = post_json_rpc(
+        &rpc_base,
+        2002,
+        "openhuman.wallet_supported_assets",
+        json!({}),
+    )
+    .await;
+    let body = assert_no_jsonrpc_error(&assets, "wallet_supported_assets");
+    let result = body.get("result").unwrap_or(&body);
+    let list = result.as_array().expect("supported_assets array");
+    assert_eq!(list.len(), 4, "expected four native assets: {result}");
+
+    // chain_status: every chain configured but providers unconfigured.
+    let cs = post_json_rpc(&rpc_base, 2003, "openhuman.wallet_chain_status", json!({})).await;
+    let body = assert_no_jsonrpc_error(&cs, "wallet_chain_status");
+    let result = body.get("result").unwrap_or(&body);
+    let rows = result.as_array().expect("chain_status array");
+    assert_eq!(rows.len(), 4);
+    assert!(
+        rows.iter()
+            .all(|r| r.get("providerStatus").and_then(Value::as_str) == Some("unconfigured")),
+        "expected providerStatus=unconfigured for every row: {result}"
+    );
+
+    // balances: zero placeholders for each derived account.
+    let balances = post_json_rpc(&rpc_base, 2004, "openhuman.wallet_balances", json!({})).await;
+    let body = assert_no_jsonrpc_error(&balances, "wallet_balances");
+    let result = body.get("result").unwrap_or(&body);
+    let rows = result.as_array().expect("balances array");
+    assert_eq!(rows.len(), 4);
+    assert!(rows
+        .iter()
+        .all(|r| r.get("raw").and_then(Value::as_str) == Some("0")));
+
+    // prepare_transfer + execute_prepared (happy path).
+    let prep = post_json_rpc(
+        &rpc_base,
+        2005,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "evm",
+            "toAddress": "0x000000000000000000000000000000000000dEaD",
+            "amountRaw": "1000000000000000",
+        }),
+    )
+    .await;
+    let body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer");
+    let result = body.get("result").unwrap_or(&body);
+    let quote_id = result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId present")
+        .to_string();
+    assert_eq!(
+        result.get("status").and_then(Value::as_str),
+        Some("awaiting_confirmation"),
+    );
+    assert_eq!(
+        result.get("kind").and_then(Value::as_str),
+        Some("native_transfer"),
+    );
+
+    // execute_prepared without confirmed=true must fail.
+    let bad = post_json_rpc(
+        &rpc_base,
+        2006,
+        "openhuman.wallet_execute_prepared",
+        json!({ "quoteId": quote_id, "confirmed": false }),
+    )
+    .await;
+    assert!(
+        bad.get("error").is_some(),
+        "expected error for unconfirmed execute: {bad}"
+    );
+
+    // Confirmed execute moves the quote to ReadyToSign and consumes it.
+    let exec = post_json_rpc(
+        &rpc_base,
+        2007,
+        "openhuman.wallet_execute_prepared",
+        json!({ "quoteId": quote_id, "confirmed": true }),
+    )
+    .await;
+    let body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared");
+    let result = body.get("result").unwrap_or(&body);
+    assert_eq!(
+        result.get("status").and_then(Value::as_str),
+        Some("ready_to_sign"),
+    );
+    assert_eq!(
+        result
+            .get("transaction")
+            .and_then(|t| t.get("quoteId"))
+            .and_then(Value::as_str),
+        Some(quote_id.as_str()),
+    );
+
+    // A second execute on the same quote must fail (quote consumed).
+    let dup = post_json_rpc(
+        &rpc_base,
+        2008,
+        "openhuman.wallet_execute_prepared",
+        json!({ "quoteId": quote_id, "confirmed": true }),
+    )
+    .await;
+    assert!(
+        dup.get("error").is_some(),
+        "expected error re-executing consumed quote: {dup}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 /// #883 — when `chat_onboarding_completed` is unset in config.toml (fresh
 /// user), the `openhuman.app_state_snapshot` RPC must surface the flag as
 /// `false` so the React welcome-lockdown kicks in.

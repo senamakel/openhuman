@@ -12,7 +12,7 @@ lives.
 
 It is intentionally a flat catalog — not a guide on how the agent
 loop dispatches tools. For that, see
-[`docs/ARCHITECTURE.md`](ARCHITECTURE.md) and
+[`gitbooks/developing/architecture.md`](architecture.md) and
 [`src/openhuman/tools/`](../src/openhuman/tools/).
 
 Tracking issue: [#1205](https://github.com/tinyhumansai/openhuman/issues/1205).

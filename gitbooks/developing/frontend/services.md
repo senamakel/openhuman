@@ -1,3 +1,8 @@
+---
+description: Singleton service layer — apiClient, socketService, coreRpcClient and friends.
+icon: server
+---
+
 # Services Layer
 
 The application uses singleton services for external communication. This prevents connection leaks and provides consistent API access.

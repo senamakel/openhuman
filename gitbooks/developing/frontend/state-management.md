@@ -1,3 +1,8 @@
+---
+description: Redux Toolkit + Redux-Persist patterns used in the React app.
+icon: database
+---
+
 # State Management
 
 The application uses Redux Toolkit with Redux-Persist for robust state management.

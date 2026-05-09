@@ -1,3 +1,8 @@
+---
+description: Architecture of the Tauri desktop host — process model, window management, sidecar.
+icon: code-branch
+---
+
 # Tauri shell architecture (`app/src-tauri/`)
 
 ## Overview

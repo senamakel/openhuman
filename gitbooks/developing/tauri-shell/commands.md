@@ -1,3 +1,8 @@
+---
+description: Registered Tauri IPC commands — what the frontend can invoke on the shell.
+icon: terminal
+---
+
 # Tauri IPC commands (`app/src-tauri`)
 
 All commands are registered in **`app/src-tauri/src/lib.rs`** inside `tauri::generate_handler![...]` (desktop build). Names below are the **Rust** command names (camelCase in JS via serde where applicable).

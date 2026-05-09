@@ -1,3 +1,8 @@
+---
+description: Reusable React components organized by feature.
+icon: puzzle-piece
+---
+
 # Components
 
 Reusable React components organized by feature.

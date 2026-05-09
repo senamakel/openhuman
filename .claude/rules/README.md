@@ -6,11 +6,11 @@ Authoritative docs for AI agents and contributors:
 
 - **[`CLAUDE.md`](../../CLAUDE.md)** — repo layout, runtime scope, commands, frontend/Tauri/Rust conventions, testing, debug logging, feature workflow.
 - **[`AGENTS.md`](../../AGENTS.md)** — RPC controller patterns, `RpcOutcome<T>` contract.
-- **[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)** — narrative architecture, dual-socket sync.
+- **[`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md)** — narrative architecture, dual-socket sync.
 - **[`gitbooks/resources/design-language.md`](../../gitbooks/resources/design-language.md)** — visual language.
 - **[`gitbooks/developing/e2e-testing.md`](../../gitbooks/developing/e2e-testing.md)** — WDIO/Appium testing.
-- **[`docs/src/README.md`](../../docs/src/README.md)** — frontend.
-- **[`docs/src-tauri/README.md`](../../docs/src-tauri/README.md)** — Tauri shell.
+- **[`gitbooks/developing/frontend/README.md`](../../gitbooks/developing/frontend/README.md)** — frontend.
+- **[`gitbooks/developing/tauri-shell/README.md`](../../gitbooks/developing/tauri-shell/README.md)** — Tauri shell.
 
 ## When to add a file here
 

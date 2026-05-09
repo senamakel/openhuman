@@ -4,7 +4,7 @@ icon: code-branch
 
 # Architecture
 
-OpenHuman is open-sourced under GNU GPL3. This page is the high-level shape of the system; the deep developer architecture lives in [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md) in the repo.
+OpenHuman is open-sourced under GNU GPL3. This page is the high-level shape of the system; the deep developer architecture lives in [deep architecture reference](../developing/architecture.md) in the repo.
 
 ## The shape
 
@@ -75,4 +75,4 @@ See [Privacy & Security](../product/privacy-and-security.md) for the full pictur
 
 - **Repo:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) — GNU GPL3.
 - **Issues and PRs** are welcome. The project is in early beta.
-- For contributors, the canonical developer guide is [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md).
+- For contributors, the canonical developer guide is [deep architecture reference](../developing/architecture.md).

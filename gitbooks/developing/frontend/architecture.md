@@ -1,3 +1,8 @@
+---
+description: System architecture of the React frontend — provider chain, build, layout, conventions.
+icon: code-branch
+---
+
 # Architecture overview
 
 ## System architecture

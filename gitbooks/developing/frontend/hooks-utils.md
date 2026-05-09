@@ -1,3 +1,8 @@
+---
+description: Shared hooks and utility functions in the frontend.
+icon: anchor
+---
+
 # Hooks & Utilities
 
 Custom React hooks and utility functions.

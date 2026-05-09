@@ -1,3 +1,8 @@
+---
+description: Index for the React + Vite frontend (app/src/) — architecture, state, services, components, hooks.
+icon: browsers
+---
+
 # Source code documentation (`app/src/`)
 
 This section describes the **OpenHuman** desktop app frontend: the Vite + React tree under **`app/src/`** in the monorepo (Yarn workspace `openhuman-app`).

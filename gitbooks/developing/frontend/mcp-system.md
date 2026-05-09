@@ -1,3 +1,8 @@
+---
+description: MCP-style transport in app/src/lib/mcp/ — JSON-RPC over Socket.io.
+icon: network-wired
+---
+
 # MCP-style transport (`app/src/lib/mcp/`)
 
 ## What this is

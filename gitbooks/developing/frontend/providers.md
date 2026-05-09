@@ -1,3 +1,8 @@
+---
+description: React context providers for service lifecycle and shared state.
+icon: layer-group
+---
+
 # Providers
 
 React context providers manage service lifecycle and provide shared state.

@@ -1,3 +1,8 @@
+---
+description: Deep architecture reference for the OpenHuman codebase — repo layout, runtime scope, dual-socket sync, RPC flow.
+icon: code-branch
+---
+
 # OpenHuman Architecture
 
 **AI-powered super assistant for crypto communities, built on Rust.**

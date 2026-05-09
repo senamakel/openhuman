@@ -1,3 +1,8 @@
+---
+description: How the Tauri shell talks to the openhuman core sidecar — process lifecycle and HTTP JSON-RPC.
+icon: bridge
+---
+
 # Core bridge & helpers (`app/src-tauri`)
 
 This document replaces the old “SessionService / SocketService” split. The Tauri crate **does not** embed a duplicate Socket.io server or Telegram client; instead it focuses on **process management** and **HTTP JSON-RPC** to the **`openhuman`** binary.
@@ -29,7 +34,7 @@ This document replaces the old “SessionService / SocketService” split. The T
 
 ## `utils/tauriSocket.ts` (frontend)
 
-Not in `src-tauri`, but **pairs** with the shell: the React app listens for Tauri events that mirror socket activity when using the Rust-side client. See `app/src/utils/tauriSocket.ts` and `docs/src/03-services.md`.
+Not in `src-tauri`, but **pairs** with the shell: the React app listens for Tauri events that mirror socket activity when using the Rust-side client. See `app/src/utils/tauriSocket.ts` and the [Frontend Services](../frontend/services.md) chapter.
 
 ---
 

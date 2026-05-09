@@ -1,3 +1,8 @@
+---
+description: Index for the desktop host (app/src-tauri/) — Tauri v2, IPC, sidecar lifecycle.
+icon: desktop
+---
+
 # Tauri shell documentation (`app/src-tauri/`)
 
 This folder is the **desktop host** for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the **`openhuman`** Rust sidecar (core JSON-RPC). It does **not** duplicate the full domain stack — that lives in the repo-root Rust crate (`openhuman_core`, `src/bin/openhuman.rs`).

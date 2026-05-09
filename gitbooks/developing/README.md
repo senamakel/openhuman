@@ -15,10 +15,10 @@ OpenHuman is open source under GNU GPL3 and lives at [github.com/tinyhumansai/op
 | --- | --- |
 | `app/` | Yarn workspace `openhuman-app` — Vite + React frontend (`app/src/`) and the Tauri desktop host (`app/src-tauri/`). |
 | `src/` | Rust crate `openhuman_core` and the `openhuman` CLI binary — domains, MCP routing, JSON-RPC. |
-| `docs/` | Deep developer reference (frontend chapter docs, Tauri shell chapters, QA matrices, internals). |
+| `docs/` | Remaining deep developer reference (memory pipeline diagrams, telegram-login, sentry, agent flows, etc.). |
 | `gitbooks/` | Public-facing documentation — this site. |
 
-The high-level shape lives in [Architecture](../technology/architecture.md). The deep developer architecture lives in [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md).
+The high-level shape lives in [Architecture](../technology/architecture.md). The deep developer architecture lives in [Architecture](architecture.md).
 
 ## Start here
 
@@ -43,11 +43,10 @@ The high-level shape lives in [Architecture](../technology/architecture.md). The
 
 Anything not yet migrated lives under [`docs/`](https://github.com/tinyhumansai/openhuman/tree/main/docs) in the repo. Notable references:
 
-- [`docs/ARCHITECTURE.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/ARCHITECTURE.md) — canonical architecture.
+- [Architecture](architecture.md) — canonical architecture.
 - [Memory Context Window](memory-context-window.md) — long-term memory injection presets.
 - [`docs/PROMPT_INJECTION_GUARD.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/PROMPT_INJECTION_GUARD.md) — security model.
-- [`docs/skills-runtime-isolation.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/skills-runtime-isolation.md) — QuickJS isolation guarantees.
-- [`docs/src/`](https://github.com/tinyhumansai/openhuman/tree/main/docs/src) — frontend chapter docs.
-- [`docs/src-tauri/`](https://github.com/tinyhumansai/openhuman/tree/main/docs/src-tauri) — Tauri shell chapter docs.
+- [Frontend chapter docs](frontend/README.md) — React app structure (`app/src/`).
+- [Tauri shell chapter docs](tauri-shell/README.md) — desktop host (`app/src-tauri/`).
 
 [`CLAUDE.md`](https://github.com/tinyhumansai/openhuman/blob/main/CLAUDE.md) is the source of truth for AI agents working on the codebase, with the same rules contributors are expected to follow.

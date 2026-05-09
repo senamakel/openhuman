@@ -71,6 +71,25 @@
 * [Agent Observability](developing/agent-observability.md)
 * [Memory Context Window](developing/memory-context-window.md)
 
+### Frontend (app/src/)
+
+* [Overview](developing/frontend/README.md)
+* [Architecture](developing/frontend/architecture.md)
+* [State Management](developing/frontend/state-management.md)
+* [Services](developing/frontend/services.md)
+* [MCP System](developing/frontend/mcp-system.md)
+* [Pages & Routing](developing/frontend/pages-routing.md)
+* [Components](developing/frontend/components.md)
+* [Providers](developing/frontend/providers.md)
+* [Hooks & Utilities](developing/frontend/hooks-utils.md)
+
+### Tauri shell (app/src-tauri/)
+
+* [Overview](developing/tauri-shell/README.md)
+* [Architecture](developing/tauri-shell/architecture.md)
+* [Commands](developing/tauri-shell/commands.md)
+* [Core Bridge](developing/tauri-shell/core-bridge.md)
+
 ## Resources
 
 * [FAQ & Troubleshooting](resources/faq.md)

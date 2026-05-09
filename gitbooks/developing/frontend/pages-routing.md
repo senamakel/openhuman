@@ -1,3 +1,8 @@
+---
+description: HashRouter routes, route guards, screen organization.
+icon: compass
+---
+
 # Pages & Routing
 
 The application uses HashRouter with protected and public route guards.

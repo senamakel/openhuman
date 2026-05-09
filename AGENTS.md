@@ -2,7 +2,7 @@
 
 **AI-powered assistant for communities — React + Tauri v2 desktop app with a Rust core (JSON-RPC / CLI) and sandboxed QuickJS skills.**
 
-This file orients contributors and coding agents. Authoritative narrative architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Frontend layout: [`docs/src/README.md`](docs/src/README.md). Tauri shell: [`docs/src-tauri/README.md`](docs/src-tauri/README.md).
+This file orients contributors and coding agents. Authoritative narrative architecture: [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md). Frontend layout: [`gitbooks/developing/frontend/README.md`](gitbooks/developing/frontend/README.md). Tauri shell: [`gitbooks/developing/tauri-shell/README.md`](gitbooks/developing/tauri-shell/README.md).
 
 ---
 
@@ -14,7 +14,8 @@ This file orients contributors and coding agents. Authoritative narrative archit
 | **Repo root `src/`**    | Rust library **`openhuman_core`** and **`openhuman`** CLI binary entrypoint (`src/main.rs`) — `core_server`, `openhuman::*` domains, skills runtime (QuickJS / `rquickjs`), MCP routing in the core process |
 | **Skills registry**     | **[`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills)** on GitHub — canonical skill packages and TS build; not vendored in this tree (see blurb below).                     |
 | **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman` produces the sidecar the UI stages via `app`’s `core:stage`                                                                                                       |
-| **`docs/`**             | Architecture and module guides (numbered pages under `docs/src/`, `docs/src-tauri/`)                                                                                                                        |
+| **`docs/`**             | Architecture and deep-internal references                                                                                                                                                                    |
+| **`gitbooks/developing/`** | Public contributor docs — frontend, Tauri shell, testing, release, skills                                                                                                                                |
 
 Commands in documentation assume the **repo root** unless noted: `pnpm dev` runs the `app` workspace.
 
@@ -24,7 +25,7 @@ Commands in documentation assume the **repo root** unless noted: `pnpm dev` runs
 
 ## Runtime scope
 
-- **Shipped product**: desktop — Windows, macOS, Linux (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) “Platform reach”).
+- **Shipped product**: desktop — Windows, macOS, Linux (see [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md) “Platform reach”).
 - **Tauri host** (`app/src-tauri`): **desktop-only** (`compile_error!` for non-desktop targets). Do not add Android/iOS branches inside `app/src-tauri`.
 - **Core binary** (`openhuman`): spawned/staged as a **sidecar**; the Web UI talks to it over HTTP (`core_rpc_relay` + `core_rpc` client), not by re-implementing domain logic in the shell.
 
@@ -291,7 +292,7 @@ Bundled prompts live under **`src/openhuman/agent/prompts/`** at the **repositor
 
 Thin desktop host: window management, daemon health bridging, **core process lifecycle** (`core_process`, `CoreProcessHandle`), and **JSON-RPC relay** to the **`openhuman`** sidecar (`core_rpc_relay`, `core_rpc`).
 
-Registered IPC commands (see [`docs/src-tauri/02-commands.md`](docs/src-tauri/02-commands.md)) include **`greet`**, **`write_ai_config_file`**, **`ai_get_config`**, **`ai_refresh_config`**, **`core_rpc_relay`**, **window** commands, and **OpenHuman service / daemon host** helpers (`openhuman_*`).
+Registered IPC commands (see [`gitbooks/developing/tauri-shell/commands.md`](gitbooks/developing/tauri-shell/commands.md)) include **`greet`**, **`write_ai_config_file`**, **`ai_get_config`**, **`ai_refresh_config`**, **`core_rpc_relay`**, **window** commands, and **OpenHuman service / daemon host** helpers (`openhuman_*`).
 
 Deep link plugin is registered where supported; behavior is platform-specific (see platform notes below).
 
@@ -493,7 +494,7 @@ In the parent **OpenHuman** desktop app, **Tauri / Rust is a delivery vehicle**:
 
 Follow this order so behavior is **specified**, **proven in Rust**, **proven over RPC**, then **surfaced in the UI** with matching tests.
 
-1. **Specify against the current codebase** — Ground the design in **existing** domains, controller/registry patterns, and JSON-RPC naming (`openhuman.<namespace>_<function>`). Reuse or extend documented flows in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and sibling guides; avoid parallel architectures.
+1. **Specify against the current codebase** — Ground the design in **existing** domains, controller/registry patterns, and JSON-RPC naming (`openhuman.<namespace>_<function>`). Reuse or extend documented flows in [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md) and sibling guides; avoid parallel architectures.
 2. **Implement in Rust** — Add domain logic under `src/openhuman/<domain>/`, wire **schemas + registered handlers** into the shared registry, and land **unit tests** in the crate (`cargo test -p openhuman`, focused modules) until the feature is correct in isolation.
 3. **JSON-RPC E2E** — Add or extend **integration-style tests** that call the real HTTP JSON-RPC surface (e.g. [`tests/json_rpc_e2e.rs`](tests/json_rpc_e2e.rs), mock backend / [`scripts/test-rust-with-mock.sh`](scripts/test-rust-with-mock.sh) as appropriate) so methods, params, and outcomes match what the UI will call.
 4. **UI in the Tauri app** — Build **React** screens, state, and **`core_rpc_relay` / `coreRpcClient`** usage in `app/`; keep **business rules** in the core, not duplicated in the shell.
@@ -515,7 +516,7 @@ Follow this order so behavior is **specified**, **proven in Rust**, **proven ove
 - **File size**: Prefer ≤ ~500 lines per source file; split modules when growing.
 - **Pre-merge checks** (when touching code): Prettier, ESLint, `tsc --noEmit` in `app/`; `cargo fmt` + `cargo check` for changed Rust (`Cargo.toml` at root and/or `app/src-tauri/Cargo.toml` as appropriate).
 - **No dynamic imports** in production **`app/src`** code — use **static** `import` / `import type` at the top of the module. Do **not** use `import()` (async dynamic import), `React.lazy(() => import(...))`, or `await import('…')` to load app modules, Tauri APIs, or RPC clients. **Why:** predictable chunk graph, simpler static analysis, fewer surprises in Tauri + Vite, and easier code review. **If a module must not run at load time** (e.g. heavy optional path), use a static import and **guard the call site** with `try/catch` or an explicit runtime check instead of deferring module load via dynamic import. **Exceptions:** Vitest harness patterns (`vi.importActual`, dynamic imports **only** inside `*.test.ts` / `__tests__` / `test/setup.ts` when required by the runner); ambient `typeof import('…')` in `.d.ts`; config files (e.g. `tailwind.config.js` JSDoc).- **Type-only imports**: `import type` where appropriate.
-- **Dual socket / tool sync**: If you change realtime protocol, keep **frontend** (`socketService` / MCP transport) and **core** socket behavior aligned (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) dual-socket section).
+- **Dual socket / tool sync**: If you change realtime protocol, keep **frontend** (`socketService` / MCP transport) and **core** socket behavior aligned (see [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md) dual-socket section).
 
 ---
 

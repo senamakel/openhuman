@@ -2,7 +2,7 @@
 
 **AI assistant for communities — React + Tauri v2 desktop app with a Rust core (JSON-RPC / CLI).**
 
-Narrative architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Frontend: [`docs/src/README.md`](docs/src/README.md). Tauri shell: [`docs/src-tauri/README.md`](docs/src-tauri/README.md). Coding-harness tool surface: [`gitbooks/developing/coding-harness.md`](gitbooks/developing/coding-harness.md).
+Narrative architecture: [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md). Frontend: [`gitbooks/developing/frontend/README.md`](gitbooks/developing/frontend/README.md). Tauri shell: [`gitbooks/developing/tauri-shell/README.md`](gitbooks/developing/tauri-shell/README.md). Coding-harness tool surface: [`gitbooks/developing/coding-harness.md`](gitbooks/developing/coding-harness.md).
 
 ---
 
@@ -13,7 +13,7 @@ Narrative architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Frontend
 | **`app/`** | Yarn workspace `openhuman-app`: Vite + React (`app/src/`), Tauri desktop host (`app/src-tauri/`), Vitest tests |
 | **`src/`** (root) | Rust lib `openhuman_core` + `openhuman` CLI binary — `core_server`, `openhuman::*` domains, MCP routing |
 | **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman` produces the sidecar staged by `app`'s `core:stage` |
-| **`docs/`** | Architecture and module guides |
+| **`docs/`** | Remaining deep internals (memory pipeline excalidraws, sentry, telegram-login, etc.). Public contributor docs live in `gitbooks/developing/`. |
 
 Commands assume the **repo root**; `pnpm dev` delegates to the `app` workspace. (Repo migrated from yarn to pnpm — `package.json` enforces pnpm via the `packageManager` field.)
 
@@ -165,7 +165,7 @@ bash scripts/test-rust-with-mock.sh --test json_rpc_e2e
 
 Thin desktop host: window management, daemon health, **core process lifecycle** (`core_process`, `CoreProcessHandle`), **JSON-RPC relay** (`core_rpc_relay`, `core_rpc`).
 
-Registered IPC (see [`docs/src-tauri/02-commands.md`](docs/src-tauri/02-commands.md)): `greet`, `write_ai_config_file`, `ai_get_config`, `ai_refresh_config`, `core_rpc_relay`, window commands, `openhuman_*` daemon helpers.
+Registered IPC (see [`gitbooks/developing/tauri-shell/commands.md`](gitbooks/developing/tauri-shell/commands.md)): `greet`, `write_ai_config_file`, `ai_get_config`, `ai_refresh_config`, `core_rpc_relay`, window commands, `openhuman_*` daemon helpers.
 
 ### CEF child webviews — no new JS injection
 
@@ -290,7 +290,7 @@ Specify → prove in Rust → prove over RPC → surface in the UI → test.
 - **File size**: prefer ≤ ~500 lines; split growing modules.
 - **Pre-merge** (code changes): Prettier, ESLint, `tsc --noEmit` in `app/`; `cargo fmt` + `cargo check` for changed Rust.
 - **No dynamic imports** in production `app/src` code — static `import` / `import type` only. No `import()`, `React.lazy(() => import(...))`, `await import(...)`. For heavy optional paths, use a static import and guard the call site with `try/catch` or a runtime check. *Exceptions*: Vitest harness patterns in `*.test.ts` / `__tests__` / `test/setup.ts`; ambient `typeof import('…')` in `.d.ts`; config files (e.g. `tailwind.config.js` JSDoc).
-- **Dual socket sync**: when changing the realtime protocol, keep `socketService` / MCP transport aligned with core socket behavior (see `docs/ARCHITECTURE.md` dual-socket section).
+- **Dual socket sync**: when changing the realtime protocol, keep `socketService` / MCP transport aligned with core socket behavior (see `gitbooks/developing/architecture.md` dual-socket section).
 
 ---
 

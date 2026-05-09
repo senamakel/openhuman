@@ -53,6 +53,14 @@ export function initSentry(): void {
       Sentry.dedupeIntegration(),
       Sentry.browserApiErrorsIntegration(),
       Sentry.globalHandlersIntegration(),
+      // #1403: production events were missing `os.name` / `browser.name` /
+      // `device.family` because Sentry derives those by parsing the
+      // User-Agent header server-side, and `defaultIntegrations: false`
+      // (above) drops the integration that attaches `event.request.headers`.
+      // Re-include it explicitly so platform context comes back. `beforeSend`
+      // narrows what survives from the request envelope (headers only, UA
+      // only) to keep this aligned with the privacy contract.
+      Sentry.httpContextIntegration(),
     ],
     sendDefaultPii: false,
 
@@ -74,7 +82,12 @@ export function initSentry(): void {
 
       // Strip anything that could carry Redux / localStorage / request bodies.
       event.breadcrumbs = [];
-      delete event.request;
+      // Keep only the User-Agent header so Sentry's server-side relay can
+      // populate `os` / `browser` / `device` contexts (#1403). Drop URL,
+      // query string, cookies, and request body — anything that could leak
+      // user content or session state.
+      const ua = (event.request?.headers as Record<string, string> | undefined)?.['User-Agent'];
+      event.request = ua ? { headers: { 'User-Agent': ua } } : undefined;
       delete event.extra;
       event.contexts = {
         os: event.contexts?.os,

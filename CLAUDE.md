@@ -97,6 +97,21 @@ PRs must meet **≥ 80% coverage on changed lines**. Enforced by [`.github/workf
 
 **Rust config** uses a TOML `Config` struct (`src/openhuman/config/schema/types.rs`) with env overrides (`src/openhuman/config/schema/load.rs`).
 
+### Sentry release-tag contract (#1403)
+
+For Sentry to symbolicate production stacks and group events across surfaces, the **upload-time** release string must equal the **runtime** release string byte-for-byte:
+
+| Surface | Where it's read | Format |
+| --- | --- | --- |
+| `@sentry/vite-plugin` upload | `SENTRY_RELEASE` env (or `VITE_BUILD_SHA` fallback) in [`app/vite.config.ts`](app/vite.config.ts) `computeSentryRelease()` | `openhuman@<version>+<short_sha>` |
+| React runtime | `VITE_BUILD_SHA` baked at build time, read via [`SENTRY_RELEASE`](app/src/utils/config.ts) | `openhuman@<version>+<short_sha>` |
+| Tauri shell runtime | `OPENHUMAN_BUILD_SHA` baked at compile time, in `app/src-tauri/src/lib.rs::build_sentry_release_tag` | same |
+| Standalone core CLI | `OPENHUMAN_BUILD_SHA` baked at compile time, in `src/main.rs` | same |
+
+CI sets all four via `inputs.short_sha` (12-char prefix) in [`.github/workflows/build-desktop.yml`](.github/workflows/build-desktop.yml). If you change the format on one surface, update all four. The post-build step `Verify Sentry source-map upload (frontend)` runs [`scripts/release/verify-sentry-sourcemaps.mjs`](scripts/release/verify-sentry-sourcemaps.mjs) and fails the build when no debug-IDs are injected — guarding against silent upload no-ops.
+
+OS / browser / device contexts on React events come from `httpContextIntegration` (User-Agent header → server-side parsing in Sentry relay). The privacy filter in [`analytics.ts`](app/src/services/analytics.ts) `beforeSend` retains only `User-Agent`; everything else on `event.request` is stripped.
+
 ---
 
 ## Testing

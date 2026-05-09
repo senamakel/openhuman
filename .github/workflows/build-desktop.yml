@@ -422,6 +422,20 @@ jobs:
           # on macos-arm64 runners, causing OOM at node's ~2GB auto default.
           NODE_OPTIONS="--max-old-space-size=8192" cargo tauri build $PROFILE_FLAG -c "$TAURI_CONFIG_OVERRIDE" $MATRIX_ARGS
 
+      # Regression guard for #1403: if @sentry/vite-plugin silently no-op'd
+      # (e.g. SENTRY_AUTH_TOKEN missing, or the `sourcemaps.assets` glob
+      # didn't match dist/assets) production events arrive in Sentry as
+      # unsymbolicated minified frames. The plugin logs a warning then
+      # exits 0, so the only safe check is to inspect the shipped bundle
+      # for injected debug-IDs. Skipped when SENTRY_AUTH_TOKEN is empty
+      # (e.g. fork/PR builds where the upload was deliberately disabled).
+      - name: Verify Sentry source-map upload (frontend)
+        if: env.SENTRY_AUTH_TOKEN != ''
+        shell: bash
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node scripts/release/verify-sentry-sourcemaps.mjs
+
       # ---- Sentry DIF uploads ------------------------------------------------
       # Since #1061 the core lives in-process as a library linked into the
       # Tauri shell binary — there is exactly one Rust process and one

@@ -12,8 +12,9 @@ const hoisted = vi.hoisted(() => ({
   functionToStringIntegration: vi.fn(() => ({})),
   linkedErrorsIntegration: vi.fn(() => ({})),
   dedupeIntegration: vi.fn(() => ({})),
-  browserApiErrorsIntegration: vi.fn(() => ({})),
-  globalHandlersIntegration: vi.fn(() => ({})),
+  browserApiErrorsIntegration: vi.fn(() => ({ name: 'BrowserApiErrors' })),
+  globalHandlersIntegration: vi.fn(() => ({ name: 'GlobalHandlers' })),
+  httpContextIntegration: vi.fn(() => ({ name: 'HttpContext' })),
   analyticsEnabled: false,
   appEnvironment: 'staging' as 'staging' | 'production' | 'development',
 }));
@@ -29,6 +30,7 @@ vi.mock('@sentry/react', () => ({
   dedupeIntegration: hoisted.dedupeIntegration,
   browserApiErrorsIntegration: hoisted.browserApiErrorsIntegration,
   globalHandlersIntegration: hoisted.globalHandlersIntegration,
+  httpContextIntegration: hoisted.httpContextIntegration,
 }));
 
 // `initSentry()` reads `getCoreStateSnapshot().snapshot.analyticsEnabled` to
@@ -157,7 +159,12 @@ describe('initSentry beforeSend manual-staging bypass', () => {
       message: 'something blew up',
       tags: { test: 'manual-staging' },
       breadcrumbs: [{ message: 'should-be-stripped' }],
-      request: { url: 'https://api.example.com/secret' },
+      request: {
+        url: 'https://api.example.com/secret',
+        cookies: 'session=abc',
+        data: { body: 'redacted' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)' },
+      },
       extra: { token: 'redacted-please' },
       contexts: { os: { name: 'macOS' }, app: { build: '123' } },
     }) as Record<string, unknown> | null;
@@ -165,7 +172,15 @@ describe('initSentry beforeSend manual-staging bypass', () => {
     expect(result).not.toBeNull();
     // PII / breadcrumbs / request body / extras must all be stripped.
     expect((result as { breadcrumbs: unknown[] }).breadcrumbs).toEqual([]);
-    expect(result).not.toHaveProperty('request');
+    // Request envelope is narrowed to the User-Agent header only — keeping
+    // it lets Sentry's relay populate os/browser/device (#1403); URL,
+    // cookies, and body are dropped.
+    const req = (result as { request?: { headers?: Record<string, string>; url?: string } })
+      .request;
+    expect(req?.headers).toEqual({ 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)' });
+    expect(req).not.toHaveProperty('url');
+    expect(req).not.toHaveProperty('cookies');
+    expect(req).not.toHaveProperty('data');
     expect(result).not.toHaveProperty('extra');
     // `app` context is stripped — only os/browser/device kept.
     expect((result as { contexts: Record<string, unknown> }).contexts).not.toHaveProperty('app');
@@ -181,6 +196,65 @@ describe('initSentry beforeSend manual-staging bypass', () => {
     const beforeSend = await captureBeforeSend();
     const result = beforeSend({ message: 'react-sentry-smoke-test', tags: {}, contexts: {} });
     expect(result).not.toBeNull();
+  });
+
+  test('forwards release tag and registers httpContextIntegration (#1403)', async () => {
+    // Regression for #1403: production events arrived in Sentry with no
+    // `release` tag and no `os` context. The release must reach Sentry.init
+    // verbatim from `SENTRY_RELEASE`, and `httpContextIntegration` must be
+    // present so the User-Agent header is attached and the relay can derive
+    // `os` / `browser` / `device` server-side.
+    hoisted.init.mockReset();
+    const { initSentry } = await import('../analytics');
+    initSentry();
+
+    const opts = hoisted.init.mock.calls[0][0] as {
+      release: string;
+      integrations: Array<{ name?: string }>;
+    };
+    expect(opts.release).toBe('openhuman@test+abc');
+    const names = opts.integrations.map(i => i.name).filter(Boolean);
+    expect(names).toContain('HttpContext');
+  });
+
+  test('keeps os/browser/device contexts and forwards them through beforeSend (#1403)', async () => {
+    hoisted.analyticsEnabled = true; // consent on so beforeSend doesn't drop.
+    const beforeSend = await captureBeforeSend();
+    const result = beforeSend({
+      message: 'real prod error',
+      tags: {},
+      contexts: {
+        os: { name: 'macOS', version: '14.0' },
+        browser: { name: 'Chrome', version: '119' },
+        device: { family: 'Mac' },
+        // Anything other than os/browser/device must be dropped by the
+        // privacy filter — if a future edit accidentally widens the
+        // allowlist, this assertion fails.
+        state: { redux: 'should-not-leak' },
+      },
+    }) as { contexts: Record<string, unknown> } | null;
+
+    expect(result).not.toBeNull();
+    expect(result!.contexts).toMatchObject({
+      os: { name: 'macOS', version: '14.0' },
+      browser: { name: 'Chrome', version: '119' },
+      device: { family: 'Mac' },
+    });
+    expect(result!.contexts).not.toHaveProperty('state');
+  });
+
+  test('drops the entire request envelope when no User-Agent header is present', async () => {
+    hoisted.analyticsEnabled = true;
+    const beforeSend = await captureBeforeSend();
+    const result = beforeSend({
+      message: 'no-ua event',
+      tags: {},
+      contexts: {},
+      request: { url: 'https://leak/secret', headers: { 'X-Other': 'meh' } },
+    }) as Record<string, unknown> | null;
+
+    expect(result).not.toBeNull();
+    expect(result!.request).toBeUndefined();
   });
 
   test('drops manual-staging tagged events in production even with the tag', async () => {

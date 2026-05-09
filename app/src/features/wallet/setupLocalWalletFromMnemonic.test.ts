@@ -57,4 +57,15 @@ describe('persistLocalWalletFromMnemonic', () => {
       ],
     });
   });
+
+  it('rejects whitespace-only input without touching encryption key or wallet store', async () => {
+    const setEncryptionKey = vi.fn(async () => undefined);
+    mockSetupLocalWallet.mockReset();
+
+    await expect(
+      persistLocalWalletFromMnemonic({ mnemonic: '   \t  ', source: 'imported', setEncryptionKey })
+    ).rejects.toThrow(/recovery phrase is required/i);
+    expect(setEncryptionKey).not.toHaveBeenCalled();
+    expect(mockSetupLocalWallet).not.toHaveBeenCalled();
+  });
 });

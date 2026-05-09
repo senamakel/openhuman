@@ -118,6 +118,7 @@ pub async fn install_audio_bridge(
     // rationale. Meet's first getUserMedia call only fires after the
     // user clicks "Ask to join" (multiple seconds), so a post-reload
     // Runtime.evaluate lands well before it's needed.
+    crate::meet_video::inject::spawn_diagnostics_poller(meet_url.to_string());
     if let Err(err) = crate::meet_video::inject::install_camera_bridge_post_reload(
         &mut cdp,
         &session,

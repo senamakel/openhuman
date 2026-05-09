@@ -27,10 +27,15 @@
   const H = 480;
   const FPS = 30;
   const FRAME_BUS_PORT = __OPENHUMAN_FRAME_BUS_PORT__;
-  // If we haven't seen a remote frame in this long, fall back to the
-  // static-SVG render. 500 ms ≈ 15 dropped producer ticks at 30 fps,
-  // generous enough to tolerate a GC pause without flapping.
-  const REMOTE_FRESHNESS_MS = 500;
+  // The static-SVG path is **cold-start only**: we use it before the
+  // first remote frame arrives so the camera isn't black during the
+  // ~1s producer connect handshake. Once any remote frame has been
+  // seen, we keep drawing the last bitmap forever — switching back to
+  // the static SVG when the producer hiccups would morph the mascot
+  // visually (different artwork) and read as flicker. Drawing a stale
+  // bitmap is much less jarring; if the producer truly dies the user
+  // sees a frozen feed (with a tiny synthetic bob to keep the codec
+  // sending), which we can detect via __openhumanCameraBridgeInfo.
   const TOGGLE_INTERVAL_MS = 5000;
 
   const MASCOTS = {
@@ -49,6 +54,14 @@
   let latestRemoteBitmap = null;
   let latestRemoteAt = 0;
   let remoteFrameCount = 0;
+  let droppedOutOfOrder = 0;
+  // Monotonic frame counter for out-of-order decode protection. WS
+  // messages can bunch up when the kernel coalesces TCP packets, and
+  // `createImageBitmap` is async — so two decodes can be in flight at
+  // once and finish in arbitrary order. Without a seq, an older frame
+  // can clobber a newer one and the mascot visibly rewinds.
+  let nextRecvSeq = 0;
+  let lastAcceptedSeq = -1;
   let wsState = 'init';
 
   function loadImage(src) {
@@ -110,16 +123,29 @@
     };
     ws.onmessage = async function (ev) {
       if (!(ev.data instanceof ArrayBuffer)) return;
+      const mySeq = ++nextRecvSeq;
       try {
         const blob = new Blob([ev.data], { type: 'image/jpeg' });
         // Decode off the main animation tick — createImageBitmap is
         // async and hands back a GPU-friendly handle for drawImage.
         const bitmap = await createImageBitmap(blob);
+        // If a newer frame already won the race, drop this stale one.
+        // Without this guard, bursty WS delivery + concurrent decodes
+        // can cause the mascot to visibly rewind one or two frames at
+        // a time — the "looks great then flickers" pattern.
+        if (mySeq <= lastAcceptedSeq) {
+          if (bitmap && bitmap.close) {
+            try { bitmap.close(); } catch (_) {}
+          }
+          droppedOutOfOrder++;
+          return;
+        }
         if (latestRemoteBitmap && latestRemoteBitmap.close) {
           try { latestRemoteBitmap.close(); } catch (_) {}
         }
         latestRemoteBitmap = bitmap;
         latestRemoteAt = Date.now();
+        lastAcceptedSeq = mySeq;
         remoteFrameCount++;
       } catch (err) {
         console.warn(TAG, 'frame decode failed', err);
@@ -146,12 +172,13 @@
   let frame = 0;
   function tick() {
     frame++;
-    const now = Date.now();
-    const remoteFresh = latestRemoteBitmap && (now - latestRemoteAt) < REMOTE_FRESHNESS_MS;
-    if (remoteFresh) {
-      // Producer is feeding us; draw whatever it last produced. cover-fit
-      // so the producer can render whatever logical canvas it wants and
-      // still fill the 640×480 capture frame.
+    if (latestRemoteBitmap) {
+      // Once any remote frame has arrived, we render only remote
+      // bitmaps for the rest of the session — even if the producer
+      // hiccups, holding the last bitmap is much less jarring than
+      // morphing back to the static SVG. A 1px synthetic bob keeps
+      // the WebRTC encoder from dropping the stream as "frozen" while
+      // we're holding a stale frame.
       ctx.fillStyle = '#F7F4EE';
       ctx.fillRect(0, 0, W, H);
       const bw = latestRemoteBitmap.width || W;
@@ -160,12 +187,12 @@
       const dw = bw * scale;
       const dh = bh * scale;
       const dx = (W - dw) / 2;
-      const dy = (H - dh) / 2;
+      const dy = (H - dh) / 2 + (Math.sin(frame / (FPS * 2 / Math.PI)) * 0.5);
       ctx.drawImage(latestRemoteBitmap, dx, dy, dw, dh);
       return;
     }
-    // Fallback: static SVG with a gentle bob so Meet's outbound codec
-    // doesn't drop our stream as "frozen".
+    // Cold-start fallback: static SVG with a gentle bob so the camera
+    // isn't black during the producer's WS handshake.
     ctx.fillStyle = '#F7F4EE';
     ctx.fillRect(0, 0, W, H);
     const img = moodImgs[currentMood];
@@ -271,6 +298,7 @@
       frameBusPort: FRAME_BUS_PORT,
       wsState: wsState,
       remoteFrameCount: remoteFrameCount,
+      droppedOutOfOrder: droppedOutOfOrder,
       remoteFreshMs: latestRemoteAt ? (Date.now() - latestRemoteAt) : null,
     };
   };

@@ -36,6 +36,7 @@
 //! and closes any open consumer connections.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -75,8 +76,39 @@ impl MeetVideoFrameBusState {
         // writers clone cheaply rather than copying full JPEG payloads.
         let (latest_tx, latest_rx) = watch::channel::<Arc<Vec<u8>>>(Arc::new(Vec::new()));
 
+        // Ingress counter — incremented on every binary frame received
+        // from any peer. A separate tokio task computes per-2s deltas
+        // and logs them so we can see *producer-side* fps independently
+        // from the consumer (camera_bridge.js) tick rate. Critical for
+        // diagnosing background-throttling: if ingress is at 1/s while
+        // the bridge animates at 30/s, the producer is starving.
+        let ingress = Arc::new(AtomicU64::new(0));
+        if std::env::var("OPENHUMAN_DEV_MEET_CAMERA_DIAG")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+        {
+            let ingress_for_log = ingress.clone();
+            let req_id_for_log = request_id.clone();
+            tokio::spawn(async move {
+                let mut last: u64 = 0;
+                let mut tick: u64 = 0;
+                loop {
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    tick += 1;
+                    let cur = ingress_for_log.load(Ordering::Relaxed);
+                    let delta = cur.saturating_sub(last);
+                    let fps = (delta as f32) / 2.0;
+                    log::info!(
+                        "[meet-video-bus-diag] req={req_id_for_log} tick={tick} ingress_total={cur} fps_2s={fps:.1}"
+                    );
+                    last = cur;
+                }
+            });
+        }
+
         let req_id = request_id.clone();
         let tx_for_loop = latest_tx.clone();
+        let ingress_for_loop = ingress.clone();
         let accept_handle = tokio::spawn(async move {
             loop {
                 match listener.accept().await {
@@ -84,9 +116,10 @@ impl MeetVideoFrameBusState {
                         log::info!("[meet-video-bus] connect req={req_id} peer={peer}");
                         let tx = tx_for_loop.clone();
                         let rx = latest_rx.clone();
+                        let ingress = ingress_for_loop.clone();
                         let req_id_inner = req_id.clone();
                         tokio::spawn(async move {
-                            if let Err(e) = handle_connection(stream, tx, rx).await {
+                            if let Err(e) = handle_connection(stream, tx, rx, ingress).await {
                                 log::debug!(
                                     "[meet-video-bus] conn ended req={req_id_inner} peer={peer} err={e}"
                                 );
@@ -146,6 +179,7 @@ async fn handle_connection(
     stream: tokio::net::TcpStream,
     latest_tx: watch::Sender<Arc<Vec<u8>>>,
     mut latest_rx: watch::Receiver<Arc<Vec<u8>>>,
+    ingress: Arc<AtomicU64>,
 ) -> Result<(), String> {
     let ws = tokio_tungstenite::accept_async(stream)
         .await
@@ -179,7 +213,16 @@ async fn handle_connection(
     while let Some(msg) = stream.next().await {
         match msg {
             Ok(Message::Binary(b)) => {
+                ingress.fetch_add(1, Ordering::Relaxed);
                 let _ = latest_tx.send(Arc::new(b));
+            }
+            Ok(Message::Text(t)) => {
+                // Producer-side diagnostics. The producer can post a
+                // small JSON every few seconds so we can see worker
+                // ticks vs encodes-completed separately and pinpoint
+                // whether starvation is timer-throttling vs encode-
+                // bound. Logged verbatim.
+                log::info!("[meet-video-producer-diag] {t}");
             }
             Ok(Message::Close(_)) => break,
             Ok(_) => {}

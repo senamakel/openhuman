@@ -96,10 +96,33 @@ pub async fn meet_call_open_window<R: Runtime>(
     );
 
     let title = format!("Meet — {}", truncate_for_title(&args.display_name));
+    // Spawn the meet window **off-screen** so the user never sees it.
+    //
+    // Why off-screen and not `.visible(false)`: with CEF on macOS, a
+    // window built hidden never gets a backing surface — the page
+    // doesn't lay out or paint, which silently breaks the
+    // `meet_scanner`'s automated join (the synthetic
+    // `Input.dispatchMouseEvent` clicks land on un-rendered DOM).
+    // Positioning off-screen keeps the window technically visible so
+    // the renderer fully boots (WebRTC negotiates, getUserMedia fires,
+    // CDP attaches, layout is real, clicks hit), but the user never
+    // sees a meet window. The main OpenHuman UI is the only surface.
+    //
+    // The Y coordinate `-30000` is large enough to clear any sane
+    // multi-monitor topology (macOS spaces, vertical stacks, etc.)
+    // without overflowing i32 in the underlying Cocoa/Win32 APIs.
     let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed.clone()))
         .title(title)
         .inner_size(1100.0, 760.0)
         .resizable(true)
+        .position(-30000.0, -30000.0)
+        // Critical: do NOT take focus on creation. If this window
+        // becomes the macOS key window, the main OpenHuman window is
+        // demoted to "non-key" and Chromium throttles its renderer +
+        // worker timers down to ~1Hz — which starves the
+        // MascotFrameProducer to ~1fps and produces the visible
+        // "stuck at one frame" symptom in Meet.
+        .focused(false)
         .data_directory(data_dir.clone());
 
     let window = builder

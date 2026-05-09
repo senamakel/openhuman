@@ -44,6 +44,7 @@
 * [Architecture](developing/architecture/README.md)
   * [Frontend (app/src/)](developing/architecture/frontend.md)
   * [Tauri Shell (app/src-tauri/)](developing/architecture/tauri-shell.md)
+  * [Agent Harness](developing/architecture/agent-harness.md)
 
 ## Legal
 

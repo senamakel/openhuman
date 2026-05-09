@@ -40,6 +40,8 @@ retrieval       ── search · drill_down · topic · global · fetch
 
 The hot path (`canonicalize → chunk → stage → fast-score → persist → enqueue extract jobs`) is fast. Heavy work — embeddings, entity extraction, sealing summary buckets, daily digests — runs in background workers out of the `jobs/` queue so the UI never blocks.
 
+Embeddings and summary-tree building can run **on-device via Ollama** if you turn on [Local AI](local-ai.md); otherwise they go through the OpenHuman backend like any other model call.
+
 ## Three trees, three scopes
 
 - **Source trees** (`tree_source/`) — per-source rolling buffer (L0) that seals into L1 → L2 → … as it fills. One per Gmail label, one per Slack channel, one per uploaded document, etc.
@@ -80,3 +82,4 @@ Trees give you compression *and* navigation. Embeddings still live inside (in `s
 - [Obsidian Wiki](obsidian-wiki.md) — open the vault in Obsidian and edit it directly.
 - [Auto-fetch from Integrations](auto-fetch.md) — how the tree stays fresh.
 - [Smart Token Compression](token-compression.md) — what makes ingesting "everything" cheap.
+- [Local AI (optional)](local-ai.md) — opt in to keep embeddings and summary-tree building on-device.

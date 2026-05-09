@@ -18,6 +18,8 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 **No training on your data.** Your conversations, your Memory Tree, and your personal information are never used to train AI models or improve systems.
 
+**Optional [Local AI](../features/local-ai.md).** If you want embeddings and summary-tree building to stay on your machine, opt in. Heartbeat / learning / subconscious loops can be moved on-device the same way.
+
 ***
 
 ## What stays on your machine

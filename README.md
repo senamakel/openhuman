@@ -66,6 +66,8 @@ OpenHuman is an open-source agentic assistant that is designed to integrate with
 
 - **Native search, scraper and coder** — A built-in **web search**, **web-fetch** scraper, and a full **filesystem / git / lint / test / grep** toolset are wired into the agent out of the box. No "install a plugin to read files" friction.
 
+- **Optional local AI (via Ollama)** — Off by default. Opt in per-workload to keep **memory embeddings**, **summary-tree building**, and the **background reflection loops** (heartbeat / learning / subconscious) on your machine. Chat / vision / voice stay cloud — the local path is **scoped to the workloads where on-device actually pays**, not a "run everything on Gemma 3" overreach.
+
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orientation: [`CONTRIBUTING.md`](./CONTRIBUTING.md). Running from source: [`docs/install.md`](docs/install.md#running-from-source). Cloud-hosting the headless core: [`docs/CLOUD_DEPLOY.md`](docs/CLOUD_DEPLOY.md).
 
 ## Highlights
@@ -78,6 +80,7 @@ Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Contributor orient
 - **[Automatic Model Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing)** — `hint:reasoning`, `hint:fast`, `hint:vision` map to the right provider+model per task.
 - **[Native Voice (ElevenLabs)](https://tinyhumans.gitbook.io/openhuman/features/voice)** — STT in, ElevenLabs TTS out, mascot lip-sync, live Google Meet agent.
 - **[Native Tools](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** — built-in web search, web-fetch scraper, and a full filesystem/git/lint/test/grep coder toolset.
+- **[Local AI (optional)](https://tinyhumans.gitbook.io/openhuman/features/local-ai)** — opt-in Ollama path for memory embeddings, summary-tree building, and background reflection loops.
 - **[Messaging Channels](https://tinyhumans.gitbook.io/openhuman/product/messaging-channels)** — inbound/outbound across the channels you already use, routed through your agent.
 - **[Teams & Organizations](https://tinyhumans.gitbook.io/openhuman/product/teams)** — shared workspaces for collaborating with an agent across a team.
 - **[Privacy & Security](https://tinyhumans.gitbook.io/openhuman/product/privacy-and-security)** — workflow data stays on device, encrypted locally, and treated as yours.

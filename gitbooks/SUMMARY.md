@@ -19,6 +19,7 @@
 * [Automatic Model Routing](features/model-routing.md)
 * [Native Voice (ElevenLabs)](features/voice.md)
 * [Native Tools (search, scraper, coder)](features/native-tools.md)
+* [Local AI (optional)](features/local-ai.md)
 
 ## Settings Reference
 

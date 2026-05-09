@@ -4,6 +4,11 @@
 //!  - `devices_create_pairing` — registers a pairing channel and returns QR fields.
 //!  - `devices_list`           — lists non-revoked paired devices.
 //!  - `devices_revoke`         — marks a device revoked and closes its tunnel channel.
+//!
+//! Keypair persistence: private key bytes are encrypted with the workspace
+//! `SecretStore` (ChaCha20-Poly1305) and stored as `enc2:` values keyed by
+//! channel_id in `PERSISTED_KEYPAIRS`. On restart, bus.rs can reconstruct the
+//! keypair for reconnect handshakes without re-generating.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -11,12 +16,13 @@ use std::sync::{Arc, Mutex};
 use chrono::Utc;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::devices::crypto::DeviceKeypair;
+use crate::openhuman::devices::crypto::{base64url_decode, base64url_encode, DeviceKeypair};
 use crate::openhuman::devices::store;
 use crate::openhuman::devices::tunnel_client;
 use crate::openhuman::devices::types::{
     CreatePairingResponse, ListDevicesResponse, PairingSession, RevokeDeviceResponse,
 };
+use crate::openhuman::security::SecretStore;
 use crate::rpc::RpcOutcome;
 
 // ---------------------------------------------------------------------------
@@ -24,9 +30,16 @@ use crate::rpc::RpcOutcome;
 // ---------------------------------------------------------------------------
 
 /// Keypairs pending handshake completion (keyed by channel_id).
+/// Values are `Arc` so bus.rs can clone without holding the lock during DH.
 pub(crate) static PENDING_KEYPAIRS: once_cell::sync::Lazy<
     Mutex<HashMap<String, Arc<DeviceKeypair>>>,
 > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Encrypted persisted private-key bytes (keyed by channel_id).
+/// Values are `enc2:<hex>` strings from `SecretStore::encrypt`.
+/// Populated by `devices_create_pairing`; cleared by `devices_revoke`.
+pub(crate) static PERSISTED_KEYPAIRS: once_cell::sync::Lazy<Mutex<HashMap<String, String>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Pairing sessions pending device connection (keyed by channel_id).
 pub(crate) static PENDING_SESSIONS: once_cell::sync::Lazy<Mutex<HashMap<String, PairingSession>>> =
@@ -73,8 +86,29 @@ pub async fn devices_create_pairing(
     let keypair = DeviceKeypair::generate();
     let core_pubkey = keypair.pubkey_b64.clone();
 
+    // Encrypt the private key bytes and persist in the encrypted secrets store.
+    let secret_store = build_secret_store(_config);
+    let private_b64 = base64url_encode(&keypair.private_bytes());
+    match secret_store.encrypt(&private_b64) {
+        Ok(enc) => {
+            PERSISTED_KEYPAIRS
+                .lock()
+                .unwrap()
+                .insert(reg.channel_id.clone(), enc);
+            log::debug!(
+                "[devices/rpc] keypair private key encrypted and persisted channel_id={}",
+                reg.channel_id
+            );
+        }
+        Err(e) => {
+            log::warn!(
+                "[devices/rpc] could not persist encrypted keypair channel_id={}: {e}",
+                reg.channel_id
+            );
+        }
+    }
+
     // Stash keypair in memory so bus.rs can complete the X25519 handshake.
-    // TODO(Layer 2): persist private key in the encrypted secrets store.
     PENDING_KEYPAIRS
         .lock()
         .unwrap()
@@ -171,10 +205,16 @@ pub async fn devices_revoke(
     let revoked = store::revoke_device(config, &channel_id)
         .map_err(|e| format!("[devices/rpc] revoke_device failed: {e}"))?;
 
-    // Clear in-memory state for this channel.
+    // Clear in-memory state for this channel, including persisted encrypted key.
     PENDING_KEYPAIRS.lock().unwrap().remove(&channel_id);
     PENDING_SESSIONS.lock().unwrap().remove(&channel_id);
     PEER_STATUS.lock().unwrap().remove(&channel_id);
+    PERSISTED_KEYPAIRS.lock().unwrap().remove(&channel_id);
+
+    // Publish DeviceRevoked so UI and other subscribers are notified.
+    crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::DeviceRevoked {
+        channel_id: channel_id.clone(),
+    });
 
     // TODO: backend revoke endpoint pending (PR #709 follow-up).
     // For now, closing the local tunnel side + letting the backend TTL the channel is sufficient.
@@ -196,8 +236,12 @@ pub async fn devices_revoke(
 
 fn detect_lan_rpc_url() -> Option<String> {
     let ip = find_local_ipv4()?;
-    // Default core RPC port; config-layer port exposure is a Layer 2 concern.
-    Some(format!("http://{}:7788/rpc", ip))
+    // Use the configured RPC port if available via env, else fall back to 7788.
+    let port = std::env::var("OPENHUMAN_CORE_RPC_PORT")
+        .ok()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(7788);
+    Some(format!("http://{}:{}/rpc", ip, port))
 }
 
 fn find_local_ipv4() -> Option<String> {
@@ -209,6 +253,65 @@ fn find_local_ipv4() -> Option<String> {
         IpAddr::V4(addr) if !addr.is_loopback() => Some(addr.to_string()),
         _ => None,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Secret store helper
+// ---------------------------------------------------------------------------
+
+/// Build a `SecretStore` scoped to the workspace directory.
+fn build_secret_store(config: &Config) -> SecretStore {
+    let data_dir = config
+        .config_path
+        .parent()
+        .map_or_else(|| std::path::PathBuf::from("."), std::path::PathBuf::from);
+    SecretStore::new(&data_dir, true)
+}
+
+/// Reconstruct a `DeviceKeypair` from the encrypted private key store.
+///
+/// Returns `None` when the channel has no persisted key or decryption fails.
+pub(crate) fn load_keypair_from_store(
+    config: &Config,
+    channel_id: &str,
+) -> Option<Arc<DeviceKeypair>> {
+    let enc = PERSISTED_KEYPAIRS
+        .lock()
+        .unwrap()
+        .get(channel_id)
+        .cloned()?;
+    let store = build_secret_store(config);
+    let private_b64 = store
+        .decrypt(&enc)
+        .map_err(|e| {
+            log::warn!(
+                "[devices/rpc] decrypt keypair failed channel_id={}: {e}",
+                channel_id
+            );
+        })
+        .ok()?;
+    let priv_bytes = base64url_decode(&private_b64)
+        .map_err(|e| {
+            log::warn!(
+                "[devices/rpc] base64url decode keypair failed channel_id={}: {e}",
+                channel_id
+            );
+        })
+        .ok()?;
+    if priv_bytes.len() != 32 {
+        log::warn!(
+            "[devices/rpc] loaded private key has wrong length {} channel_id={}",
+            priv_bytes.len(),
+            channel_id
+        );
+        return None;
+    }
+    let arr: [u8; 32] = priv_bytes.try_into().ok()?;
+    log::debug!(
+        "[devices/rpc] keypair restored from encrypted store channel_id={}",
+        channel_id
+    );
+    Some(Arc::new(DeviceKeypair::from_private_bytes(arr)))
 }
 
 // ---------------------------------------------------------------------------

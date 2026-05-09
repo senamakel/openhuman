@@ -9,8 +9,8 @@ Authoritative docs for AI agents and contributors:
 - **[`gitbooks/developing/architecture.md`](../../gitbooks/developing/architecture.md)** — narrative architecture, dual-socket sync.
 - **[`gitbooks/resources/design-language.md`](../../gitbooks/resources/design-language.md)** — visual language.
 - **[`gitbooks/developing/e2e-testing.md`](../../gitbooks/developing/e2e-testing.md)** — WDIO/Appium testing.
-- **[`gitbooks/developing/frontend/README.md`](../../gitbooks/developing/frontend/README.md)** — frontend.
-- **[`gitbooks/developing/tauri-shell/README.md`](../../gitbooks/developing/tauri-shell/README.md)** — Tauri shell.
+- **[`gitbooks/developing/frontend.md`](../../gitbooks/developing/frontend.md)** — frontend.
+- **[`gitbooks/developing/tauri-shell.md`](../../gitbooks/developing/tauri-shell.md)** — Tauri shell.
 
 ## When to add a file here
 

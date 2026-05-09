@@ -47,23 +47,8 @@
 * [Coding Harness](developing/coding-harness.md)
 * [Agent Observability](developing/agent-observability.md)
 
-## Frontend (app/src/)
-
-* [Overview](developing/frontend/README.md)
-* [Architecture](developing/frontend/architecture.md)
-* [State Management](developing/frontend/state-management.md)
-* [Services](developing/frontend/services.md)
-* [Pages & Routing](developing/frontend/pages-routing.md)
-* [Components](developing/frontend/components.md)
-* [Providers](developing/frontend/providers.md)
-* [Hooks & Utilities](developing/frontend/hooks-utils.md)
-
-## Tauri shell (app/src-tauri/)
-
-* [Overview](developing/tauri-shell/README.md)
-* [Architecture](developing/tauri-shell/architecture.md)
-* [Commands](developing/tauri-shell/commands.md)
-* [Core Bridge](developing/tauri-shell/core-bridge.md)
+* [Frontend (app/src/)](developing/frontend.md)
+* [Tauri Shell (app/src-tauri/)](developing/tauri-shell.md)
 
 ## Legal
 

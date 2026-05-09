@@ -63,7 +63,7 @@ OpenHuman is the first agent harness that gets to know in minutes. Insipired by 
  <img src="./gitbooks/.gitbook/assets/image.png" alt="The Tet" />
 </p>
 
-> OpenHuman summarizes and compress all your documents, emails & chats; and creates a memory graph lets your agent remember everything about you.
+> OpenHuman summarizes and compress all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.
 
 
 Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.

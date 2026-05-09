@@ -50,6 +50,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.x
+      - name: Diagnose App token identity
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -e
+          echo "== gh auth status =="
+          gh auth status || true
+          echo
+          echo "== App installation identity =="
+          # `/installation/repositories` works for an installation access token
+          # and confirms which repos the App can write to. If this doesn't list
+          # tinyhumansai/openhuman or shows zero permissions, the App isn't
+          # installed on the repo (or the new perms haven't been accepted yet).
+          gh api /installation/repositories \
+            --jq '{total_count, perms: .repositories[0].permissions, repos: [.repositories[].full_name]}' \
+            || echo "(installation listing failed)"
+          echo
+          echo "== Posting permission probe =="
+          # GET on the comments endpoint requires `issues:read` (or pull-requests:read).
+          # POST requires `issues:write`. We only GET here so we don't pollute PRs.
+          gh api -i /repos/${GITHUB_REPOSITORY}/issues/1421/comments?per_page=1 \
+            2>&1 | head -20 || true
       - name: Run rabbit
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

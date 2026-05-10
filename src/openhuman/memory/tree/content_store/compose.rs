@@ -39,9 +39,12 @@
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::memory::tree::content_store::paths::{
-    sanitize_filename, slugify_source_id, SummaryTreeKind,
+    slugify_source_id, summary_filename, SummaryTreeKind,
 };
 use crate::openhuman::memory::tree::types::{Chunk, SourceKind};
+
+pub const MEMORY_ARTIFACT_FORMAT: u32 = 2;
+pub const OPENHUMAN_CORE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Build the canonical Obsidian `source/<slug>` tag for a given
 /// `source_id`. Used to seed the `tags:` block on every chunk and
@@ -405,7 +408,7 @@ fn build_summary_front_matter(r: &SummaryComposeInput<'_>) -> String {
                 .and_then(|slot| slot.as_ref())
             {
                 Some(b) => b.clone(),
-                None => sanitize_filename(id),
+                None => summary_filename(id),
             };
             let wikilink = format!("[[{}]]", basename);
             fm.push_str(&format!("  - {}\n", yaml_scalar(&wikilink)));
@@ -415,6 +418,14 @@ fn build_summary_front_matter(r: &SummaryComposeInput<'_>) -> String {
     fm.push_str(&format!("time_range_start: {trs}\n"));
     fm.push_str(&format!("time_range_end: {tre}\n"));
     fm.push_str(&format!("sealed_at: {sealed}\n"));
+    fm.push_str(&format!(
+        "openhuman_core_version: {}\n",
+        yaml_scalar(OPENHUMAN_CORE_VERSION)
+    ));
+    fm.push_str(&format!(
+        "memory_artifact_format: {}\n",
+        MEMORY_ARTIFACT_FORMAT
+    ));
 
     // aliases: human-readable title
     let alias = build_summary_alias(r);
@@ -506,7 +517,64 @@ fn scope_short_label(scope: &str) -> String {
 /// Reuses the generic [`rewrite_tags`] function — the front-matter structure
 /// is identical for both chunk and summary `.md` files.
 pub fn rewrite_summary_tags(file_bytes: &[u8], new_tags: &[String]) -> Result<Vec<u8>, String> {
-    rewrite_tags(file_bytes, new_tags)
+    let rewritten = rewrite_tags(file_bytes, new_tags)?;
+    let content =
+        std::str::from_utf8(&rewritten).map_err(|e| format!("file is not valid UTF-8: {e}"))?;
+    let (front_matter, body) = split_front_matter(content)
+        .ok_or_else(|| "cannot find front-matter delimiters".to_string())?;
+    let front_matter = upsert_summary_provenance(front_matter);
+
+    let mut out = Vec::with_capacity(front_matter.len() + body.len());
+    out.extend_from_slice(front_matter.as_bytes());
+    out.extend_from_slice(body.as_bytes());
+    Ok(out)
+}
+
+fn upsert_summary_provenance(front_matter: &str) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut inserted = false;
+
+    for raw in front_matter.lines() {
+        if raw.starts_with("openhuman_core_version: ")
+            || raw.starts_with("memory_artifact_format: ")
+        {
+            continue;
+        }
+        if !inserted && raw == "aliases:" {
+            lines.push(format!(
+                "openhuman_core_version: {}",
+                yaml_scalar(OPENHUMAN_CORE_VERSION)
+            ));
+            lines.push(format!(
+                "memory_artifact_format: {}",
+                MEMORY_ARTIFACT_FORMAT
+            ));
+            inserted = true;
+        }
+        lines.push(raw.to_string());
+    }
+
+    if !inserted {
+        let insert_at = lines
+            .iter()
+            .rposition(|line| line == "---")
+            .unwrap_or(lines.len());
+        lines.insert(
+            insert_at,
+            format!(
+                "openhuman_core_version: {}",
+                yaml_scalar(OPENHUMAN_CORE_VERSION)
+            ),
+        );
+        lines.insert(
+            insert_at + 1,
+            format!("memory_artifact_format: {}", MEMORY_ARTIFACT_FORMAT),
+        );
+    }
+
+    let mut result = lines.join("\n");
+    result.push('\n');
+    result
 }
 
 /// Split a file into `(front_matter, body)` at the second `---` delimiter.
@@ -844,6 +912,20 @@ mod tests {
         assert!(fm.contains("level: 1"), "must have level");
         assert!(fm.contains("child_count: 2"), "must have child_count");
         assert!(
+            fm.contains(&format!(
+                "openhuman_core_version: {}",
+                OPENHUMAN_CORE_VERSION
+            )),
+            "must stamp the core version"
+        );
+        assert!(
+            fm.contains(&format!(
+                "memory_artifact_format: {}",
+                MEMORY_ARTIFACT_FORMAT
+            )),
+            "must stamp the artifact format epoch"
+        );
+        assert!(
             fm.contains("  - \"[[child-1]]\""),
             "must list child ids as Obsidian wikilinks; got:\n{fm}"
         );
@@ -1103,7 +1185,32 @@ mod tests {
         assert!(rewritten_str.contains("  - person/Alice-Smith"));
         assert!(rewritten_str.contains("  - topic/Memory"));
         assert!(!rewritten_str.contains("tags: []"));
+        assert!(rewritten_str.contains(&format!(
+            "openhuman_core_version: {}",
+            OPENHUMAN_CORE_VERSION
+        )));
+        assert!(rewritten_str.contains(&format!(
+            "memory_artifact_format: {}",
+            MEMORY_ARTIFACT_FORMAT
+        )));
         // Body must be unchanged
         assert!(rewritten_str.ends_with("summary body text"));
+    }
+
+    #[test]
+    fn rewrite_summary_tags_backfills_missing_provenance() {
+        let file =
+            b"---\nid: legacy\nkind: summary\ntags: []\naliases:\n  - legacy\n---\nlegacy body";
+        let rewritten = rewrite_summary_tags(file, &["person/Alice".to_string()]).unwrap();
+        let rewritten_str = std::str::from_utf8(&rewritten).unwrap();
+        assert!(rewritten_str.contains(&format!(
+            "openhuman_core_version: {}",
+            OPENHUMAN_CORE_VERSION
+        )));
+        assert!(rewritten_str.contains(&format!(
+            "memory_artifact_format: {}",
+            MEMORY_ARTIFACT_FORMAT
+        )));
+        assert!(rewritten_str.ends_with("legacy body"));
     }
 }

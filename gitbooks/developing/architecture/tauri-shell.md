@@ -5,19 +5,19 @@ icon: desktop
 
 # Tauri shell (`app/src-tauri/`)
 
-The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the `openhuman` Rust sidecar (core JSON-RPC). It does **not** duplicate the full domain stack, that lives in the repo-root Rust crate (`openhuman_core`, `src/bin/openhuman.rs`).
+The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the `openhuman-core` Rust sidecar (core JSON-RPC). It does **not** duplicate the full domain stack; that lives in the repo-root Rust crate (`openhuman_core`, `src/main.rs`).
 
 ## Responsibilities
 
 1. **Web UI**. Load the Vite build from `app/dist` (or dev server on port 1420).
 2. **IPC**. Expose a small, explicit set of Tauri commands (see [Commands](#commands)).
-3. **Core lifecycle**. Ensure the `openhuman` binary is running (child process and/or service) and proxy JSON-RPC via `core_rpc_relay`.
+3. **Core lifecycle**. Ensure the `openhuman-core` binary is running (child process and/or service) and proxy JSON-RPC via `core_rpc_relay`.
 4. **AI prompts on disk**. Resolve bundled `src/openhuman/agent/prompts` from resources / dev cwd for `ai_get_config` / `write_ai_config_file`.
 5. **Window + tray**. Desktop window behavior and system tray (see `lib.rs`).
 
 ## Building the sidecar
 
-`app/package.json` `core:stage` runs `scripts/stage-core-sidecar.mjs`, which `cargo build --bin openhuman` at the repo root and copies the binary into `app/src-tauri/binaries/` for Tauri `externalBin`.
+`app/package.json` `core:stage` runs `scripts/stage-core-sidecar.mjs`, which runs `cargo build --bin openhuman-core` at the repo root and copies the binary into `app/src-tauri/binaries/` for Tauri `externalBin`.
 
 ## Stuck process recovery
 
@@ -32,7 +32,7 @@ Startup recovery skips when `OPENHUMAN_CORE_REUSE_EXISTING=1` is set (so manual 
 
 ### Overview
 
-The **`app/src-tauri`** crate (Rust package **`OpenHuman`**, binary **`OpenHuman`**) is a **desktop-only** host. It embeds the React UI, registers plugins (deep link, opener, OS, notifications, autostart, updater), manages the main window and tray, and **relays JSON-RPC** to the separately built **`openhuman`** core binary.
+The **`app/src-tauri`** crate (Rust package **`OpenHuman`**, binary **`OpenHuman`**) is a **desktop-only** host. It embeds the React UI, registers plugins (deep link, opener, OS, notifications, autostart, updater), manages the main window and tray, and **relays JSON-RPC** to the separately built **`openhuman-core`** binary.
 
 Non-desktop targets fail at compile time (`compile_error!` in `lib.rs`).
 
@@ -107,7 +107,7 @@ All commands are registered in **`app/src-tauri/src/lib.rs`** inside `tauri::gen
 
 | Command          | Purpose                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| `core_rpc_relay` | Body: `{ method, params?, serviceManaged? }` → forwards to local **`openhuman`** HTTP JSON-RPC (`core_rpc.rs`) |
+| `core_rpc_relay` | Body: `{ method, params?, serviceManaged? }` → forwards to local **`openhuman-core`** HTTP JSON-RPC (`core_rpc.rs`) |
 
 Use **`app/src/services/coreRpcClient.ts`** (`callCoreRpc`) from the frontend.
 
@@ -175,11 +175,11 @@ _See `app/src-tauri/src/lib.rs` for the authoritative list._
 
 ## Core bridge & helpers (`app/src-tauri`)
 
-This document replaces the old “SessionService / SocketService” split. The Tauri crate **does not** embed a duplicate Socket.io server or Telegram client; instead it focuses on **process management** and **HTTP JSON-RPC** to the **`openhuman`** binary.
+This document replaces the old “SessionService / SocketService” split. The Tauri crate **does not** embed a duplicate Socket.io server or Telegram client; instead it focuses on **process management** and **HTTP JSON-RPC** to the **`openhuman-core`** binary.
 
 ### `CoreProcessHandle` (`core_process.rs`)
 
-- Resolves the **`openhuman`** executable (staged under `binaries/` or `PATH` / dev layout).
+- Resolves the **`openhuman-core`** executable (staged under `binaries/` or `PATH` / dev layout).
 - Starts or attaches to the core process and exposes its RPC URL (`OPENHUMAN_CORE_RPC_URL`).
 - Used during app setup in `lib.rs` (`app.manage(core_handle)`).
 
@@ -207,5 +207,3 @@ This document replaces the old “SessionService / SocketService” split. The T
 Not in `src-tauri`, but **pairs** with the shell: the React app listens for Tauri events that mirror socket activity when using the Rust-side client. See `app/src/utils/tauriSocket.ts` and the [Frontend Services](frontend.md#services-layer) chapter.
 
 ---
-
-

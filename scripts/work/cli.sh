@@ -21,8 +21,12 @@ Args:
 Flags:
   --agent <tool>                 Agent CLI to drive (default: claude). The
                                  prompt is passed as a single positional
-                                 argument: \`<tool> "<prompt>"\` — works with
-                                 the `claude` CLI and `codex exec` style tools.
+                                 argument for most tools. `--agent codex`
+                                 uses `codex exec
+                                 --dangerously-bypass-approvals-and-sandbox`
+                                 automatically. `--agent cursor` and
+                                 `--agent cursor-agent` use
+                                 `cursor-agent --yolo`.
   --no-checkout                  Don't sync main / create the branch — just
                                  print the prompt and run the agent against
                                  the current branch.

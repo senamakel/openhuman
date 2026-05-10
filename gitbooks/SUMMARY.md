@@ -37,6 +37,7 @@
 
 * [Overview](developing/README.md)
 * [Getting Set Up](developing/getting-set-up.md)
+* [Building the Rust Core](developing/building-rust-core.md)
 * [Testing Strategy](developing/testing-strategy.md)
 * [E2E Testing](developing/e2e-testing.md)
 * [Release Policy](developing/release-policy.md)

@@ -156,12 +156,22 @@ impl ReflectionHook {
         match self.config.reflection_source {
             ReflectionSource::Local => {
                 // Gate: local reflection requires the per-feature flag.
-                // When off, no-op silently rather than erroring the turn.
-                // TODO: wire a cloud fallback here when use_local_for_learning is false.
+                // When off, fall back to a cloud provider if one is configured;
+                // otherwise no-op silently rather than erroring the turn.
                 if !self.full_config.local_ai.use_local_for_learning() {
+                    if let Some(provider) = self.provider.as_ref() {
+                        tracing::info!(
+                            "[learning::reflection] local_ai.usage.learning_reflection not enabled — \
+                             falling back to cloud provider"
+                        );
+                        return provider
+                            .simple_chat(prompt, "hint:reasoning", 0.3)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("cloud reflection fallback failed: {e}"));
+                    }
                     tracing::info!(
-                        "[learning::reflection] local_ai.usage.learning_reflection not enabled — \
-                         skipping local reflection (no cloud fallback configured for this subsystem)"
+                        "[learning::reflection] local_ai.usage.learning_reflection not enabled \
+                         and no cloud provider configured — skipping reflection"
                     );
                     return Ok(String::new());
                 }

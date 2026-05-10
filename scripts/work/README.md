@@ -11,7 +11,8 @@ Mirrors the structure of [`scripts/review`](../review) and reuses its
 ```sh
 pnpm work 1234                            # default agent: claude
 pnpm work 1234 "focus on the retry path"  # extra prompt appended verbatim
-pnpm work 1234 --agent codex              # any CLI that takes -p "<prompt>"
+pnpm work 1234 --agent codex              # runs `codex exec` in yolo mode
+pnpm work 1234 --agent cursor             # runs `cursor-agent --yolo`
 pnpm work 1234 --no-checkout              # skip git sync; use current branch
 ```
 
@@ -29,7 +30,10 @@ and `pnpm work start 1234 …` are equivalent.
    is merged in.
 4. Hands off to the agent CLI with a prompt containing the issue body,
    repo conventions pointers (CLAUDE.md / AGENTS.md), and any trailing
-   `extra-prompt`.
+   `extra-prompt`. For `--agent codex`, the handoff uses
+   `codex exec --dangerously-bypass-approvals-and-sandbox`. For
+   `--agent cursor` or `--agent cursor-agent`, it uses
+   `cursor-agent --yolo`.
 
 ## Config
 

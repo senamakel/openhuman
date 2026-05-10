@@ -65,7 +65,7 @@ For contributors: Read the [Architecture](https://tinyhumans.gitbook.io/openhuma
 OpenHuman is the first agent harness that gets to know you in minutes. Inspired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
 
 <p align="center">
- <img src="./gitbooks/.gitbook/assets/image.png" />
+ <img src="./gitbooks/.gitbook/assets/image (1).png" />
 </p>
 
 > OpenHuman summarizes and compresses all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.

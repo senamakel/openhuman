@@ -1,12 +1,15 @@
 # Contributing to OpenHuman
 
-Thank you for your interest in contributing. This document explains how to get set up, follow our workflow, and submit changes.
+Thank you for your interest in contributing to OpenHuman. This guide is the fast path for getting a fresh checkout running locally, validating changes, and opening a pull request without having to piece together setup notes from multiple files.
+
+For deeper architecture and subsystem references, use the GitBook under [`gitbooks/developing/`](gitbooks/developing/). For coding-agent and repository-specific implementation rules, see [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
+- [Project Layout](#project-layout)
 - [Git Workflow](#git-workflow)
 - [Making Changes](#making-changes)
 - [Submitting Changes](#submitting-changes)
@@ -18,107 +21,223 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 ## Getting Started
 
-- Read the [README](README.md) and [ARCHITECTURE](ARCHITECTURE.md) for context.
-- Check [open issues](https://github.com/tinyhumansai/openhuman/issues) and discussions for ideas and to avoid duplicate work.
-- For security issues, see [SECURITY.md](SECURITY.md) — do not report vulnerabilities in public issues.
+- Read the [README](README.md) for product context.
+- Use [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md) for the current system architecture.
+- Check [open issues](https://github.com/tinyhumansai/openhuman/issues) and discussions before starting work.
+- For security issues, follow [SECURITY.md](SECURITY.md) and do not file public issues.
 
 ## Development Setup
 
-### Prerequisites
+### 1. Prerequisites
 
-- [Node.js](https://nodejs.org/) (LTS) and [pnpm](https://pnpmpkg.com/)
-- [Rust](https://rustup.rs/) (for Tauri and the Rust backend)
-- Platform-specific tools for the desktop targets you care about
+| Requirement | Version / source of truth | Notes |
+| --- | --- | --- |
+| Git | Current stable | Required for cloning and updating vendored submodules. |
+| Node.js | `>=24.0.0` from [`app/package.json`](app/package.json) | Install the current Node 24 release or newer. |
+| pnpm | `pnpm@10.10.0` from [`package.json`](package.json) | The repo enforces pnpm via the root `packageManager` field. |
+| Rust | `1.93.0` from [`rust-toolchain.toml`](rust-toolchain.toml) | Install with `rustup`; `rustfmt` and `clippy` are required components. |
+| Tauri vendored sources | Git submodules under `app/src-tauri/vendor/` | Required for the CEF-aware Tauri CLI and notification plugin patches. |
+| macOS tools | Xcode Command Line Tools | Needed for local desktop builds on macOS. |
+| Linux desktop packages | System GTK/WebKit/AppIndicator build deps | Install the package set Tauri requires for your distro before attempting desktop builds. |
 
-### Clone and Install
+#### Platform notes
+
+- **Web-only development** needs Node, pnpm, and the Rust toolchain present in the repo. You can usually ignore desktop-only system packages.
+- **Desktop development** needs the vendored Tauri/CEF setup. The preferred entrypoint is `pnpm --filter openhuman-app dev:app`, which ensures the vendored Tauri CLI is installed and configures `CEF_PATH`.
+- **Linux desktop builds** require extra system packages beyond Node/Rust. Follow the distro-specific Tauri dependency list before running desktop commands, then use the OpenHuman scripts below. For deeper platform troubleshooting, see [`gitbooks/developing/getting-set-up.md`](gitbooks/developing/getting-set-up.md).
+- **Skills development** happens in the separate [`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills) repository. This repo consumes built skill bundles from GitHub or a local override path; it does not vendor the skills source as a submodule.
+
+### 2. Clone and install
+
+Fork the upstream repository on GitHub first if you plan to submit changes, then clone your fork:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/openhuman.git
+git clone git@github.com:YOUR_USERNAME/openhuman.git
 cd openhuman
-git submodule update --init --recursive   # pulls openhuman-skills
+git remote add upstream git@github.com:tinyhumansai/openhuman.git
+git submodule update --init --recursive
 pnpm install
 ```
 
-Use your own fork in place of `YOUR_USERNAME` when cloning.
+Why submodules matter here:
 
-The `openhuman-skills` submodule contains the built skill bundles used by the runtime. After cloning you must initialise it (the command above does this). If you forget, the runtime will fall back to fetching skills from the remote registry, which is slower and requires network access.
+- `app/src-tauri/vendor/tauri-cef`
+- `app/src-tauri/vendor/tauri-plugin-notification`
 
-### Updating Skills
+Those vendored trees are part of the current desktop toolchain. If they are missing, desktop builds and Tauri CLI setup will fail.
 
-When the `openhuman-skills` submodule is updated upstream, run:
+### 3. Configure for development
+
+OpenHuman uses two environment templates:
+
+- Root [`.env.example`](.env.example): Rust core, Tauri shell, shared runtime settings.
+- [`app/.env.example`](app/.env.example): frontend `VITE_*` variables for the web app.
+
+Copy them to local-only files before editing:
 
 ```bash
-git submodule update --remote openhuman-skills
-cd openhuman-skills && pnpm install && pnpm build
-cd ..
-git add openhuman-skills
-git commit -m "chore: update openhuman-skills submodule"
+cp .env.example .env
+cp app/.env.example app/.env.local
 ```
 
-### Run the App
+Minimal configuration guidance:
 
-- **Web only**: `pnpm dev` (Vite dev server, typically port 1420)
-- **Desktop (Tauri)**: `pnpm tauri dev` or `pnpm dev:app` for enhanced debugging
+- **Web UI / frontend work**: the defaults in `app/.env.local` are usually enough for local startup. Set `VITE_BACKEND_URL` only if you need a non-production backend in web mode.
+- **Desktop work**: leave `OPENHUMAN_CORE_TOKEN` blank for local child-mode development unless you are intentionally wiring an external core. The shell manages the embedded core token flow.
+- **Core RPC / standalone core work**: `OPENHUMAN_CORE_PORT=7788` and `OPENHUMAN_CORE_RPC_URL=http://127.0.0.1:7788/rpc` are already documented in the root template and are the normal local defaults.
+- **Skills development**: use `SKILLS_REGISTRY_URL` or `SKILLS_LOCAL_DIR` from the root template when pointing the app at a local built skills checkout.
 
-See the main [README](README.md) and project docs for more commands (e.g., `pnpm skills:build`, `pnpm skills:watch`).
+Never commit `.env`, `app/.env.local`, tokens, or other secrets.
 
-### Environment
+### 4. Bootstrap commands
 
-Copy or create a `.env` from the documented template and set `VITE_BACKEND_URL`, `VITE_TELEGRAM_*`, and other `VITE_*` variables as needed. Do not commit secrets.
+These commands cover the most common local workflows from the repository root:
+
+```bash
+# Install workspace dependencies
+pnpm install
+
+# Web-only development (Vite dev server)
+pnpm dev
+
+# Preferred desktop development path (sets up vendored Tauri CLI + CEF env)
+pnpm --filter openhuman-app dev:app
+
+# Lower-level Tauri command entrypoint
+pnpm tauri dev
+
+# Standalone Rust core
+cargo run --manifest-path Cargo.toml --bin openhuman-core
+```
+
+Which mode to choose:
+
+- `pnpm dev`: frontend-only iteration in the browser.
+- `pnpm --filter openhuman-app dev:app`: full desktop app flow with Tauri + CEF.
+- `cargo run --bin openhuman-core`: core/RPC work when you want the Rust server without the desktop shell.
+
+### 5. Verify your setup
+
+If setup is correct, these commands should all succeed:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm format:check
+cargo check --manifest-path Cargo.toml
+cargo check --manifest-path app/src-tauri/Cargo.toml
+```
+
+If you only changed docs in a normal local workflow, `pnpm format:check` is usually the only validation you need. AI-authored or remote-agent PRs must still follow [`docs/agent-workflows/codex-pr-checklist.md`](docs/agent-workflows/codex-pr-checklist.md) and report any blocked commands with the exact command and error.
+
+### 6. Run tests and checks
+
+| Goal | Command | Notes |
+| --- | --- | --- |
+| Frontend typecheck | `pnpm typecheck` | Runs the app workspace TypeScript compile check. |
+| Frontend lint | `pnpm lint` | ESLint over `app/`. |
+| Formatting | `pnpm format:check` | Runs Prettier plus Rust format checks. |
+| Frontend unit tests | `pnpm test` or `pnpm test:coverage` | Vitest in `app/`. |
+| Rust tests | `pnpm test:rust` | Uses the shared mock backend wrapper. |
+| Desktop E2E | `pnpm test:e2e` | Builds the app and runs the desktop flow suites. |
+| One-off Vitest debug runs | `pnpm debug unit ...` | Preferred for bounded logs during iteration. |
+| One-off Rust debug runs | `pnpm debug rust ...` | Preferred wrapper around focused Rust tests. |
+
+Merge-gate context:
+
+- PRs must meet the checks enforced by CI and keep changed-line coverage at or above 80%.
+- For code changes, run the smallest relevant local checks before you push.
+- For AI-authored or remote-agent PRs, also follow [`docs/agent-workflows/codex-pr-checklist.md`](docs/agent-workflows/codex-pr-checklist.md).
+
+### 7. Local data and user-facing state
+
+Useful local paths during development:
+
+- `~/.openhuman/`: default workspace for the Rust core and local app data.
+- `~/.openhuman-staging/`: staging workspace when `OPENHUMAN_APP_ENV=staging`.
+- `app/.env.local`: browser-facing `VITE_*` overrides.
+- `.env`: Rust core, Tauri shell, and shared runtime overrides.
+
+Most contributor-visible configuration and state flows are documented in:
+
+- [`gitbooks/developing/getting-set-up.md`](gitbooks/developing/getting-set-up.md)
+- [`gitbooks/developing/frontend.md`](gitbooks/developing/frontend.md)
+- [`gitbooks/developing/tauri-shell.md`](gitbooks/developing/tauri-shell.md)
+
+## Project Layout
+
+```text
+openhuman/
+├── app/                    # React app, Tauri shell, Vitest tests
+│   ├── src/
+│   ├── src-tauri/
+│   └── test/
+├── src/                    # Rust core crate and openhuman-core binary
+├── docs/                   # Internal and workflow docs
+├── gitbooks/developing/    # Contributor-facing architecture and setup guides
+├── scripts/                # Dev, test, debug, and automation scripts
+├── AGENTS.md               # Coding-agent repo rules
+└── CLAUDE.md               # Additional contributor and workflow guidance
+```
+
+Short version:
+
+- `app/` is the UI and desktop shell.
+- Root `src/` is the Rust core and JSON-RPC surface.
+- `gitbooks/developing/` is the canonical place for deeper subsystem docs.
 
 ## Git Workflow
 
-- **Fork** the [openhuman](https://github.com/tinyhumansai/openhuman) repository and work in your fork.
-- **Base branch**: All pull requests must target the **`develop`** branch (not `main`).
-- **No direct pushes** to the organization repo; all changes come in via pull requests from forks.
+- Fork [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) and push branches to your fork.
+- Pull requests target the upstream `main` branch.
+- Do not push directly to upstream unless you are explicitly authorized to do so.
 
-### Branch Naming
+### Branch naming
 
-Use short, descriptive branches, e.g.:
+Use a short descriptive branch name, for example:
 
-- `fix/telegram-reconnect`
-- `feat/settings-dark-mode`
-- `docs/contributing-update`
+- `fix/socket-reconnect`
+- `feat/settings-shortcuts`
+- `docs/contributing-setup`
+
+### Starting a branch
+
+```bash
+git fetch upstream
+git checkout main
+git pull --ff-only upstream main
+git checkout -b docs/your-change
+```
 
 ## Making Changes
 
-1. Create a branch from `develop`:
-   `git checkout develop && git pull origin develop && git checkout -b fix/your-change`
-2. Make your changes. Keep commits focused and messages clear (e.g., “Fix socket reconnect on network drop”).
-3. Follow our [project conventions](#project-conventions) and run checks before pushing.
+1. Start from `main` and create a focused branch.
+2. Keep the diff small and scoped to the issue you are solving.
+3. Run the smallest relevant checks locally before pushing.
+4. Update docs with code whenever behavior, commands, or contributor workflow changes.
 
-### Running Checks
+### Workflow sanity checklist
 
-- **TypeScript**: `pnpm compile` (or `tsc --noEmit`)
-- **Lint**: `pnpm lint` (ESLint); fix auto-fixable issues with `pnpm lint:fix`
-- **Format**: `pnpm format:check`; format with `pnpm format` (Prettier)
-- **Tests**: `pnpm test` (unit), `pnpm test:rust` (Rust), `pnpm test:e2e` (E2E when applicable)
-
-Pre-commit/pre-push hooks (Husky) run formatting and linting; fix any failures before submitting.
+- Verify the command you are documenting exists in the current repo.
+- Prefer source-of-truth files such as `package.json`, `app/package.json`, `Cargo.toml`, `rust-toolchain.toml`, and the env templates over older prose docs.
+- Link to GitBook chapters for deeper architecture instead of duplicating large internal explanations.
 
 ## Submitting Changes
 
-1. Push your branch to your fork:
-   `git push origin fix/your-change`
-2. Open a **pull request** against **`develop`** in the [openhuman](https://github.com/tinyhumansai/openhuman) repository.
-3. Fill in the PR template (if present): describe what changed, why, and how to test.
-4. Link any related issues (e.g., “Fixes #123”).
-5. Address review feedback and keep the PR up to date with `develop` (rebase or merge as the project prefers).
+1. Push your branch to your fork.
+2. Open a pull request against `tinyhumansai/openhuman:main`.
+3. Fill in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) completely.
+4. Link the issue using a closing keyword such as `Closes #1441`.
+5. Call out any blocked validation commands with the exact command and error.
 
-Maintainers will review and may request changes. Once approved, your PR will be merged into `develop`.
+If you are contributing through a coding agent or remote environment, include the metadata required by the PR template and the Codex PR checklist.
 
 ## Project Conventions
 
-- **State**: Use Redux (and Redux Persist where needed). Avoid `localStorage`/`sessionStorage` for app or feature state; remove existing usage when touching related code.
-- **Imports**: Use static `import`/`import type` at the top of the file. No dynamic `import()` for app code; use try/catch around Tauri API calls in non-Tauri environments instead.
-- **Code style**: ESLint and Prettier are authoritative. Use type-only imports where appropriate and consolidate imports from the same module.
-- **Telegram IDs**: Use the `big-integer` library; do not rely on native JavaScript numbers for Telegram IDs.
-- **Tauri**: Commands are in Rust under `app/src-tauri`; frontend uses `invoke()` from `@tauri-apps/api/core`. Use the `isTauri()` helper (from `@tauri-apps/api/core`) or wrap `invoke()` calls in try/catch to handle non-Tauri environments safely—avoid checking `window.__TAURI__` directly at module load time. Install JS deps from the repo root (`pnpm install`) so the `app` workspace is linked; most scripts are also available as `pnpm <script>` from the root.
-- **Socket events**: Behavior exists in both the TypeScript frontend and the Rust backend. Any new socket event or protocol change must be implemented in both places.
-- **Skills**: Follow the V8 runtime and skill manifest rules; respect platform compatibility and the documented bridge/API surface.
-
-For more detail on architecture, patterns, and platform notes, see the project’s internal documentation (e.g., `CLAUDE.md` or equivalent contributor docs).
-
----
+- Use Redux and existing app state patterns instead of adding new ad hoc browser storage.
+- Treat Rust core logic as the source of truth; avoid re-implementing business rules in the Tauri shell.
+- Use the controller registry and domain module structure described in [`AGENTS.md`](AGENTS.md) for new Rust functionality.
+- Keep logs grep-friendly and avoid logging secrets, tokens, or full PII.
+- Follow ESLint, Prettier, and Rust formatting output as authoritative.
 
 Thank you for contributing to OpenHuman.

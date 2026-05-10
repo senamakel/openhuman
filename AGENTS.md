@@ -11,9 +11,9 @@ This file orients contributors and coding agents. Authoritative narrative archit
 | Path                    | Role                                                                                                                                                                                                        |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`app/`**              | Yarn workspace **`openhuman-app`**: Vite + React (`app/src/`), Tauri desktop host (`app/src-tauri/`), Vitest tests                                                                                          |
-| **Repo root `src/`**    | Rust library **`openhuman_core`** and **`openhuman`** CLI binary entrypoint (`src/main.rs`) — `core_server`, `openhuman::*` domains, skills runtime (QuickJS / `rquickjs`), MCP routing in the core process |
+| **Repo root `src/`**    | Rust library **`openhuman_core`** and **`openhuman-core`** CLI binary entrypoint (`src/main.rs`) — `core_server`, `openhuman::*` domains, skills runtime (QuickJS / `rquickjs`), MCP routing in the core process |
 | **Skills registry**     | **[`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills)** on GitHub — canonical skill packages and TS build; not vendored in this tree (see blurb below).                     |
-| **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman` produces the sidecar the UI stages via `app`’s `core:stage`                                                                                                       |
+| **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman-core` produces the sidecar the UI stages via `app`’s `core:stage`                                                                                                  |
 | **`docs/`**             | Architecture and deep-internal references                                                                                                                                                                    |
 | **`gitbooks/developing/`** | Public contributor docs — frontend, Tauri shell, testing, release, skills                                                                                                                                |
 
@@ -27,7 +27,7 @@ Commands in documentation assume the **repo root** unless noted: `pnpm dev` runs
 
 - **Shipped product**: desktop — Windows, macOS, Linux (see [`gitbooks/developing/architecture.md`](gitbooks/developing/architecture.md) “Platform reach”).
 - **Tauri host** (`app/src-tauri`): **desktop-only** (`compile_error!` for non-desktop targets). Do not add Android/iOS branches inside `app/src-tauri`.
-- **Core binary** (`openhuman`): spawned/staged as a **sidecar**; the Web UI talks to it over HTTP (`core_rpc_relay` + `core_rpc` client), not by re-implementing domain logic in the shell.
+- **Core binary** (`openhuman-core`): spawned/staged as a **sidecar**; the Web UI talks to it over HTTP (`core_rpc_relay` + `core_rpc` client), not by re-implementing domain logic in the shell.
 
 **Where logic lives**
 
@@ -64,7 +64,7 @@ pnpm workspace openhuman-app skills:watch
 
 # Rust — core library + CLI (repo root)
 cargo check --manifest-path Cargo.toml
-cargo build --manifest-path Cargo.toml --bin openhuman
+cargo build --manifest-path Cargo.toml --bin openhuman-core
 
 # Rust — Tauri shell only
 cargo check --manifest-path app/src-tauri/Cargo.toml
@@ -290,7 +290,7 @@ Bundled prompts live under **`src/openhuman/agent/prompts/`** at the **repositor
 
 ## Tauri shell (`app/src-tauri/`)
 
-Thin desktop host: window management, daemon health bridging, **core process lifecycle** (`core_process`, `CoreProcessHandle`), and **JSON-RPC relay** to the **`openhuman`** sidecar (`core_rpc_relay`, `core_rpc`).
+Thin desktop host: window management, daemon health bridging, **core process lifecycle** (`core_process`, `CoreProcessHandle`), and **JSON-RPC relay** to the **`openhuman-core`** sidecar (`core_rpc_relay`, `core_rpc`).
 
 Registered IPC commands (see [`gitbooks/developing/tauri-shell.md`](gitbooks/developing/tauri-shell.md)) include **`greet`**, **`write_ai_config_file`**, **`ai_get_config`**, **`ai_refresh_config`**, **`core_rpc_relay`**, **window** commands, and **OpenHuman service / daemon host** helpers (`openhuman_*`).
 
@@ -524,7 +524,7 @@ Follow this order so behavior is **specified**, **proven in Rust**, **proven ove
 
 - **macOS deep links**: Often require a built **`.app`** bundle; not only `tauri dev`. See [`docs/telegram-login-desktop.md`](docs/telegram-login-desktop.md) if applicable.
 - **`window.__TAURI__`**: Not assumed at module load; guard Tauri usage accordingly.
-- **Core sidecar**: Must be staged/built so `core_rpc` can reach the `openhuman` binary (see `scripts/stage-core-sidecar.mjs`).
+- **Core sidecar**: Must be staged/built so `core_rpc` can reach the `openhuman-core` binary (see `scripts/stage-core-sidecar.mjs`).
 
 ---
 

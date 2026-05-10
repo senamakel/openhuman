@@ -214,6 +214,50 @@ Then run `openhuman-core serve` under your service manager of choice
 (systemd, supervisord, …) with the same environment variables documented
 above.
 
+### Headless self-update contract
+
+Headless deployments should treat `openhuman.update_apply` as the safe primitive:
+it downloads the release asset, writes it atomically next to the current binary,
+and returns. Nothing exits automatically.
+
+`openhuman.update_run` follows `config.update.restart_strategy`:
+
+- `self_replace` (default): stage the binary, publish an in-process restart request, and let the running core respawn itself.
+- `supervisor`: stage the binary and return `restart_requested=false`. Your outer service manager must restart the process.
+
+For long-running Linux services, set:
+
+```toml
+[update]
+restart_strategy = "supervisor"
+rpc_mutations_enabled = false
+```
+
+or the equivalent env vars:
+
+```bash
+OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY=supervisor
+OPENHUMAN_AUTO_UPDATE_RPC_MUTATIONS_ENABLED=false
+```
+
+Recommended `systemd` stance:
+
+```ini
+Restart=always
+ExecReload=/bin/kill -HUP $MAINPID
+```
+
+Operator flow:
+
+1. Call `openhuman.update_check` to discover a release.
+2. Call `openhuman.update_apply` or `openhuman.update_run` with `restart_strategy=supervisor`.
+3. Restart the unit explicitly: `systemctl restart openhuman`.
+
+If download or staging fails, the running binary is left in place and no
+restart is requested. If a staged binary proves bad after restart, roll back by
+restoring the previous binary from your package manager, image tag, or release
+artifact and restarting the supervisor again.
+
 The Compose file ([`docker-compose.yml`](../../docker-compose.yml)) maps the core
 on `:7788`, mounts a named volume `openhuman-workspace` for persistence, and
 sets `restart: unless-stopped` so the core comes back after host reboots.
@@ -225,6 +269,10 @@ git pull
 docker compose build
 docker compose up -d
 ```
+
+For RPC-exposed production deployments, prefer leaving mutating update RPCs
+disabled (`OPENHUMAN_AUTO_UPDATE_RPC_MUTATIONS_ENABLED=false`) and perform
+rollouts through your existing image tag or package-management flow instead.
 
 ### Logs
 

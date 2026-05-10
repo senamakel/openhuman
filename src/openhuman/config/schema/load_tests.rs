@@ -811,6 +811,35 @@ fn env_overlay_auto_update_interval_parses_u32() {
 }
 
 #[test]
+fn env_overlay_auto_update_restart_strategy_accepts_supported_values() {
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY", "supervisor"),
+    );
+    assert_eq!(
+        cfg.update.restart_strategy,
+        crate::openhuman::config::UpdateRestartStrategy::Supervisor
+    );
+
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY", "self_replace"),
+    );
+    assert_eq!(
+        cfg.update.restart_strategy,
+        crate::openhuman::config::UpdateRestartStrategy::SelfReplace
+    );
+}
+
+#[test]
+fn env_overlay_auto_update_rpc_mutations_enabled_parses_bool() {
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_AUTO_UPDATE_RPC_MUTATIONS_ENABLED", "false"),
+    );
+    assert!(!cfg.update.rpc_mutations_enabled);
+}
+
+#[test]
 fn env_overlay_empty_lookup_leaves_defaults_intact() {
     // The seam with no env entries should be a no-op on a fresh Config.
     let mut cfg = Config::default();

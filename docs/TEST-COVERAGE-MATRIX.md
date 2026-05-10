@@ -48,7 +48,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 
 | ID    | Feature                       | Layer | Test path(s)                                       | Status | Notes                                 |
 | ----- | ----------------------------- | ----- | -------------------------------------------------- | ------ | ------------------------------------- |
-| 0.3.1 | Auto Update Check             | RU+MS | `src/openhuman/update/` (Rust unit), release smoke | 🟡     | Core check covered; UI prompt manual  |
+| 0.3.1 | Auto Update Check             | RU+RI+MS | `src/openhuman/update/` (Rust unit), `tests/json_rpc_e2e.rs`, release smoke | 🟡     | Core check/update policy covered; desktop prompt + release upgrade still manual |
 | 0.3.2 | Forced Update Handling        | MS    | release-manual-smoke                               | 🚫     | End-to-end gating verified at release |
 | 0.3.3 | Reinstall with Existing State | MS    | release-manual-smoke                               | 🚫     | Workspace persistence on reinstall    |
 | 0.3.4 | Clean Uninstall               | MS    | release-manual-smoke                               | 🚫     | OS removal paths                      |

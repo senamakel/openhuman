@@ -4,6 +4,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
+use crate::openhuman::config::UpdateRestartStrategy;
 use crate::openhuman::update::types::{GitHubAsset, GitHubRelease, UpdateApplyResult, UpdateInfo};
 
 /// GitHub owner/repo for the core binary releases.
@@ -283,6 +284,7 @@ pub async fn download_and_stage_with_version(
         installed_version,
         staged_path: staged_path.to_string_lossy().to_string(),
         restart_required: true,
+        restart_strategy: UpdateRestartStrategy::SelfReplace,
     })
 }
 

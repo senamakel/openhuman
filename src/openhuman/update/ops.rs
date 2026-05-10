@@ -4,9 +4,154 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
+use crate::openhuman::config::{self, UpdateConfig, UpdateRestartStrategy};
 use crate::openhuman::update;
-use crate::openhuman::update::types::{UpdateRunResult, VersionInfo};
+use crate::openhuman::update::types::{
+    UpdateApplyResult, UpdateInfo, UpdateRunResult, VersionInfo,
+};
 use crate::rpc::RpcOutcome;
+
+async fn load_update_policy() -> UpdateConfig {
+    match config::rpc::load_config_with_timeout().await {
+        Ok(cfg) => cfg.update,
+        Err(err) => {
+            log::warn!(
+                "[update:rpc] failed to load config for update policy, falling back to defaults: {}",
+                err
+            );
+            UpdateConfig::default()
+        }
+    }
+}
+
+async fn enforce_update_mutation_policy(method: &str) -> Result<UpdateConfig, String> {
+    let policy = load_update_policy().await;
+    if policy.rpc_mutations_enabled {
+        return Ok(policy);
+    }
+
+    let message = format!(
+        "{method} is disabled by config.update.rpc_mutations_enabled=false; \
+         use update.check for discovery and restart under a supervisor after staging manually"
+    );
+    log::warn!("[update:rpc] {}", message);
+    Err(message)
+}
+
+fn already_current_result(
+    info: &UpdateInfo,
+    restart_strategy: UpdateRestartStrategy,
+) -> UpdateRunResult {
+    UpdateRunResult {
+        current_version: info.current_version.clone(),
+        latest_version: info.latest_version.clone(),
+        update_available: false,
+        applied: false,
+        staged_path: None,
+        restart_requested: false,
+        restart_strategy,
+        message: format!("already on latest ({})", info.current_version),
+    }
+}
+
+fn missing_asset_result(
+    info: UpdateInfo,
+    restart_strategy: UpdateRestartStrategy,
+) -> UpdateRunResult {
+    UpdateRunResult {
+        current_version: info.current_version,
+        latest_version: info.latest_version,
+        update_available: true,
+        applied: false,
+        staged_path: None,
+        restart_requested: false,
+        restart_strategy,
+        message: format!(
+            "latest release has no asset for target {}",
+            update::platform_triple()
+        ),
+    }
+}
+
+fn apply_failure_result(
+    info: UpdateInfo,
+    restart_strategy: UpdateRestartStrategy,
+    error: &str,
+) -> UpdateRunResult {
+    UpdateRunResult {
+        current_version: info.current_version,
+        latest_version: info.latest_version,
+        update_available: true,
+        applied: false,
+        staged_path: None,
+        restart_requested: false,
+        restart_strategy,
+        message: format!("download/stage failed: {error}"),
+    }
+}
+
+async fn build_run_result_from_staged_update(
+    info: UpdateInfo,
+    mut applied: UpdateApplyResult,
+    restart_strategy: UpdateRestartStrategy,
+) -> UpdateRunResult {
+    applied.restart_strategy = restart_strategy;
+
+    match restart_strategy {
+        UpdateRestartStrategy::SelfReplace => {
+            let restart_requested = match crate::openhuman::service::rpc::service_restart(
+                Some("update.run".to_string()),
+                Some(format!("update to {}", info.latest_version)),
+            )
+            .await
+            {
+                Ok(_) => true,
+                Err(e) => {
+                    log::warn!(
+                        "[update:rpc] update_run staged update but restart publish failed: {}",
+                        e
+                    );
+                    false
+                }
+            };
+
+            UpdateRunResult {
+                current_version: info.current_version,
+                latest_version: info.latest_version,
+                update_available: true,
+                applied: true,
+                staged_path: Some(applied.staged_path.clone()),
+                restart_requested,
+                restart_strategy,
+                message: if restart_requested {
+                    format!(
+                        "staged {} — restart requested",
+                        applied.staged_path.as_str()
+                    )
+                } else {
+                    format!(
+                        "staged {} — restart publish failed; caller must restart manually",
+                        applied.staged_path.as_str()
+                    )
+                },
+            }
+        }
+        UpdateRestartStrategy::Supervisor => UpdateRunResult {
+            current_version: info.current_version,
+            latest_version: info.latest_version.clone(),
+            update_available: true,
+            applied: true,
+            staged_path: Some(applied.staged_path.clone()),
+            restart_requested: false,
+            restart_strategy,
+            message: format!(
+                "staged {} — supervisor restart required before {} takes effect",
+                applied.staged_path.as_str(),
+                info.latest_version
+            ),
+        },
+    }
+}
 
 /// Report the running core binary's version + target triple.
 ///
@@ -36,6 +181,20 @@ pub async fn update_version() -> RpcOutcome<Value> {
 /// core process will exit shortly afterwards.
 pub async fn update_run() -> RpcOutcome<Value> {
     log::info!("[update:rpc] update_run invoked");
+    let policy = match enforce_update_mutation_policy("openhuman.update_run").await {
+        Ok(policy) => policy,
+        Err(error) => {
+            return RpcOutcome::single_log(
+                serde_json::json!({
+                    "error": error,
+                    "applied": false,
+                    "restart_requested": false,
+                }),
+                "update_run rejected by policy",
+            );
+        }
+    };
+    let restart_strategy = policy.restart_strategy;
 
     let info = match update::check_available().await {
         Ok(i) => i,
@@ -53,18 +212,10 @@ pub async fn update_run() -> RpcOutcome<Value> {
     };
 
     if !info.update_available {
-        let result = UpdateRunResult {
-            current_version: info.current_version.clone(),
-            latest_version: info.latest_version.clone(),
-            update_available: false,
-            applied: false,
-            staged_path: None,
-            restart_requested: false,
-            message: format!("already on latest ({})", info.current_version),
-        };
+        let result = already_current_result(&info, restart_strategy);
         log::info!(
             "[update:rpc] update_run: already up to date ({})",
-            info.current_version
+            result.current_version
         );
         return RpcOutcome::single_log(
             serde_json::to_value(&result).unwrap_or(Value::Null),
@@ -72,23 +223,14 @@ pub async fn update_run() -> RpcOutcome<Value> {
         );
     }
 
-    let (Some(download_url), Some(asset_name)) = (info.download_url, info.asset_name) else {
+    let (Some(download_url), Some(asset_name)) =
+        (info.download_url.clone(), info.asset_name.clone())
+    else {
         log::warn!(
             "[update:rpc] update_run: latest release has no asset for this platform (target={})",
             update::platform_triple()
         );
-        let result = UpdateRunResult {
-            current_version: info.current_version,
-            latest_version: info.latest_version,
-            update_available: true,
-            applied: false,
-            staged_path: None,
-            restart_requested: false,
-            message: format!(
-                "latest release has no asset for target {}",
-                update::platform_triple()
-            ),
-        };
+        let result = missing_asset_result(info, restart_strategy);
         return RpcOutcome::single_log(
             serde_json::to_value(&result).unwrap_or(Value::Null),
             "update_run: missing platform asset",
@@ -117,15 +259,7 @@ pub async fn update_run() -> RpcOutcome<Value> {
         Ok(r) => r,
         Err(e) => {
             log::error!("[update:rpc] update_run apply failed: {e}");
-            let result = UpdateRunResult {
-                current_version: info.current_version,
-                latest_version: info.latest_version,
-                update_available: true,
-                applied: false,
-                staged_path: None,
-                restart_requested: false,
-                message: format!("download/stage failed: {e}"),
-            };
+            let result = apply_failure_result(info, restart_strategy, &e);
             return RpcOutcome::single_log(
                 serde_json::to_value(&result).unwrap_or(Value::Null),
                 format!("update_run: apply failed: {e}"),
@@ -133,43 +267,11 @@ pub async fn update_run() -> RpcOutcome<Value> {
         }
     };
 
-    // Stage succeeded — request a self-restart so the Tauri shell can
-    // pick up the freshly-staged binary on its next supervised launch.
-    let restart_requested = match crate::openhuman::service::rpc::service_restart(
-        Some("update.run".to_string()),
-        Some(format!("update to {}", info.latest_version)),
-    )
-    .await
-    {
-        Ok(_) => true,
-        Err(e) => {
-            log::warn!("[update:rpc] update_run staged update but restart publish failed: {e}");
-            false
-        }
-    };
-
-    let result = UpdateRunResult {
-        current_version: info.current_version,
-        latest_version: info.latest_version,
-        update_available: true,
-        applied: true,
-        staged_path: Some(applied.staged_path.clone()),
-        restart_requested,
-        message: if restart_requested {
-            format!(
-                "staged {} — restart requested",
-                applied.staged_path.as_str()
-            )
-        } else {
-            format!(
-                "staged {} — restart publish failed; caller must restart manually",
-                applied.staged_path.as_str()
-            )
-        },
-    };
+    let result = build_run_result_from_staged_update(info, applied, restart_strategy).await;
     log::info!(
-        "[update:rpc] update_run completed applied=true restart_requested={}",
-        restart_requested
+        "[update:rpc] update_run completed applied=true restart_requested={} restart_strategy={:?}",
+        result.restart_requested,
+        result.restart_strategy
     );
     RpcOutcome::single_log(
         serde_json::to_value(&result).unwrap_or(Value::Null),
@@ -251,6 +353,15 @@ pub async fn update_apply(
         download_url,
         asset_name,
     );
+    let policy = match enforce_update_mutation_policy("openhuman.update_apply").await {
+        Ok(policy) => policy,
+        Err(error) => {
+            return RpcOutcome::single_log(
+                serde_json::json!({ "error": error }),
+                "update_apply rejected by policy",
+            );
+        }
+    };
 
     // Validate inputs at the RPC boundary.
     if let Err(e) = validate_download_url(&download_url) {
@@ -271,7 +382,8 @@ pub async fn update_apply(
     // Ignore caller-provided staging_dir — always use the safe default.
     let dir: Option<PathBuf> = None;
     match update::download_and_stage(&download_url, &asset_name, dir).await {
-        Ok(result) => {
+        Ok(mut result) => {
+            result.restart_strategy = policy.restart_strategy;
             let value = serde_json::to_value(&result).unwrap_or_else(
                 |e| serde_json::json!({ "error": format!("serialization failed: {e}") }),
             );
@@ -290,6 +402,18 @@ pub async fn update_apply(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::config::TEST_ENV_LOCK;
+    use tempfile::TempDir;
+
+    async fn write_update_policy(tmp: &TempDir, update: UpdateConfig) {
+        let mut cfg = crate::openhuman::config::Config {
+            workspace_dir: tmp.path().join("workspace"),
+            config_path: tmp.path().join("config.toml"),
+            ..crate::openhuman::config::Config::default()
+        };
+        cfg.update = update;
+        cfg.save().await.expect("save config");
+    }
 
     // ── validate_download_url ─────────────────────────────────────
 
@@ -392,6 +516,64 @@ mod tests {
             .logs
             .iter()
             .any(|l| l.contains("update_apply rejected")));
+    }
+
+    #[tokio::test]
+    async fn update_apply_rejects_when_rpc_mutations_disabled() {
+        let _guard = TEST_ENV_LOCK.lock().unwrap();
+        let tmp = TempDir::new().unwrap();
+        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+        write_update_policy(
+            &tmp,
+            UpdateConfig {
+                rpc_mutations_enabled: false,
+                ..UpdateConfig::default()
+            },
+        )
+        .await;
+
+        let outcome = update_apply(
+            "https://github.com/owner/repo/releases/download/v1/x".to_string(),
+            "openhuman-core-x86_64.tar.gz".to_string(),
+            None,
+        )
+        .await;
+
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+        assert!(outcome.value.get("error").is_some());
+        assert!(outcome.value["error"]
+            .as_str()
+            .is_some_and(|value| value.contains("rpc_mutations_enabled=false")));
+    }
+
+    #[tokio::test]
+    async fn supervisor_restart_strategy_stages_without_restart_request() {
+        let info = UpdateInfo {
+            latest_version: "9.9.9".into(),
+            current_version: "1.0.0".into(),
+            update_available: true,
+            download_url: Some(
+                "https://github.com/owner/repo/releases/download/v9/openhuman-core".into(),
+            ),
+            asset_name: Some("openhuman-core-x86_64-unknown-linux-gnu".into()),
+            release_notes: None,
+            published_at: None,
+        };
+        let applied = UpdateApplyResult {
+            installed_version: "9.9.9".into(),
+            staged_path: "/tmp/openhuman-core".into(),
+            restart_required: true,
+            restart_strategy: UpdateRestartStrategy::SelfReplace,
+        };
+
+        let result =
+            build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor)
+                .await;
+
+        assert!(result.applied);
+        assert!(!result.restart_requested);
+        assert_eq!(result.restart_strategy, UpdateRestartStrategy::Supervisor);
+        assert!(result.message.contains("supervisor restart required"));
     }
 
     // NOTE: `update_check` and the success path of `update_apply`

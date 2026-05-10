@@ -66,7 +66,7 @@ pub use tools::{
     GitbooksConfig, HttpRequestConfig, IntegrationToggle, IntegrationsConfig, MultimodalConfig,
     SecretsConfig, WebSearchConfig,
 };
-pub use update::UpdateConfig;
+pub use update::{UpdateConfig, UpdateRestartStrategy};
 mod voice_server;
 pub use voice_server::{VoiceActivationMode, VoiceServerConfig};
 mod types;

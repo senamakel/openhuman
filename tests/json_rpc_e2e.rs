@@ -3548,6 +3548,61 @@ async fn external_process_with_guessed_token_is_rejected() {
     rpc_join.abort();
 }
 
+#[tokio::test]
+async fn rpc_update_apply_can_be_disabled_by_config_policy() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    ensure_test_rpc_auth();
+
+    let tmp = tempdir().expect("tempdir");
+    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+
+    let mut config = openhuman_core::openhuman::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..openhuman_core::openhuman::config::Config::default()
+    };
+    config.update.rpc_mutations_enabled = false;
+    config
+        .save()
+        .await
+        .expect("persist config with update rpc disabled");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .post(format!("http://{rpc_addr}/rpc"))
+        .header(AUTHORIZATION, format!("Bearer {TEST_RPC_TOKEN}"))
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "openhuman.update_apply",
+            "params": {
+                "download_url": "https://github.com/owner/repo/releases/download/v1/x",
+                "asset_name": "openhuman-core-x86_64-unknown-linux-gnu"
+            }
+        }))
+        .send()
+        .await
+        .expect("request");
+
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.expect("json body");
+    let error_msg = body
+        .get("result")
+        .and_then(|outer| outer.get("result"))
+        .and_then(|inner| inner.get("error"))
+        .and_then(Value::as_str)
+        .expect("policy error result message");
+    assert!(
+        error_msg.contains("rpc_mutations_enabled=false"),
+        "unexpected error: {body}"
+    );
+
+    rpc_join.abort();
+}
+
 /// End-to-end coverage for issue #1149: storing a managed-DM channel
 /// credential under `channel:<slug>:<mode>` and immediately observing
 /// `connected:true` from `openhuman.channels_status`.

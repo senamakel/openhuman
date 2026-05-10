@@ -103,6 +103,7 @@ mod tests {
         let cfg = UpdateConfig {
             enabled: false,
             interval_minutes: 0,
+            ..UpdateConfig::default()
         };
         run(cfg).await;
     }

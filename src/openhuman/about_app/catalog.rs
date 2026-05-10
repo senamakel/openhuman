@@ -922,7 +922,7 @@ const CAPABILITIES: &[Capability] = &[
         name: "Apply Core Update",
         domain: "update",
         category: CapabilityCategory::Settings,
-        description: "Download and stage a newer core binary, then restart the sidecar.",
+        description: "Download and stage a newer core binary. Desktop builds can self-restart; headless deployments can hand restart off to a supervisor.",
         how_to: "Settings > Developer Options > Apply Update",
         status: CapabilityStatus::Beta,
         privacy: None,

@@ -11,21 +11,21 @@ use crate::openhuman::update::types::{
 };
 use crate::rpc::RpcOutcome;
 
-async fn load_update_policy() -> UpdateConfig {
-    match config::rpc::load_config_with_timeout().await {
-        Ok(cfg) => cfg.update,
-        Err(err) => {
-            log::warn!(
-                "[update:rpc] failed to load config for update policy, falling back to defaults: {}",
-                err
-            );
-            UpdateConfig::default()
-        }
-    }
+async fn load_update_policy() -> Result<UpdateConfig, String> {
+    config::rpc::load_config_with_timeout()
+        .await
+        .map(|cfg| cfg.update)
+        .map_err(|err| format!("failed to load config for update policy: {err}"))
 }
 
 async fn enforce_update_mutation_policy(method: &str) -> Result<UpdateConfig, String> {
-    let policy = load_update_policy().await;
+    let policy = load_update_policy().await.map_err(|err| {
+        let message = format!(
+            "{method} blocked: {err}; failing closed because update policy could not be loaded"
+        );
+        log::error!("[update:rpc] {}", message);
+        message
+    })?;
     if policy.rpc_mutations_enabled {
         return Ok(policy);
     }
@@ -518,11 +518,24 @@ mod tests {
             .any(|l| l.contains("update_apply rejected")));
     }
 
+    struct WorkspaceEnvGuard;
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self
+        }
+    }
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            std::env::remove_var("OPENHUMAN_WORKSPACE");
+        }
+    }
+
     #[tokio::test]
     async fn update_apply_rejects_when_rpc_mutations_disabled() {
         let _guard = TEST_ENV_LOCK.lock().unwrap();
         let tmp = TempDir::new().unwrap();
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+        let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
         write_update_policy(
             &tmp,
             UpdateConfig {
@@ -539,7 +552,6 @@ mod tests {
         )
         .await;
 
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
         assert!(outcome.value.get("error").is_some());
         assert!(outcome.value["error"]
             .as_str()

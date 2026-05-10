@@ -250,7 +250,11 @@ ExecReload=/bin/kill -HUP $MAINPID
 Operator flow:
 
 1. Call `openhuman.update_check` to discover a release.
-2. Call `openhuman.update_apply` or `openhuman.update_run` with `restart_strategy=supervisor`.
+2. Configure `restart_strategy = "supervisor"` in your `update.toml` (or set
+   `OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY=supervisor`) so the core stages the
+   new binary without trying to re-exec itself, then call
+   `openhuman.update_apply` or `openhuman.update_run`. `restart_strategy` is a
+   configuration setting, not an RPC parameter.
 3. Restart the unit explicitly: `systemctl restart openhuman`.
 
 If download or staging fails, the running binary is left in place and no

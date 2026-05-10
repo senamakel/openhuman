@@ -24,7 +24,9 @@ Flags:
                                  argument for most tools. `--agent codex`
                                  uses `codex exec
                                  --dangerously-bypass-approvals-and-sandbox`
-                                 automatically.
+                                 automatically. `--agent cursor` and
+                                 `--agent cursor-agent` use
+                                 `cursor-agent --yolo`.
   --no-checkout                  Don't sync main / create the branch — just
                                  print the prompt and run the agent against
                                  the current branch.

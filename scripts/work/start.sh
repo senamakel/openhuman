@@ -10,7 +10,8 @@
 #
 # --agent picks the CLI that drives the work. Default: claude.
 # `--agent codex` uses `codex exec --dangerously-bypass-approvals-and-sandbox`
-# so the session starts in the equivalent "yolo" mode.
+# and `--agent cursor` / `cursor-agent` use `cursor-agent --yolo`, so those
+# sessions start in their equivalent "yolo" mode.
 # A trailing positional <extra-prompt> is appended to the agent prompt.
 # --no-checkout skips git sync/branch creation (use the current branch as-is).
 
@@ -143,6 +144,8 @@ fi
 echo "[work] handing off to ${agent} on branch ${current_branch}"
 if [ "$agent" = "codex" ]; then
   codex exec --dangerously-bypass-approvals-and-sandbox "$prompt"
+elif [ "$agent" = "cursor" ] || [ "$agent" = "cursor-agent" ]; then
+  cursor-agent --yolo "$prompt"
 else
   "$agent" "$prompt"
 fi

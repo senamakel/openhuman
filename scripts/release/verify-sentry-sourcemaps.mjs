@@ -14,9 +14,15 @@
 // ran — either a `// debugId=<uuid>` pragma comment OR an injected
 // `_sentryDebugIds` runtime map.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(new URL('..', import.meta.url).pathname, '..');
+// Use `fileURLToPath` rather than `new URL(...).pathname` — on Windows the
+// latter returns a leading-slash path like `/D:/a/openhuman/...` which
+// `path.resolve` then mangles into `D:\D:\a\...` (duplicate drive letter),
+// causing the verifier to ENOENT on `dist/assets`.
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..', '..');
 const ASSETS = join(ROOT, 'app', 'dist', 'assets');
 // The pragma comment `//# debugId=<uuid>` is what @sentry/vite-plugin
 // appends to chunks, but Vite/esbuild minification strips it from many

@@ -1,6 +1,13 @@
-use super::key_bytes_from_string;
+use super::{key_bytes_from_string, sanitize_client_version, BackendOAuthClient};
+use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::routing::{get, post};
+use axum::{Json, Router};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
+use tokio::net::TcpListener;
 
 #[test]
 fn decodes_base64url_no_pad() {
@@ -47,7 +54,6 @@ fn rejects_wrong_length() {
 }
 
 use super::user_id_from_profile_payload;
-use serde_json::json;
 
 #[test]
 fn extracts_id_from_root() {
@@ -127,4 +133,105 @@ fn returns_none_for_missing_ids() {
 fn returns_none_for_non_object_payload() {
     let payload = json!("just a string");
     assert!(user_id_from_profile_payload(&payload).is_none());
+}
+
+#[test]
+fn sanitize_client_version_strips_invalid_chars_and_clamps_length() {
+    let raw = format!(" 1.2.3 (desktop)+build!?{} ", "a".repeat(80));
+    let sanitized = sanitize_client_version(&raw).unwrap();
+    assert_eq!(sanitized, format!("1.2.3desktop+build{}", "a".repeat(46)));
+    assert_eq!(sanitized.len(), 64);
+}
+
+#[derive(Clone, Default)]
+struct CapturedHeaders {
+    entries: Arc<Mutex<Vec<HeaderMap>>>,
+}
+
+impl CapturedHeaders {
+    fn push(&self, headers: &HeaderMap) {
+        self.entries.lock().unwrap().push(headers.clone());
+    }
+
+    fn take(&self) -> Vec<HeaderMap> {
+        self.entries.lock().unwrap().clone()
+    }
+}
+
+async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
+    async fn capture_consume(
+        State(captured): State<CapturedHeaders>,
+        headers: HeaderMap,
+    ) -> Json<Value> {
+        captured.push(&headers);
+        Json(json!({
+            "success": true,
+            "data": { "jwtToken": "mock-jwt-token" }
+        }))
+    }
+
+    async fn capture_probe(
+        State(captured): State<CapturedHeaders>,
+        headers: HeaderMap,
+    ) -> Json<Value> {
+        captured.push(&headers);
+        Json(json!({ "ok": true }))
+    }
+
+    let captured = CapturedHeaders::default();
+    let app = Router::new()
+        .route(
+            "/telegram/login-tokens/{token}/consume",
+            post(capture_consume),
+        )
+        .route("/probe", get(capture_probe))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    (format!("http://{addr}"), captured)
+}
+
+#[tokio::test]
+async fn backend_client_sends_x_core_version_on_auth_requests() {
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let jwt = client.consume_login_token("test-token").await.unwrap();
+    assert_eq!(jwt, "mock-jwt-token");
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    let version = request_headers
+        .get("x-core-version")
+        .and_then(|value| value.to_str().ok())
+        .unwrap();
+    assert_eq!(
+        version,
+        sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
+    );
+}
+
+#[tokio::test]
+async fn backend_raw_client_inherits_x_core_version_default_header() {
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+    let url = client.url_for("/probe").unwrap();
+
+    let response = client.raw_client().get(url).send().await.unwrap();
+    assert!(response.status().is_success());
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    let version = request_headers
+        .get("x-core-version")
+        .and_then(|value| value.to_str().ok())
+        .unwrap();
+    assert_eq!(
+        version,
+        sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
+    );
 }

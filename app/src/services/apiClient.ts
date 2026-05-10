@@ -1,5 +1,6 @@
 import type { ApiError } from '../types/api';
 import { getBackendUrl } from './backendUrl';
+import { getClientVersionHeaders } from './clientVersionHeaders';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -36,10 +37,12 @@ class ApiClient {
   /**
    * Build headers for the request
    */
-  private buildHeaders(options: RequestOptions): HeadersInit {
+  private async buildHeaders(options: RequestOptions): Promise<HeadersInit> {
+    const versionHeaders = await getClientVersionHeaders();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...options.headers,
+      ...versionHeaders,
     };
 
     // Add authorization header if auth is required
@@ -61,7 +64,7 @@ class ApiClient {
 
     const baseUrl = await getBackendUrl();
     const url = `${baseUrl}${endpoint}`;
-    const headers = this.buildHeaders({ ...options, requireAuth });
+    const headers = await this.buildHeaders({ ...options, requireAuth });
 
     console.log('request', { url, headers, body, method });
 

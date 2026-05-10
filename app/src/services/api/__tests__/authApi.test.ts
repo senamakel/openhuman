@@ -17,7 +17,7 @@ describe('sendEmailMagicLink', () => {
 
     expect(fetchSpy).toHaveBeenCalledWith('http://localhost:5005/auth/email/send-link', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-web-version': '0.0.0-test' },
       body: JSON.stringify({ email: 'user@example.com', frontendRedirectUri: 'openhuman://' }),
       signal: expect.any(AbortSignal),
     });

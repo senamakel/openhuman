@@ -15,7 +15,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, x-device-fingerprint",
+    "Content-Type, Authorization, x-device-fingerprint, x-tauri-version, x-core-version, x-ios-version, x-android-version, x-web-version",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -154,6 +154,16 @@ function tryParseJson(raw) {
   }
 }
 
+function normalizeHeaders(headers) {
+  const entries = Object.entries(headers || {});
+  return Object.fromEntries(
+    entries.map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.join(", ") : String(value ?? ""),
+    ]),
+  );
+}
+
 function getDelayMs(key) {
   const value = Number(mockBehavior[key] || 0);
   return Number.isFinite(value) && value > 0 ? value : 0;
@@ -183,7 +193,13 @@ async function handleRequest(req, res) {
   const parsedBody = tryParseJson(body);
   const origin = requestOrigin(req);
 
-  requestLog.push({ method, url, body, timestamp: Date.now() });
+  requestLog.push({
+    method,
+    url,
+    body,
+    headers: normalizeHeaders(req.headers),
+    timestamp: Date.now(),
+  });
 
   if (method === "OPTIONS") {
     setCors(res);
@@ -270,7 +286,8 @@ async function handleRequest(req, res) {
 
   if (
     method === "GET" &&
-    (/^\/telegram\/me\/?(\?.*)?$/.test(url) || /^\/auth\/me\/?(\?.*)?$/.test(url))
+    (/^\/telegram\/me\/?(\?.*)?$/.test(url) ||
+      /^\/auth\/me\/?(\?.*)?$/.test(url))
   ) {
     const delayMs = getDelayMs("telegramMeDelayMs");
     if (delayMs > 0) {
@@ -316,7 +333,9 @@ async function handleRequest(req, res) {
         fiveHourCapUsd: 5,
         fiveHourResetsAt: null,
         cycleStartDate: new Date().toISOString(),
-        cycleEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        cycleEndsAt: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
         bypassCycleLimit: false,
       },
     });
@@ -796,8 +815,7 @@ async function handleRequest(req, res) {
       {
         id: "STREAK_7",
         title: "7-Day Streak",
-        description:
-          "Use OpenHuman on seven consecutive active days.",
+        description: "Use OpenHuman on seven consecutive active days.",
         actionLabel: "Keep your streak alive for 7 days",
         unlocked: false,
         progressLabel: "0 / 7 days",
@@ -1114,10 +1132,9 @@ async function handleRequest(req, res) {
     method === "GET" &&
     /^\/agent-integrations\/composio\/connections\/?(\?.*)?$/.test(url)
   ) {
-    const connections = parseBehaviorJson(
-      "composioConnections",
-      [{ id: "c1", toolkit: "gmail", status: "ACTIVE" }],
-    );
+    const connections = parseBehaviorJson("composioConnections", [
+      { id: "c1", toolkit: "gmail", status: "ACTIVE" },
+    ]);
     json(res, 200, { success: true, data: { connections } });
     return;
   }
@@ -1150,10 +1167,12 @@ async function handleRequest(req, res) {
       json(res, 500, { success: false, error: "Mock enable trigger failure" });
       return;
     }
-    const slug = typeof parsedBody?.slug === "string" ? parsedBody.slug.trim() : "";
-    const connectionId = typeof parsedBody?.connectionId === "string"
-      ? parsedBody.connectionId.trim()
-      : "";
+    const slug =
+      typeof parsedBody?.slug === "string" ? parsedBody.slug.trim() : "";
+    const connectionId =
+      typeof parsedBody?.connectionId === "string"
+        ? parsedBody.connectionId.trim()
+        : "";
     if (!slug) {
       json(res, 400, { success: false, error: "Missing required field: slug" });
       return;
@@ -1368,7 +1387,9 @@ function createServerInstance() {
     openSockets.add(socket);
     socket.on("close", () => openSockets.delete(socket));
   });
-  nextServer.on("upgrade", (req, socket) => handleWebSocketUpgrade(req, socket));
+  nextServer.on("upgrade", (req, socket) =>
+    handleWebSocketUpgrade(req, socket),
+  );
   return nextServer;
 }
 
@@ -1396,7 +1417,8 @@ async function startMockServer(port = DEFAULT_PORT, options = {}) {
     return { port: getMockServerPort() ?? port, alreadyRunning: true };
   }
 
-  const preferredPort = Number.isInteger(port) && port > 0 ? port : DEFAULT_PORT;
+  const preferredPort =
+    Number.isInteger(port) && port > 0 ? port : DEFAULT_PORT;
   const retryIfInUse = options.retryIfInUse === true;
   const candidatePorts = retryIfInUse
     ? [

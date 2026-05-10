@@ -128,7 +128,7 @@ cargo check --manifest-path Cargo.toml
 cargo check --manifest-path app/src-tauri/Cargo.toml
 ```
 
-If you only changed docs, you usually only need `pnpm format:check`.
+If you only changed docs in a normal local workflow, `pnpm format:check` is usually the only validation you need. AI-authored or remote-agent PRs must still follow [`docs/agent-workflows/codex-pr-checklist.md`](docs/agent-workflows/codex-pr-checklist.md) and report any blocked commands with the exact command and error.
 
 ### 6. Run tests and checks
 

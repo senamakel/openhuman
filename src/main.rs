@@ -48,8 +48,17 @@ fn main() {
         before_send: Some(std::sync::Arc::new(|mut event| {
             // Strip server_name (hostname) to avoid leaking machine identity
             event.server_name = None;
-            // Strip user context entirely
-            event.user = None;
+            // Attach the cached account uid so Sentry can count unique users
+            // affected by an issue. We only carry `id` — never email, name,
+            // or IP — so this stays consistent with `send_default_pii: false`.
+            // Empty/missing on early-startup events (cache populates after
+            // the first `auth_get_me` RPC); that's expected.
+            event.user = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+                .and_then(|identity| identity.id)
+                .map(|id| sentry::User {
+                    id: Some(id),
+                    ..Default::default()
+                });
             // Scrub exception messages for secrets
             for exc in &mut event.exception.values {
                 if let Some(ref value) = exc.value {

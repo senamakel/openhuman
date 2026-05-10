@@ -102,6 +102,14 @@ jobs:
         run: node scripts/release/bump-version.js patch
       - name: Verify version sync
         run: node scripts/release/verify-version-sync.js "${{ steps.bump.outputs.version }}"
+      - name: Refresh Cargo.lock files
+        # Cargo.toml [package].version is bumped above but the matching
+        # entries in both Cargo.lock files are not — without this step the
+        # lockfiles stay pinned to the previous version and the next local
+        # `cargo` invocation rewrites them, leaving an uncommitted diff.
+        run: |
+          cargo update --workspace --manifest-path Cargo.toml
+          cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
       - name: Compute staging tag
         id: tagname
         env:
@@ -127,7 +135,7 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version }}
           TAG: ${{ steps.tagname.outputs.tag }}
         run: |
-          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml
+          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
           git commit -m "chore(staging): v${VERSION}"
           git push origin main
           git tag -a "$TAG" -m "Staging cut $TAG"

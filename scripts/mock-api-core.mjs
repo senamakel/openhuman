@@ -4,6 +4,7 @@ import http from "node:http";
 const DEFAULT_PORT = 18473;
 const MOCK_JWT = "e2e-mock-jwt-token";
 const MAX_PORT_RETRY_ATTEMPTS = 10;
+const MAX_MOCK_DELAY_MS = 30_000;
 
 let requestLog = [];
 let mockBehavior = {};
@@ -179,7 +180,10 @@ function normalizeHeaders(headers) {
 
 function getDelayMs(key) {
   const value = Number(mockBehavior[key] || 0);
-  return Number.isFinite(value) && value > 0 ? value : 0;
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.min(value, MAX_MOCK_DELAY_MS);
 }
 
 function sleep(ms) {

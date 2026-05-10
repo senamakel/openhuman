@@ -167,9 +167,7 @@ impl ReflectionHook {
                         return provider
                             .simple_chat(prompt, "hint:reasoning", 0.3)
                             .await
-                            .map_err(|e| {
-                                anyhow::anyhow!("cloud reflection fallback failed: {e}")
-                            });
+                            .map_err(|e| anyhow::anyhow!("cloud reflection fallback failed: {e}"));
                     }
                     tracing::info!(
                         "[learning::reflection] local_ai.usage.learning_reflection not enabled \

@@ -5,6 +5,10 @@ icon: wrench
 
 # Building & Installing OpenHuman
 
+This guide covers the full desktop/source install path and release installers.
+
+If you only need the repo-root Rust crate on a fresh machine, use [Building the Rust Core](building-rust-core.md). That page documents the pinned Rust toolchain, OS package prerequisites, and the exact `cargo` commands for `openhuman-core`.
+
 This guide covers two paths:
 
 1. Build and compile OpenHuman from source
@@ -29,7 +33,7 @@ cd openhuman
 pnpm install
 
 # 3) Build Rust core binary
-cargo build --manifest-path Cargo.toml --bin openhuman
+cargo build --manifest-path Cargo.toml --bin openhuman-core
 
 # 4) Stage core sidecar for the desktop app
 cd app

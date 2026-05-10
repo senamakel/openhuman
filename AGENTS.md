@@ -13,7 +13,7 @@ This file orients contributors and coding agents. Authoritative narrative archit
 | **`app/`**              | Yarn workspace **`openhuman-app`**: Vite + React (`app/src/`), Tauri desktop host (`app/src-tauri/`), Vitest tests                                                                                          |
 | **Repo root `src/`**    | Rust library **`openhuman_core`** and **`openhuman`** CLI binary entrypoint (`src/main.rs`) — `core_server`, `openhuman::*` domains, skills runtime (QuickJS / `rquickjs`), MCP routing in the core process |
 | **Skills registry**     | **[`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills)** on GitHub — canonical skill packages and TS build; not vendored in this tree (see blurb below).                     |
-| **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman` produces the sidecar the UI stages via `app`’s `core:stage`                                                                                                       |
+| **`Cargo.toml`** (root) | Core crate; `cargo build --bin openhuman-core` produces the sidecar the UI stages via `app`’s `core:stage`                                                                                                  |
 | **`docs/`**             | Architecture and deep-internal references                                                                                                                                                                    |
 | **`gitbooks/developing/`** | Public contributor docs — frontend, Tauri shell, testing, release, skills                                                                                                                                |
 
@@ -64,7 +64,7 @@ pnpm workspace openhuman-app skills:watch
 
 # Rust — core library + CLI (repo root)
 cargo check --manifest-path Cargo.toml
-cargo build --manifest-path Cargo.toml --bin openhuman
+cargo build --manifest-path Cargo.toml --bin openhuman-core
 
 # Rust — Tauri shell only
 cargo check --manifest-path app/src-tauri/Cargo.toml

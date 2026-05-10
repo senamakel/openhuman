@@ -17,7 +17,7 @@ The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window managem
 
 ## Building the sidecar
 
-`app/package.json` `core:stage` runs `scripts/stage-core-sidecar.mjs`, which `cargo build --bin openhuman` at the repo root and copies the binary into `app/src-tauri/binaries/` for Tauri `externalBin`.
+`app/package.json` `core:stage` runs `scripts/stage-core-sidecar.mjs`, which `cargo build --bin openhuman-core` at the repo root and copies the binary into `app/src-tauri/binaries/` for Tauri `externalBin`.
 
 ## Stuck process recovery
 
@@ -207,5 +207,4 @@ This document replaces the old “SessionService / SocketService” split. The T
 Not in `src-tauri`, but **pairs** with the shell: the React app listens for Tauri events that mirror socket activity when using the Rust-side client. See `app/src/utils/tauriSocket.ts` and the [Frontend Services](frontend.md#services-layer) chapter.
 
 ---
-
 

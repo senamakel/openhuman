@@ -123,12 +123,28 @@ pub(crate) fn summary_filename(summary_id: &str) -> String {
 
     if let Some(rest) = id.strip_prefix("summary:") {
         if let Some((ms, suffix)) = rest.split_once(':') {
-            if ms.len() == 13
-                && ms.chars().all(|c| c.is_ascii_digit())
-                && suffix.starts_with('L')
-                && suffix.contains('-')
-            {
-                return format!("summary-{ms}-{suffix}");
+            // Canonical fast-path: only accept ms-first ids whose
+            // `L<level>-<tail>` suffix has a numeric level and a tail
+            // free of filesystem-illegal characters. Without the tail
+            // check a malformed canonical-looking id like
+            // `summary:1700000000000:L2-a/b` would smuggle a `/` into
+            // the basename and split the file across multiple path
+            // components when joined onto the L<level>/ directory.
+            if let Some((level, tail)) = suffix.split_once('-') {
+                let level_is_numeric = level.starts_with('L')
+                    && level.len() > 1
+                    && level[1..].chars().all(|c| c.is_ascii_digit());
+                let tail_is_safe = !tail.is_empty()
+                    && !tail
+                        .chars()
+                        .any(|c| matches!(c, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|'));
+                if ms.len() == 13
+                    && ms.chars().all(|c| c.is_ascii_digit())
+                    && level_is_numeric
+                    && tail_is_safe
+                {
+                    return format!("summary-{ms}-{level}-{tail}");
+                }
             }
         }
 
@@ -523,6 +539,30 @@ mod tests {
             summary_filename("summary:L3:legacy-uuid"),
             "summary-L3-legacy-uuid"
         );
+    }
+
+    #[test]
+    fn summary_filename_rejects_canonical_shape_with_path_separators() {
+        // A canonical-looking id whose tail contains `/` must NOT be
+        // returned verbatim — that would smuggle a directory separator
+        // into the basename. Fall back to the generic sanitiser so the
+        // illegal char is replaced with `-`.
+        let basename = summary_filename("summary:1700000000000:L2-a/b");
+        assert!(
+            !basename.contains('/'),
+            "basename must not contain a path separator; got {basename}"
+        );
+        // Generic-fallback shape: sanitize_filename replaces both `:` and `/`.
+        assert_eq!(basename, "summary-1700000000000-L2-a-b");
+    }
+
+    #[test]
+    fn summary_filename_rejects_canonical_shape_with_non_numeric_level() {
+        // Level segment must be `L<digits>`. Anything else (`Lxyz`,
+        // `L-1`, …) is not the canonical contract — fall back to the
+        // generic sanitiser instead of accepting verbatim.
+        let basename = summary_filename("summary:1700000000000:Lxyz-tail");
+        assert_eq!(basename, "summary-1700000000000-Lxyz-tail");
     }
 
     #[test]

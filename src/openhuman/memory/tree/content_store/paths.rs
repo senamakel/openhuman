@@ -149,7 +149,15 @@ pub(crate) fn summary_filename(summary_id: &str) -> String {
         }
 
         if let Some((level, tail)) = rest.split_once(':') {
-            if level.starts_with('L') && !tail.is_empty() {
+            // Legacy ms-less ids (`summary:L<n>:<rest>`). Require strict
+            // `L<digits>` for the level segment so a malicious input
+            // like `summary:L1/2:abc` or `summary:L../../x:tail` cannot
+            // inject `/` into the returned basename. Anything else
+            // falls through to the generic sanitiser below.
+            let level_is_numeric = level.starts_with('L')
+                && level.len() > 1
+                && level[1..].chars().all(|c| c.is_ascii_digit());
+            if level_is_numeric && !tail.is_empty() {
                 return format!("summary-{level}-{}", sanitize_filename(tail));
             }
         }
@@ -563,6 +571,36 @@ mod tests {
         // generic sanitiser instead of accepting verbatim.
         let basename = summary_filename("summary:1700000000000:Lxyz-tail");
         assert_eq!(basename, "summary-1700000000000-Lxyz-tail");
+    }
+
+    #[test]
+    fn summary_filename_legacy_branch_rejects_path_separator_in_level() {
+        // Legacy `summary:L<n>:<rest>` branch must also enforce strict
+        // `L<digits>` for the level segment — otherwise an input like
+        // `summary:L1/2:abc` would produce `summary-L1/2-abc` and
+        // smuggle a `/` into the basename. Falls through to the
+        // generic sanitiser, which replaces `/` with `-`.
+        let basename = summary_filename("summary:L1/2:abc");
+        assert!(
+            !basename.contains('/'),
+            "basename must not contain a path separator; got {basename}"
+        );
+        assert_eq!(basename, "summary-L1-2-abc");
+    }
+
+    #[test]
+    fn summary_filename_legacy_branch_rejects_traversal_in_level() {
+        // `summary:L../../x:tail` must NOT produce
+        // `summary-L../../x-tail` — the legacy branch requires
+        // `L<digits>` and falls through to `sanitize_filename` when
+        // the level segment is non-numeric. Without `/` in the
+        // resulting basename the dots are inert characters, not
+        // directory components.
+        let basename = summary_filename("summary:L../../x:tail");
+        assert!(
+            !basename.contains('/'),
+            "basename must not contain a path separator; got {basename}"
+        );
     }
 
     #[test]

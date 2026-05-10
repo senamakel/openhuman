@@ -154,13 +154,26 @@ function tryParseJson(raw) {
   }
 }
 
+const REDACTED_HEADER_VALUE = "[REDACTED]";
+const SENSITIVE_HEADER_NAMES = new Set([
+  "authorization",
+  "cookie",
+  "set-cookie",
+  "proxy-authorization",
+]);
+
 function normalizeHeaders(headers) {
   const entries = Object.entries(headers || {});
   return Object.fromEntries(
-    entries.map(([key, value]) => [
-      key,
-      Array.isArray(value) ? value.join(", ") : String(value ?? ""),
-    ]),
+    entries.map(([key, value]) => {
+      if (SENSITIVE_HEADER_NAMES.has(String(key).toLowerCase())) {
+        return [key, REDACTED_HEADER_VALUE];
+      }
+      return [
+        key,
+        Array.isArray(value) ? value.join(", ") : String(value ?? ""),
+      ];
+    }),
   );
 }
 

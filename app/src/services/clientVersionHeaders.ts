@@ -1,7 +1,7 @@
 import { getVersion } from '@tauri-apps/api/app';
-import { isTauri } from '@tauri-apps/api/core';
 
 import { APP_VERSION } from '../utils/config';
+import { isTauri } from '../utils/tauriCommands/common';
 
 const CLIENT_VERSION_MAX_LENGTH = 64;
 
@@ -24,7 +24,10 @@ async function getTauriClientVersion(): Promise<string | null> {
   if (!tauriVersionPromise) {
     tauriVersionPromise = getVersion()
       .then(version => sanitizeClientVersion(version))
-      .catch(() => null);
+      .catch(() => {
+        tauriVersionPromise = null;
+        return null;
+      });
   }
 
   return tauriVersionPromise;

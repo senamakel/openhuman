@@ -48,4 +48,17 @@ describe('apiClient version headers', () => {
     expect(headers['x-tauri-version']).toBe('1.2.3desktop+build');
     expect(headers).not.toHaveProperty('x-web-version');
   });
+
+  it('retries tauri version lookup after a transient failure', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(getVersion)
+      .mockRejectedValueOnce(new Error('transient failure'))
+      .mockResolvedValueOnce('2.3.4');
+
+    const { getClientVersionHeaders } = await import('../clientVersionHeaders');
+
+    await expect(getClientVersionHeaders()).resolves.toEqual({});
+    await expect(getClientVersionHeaders()).resolves.toEqual({ 'x-tauri-version': '2.3.4' });
+    expect(getVersion).toHaveBeenCalledTimes(2);
+  });
 });

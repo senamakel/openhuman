@@ -61,8 +61,15 @@ pub const WIKI_PREFIX: &str = "wiki";
 /// `scope_slug` must already be slugified by the caller (use [`slugify_source_id`] or
 /// a per-kind variant). A trailing `.md` on `summary_id` is stripped if present.
 ///
-/// The `summary_id` is sanitized into a filesystem-safe filename by replacing
-/// characters illegal on Windows (`:`, `\`, `*`, `?`, `"`, `<`, `>`, `|`) with `-`.
+/// New summaries use the explicit basename contract implemented by
+/// [`summary_filename`]:
+/// - current canonical ids: `summary:{13-digit-ms}:L{level}-{tail}`
+///   → `summary-{13-digit-ms}-L{level}-{tail}.md`
+/// - legacy ids: `summary:L{level}:{rest}`
+///   → `summary-L{level}-{rest}.md`
+///
+/// Unknown / malformed ids fall back to [`sanitize_filename`] so existing vaults
+/// remain readable even if they contain older experimental shapes.
 pub fn summary_rel_path(
     tree_kind: SummaryTreeKind,
     scope_slug: &str,
@@ -70,10 +77,7 @@ pub fn summary_rel_path(
     summary_id: &str,
     date_for_global: Option<DateTime<Utc>>,
 ) -> String {
-    // Strip a trailing `.md` from summary_id if accidentally included.
-    let id = summary_id.strip_suffix(".md").unwrap_or(summary_id);
-    // Sanitize to a cross-platform filename (colons are illegal on Windows NTFS).
-    let filename = sanitize_filename(id);
+    let filename = summary_filename(summary_id);
 
     match tree_kind {
         SummaryTreeKind::Source => {
@@ -108,6 +112,36 @@ pub fn summary_rel_path(
     }
 }
 
+/// Convert a summary id into the canonical on-disk basename stem (without
+/// `.md`).
+///
+/// This keeps summary filenames independent from the generic "replace illegal
+/// characters" fallback so new writes follow one documented convention, while
+/// legacy ids still map to their historical names.
+pub(crate) fn summary_filename(summary_id: &str) -> String {
+    let id = summary_id.strip_suffix(".md").unwrap_or(summary_id);
+
+    if let Some(rest) = id.strip_prefix("summary:") {
+        if let Some((ms, suffix)) = rest.split_once(':') {
+            if ms.len() == 13
+                && ms.chars().all(|c| c.is_ascii_digit())
+                && suffix.starts_with('L')
+                && suffix.contains('-')
+            {
+                return format!("summary-{ms}-{suffix}");
+            }
+        }
+
+        if let Some((level, tail)) = rest.split_once(':') {
+            if level.starts_with('L') && !tail.is_empty() {
+                return format!("summary-{level}-{}", sanitize_filename(tail));
+            }
+        }
+    }
+
+    sanitize_filename(id)
+}
+
 /// Replace characters that are illegal in filenames on Windows NTFS with `-`.
 ///
 /// Illegal characters: `\`, `/`, `:`, `*`, `?`, `"`, `<`, `>`, `|`.
@@ -116,8 +150,10 @@ pub fn summary_rel_path(
 ///
 /// Exposed at crate scope so [`super::compose`] can convert structured IDs
 /// like `summary:L1:UUID` into the basename used by [`summary_rel_path`]
-/// (`summary-L1-UUID`) when emitting Obsidian wikilinks. This keeps a single
-/// source of truth for the id→filename mapping.
+/// when no summary-specific mapping applies. Summary ids should prefer
+/// [`summary_filename`] so new writes follow the documented basename
+/// contract instead of relying on punctuation replacement as an accident of
+/// the implementation.
 pub(crate) fn sanitize_filename(s: &str) -> String {
     s.chars()
         .map(|c| match c {
@@ -425,6 +461,21 @@ mod tests {
     }
 
     #[test]
+    fn summary_rel_path_current_ids_keep_time_first_basename() {
+        let p = summary_rel_path(
+            SummaryTreeKind::Source,
+            "slack-eng",
+            2,
+            "summary:1700000000000:L2-deadbeef",
+            None,
+        );
+        assert_eq!(
+            p,
+            "wiki/summaries/source-slack-eng/L2/summary-1700000000000-L2-deadbeef.md"
+        );
+    }
+
+    #[test]
     fn summary_rel_path_global() {
         use chrono::TimeZone;
         let date = chrono::Utc.with_ymd_and_hms(2026, 4, 28, 12, 0, 0).unwrap();
@@ -464,6 +515,22 @@ mod tests {
             None,
         );
         assert_eq!(p, "wiki/summaries/topic-entity-slug/L2/summary-L2-foo.md");
+    }
+
+    #[test]
+    fn summary_filename_preserves_legacy_level_first_shape() {
+        assert_eq!(
+            summary_filename("summary:L3:legacy-uuid"),
+            "summary-L3-legacy-uuid"
+        );
+    }
+
+    #[test]
+    fn summary_filename_falls_back_for_unknown_shapes() {
+        assert_eq!(
+            summary_filename("summary:experimental:value:tail"),
+            "summary-experimental-value-tail"
+        );
     }
 
     #[test]

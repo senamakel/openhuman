@@ -9,6 +9,8 @@
 #      repo conventions (CLAUDE.md / AGENTS.md pointers).
 #
 # --agent picks the CLI that drives the work. Default: claude.
+# `--agent codex` uses `codex exec --dangerously-bypass-approvals-and-sandbox`
+# so the session starts in the equivalent "yolo" mode.
 # A trailing positional <extra-prompt> is appended to the agent prompt.
 # --no-checkout skips git sync/branch creation (use the current branch as-is).
 
@@ -139,4 +141,8 @@ ${extra_prompt}"
 fi
 
 echo "[work] handing off to ${agent} on branch ${current_branch}"
-"$agent" "$prompt"
+if [ "$agent" = "codex" ]; then
+  codex exec --dangerously-bypass-approvals-and-sandbox "$prompt"
+else
+  "$agent" "$prompt"
+fi

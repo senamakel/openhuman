@@ -351,11 +351,31 @@ const BackendProviderPanel = () => {
               <p className="text-xs text-stone-400">{activePreset.note}</p>
             </section>
 
+            {isOpenHuman && (
+              <div className="rounded-lg border border-sage-300 bg-sage-50 p-3 flex gap-3">
+                <svg
+                  className="w-5 h-5 shrink-0 text-sage-600 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sage-700">
+                    Congrats — you’re using the most optimized setup
+                  </p>
+                  <p className="mt-1 text-sm text-sage-900 leading-relaxed">
+                    OpenHuman built-in smart router picks the best model tailored to OpenHuman.
+                    Top-tier quality at the lowest blended cost.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {!isOpenHuman && (
               <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
-                  Note
-                </p>
                 <p className="mt-1 text-sm text-primary-900 leading-relaxed">
                   OpenHuman comes with a built-in smart router that picks the best model for each
                   request. Cutting costs and improving quality. OpenHuman's models are also fine

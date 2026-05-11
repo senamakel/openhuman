@@ -50,7 +50,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     note: 'Hosted OpenHuman backend — uses your signed-in session, no API key required.',
     tint: {
       idle: 'border-stone-200 hover:border-primary-300 hover:bg-primary-50/40',
-      selected: 'border-primary-400 bg-primary-50 ring-1 ring-primary-200',
+      selected: 'border-primary-500 bg-primary-100 ring-2 ring-primary-300 text-primary-900',
       dot: 'bg-primary-500',
     },
   },
@@ -62,7 +62,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     note: 'Use a key from platform.openai.com. Common models: gpt-4o, gpt-4o-mini, o1-mini.',
     tint: {
       idle: 'border-stone-200 hover:border-sage-400 hover:bg-sage-50/40',
-      selected: 'border-sage-500 bg-sage-50 ring-1 ring-sage-200',
+      selected: 'border-sage-600 bg-sage-100 ring-2 ring-sage-300 text-sage-900',
       dot: 'bg-sage-600',
     },
   },
@@ -74,7 +74,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     note: 'Routes to OpenAI, Anthropic, Google, Meta, Mistral and more under one key (openrouter.ai). Use this for Anthropic models.',
     tint: {
       idle: 'border-stone-200 hover:border-amber-400 hover:bg-amber-50/40',
-      selected: 'border-amber-500 bg-amber-50 ring-1 ring-amber-200',
+      selected: 'border-amber-600 bg-amber-100 ring-2 ring-amber-300 text-amber-900',
       dot: 'bg-amber-500',
     },
   },
@@ -86,7 +86,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     note: 'Local Ollama runtime via its OpenAI-compatible endpoint. API key is ignored — leave blank.',
     tint: {
       idle: 'border-stone-200 hover:border-coral-300 hover:bg-coral-50/40',
-      selected: 'border-coral-400 bg-coral-50 ring-1 ring-coral-200',
+      selected: 'border-coral-500 bg-coral-100 ring-2 ring-coral-300 text-coral-900',
       dot: 'bg-coral-500',
     },
   },
@@ -98,7 +98,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     note: 'Any other endpoint that speaks the OpenAI /chat/completions shape (vLLM, LiteLLM, LM Studio, self-hosted gateways).',
     tint: {
       idle: 'border-stone-200 hover:border-stone-400 hover:bg-stone-50',
-      selected: 'border-stone-400 bg-stone-100 ring-1 ring-stone-200',
+      selected: 'border-stone-500 bg-stone-200 ring-2 ring-stone-300 text-stone-900',
       dot: 'bg-stone-400',
     },
   },
@@ -259,8 +259,8 @@ const BackendProviderPanel = () => {
                       key={preset.id}
                       type="button"
                       onClick={() => applyPreset(preset)}
-                      className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-left transition-colors ${
-                        selected ? preset.tint.selected : preset.tint.idle
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+                        selected ? preset.tint.selected : `bg-white ${preset.tint.idle}`
                       }`}
                       aria-pressed={selected}>
                       <span
@@ -275,6 +275,20 @@ const BackendProviderPanel = () => {
                 })}
               </div>
               <p className="text-xs text-stone-400">{activePreset.note}</p>
+
+              {activePreset.id === 'openhuman' && (
+                <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
+                    Why OpenHuman?
+                  </p>
+                  <p className="mt-1 text-sm text-primary-900 leading-relaxed">
+                    A built-in model router picks the best model for each
+                    request — reasoning, agentic, fast, or local — and falls back
+                    automatically. You get top-tier quality at the lowest
+                    blended cost, with no per-provider keys to juggle.
+                  </p>
+                </div>
+              )}
             </section>
 
             <section className="space-y-2">

@@ -79,14 +79,14 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'openai',
     label: 'OpenAI',
     apiUrl: 'https://api.openai.com/v1/chat/completions',
-    suggestedModel: 'gpt-4o',
+    suggestedModel: 'gpt-5.5-2026-04-23',
     roleModels: {
-      reasoning: 'o1',
-      agentic: 'gpt-4o',
+      reasoning: 'gpt-5.5-2026-04-23',
+      agentic: 'gpt-5.5-2026-04-23',
       coding: 'gpt-4o',
       summarization: 'gpt-4o-mini',
     },
-    note: 'Use a key from platform.openai.com. Defaults below pick o1 for reasoning and gpt-4o for the rest.',
+    note: 'Use a key from platform.openai.com. Defaults pick gpt-5.5 for reasoning and agentic, gpt-4o for coding, gpt-4o-mini for summarization.',
     tint: {
       idle: 'border-stone-200 hover:border-sage-400 hover:bg-sage-50/40',
       selected: 'border-sage-600 bg-sage-100 ring-2 ring-sage-300 text-sage-900',

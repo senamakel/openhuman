@@ -72,14 +72,14 @@ jobs:
           app_id: ${{ secrets.XGITHUB_APP_ID }}
           private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           submodules: recursive
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24.x
       - name: Configure Git
@@ -217,7 +217,7 @@ jobs:
     environment: Production
     steps:
       - name: Checkout build ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 1
@@ -299,7 +299,7 @@ jobs:
           || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled')
     steps:
       - name: Delete remote staging tag
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;

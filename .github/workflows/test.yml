@@ -27,11 +27,11 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -45,7 +45,7 @@ jobs:
           NODE_ENV: test
       - name: Upload coverage reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report
           path: coverage
@@ -67,7 +67,7 @@ jobs:
       SCCACHE_GHA_ENABLED: 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           submodules: recursive
@@ -96,7 +96,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           # Required for app/src-tauri/vendor/tauri-cef — the fork supplies
@@ -116,7 +116,7 @@ jobs:
       # links the Chromium dylib via cef-dll-sys. Cache the download to avoid
       # re-fetching ~400MB every PR run.
       - name: Cache CEF binary distribution
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/tauri-cef
           key: cef-ubuntu-22.04-${{ hashFiles('app/src-tauri/Cargo.toml') }}
@@ -141,13 +141,13 @@ jobs:
   #   timeout-minutes: 60
   #   steps:
   #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         fetch-depth: 1
   #         submodules: recursive
 
   #     - name: Setup Node.js 24.x
-  #       uses: actions/setup-node@v4
+  #       uses: actions/setup-node@v5
   #       with:
   #         node-version: 24.x
   #         cache: "pnpm"
@@ -172,7 +172,7 @@ jobs:
   #         echo "hash=$(tail -n +8 Cargo.lock | openssl dgst -sha256 | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
   #     - name: Cache Cargo registry and build
-  #       uses: actions/cache@v4
+  #       uses: actions/cache@v5
   #       with:
   #         path: |
   #           ~/.cargo/registry
@@ -241,13 +241,13 @@ jobs:
 #     timeout-minutes: 90
 #     steps:
 #       - name: Checkout code
-#         uses: actions/checkout@v4
+#         uses: actions/checkout@v5
 #         with:
 #           fetch-depth: 1
 #           submodules: recursive
 
 #       - name: Setup Node.js 24.x
-#         uses: actions/setup-node@v4
+#         uses: actions/setup-node@v5
 #         with:
 #           node-version: 24.x
 #           cache: "pnpm"

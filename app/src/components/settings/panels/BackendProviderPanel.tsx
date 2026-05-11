@@ -65,7 +65,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'openhuman',
     label: 'OpenHuman',
-    apiUrl: '',
+    apiUrl: 'https://api.tinyhumans.ai/openai/v1/chat/completions',
     suggestedModel: '',
     roleModels: null,
     note: 'Hosted OpenHuman backend — uses your signed-in session, no API key required.',
@@ -78,7 +78,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'openai',
     label: 'OpenAI',
-    apiUrl: 'https://api.openai.com/v1',
+    apiUrl: 'https://api.openai.com/v1/chat/completions',
     suggestedModel: 'gpt-4o',
     roleModels: {
       reasoning: 'o1',
@@ -98,7 +98,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     label: 'Anthropic',
     // Anthropic ships an OpenAI-compatibility shim at /v1/chat/completions
     // that maps to the same Claude models — see docs.anthropic.com/en/api/openai-sdk.
-    apiUrl: 'https://api.anthropic.com/v1',
+    apiUrl: 'https://api.anthropic.com/v1/chat/completions',
     suggestedModel: 'claude-sonnet-4-6',
     roleModels: {
       reasoning: 'claude-opus-4-7',
@@ -116,7 +116,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'openrouter',
     label: 'OpenRouter',
-    apiUrl: 'https://openrouter.ai/api/v1',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
     suggestedModel: 'openai/gpt-4o',
     roleModels: {
       reasoning: 'openai/o1',
@@ -134,7 +134,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'ollama',
     label: 'Ollama (local)',
-    apiUrl: 'http://localhost:11434/v1',
+    apiUrl: 'http://localhost:11434/v1/chat/completions',
     suggestedModel: 'llama3.3',
     roleModels: {
       reasoning: 'llama3.3',
@@ -189,9 +189,13 @@ const BackendProviderPanel = () => {
   const [loaded, setLoaded] = useState(false);
   const [client, setClient] = useState<ClientConfig | null>(null);
   const [apiUrl, setApiUrl] = useState('');
-  const [defaultModel, setDefaultModel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiKeyDirty, setApiKeyDirty] = useState(false);
+  // Per-field dirty flags so a failed `load()` (which leaves the inputs at
+  // their empty defaults) can't silently overwrite stored config when the
+  // user clicks Save. CodeRabbit feedback on PR #1467.
+  const [apiUrlDirty, setApiUrlDirty] = useState(false);
+  const [roleModelsDirty, setRoleModelsDirty] = useState(false);
   const [roleModels, setRoleModels] = useState<RoleModels>(EMPTY_ROLE_MODELS);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'error'; message: string }>({
@@ -206,12 +210,13 @@ const BackendProviderPanel = () => {
       const config = response.result;
       setClient(config);
       setApiUrl(config.api_url ?? '');
-      setDefaultModel(config.default_model ?? '');
       setApiKey('');
       setApiKeyDirty(false);
+      setApiUrlDirty(false);
+      setRoleModelsDirty(false);
       setLoaded(true);
     } catch (err) {
-      console.warn('[llm-provider] failed to load client config', err);
+      log('failed to load client config: %s', err instanceof Error ? err.message : 'unknown');
       setStatus({
         kind: 'error',
         message:
@@ -232,10 +237,11 @@ const BackendProviderPanel = () => {
 
   const applyPreset = useCallback((preset: ProviderPreset) => {
     setApiUrl(preset.apiUrl);
-    setDefaultModel(preset.suggestedModel);
+    setApiUrlDirty(true);
     // Reset role models to the preset's defaults so each switch gives a
     // clean, opinionated starting point.
     setRoleModels(preset.roleModels ? { ...preset.roleModels } : { ...EMPTY_ROLE_MODELS });
+    setRoleModelsDirty(true);
     setStatus({ kind: 'idle', message: '' });
   }, []);
 
@@ -246,24 +252,28 @@ const BackendProviderPanel = () => {
       // Build model_routes from role state when a non-OpenHuman preset is
       // active. Empty roles are filtered so the router doesn't dispatch to
       // an empty model id. Switching back to OpenHuman sends [] so the
-      // built-in router takes over.
-      const routes: ModelRoute[] = isOpenHuman
-        ? []
-        : ROLE_HINTS.flatMap(hint => {
-            const model = roleModels[hint].trim();
-            return model ? [{ hint, model }] : [];
-          });
+      // built-in router takes over. We only send routes when the user has
+      // actually changed the provider or edited a role input — keeps a
+      // stale Save click after a failed `load()` from clobbering stored
+      // config (CodeRabbit #1467).
+      const routesTouched = apiUrlDirty || roleModelsDirty;
+      const routes: ModelRoute[] | undefined = !routesTouched
+        ? undefined
+        : isOpenHuman
+          ? []
+          : ROLE_HINTS.flatMap(hint => {
+              const model = roleModels[hint].trim();
+              return model ? [{ hint, model }] : [];
+            });
       await openhumanUpdateModelSettings({
-        api_url: apiUrl,
-        // Only send api_key when the user has actively touched the field.
+        api_url: apiUrlDirty ? apiUrl : undefined,
         api_key: apiKeyDirty ? apiKey : undefined,
-        default_model: defaultModel,
         model_routes: routes,
       });
       setStatus({ kind: 'ok', message: 'LLM provider settings saved.' });
       await load();
     } catch (err) {
-      console.warn('[llm-provider] save failed', err);
+      log('save failed: %s', err instanceof Error ? err.message : 'unknown');
       setStatus({
         kind: 'error',
         message:
@@ -272,7 +282,7 @@ const BackendProviderPanel = () => {
     } finally {
       setSaving(false);
     }
-  }, [apiKey, apiKeyDirty, apiUrl, defaultModel, isOpenHuman, load, roleModels]);
+  }, [apiKey, apiKeyDirty, apiUrl, apiUrlDirty, isOpenHuman, load, roleModels, roleModelsDirty]);
 
   const handleClearKey = useCallback(async () => {
     setSaving(true);
@@ -282,7 +292,7 @@ const BackendProviderPanel = () => {
       setStatus({ kind: 'ok', message: 'API key cleared.' });
       await load();
     } catch (err) {
-      console.warn('[llm-provider] clear key failed', err);
+      log('clear key failed: %s', err instanceof Error ? err.message : 'unknown');
       setStatus({
         kind: 'error',
         message:
@@ -303,9 +313,8 @@ const BackendProviderPanel = () => {
       />
       <div className="p-4 space-y-5">
         <p className="text-sm text-stone-500 leading-relaxed">
-          Pick where inference runs. The hosted OpenHuman backend uses a smart router and needs no
-          setup. Any OpenAI-compatible provider (OpenAI, Anthropic, OpenRouter, Ollama, your own
-          gateway) also works — pick a preset to auto-fill the URL and per-role model defaults.
+          Pick where inference runs. Any OpenAI-compatible provider (OpenAI, Anthropic, OpenRouter,
+          Ollama, your own gateway).
         </p>
 
         {!loaded ? (
@@ -345,13 +354,12 @@ const BackendProviderPanel = () => {
             {!isOpenHuman && (
               <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
-                  Tip: switch back to OpenHuman
+                  Note
                 </p>
                 <p className="mt-1 text-sm text-primary-900 leading-relaxed">
-                  OpenHuman’s built-in router picks the best model for each request — reasoning,
-                  agentic, coding, or summarization — and falls back automatically. You get top-tier
-                  quality at the lowest blended cost with no per-provider keys to juggle. Pick the
-                  OpenHuman tile above to hand routing back to us.
+                  OpenHuman comes with a built-in smart router that picks the best model for each
+                  request. Cutting costs and improving quality. OpenHuman's models are also fine
+                  tuned for better performance.
                 </p>
               </div>
             )}
@@ -366,7 +374,10 @@ const BackendProviderPanel = () => {
                 id="llm-api-url"
                 type="url"
                 value={apiUrl}
-                onChange={e => setApiUrl(e.target.value)}
+                onChange={e => {
+                  setApiUrl(e.target.value);
+                  setApiUrlDirty(true);
+                }}
                 placeholder="https://api.openai.com/v1 — or leave blank for default"
                 className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
                 autoComplete="off"
@@ -379,101 +390,82 @@ const BackendProviderPanel = () => {
               </p>
             </section>
 
-            <section className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="llm-api-key"
-                  className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  API Key
-                </label>
-                {client?.api_key_set && (
-                  <button
-                    type="button"
-                    onClick={handleClearKey}
-                    disabled={saving}
-                    className="text-xs text-coral-600 hover:text-coral-700 disabled:opacity-50">
-                    Clear stored key
-                  </button>
-                )}
-              </div>
-              <input
-                id="llm-api-key"
-                type="password"
-                value={apiKey}
-                onChange={e => {
-                  setApiKey(e.target.value);
-                  setApiKeyDirty(true);
-                }}
-                placeholder={
-                  client?.api_key_set ? `${KEY_PLACEHOLDER} (replace to change)` : 'sk-…'
-                }
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-xs text-stone-400">
-                Stored locally in <code className="bg-stone-100 px-1 rounded">config.toml</code> and
-                never echoed back to the UI.{' '}
-                {client?.api_key_set ? 'A key is currently saved.' : 'No key is currently saved.'}
-              </p>
-            </section>
+            {!isOpenHuman && (
+              <section className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="llm-api-key"
+                    className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    API Key
+                  </label>
+                  {client?.api_key_set && (
+                    <button
+                      type="button"
+                      onClick={handleClearKey}
+                      disabled={saving}
+                      className="text-xs text-coral-600 hover:text-coral-700 disabled:opacity-50">
+                      Clear stored key
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="llm-api-key"
+                  type="password"
+                  value={apiKey}
+                  onChange={e => {
+                    setApiKey(e.target.value);
+                    setApiKeyDirty(true);
+                  }}
+                  placeholder={
+                    client?.api_key_set ? `${KEY_PLACEHOLDER} (replace to change)` : 'sk-…'
+                  }
+                  className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <p className="text-xs text-stone-400">
+                  Stored locally in <code className="bg-stone-100 px-1 rounded">config.toml</code>{' '}
+                  and never echoed back to the UI.{' '}
+                  {client?.api_key_set ? 'A key is currently saved.' : 'No key is currently saved.'}
+                </p>
+              </section>
+            )}
 
             {!isOpenHuman && (
-              <>
-                <section className="space-y-2">
-                  <label
-                    htmlFor="llm-default-model"
-                    className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                    Default Model
-                  </label>
-                  <input
-                    id="llm-default-model"
-                    type="text"
-                    value={defaultModel}
-                    onChange={e => setDefaultModel(e.target.value)}
-                    placeholder="gpt-4o, claude-sonnet-4-6, llama3.3, …"
-                    className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  <p className="text-xs text-stone-400">
-                    Used when a request doesn’t carry a role-specific routing hint.
-                  </p>
-                </section>
-
-                <section className="space-y-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                    Models by Role
-                  </label>
-                  <p className="text-xs text-stone-400">
-                    The core router dispatches each task to the right model. Leave a field blank to
-                    fall back to the default model above.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {ROLE_HINTS.map(hint => (
-                      <div key={hint} className="space-y-1">
-                        <label
-                          htmlFor={`llm-role-${hint}`}
-                          className="block text-xs font-medium text-stone-700">
-                          {ROLE_LABELS[hint].label}
-                        </label>
-                        <input
-                          id={`llm-role-${hint}`}
-                          type="text"
-                          value={roleModels[hint]}
-                          onChange={e =>
-                            setRoleModels(prev => ({ ...prev, [hint]: e.target.value }))
-                          }
-                          placeholder={ROLE_LABELS[hint].help}
-                          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                          autoComplete="off"
-                          spellCheck={false}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </>
+              <section className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  Models by Role
+                </label>
+                <p className="text-xs text-stone-400">
+                  The core router dispatches each task to the right model. Leave a field blank to
+                  skip routing for that role.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ROLE_HINTS.map(hint => (
+                    <div key={hint} className="space-y-1">
+                      <label
+                        htmlFor={`llm-role-${hint}`}
+                        className="block text-xs font-medium text-stone-700">
+                        {ROLE_LABELS[hint].label}
+                      </label>
+                      <input
+                        id={`llm-role-${hint}`}
+                        type="text"
+                        value={roleModels[hint]}
+                        onChange={e => {
+                          const next = e.target.value;
+                          setRoleModels(prev => ({ ...prev, [hint]: next }));
+                          setRoleModelsDirty(true);
+                        }}
+                        placeholder={ROLE_LABELS[hint].help}
+                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
 
             <div className="flex items-center gap-3 pt-1">

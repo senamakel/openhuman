@@ -141,6 +141,13 @@ objc2-web-kit = { version = "0.3.2", features = ["block2"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 notify-rust = { version = "4", default-features = false, features = ["dbus"] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+# AttachConsole — re-attach to the parent shell when the binary runs as a CLI
+# (the `core` subcommand). The main binary itself is windows-subsystem so
+# launching the Tauri app from Explorer does not pop a console; the helper
+# CEF subprocess re-execs inherit that same subsystem.
+windows-sys = { version = "0.59", features = ["Win32_System_Console", "Win32_Foundation"] }
+
 [features]
 default = []
 # `custom-protocol` switches Tauri from `devUrl` (vite dev server) to the

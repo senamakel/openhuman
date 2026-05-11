@@ -353,22 +353,13 @@ const BackendProviderPanel = () => {
 
             {isOpenHuman && (
               <div className="rounded-lg border border-sage-300 bg-sage-50 p-3 flex gap-3">
-                <svg
-                  className="w-5 h-5 shrink-0 text-sage-600 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                  aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-sage-700">
-                    Congrats — you’re using the most optimized setup
+                    Congrats! You’re using the most optimized setup
                   </p>
                   <p className="mt-1 text-sm text-sage-900 leading-relaxed">
-                    OpenHuman built-in smart router picks the best model tailored to OpenHuman.
-                    Top-tier quality at the lowest blended cost.
+                    OpenHuman's built-in smart router picks the best model giving you top-tier
+                    quality at the lowest blended cost.
                   </p>
                 </div>
               </div>
@@ -384,31 +375,31 @@ const BackendProviderPanel = () => {
               </div>
             )}
 
-            <section className="space-y-2">
-              <label
-                htmlFor="llm-api-url"
-                className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                API URL
-              </label>
-              <input
-                id="llm-api-url"
-                type="url"
-                value={apiUrl}
-                onChange={e => {
-                  setApiUrl(e.target.value);
-                  setApiUrlDirty(true);
-                }}
-                placeholder="https://api.openai.com/v1 — or leave blank for default"
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-xs text-stone-400">
-                Base URL of the OpenAI-compatible chat-completions endpoint. The path{' '}
-                <code className="bg-stone-100 px-1 rounded">/chat/completions</code> is appended
-                automatically.
-              </p>
-            </section>
+            {activePreset.id === 'custom' && (
+              <section className="space-y-2">
+                <label
+                  htmlFor="llm-api-url"
+                  className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  API URL
+                </label>
+                <input
+                  id="llm-api-url"
+                  type="url"
+                  value={apiUrl}
+                  onChange={e => {
+                    setApiUrl(e.target.value);
+                    setApiUrlDirty(true);
+                  }}
+                  placeholder="https://your-host.example/v1/chat/completions"
+                  className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <p className="text-xs text-stone-400">
+                  Full URL of the OpenAI-compatible chat-completions endpoint for your gateway.
+                </p>
+              </section>
+            )}
 
             {!isOpenHuman && (
               <section className="space-y-2">

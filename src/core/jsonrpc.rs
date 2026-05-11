@@ -118,10 +118,20 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
 }
 
 /// Helper to determine if an error message indicates an expired or invalid session.
+///
+/// "No backend session token" is also treated as a session-expired signal: the
+/// auth profile is missing entirely (the user was never signed in, or their
+/// stored profile was wiped between login and the next RPC). The frontend may
+/// still believe it holds a session token from an optimistic post-login patch,
+/// so we want the same auto-cleanup + UI-level re-auth path to fire instead of
+/// repeatedly reporting this as a hard error to Sentry. See #1465-ish: users
+/// stuck on the onboarding `SkillsStep` would spam `composio_list_connections`
+/// failures every 5 s without ever being bounced back to the login screen.
 fn is_session_expired_error(msg: &str) -> bool {
     let lower = msg.to_lowercase();
     (lower.contains("401") && lower.contains("unauthorized"))
         || lower.contains("invalid token")
+        || lower.contains("no backend session token")
         || msg.contains("SESSION_EXPIRED")
 }
 

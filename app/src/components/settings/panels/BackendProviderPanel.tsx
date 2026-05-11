@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   type ClientConfig,
@@ -23,14 +23,16 @@ interface ProviderPreset {
   suggestedModel: string;
   /** Short hint shown beneath the preset row when this preset is active. */
   note: string;
-  /** Tailwind classes for the logo chip background + foreground. */
-  badge: { bg: string; fg: string };
   /**
-   * Inline SVG glyph rendered inside the badge. Kept as simple geometric
-   * marks rather than reproductions of brand logos to avoid trademark
-   * issues — the colour + shape is enough for users to recognise the row.
+   * Tailwind classes giving the card a subtle brand-aligned tint. Kept
+   * deliberately light — a colour cue, not a full brand reproduction.
+   *
+   * - `idle`: applied when the card is not the active preset.
+   * - `selected`: applied when the card is the active preset.
+   * - `dot`: small left-edge colour dot so the brand cue is still visible
+   *   on an unselected card without flooding the grid with colour.
    */
-  glyph: ReactNode;
+  tint: { idle: string; selected: string; dot: string };
 }
 
 /**
@@ -46,13 +48,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     apiUrl: '',
     suggestedModel: '',
     note: 'Hosted OpenHuman backend — uses your signed-in session, no API key required.',
-    badge: { bg: 'bg-primary-500', fg: 'text-white' },
-    glyph: (
-      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
-        <circle cx="12" cy="8" r="3" />
-        <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7v1H5v-1z" />
-      </svg>
-    ),
+    tint: {
+      idle: 'border-stone-200 hover:border-primary-300 hover:bg-primary-50/40',
+      selected: 'border-primary-400 bg-primary-50 ring-1 ring-primary-200',
+      dot: 'bg-primary-500',
+    },
   },
   {
     id: 'openai',
@@ -60,22 +60,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     apiUrl: 'https://api.openai.com/v1',
     suggestedModel: 'gpt-4o-mini',
     note: 'Use a key from platform.openai.com. Common models: gpt-4o, gpt-4o-mini, o1-mini.',
-    badge: { bg: 'bg-stone-900', fg: 'text-white' },
-    glyph: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        aria-hidden="true">
-        <circle cx="12" cy="12" r="3" />
-        <path
-          d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
+    tint: {
+      idle: 'border-stone-200 hover:border-sage-400 hover:bg-sage-50/40',
+      selected: 'border-sage-500 bg-sage-50 ring-1 ring-sage-200',
+      dot: 'bg-sage-600',
+    },
   },
   {
     id: 'openrouter',
@@ -83,21 +72,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     apiUrl: 'https://openrouter.ai/api/v1',
     suggestedModel: 'anthropic/claude-3.5-sonnet',
     note: 'Routes to OpenAI, Anthropic, Google, Meta, Mistral and more under one key (openrouter.ai). Use this for Anthropic models.',
-    badge: { bg: 'bg-amber-500', fg: 'text-white' },
-    glyph: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true">
-        <path d="M3 12h6l3-4M3 12l3 4h6M21 8l-4 4 4 4" />
-        <circle cx="3" cy="12" r="1.2" fill="currentColor" />
-      </svg>
-    ),
+    tint: {
+      idle: 'border-stone-200 hover:border-amber-400 hover:bg-amber-50/40',
+      selected: 'border-amber-500 bg-amber-50 ring-1 ring-amber-200',
+      dot: 'bg-amber-500',
+    },
   },
   {
     id: 'ollama',
@@ -105,12 +84,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     apiUrl: 'http://localhost:11434/v1',
     suggestedModel: 'llama3.1',
     note: 'Local Ollama runtime via its OpenAI-compatible endpoint. API key is ignored — leave blank.',
-    badge: { bg: 'bg-sage-600', fg: 'text-white' },
-    glyph: (
-      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
-        <path d="M7 4c-2 0-3 2-3 4v8c0 2 1 4 3 4h2v-3a3 3 0 0 1 6 0v3h2c2 0 3-2 3-4V8c0-2-1-4-3-4h-1v2a2 2 0 0 1-4 0V4H7zm1 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm8 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
-      </svg>
-    ),
+    tint: {
+      idle: 'border-stone-200 hover:border-coral-300 hover:bg-coral-50/40',
+      selected: 'border-coral-400 bg-coral-50 ring-1 ring-coral-200',
+      dot: 'bg-coral-500',
+    },
   },
   {
     id: 'custom',
@@ -118,21 +96,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     apiUrl: '',
     suggestedModel: '',
     note: 'Any other endpoint that speaks the OpenAI /chat/completions shape (vLLM, LiteLLM, LM Studio, self-hosted gateways).',
-    badge: { bg: 'bg-stone-200', fg: 'text-stone-600' },
-    glyph: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true">
-        <path d="M10.3 4.3a1.7 1.7 0 0 1 3.4 0 1.7 1.7 0 0 0 2.5 1 1.7 1.7 0 0 1 2.4 2.4 1.7 1.7 0 0 0 1 2.5 1.7 1.7 0 0 1 0 3.4 1.7 1.7 0 0 0-1 2.5 1.7 1.7 0 0 1-2.4 2.4 1.7 1.7 0 0 0-2.5 1 1.7 1.7 0 0 1-3.4 0 1.7 1.7 0 0 0-2.5-1 1.7 1.7 0 0 1-2.4-2.4 1.7 1.7 0 0 0-1-2.5 1.7 1.7 0 0 1 0-3.4 1.7 1.7 0 0 0 1-2.5 1.7 1.7 0 0 1 2.4-2.4 1.7 1.7 0 0 0 2.5-1z" />
-        <circle cx="12" cy="12" r="2.5" />
-      </svg>
-    ),
+    tint: {
+      idle: 'border-stone-200 hover:border-stone-400 hover:bg-stone-50',
+      selected: 'border-stone-400 bg-stone-100 ring-1 ring-stone-200',
+      dot: 'bg-stone-400',
+    },
   },
 ];
 
@@ -291,17 +259,14 @@ const BackendProviderPanel = () => {
                       key={preset.id}
                       type="button"
                       onClick={() => applyPreset(preset)}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
-                        selected
-                          ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-200'
-                          : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50'
+                      className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-left transition-colors ${
+                        selected ? preset.tint.selected : preset.tint.idle
                       }`}
                       aria-pressed={selected}>
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${preset.badge.bg} ${preset.badge.fg}`}
-                        aria-hidden="true">
-                        {preset.glyph}
-                      </span>
+                        className={`h-2 w-2 shrink-0 rounded-full ${preset.tint.dot}`}
+                        aria-hidden="true"
+                      />
                       <span className="text-sm font-medium text-stone-800 truncate">
                         {preset.label}
                       </span>

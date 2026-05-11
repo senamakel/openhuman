@@ -12,6 +12,11 @@ const DEFAULT_ONBOARDING_FLAG_NAME: &str = ".skip_onboarding";
 #[derive(Debug, Deserialize)]
 struct ModelSettingsUpdate {
     api_url: Option<String>,
+    /// Optional API key for OpenAI-compatible backends. Stored verbatim in
+    /// `config.toml` on the user's machine — see #1342 (local-first / pluggable
+    /// backends). The key is never echoed back over RPC; `get_client_config`
+    /// only reports `api_key_set: bool`.
+    api_key: Option<String>,
     default_model: Option<String>,
     default_temperature: Option<f64>,
 }
@@ -302,14 +307,21 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "OpenHuman core version.",
                     required: true,
                 },
+                FieldSchema {
+                    name: "api_key_set",
+                    ty: TypeSchema::Bool,
+                    comment: "True when a custom backend api_key is stored locally. The key itself is never returned over RPC.",
+                    required: true,
+                },
             ],
         },
         "update_model_settings" => ControllerSchema {
             namespace: "config",
             function: "update_model_settings",
-            description: "Update model and backend connection settings.",
+            description: "Update model and backend connection settings, including a custom OpenAI-compatible backend (api_url + api_key).",
             inputs: vec![
-                optional_string("api_url", "Backend API URL."),
+                optional_string("api_url", "Backend API URL. Set to a non-default URL together with `api_key` to point inference at any OpenAI-compatible provider."),
+                optional_string("api_key", "Optional API key for the configured backend. Pass an empty string to clear a previously stored key."),
                 optional_string("default_model", "Default model id."),
                 FieldSchema {
                     name: "default_temperature",
@@ -735,11 +747,17 @@ fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let app_version =
             std::env::var("OPENHUMAN_APP_VERSION").unwrap_or_else(|_| "unknown".to_string());
+        let api_key_set = config
+            .api_key
+            .as_deref()
+            .map(|k| !k.trim().is_empty())
+            .unwrap_or(false);
         to_json(RpcOutcome::new(
             serde_json::json!({
                 "api_url": config.api_url,
                 "default_model": config.default_model,
                 "app_version": app_version,
+                "api_key_set": api_key_set,
             }),
             vec!["client config read".to_string()],
         ))
@@ -751,7 +769,7 @@ fn handle_update_model_settings(params: Map<String, Value>) -> ControllerFuture 
         let update = deserialize_params::<ModelSettingsUpdate>(params)?;
         let patch = config_rpc::ModelSettingsPatch {
             api_url: update.api_url,
-            api_key: None,
+            api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,
         };

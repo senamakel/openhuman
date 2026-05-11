@@ -235,6 +235,34 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
 }
 
 #[tokio::test]
+async fn apply_model_settings_stores_api_key_and_clears_when_empty() {
+    // #1342: custom OpenAI-compatible providers — api_key must round-trip
+    // through `apply_model_settings` and clear when an empty string is sent.
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let set = ModelSettingsPatch {
+        api_url: Some("https://llm.example.test/v1".into()),
+        api_key: Some("  sk-test-1234  ".into()),
+        default_model: Some("gpt-4o-mini".into()),
+        default_temperature: None,
+    };
+    let _ = apply_model_settings(&mut cfg, set).await.expect("set");
+    assert_eq!(cfg.api_key.as_deref(), Some("sk-test-1234"));
+
+    let clear = ModelSettingsPatch {
+        api_url: None,
+        api_key: Some("".into()),
+        default_model: None,
+        default_temperature: None,
+    };
+    let _ = apply_model_settings(&mut cfg, clear).await.expect("clear");
+    assert!(cfg.api_key.is_none());
+    // Other fields must not be disturbed by a key-only clear.
+    assert_eq!(cfg.api_url.as_deref(), Some("https://llm.example.test/v1"));
+    assert_eq!(cfg.default_model.as_deref(), Some("gpt-4o-mini"));
+}
+
+#[tokio::test]
 async fn apply_model_settings_empty_strings_clear_optional_fields() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);

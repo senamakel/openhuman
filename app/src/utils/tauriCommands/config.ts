@@ -109,6 +109,27 @@ export async function openhumanGetConfig(): Promise<CommandResponse<ConfigSnapsh
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({ method: CORE_RPC_METHODS.configGet });
 }
 
+/**
+ * Safe client-facing config slice. Never contains the raw api_key — only
+ * `api_key_set` indicates whether a custom backend key is stored. See
+ * `config.get_client_config` in `src/openhuman/config/schemas.rs`.
+ */
+export interface ClientConfig {
+  api_url: string | null;
+  default_model: string | null;
+  app_version: string;
+  api_key_set: boolean;
+}
+
+export async function openhumanGetClientConfig(): Promise<CommandResponse<ClientConfig>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ClientConfig>>({
+    method: 'openhuman.config_get_client_config',
+  });
+}
+
 export async function openhumanUpdateModelSettings(
   update: ModelSettingsUpdate
 ): Promise<CommandResponse<ConfigSnapshot>> {

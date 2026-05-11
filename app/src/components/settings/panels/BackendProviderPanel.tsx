@@ -3,15 +3,36 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   type ClientConfig,
+  type ModelRoute,
   openhumanGetClientConfig,
   openhumanUpdateModelSettings,
 } from '../../../utils/tauriCommands';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
-const log = debug('settings:backend-provider');
+const log = debug('settings:llm-provider');
 
 const KEY_PLACEHOLDER = '••••••••••••••••';
+
+/**
+ * Task-hint slots the core router understands (see
+ * `src/openhuman/providers/router.rs`). When the user picks a non-OpenHuman
+ * preset we persist a `model_routes` entry for each role so the router has a
+ * sensible per-task default for the chosen provider.
+ */
+const ROLE_HINTS = ['reasoning', 'agentic', 'coding', 'summarization'] as const;
+type RoleHint = (typeof ROLE_HINTS)[number];
+
+const ROLE_LABELS: Record<RoleHint, { label: string; help: string }> = {
+  reasoning: { label: 'Reasoning', help: 'Deep, multi-step thinking and planning.' },
+  agentic: { label: 'Agentic', help: 'Tool use, sub-agent delegation, function calling.' },
+  coding: { label: 'Coding', help: 'Code generation, refactoring, and review.' },
+  summarization: { label: 'Summarization', help: 'Fast, cheap summaries and short responses.' },
+};
+
+type RoleModels = Record<RoleHint, string>;
+
+const EMPTY_ROLE_MODELS: RoleModels = { reasoning: '', agentic: '', coding: '', summarization: '' };
 
 interface ProviderPreset {
   /** Stable identifier — also drives the preset card key. */
@@ -19,27 +40,26 @@ interface ProviderPreset {
   label: string;
   /** OpenAI-compatible base URL ending in `/v1`. Empty = use OpenHuman default. */
   apiUrl: string;
-  /** Suggested default model id; user can override after picking. */
+  /** Suggested single default model id; ignored for OpenHuman (router-managed). */
   suggestedModel: string;
+  /**
+   * Per-role suggested models for the core router. `null` for OpenHuman since
+   * its built-in router picks per task without an external model_routes table.
+   */
+  roleModels: RoleModels | null;
   /** Short hint shown beneath the preset row when this preset is active. */
   note: string;
   /**
-   * Tailwind classes giving the card a subtle brand-aligned tint. Kept
-   * deliberately light — a colour cue, not a full brand reproduction.
-   *
-   * - `idle`: applied when the card is not the active preset.
-   * - `selected`: applied when the card is the active preset.
-   * - `dot`: small left-edge colour dot so the brand cue is still visible
-   *   on an unselected card without flooding the grid with colour.
+   * Tailwind classes giving the card a subtle brand-aligned tint. A colour
+   * cue, not a brand reproduction.
    */
   tint: { idle: string; selected: string; dot: string };
 }
 
 /**
- * Curated list of known OpenAI-compatible providers. The core uses
- * `OpenAiCompatibleProvider` (`/chat/completions` shape) so providers must
- * speak that protocol — Anthropic native (`/v1/messages`) does not, so it is
- * intentionally surfaced via OpenRouter rather than as its own preset.
+ * Curated list of OpenAI-compatible providers (#1342). The core uses
+ * `OpenAiCompatibleProvider` (`/chat/completions` shape); Anthropic ships an
+ * OpenAI-compat shim at `https://api.anthropic.com/v1` so it lives here too.
  */
 const PROVIDER_PRESETS: ProviderPreset[] = [
   {
@@ -47,6 +67,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     label: 'OpenHuman',
     apiUrl: '',
     suggestedModel: '',
+    roleModels: null,
     note: 'Hosted OpenHuman backend — uses your signed-in session, no API key required.',
     tint: {
       idle: 'border-stone-200 hover:border-primary-300 hover:bg-primary-50/40',
@@ -58,8 +79,14 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'openai',
     label: 'OpenAI',
     apiUrl: 'https://api.openai.com/v1',
-    suggestedModel: 'gpt-4o-mini',
-    note: 'Use a key from platform.openai.com. Common models: gpt-4o, gpt-4o-mini, o1-mini.',
+    suggestedModel: 'gpt-4o',
+    roleModels: {
+      reasoning: 'o1',
+      agentic: 'gpt-4o',
+      coding: 'gpt-4o',
+      summarization: 'gpt-4o-mini',
+    },
+    note: 'Use a key from platform.openai.com. Defaults below pick o1 for reasoning and gpt-4o for the rest.',
     tint: {
       idle: 'border-stone-200 hover:border-sage-400 hover:bg-sage-50/40',
       selected: 'border-sage-600 bg-sage-100 ring-2 ring-sage-300 text-sage-900',
@@ -67,11 +94,37 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     },
   },
   {
+    id: 'anthropic',
+    label: 'Anthropic',
+    // Anthropic ships an OpenAI-compatibility shim at /v1/chat/completions
+    // that maps to the same Claude models — see docs.anthropic.com/en/api/openai-sdk.
+    apiUrl: 'https://api.anthropic.com/v1',
+    suggestedModel: 'claude-sonnet-4-6',
+    roleModels: {
+      reasoning: 'claude-opus-4-7',
+      agentic: 'claude-sonnet-4-6',
+      coding: 'claude-sonnet-4-6',
+      summarization: 'claude-haiku-4-5-20251001',
+    },
+    note: 'Uses Anthropic’s OpenAI-compatibility endpoint with a key from console.anthropic.com. Defaults: Opus 4.7 reasoning, Sonnet 4.6 agentic/coding, Haiku 4.5 summarization.',
+    tint: {
+      idle: 'border-stone-200 hover:border-coral-400 hover:bg-coral-50/40',
+      selected: 'border-coral-600 bg-coral-100 ring-2 ring-coral-300 text-coral-900',
+      dot: 'bg-coral-600',
+    },
+  },
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     apiUrl: 'https://openrouter.ai/api/v1',
-    suggestedModel: 'anthropic/claude-3.5-sonnet',
-    note: 'Routes to OpenAI, Anthropic, Google, Meta, Mistral and more under one key (openrouter.ai). Use this for Anthropic models.',
+    suggestedModel: 'openai/gpt-4o',
+    roleModels: {
+      reasoning: 'openai/o1',
+      agentic: 'anthropic/claude-sonnet-4.6',
+      coding: 'anthropic/claude-sonnet-4.6',
+      summarization: 'openai/gpt-4o-mini',
+    },
+    note: 'One key, dozens of providers (openrouter.ai). Mix and match per role — swap to meta-llama/llama-3.3-70b-instruct, google/gemini-2.0-flash, etc.',
     tint: {
       idle: 'border-stone-200 hover:border-amber-400 hover:bg-amber-50/40',
       selected: 'border-amber-600 bg-amber-100 ring-2 ring-amber-300 text-amber-900',
@@ -82,12 +135,18 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'ollama',
     label: 'Ollama (local)',
     apiUrl: 'http://localhost:11434/v1',
-    suggestedModel: 'llama3.1',
+    suggestedModel: 'llama3.3',
+    roleModels: {
+      reasoning: 'llama3.3',
+      agentic: 'llama3.3',
+      coding: 'qwen2.5-coder',
+      summarization: 'llama3.2',
+    },
     note: 'Local Ollama runtime via its OpenAI-compatible endpoint. API key is ignored — leave blank.',
     tint: {
-      idle: 'border-stone-200 hover:border-coral-300 hover:bg-coral-50/40',
-      selected: 'border-coral-500 bg-coral-100 ring-2 ring-coral-300 text-coral-900',
-      dot: 'bg-coral-500',
+      idle: 'border-stone-200 hover:border-stone-400 hover:bg-stone-50',
+      selected: 'border-stone-500 bg-stone-200 ring-2 ring-stone-300 text-stone-900',
+      dot: 'bg-stone-500',
     },
   },
   {
@@ -95,6 +154,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     label: 'Custom',
     apiUrl: '',
     suggestedModel: '',
+    roleModels: { ...EMPTY_ROLE_MODELS },
     note: 'Any other endpoint that speaks the OpenAI /chat/completions shape (vLLM, LiteLLM, LM Studio, self-hosted gateways).',
     tint: {
       idle: 'border-stone-200 hover:border-stone-400 hover:bg-stone-50',
@@ -113,11 +173,11 @@ function detectPreset(apiUrl: string): ProviderPreset {
 }
 
 /**
- * Configure a custom OpenAI-compatible inference backend (#1342).
- *
- * Leaving both fields blank falls back to the hosted OpenHuman backend.
- * Setting `api_url` + `api_key` routes inference through any OpenAI-compatible
- * provider (Ollama via `/v1`, vLLM, OpenRouter, self-hosted gateways, etc.).
+ * Configure the LLM provider (#1342). Defaults to the hosted OpenHuman
+ * backend, whose built-in router picks the best model per request. Selecting
+ * any other preset reveals per-role model inputs (reasoning / agentic /
+ * coding / summarization) that get persisted to `config.model_routes` so the
+ * core router obeys them.
  *
  * The api_key is stored on the user's machine in `config.toml`. It is sent
  * over the local Tauri↔core RPC only at write time; subsequent reads return
@@ -132,6 +192,7 @@ const BackendProviderPanel = () => {
   const [defaultModel, setDefaultModel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiKeyDirty, setApiKeyDirty] = useState(false);
+  const [roleModels, setRoleModels] = useState<RoleModels>(EMPTY_ROLE_MODELS);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'error'; message: string }>({
     kind: 'idle',
@@ -140,7 +201,7 @@ const BackendProviderPanel = () => {
 
   const load = useCallback(async () => {
     try {
-      log('[backend-provider] loading client config');
+      log('[llm-provider] loading client config');
       const response = await openhumanGetClientConfig();
       const config = response.result;
       setClient(config);
@@ -150,7 +211,7 @@ const BackendProviderPanel = () => {
       setApiKeyDirty(false);
       setLoaded(true);
     } catch (err) {
-      console.warn('[backend-provider] failed to load client config', err);
+      console.warn('[llm-provider] failed to load client config', err);
       setStatus({
         kind: 'error',
         message:
@@ -166,22 +227,43 @@ const BackendProviderPanel = () => {
     void load();
   }, [load]);
 
+  const activePreset = useMemo(() => detectPreset(apiUrl), [apiUrl]);
+  const isOpenHuman = activePreset.id === 'openhuman';
+
+  const applyPreset = useCallback((preset: ProviderPreset) => {
+    setApiUrl(preset.apiUrl);
+    setDefaultModel(preset.suggestedModel);
+    // Reset role models to the preset's defaults so each switch gives a
+    // clean, opinionated starting point.
+    setRoleModels(preset.roleModels ? { ...preset.roleModels } : { ...EMPTY_ROLE_MODELS });
+    setStatus({ kind: 'idle', message: '' });
+  }, []);
+
   const handleSave = useCallback(async () => {
     setSaving(true);
     setStatus({ kind: 'idle', message: '' });
     try {
+      // Build model_routes from role state when a non-OpenHuman preset is
+      // active. Empty roles are filtered so the router doesn't dispatch to
+      // an empty model id. Switching back to OpenHuman sends [] so the
+      // built-in router takes over.
+      const routes: ModelRoute[] = isOpenHuman
+        ? []
+        : ROLE_HINTS.flatMap(hint => {
+            const model = roleModels[hint].trim();
+            return model ? [{ hint, model }] : [];
+          });
       await openhumanUpdateModelSettings({
         api_url: apiUrl,
-        // Only send api_key when the user has actively touched the field —
-        // otherwise the existing stored key (which is never echoed back to
-        // the UI) stays intact across saves.
+        // Only send api_key when the user has actively touched the field.
         api_key: apiKeyDirty ? apiKey : undefined,
         default_model: defaultModel,
+        model_routes: routes,
       });
-      setStatus({ kind: 'ok', message: 'Backend provider settings saved.' });
+      setStatus({ kind: 'ok', message: 'LLM provider settings saved.' });
       await load();
     } catch (err) {
-      console.warn('[backend-provider] save failed', err);
+      console.warn('[llm-provider] save failed', err);
       setStatus({
         kind: 'error',
         message:
@@ -190,23 +272,7 @@ const BackendProviderPanel = () => {
     } finally {
       setSaving(false);
     }
-  }, [apiKey, apiKeyDirty, apiUrl, defaultModel, load]);
-
-  const activePreset = useMemo(() => detectPreset(apiUrl), [apiUrl]);
-
-  const applyPreset = useCallback(
-    (preset: ProviderPreset) => {
-      setApiUrl(preset.apiUrl);
-      // Only fill the suggested model when the user hasn't typed their own.
-      // Avoids clobbering a deliberate model choice when they're just trying
-      // a different endpoint.
-      if (preset.suggestedModel && !defaultModel.trim()) {
-        setDefaultModel(preset.suggestedModel);
-      }
-      setStatus({ kind: 'idle', message: '' });
-    },
-    [defaultModel]
-  );
+  }, [apiKey, apiKeyDirty, apiUrl, defaultModel, isOpenHuman, load, roleModels]);
 
   const handleClearKey = useCallback(async () => {
     setSaving(true);
@@ -216,7 +282,7 @@ const BackendProviderPanel = () => {
       setStatus({ kind: 'ok', message: 'API key cleared.' });
       await load();
     } catch (err) {
-      console.warn('[backend-provider] clear key failed', err);
+      console.warn('[llm-provider] clear key failed', err);
       setStatus({
         kind: 'error',
         message:
@@ -230,17 +296,16 @@ const BackendProviderPanel = () => {
   return (
     <div>
       <SettingsHeader
-        title="Backend Provider"
+        title="LLM Provider"
         showBackButton={true}
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}
       />
       <div className="p-4 space-y-5">
         <p className="text-sm text-stone-500 leading-relaxed">
-          Route inference through any OpenAI-compatible provider — the hosted OpenHuman backend, a
-          self-hosted gateway (vLLM, OpenRouter, LiteLLM…), or a local runtime exposing the OpenAI{' '}
-          <code className="text-xs bg-stone-100 px-1 rounded">/v1</code> shape. Leave both fields
-          blank to use the default OpenHuman backend.
+          Pick where inference runs. The hosted OpenHuman backend uses a smart router and needs no
+          setup. Any OpenAI-compatible provider (OpenAI, Anthropic, OpenRouter, Ollama, your own
+          gateway) also works — pick a preset to auto-fill the URL and per-role model defaults.
         </p>
 
         {!loaded ? (
@@ -275,30 +340,30 @@ const BackendProviderPanel = () => {
                 })}
               </div>
               <p className="text-xs text-stone-400">{activePreset.note}</p>
-
-              {activePreset.id === 'openhuman' && (
-                <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
-                    Why OpenHuman?
-                  </p>
-                  <p className="mt-1 text-sm text-primary-900 leading-relaxed">
-                    A built-in model router picks the best model for each
-                    request — reasoning, agentic, fast, or local — and falls back
-                    automatically. You get top-tier quality at the lowest
-                    blended cost, with no per-provider keys to juggle.
-                  </p>
-                </div>
-              )}
             </section>
+
+            {!isOpenHuman && (
+              <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
+                  Tip: switch back to OpenHuman
+                </p>
+                <p className="mt-1 text-sm text-primary-900 leading-relaxed">
+                  OpenHuman’s built-in router picks the best model for each request — reasoning,
+                  agentic, coding, or summarization — and falls back automatically. You get top-tier
+                  quality at the lowest blended cost with no per-provider keys to juggle. Pick the
+                  OpenHuman tile above to hand routing back to us.
+                </p>
+              </div>
+            )}
 
             <section className="space-y-2">
               <label
-                htmlFor="backend-api-url"
+                htmlFor="llm-api-url"
                 className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
                 API URL
               </label>
               <input
-                id="backend-api-url"
+                id="llm-api-url"
                 type="url"
                 value={apiUrl}
                 onChange={e => setApiUrl(e.target.value)}
@@ -317,7 +382,7 @@ const BackendProviderPanel = () => {
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <label
-                  htmlFor="backend-api-key"
+                  htmlFor="llm-api-key"
                   className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
                   API Key
                 </label>
@@ -332,7 +397,7 @@ const BackendProviderPanel = () => {
                 )}
               </div>
               <input
-                id="backend-api-key"
+                id="llm-api-key"
                 type="password"
                 value={apiKey}
                 onChange={e => {
@@ -353,26 +418,63 @@ const BackendProviderPanel = () => {
               </p>
             </section>
 
-            <section className="space-y-2">
-              <label
-                htmlFor="backend-default-model"
-                className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Default Model
-              </label>
-              <input
-                id="backend-default-model"
-                type="text"
-                value={defaultModel}
-                onChange={e => setDefaultModel(e.target.value)}
-                placeholder="gpt-4o-mini, llama3.1:70b, …"
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-xs text-stone-400">
-                Model identifier passed to the provider when no per-request override is set.
-              </p>
-            </section>
+            {!isOpenHuman && (
+              <>
+                <section className="space-y-2">
+                  <label
+                    htmlFor="llm-default-model"
+                    className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Default Model
+                  </label>
+                  <input
+                    id="llm-default-model"
+                    type="text"
+                    value={defaultModel}
+                    onChange={e => setDefaultModel(e.target.value)}
+                    placeholder="gpt-4o, claude-sonnet-4-6, llama3.3, …"
+                    className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <p className="text-xs text-stone-400">
+                    Used when a request doesn’t carry a role-specific routing hint.
+                  </p>
+                </section>
+
+                <section className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Models by Role
+                  </label>
+                  <p className="text-xs text-stone-400">
+                    The core router dispatches each task to the right model. Leave a field blank to
+                    fall back to the default model above.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {ROLE_HINTS.map(hint => (
+                      <div key={hint} className="space-y-1">
+                        <label
+                          htmlFor={`llm-role-${hint}`}
+                          className="block text-xs font-medium text-stone-700">
+                          {ROLE_LABELS[hint].label}
+                        </label>
+                        <input
+                          id={`llm-role-${hint}`}
+                          type="text"
+                          value={roleModels[hint]}
+                          onChange={e =>
+                            setRoleModels(prev => ({ ...prev, [hint]: e.target.value }))
+                          }
+                          placeholder={ROLE_LABELS[hint].help}
+                          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
 
             <div className="flex items-center gap-3 pt-1">
               <button

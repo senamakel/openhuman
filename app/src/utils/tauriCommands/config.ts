@@ -11,11 +11,23 @@ export interface ConfigSnapshot {
   config_path: string;
 }
 
+export interface ModelRoute {
+  hint: string;
+  model: string;
+}
+
 export interface ModelSettingsUpdate {
   api_url?: string | null;
   api_key?: string | null;
   default_model?: string | null;
   default_temperature?: number | null;
+  /**
+   * When present, REPLACES `config.model_routes` wholesale with these
+   * `(hint, model)` pairs. Send `[]` to clear all routes (used when switching
+   * back to the OpenHuman backend whose built-in router picks per-task models
+   * on its own). Omit to leave existing routes untouched.
+   */
+  model_routes?: ModelRoute[] | null;
 }
 
 /**

@@ -10,6 +10,12 @@ use crate::rpc::RpcOutcome;
 const DEFAULT_ONBOARDING_FLAG_NAME: &str = ".skip_onboarding";
 
 #[derive(Debug, Deserialize)]
+struct ModelRouteUpdate {
+    hint: String,
+    model: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct ModelSettingsUpdate {
     api_url: Option<String>,
     /// Optional API key for OpenAI-compatible backends. Stored verbatim in
@@ -19,6 +25,12 @@ struct ModelSettingsUpdate {
     api_key: Option<String>,
     default_model: Option<String>,
     default_temperature: Option<f64>,
+    /// When present, REPLACES `config.model_routes` wholesale with these
+    /// `(hint, model)` pairs. Send `Some([])` to clear all routes (used when
+    /// the user switches back to the OpenHuman backend whose built-in router
+    /// picks per-task models on its own). Omit to leave existing routes
+    /// untouched.
+    model_routes: Option<Vec<ModelRouteUpdate>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -327,6 +339,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     name: "default_temperature",
                     ty: TypeSchema::Option(Box::new(TypeSchema::F64)),
                     comment: "Default model temperature.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "model_routes",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Optional list of {hint, model} pairs mapping task hints (reasoning, agentic, coding, summarization) to provider-specific model ids. Replaces config.model_routes wholesale; send [] to clear (e.g. when switching back to the OpenHuman built-in router).",
                     required: false,
                 },
             ],
@@ -772,6 +790,15 @@ fn handle_update_model_settings(params: Map<String, Value>) -> ControllerFuture 
             api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,
+            model_routes: update.model_routes.map(|routes| {
+                routes
+                    .into_iter()
+                    .map(|r| crate::openhuman::config::ModelRouteConfig {
+                        hint: r.hint,
+                        model: r.model,
+                    })
+                    .collect()
+            }),
         };
         to_json(config_rpc::load_and_apply_model_settings(patch).await?)
     })

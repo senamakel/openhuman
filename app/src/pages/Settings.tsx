@@ -197,7 +197,7 @@ const aiModelsSettingsItems = [
   },
   {
     id: 'backend-provider',
-    title: 'Backend Provider',
+    title: 'LLM Provider',
     description: 'Point inference at the OpenHuman backend or any OpenAI-compatible provider',
     route: 'backend-provider',
     icon: (

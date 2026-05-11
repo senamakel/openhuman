@@ -264,7 +264,7 @@ const Settings = () => {
           element={wrapSettingsPage(
             <SettingsSectionPage
               title="AI & Models"
-              description="Local AI model setup and management."
+              description="Local AI model setup and backend provider configuration."
               items={aiModelsSettingsItems}
             />
           )}

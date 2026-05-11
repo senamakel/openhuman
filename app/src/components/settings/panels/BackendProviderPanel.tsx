@@ -369,7 +369,7 @@ const BackendProviderPanel = () => {
                   </p>
                   <p className="mt-1 text-sm text-sage-900 leading-relaxed">
                     OpenHuman's built-in smart router picks the best model giving you top-tier
-                    quality at the lowest blended cost.
+                    quality at the lowest blended cost. All within your current subscription.
                   </p>
                 </div>
               </div>

@@ -197,6 +197,10 @@ const BackendProviderPanel = () => {
   const [apiUrlDirty, setApiUrlDirty] = useState(false);
   const [roleModelsDirty, setRoleModelsDirty] = useState(false);
   const [roleModels, setRoleModels] = useState<RoleModels>(EMPTY_ROLE_MODELS);
+  // Explicit active-preset state. We can't derive this from `apiUrl` alone
+  // because OpenHuman and Custom both store an empty URL — clicking Custom
+  // would otherwise snap back to OpenHuman on the next render.
+  const [activePresetId, setActivePresetId] = useState<string>(PROVIDER_PRESETS[0].id);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'error'; message: string }>({
     kind: 'idle',
@@ -209,7 +213,9 @@ const BackendProviderPanel = () => {
       const response = await openhumanGetClientConfig();
       const config = response.result;
       setClient(config);
-      setApiUrl(config.api_url ?? '');
+      const persistedUrl = config.api_url ?? '';
+      setApiUrl(persistedUrl);
+      setActivePresetId(detectPreset(persistedUrl).id);
       setApiKey('');
       setApiKeyDirty(false);
       setApiUrlDirty(false);
@@ -232,10 +238,14 @@ const BackendProviderPanel = () => {
     void load();
   }, [load]);
 
-  const activePreset = useMemo(() => detectPreset(apiUrl), [apiUrl]);
+  const activePreset = useMemo(
+    () => PROVIDER_PRESETS.find(p => p.id === activePresetId) ?? PROVIDER_PRESETS[0],
+    [activePresetId]
+  );
   const isOpenHuman = activePreset.id === 'openhuman';
 
   const applyPreset = useCallback((preset: ProviderPreset) => {
+    setActivePresetId(preset.id);
     setApiUrl(preset.apiUrl);
     setApiUrlDirty(true);
     // Reset role models to the preset's defaults so each switch gives a
@@ -368,9 +378,8 @@ const BackendProviderPanel = () => {
             {!isOpenHuman && (
               <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
                 <p className="mt-1 text-sm text-primary-900 leading-relaxed">
-                  OpenHuman comes with a built-in smart router that picks the best model for each
-                  request. Cutting costs and improving quality. OpenHuman's models are also fine
-                  tuned for better performance.
+                  Consider switching to OpenHuman as it comes with a built-in smart router that
+                  picks the best model for each request, cutting costs and improving quality.
                 </p>
               </div>
             )}
@@ -435,8 +444,6 @@ const BackendProviderPanel = () => {
                   spellCheck={false}
                 />
                 <p className="text-xs text-stone-400">
-                  Stored locally in <code className="bg-stone-100 px-1 rounded">config.toml</code>{' '}
-                  and never echoed back to the UI.{' '}
                   {client?.api_key_set ? 'A key is currently saved.' : 'No key is currently saved.'}
                 </p>
               </section>

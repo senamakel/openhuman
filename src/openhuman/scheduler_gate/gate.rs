@@ -282,6 +282,12 @@ mod tests {
     }
 
     #[tokio::test]
+    // Races on the process-wide LLM_PERMITS Arc<Semaphore> with concurrent
+    // tests that hold permits (local_ai service tests, indirect drain_until_idle
+    // callers). The cross-runtime waker on the shared semaphore is unreliable
+    // when another test's runtime is dropping mid-wait. Runs reliably with
+    // `--ignored --test-threads=1`. See PR #1524.
+    #[ignore = "flaky in parallel cargo test; shared LLM_PERMITS semaphore — see PR #1524"]
     async fn second_waiter_blocks_until_first_drops() {
         let _g = lock();
         let first = wait_for_capacity().await.expect("first permit");

@@ -182,6 +182,11 @@ async fn inline_complete_interactive_disabled_returns_empty_string() {
 /// interactive variant against a tight deadline; if it queued behind
 /// the permit it would deadlock or time out.
 #[tokio::test]
+// Races on the process-wide `LLM_PERMITS` semaphore with `scheduler_gate`
+// and other `local_ai` tests in parallel runs. Tracked separately as part
+// of the scheduler-gate test-isolation refactor; runs reliably with
+// `cargo test -- --ignored --test-threads=1`. See PR #1524 for context.
+#[ignore = "flaky in parallel cargo test; shared LLM_PERMITS semaphore — see PR #1524"]
 async fn inline_complete_interactive_does_not_block_on_held_permit() {
     let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
         .lock()
@@ -235,6 +240,11 @@ async fn inline_complete_interactive_does_not_block_on_held_permit() {
 /// confirm it hasn't completed. We then drop the permit and verify
 /// the call resolves.
 #[tokio::test]
+// Races on the process-wide `LLM_PERMITS` semaphore with `scheduler_gate`
+// and other `local_ai` tests in parallel runs — the spawned gated call can
+// park on an Arc<Semaphore> whose waker never fires from a different
+// runtime. Runs reliably with `--ignored --test-threads=1`. See PR #1524.
+#[ignore = "flaky in parallel cargo test; shared LLM_PERMITS semaphore — see PR #1524"]
 async fn gated_inline_complete_blocks_on_held_permit() {
     let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
         .lock()

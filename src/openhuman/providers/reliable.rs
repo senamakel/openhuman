@@ -75,13 +75,34 @@ fn is_context_window_exceeded(err: &anyhow::Error) -> bool {
     hints.iter().any(|hint| lower.contains(hint))
 }
 
-/// Detect provider-side temporary capacity/outage errors that are often surfaced
-/// as HTTP 5xx with text like "no healthy upstream".
+/// Detect provider-side temporary capacity/outage errors. Covers:
+///
+/// - HTTP `408 Request Timeout`, `502 Bad Gateway`, `503 Service Unavailable`,
+///   `504 Gateway Timeout` — both via direct `reqwest::Error` downcast and via
+///   the formatted `"<provider> API error (<status>): …"` text emitted by
+///   `ops::api_error` (the path that actually reaches `report_error`).
+/// - Provider-agnostic text markers like `"no healthy upstream"` /
+///   `"upstream unavailable"` that don't come with a typed status.
+///
+/// Pairs with [`is_rate_limited`] which handles 429 separately. Together they
+/// form the transient-classifier the tool-call loop uses before deciding
+/// whether to push a per-attempt event to Sentry (see OPENHUMAN-TAURI-2E /
+/// -84 / -T / -G classes — per-iteration noise from upstream throttling).
 pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
+    if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
+        if let Some(status) = reqwest_err.status() {
+            if matches!(status.as_u16(), 408 | 502 | 503 | 504) {
+                return true;
+            }
+        }
+    }
     let lower = err.to_string().to_lowercase();
     lower.contains("no healthy upstream")
         || lower.contains("upstream unavailable")
         || lower.contains("service unavailable")
+        || lower.contains("408 request timeout")
+        || lower.contains("502 bad gateway")
+        || lower.contains("504 gateway timeout")
 }
 
 /// Check if an error is a rate-limit (429) error.

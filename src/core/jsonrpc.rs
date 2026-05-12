@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::all;
 use crate::core::types::{AppState, RpcError, RpcFailure, RpcRequest, RpcSuccess};
-use crate::openhuman::threads::{parse_thread_not_found_message, THREAD_NOT_FOUND_KIND};
+use crate::rpc::StructuredRpcError;
 
 /// Axum handler for JSON-RPC POST requests.
 ///
@@ -56,29 +56,42 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             )
                 .into_response()
         }
-        Err(message) => {
+        Err(raw_message) => {
+            // Decode the controller-emitted structured envelope (if any)
+            // here at the transport boundary. Domains opt in by emitting a
+            // `StructuredRpcError` from their handlers — this layer never
+            // branches on the RPC method name to recover error semantics.
+            let structured = StructuredRpcError::decode(&raw_message);
+            let (display_message, error_data, expected_user_state) = match structured {
+                Some(envelope) => (
+                    envelope.message,
+                    envelope.data,
+                    envelope.expected_user_state,
+                ),
+                None => (raw_message, None, false),
+            };
+
             // Session-expired bubbles up as an "error" but is an expected
             // boundary condition (auth handler clears the local token and the
-            // UI re-auths). Don't spam Sentry with it.
-            let thread_not_found_data = thread_not_found_rpc_error_data(&method, &message);
-            if let Some(data) = thread_not_found_data.as_ref() {
+            // UI re-auths). Don't spam Sentry with it. Domains that surface
+            // their own expected-user-state errors (stale thread refs, etc.)
+            // set the `expected_user_state` flag on their structured envelope
+            // and skip Sentry here uniformly.
+            if expected_user_state {
                 tracing::info!(
                     method = %method,
-                    thread_id = data
-                        .get("thread_id")
-                        .and_then(|value| value.as_str())
-                        .unwrap_or(""),
-                    "[rpc] thread-not-found (expected user state) — skipping Sentry"
+                    "[rpc] expected-user-state error — skipping Sentry: {}",
+                    display_message
                 );
-            } else if !is_session_expired_error(&message) {
+            } else if !is_session_expired_error(&display_message) {
                 crate::core::observability::report_error(
-                    message.as_str(),
+                    display_message.as_str(),
                     "rpc",
                     "invoke_method",
                     &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                 );
             } else {
-                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, message);
+                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, display_message);
             }
             (
                 StatusCode::OK,
@@ -87,8 +100,8 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     id,
                     error: RpcError {
                         code: -32000,
-                        message,
-                        data: thread_not_found_data,
+                        message: display_message,
+                        data: error_data,
                     },
                 }),
             )
@@ -155,18 +168,6 @@ fn is_session_expired_error(msg: &str) -> bool {
         || lower.contains("invalid token")
         || lower.contains("no backend session token")
         || msg.contains("SESSION_EXPIRED")
-}
-
-fn thread_not_found_rpc_error_data(method: &str, message: &str) -> Option<Value> {
-    if !method.starts_with("openhuman.threads_") {
-        return None;
-    }
-    let thread_id = parse_thread_not_found_message(message)?;
-    Some(json!({
-        "kind": THREAD_NOT_FOUND_KIND,
-        "thread_id": thread_id,
-        "method": method,
-    }))
 }
 
 /// Internal method invocation logic.

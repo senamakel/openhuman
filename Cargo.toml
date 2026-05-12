@@ -157,8 +157,12 @@ rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
 # Enable sentry's TestTransport for runtime smoke of the observability
-# before_send filter (see tests/observability_smoke.rs).
-sentry = { version = "0.47.0", features = ["test"] }
+# before_send filter (see tests/observability_smoke.rs). `default-features
+# = false` here is load-bearing — sentry's default feature set pulls in
+# actix-web / actix-http / actix-server / sentry-actix and ~13 transitive
+# crates we never use (and that bloat the dev Cargo.lock noticeably).
+# TestTransport only needs the `test` feature.
+sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 
 [features]
 sandbox-landlock = ["dep:landlock"]

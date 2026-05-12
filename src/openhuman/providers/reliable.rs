@@ -88,6 +88,17 @@ fn is_context_window_exceeded(err: &anyhow::Error) -> bool {
 /// form the transient-classifier the tool-call loop uses before deciding
 /// whether to push a per-attempt event to Sentry (see OPENHUMAN-TAURI-2E /
 /// -84 / -T / -G classes — per-iteration noise from upstream throttling).
+///
+/// **Status list maintenance note**: the codes matched below (408/502/503/504)
+/// are a subset of
+/// [`crate::core::observability::TRANSIENT_PROVIDER_HTTP_STATUSES`] — that
+/// const is the single source of truth for the `before_send` filter and the
+/// call-site classifier in `providers/ops.rs`. We don't reference the const
+/// directly here because this function takes a different code path (anyhow
+/// error downcast vs typed `reqwest::StatusCode`) and because 429 is split out
+/// into `is_rate_limited` (with its own retry-after parsing). If a new
+/// transient status is added to the const, **also add it to this `matches!`
+/// arm and the text-pattern list below**.
 pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
         if let Some(status) = reqwest_err.status() {

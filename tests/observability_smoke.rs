@@ -24,7 +24,18 @@ fn event_with_tags(tags: &[(&str, &str)]) -> Event<'static> {
 
 /// Drive an envelope-capturing Sentry client through a sequence of events
 /// and return how many made it past `before_send`.
+///
+/// `sentry::init` mutates the process-global Sentry hub; Cargo runs integration
+/// test functions in parallel threads by default, so two `count_captured` calls
+/// would otherwise race on the global hub and one test's `capture_event` could
+/// land in another test's transport. Serialize the critical section here rather
+/// than imposing `--test-threads=1` on the whole binary.
 fn count_captured(events: Vec<Event<'static>>) -> usize {
+    static SENTRY_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = SENTRY_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
     let transport = sentry::test::TestTransport::new();
     let transport_for_factory = transport.clone();
     let options = sentry::ClientOptions {
@@ -47,7 +58,7 @@ fn count_captured(events: Vec<Event<'static>>) -> usize {
         sample_rate: 1.0,
         ..sentry::ClientOptions::default()
     };
-    let _guard = sentry::init(options);
+    let _sentry_guard = sentry::init(options);
     for event in events {
         sentry::capture_event(event);
     }

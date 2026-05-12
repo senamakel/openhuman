@@ -259,9 +259,7 @@ class SocketService {
           : undefined) ?? 'unknown';
       socketLog('Session expired notification received', { source });
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('openhuman:session-expired', { detail: { source } })
-        );
+        window.dispatchEvent(new CustomEvent('openhuman:session-expired', { detail: { source } }));
       }
     };
     this.socket.on('auth:session_expired', handleSessionExpired);

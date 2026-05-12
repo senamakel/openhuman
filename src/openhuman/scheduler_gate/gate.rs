@@ -176,11 +176,7 @@ pub fn is_signed_out() -> bool {
 pub fn set_signed_out(signed_out: bool) {
     let prev = SIGNED_OUT.swap(signed_out, Ordering::AcqRel);
     if prev != signed_out {
-        log::info!(
-            "[scheduler_gate] signed_out {} -> {}",
-            prev,
-            signed_out
-        );
+        log::info!("[scheduler_gate] signed_out {} -> {}", prev, signed_out);
     }
 }
 
@@ -226,9 +222,7 @@ pub async fn wait_for_capacity() -> Option<LlmPermit> {
                 .get()
                 .map(|s| s.read().cfg.paused_poll_ms)
                 .unwrap_or(60_000);
-            log::trace!(
-                "[scheduler_gate] paused (signed_out); polling every {paused_ms}ms"
-            );
+            log::trace!("[scheduler_gate] paused (signed_out); polling every {paused_ms}ms");
             tokio::time::sleep(Duration::from_millis(paused_ms)).await;
             continue;
         }

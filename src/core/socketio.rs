@@ -428,9 +428,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     //    `DomainEvent::SessionExpired`; ignores everything else.
     tokio::spawn(async move {
         let Some(bus) = crate::core::event_bus::global() else {
-            log::warn!(
-                "[socketio] event_bus not initialised — SessionExpired bridge not started"
-            );
+            log::warn!("[socketio] event_bus not initialised — SessionExpired bridge not started");
             return;
         };
         let mut rx = bus.raw_receiver();

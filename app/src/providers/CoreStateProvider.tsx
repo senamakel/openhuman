@@ -544,36 +544,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     [refresh, refreshTeams]
   );
 
-  // Listen for core-side session expiry pushed over Socket.IO. The core
-  // has already torn down the session JWT and paused the scheduler gate;
-  // we just need to mirror the signed-out state in the UI tree and route
-  // away from authenticated screens. Without this, the user keeps seeing
-  // a logged-in shell until the next poll/refresh discovers the missing
-  // token — confusing, and a security smell for shared devices.
-  useEffect(() => {
-    const onExpired = (event: Event) => {
-      const source =
-        (event instanceof CustomEvent &&
-          event.detail &&
-          typeof event.detail === 'object' &&
-          'source' in event.detail &&
-          typeof (event.detail as { source?: unknown }).source === 'string'
-          ? (event.detail as { source: string }).source
-          : 'unknown') ?? 'unknown';
-      log('session-expired window event received from socket (source=%s)', source);
-      // Fire the same teardown the user gets from the Settings → Logout
-      // button. clearSessionRef is captured lazily because clearSession
-      // is defined below in module order; using the ref avoids a forward
-      // reference at the cost of an extra indirection.
-      clearSessionRef.current?.().catch(err => {
-        log('clearSession after session-expired failed: %O', sanitizeError(err));
-      });
-    };
-    window.addEventListener('openhuman:session-expired', onExpired);
-    return () => window.removeEventListener('openhuman:session-expired', onExpired);
-  }, []);
-  const clearSessionRef = useRef<(() => Promise<void>) | null>(null);
-
   const clearSession = useCallback(async () => {
     logoutGuardUntilRef.current = Date.now() + 5_000;
     snapshotRequestIdRef.current += 1;
@@ -598,10 +568,33 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     });
   }, [commitState, refresh]);
 
-  // Keep the ref in sync so the auth:session_expired window listener
-  // (registered above with no deps) always calls the latest clearSession.
+  // Listen for core-side session expiry pushed over Socket.IO. The core
+  // has already torn down the session JWT and paused the scheduler gate;
+  // we just need to mirror the signed-out state in the UI tree and route
+  // away from authenticated screens. Without this the user keeps seeing
+  // a logged-in shell until the next poll/refresh discovers the missing
+  // token — confusing, and a security smell on shared devices.
+  //
+  // Depends on `clearSession` so the listener always closes over the
+  // latest closure; `clearSession`'s own deps (`commitState`, `refresh`)
+  // are stable `useCallback`s, so the listener re-registers rarely.
   useEffect(() => {
-    clearSessionRef.current = clearSession;
+    const onExpired = (event: Event) => {
+      const source =
+        event instanceof CustomEvent &&
+        event.detail &&
+        typeof event.detail === 'object' &&
+        'source' in event.detail &&
+        typeof (event.detail as { source?: unknown }).source === 'string'
+          ? (event.detail as { source: string }).source
+          : 'unknown';
+      log('session-expired window event received from socket (source=%s)', source);
+      clearSession().catch(err => {
+        log('clearSession after session-expired failed: %O', sanitizeError(err));
+      });
+    };
+    window.addEventListener('openhuman:session-expired', onExpired);
+    return () => window.removeEventListener('openhuman:session-expired', onExpired);
   }, [clearSession]);
 
   const patchSnapshot = useCallback(

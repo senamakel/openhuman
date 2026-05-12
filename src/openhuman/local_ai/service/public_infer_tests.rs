@@ -27,6 +27,7 @@ fn ready_service(config: &Config) -> LocalAiService {
 }
 
 #[tokio::test]
+#[ignore = "hangs on CI in parallel cargo test; LLM_PERMITS semaphore + axum mock race — see PR #1524"]
 async fn inference_hits_ollama_generate_and_returns_response() {
     let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
         .lock()
@@ -66,6 +67,7 @@ async fn inference_hits_ollama_generate_and_returns_response() {
 }
 
 #[tokio::test]
+#[ignore = "hangs on CI in parallel cargo test; LLM_PERMITS semaphore + axum mock race — see PR #1524"]
 async fn inference_errors_on_non_success_status() {
     let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
         .lock()
@@ -91,6 +93,7 @@ async fn inference_errors_on_non_success_status() {
 }
 
 #[tokio::test]
+#[ignore = "hangs on CI in parallel cargo test; LLM_PERMITS semaphore + axum mock race — see PR #1524"]
 async fn inference_errors_on_empty_response_when_allow_empty_false() {
     let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
         .lock()

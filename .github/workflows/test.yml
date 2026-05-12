@@ -83,7 +83,14 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Test core crate (openhuman)
-        run: cargo test -p openhuman
+        # Serialize tests: several modules share process-wide singletons
+        # (`scheduler_gate::LLM_PERMITS` semaphore, `scheduler_gate::STATE`,
+        # `LOCAL_AI_TEST_MUTEX`, `BUS_HANDLER_LOCK`) that don't cleanly
+        # isolate when `#[tokio::test]` runtimes run in parallel — on the
+        # CI runner some waiters never get woken when another runtime
+        # drops the permit, wedging the whole binary. Runs in ~90s; the
+        # underlying isolation refactor is tracked separately.
+        run: cargo test -p openhuman -- --test-threads=1
 
   rust-tauri-tests:
     name: Rust Tauri Shell Tests

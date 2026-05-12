@@ -45,7 +45,10 @@ const logChatRuntime = debug('openhuman:chat-runtime');
 const USER_FACING_AGENT_ERROR_MESSAGE =
   'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord">Report on Discord</openhuman-link>';
 
-type SegmentDelivery = { segments: Map<number, string> };
+const SEGMENT_DELIVERY_TTL_MS = 5 * 60 * 1000;
+const MAX_SEGMENT_DELIVERIES = 100;
+
+type SegmentDelivery = { segments: Map<number, string>; createdAt: number; lastSeenAt: number };
 
 function rtLog(message: string, fields?: Record<string, string | number | null | undefined>) {
   if (IS_PROD) return;
@@ -63,6 +66,60 @@ function segmentDeliveryKey(threadId: string, requestId?: string | null): string
   return `${threadId}:${requestId ?? 'none'}`;
 }
 
+function pruneSegmentDeliveries(deliveries: Map<string, SegmentDelivery>, now = Date.now()) {
+  for (const [key, delivery] of deliveries) {
+    if (now - delivery.createdAt > SEGMENT_DELIVERY_TTL_MS) {
+      deliveries.delete(key);
+    }
+  }
+
+  while (deliveries.size > MAX_SEGMENT_DELIVERIES) {
+    let oldestKey: string | undefined;
+    let oldestLastSeenAt = Number.POSITIVE_INFINITY;
+    for (const [key, delivery] of deliveries) {
+      if (delivery.lastSeenAt < oldestLastSeenAt) {
+        oldestKey = key;
+        oldestLastSeenAt = delivery.lastSeenAt;
+      }
+    }
+    if (!oldestKey) break;
+    deliveries.delete(oldestKey);
+  }
+}
+
+function getOrCreateSegmentDelivery(
+  deliveries: Map<string, SegmentDelivery>,
+  key: string,
+  now = Date.now()
+): SegmentDelivery {
+  pruneSegmentDeliveries(deliveries, now);
+  const existing = deliveries.get(key);
+  if (existing) {
+    existing.lastSeenAt = now;
+    return existing;
+  }
+  const delivery = { segments: new Map<number, string>(), createdAt: now, lastSeenAt: now };
+  deliveries.set(key, delivery);
+  pruneSegmentDeliveries(deliveries, now);
+  return delivery;
+}
+
+function takeSegmentDelivery(
+  deliveries: Map<string, SegmentDelivery>,
+  key: string,
+  now = Date.now()
+): SegmentDelivery | undefined {
+  pruneSegmentDeliveries(deliveries, now);
+  const delivery = deliveries.get(key);
+  deliveries.delete(key);
+  return delivery;
+}
+
+function deleteSegmentDelivery(deliveries: Map<string, SegmentDelivery>, key: string) {
+  pruneSegmentDeliveries(deliveries);
+  deliveries.delete(key);
+}
+
 function hasCompleteSegmentDelivery(
   event: ChatDoneEvent,
   delivery: SegmentDelivery | undefined
@@ -71,11 +128,13 @@ function hasCompleteSegmentDelivery(
   if (expected <= 0 || !delivery) return false;
   if (delivery.segments.size < expected) return false;
 
+  let reconstructed = '';
   for (let i = 0; i < expected; i += 1) {
     const segment = delivery.segments.get(i);
-    if (segment === undefined || !event.full_response.includes(segment)) return false;
+    if (segment === undefined) return false;
+    reconstructed += segment;
   }
-  return true;
+  return reconstructed === event.full_response;
 }
 
 function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | undefined {
@@ -533,11 +592,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         const content = segmentText(event);
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
-        const delivery = segmentDeliveriesRef.current.get(deliveryKey) ?? {
-          segments: new Map<number, string>(),
-        };
+        const delivery = getOrCreateSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         delivery.segments.set(event.segment_index, content);
-        segmentDeliveriesRef.current.set(deliveryKey, delivery);
         void dispatch(
           addInferenceResponse({
             content,
@@ -662,9 +718,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
-        const segmentDelivery = segmentDeliveriesRef.current.get(deliveryKey);
+        const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
-        segmentDeliveriesRef.current.delete(deliveryKey);
 
         dispatch(
           recordChatTurnUsage({
@@ -766,7 +821,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           err: event.error_type,
         });
 
-        segmentDeliveriesRef.current.delete(segmentDeliveryKey(event.thread_id, event.request_id));
+        deleteSegmentDelivery(
+          segmentDeliveriesRef.current,
+          segmentDeliveryKey(event.thread_id, event.request_id)
+        );
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
 

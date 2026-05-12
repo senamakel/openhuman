@@ -1,6 +1,6 @@
 {
   "name": "openhuman-app",
-  "version": "0.53.26",
+  "version": "0.53.28",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -16,6 +16,7 @@
     "tauri:ensure": "bash ../scripts/ensure-tauri-cli.sh",
     "build": "tsc && vite build",
     "build:app": "tsc && vite build",
+    "build:web": "cross-env VITE_OPENHUMAN_TARGET=web tsc && cross-env VITE_OPENHUMAN_TARGET=web vite build",
     "compile": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -121,6 +122,7 @@
     "@wdio/mocha-framework": "^9.24.0",
     "@wdio/spec-reporter": "^9.24.0",
     "autoprefixer": "^10.4.23",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

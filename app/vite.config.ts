@@ -84,6 +84,15 @@ function guardCefRelListSupportsPlugin(): PluginOption {
   };
 }
 
+// `VITE_OPENHUMAN_TARGET=web` switches the build to the browser-hosted
+// flavor: output lands in `dist-web/` so the desktop build artifact in
+// `dist/` (consumed by `cargo tauri build`) is never clobbered, and the
+// `import.meta.env.VITE_OPENHUMAN_TARGET` value is exposed to runtime code
+// that wants a build-time signal in addition to the runtime `isTauri()`
+// check. Default (`undefined` / `desktop`) keeps the historical behavior.
+const buildTarget = (process.env.VITE_OPENHUMAN_TARGET ?? "desktop").trim();
+const isWebTarget = buildTarget === "web";
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   root: "src",
@@ -98,7 +107,7 @@ export default defineConfig(async () => ({
   // the shell exports staging URLs.
   envDir: resolve(__dirname, ".."),
   build: {
-    outDir: "../dist",
+    outDir: isWebTarget ? "../dist-web" : "../dist",
     emptyOutDir: true,
     // Desktop CEF has surfaced a runtime where `link.relList.supports` is
     // truthy but not callable. Vite calls it both in the modulepreload

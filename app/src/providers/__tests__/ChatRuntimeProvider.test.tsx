@@ -293,7 +293,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onSegment?.({
           thread_id: 't-complete',
           request_id: 'r-complete',
-          full_response: 'Part one.',
+          full_response: 'Part one.\n\n',
           segment_index: 0,
           segment_total: 2,
         });
@@ -322,6 +322,85 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
 
       await waitFor(() => expect(mockRefetchSnapshot).toHaveBeenCalledTimes(1));
       expect(threadApi.appendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('reconciles when segments are present but not in full_response order', async () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onSegment?.({
+          thread_id: 't-out-of-order',
+          request_id: 'r-out-of-order',
+          full_response: 'Alpha',
+          segment_index: 0,
+          segment_total: 2,
+        });
+        listeners.onSegment?.({
+          thread_id: 't-out-of-order',
+          request_id: 'r-out-of-order',
+          full_response: 'Beta',
+          segment_index: 1,
+          segment_total: 2,
+        });
+      });
+
+      await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(2));
+
+      act(() => {
+        listeners.onDone?.({
+          thread_id: 't-out-of-order',
+          request_id: 'r-out-of-order',
+          full_response: 'BetaAlpha',
+          rounds_used: 1,
+          total_input_tokens: 10,
+          total_output_tokens: 20,
+          segment_total: 2,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          't-out-of-order',
+          expect.objectContaining({ content: 'BetaAlpha', sender: 'agent' })
+        )
+      );
+      expect(threadApi.appendMessage).toHaveBeenCalledTimes(3);
+    });
+
+    it('expires stale segment delivery state before chat_done reconciliation', async () => {
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+      const listeners = renderProvider();
+
+      try {
+        act(() => {
+          listeners.onSegment?.({
+            thread_id: 't-stale',
+            request_id: 'r-stale',
+            full_response: 'Stale segment.',
+            segment_index: 0,
+            segment_total: 1,
+          });
+        });
+
+        await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(1));
+        nowSpy.mockReturnValue(1_000 + 5 * 60 * 1000 + 1);
+
+        act(() => {
+          listeners.onDone?.({
+            thread_id: 't-stale',
+            request_id: 'r-stale',
+            full_response: 'Stale segment.',
+            rounds_used: 1,
+            total_input_tokens: 10,
+            total_output_tokens: 20,
+            segment_total: 1,
+          });
+        });
+
+        await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(2));
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
 
     it('accumulates text_delta chunks within the same request_id', () => {

@@ -9,6 +9,7 @@
  * Visual language follows ServiceBlockingGate.tsx (bg-stone-950/80 overlay,
  * bg-stone-900 panel, ocean-500 / coral-500 semantics).
  */
+import { isTauri } from '@tauri-apps/api/core';
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -74,8 +75,17 @@ type TestStatus =
   | { kind: 'auth' }
   | { kind: 'unreachable'; reason: string };
 
+// Desktop release artifact URL surfaced on the web build's mode picker so
+// users without a remote core have a clear path to install the app instead
+// of being trapped on the cloud-only form.
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/tinyhumansai/openhuman/releases/latest';
+
 function ModePicker({ onConfirm }: PickerProps) {
-  const [selected, setSelected] = useState<'local' | 'cloud'>('local');
+  // Web build cannot spawn a local sidecar, so the only viable choice is
+  // cloud. Default the selection accordingly and hide the local option in
+  // the render path below.
+  const isDesktop = isTauri();
+  const [selected, setSelected] = useState<'local' | 'cloud'>(isDesktop ? 'local' : 'cloud');
   const [cloudUrl, setCloudUrl] = useState('');
   const [cloudToken, setCloudToken] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -180,41 +190,65 @@ function ModePicker({ onConfirm }: PickerProps) {
 
   return (
     <Panel>
-      <h2 className="text-xl font-semibold text-white">Choose core mode</h2>
+      <h2 className="text-xl font-semibold text-white">
+        {isDesktop ? 'Choose core mode' : 'Connect to your core'}
+      </h2>
       <p className="mt-2 text-sm text-stone-300">
-        OpenHuman needs a running core to operate. Choose how you want to connect.
+        {isDesktop
+          ? 'OpenHuman needs a running core to operate. Choose how you want to connect.'
+          : 'OpenHuman on the web connects to a remote core you control. Enter its URL and auth token, or install the desktop app to run one locally.'}
       </p>
 
-      <div className="mt-5 flex flex-col gap-3">
-        {/* Local option */}
-        <button
-          type="button"
-          onClick={() => setSelected('local')}
-          className={`rounded-xl border p-4 text-left transition-colors ${
-            selected === 'local'
-              ? 'border-ocean-500 bg-ocean-500/10 text-white'
-              : 'border-stone-700 text-stone-300 hover:border-stone-500 hover:bg-stone-800'
-          }`}>
-          <div className="font-medium">Local (recommended)</div>
-          <div className="mt-0.5 text-xs text-stone-400">
-            Embedded core runs on this device — fastest, no configuration required.
-          </div>
-        </button>
+      {!isDesktop && (
+        <div
+          className="mt-4 rounded-xl border border-stone-700 bg-stone-800/60 p-3 text-xs text-stone-300"
+          data-testid="web-download-cta">
+          Prefer to run everything on your own device?{' '}
+          <a
+            href={DESKTOP_DOWNLOAD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ocean-400 underline hover:text-ocean-300">
+            Download the desktop app
+          </a>
+          .
+        </div>
+      )}
 
-        {/* Cloud option */}
-        <button
-          type="button"
-          onClick={() => setSelected('cloud')}
-          className={`rounded-xl border p-4 text-left transition-colors ${
-            selected === 'cloud'
-              ? 'border-ocean-500 bg-ocean-500/10 text-white'
-              : 'border-stone-700 text-stone-300 hover:border-stone-500 hover:bg-stone-800'
-          }`}>
-          <div className="font-medium">Cloud</div>
-          <div className="mt-0.5 text-xs text-stone-400">
-            Connect to a remote core at a custom URL.
-          </div>
-        </button>
+      <div className="mt-5 flex flex-col gap-3">
+        {/* Local option — desktop only; web builds cannot spawn a sidecar. */}
+        {isDesktop && (
+          <button
+            type="button"
+            onClick={() => setSelected('local')}
+            className={`rounded-xl border p-4 text-left transition-colors ${
+              selected === 'local'
+                ? 'border-ocean-500 bg-ocean-500/10 text-white'
+                : 'border-stone-700 text-stone-300 hover:border-stone-500 hover:bg-stone-800'
+            }`}>
+            <div className="font-medium">Local (recommended)</div>
+            <div className="mt-0.5 text-xs text-stone-400">
+              Embedded core runs on this device — fastest, no configuration required.
+            </div>
+          </button>
+        )}
+
+        {/* Cloud option — always available; the only option on the web build. */}
+        {isDesktop && (
+          <button
+            type="button"
+            onClick={() => setSelected('cloud')}
+            className={`rounded-xl border p-4 text-left transition-colors ${
+              selected === 'cloud'
+                ? 'border-ocean-500 bg-ocean-500/10 text-white'
+                : 'border-stone-700 text-stone-300 hover:border-stone-500 hover:bg-stone-800'
+            }`}>
+            <div className="font-medium">Cloud</div>
+            <div className="mt-0.5 text-xs text-stone-400">
+              Connect to a remote core at a custom URL.
+            </div>
+          </button>
+        )}
 
         {selected === 'cloud' && (
           <div className="mt-1 flex flex-col gap-3">

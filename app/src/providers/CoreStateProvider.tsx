@@ -544,6 +544,8 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     [refresh, refreshTeams]
   );
 
+  const lastReauthAtRef = useRef(0);
+
   const clearSession = useCallback(async () => {
     logoutGuardUntilRef.current = Date.now() + 5_000;
     snapshotRequestIdRef.current += 1;
@@ -568,18 +570,46 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     });
   }, [commitState, refresh]);
 
-  // Listen for core-side session expiry pushed over Socket.IO. The core
-  // has already torn down the session JWT and paused the scheduler gate;
-  // we just need to mirror the signed-out state in the UI tree and route
-  // away from authenticated screens. Without this the user keeps seeing
-  // a logged-in shell until the next poll/refresh discovers the missing
-  // token — confusing, and a security smell on shared devices.
+  // Listen for two flavours of session expiry, both routed through the
+  // same debounced `clearSession`:
+  //
+  // 1. `core-rpc-auth-expired` — emitted by `coreRpcClient` when an
+  //    individual RPC call returns 401 (usage pill, upsell banner,
+  //    threads poll, …). Multiple parallel chains can fire it in the
+  //    same frame after a token expires; the 10s debounce coalesces
+  //    them so `clearSession` only runs once.
+  // 2. `openhuman:session-expired` — emitted by `socketService` when
+  //    the core pushes `auth:session_expired` over Socket.IO (the
+  //    OpenHuman backend provider's `api_error` published
+  //    `DomainEvent::SessionExpired`, or `jsonrpc::invoke_method`
+  //    detected a 401 on a server-side method call). Without this, the
+  //    UI keeps showing a logged-in shell until the next refresh()
+  //    discovers the missing token — confusing, and a security smell
+  //    on shared devices.
   //
   // Depends on `clearSession` so the listener always closes over the
-  // latest closure; `clearSession`'s own deps (`commitState`, `refresh`)
-  // are stable `useCallback`s, so the listener re-registers rarely.
+  // latest closure; `clearSession`'s own deps are stable `useCallback`s,
+  // so re-registers are rare.
   useEffect(() => {
-    const onExpired = (event: Event) => {
+    const runReauth = (method: string, source: string) => {
+      const now = Date.now();
+      if (now - lastReauthAtRef.current < 10_000) {
+        log('auth-expired debounced (method=%s source=%s)', method, source);
+        return;
+      }
+      lastReauthAtRef.current = now;
+      log('auth-expired: clearing session (method=%s source=%s)', method, source);
+      void clearSession().catch(err => {
+        log('clearSession failed after auth-expired: %O', sanitizeError(err));
+      });
+    };
+
+    const onRpcExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ method?: string; source?: string }>).detail;
+      runReauth(detail?.method ?? 'unknown', detail?.source ?? 'core-rpc-auth-expired');
+    };
+
+    const onSocketExpired = (event: Event) => {
       const source =
         event instanceof CustomEvent &&
         event.detail &&
@@ -588,13 +618,15 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         typeof (event.detail as { source?: unknown }).source === 'string'
           ? (event.detail as { source: string }).source
           : 'unknown';
-      log('session-expired window event received from socket (source=%s)', source);
-      clearSession().catch(err => {
-        log('clearSession after session-expired failed: %O', sanitizeError(err));
-      });
+      runReauth('socket.session_expired', source);
     };
-    window.addEventListener('openhuman:session-expired', onExpired);
-    return () => window.removeEventListener('openhuman:session-expired', onExpired);
+
+    window.addEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
+    window.addEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+    return () => {
+      window.removeEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
+      window.removeEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+    };
   }, [clearSession]);
 
   const patchSnapshot = useCallback(

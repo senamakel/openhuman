@@ -99,13 +99,16 @@ jobs:
           app_id: ${{ secrets.XGITHUB_APP_ID }}
           private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24.x
       - name: Configure Git
@@ -128,6 +131,15 @@ jobs:
       - name: Verify release version sync (main_head)
         if: inputs.release_source == 'main_head'
         run: node scripts/release/verify-version-sync.js "${{ steps.bump.outputs.version }}"
+      - name: Refresh Cargo.lock files (main_head)
+        if: inputs.release_source == 'main_head'
+        # Cargo.toml [package].version is bumped above but the matching
+        # entries in both Cargo.lock files are not — without this step the
+        # lockfiles stay pinned to the previous version and the next local
+        # `cargo` invocation rewrites them, leaving an uncommitted diff.
+        run: |
+          cargo update --workspace --manifest-path Cargo.toml
+          cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
       - name: Ensure tag does not already exist (main_head)
         if: inputs.release_source == 'main_head'
         env:
@@ -148,7 +160,7 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version }}
           TAG: ${{ steps.bump.outputs.tag }}
         run: |
-          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml
+          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
           git commit -m "chore(release): v${VERSION}"
           git push origin main
           git tag -a "$TAG" -m "Release $TAG"
@@ -296,7 +308,7 @@ jobs:
     steps:
       - name: Create draft release with generated notes
         id: create
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const tag = '${{ needs.prepare-build.outputs.tag }}';
@@ -384,7 +396,7 @@ jobs:
       IMAGE_NAME: tinyhumansai/openhuman-core
     steps:
       - name: Checkout build ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 1
@@ -460,7 +472,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     steps:
       - name: Checkout build ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 1
@@ -521,7 +533,7 @@ jobs:
     environment: Production
     steps:
       - name: Checkout build ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.prepare-build.outputs.build_ref }}
           fetch-depth: 1
@@ -555,7 +567,7 @@ jobs:
       && needs.publish-updater-manifest.result == 'success'
     steps:
       - name: Validate required installer assets exist
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const releaseId = Number('${{ needs.create-release.outputs.release_id }}');
@@ -590,7 +602,7 @@ jobs:
             core.info('All required installer assets are present.');
 
       - name: Publish release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const releaseId = Number('${{ needs.create-release.outputs.release_id }}');
@@ -709,7 +721,7 @@ jobs:
       == 'cancelled')
     steps:
       - name: Delete GitHub release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;
@@ -726,7 +738,7 @@ jobs:
               core.warning(`deleteRelease failed: ${e.message}`);
             }
       - name: Delete remote tag
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;

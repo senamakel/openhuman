@@ -888,7 +888,7 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
             "tray_show_window" => {
                 log::info!("[tray] action=show_window source=menu");
                 if let Err(err) = show_main_window(app) {
-                    log::error!("[tray] failed to show main window from menu: {err}");
+                    log::warn!("[tray] failed to show main window from menu: {err}");
                 }
             }
             "tray_toggle_mascot" => {
@@ -916,7 +916,7 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
             {
                 log::info!("[tray] action=show_window source=left_click");
                 if let Err(err) = show_main_window(tray.app_handle()) {
-                    log::error!("[tray] failed to show main window from tray click: {err}");
+                    log::warn!("[tray] failed to show main window from tray click: {err}");
                 }
             }
         })
@@ -1362,6 +1362,31 @@ pub fn run() {
     };
 
     let builder = builder
+        // Single-instance guard — MUST be the first plugin registered so the
+        // secondary-process exit path triggers before any other plugin setup
+        // (and before `Builder::build()` reaches `CefRuntime::init`). Without
+        // this, launching a second instance races into CEF init while the
+        // primary still holds the cache lock; `cef::initialize` returns 0 and
+        // the vendored runtime asserts (Sentry OPENHUMAN-TAURI-A — 442 events
+        // across Win10/11 + Linux, all releases). The callback receives the
+        // secondary's argv/cwd; we forward deep-link args and focus the main
+        // window. Deep-link payloads stay handled by `tauri-plugin-deep-link`
+        // — we just need to wake the primary so it observes them.
+        .plugin(tauri_plugin_single_instance::init(
+            |app: &AppHandle<AppRuntime>, args, cwd| {
+                // Don't log raw argv/cwd: deep-link callbacks (OAuth codes,
+                // magic links) can carry auth tokens that would otherwise leak
+                // into desktop logs and Sentry breadcrumbs. CodeRabbit on #1510.
+                log::info!(
+                    "[single-instance] secondary launch detected, focusing primary (argc={}, cwd_present={})",
+                    args.len(),
+                    !cwd.is_empty()
+                );
+                if let Err(err) = show_main_window(app) {
+                    log::warn!("[single-instance] failed to focus main window: {err}");
+                }
+            },
+        ))
         // Explicitly disable `open_js_links_on_click`: tauri-plugin-opener
         // defaults to injecting `init-iife.js` into *every* webview — a
         // global click listener that invokes `plugin:opener|open_url` via

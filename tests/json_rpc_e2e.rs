@@ -1061,10 +1061,10 @@ async fn json_rpc_thread_not_found_errors_are_structured() {
     assert_eq!(append_err["message"], "thread thread-missing not found");
     assert_eq!(append_err["data"]["kind"], "ThreadNotFound");
     assert_eq!(append_err["data"]["thread_id"], thread_id);
-    assert_eq!(
-        append_err["data"]["method"],
-        "openhuman.threads_message_append"
-    );
+    // The transport layer no longer stamps the RPC method into the structured
+    // error data — the domain controller emits a method-agnostic envelope and
+    // jsonrpc.rs surfaces it verbatim. The frontend keys on `kind` +
+    // `thread_id` (see `coreRpcClient.isThreadNotFoundRpcData`), not method.
 
     let title = post_json_rpc(
         &rpc_base,
@@ -1077,10 +1077,6 @@ async fn json_rpc_thread_not_found_errors_are_structured() {
     assert_eq!(title_err["message"], "thread thread-missing not found");
     assert_eq!(title_err["data"]["kind"], "ThreadNotFound");
     assert_eq!(title_err["data"]["thread_id"], thread_id);
-    assert_eq!(
-        title_err["data"]["method"],
-        "openhuman.threads_generate_title"
-    );
 
     api_join.abort();
     rpc_join.abort();

@@ -1,4 +1,4 @@
-import { html, json, setCors } from "../http.mjs";
+import { json, setCors } from "../http.mjs";
 import {
   behavior,
   getDelayMs,
@@ -137,17 +137,9 @@ export async function handleAuth(ctx) {
     return true;
   }
 
-  if (
-    method === "GET" &&
-    /^\/mock-(telegram|notion|google)-oauth\/?(\?.*)?$/.test(url)
-  ) {
-    html(res, 200, "<html><body><h1>Mock OAuth</h1></body></html>");
-    return true;
-  }
-  if (method === "GET" && /^\/mock-oauth\/?(\?.*)?$/.test(url)) {
-    html(res, 200, "<html><body><h1>Mock OAuth Redirect</h1></body></html>");
-    return true;
-  }
+  // /mock-oauth, /mock-oauth/<provider>, and the legacy
+  // /mock-<provider>-oauth aliases are handled by routes/oauth.mjs, which
+  // actually completes the OAuth flow via deep links.
 
   return false;
 }

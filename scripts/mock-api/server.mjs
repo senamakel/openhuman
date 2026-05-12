@@ -14,6 +14,7 @@ import { handleConversations } from "./routes/conversations.mjs";
 import { handleCron } from "./routes/cron.mjs";
 import { handleIntegrations } from "./routes/integrations.mjs";
 import { handleInvites } from "./routes/invites.mjs";
+import { handleOAuth } from "./routes/oauth.mjs";
 import { handlePayments } from "./routes/payments.mjs";
 import { handleUser } from "./routes/user.mjs";
 import { handleVersion } from "./routes/version.mjs";
@@ -31,6 +32,7 @@ let server = null;
 // Order matters: admin & socket.io short-circuit early; the rest fall through
 // in domain order so the cheapest predicates run first.
 const ROUTE_HANDLERS = [
+  handleOAuth,
   handleAuth,
   handleUser,
   handleInvites,

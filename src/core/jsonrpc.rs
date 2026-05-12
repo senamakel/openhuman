@@ -112,10 +112,14 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
                 "[jsonrpc] backend returned 401 for method '{}' — publishing SessionExpired",
                 method
             );
+            // Scrub before publishing — subscribers log `reason`, and the
+            // upstream error string could include API keys / tokens from
+            // pasted-through provider replies. `sanitize_api_error` runs
+            // `scrub_secret_patterns` and truncates.
             crate::core::event_bus::publish_global(
                 crate::core::event_bus::DomainEvent::SessionExpired {
                     source: format!("jsonrpc.invoke_method:{method}"),
-                    reason: msg.clone(),
+                    reason: crate::openhuman::providers::ops::sanitize_api_error(msg),
                 },
             );
         }

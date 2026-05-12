@@ -427,9 +427,32 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     //    Subscribes to the global event bus and filters for
     //    `DomainEvent::SessionExpired`; ignores everything else.
     tokio::spawn(async move {
-        let Some(bus) = crate::core::event_bus::global() else {
-            log::warn!("[socketio] event_bus not initialised — SessionExpired bridge not started");
-            return;
+        // Poll until `event_bus::init_global` has run. Socket.IO bridges
+        // spawn from `spawn_web_channel_bridge`, which on some startup
+        // paths runs before `register_domain_subscribers` initialises
+        // the bus. A one-shot check would silently no-op for the rest
+        // of the process; a short polling loop with a hard cap retries
+        // without spinning forever if init genuinely never happens
+        // (e.g. tests that drive the socket layer in isolation).
+        let bus = {
+            const RETRY_INTERVAL_MS: u64 = 250;
+            const MAX_WAIT_SECS: u64 = 30;
+            let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
+            let mut attempts: u64 = 0;
+            loop {
+                if let Some(bus) = crate::core::event_bus::global() {
+                    break bus;
+                }
+                attempts += 1;
+                if attempts > max_attempts {
+                    log::warn!(
+                        "[socketio] event_bus not initialised after {}s — SessionExpired bridge giving up",
+                        MAX_WAIT_SECS
+                    );
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
+            }
         };
         let mut rx = bus.raw_receiver();
         loop {

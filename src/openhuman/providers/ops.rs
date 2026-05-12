@@ -193,10 +193,15 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
             status = status_str.as_str(),
             "[llm_provider] backend auth failure ({status}) — publishing SessionExpired: {message}"
         );
+        // `message` already embeds the sanitized body via
+        // `sanitize_api_error(&body)`, but the leading `{provider} API
+        // error ({status})` prefix and any caller-controlled provider
+        // name aren't scrubbed — re-run sanitize on the final string so
+        // the SessionExpired subscriber's logs never persist secrets.
         crate::core::event_bus::publish_global(
             crate::core::event_bus::DomainEvent::SessionExpired {
                 source: "llm_provider.openhuman_backend".to_string(),
-                reason: message.clone(),
+                reason: sanitize_api_error(&message),
             },
         );
     } else if should_report_provider_http_failure(status) {

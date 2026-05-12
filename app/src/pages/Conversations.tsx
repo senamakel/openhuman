@@ -370,25 +370,26 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
     sendingThreadIdRef.current = threadId;
     sendingTimeoutRef.current = setTimeout(() => {
-      console.warn('[chat] silence timeout: no inference signal for 600s');
+      console.warn('[chat] silence timeout: no inference signal for 120s');
       setSendError(
         chatSendError(
           'safety_timeout',
-          'No response from the agent after 10 minutes. Try again or check your connection.'
+          'No response from the agent after 2 minutes. Try again or check your connection.'
         )
       );
       dispatch(clearRuntimeForThread({ threadId }));
       dispatch(setActiveThread(null));
       sendingTimeoutRef.current = null;
       sendingThreadIdRef.current = null;
-    }, 600_000);
+    }, 120_000);
   };
 
-  // Rearm the silence timer on every inference status change for the
-  // sending thread (tool_call, tool_result, iteration_start, subagent_*
-  // all update inferenceStatusByThread). When the status is cleared
-  // (chat_done / chat_error), drop the timer — the completion handlers
-  // take over UI cleanup.
+  // Rearm the silence timer on every inference signal for the sending
+  // thread. Tool / iteration / subagent events bump `inferenceStatusByThread`;
+  // pure-text streams (no tools) only bump `streamingAssistantByThread`, so
+  // both must be watched — otherwise a long text stream would trip the
+  // safety timer mid-reply. When the status is cleared (chat_done /
+  // chat_error), drop the timer — the completion handlers own UI cleanup.
   useEffect(() => {
     const threadId = sendingThreadIdRef.current;
     if (!threadId || !sendingTimeoutRef.current) return;
@@ -401,9 +402,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     }
     armSilenceTimer(threadId);
     // armSilenceTimer is stable (refs + dispatch); depending on the
-    // selector reference is enough to rearm on every progress event.
+    // selector references is enough to rearm on every progress event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inferenceStatusByThread]);
+  }, [inferenceStatusByThread, streamingAssistantByThread]);
 
   useEffect(() => {
     if (

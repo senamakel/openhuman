@@ -50,10 +50,15 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Linux — containerized via the project's CI image.
+  # Linux — build-only. tauri-driver speaks WebKitWebDriver / webkit2gtk and
+  # cannot drive the CEF-backed WebView, so we can't run specs against the
+  # Linux Tauri build yet. We still build the Linux .deb-style debug binary
+  # so a Linux-breaking dep / config / Rust change still fails the PR.
+  # Reuses the project's CI image (same one consumed by
+  # `e2e/docker-compose.yml` and the `unit-tests` job).
   # ---------------------------------------------------------------------------
   e2e-linux:
-    name: E2E (Linux / tauri-driver, smoke)
+    name: E2E (Linux build only)
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
@@ -94,25 +99,6 @@ jobs:
       - name: Build E2E app (Linux debug binary)
         run: pnpm --filter openhuman-app test:e2e:build
 
-      - name: Run smoke spec under Xvfb
-        run: |
-          export DISPLAY=:99
-          Xvfb :99 -screen 0 1280x1024x24 &
-          sleep 2
-          eval "$(dbus-launch --sh-syntax)"
-          mkdir -p ~/.local/share/applications
-          export RUST_BACKTRACE=1
-          bash app/scripts/e2e-run-spec.sh test/e2e/specs/smoke.spec.ts smoke
-
-      - name: Upload e2e artifacts on failure
-        if: failure() || cancelled()
-        uses: actions/upload-artifact@v5
-        with:
-          name: e2e-artifacts-linux
-          path: app/test/e2e/artifacts/
-          if-no-files-found: ignore
-          retention-days: 7
-
   # ---------------------------------------------------------------------------
   # macOS — Appium Mac2. Canonical e2e runner.
   # ---------------------------------------------------------------------------
@@ -130,8 +116,6 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v5
@@ -210,8 +194,6 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v5

@@ -154,6 +154,23 @@ pub fn should_report_provider_http_failure(status: reqwest::StatusCode) -> bool 
     status != reqwest::StatusCode::TOO_MANY_REQUESTS
 }
 
+/// Whether a sanitized provider API error body is worth reporting to Sentry.
+///
+/// "Budget exceeded" from the backend is a normal user-state signal: the user
+/// is out of credits and needs to top up. Callers should still receive the
+/// same error message, but emitting every occurrence to Sentry floods
+/// observability with non-actionable events.
+fn should_report_provider_api_error(
+    provider: &str,
+    status: reqwest::StatusCode,
+    sanitized_body: &str,
+) -> bool {
+    let is_budget_exceeded_user_state = provider == OPENHUMAN_BACKEND_PROVIDER_LABEL
+        && status == reqwest::StatusCode::BAD_REQUEST
+        && sanitized_body.contains("Budget exceeded");
+    should_report_provider_http_failure(status) && !is_budget_exceeded_user_state
+}
+
 /// Build a sanitized provider error from a failed HTTP response.
 ///
 /// Reports the failure to Sentry with `provider` and `status` tags so
@@ -204,7 +221,7 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
                 reason: sanitize_api_error(&message),
             },
         );
-    } else if should_report_provider_http_failure(status) {
+    } else if should_report_provider_api_error(provider, status, &sanitized) {
         crate::core::observability::report_error(
             message.as_str(),
             "llm_provider",
@@ -444,6 +461,27 @@ mod tests {
         ));
         assert!(should_report_provider_http_failure(
             reqwest::StatusCode::SERVICE_UNAVAILABLE
+        ));
+    }
+
+    #[test]
+    fn skips_sentry_report_for_budget_exceeded_api_errors() {
+        assert!(!should_report_provider_api_error(
+            OPENHUMAN_BACKEND_PROVIDER_LABEL,
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"success":false,"error":"Budget exceeded - add credits to continue"}"#
+        ));
+
+        assert!(should_report_provider_api_error(
+            OPENHUMAN_BACKEND_PROVIDER_LABEL,
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"success":false,"error":"Some other provider failure"}"#
+        ));
+
+        assert!(should_report_provider_api_error(
+            "OpenAI",
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"error":"Budget exceeded"}"#
         ));
     }
 }

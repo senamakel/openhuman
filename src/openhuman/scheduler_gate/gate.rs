@@ -29,10 +29,39 @@ use crate::openhuman::scheduler_gate::signals::Signals;
 /// contract regardless of backend.
 const LLM_SLOTS: usize = 1;
 
+#[cfg(not(test))]
 static LLM_PERMITS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
-fn llm_permits() -> &'static Arc<Semaphore> {
-    LLM_PERMITS.get_or_init(|| Arc::new(Semaphore::new(LLM_SLOTS)))
+/// Hand back the semaphore that gates concurrent LLM work.
+///
+/// **Production**: one process-wide `Arc<Semaphore>` — the laptop-RAM
+/// safety contract documented on `LLM_SLOTS`.
+///
+/// **Tests**: one `Arc<Semaphore>` per OS thread. Each `#[tokio::test]`
+/// runs its body on a current-thread runtime hosted by the cargo
+/// test-runner thread, so every test naturally gets its own permit
+/// pool and can't deadlock on a permit held by an unrelated test in
+/// another thread's runtime. The single-slot invariant (and any
+/// behaviour tied to it) is still observable *within* a test because
+/// every task that test spawns runs on the same current-thread
+/// runtime, hitting the same thread-local pool.
+#[cfg(not(test))]
+fn llm_permits() -> Arc<Semaphore> {
+    LLM_PERMITS
+        .get_or_init(|| Arc::new(Semaphore::new(LLM_SLOTS)))
+        .clone()
+}
+
+#[cfg(test)]
+fn llm_permits() -> Arc<Semaphore> {
+    thread_local! {
+        static LLM_PERMITS_TL: std::cell::OnceCell<Arc<Semaphore>> =
+            const { std::cell::OnceCell::new() };
+    }
+    LLM_PERMITS_TL.with(|c| {
+        c.get_or_init(|| Arc::new(Semaphore::new(LLM_SLOTS)))
+            .clone()
+    })
 }
 
 /// RAII guard returned by [`wait_for_capacity`] / [`acquire_llm_permit`].
@@ -262,7 +291,7 @@ pub async fn wait_for_capacity() -> Option<LlmPermit> {
 }
 
 async fn acquire_llm_permit_inner() -> Option<LlmPermit> {
-    let sem = llm_permits().clone();
+    let sem = llm_permits();
     match sem.acquire_owned().await {
         Ok(permit) => {
             log::trace!("[scheduler_gate] llm permit acquired");
@@ -286,7 +315,7 @@ async fn acquire_llm_permit_inner() -> Option<LlmPermit> {
 /// [`wait_for_capacity`] so the policy backoff applies.
 #[cfg(test)]
 pub fn try_acquire_llm_permit() -> Option<LlmPermit> {
-    let sem = llm_permits().clone();
+    let sem = llm_permits();
     sem.try_acquire_owned()
         .ok()
         .map(|p| LlmPermit { _permit: p })
@@ -335,12 +364,6 @@ mod tests {
     }
 
     #[tokio::test]
-    // Races on the process-wide LLM_PERMITS Arc<Semaphore> with concurrent
-    // tests that hold permits (local_ai service tests, indirect drain_until_idle
-    // callers). The cross-runtime waker on the shared semaphore is unreliable
-    // when another test's runtime is dropping mid-wait. Runs reliably with
-    // `--ignored --test-threads=1`. See PR #1524.
-    #[ignore = "flaky in parallel cargo test; shared LLM_PERMITS semaphore — see PR #1524"]
     async fn second_waiter_blocks_until_first_drops() {
         let _g = lock();
         let first = wait_for_capacity().await.expect("first permit");

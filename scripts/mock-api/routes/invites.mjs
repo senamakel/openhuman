@@ -14,7 +14,10 @@ export function handleInvites(ctx) {
     json(res, 200, { success: true, data: [] });
     return true;
   }
-  if (method === "GET" && /^\/invite\/status/.test(url)) {
+  if (
+    method === "GET" &&
+    /^\/invite\/status(?:\/[^/?]+)?\/?(\?.*)?$/.test(url)
+  ) {
     json(res, 200, { success: true, data: { valid: true } });
     return true;
   }

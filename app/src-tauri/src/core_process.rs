@@ -194,10 +194,27 @@ impl CoreProcessHandle {
                 // can authenticate against the in-process core. Release builds
                 // never write this file. The test harness reads it from
                 // ${tmpdir}/openhuman-e2e-rpc-token.
+                //
+                // Token file is owner-read-write only (mode 0600) on Unix so a
+                // shared dev box doesn't leak the bearer to other local users.
                 #[cfg(debug_assertions)]
                 {
+                    use std::io::Write as _;
                     let token_path = std::env::temp_dir().join("openhuman-e2e-rpc-token");
-                    if let Err(err) = std::fs::write(&token_path, self.rpc_token.as_str()) {
+                    let write_result = (|| -> std::io::Result<()> {
+                        let mut options = std::fs::OpenOptions::new();
+                        options.create(true).write(true).truncate(true);
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::OpenOptionsExt as _;
+                            options.mode(0o600);
+                        }
+                        let mut file = options.open(&token_path)?;
+                        file.write_all(self.rpc_token.as_bytes())?;
+                        file.sync_all()?;
+                        Ok(())
+                    })();
+                    if let Err(err) = write_result {
                         log::warn!(
                             "[core] failed to write e2e token file at {}: {err}",
                             token_path.display()

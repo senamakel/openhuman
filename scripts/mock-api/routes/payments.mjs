@@ -189,7 +189,13 @@ export function handlePayments(ctx) {
   }
 
   if (method === "POST" && /^\/payments\/credits\/top-up\/?$/.test(url)) {
-    const amount = Number(parsedBody?.amountUsd ?? 0) || 10;
+    // Don't collapse an explicit 0 into the default — `Number(0) || 10` is
+    // a classic falsy-coalesce bug. Use Number.isFinite so any non-numeric
+    // body still falls back to 10.
+    const rawAmount = parsedBody?.amountUsd;
+    const parsedAmount = rawAmount == null ? 10 : Number(rawAmount);
+    const amount =
+      Number.isFinite(parsedAmount) && parsedAmount >= 0 ? parsedAmount : 10;
     json(res, 200, {
       success: true,
       data: {

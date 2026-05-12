@@ -30,10 +30,14 @@ export function requestOrigin(req) {
 }
 
 export function readBody(req) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
     req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+    // Don't let stream errors / aborts wedge the dispatcher waiting for
+    // an end event that will never come.
+    req.on("error", reject);
+    req.on("aborted", () => reject(new Error("request aborted")));
   });
 }
 

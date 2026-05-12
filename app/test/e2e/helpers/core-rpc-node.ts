@@ -30,10 +30,12 @@ function readBearerToken(): string | null {
   }
 }
 
-function buildHeaders(): Record<string, string> {
+function buildHeaders(includeAuth = true): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = readBearerToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (includeAuth) {
+    const token = readBearerToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
   return headers;
 }
 
@@ -62,11 +64,17 @@ function defaultPortProbeList(): number[] {
 
 async function tryPingRpc(url: string): Promise<boolean> {
   try {
+    // Probe without the bearer token: we're iterating candidate ports, and
+    // any non-core service that happens to be bound to one of them shouldn't
+    // receive our auth credential as a side effect of discovery.
     const res = await fetch(url, {
       method: 'POST',
-      headers: buildHeaders(),
+      headers: buildHeaders(false),
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'core.ping', params: {} }),
     });
+    // 401 means "endpoint exists, auth required" — that's a positive match
+    // for the core RPC URL; the real call will retry with auth attached.
+    if (res.status === 401) return true;
     if (!res.ok) return false;
     const json = (await res.json()) as { error?: { message?: string } };
     return !json.error;

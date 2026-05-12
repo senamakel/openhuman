@@ -136,11 +136,25 @@ pub fn format_anyhow_chain(err: &anyhow::Error) -> String {
     format!("{}…", &scrubbed[..end])
 }
 
+/// Whether a non-2xx provider response is worth reporting to Sentry.
+///
+/// 429 Too Many Requests is a transient, caller-side throttling signal — the
+/// reliable-provider layer already retries with backoff and falls back across
+/// providers/models, and the aggregate "all providers exhausted" event still
+/// fires if every attempt fails. Reporting each individual 429 floods Sentry
+/// (see OPENHUMAN-TAURI-6Y: ~8K events/day from one user being rate-limited
+/// by an upstream model). Callers should still propagate the error so retry
+/// and fallback logic runs unchanged; this only gates the Sentry report.
+pub fn should_report_provider_http_failure(status: reqwest::StatusCode) -> bool {
+    status != reqwest::StatusCode::TOO_MANY_REQUESTS
+}
+
 /// Build a sanitized provider error from a failed HTTP response.
 ///
 /// Also reports the failure to Sentry with `provider` and `status` tags so
 /// upstream LLM errors are visible in observability without every call-site
-/// having to remember to log.
+/// having to remember to log — except for transient statuses (see
+/// [`should_report_provider_http_failure`]).
 pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::Error {
     let status = response.status();
     let status_str = status.as_u16().to_string();
@@ -150,16 +164,18 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
         .unwrap_or_else(|_| "<failed to read provider error body>".to_string());
     let sanitized = sanitize_api_error(&body);
     let message = format!("{provider} API error ({status}): {sanitized}");
-    crate::core::observability::report_error(
-        message.as_str(),
-        "llm_provider",
-        "api_error",
-        &[
-            ("provider", provider),
-            ("status", status_str.as_str()),
-            ("failure", "non_2xx"),
-        ],
-    );
+    if should_report_provider_http_failure(status) {
+        crate::core::observability::report_error(
+            message.as_str(),
+            "llm_provider",
+            "api_error",
+            &[
+                ("provider", provider),
+                ("status", status_str.as_str()),
+                ("failure", "non_2xx"),
+            ],
+        );
+    }
     anyhow::anyhow!(message)
 }
 
@@ -366,5 +382,28 @@ mod tests {
             create_backend_inference_provider(None, None, &ProviderRuntimeOptions::default())
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn skips_sentry_report_for_429_only() {
+        // 429 is transient rate-limit — reliable.rs retries + falls back, and
+        // the aggregate "all providers exhausted" event still fires for genuine
+        // outages. Reporting each 429 individually floods Sentry.
+        assert!(!should_report_provider_http_failure(
+            reqwest::StatusCode::TOO_MANY_REQUESTS
+        ));
+        // Everything else (auth, server, gateway, etc.) is still worth a report.
+        assert!(should_report_provider_http_failure(
+            reqwest::StatusCode::UNAUTHORIZED
+        ));
+        assert!(should_report_provider_http_failure(
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        ));
+        assert!(should_report_provider_http_failure(
+            reqwest::StatusCode::BAD_GATEWAY
+        ));
+        assert!(should_report_provider_http_failure(
+            reqwest::StatusCode::SERVICE_UNAVAILABLE
+        ));
     }
 }

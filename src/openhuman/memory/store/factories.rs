@@ -37,16 +37,14 @@ pub fn effective_embedding_settings(
         .map(LocalAiConfig::use_local_for_embeddings)
         .unwrap_or(false)
     {
-        let model = if local_ai
-            .map(|c| c.embedding_model_id.trim().is_empty())
-            .unwrap_or(true)
-        {
-            DEFAULT_OLLAMA_MODEL.to_string()
-        } else {
-            local_ai
-                .map(|c| c.embedding_model_id.clone())
-                .unwrap_or_else(|| DEFAULT_OLLAMA_MODEL.to_string())
-        };
+        // Trim once and reuse — the emptiness check and the final model
+        // string must agree, otherwise a value like "  bge-m3  " would pass
+        // through to Ollama with surrounding whitespace and 404.
+        let model = local_ai
+            .map(|c| c.embedding_model_id.trim())
+            .filter(|m| !m.is_empty())
+            .unwrap_or(DEFAULT_OLLAMA_MODEL)
+            .to_string();
         return ("ollama".to_string(), model, DEFAULT_OLLAMA_DIMENSIONS);
     }
     (
@@ -137,11 +135,27 @@ fn create_memory_full(
     // 1. Resolve the effective (provider, model, dims) — local-AI opt-in
     //    overrides the per-section default when both are present.
     let (provider, model, dims) = effective_embedding_settings(config, local_ai);
+    log::debug!(
+        "[memory::factory] effective embedding settings: provider={} model={} dims={} (local_ai_opt_in={})",
+        provider,
+        model,
+        dims,
+        local_ai
+            .map(LocalAiConfig::use_local_for_embeddings)
+            .unwrap_or(false),
+    );
 
     // 2. Create the embedding provider.
-    let embedder: Arc<dyn EmbeddingProvider> = Arc::from(embeddings::create_embedding_provider(
-        &provider, &model, dims,
-    )?);
+    let embedder: Arc<dyn EmbeddingProvider> = Arc::from(
+        embeddings::create_embedding_provider(&provider, &model, dims).inspect_err(|err| {
+            log::warn!(
+                "[memory::factory] create_embedding_provider failed provider={} model={} dims={}: {err}",
+                provider,
+                model,
+                dims,
+            );
+        })?,
+    );
 
     // 3. Instantiate UnifiedMemory which handles SQLite and vector storage.
     let mem = UnifiedMemory::new(workspace_dir, embedder, config.sqlite_open_timeout_secs)?;

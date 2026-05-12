@@ -31,11 +31,21 @@ pub type MemoryClientRef = Arc<MemoryClient>;
 /// be initialized.
 pub struct MemoryState(pub std::sync::Mutex<Option<MemoryClientRef>>);
 
-/// Local-only memory client backed by SQLite in the user's workspace directory.
+/// SQLite-backed memory client rooted at the user's workspace directory.
 ///
-/// All memory storage and retrieval happens on-device; there is no remote sync.
-/// Remote/cloud memory sync is a future consideration — until then the memory
-/// subsystem operates entirely locally via [`UnifiedMemory`].
+/// Storage (documents, vectors, graph) remains on-device via [`UnifiedMemory`].
+/// Embedding generation is delegated to whichever provider the
+/// [`MemoryConfig.embedding_provider`](crate::openhuman::config::MemoryConfig)
+/// resolves to — cloud (OpenHuman backend, the default returned by
+/// [`crate::openhuman::embeddings::default_embedding_provider`]) or local Ollama
+/// when explicitly opted into. The cloud embedder resolves its session JWT
+/// lazily, so an unauthenticated session will surface as a clear error on the
+/// first `embed` call rather than at client construction.
+///
+/// Callers that need a non-default embedder should construct the underlying
+/// store via [`crate::openhuman::memory::create_memory_with_storage_and_routes`]
+/// (or [`crate::openhuman::memory::create_memory_with_local_ai`]) with the
+/// appropriate `MemoryConfig.embedding_provider`.
 #[derive(Clone)]
 pub struct MemoryClient {
     /// The underlying memory implementation.

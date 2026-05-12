@@ -90,12 +90,17 @@ pub fn report_error<E: Display + ?Sized>(
 /// site that emits a `tracing::error!` with the same shape but bypasses
 /// the classifier.
 ///
-/// Match criteria:
+/// Match criteria (all required):
+/// - tag `domain == "llm_provider"` — pins the filter to provider-originated
+///   events so an unrelated subsystem emitting `failure=non_2xx`/`status=503`
+///   for its own reasons doesn't get silently dropped
 /// - tag `failure == "non_2xx"` (the marker set by `ops::api_error`)
-/// - tag `status` matches a known transient status (see
-///   [`TRANSIENT_PROVIDER_HTTP_STATUSES`])
+/// - tag `status` parses to one of [`TRANSIENT_PROVIDER_HTTP_STATUSES`]
 pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -> bool {
     let tags = &event.tags;
+    if tags.get("domain").map(String::as_str) != Some("llm_provider") {
+        return false;
+    }
     if tags.get("failure").map(String::as_str) != Some("non_2xx") {
         return false;
     }
@@ -157,7 +162,11 @@ mod tests {
     #[test]
     fn transient_filter_drops_429_408_502_503_504() {
         for status in ["429", "408", "502", "503", "504"] {
-            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
+            let event = event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ]);
             assert!(
                 is_transient_provider_http_failure(&event),
                 "status {status} must be classified as transient and filtered"
@@ -168,7 +177,11 @@ mod tests {
     #[test]
     fn transient_filter_keeps_permanent_failures() {
         for status in ["400", "401", "403", "404", "500"] {
-            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
+            let event = event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ]);
             assert!(
                 !is_transient_provider_http_failure(&event),
                 "status {status} must NOT be filtered — it's actionable"
@@ -178,7 +191,11 @@ mod tests {
 
     #[test]
     fn transient_filter_keeps_aggregate_all_exhausted() {
-        let event = event_with_tags(&[("failure", "all_exhausted"), ("status", "503")]);
+        let event = event_with_tags(&[
+            ("domain", "llm_provider"),
+            ("failure", "all_exhausted"),
+            ("status", "503"),
+        ]);
         assert!(
             !is_transient_provider_http_failure(&event),
             "aggregate all_exhausted events must surface (they are the cascade signal)"
@@ -187,10 +204,39 @@ mod tests {
 
     #[test]
     fn transient_filter_keeps_events_with_no_status_tag() {
-        let event = event_with_tags(&[("failure", "non_2xx")]);
+        let event = event_with_tags(&[("domain", "llm_provider"), ("failure", "non_2xx")]);
         assert!(
             !is_transient_provider_http_failure(&event),
             "missing status tag must not be silently dropped"
+        );
+    }
+
+    // Regression guard for CodeRabbit review on #1529: the filter must scope
+    // to provider events only. Other subsystems emit `failure=non_2xx` (e.g.
+    // `providers/compatible.rs` uses the same marker for OAI-compatible
+    // error paths, but every site goes through `report_error(..,
+    // "llm_provider", ..)` so the domain tag is consistent), but the broader
+    // point is: any future caller that re-uses the same tag set for a
+    // different domain must NOT be silently dropped by this filter.
+    #[test]
+    fn transient_filter_keeps_events_with_no_domain_tag() {
+        let event = event_with_tags(&[("failure", "non_2xx"), ("status", "503")]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "missing domain tag means the event isn't provider-originated — must surface"
+        );
+    }
+
+    #[test]
+    fn transient_filter_keeps_events_from_other_domains() {
+        let event = event_with_tags(&[
+            ("domain", "scheduler"),
+            ("failure", "non_2xx"),
+            ("status", "503"),
+        ]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "non-provider domain must surface even if failure/status tags collide"
         );
     }
 }

@@ -64,7 +64,13 @@ fn drops_per_attempt_429_503_504_408_502() {
     // before_send, none should leak through to the transport.
     let events = ["429", "503", "504", "408", "502"]
         .into_iter()
-        .map(|status| event_with_tags(&[("failure", "non_2xx"), ("status", status)]))
+        .map(|status| {
+            event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ])
+        })
         .collect();
     assert_eq!(
         count_captured(events),
@@ -79,7 +85,13 @@ fn keeps_permanent_failures() {
     // they must reach Sentry exactly as before.
     let events = ["400", "401", "403", "404", "500"]
         .into_iter()
-        .map(|status| event_with_tags(&[("failure", "non_2xx"), ("status", status)]))
+        .map(|status| {
+            event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ])
+        })
         .collect();
     assert_eq!(
         count_captured(events),
@@ -95,6 +107,7 @@ fn keeps_aggregate_all_exhausted_event() {
     // tried. That's the cascade signal we want — only the per-attempt
     // noise gets dropped.
     let event = event_with_tags(&[
+        ("domain", "llm_provider"),
         ("failure", "all_exhausted"),
         ("model", "claude-haiku-4-5-20251001"),
         ("attempts", "12"),
@@ -111,7 +124,7 @@ fn keeps_event_missing_status_tag() {
     // Belt-and-suspenders: an event with `failure=non_2xx` but no `status`
     // tag (e.g. a future call site forgets to attach one) must NOT be
     // silently dropped — we'd rather see it and fix the tag emission.
-    let event = event_with_tags(&[("failure", "non_2xx")]);
+    let event = event_with_tags(&[("domain", "llm_provider"), ("failure", "non_2xx")]);
     assert_eq!(
         count_captured(vec![event]),
         1,

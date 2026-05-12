@@ -67,6 +67,10 @@ wdio-logs/
 test-results/
 coverage/
 app/public/generated/remotion/
+app/test/e2e/artifacts/
+
+# Local pnpm store (created when network-restricted hosts cache the store inside the repo)
+.pnpm-store/
 
 tauri.key
 tauri.key.pub

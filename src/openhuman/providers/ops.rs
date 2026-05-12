@@ -136,11 +136,26 @@ pub fn format_anyhow_chain(err: &anyhow::Error) -> String {
     format!("{}…", &scrubbed[..end])
 }
 
+/// Provider label used by the OpenHuman backend inference path
+/// (`openhuman_backend::PROVIDER_LABEL`). Kept here to avoid pulling the
+/// whole backend module into `ops` just for one string compare.
+const OPENHUMAN_BACKEND_PROVIDER_LABEL: &str = "OpenHuman";
+
 /// Build a sanitized provider error from a failed HTTP response.
 ///
-/// Also reports the failure to Sentry with `provider` and `status` tags so
+/// Reports the failure to Sentry with `provider` and `status` tags so
 /// upstream LLM errors are visible in observability without every call-site
 /// having to remember to log.
+///
+/// Special case: a 401/403 from the **OpenHuman backend** provider means
+/// the user's app session expired. That is expected user-state — not a
+/// server bug — and reporting it spams Sentry (issue #OPENHUMAN-TAURI-1T
+/// hit 5,414 events from a single user whose cron loops kept firing
+/// post-expiry). Instead we publish a [`DomainEvent::SessionExpired`] so
+/// the credentials subscriber can clear the session and flip the
+/// scheduler-gate signed-out override, halting downstream LLM work.
+/// 401/403 from **other providers** (OpenAI, Anthropic, …) still go to
+/// Sentry — those mean a misconfigured API key, which is actionable.
 pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::Error {
     let status = response.status();
     let status_str = status.as_u16().to_string();
@@ -150,16 +165,36 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
         .unwrap_or_else(|_| "<failed to read provider error body>".to_string());
     let sanitized = sanitize_api_error(&body);
     let message = format!("{provider} API error ({status}): {sanitized}");
-    crate::core::observability::report_error(
-        message.as_str(),
-        "llm_provider",
-        "api_error",
-        &[
-            ("provider", provider),
-            ("status", status_str.as_str()),
-            ("failure", "non_2xx"),
-        ],
-    );
+
+    let is_auth_failure = matches!(status.as_u16(), 401 | 403);
+    let is_backend = provider == OPENHUMAN_BACKEND_PROVIDER_LABEL;
+
+    if is_auth_failure && is_backend {
+        tracing::warn!(
+            domain = "llm_provider",
+            operation = "api_error",
+            provider = provider,
+            status = status_str.as_str(),
+            "[llm_provider] backend auth failure ({status}) — publishing SessionExpired: {message}"
+        );
+        crate::core::event_bus::publish_global(
+            crate::core::event_bus::DomainEvent::SessionExpired {
+                source: "llm_provider.openhuman_backend".to_string(),
+                reason: message.clone(),
+            },
+        );
+    } else {
+        crate::core::observability::report_error(
+            message.as_str(),
+            "llm_provider",
+            "api_error",
+            &[
+                ("provider", provider),
+                ("status", status_str.as_str()),
+                ("failure", "non_2xx"),
+            ],
+        );
+    }
     anyhow::anyhow!(message)
 }
 

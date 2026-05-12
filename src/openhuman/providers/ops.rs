@@ -154,14 +154,7 @@ const OPENHUMAN_BACKEND_PROVIDER_LABEL: &str = "OpenHuman";
 /// propagate the error so retry and fallback logic runs unchanged; this
 /// only gates the per-attempt Sentry report.
 pub fn should_report_provider_http_failure(status: reqwest::StatusCode) -> bool {
-    !matches!(
-        status,
-        reqwest::StatusCode::TOO_MANY_REQUESTS
-            | reqwest::StatusCode::REQUEST_TIMEOUT
-            | reqwest::StatusCode::BAD_GATEWAY
-            | reqwest::StatusCode::SERVICE_UNAVAILABLE
-            | reqwest::StatusCode::GATEWAY_TIMEOUT
-    )
+    !crate::core::observability::TRANSIENT_PROVIDER_HTTP_STATUSES.contains(&status.as_u16())
 }
 
 /// Build a sanitized provider error from a failed HTTP response.

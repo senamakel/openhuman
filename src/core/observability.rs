@@ -20,6 +20,21 @@ use std::fmt::Display;
 /// anything you'd want to facet on (`error_kind`, `tool_name`, `method`).
 pub type Tag<'a> = (&'a str, &'a str);
 
+/// HTTP status codes that the reliable-provider layer already handles via
+/// retry + fallback, so per-attempt Sentry reports add noise without signal:
+///
+/// - **408** Request Timeout
+/// - **429** Too Many Requests
+/// - **502** Bad Gateway
+/// - **503** Service Unavailable
+/// - **504** Gateway Timeout
+///
+/// Single source of truth for both the call-site classifier
+/// (`openhuman::providers::ops::should_report_provider_http_failure`) and the
+/// `before_send` filter (`is_transient_provider_http_failure`). Update here
+/// and both sites pick it up — keeps the two layers from drifting.
+pub const TRANSIENT_PROVIDER_HTTP_STATUSES: &[u16] = &[408, 429, 502, 503, 504];
+
 /// Capture an error to Sentry with structured tags.
 ///
 /// `domain` and `operation` are required and become tags `domain:<…>` and
@@ -77,16 +92,17 @@ pub fn report_error<E: Display + ?Sized>(
 ///
 /// Match criteria:
 /// - tag `failure == "non_2xx"` (the marker set by `ops::api_error`)
-/// - tag `status` matches a known transient status (429, 408, 502, 503, 504)
+/// - tag `status` matches a known transient status (see
+///   [`TRANSIENT_PROVIDER_HTTP_STATUSES`])
 pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -> bool {
     let tags = &event.tags;
     if tags.get("failure").map(String::as_str) != Some("non_2xx") {
         return false;
     }
-    matches!(
-        tags.get("status").map(String::as_str),
-        Some("429") | Some("408") | Some("502") | Some("503") | Some("504")
-    )
+    let Some(status_u16) = tags.get("status").and_then(|s| s.parse::<u16>().ok()) else {
+        return false;
+    };
+    TRANSIENT_PROVIDER_HTTP_STATUSES.contains(&status_u16)
 }
 
 #[cfg(test)]

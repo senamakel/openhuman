@@ -792,7 +792,14 @@ impl Agent {
         let mut post_turn_hooks: Vec<Arc<dyn crate::openhuman::agent::hooks::PostTurnHook>> =
             Vec::new();
         if config.learning.enabled {
-            if config.learning.reflection_enabled {
+            // #1419: reflection only fires for the user-facing orchestrator.
+            // Sub-agent transcripts are short-lived, scoped to a single
+            // delegation, and almost never carry durable user context worth
+            // surfacing in future chats. Gating here keeps the hook off
+            // every specialist / archivist / welcome session.
+            let is_orchestrator = agent_id == "orchestrator";
+
+            if config.learning.reflection_enabled && is_orchestrator {
                 // Only the reflection hook needs an owned snapshot of the
                 // full config, so create the `Arc` lazily inside this
                 // branch instead of paying for the clone whenever
@@ -814,15 +821,65 @@ impl Agent {
                     } else {
                         None
                     };
-                post_turn_hooks.push(Arc::new(crate::openhuman::learning::ReflectionHook::new(
-                    config.learning.clone(),
-                    full_config.clone(),
-                    memory.clone(),
-                    reflection_provider,
-                )));
+
+                // #1419: opt-in dedicated summarizer. When the cloud
+                // source is selected we reuse the same routed provider
+                // and just route the call through a different model
+                // hint. Local summarizers are handled inside
+                // ReflectionHook itself via the legacy local-AI path,
+                // so we skip the trait wiring there.
+                let summarizer: Option<Arc<dyn crate::openhuman::learning::SummarizerProvider>> =
+                    if config.learning.summarizer.enabled
+                        && config.learning.summarizer.source
+                            == crate::openhuman::config::SummarizerSource::Cloud
+                    {
+                        let provider: Arc<dyn crate::openhuman::providers::Provider> =
+                            match reflection_provider.clone() {
+                                Some(p) => p,
+                                None => Arc::from(providers::create_routed_provider(
+                                    config.api_url.as_deref(),
+                                    config.api_key.as_deref(),
+                                    &config.reliability,
+                                    &config.model_routes,
+                                    &model_name,
+                                )?),
+                            };
+                        Some(Arc::new(
+                            crate::openhuman::learning::ConfiguredSummarizer::new(
+                                provider,
+                                config.learning.summarizer.model_hint.clone(),
+                                config.learning.summarizer.max_context_chars,
+                                "reflection-summarizer",
+                            ),
+                        ))
+                    } else {
+                        None
+                    };
+                if summarizer.is_some() {
+                    log::info!(
+                        "[learning] reflection summarizer enabled (model_hint={}, cap={})",
+                        config.learning.summarizer.model_hint,
+                        config.learning.summarizer.max_context_chars,
+                    );
+                }
+
+                post_turn_hooks.push(Arc::new(
+                    crate::openhuman::learning::ReflectionHook::with_summarizer(
+                        config.learning.clone(),
+                        full_config.clone(),
+                        memory.clone(),
+                        reflection_provider,
+                        summarizer,
+                    ),
+                ));
                 log::info!(
                     "[learning] reflection hook registered (source={:?})",
                     config.learning.reflection_source
+                );
+            } else if config.learning.reflection_enabled {
+                log::debug!(
+                    "[learning] reflection hook skipped — agent '{}' is not the orchestrator",
+                    agent_id
                 );
             }
 

@@ -45,6 +45,12 @@ pub struct ReflectionHook {
     full_config: Arc<Config>,
     memory: Arc<dyn Memory>,
     provider: Option<Arc<dyn crate::openhuman::providers::Provider>>,
+    /// Optional dedicated cheap summarizer (#1419). When present, the
+    /// reflection LLM call is routed here instead of through the
+    /// orchestrator-tier provider / local-AI service so frequent
+    /// reflection passes do not burn high-tier inference. None falls
+    /// back to the legacy routing in `run_reflection`.
+    summarizer: Option<Arc<dyn crate::openhuman::learning::SummarizerProvider>>,
     /// Per-session reflection counts for throttling. Key is session_id (or "__global__").
     session_counts: Mutex<HashMap<String, usize>>,
 }
@@ -56,11 +62,29 @@ impl ReflectionHook {
         memory: Arc<dyn Memory>,
         provider: Option<Arc<dyn crate::openhuman::providers::Provider>>,
     ) -> Self {
+        Self::with_summarizer(config, full_config, memory, provider, None)
+    }
+
+    /// Construct a reflection hook with an explicit summarizer override.
+    ///
+    /// When `summarizer.is_some()` the reflection LLM call is routed to
+    /// the dedicated cheap summarizer instead of the orchestrator-tier
+    /// provider / local AI service. This is the path #1419 wires from
+    /// the session builder when `LearningConfig::summarizer.enabled` is
+    /// true and the agent is the orchestrator.
+    pub fn with_summarizer(
+        config: LearningConfig,
+        full_config: Arc<Config>,
+        memory: Arc<dyn Memory>,
+        provider: Option<Arc<dyn crate::openhuman::providers::Provider>>,
+        summarizer: Option<Arc<dyn crate::openhuman::learning::SummarizerProvider>>,
+    ) -> Self {
         Self {
             config,
             full_config,
             memory,
             provider,
+            summarizer,
             session_counts: Mutex::new(HashMap::new()),
         }
     }
@@ -132,15 +156,33 @@ impl ReflectionHook {
         ));
 
         if !ctx.tool_calls.is_empty() {
+            // #1419: compress raw multi-call history into per-tool
+            // digests before it hits the summarizer's smaller context
+            // window. The legacy per-call block is preserved when the
+            // turn has at most one call per distinct tool — the digest
+            // and the legacy line look identical in that case, but the
+            // per-call line keeps the existing "success=true,
+            // duration=Xms" surface intact for older test assertions.
+            let digests = crate::openhuman::learning::compress_tool_calls(&ctx.tool_calls);
+            let compressed_any = digests.iter().any(|d| d.count > 1);
             prompt.push_str("## Tool Calls\n");
-            for tc in &ctx.tool_calls {
-                prompt.push_str(&format!(
-                    "- {} (success={}, duration={}ms): {}\n",
-                    tc.name,
-                    tc.success,
-                    tc.duration_ms,
-                    truncate(&tc.output_summary, 100)
-                ));
+            if compressed_any {
+                prompt.push_str(&crate::openhuman::learning::render_tool_digests(&digests));
+                log::debug!(
+                    "[learning::reflection] compressed {} tool calls into {} per-tool digest(s)",
+                    ctx.tool_calls.len(),
+                    digests.len(),
+                );
+            } else {
+                for tc in &ctx.tool_calls {
+                    prompt.push_str(&format!(
+                        "- {} (success={}, duration={}ms): {}\n",
+                        tc.name,
+                        tc.success,
+                        tc.duration_ms,
+                        truncate(&tc.output_summary, 100)
+                    ));
+                }
             }
             prompt.push('\n');
         }
@@ -155,6 +197,36 @@ impl ReflectionHook {
 
     /// Call the configured LLM for reflection.
     async fn run_reflection(&self, prompt: &str) -> anyhow::Result<String> {
+        // #1419: when a dedicated summarizer is configured, route the
+        // reflection call through it instead of the orchestrator-tier
+        // provider / local AI service. The summarizer carries its own
+        // context window cap and we log a context-fill metric so trigger
+        // thresholds can be tuned against real fill ratios.
+        if let Some(summarizer) = self.summarizer.as_ref() {
+            let cap = summarizer.context_window_chars();
+            let input_chars = prompt.chars().count();
+            let bounded: std::borrow::Cow<'_, str> = if input_chars > cap {
+                log::info!(
+                    "[learning::reflection] summarizer={} input {} chars > cap {} — truncating",
+                    summarizer.label(),
+                    input_chars,
+                    cap,
+                );
+                let head: String = prompt.chars().take(cap).collect();
+                std::borrow::Cow::Owned(head)
+            } else {
+                std::borrow::Cow::Borrowed(prompt)
+            };
+            log::debug!(
+                "[learning::reflection] dispatch via summarizer label={} input_chars={} cap={} fill={:.2}",
+                summarizer.label(),
+                bounded.chars().count(),
+                cap,
+                (bounded.chars().count() as f32) / (cap.max(1) as f32),
+            );
+            return summarizer.prompt(bounded.as_ref()).await;
+        }
+
         match self.config.reflection_source {
             ReflectionSource::Local => {
                 // Gate: local reflection requires the per-feature flag.

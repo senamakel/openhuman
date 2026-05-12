@@ -78,6 +78,78 @@ pub struct LearningConfig {
     /// How often the periodic rebuild loop runs in seconds. Default: 1800 (30 minutes).
     #[serde(default = "default_rebuild_interval_secs")]
     pub rebuild_interval_secs: u64,
+
+    /// Summarizer LLM configuration (#1419).
+    ///
+    /// Reflection + transcript-ingest are going to fire often; running
+    /// them on the orchestrator-tier model is wasteful. When
+    /// `summarizer.enabled = true` and a model hint is configured, the
+    /// learning pipeline routes its LLM calls to this cheaper model
+    /// instead. When disabled (the default) callers fall back to the
+    /// heuristic path from #1406 / the orchestrator-tier provider, so
+    /// users without a summarizer configured never silently break.
+    #[serde(default)]
+    pub summarizer: SummarizerConfig,
+}
+
+/// Where the summarizer model runs.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SummarizerSource {
+    /// Use the configured cloud provider routed via a model hint.
+    #[default]
+    Cloud,
+    /// Use the local Ollama summarizer model via `LocalAiService::prompt()`.
+    Local,
+}
+
+/// Configuration for the dedicated cheap summarizer used by the
+/// reflection / transcript-ingest paths (#1419). Pluggable model
+/// separate from the orchestrator provider, carries its own context
+/// window cap so callers can budget compression.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct SummarizerConfig {
+    /// Master switch. Default: false — leave the heuristic-only path
+    /// from #1406 as the source of truth for offline users.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Where the summarizer runs (cloud routed via model hint vs local
+    /// Ollama). Default: cloud.
+    #[serde(default)]
+    pub source: SummarizerSource,
+
+    /// Model hint string passed to `Provider::simple_chat` when
+    /// `source == Cloud`. Defaults to `"hint:fast"` so a typical
+    /// `model_routes` config routes summarizer traffic to the cheapest
+    /// tier without the user touching this field.
+    #[serde(default = "default_summarizer_model_hint")]
+    pub model_hint: String,
+
+    /// Approximate character budget for the summarizer's prompt input.
+    /// Callers compress / truncate inputs to stay under this cap. The
+    /// implementation clamps to a sane minimum (1024 chars).
+    #[serde(default = "default_summarizer_context_chars")]
+    pub max_context_chars: usize,
+}
+
+fn default_summarizer_model_hint() -> String {
+    "hint:fast".to_string()
+}
+
+fn default_summarizer_context_chars() -> usize {
+    6_000
+}
+
+impl Default for SummarizerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            source: SummarizerSource::default(),
+            model_hint: default_summarizer_model_hint(),
+            max_context_chars: default_summarizer_context_chars(),
+        }
+    }
 }
 
 fn default_rebuild_interval_secs() -> u64 {
@@ -110,6 +182,7 @@ impl Default for LearningConfig {
             chat_to_tree_enabled: default_true(),
             stability_detector_enabled: default_true(),
             rebuild_interval_secs: default_rebuild_interval_secs(),
+            summarizer: SummarizerConfig::default(),
         }
     }
 }

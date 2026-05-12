@@ -31,6 +31,7 @@ pub mod reflection;
 pub mod scheduler;
 pub mod schemas;
 pub mod stability_detector;
+pub mod summarizer;
 pub mod tool_tracker;
 pub mod transcript_ingest;
 pub mod user_profile;
@@ -47,5 +48,9 @@ pub use schemas::{
     all_learning_controller_schemas, all_learning_registered_controllers, learning_schemas,
 };
 pub use stability_detector::StabilityDetector;
+pub use summarizer::{
+    compress_tool_calls, render_tool_digests, ConfiguredSummarizer, SummarizerProvider,
+    ToolCallDigest,
+};
 pub use tool_tracker::ToolTrackerHook;
 pub use user_profile::UserProfileHook;

@@ -1495,6 +1495,17 @@ impl Agent {
     ///
     /// Fire-and-forget: failures are logged, never propagated.
     pub(super) fn spawn_transcript_ingestion(&self) {
+        // #1419: transcript ingest only fires for the user-facing
+        // orchestrator. Sub-agent transcripts are short-lived, scoped
+        // to a single delegation, and almost never carry durable user
+        // context worth lifting into `conversation_memory`.
+        if self.agent_definition_name != "orchestrator" {
+            log::debug!(
+                "[transcript_ingest] skipping spawn — agent '{}' is not the orchestrator",
+                self.agent_definition_name
+            );
+            return;
+        }
         let Some(path) = self.session_transcript_path.clone() else {
             log::debug!("[transcript_ingest] no session transcript path yet — skipping spawn");
             return;

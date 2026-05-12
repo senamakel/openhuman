@@ -34,6 +34,7 @@
 
 mod dedupe;
 mod extract;
+mod merge;
 mod persist;
 pub mod types;
 
@@ -63,6 +64,22 @@ pub async fn ingest_transcript_path(
     ingest_session_transcript(memory, &parsed, path).await
 }
 
+/// Variant of [`ingest_transcript_path`] that takes an optional
+/// summarizer for the stage-2 merge pass (#1419).
+pub async fn ingest_transcript_path_with_summarizer(
+    memory: &dyn Memory,
+    path: &Path,
+    summarizer: Option<&std::sync::Arc<dyn crate::openhuman::learning::SummarizerProvider>>,
+) -> anyhow::Result<IngestionReport> {
+    log::debug!(
+        "[transcript_ingest] starting ingest for {} (summarizer={})",
+        path.display(),
+        summarizer.map(|s| s.label()).unwrap_or("none")
+    );
+    let parsed = transcript::read_transcript(path)?;
+    ingest_session_transcript_with_summarizer(memory, &parsed, path, summarizer).await
+}
+
 /// Ingest an already-parsed [`SessionTranscript`].
 ///
 /// Exposed separately from `ingest_transcript_path` so tests can drive the
@@ -71,6 +88,17 @@ pub async fn ingest_session_transcript(
     memory: &dyn Memory,
     transcript: &SessionTranscript,
     path: &Path,
+) -> anyhow::Result<IngestionReport> {
+    ingest_session_transcript_with_summarizer(memory, transcript, path, None).await
+}
+
+/// Same as [`ingest_session_transcript`] but accepts an optional
+/// summarizer used to collapse near-duplicate candidates (#1419).
+pub async fn ingest_session_transcript_with_summarizer(
+    memory: &dyn Memory,
+    transcript: &SessionTranscript,
+    path: &Path,
+    summarizer: Option<&std::sync::Arc<dyn crate::openhuman::learning::SummarizerProvider>>,
 ) -> anyhow::Result<IngestionReport> {
     let basename = path
         .file_name()
@@ -103,6 +131,12 @@ pub async fn ingest_session_transcript(
 
     let extracted_total = extracted.len();
     let reflection_total = reflections.len();
+
+    // Stage 2: collapse near-duplicate candidates before dedupe so a
+    // long transcript doesn't surface multiple paraphrases of the same
+    // underlying fact. Heuristic-only when `summarizer` is None
+    // (#1406 fallback intact).
+    let (extracted, _merge_report) = merge::collapse_near_duplicates(extracted, summarizer).await;
 
     let (kept, deduped) = dedupe::filter_new(memory, extracted).await?;
     let (kept_reflections, deduped_reflections) =

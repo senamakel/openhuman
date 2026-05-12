@@ -517,3 +517,103 @@ async fn on_turn_complete_emits_style_candidates_from_llm_preferences() {
         "user_preferences with key=value format should produce a Style candidate"
     );
 }
+
+// ── #1419 — summarizer routing + digest tests ───────────────────────────
+
+/// When a [`SummarizerProvider`] is configured, the reflection LLM call
+/// is routed through it instead of the orchestrator-tier provider /
+/// local AI service. Verifies the seam is wired end-to-end.
+#[tokio::test]
+async fn on_turn_complete_routes_through_summarizer_when_configured() {
+    use crate::openhuman::learning::SummarizerProvider;
+    use tokio::sync::Mutex as TokioMutex;
+
+    struct CountingSummarizer {
+        calls: TokioMutex<Vec<String>>,
+    }
+    #[async_trait]
+    impl SummarizerProvider for CountingSummarizer {
+        fn context_window_chars(&self) -> usize {
+            10_000
+        }
+        fn label(&self) -> &str {
+            "test-summarizer"
+        }
+        async fn prompt(&self, prompt: &str) -> anyhow::Result<String> {
+            self.calls.lock().await.push(prompt.to_string());
+            Ok(r#"{"observations":["summarized"],"patterns":[],"user_preferences":[],"user_reflections":[]}"#.into())
+        }
+    }
+
+    let summarizer = Arc::new(CountingSummarizer {
+        calls: TokioMutex::new(Vec::new()),
+    });
+    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+    let hook = ReflectionHook::with_summarizer(
+        reflection_config(),
+        Arc::new(Config::default()),
+        memory,
+        None,
+        Some(summarizer.clone()),
+    );
+
+    hook.on_turn_complete(&reflective_turn()).await.unwrap();
+    let calls = summarizer.calls.lock().await;
+    assert_eq!(
+        calls.len(),
+        1,
+        "summarizer should have been invoked exactly once"
+    );
+    assert!(calls[0].contains("## Tool Calls"));
+}
+
+/// Reflection prompts on a multi-call turn now compress raw history
+/// into per-tool digests rather than streaming the full list — keeps
+/// the summarizer's smaller context window in budget (#1419).
+#[test]
+fn build_reflection_prompt_compresses_repeated_tool_calls_into_digest() {
+    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+    let hook = ReflectionHook::new(
+        reflection_config(),
+        Arc::new(Config::default()),
+        memory,
+        None,
+    );
+    let mut turn = reflective_turn();
+    // Three Bash calls + one read — should compress to two digests.
+    turn.tool_calls = vec![
+        ToolCallRecord {
+            name: "Bash".into(),
+            arguments: serde_json::json!({}),
+            success: true,
+            output_summary: "ok 1".into(),
+            duration_ms: 80,
+        },
+        ToolCallRecord {
+            name: "Bash".into(),
+            arguments: serde_json::json!({}),
+            success: false,
+            output_summary: "fail".into(),
+            duration_ms: 220,
+        },
+        ToolCallRecord {
+            name: "Bash".into(),
+            arguments: serde_json::json!({}),
+            success: true,
+            output_summary: "ok 3".into(),
+            duration_ms: 50,
+        },
+        ToolCallRecord {
+            name: "read_file".into(),
+            arguments: serde_json::json!({}),
+            success: true,
+            output_summary: "ok".into(),
+            duration_ms: 12,
+        },
+    ];
+    let prompt = hook.build_reflection_prompt(&turn);
+    assert!(prompt.contains("Bash ×3"));
+    assert!(prompt.contains("p95=220ms"));
+    // Per-call lines should NOT appear for the compressed path.
+    assert!(!prompt.contains("(success=true, duration=80ms)"));
+}

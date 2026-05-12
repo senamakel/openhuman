@@ -44,7 +44,7 @@ pub use context::ContextConfig;
 pub use dictation::{DictationActivationMode, DictationConfig};
 pub use heartbeat_cron::{CronConfig, HeartbeatConfig};
 pub use identity_cost::{CostConfig, ModelPricing};
-pub use learning::{LearningConfig, ReflectionSource};
+pub use learning::{LearningConfig, ReflectionSource, SummarizerConfig, SummarizerSource};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use meet::MeetConfig;
 pub use node::NodeConfig;

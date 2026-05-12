@@ -36,8 +36,8 @@ fi
 
 export VITE_BACKEND_URL="http://127.0.0.1:${E2E_MOCK_PORT:-18473}"
 
-# Stage rust-core sidecar for bundle.externalBin (see app/src-tauri/tauri.conf.json).
-node "$REPO_ROOT/scripts/stage-core-sidecar.mjs"
+# Core is compiled in-process into the Tauri shell as of PR #1061; the old
+# scripts/stage-core-sidecar.mjs staging step is no longer needed.
 
 # Disable updater artifacts for E2E bundles to avoid signing-key requirements.
 TAURI_CONFIG_OVERRIDE='{"bundle":{"createUpdaterArtifacts":false}}'

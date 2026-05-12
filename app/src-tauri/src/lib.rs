@@ -1362,6 +1362,26 @@ pub fn run() {
     };
 
     let builder = builder
+        // Single-instance guard — MUST be the first plugin registered so the
+        // secondary-process exit path triggers before any other plugin setup
+        // (and before `Builder::build()` reaches `CefRuntime::init`). Without
+        // this, launching a second instance races into CEF init while the
+        // primary still holds the cache lock; `cef::initialize` returns 0 and
+        // the vendored runtime asserts (Sentry OPENHUMAN-TAURI-A — 442 events
+        // across Win10/11 + Linux, all releases). The callback receives the
+        // secondary's argv/cwd; we forward deep-link args and focus the main
+        // window. Deep-link payloads stay handled by `tauri-plugin-deep-link`
+        // — we just need to wake the primary so it observes them.
+        .plugin(tauri_plugin_single_instance::init(
+            |app: &AppHandle<AppRuntime>, args, cwd| {
+                log::info!(
+                    "[single-instance] secondary launch detected, focusing primary (argv={args:?}, cwd={cwd})"
+                );
+                if let Err(err) = show_main_window(app) {
+                    log::warn!("[single-instance] failed to focus main window: {err}");
+                }
+            },
+        ))
         // Explicitly disable `open_js_links_on_click`: tauri-plugin-opener
         // defaults to injecting `init-iife.js` into *every* webview — a
         // global click listener that invokes `plugin:opener|open_url` via

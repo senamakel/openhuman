@@ -10,7 +10,7 @@ pub mod schemas;
 pub mod title;
 pub mod turn_state;
 
-pub use error::{parse_thread_not_found_message, ThreadsError, THREAD_NOT_FOUND_KIND};
+pub use error::{ThreadsError, THREAD_NOT_FOUND_KIND};
 pub use schemas::{
     all_controller_schemas as all_threads_controller_schemas,
     all_registered_controllers as all_threads_registered_controllers,

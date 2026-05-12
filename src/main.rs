@@ -56,7 +56,7 @@ fn main() {
             // `openhuman::providers::ops::should_report_provider_http_failure`
             // (transient codes excluded). This filter catches any future call
             // site that bypasses it.
-            if is_transient_provider_http_failure(&event) {
+            if openhuman_core::core::observability::is_transient_provider_http_failure(&event) {
                 return None;
             }
             // Strip server_name (hostname) to avoid leaking machine identity
@@ -131,91 +131,6 @@ fn resolve_environment() -> String {
         "development".to_string()
     } else {
         "production".to_string()
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Transient upstream filter (Sentry noise suppression)
-// ---------------------------------------------------------------------------
-
-/// Returns true when a Sentry event is a per-attempt provider HTTP failure
-/// that the reliable-provider layer already handles via retry + fallback.
-///
-/// The primary suppression lives at the call site
-/// (`openhuman::providers::ops::should_report_provider_http_failure`), which
-/// short-circuits transient codes before `report_error` ever fires. This
-/// `before_send` check is defense-in-depth — it catches any future call site
-/// that emits a `tracing::error!` with the same shape but bypasses the
-/// classifier.
-///
-/// Match criteria:
-/// - tag `failure == "non_2xx"` (the marker set by `ops::api_error`)
-/// - tag `status` matches a known transient status (429, 408, 502, 503, 504)
-fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -> bool {
-    let tags = &event.tags;
-    if tags.get("failure").map(String::as_str) != Some("non_2xx") {
-        return false;
-    }
-    matches!(
-        tags.get("status").map(String::as_str),
-        Some("429") | Some("408") | Some("502") | Some("503") | Some("504")
-    )
-}
-
-#[cfg(test)]
-mod transient_filter_tests {
-    use super::is_transient_provider_http_failure;
-    use sentry::protocol::Event;
-    use std::collections::BTreeMap;
-
-    fn event_with_tags(pairs: &[(&str, &str)]) -> Event<'static> {
-        let mut event = Event::default();
-        let mut tags: BTreeMap<String, String> = BTreeMap::new();
-        for (k, v) in pairs {
-            tags.insert((*k).to_string(), (*v).to_string());
-        }
-        event.tags = tags;
-        event
-    }
-
-    #[test]
-    fn drops_transient_non_2xx_statuses() {
-        for status in ["429", "408", "502", "503", "504"] {
-            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
-            assert!(
-                is_transient_provider_http_failure(&event),
-                "status {status} must be classified as transient and filtered"
-            );
-        }
-    }
-
-    #[test]
-    fn keeps_permanent_failures() {
-        for status in ["400", "401", "403", "404", "500"] {
-            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
-            assert!(
-                !is_transient_provider_http_failure(&event),
-                "status {status} must NOT be filtered — it's actionable"
-            );
-        }
-    }
-
-    #[test]
-    fn keeps_events_without_non_2xx_failure_tag() {
-        let event = event_with_tags(&[("failure", "all_exhausted"), ("status", "503")]);
-        assert!(
-            !is_transient_provider_http_failure(&event),
-            "aggregate all_exhausted events must surface (they are the cascade signal)"
-        );
-    }
-
-    #[test]
-    fn keeps_events_with_no_status_tag() {
-        let event = event_with_tags(&[("failure", "non_2xx")]);
-        assert!(
-            !is_transient_provider_http_failure(&event),
-            "missing status tag must not be silently dropped"
-        );
     }
 }
 

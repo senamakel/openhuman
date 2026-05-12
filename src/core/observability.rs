@@ -1,4 +1,6 @@
-//! Centralised error reporting for the core.
+//! Centralised error reporting for the core, plus a Sentry
+//! `before_send` filter that drops per-attempt transient-upstream
+//! provider failures.
 //!
 //! Wraps `tracing::error!` (which the global subscriber forwards to Sentry via
 //! `sentry-tracing`) inside a `sentry::with_scope` so each captured event
@@ -62,6 +64,31 @@ pub fn report_error<E: Display + ?Sized>(
     );
 }
 
+/// Returns true when a Sentry event is a per-attempt provider HTTP failure
+/// that the reliable-provider layer already handles via retry + fallback.
+///
+/// The primary suppression lives at the call site
+/// (`openhuman::providers::ops::should_report_provider_http_failure`),
+/// which short-circuits transient codes before `report_error` ever fires.
+/// This helper is intended for use inside the `sentry::ClientOptions`
+/// `before_send` hook as defense-in-depth — it catches any future call
+/// site that emits a `tracing::error!` with the same shape but bypasses
+/// the classifier.
+///
+/// Match criteria:
+/// - tag `failure == "non_2xx"` (the marker set by `ops::api_error`)
+/// - tag `status` matches a known transient status (429, 408, 502, 503, 504)
+pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -> bool {
+    let tags = &event.tags;
+    if tags.get("failure").map(String::as_str) != Some("non_2xx") {
+        return false;
+    }
+    matches!(
+        tags.get("status").map(String::as_str),
+        Some("429") | Some("408") | Some("502") | Some("503") | Some("504")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +124,57 @@ mod tests {
             "test",
             "multi_tag",
             &[("a", "1"), ("b", "2"), ("c", "3"), ("d", "4")],
+        );
+    }
+
+    fn event_with_tags(pairs: &[(&str, &str)]) -> sentry::protocol::Event<'static> {
+        let mut event = sentry::protocol::Event::default();
+        let mut tags: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        for (k, v) in pairs {
+            tags.insert((*k).to_string(), (*v).to_string());
+        }
+        event.tags = tags;
+        event
+    }
+
+    #[test]
+    fn transient_filter_drops_429_408_502_503_504() {
+        for status in ["429", "408", "502", "503", "504"] {
+            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
+            assert!(
+                is_transient_provider_http_failure(&event),
+                "status {status} must be classified as transient and filtered"
+            );
+        }
+    }
+
+    #[test]
+    fn transient_filter_keeps_permanent_failures() {
+        for status in ["400", "401", "403", "404", "500"] {
+            let event = event_with_tags(&[("failure", "non_2xx"), ("status", status)]);
+            assert!(
+                !is_transient_provider_http_failure(&event),
+                "status {status} must NOT be filtered — it's actionable"
+            );
+        }
+    }
+
+    #[test]
+    fn transient_filter_keeps_aggregate_all_exhausted() {
+        let event = event_with_tags(&[("failure", "all_exhausted"), ("status", "503")]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "aggregate all_exhausted events must surface (they are the cascade signal)"
+        );
+    }
+
+    #[test]
+    fn transient_filter_keeps_events_with_no_status_tag() {
+        let event = event_with_tags(&[("failure", "non_2xx")]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "missing status tag must not be silently dropped"
         );
     }
 }

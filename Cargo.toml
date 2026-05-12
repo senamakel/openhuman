@@ -156,6 +156,9 @@ landlock = { version = "0.4", optional = true }
 rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
+# Enable sentry's TestTransport for runtime smoke of the observability
+# before_send filter (see tests/observability_smoke.rs).
+sentry = { version = "0.47.0", features = ["test"] }
 
 [features]
 sandbox-landlock = ["dep:landlock"]

@@ -38,6 +38,7 @@ import {
   persistReaction,
   setActiveThread,
   setSelectedThread,
+  THREAD_NOT_FOUND_MESSAGE,
 } from '../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
@@ -581,6 +582,10 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
       await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage })).unwrap();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      if (msg === THREAD_NOT_FOUND_MESSAGE) {
+        setSendError(null);
+        return;
+      }
       setSendError(chatSendError('cloud_send_failed', msg));
       return;
     }

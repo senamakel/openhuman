@@ -579,6 +579,28 @@ fn key_loaded_once_then_cached() {
     );
 }
 
+#[test]
+fn malformed_key_file_rejected_not_panic() {
+    // hex_decode only checks the string is even-length, so a truncated /
+    // padded key file would previously sail through and panic later inside
+    // `Key::from_slice` (ChaCha20-Poly1305 requires exactly 32 bytes).
+    // Verify we now reject with a clean error.
+    let tmp = TempDir::new().unwrap();
+    let store = SecretStore::new(tmp.path(), true);
+
+    // Write a 30-byte hex key (60 chars, even, decodes cleanly, wrong length).
+    fs::create_dir_all(&tmp.path()).unwrap();
+    fs::write(&store.key_path, "aa".repeat(30)).unwrap();
+    super::clear_cached_key(&store.key_path);
+
+    let err = store.encrypt("anything").unwrap_err();
+    let msg = format!("{err:?}");
+    assert!(
+        msg.contains("wrong length"),
+        "expected wrong-length error, got: {msg}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn key_file_has_restricted_permissions() {

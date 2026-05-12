@@ -178,7 +178,12 @@ impl SecretStore {
     /// can occur when an AV scanner briefly locks the file — once we've read
     /// it successfully, we never need to read it again for this process.
     fn load_or_create_key(&self) -> Result<Vec<u8>> {
-        if let Some(cached) = cached_key(&self.key_path) {
+        // Normalize the path once so all callers share the same cache slot
+        // regardless of how `key_path` was spelled (relative vs absolute,
+        // symlinks, case-variants on Windows).
+        let cache_key_path = normalize_cache_path(&self.key_path);
+
+        if let Some(cached) = cached_key(&cache_key_path) {
             return Ok(cached);
         }
 
@@ -186,7 +191,12 @@ impl SecretStore {
             let hex_key = read_key_file_with_retry(&self.key_path)
                 .context("Failed to read secret key file")?;
             let key = hex_decode(hex_key.trim()).context("Secret key file is corrupt")?;
-            cache_key(&self.key_path, &key);
+            anyhow::ensure!(
+                key.len() == KEY_LEN,
+                "Secret key file has wrong length: expected {KEY_LEN} bytes, got {}",
+                key.len()
+            );
+            cache_key(&cache_key_path, &key);
             Ok(key)
         } else {
             let key = generate_random_key();
@@ -212,6 +222,7 @@ impl SecretStore {
                         "USERNAME environment variable is empty; \
                          cannot restrict key file permissions via icacls"
                     );
+                    cache_key(&cache_key_path, &key);
                     return Ok(key);
                 };
 
@@ -236,10 +247,21 @@ impl SecretStore {
                 }
             }
 
-            cache_key(&self.key_path, &key);
+            cache_key(&cache_key_path, &key);
             Ok(key)
         }
     }
+}
+
+/// Normalize a path into a stable cache key. Tries `canonicalize` first (so
+/// symlinks, relative paths, and Windows case-variants all collapse to the
+/// same key), falls back to `std::path::absolute` when the file does not yet
+/// exist (e.g. the create branch in `load_or_create_key`), and finally to the
+/// raw path so a normalization failure never breaks the cache.
+fn normalize_cache_path(path: &Path) -> PathBuf {
+    fs::canonicalize(path)
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 /// Process-wide cache of decoded key bytes keyed by absolute path.
@@ -268,8 +290,9 @@ fn cache_key(path: &Path, key: &[u8]) {
 /// need to invalidate the cache, since the key file is write-once.
 #[cfg(test)]
 pub(super) fn clear_cached_key(path: &Path) {
+    let normalized = normalize_cache_path(path);
     if let Ok(mut cache) = key_cache().lock() {
-        cache.remove(path);
+        cache.remove(&normalized);
     }
 }
 

@@ -128,6 +128,33 @@ fn auth_profiles_data_default() {
 }
 
 #[test]
+fn corrupt_store_is_quarantined_and_reset() {
+    let tmp = TempDir::new().unwrap();
+    let store = AuthProfilesStore::new(tmp.path(), false);
+    let path = store.path().to_path_buf();
+
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, b"{ not valid json").unwrap();
+
+    let data = store.load().unwrap();
+    assert!(data.profiles.is_empty());
+    assert_eq!(data.schema_version, CURRENT_SCHEMA_VERSION);
+
+    let parent = path.parent().unwrap();
+    let quarantined: Vec<_> = std::fs::read_dir(parent)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().contains(".corrupt-"))
+        .collect();
+    assert_eq!(quarantined.len(), 1, "expected one quarantined file");
+
+    let profile = AuthProfile::new_token("openai", "default", "tok".into());
+    store.upsert_profile(profile, true).unwrap();
+    let reloaded = store.load().unwrap();
+    assert_eq!(reloaded.profiles.len(), 1);
+}
+
+#[test]
 fn remove_nonexistent_profile_returns_false() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);

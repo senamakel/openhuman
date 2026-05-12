@@ -373,13 +373,19 @@ impl AuthProfilesStore {
             return Ok(PersistedAuthProfiles::default());
         }
 
-        let mut persisted: PersistedAuthProfiles =
-            serde_json::from_slice(&bytes).with_context(|| {
-                format!(
-                    "Failed to parse auth profile store at {}",
-                    self.path.display()
-                )
-            })?;
+        let mut persisted: PersistedAuthProfiles = match serde_json::from_slice(&bytes) {
+            Ok(p) => p,
+            Err(err) => {
+                let quarantined = quarantine_corrupt_store(&self.path)?;
+                tracing::warn!(
+                    path = %self.path.display(),
+                    quarantined = %quarantined.display(),
+                    error = %err,
+                    "[credentials] auth profile store unparseable; quarantined and reset to empty"
+                );
+                return Ok(PersistedAuthProfiles::default());
+            }
+        };
 
         if persisted.schema_version == 0 {
             persisted.schema_version = CURRENT_SCHEMA_VERSION;
@@ -596,6 +602,33 @@ fn parse_datetime_with_fallback(value: &str) -> DateTime<Utc> {
 
 pub fn profile_id(provider: &str, profile_name: &str) -> String {
     format!("{}:{}", provider.trim(), profile_name.trim())
+}
+
+fn quarantine_corrupt_store(path: &Path) -> Result<PathBuf> {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("auth-profiles");
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("json");
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let mut candidate = parent.join(format!("{stem}.corrupt-{ts}.{ext}"));
+    let mut suffix = 0u32;
+    while candidate.exists() {
+        suffix += 1;
+        candidate = parent.join(format!("{stem}.corrupt-{ts}-{suffix}.{ext}"));
+    }
+    fs::rename(path, &candidate).with_context(|| {
+        format!(
+            "Failed to quarantine corrupt auth profile store {} -> {}",
+            path.display(),
+            candidate.display()
+        )
+    })?;
+    Ok(candidate)
 }
 
 #[cfg(test)]

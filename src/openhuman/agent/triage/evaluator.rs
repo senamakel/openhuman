@@ -26,6 +26,7 @@
 //! by just doing a plain `chat_with_history` under the hood — no tool
 //! schemas are sent to the backend.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -35,15 +36,13 @@ use crate::core::event_bus::{request_native_global, NativeRequestError};
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
 use crate::openhuman::agent::harness::AgentDefinitionRegistry;
+use crate::openhuman::config::Config;
 use crate::openhuman::config::MultimodalConfig;
 use crate::openhuman::providers::reliable::{
     is_rate_limited, is_upstream_unhealthy, parse_retry_after_ms,
 };
 use crate::openhuman::providers::ChatMessage;
 use crate::openhuman::scheduler_gate::LlmPermit;
-use std::future::Future;
-
-use crate::openhuman::config::Config;
 
 use super::decision::{parse_triage_decision, ParseError, TriageDecision};
 use super::envelope::TriggerEnvelope;
@@ -161,9 +160,12 @@ pub async fn run_triage(envelope: &TriggerEnvelope) -> anyhow::Result<TriageOutc
     outcome
 }
 
-/// Inner driver for [`run_triage`] that takes already-resolved arms.
-/// Tests inject stub providers via this entry point and acquire the
-/// global LLM permit for the local arm via the production gate.
+/// Production entry point that takes already-resolved arms and acquires
+/// the global LLM permit via [`scheduler_gate::wait_for_capacity`].
+///
+/// Use [`run_triage_with_arms_for_test`] in tests to bypass the shared
+/// semaphore. This function is `pub` for integration callers outside
+/// this module that supply pre-resolved providers.
 pub async fn run_triage_with_arms(
     cloud: ResolvedProvider,
     local: Option<ResolvedProvider>,
@@ -188,6 +190,12 @@ pub async fn run_triage_with_arms_for_test(
     run_triage_with_arms_inner(cloud, local, envelope, || async { None }).await
 }
 
+/// Core implementation of the tiered cloud→retry→local fallback.
+///
+/// `acquire_permit` is called exactly once, on the local-fallback arm,
+/// to obtain the global LLM permit. Production callers pass
+/// `scheduler_gate::wait_for_capacity`; tests pass `|| async { None }`
+/// to skip the shared semaphore.
 async fn run_triage_with_arms_inner<F, Fut>(
     cloud: ResolvedProvider,
     local: Option<ResolvedProvider>,

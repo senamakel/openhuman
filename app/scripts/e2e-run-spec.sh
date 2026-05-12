@@ -143,8 +143,18 @@ case "$OS" in
 
     TAURI_DRIVER_BIN="$(command -v "$TAURI_DRIVER_NAME" 2>/dev/null || true)"
     if [ -z "${TAURI_DRIVER_BIN:-}" ] || [ ! -x "$TAURI_DRIVER_BIN" ]; then
-      # Try cargo bin path (Windows: %USERPROFILE%\.cargo\bin)
-      TAURI_DRIVER_BIN="${USERPROFILE:-$HOME}/.cargo/bin/$TAURI_DRIVER_NAME"
+      # Prefer the POSIX $HOME/.cargo/bin path so `-x` works in git-bash on
+      # Windows. Only fall back to %USERPROFILE% (converted to a POSIX path
+      # via cygpath if available) when $HOME doesn't have the binary —
+      # that covers cases where the runner's HOME is overridden.
+      TAURI_DRIVER_BIN="$HOME/.cargo/bin/$TAURI_DRIVER_NAME"
+      if [ ! -x "$TAURI_DRIVER_BIN" ] && [ -n "${USERPROFILE:-}" ]; then
+        if command -v cygpath >/dev/null 2>&1; then
+          TAURI_DRIVER_BIN="$(cygpath -u "$USERPROFILE")/.cargo/bin/$TAURI_DRIVER_NAME"
+        else
+          TAURI_DRIVER_BIN="$USERPROFILE/.cargo/bin/$TAURI_DRIVER_NAME"
+        fi
+      fi
     fi
     if [ ! -x "$TAURI_DRIVER_BIN" ]; then
       echo "ERROR: $TAURI_DRIVER_NAME not found. Install with: cargo install tauri-driver" >&2

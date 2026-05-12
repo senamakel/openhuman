@@ -191,7 +191,7 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
             operation = "api_error",
             provider = provider,
             status = status_str.as_str(),
-            "[llm_provider] backend auth failure ({status}) — publishing SessionExpired: {message}"
+            "[llm_provider] backend auth failure ({status}) — publishing SessionExpired"
         );
         // `message` already embeds the sanitized body via
         // `sanitize_api_error(&body)`, but the leading `{provider} API

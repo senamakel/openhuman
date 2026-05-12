@@ -377,9 +377,13 @@ impl AuthProfilesStore {
             Ok(p) => p,
             Err(err) => {
                 let quarantined = quarantine_corrupt_store(&self.path)?;
+                let quarantined_file = quarantined
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("auth-profiles.corrupt");
                 tracing::warn!(
-                    path = %self.path.display(),
-                    quarantined = %quarantined.display(),
+                    path_file = PROFILES_FILENAME,
+                    quarantined_file = quarantined_file,
                     error = %err,
                     "[credentials] auth profile store unparseable; quarantined and reset to empty"
                 );

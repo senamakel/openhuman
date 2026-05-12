@@ -549,6 +549,36 @@ fn generate_random_key_has_no_uuid_fixed_bits() {
     );
 }
 
+#[test]
+fn key_loaded_once_then_cached() {
+    // After the first read, subsequent decrypts must not depend on the key
+    // file being readable. This is the property that protects us from
+    // transient Windows sharing violations on `.secret_key` (Sentry
+    // OPENHUMAN-TAURI-58: "Failed to read secret key file" hammering
+    // app_state_snapshot).
+    let tmp = TempDir::new().unwrap();
+    let store = SecretStore::new(tmp.path(), true);
+
+    let encrypted = store.encrypt("cached-secret").unwrap();
+    assert!(store.key_path.exists());
+
+    // Make the file unreadable by deleting it — the in-memory cache should
+    // still satisfy the decrypt.
+    fs::remove_file(&store.key_path).unwrap();
+    let decrypted = store.decrypt(&encrypted).unwrap();
+    assert_eq!(decrypted, "cached-secret");
+
+    // After clearing the cache, the disappearance is visible again: the
+    // store falls back to the "create new key" branch and decryption with
+    // the original ciphertext fails.
+    super::clear_cached_key(&store.key_path);
+    let result = store.decrypt(&encrypted);
+    assert!(
+        result.is_err(),
+        "Without cache and without file, decrypt must fail"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn key_file_has_restricted_permissions() {

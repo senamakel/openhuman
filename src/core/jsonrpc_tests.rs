@@ -1,12 +1,13 @@
 use serde_json::json;
 use std::ffi::OsString;
+use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use super::{
     build_http_schema_dump, default_state, escape_html, invoke_method, is_session_expired_error,
-    params_to_object, parse_json_params, type_name,
+    params_to_object, parse_json_params, rpc_handler, thread_not_found_rpc_error_data, type_name,
 };
 
 struct EnvVarGuard {
@@ -595,6 +596,126 @@ fn is_session_expired_error_matches_missing_backend_session_token() {
     ));
     // Case-insensitive match — the helper lowercases first.
     assert!(is_session_expired_error("NO BACKEND SESSION TOKEN"));
+}
+
+#[test]
+fn thread_not_found_rpc_error_data_is_scoped_to_threads_methods() {
+    let data = thread_not_found_rpc_error_data(
+        "openhuman.threads_message_append",
+        "thread thread-123 not found",
+    )
+    .expect("thread-not-found data");
+
+    assert_eq!(data["kind"], "ThreadNotFound");
+    assert_eq!(data["thread_id"], "thread-123");
+    assert_eq!(data["method"], "openhuman.threads_message_append");
+
+    assert!(thread_not_found_rpc_error_data(
+        "openhuman.people_resolve",
+        "thread thread-123 not found"
+    )
+    .is_none());
+    assert!(thread_not_found_rpc_error_data(
+        "openhuman.threads_message_update",
+        "message msg-1 not found in thread thread-123"
+    )
+    .is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn thread_not_found_rpc_error_does_not_report_to_sentry() {
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+    use sentry::test::TestTransport;
+    use tracing::Level;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let transport = TestTransport::new();
+    let sentry_options = sentry::ClientOptions {
+        dsn: Some("https://public@sentry.invalid/1".parse().unwrap()),
+        transport: Some(Arc::new(transport.clone())),
+        ..Default::default()
+    };
+    let sentry_hub = Arc::new(sentry::Hub::new(
+        Some(Arc::new(sentry_options.into())),
+        Arc::new(Default::default()),
+    ));
+    let _sentry_guard = sentry::HubSwitchGuard::new(sentry_hub);
+
+    let subscriber = tracing_subscriber::registry().with(
+        sentry::integrations::tracing::layer().event_filter(|metadata| match *metadata.level() {
+            Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
+            Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
+            _ => sentry::integrations::tracing::EventFilter::Ignore,
+        }),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
+    let stale_thread_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(1),
+        method: "openhuman.threads_message_append".to_string(),
+        params: json!({
+            "thread_id": "thread-missing",
+            "message": {
+                "id": "msg-1",
+                "content": "hello",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }
+        }),
+    };
+    let response = rpc_handler(State(default_state()), Json(stale_thread_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    assert_eq!(body["error"]["data"]["kind"], "ThreadNotFound");
+    assert!(
+        transport.fetch_and_clear_events().is_empty(),
+        "ThreadNotFound should not reach Sentry"
+    );
+
+    let unrelated_error_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(2),
+        method: "core.not_a_real_method".to_string(),
+        params: json!({}),
+    };
+    let response = rpc_handler(State(default_state()), Json(unrelated_error_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    assert_eq!(body["error"]["data"], serde_json::Value::Null);
+
+    let events = transport.fetch_and_clear_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "unrelated RPC errors should still reach Sentry"
+    );
+    assert_eq!(
+        events[0].tags.get("domain").map(String::as_str),
+        Some("rpc")
+    );
+    assert_eq!(
+        events[0].tags.get("operation").map(String::as_str),
+        Some("invoke_method")
+    );
+    assert_eq!(
+        events[0].tags.get("method").map(String::as_str),
+        Some("core.not_a_real_method")
+    );
 }
 
 #[test]

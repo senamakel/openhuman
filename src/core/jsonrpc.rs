@@ -22,6 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::all;
 use crate::core::types::{AppState, RpcError, RpcFailure, RpcRequest, RpcSuccess};
+use crate::openhuman::threads::{parse_thread_not_found_message, THREAD_NOT_FOUND_KIND};
 
 /// Axum handler for JSON-RPC POST requests.
 ///
@@ -59,7 +60,17 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             // Session-expired bubbles up as an "error" but is an expected
             // boundary condition (auth handler clears the local token and the
             // UI re-auths). Don't spam Sentry with it.
-            if !is_session_expired_error(&message) {
+            let thread_not_found_data = thread_not_found_rpc_error_data(&method, &message);
+            if let Some(data) = thread_not_found_data.as_ref() {
+                tracing::info!(
+                    method = %method,
+                    thread_id = data
+                        .get("thread_id")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or(""),
+                    "[rpc] thread-not-found (expected user state) — skipping Sentry"
+                );
+            } else if !is_session_expired_error(&message) {
                 crate::core::observability::report_error(
                     message.as_str(),
                     "rpc",
@@ -77,7 +88,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     error: RpcError {
                         code: -32000,
                         message,
-                        data: None,
+                        data: thread_not_found_data,
                     },
                 }),
             )
@@ -144,6 +155,18 @@ fn is_session_expired_error(msg: &str) -> bool {
         || lower.contains("invalid token")
         || lower.contains("no backend session token")
         || msg.contains("SESSION_EXPIRED")
+}
+
+fn thread_not_found_rpc_error_data(method: &str, message: &str) -> Option<Value> {
+    if !method.starts_with("openhuman.threads_") {
+        return None;
+    }
+    let thread_id = parse_thread_not_found_message(message)?;
+    Some(json!({
+        "kind": THREAD_NOT_FOUND_KIND,
+        "thread_id": thread_id,
+        "method": method,
+    }))
 }
 
 /// Internal method invocation logic.

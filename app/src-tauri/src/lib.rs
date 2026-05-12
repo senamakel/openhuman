@@ -1374,8 +1374,13 @@ pub fn run() {
         // — we just need to wake the primary so it observes them.
         .plugin(tauri_plugin_single_instance::init(
             |app: &AppHandle<AppRuntime>, args, cwd| {
+                // Don't log raw argv/cwd: deep-link callbacks (OAuth codes,
+                // magic links) can carry auth tokens that would otherwise leak
+                // into desktop logs and Sentry breadcrumbs. CodeRabbit on #1510.
                 log::info!(
-                    "[single-instance] secondary launch detected, focusing primary (argv={args:?}, cwd={cwd})"
+                    "[single-instance] secondary launch detected, focusing primary (argc={}, cwd_present={})",
+                    args.len(),
+                    !cwd.is_empty()
                 );
                 if let Err(err) = show_main_window(app) {
                     log::warn!("[single-instance] failed to focus main window: {err}");

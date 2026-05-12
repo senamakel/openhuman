@@ -82,15 +82,19 @@ jobs:
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
 
-      - name: Test core crate (openhuman)
-        # Serialize tests: several modules share process-wide singletons
-        # (`scheduler_gate::LLM_PERMITS` semaphore, `scheduler_gate::STATE`,
-        # `LOCAL_AI_TEST_MUTEX`, `BUS_HANDLER_LOCK`) that don't cleanly
-        # isolate when `#[tokio::test]` runtimes run in parallel — on the
-        # CI runner some waiters never get woken when another runtime
-        # drops the permit, wedging the whole binary. Runs in ~90s; the
-        # underlying isolation refactor is tracked separately.
-        run: cargo test -p openhuman -- --test-threads=1
+      - name: Test core crate — lib (serialized)
+        # Lib tests share process-wide singletons (`scheduler_gate::LLM_PERMITS`
+        # semaphore, `scheduler_gate::STATE`, `LOCAL_AI_TEST_MUTEX`,
+        # `BUS_HANDLER_LOCK`) that don't cleanly isolate across parallel
+        # `#[tokio::test]` runtimes — on the CI runner some waiters never
+        # get woken when another runtime drops the permit, wedging the
+        # whole binary. Serialize just the lib (~90s); the underlying
+        # isolation refactor is tracked separately.
+        run: cargo test --lib -p openhuman -- --test-threads=1
+      - name: Test core crate — integration tests (parallel)
+        # Each `tests/*.rs` integration test is its own binary so doesn't
+        # share static state with siblings — safe to keep default parallel.
+        run: cargo test --tests -p openhuman
 
   rust-tauri-tests:
     name: Rust Tauri Shell Tests

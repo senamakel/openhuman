@@ -94,8 +94,14 @@ impl MemoryClient {
         std::fs::create_dir_all(&workspace_dir)
             .map_err(|e| format!("Create workspace dir {}: {e}", workspace_dir.display()))?;
 
-        // Initialize the default local embedding provider (Ollama).
-        let embedder: Arc<dyn EmbeddingProvider> = embeddings::default_local_embedding_provider();
+        // Default to cloud embeddings (OpenHuman backend, Voyage-backed). The
+        // cloud embedder is lazy: JWT + API URL are resolved per call, so an
+        // unauthenticated session produces a clear error on first embed rather
+        // than blocking client construction. Callers that need the local
+        // Ollama path should build their memory store via
+        // `create_memory_with_storage_and_routes` with the appropriate
+        // `MemoryConfig.embedding_provider`.
+        let embedder: Arc<dyn EmbeddingProvider> = embeddings::default_embedding_provider();
 
         // Create the underlying UnifiedMemory instance.
         let memory =

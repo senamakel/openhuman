@@ -83,17 +83,11 @@ jobs:
           key: core-coverage
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Run cargo llvm-cov — lib (serialized)
-        # See test.yml `Test core crate — lib` for why `--test-threads=1`
-        # is required for the lib: process-wide singletons (scheduler_gate
-        # LLM_PERMITS / STATE, LOCAL_AI_TEST_MUTEX, BUS_HANDLER_LOCK) don't
-        # isolate cleanly across parallel `#[tokio::test]` runtimes.
-        # `--no-report` accumulates profraw without writing lcov.
-        run: cargo llvm-cov --no-report --lib -p openhuman -- --test-threads=1
-      - name: Run cargo llvm-cov — integration tests (parallel)
-        run: cargo llvm-cov --no-report --tests -p openhuman
-      - name: Emit merged lcov
-        run: cargo llvm-cov report --lcov --output-path lcov-core.info
+      - name: Run cargo llvm-cov for openhuman core
+        # See test.yml `Test core crate` for why `--test-threads=1` is
+        # required: process-wide singletons in scheduler_gate / local_ai
+        # do not isolate cleanly across parallel `#[tokio::test]` runtimes.
+        run: cargo llvm-cov -p openhuman --lcov --output-path lcov-core.info -- --test-threads=1
       - name: Upload core lcov
         uses: actions/upload-artifact@v5
         with:

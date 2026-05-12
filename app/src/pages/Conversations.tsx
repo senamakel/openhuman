@@ -110,6 +110,24 @@ export function isComposerInteractionBlocked(args: {
   return !args.rustChat || Boolean(args.activeThreadId) || args.welcomePending;
 }
 
+/**
+ * Normalise the value thrown out of `dispatch(loadThreads()).unwrap()` into a
+ * displayable string. `createAsyncThunk` re-throws Redux's `SerializedError`
+ * (a plain object, not an `Error` instance) when the thunk rejects — which is
+ * why the original Sentry report (OPENHUMAN-REACT-X) showed up as
+ * "Non-Error promise rejection captured with value: …" rather than a stack.
+ * Exported so the mount-effect's `.catch` stays a one-liner and the message
+ * shape can be unit-tested without mounting the full page.
+ */
+export function formatThreadLoadError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return String(err);
+}
+
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // function WelcomeThinkingTypewriter() {
 //   const text = 'Your agent is thinking...';
@@ -291,8 +309,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
       })
       .catch(err => {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : String(err?.message ?? err);
-        console.warn('[conversations] loadThreads failed on mount:', message);
+        console.warn('[conversations] loadThreads failed on mount:', formatThreadLoadError(err));
       });
 
     return () => {

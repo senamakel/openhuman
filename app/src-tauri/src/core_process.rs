@@ -188,6 +188,27 @@ impl CoreProcessHandle {
                 // the same env, matching what a child sidecar would have
                 // received via Command::env.
                 std::env::set_var("OPENHUMAN_CORE_TOKEN", self.rpc_token.as_str());
+
+                // Debug-build only: surface the RPC bearer token at a known
+                // tmpdir path so the e2e test runner (a separate Node process)
+                // can authenticate against the in-process core. Release builds
+                // never write this file. The test harness reads it from
+                // ${tmpdir}/openhuman-e2e-rpc-token.
+                #[cfg(debug_assertions)]
+                {
+                    let token_path = std::env::temp_dir().join("openhuman-e2e-rpc-token");
+                    if let Err(err) = std::fs::write(&token_path, self.rpc_token.as_str()) {
+                        log::warn!(
+                            "[core] failed to write e2e token file at {}: {err}",
+                            token_path.display()
+                        );
+                    } else {
+                        log::debug!(
+                            "[core] wrote e2e token file at {} (debug build only)",
+                            token_path.display()
+                        );
+                    }
+                }
                 log::info!("[core] spawning embedded in-process core server on port {port}");
                 let task = tokio::spawn(async move {
                     if let Err(e) = openhuman_core::core::jsonrpc::run_server_embedded(

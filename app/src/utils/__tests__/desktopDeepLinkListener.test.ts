@@ -6,8 +6,8 @@ import {
   completeDeepLinkAuthProcessing,
   getDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
-import { storeSession } from '../tauriCommands';
 import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
+import { storeSession } from '../tauriCommands';
 
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: () => ({ isBootstrapping: false, snapshot: { sessionToken: null } }),

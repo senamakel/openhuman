@@ -174,9 +174,7 @@ describe('Welcome — decryption-failure recovery action', () => {
   it('renders the "Clear app data & restart" button when reset is required', () => {
     render(<Welcome />);
 
-    expect(
-      screen.getByRole('button', { name: /Clear app data & restart/ })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Clear app data & restart/ })).toBeInTheDocument();
     expect(screen.getByText(/cloud account is unaffected/i)).toBeInTheDocument();
   });
 

@@ -468,27 +468,41 @@ impl AuthProfilesStore {
 
         let mut waited = 0_u64;
         loop {
-            match OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(&self.lock_path)
-            {
+            let open_result = crate::openhuman::util::retry_with_backoff(
+                "create auth profile lock",
+                6,
+                100,
+                || {
+                    OpenOptions::new()
+                        .create_new(true)
+                        .write(true)
+                        .open(&self.lock_path)
+                        .context("open lock file")
+                },
+            );
+
+            match open_result {
                 Ok(mut file) => {
                     let _ = writeln!(file, "pid={}", std::process::id());
                     return Ok(AuthProfileLockGuard {
                         lock_path: self.lock_path.clone(),
                     });
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if waited >= LOCK_TIMEOUT_MS {
-                        anyhow::bail!("Timed out waiting for auth profile lock");
-                    }
-                    thread::sleep(Duration::from_millis(LOCK_WAIT_MS));
-                    waited = waited.saturating_add(LOCK_WAIT_MS);
-                }
                 Err(e) => {
-                    return Err(e)
-                        .with_context(|| "Failed to create auth profile lock".to_string());
+                    let is_already_exists = e
+                        .chain()
+                        .find_map(|e| e.downcast_ref::<std::io::Error>())
+                        .map_or(false, |ioe| ioe.kind() == std::io::ErrorKind::AlreadyExists);
+
+                    if is_already_exists {
+                        if waited >= LOCK_TIMEOUT_MS {
+                            anyhow::bail!("Timed out waiting for auth profile lock");
+                        }
+                        thread::sleep(Duration::from_millis(LOCK_WAIT_MS));
+                        waited = waited.saturating_add(LOCK_WAIT_MS);
+                    } else {
+                        return Err(e).context("Failed to create auth profile lock");
+                    }
                 }
             }
         }

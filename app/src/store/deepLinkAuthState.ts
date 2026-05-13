@@ -41,19 +41,11 @@ export const subscribeDeepLinkAuthState = (listener: () => void): (() => void) =
 };
 
 export const beginDeepLinkAuthProcessing = (): void => {
-  setDeepLinkAuthState({
-    isProcessing: true,
-    errorMessage: null,
-    requiresAppDataReset: false,
-  });
+  setDeepLinkAuthState({ isProcessing: true, errorMessage: null, requiresAppDataReset: false });
 };
 
 export const completeDeepLinkAuthProcessing = (): void => {
-  setDeepLinkAuthState({
-    isProcessing: false,
-    errorMessage: null,
-    requiresAppDataReset: false,
-  });
+  setDeepLinkAuthState({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
 };
 
 export const failDeepLinkAuthProcessing = (

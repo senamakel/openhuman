@@ -21,7 +21,11 @@ afterEach(() => {
 describe('deepLinkAuthState transitions', () => {
   it('starts idle with no error message', () => {
     completeDeepLinkAuthProcessing();
-    expect(getDeepLinkAuthState()).toEqual({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
+    expect(getDeepLinkAuthState()).toEqual({
+      isProcessing: false,
+      errorMessage: null,
+      requiresAppDataReset: false,
+    });
   });
 
   it('beginDeepLinkAuthProcessing flips isProcessing true and clears prior error', () => {
@@ -39,7 +43,11 @@ describe('deepLinkAuthState transitions', () => {
   it('completeDeepLinkAuthProcessing returns to idle', () => {
     beginDeepLinkAuthProcessing();
     completeDeepLinkAuthProcessing();
-    expect(getDeepLinkAuthState()).toEqual({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
+    expect(getDeepLinkAuthState()).toEqual({
+      isProcessing: false,
+      errorMessage: null,
+      requiresAppDataReset: false,
+    });
   });
 
   it('failDeepLinkAuthProcessing surfaces message and resets processing flag', () => {
@@ -109,7 +117,11 @@ describe('useDeepLinkAuthState hook', () => {
   it('re-renders when state changes', () => {
     completeDeepLinkAuthProcessing();
     const { result } = renderHook(() => useDeepLinkAuthState());
-    expect(result.current).toEqual({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
+    expect(result.current).toEqual({
+      isProcessing: false,
+      errorMessage: null,
+      requiresAppDataReset: false,
+    });
 
     act(() => {
       beginDeepLinkAuthProcessing();

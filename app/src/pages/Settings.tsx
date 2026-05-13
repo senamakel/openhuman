@@ -14,6 +14,7 @@ import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import LocalModelPanel from '../components/settings/panels/LocalModelPanel';
+import MascotPanel from '../components/settings/panels/MascotPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
 import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import MessagingPanel from '../components/settings/panels/MessagingPanel';
@@ -293,6 +294,7 @@ const Settings = () => {
         <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
         <Route path="messaging" element={wrapSettingsPage(<MessagingPanel />)} />
         <Route path="notifications" element={wrapSettingsPage(<NotificationsPanel />)} />
+        <Route path="mascot" element={wrapSettingsPage(<MascotPanel />)} />
         <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
         {/* AI & Models leaf panels */}
         <Route path="local-model" element={wrapSettingsPage(<LocalModelPanel />)} />

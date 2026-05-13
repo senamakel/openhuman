@@ -72,6 +72,17 @@ pub(crate) fn workspace_local_models_dir(config: &Config) -> PathBuf {
     shared_root_dir(config).join("models").join("local-ai")
 }
 
+/// Spawn marker file recording the PID of any `ollama serve` openhuman
+/// itself spawned. Read on next launch to recognise our own orphan when
+/// openhuman crashed before its graceful-shutdown hook ran. Lives under
+/// the shared root so it survives per-user config rewrites and sits next
+/// to the workspace install dir.
+pub(crate) fn ollama_spawn_marker_path(config: &Config) -> PathBuf {
+    shared_root_dir(config)
+        .join("local-ai")
+        .join("ollama.spawn")
+}
+
 pub(crate) fn resolve_whisper_binary() -> Option<PathBuf> {
     if let Some(from_env) = std::env::var("WHISPER_BIN")
         .ok()

@@ -47,6 +47,7 @@ impl LocalAiService {
             bootstrap_lock: tokio::sync::Mutex::new(()),
             whisper_load_lock: tokio::sync::Mutex::new(()),
             last_memory_summary_at: parking_lot::Mutex::new(None),
+            owned_ollama: parking_lot::Mutex::new(None),
             http: reqwest::Client::builder()
                 // Local models can take >30s on cold start and first-token generation.
                 // Keep the total timeout generous so inline autocomplete and local

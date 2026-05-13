@@ -82,6 +82,14 @@ impl Agent {
             // inference backend has already tokenised. Fetching it later
             // would just burn memory-store reads on data we throw away.
             self.fetch_connected_integrations().await;
+            // The synchronous builder couldn't synthesise `delegate_*`
+            // tools for connected Composio toolkits (no async runtime
+            // handle for the Composio fetcher), so it baked in `&[]`.
+            // Now that integrations are live, inject the matching
+            // delegation tools so the orchestrator's prompt + tool-spec
+            // list actually expose `delegate_gmail`, `delegate_notion`,
+            // etc.
+            self.refresh_delegation_tools();
             let learned = self.fetch_learned_context().await;
             let rendered_prompt = self.build_system_prompt(learned)?;
             log::info!("[agent] system prompt built — initialising conversation history");
@@ -1249,6 +1257,122 @@ impl Agent {
         self.connected_integrations =
             crate::openhuman::composio::fetch_connected_integrations(&config).await;
         self.composio_client = crate::openhuman::composio::build_composio_client(&config);
+    }
+
+    /// Re-synthesise `delegate_*` tools for the orchestrator's `subagents`
+    /// declaration using the live `connected_integrations` slice.
+    ///
+    /// The synchronous `AgentBuilder` path cannot do this — it has no
+    /// async runtime handle to reach Composio — so it passes an empty
+    /// integrations slice to `collect_orchestrator_tools` and produces
+    /// zero skill delegation tools. That leaves the orchestrator without
+    /// `delegate_gmail` / `delegate_notion` / … even when those toolkits
+    /// are actually authorised. Call this *after*
+    /// [`Agent::fetch_connected_integrations`] (and before
+    /// [`Agent::build_system_prompt`]) on turn 1 to add the missing
+    /// delegation tools to the live tool registry, tool-spec list, and
+    /// visible-tool whitelist so the LLM sees them as first-class tools.
+    ///
+    /// No-op when:
+    /// * the agent definition isn't in the global registry,
+    /// * the definition has no `subagents` entries,
+    /// * no new tools would be added (every synthesised name already
+    ///   exists in `self.tools`),
+    /// * the `tools` / `tool_specs` Arc is shared (e.g. a sub-agent has
+    ///   already captured a snapshot — should never happen on turn 1).
+    pub fn refresh_delegation_tools(&mut self) {
+        use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
+        use crate::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
+
+        let Some(reg) = AgentDefinitionRegistry::global() else {
+            return;
+        };
+        let Some(def) = reg.get(&self.agent_definition_id) else {
+            log::debug!(
+                "[agent] refresh_delegation_tools: definition '{}' not in registry — skipping",
+                self.agent_definition_id
+            );
+            return;
+        };
+        if def.subagents.is_empty() {
+            return;
+        }
+
+        let synthed = collect_orchestrator_tools(def, reg, &self.connected_integrations);
+        if synthed.is_empty() {
+            return;
+        }
+
+        let existing: std::collections::HashSet<String> =
+            self.tools.iter().map(|t| t.name().to_string()).collect();
+        let new_tools: Vec<Box<dyn Tool>> = synthed
+            .into_iter()
+            .filter(|t| !existing.contains(t.name()))
+            .collect();
+        if new_tools.is_empty() {
+            return;
+        }
+
+        let new_names: Vec<String> = new_tools.iter().map(|t| t.name().to_string()).collect();
+        let new_specs: Vec<crate::openhuman::tools::ToolSpec> =
+            new_tools.iter().map(|t| t.spec()).collect();
+
+        // The tools / tool_specs Arcs are uniquely owned at turn-1 build
+        // time (no sub-agent has captured a snapshot yet). If a caller
+        // managed to clone them out before the first turn fired, the
+        // mutation below would silently no-op — log that case so it's
+        // visible in diagnostics.
+        match (
+            Arc::get_mut(&mut self.tools),
+            Arc::get_mut(&mut self.tool_specs),
+        ) {
+            (Some(tools_vec), Some(specs_vec)) => {
+                tools_vec.extend(new_tools);
+                specs_vec.extend(new_specs);
+            }
+            _ => {
+                log::warn!(
+                    "[agent] refresh_delegation_tools: tools/tool_specs Arc is shared — \
+                     cannot inject delegation tools ({} would have been added: {:?})",
+                    new_names.len(),
+                    new_names
+                );
+                return;
+            }
+        }
+
+        // Definitions with a Named ToolScope carry an explicit visible
+        // whitelist; the synthesised delegation tools must opt in to that
+        // whitelist or the LLM never sees them. Wildcard-scope agents
+        // keep `visible_tool_names` empty ("no filter"), so we skip the
+        // insert there.
+        if !self.visible_tool_names.is_empty() {
+            for name in &new_names {
+                self.visible_tool_names.insert(name.clone());
+            }
+        }
+
+        // Rebuild the visible-spec cache so the next prompt build picks
+        // up the new tools.
+        let visible_specs: Vec<crate::openhuman::tools::ToolSpec> =
+            if self.visible_tool_names.is_empty() {
+                (*self.tool_specs).clone()
+            } else {
+                self.tool_specs
+                    .iter()
+                    .filter(|spec| self.visible_tool_names.contains(&spec.name))
+                    .cloned()
+                    .collect()
+            };
+        self.visible_tool_specs = Arc::new(visible_specs);
+
+        log::info!(
+            "[agent] refresh_delegation_tools: added {} delegation tool(s) for agent '{}' (display='{}'): {:?}",
+            new_names.len(),
+            self.agent_definition_id,
+            self.agent_definition_name,
+            new_names
+        );
     }
 
     /// Builds the system prompt for the current turn, including tool

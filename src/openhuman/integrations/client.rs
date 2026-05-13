@@ -78,7 +78,7 @@ impl IntegrationClient {
         path: &str,
         body: &serde_json::Value,
     ) -> anyhow::Result<T> {
-        let url = format!("{}{}", self.backend_url, path);
+        let url = crate::api::config::api_url(&self.backend_url, path);
         tracing::debug!("[integrations] POST {}", url);
 
         let resp = self
@@ -148,7 +148,7 @@ impl IntegrationClient {
 
     /// GET from a backend endpoint and parse the response `data` field.
     pub async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> anyhow::Result<T> {
-        let url = format!("{}{}", self.backend_url, path);
+        let url = crate::api::config::api_url(&self.backend_url, path);
         tracing::debug!("[integrations] GET {}", url);
 
         let resp = self

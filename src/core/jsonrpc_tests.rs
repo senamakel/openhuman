@@ -598,6 +598,24 @@ fn is_session_expired_error_matches_missing_backend_session_token() {
 }
 
 #[test]
+fn is_session_expired_error_matches_session_jwt_required() {
+    // Regression: Sentry issue 7472592145.
+    // A prior 401 clears the stored JWT; the very next RPC call (e.g.
+    // channels_telegram_login_start) finds no token and returns "session JWT
+    // required; complete login first". This is the same auth-boundary condition
+    // and must not be reported to Sentry.
+    assert!(is_session_expired_error(
+        "session JWT required; complete login first"
+    ));
+    assert!(is_session_expired_error(
+        "session JWT required; complete login and store_session first"
+    ));
+    assert!(is_session_expired_error("session JWT required"));
+    // Case-insensitive.
+    assert!(is_session_expired_error("SESSION JWT REQUIRED"));
+}
+
+#[test]
 fn escape_html_escapes_all_special_chars() {
     let raw = r#"<script>alert("x&y'z")</script>"#;
     let escaped = escape_html(raw);

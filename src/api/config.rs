@@ -156,9 +156,18 @@ mod tests {
 
     #[test]
     fn api_url_empty_path_returns_normalized_base() {
-        assert_eq!(api_url("https://api.tinyhumans.ai", ""), "https://api.tinyhumans.ai");
-        assert_eq!(api_url("https://api.tinyhumans.ai/", ""), "https://api.tinyhumans.ai");
-        assert_eq!(api_url("  https://api.tinyhumans.ai/  ", ""), "https://api.tinyhumans.ai");
+        assert_eq!(
+            api_url("https://api.tinyhumans.ai", ""),
+            "https://api.tinyhumans.ai"
+        );
+        assert_eq!(
+            api_url("https://api.tinyhumans.ai/", ""),
+            "https://api.tinyhumans.ai"
+        );
+        assert_eq!(
+            api_url("  https://api.tinyhumans.ai/  ", ""),
+            "https://api.tinyhumans.ai"
+        );
     }
 
     #[test]
@@ -177,11 +186,17 @@ mod tests {
     #[test]
     fn api_url_clean_base_joins_cleanly() {
         assert_eq!(
-            api_url("https://api.tinyhumans.ai", "/agent-integrations/composio/toolkits"),
+            api_url(
+                "https://api.tinyhumans.ai",
+                "/agent-integrations/composio/toolkits"
+            ),
             "https://api.tinyhumans.ai/agent-integrations/composio/toolkits"
         );
         assert_eq!(
-            api_url("https://api.tinyhumans.ai/", "/agent-integrations/composio/toolkits"),
+            api_url(
+                "https://api.tinyhumans.ai/",
+                "/agent-integrations/composio/toolkits"
+            ),
             "https://api.tinyhumans.ai/agent-integrations/composio/toolkits"
         );
     }
@@ -189,7 +204,10 @@ mod tests {
     #[test]
     fn api_url_preserves_query_string_on_path() {
         assert_eq!(
-            api_url("https://api.tinyhumans.ai", "/agent-integrations/composio/tools?toolkits=gmail"),
+            api_url(
+                "https://api.tinyhumans.ai",
+                "/agent-integrations/composio/tools?toolkits=gmail"
+            ),
             "https://api.tinyhumans.ai/agent-integrations/composio/tools?toolkits=gmail"
         );
     }

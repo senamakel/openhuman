@@ -354,6 +354,13 @@ where
     S: tracing::Subscriber + for<'a> LookupSpan<'a>,
 {
     sentry::integrations::tracing::layer().event_filter(|md: &tracing::Metadata<'_>| {
+        // Events emitted from `report_error_message` are captured directly via
+        // `sentry::capture_message` at the call site (see
+        // `core::observability::REPORT_ERROR_TRACING_TARGET` for rationale).
+        // Skip them here so we don't double-report.
+        if md.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
+            return sentry::integrations::tracing::EventFilter::Ignore;
+        }
         match *md.level() {
             Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
             Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,

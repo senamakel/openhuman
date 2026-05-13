@@ -79,14 +79,18 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'openai',
     label: 'OpenAI',
     apiUrl: 'https://api.openai.com/v1/chat/completions',
-    suggestedModel: 'gpt-5.5-2026-04-23',
+    suggestedModel: 'gpt-5.5',
+    // Unversioned aliases so the preset survives OpenAI's dated revisions
+    // (the dated `gpt-5.5-YYYY-MM-DD` form is rejected once a new snapshot
+    // ships). The smaller variant in the 5.5 family is `gpt-5.4-mini` per
+    // OpenAI's model catalog — not a fictional `gpt-5.5-mini`.
     roleModels: {
-      reasoning: 'gpt-5.5-2026-04-23',
-      agentic: 'gpt-5.5-2026-04-23',
-      coding: 'gpt-4o',
-      summarization: 'gpt-4o-mini',
+      reasoning: 'gpt-5.5',
+      agentic: 'gpt-5.5',
+      coding: 'gpt-5.5',
+      summarization: 'gpt-5.4-mini',
     },
-    note: 'Use a key from platform.openai.com. Defaults pick gpt-5.5 for reasoning and agentic, gpt-4o for coding, gpt-4o-mini for summarization.',
+    note: 'Use a key from platform.openai.com. Defaults pick gpt-5.5 for reasoning/agentic/coding and gpt-5.4-mini for summarization.',
     tint: {
       idle: 'border-stone-200 hover:border-sage-400 hover:bg-sage-50/40',
       selected: 'border-sage-600 bg-sage-100 ring-2 ring-sage-300 text-sage-900',

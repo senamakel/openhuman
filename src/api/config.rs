@@ -41,8 +41,12 @@ pub fn effective_api_url(api_url: &Option<String>) -> String {
 /// Heuristic is intentionally tight:
 /// - Host matches a well-known loopback name (`127.0.0.1` / `localhost` /
 ///   `::1` / `0.0.0.0`), OR
-/// - Path explicitly names the OpenAI-style chat-completions endpoint
+/// - Path explicitly ends with the OpenAI-style chat-completions endpoint
 ///   (`/v1/chat/completions` or `/v1/completions`).
+///
+/// Both path arms use `ends_with` rather than `contains` so a real backend
+/// URL whose path merely embeds the segment as a substring
+/// (e.g. `/audit/v1/chat/completions-logs`) is NOT misclassified.
 ///
 /// We deliberately do NOT match a bare `/v1` — that's a legitimate API
 /// version suffix used by many self-hosted backends, and over-matching here
@@ -72,7 +76,10 @@ pub fn looks_like_local_ai_endpoint(url: &str) -> bool {
         return true;
     }
     let path = parsed.path();
-    path.contains("/v1/chat/completions") || path.ends_with("/v1/completions")
+    // Both arms use `ends_with` so URLs that merely embed the segment as a
+    // substring (e.g. `/audit/v1/chat/completions-logs` on a real backend)
+    // are NOT misclassified as local-AI and silently routed to the default.
+    path.ends_with("/v1/chat/completions") || path.ends_with("/v1/completions")
 }
 
 /// Resolves the API base URL to use for **backend-proxied integrations**
@@ -88,6 +95,13 @@ pub fn looks_like_local_ai_endpoint(url: &str) -> bool {
 ///
 /// Logs a one-shot `warn!` the first time the fallback fires so users
 /// can see the diagnostic in their core sidecar logs.
+///
+// TODO(#1663): rename to `effective_backend_api_url` and migrate the
+// remaining `effective_api_url` callers across non-integrations domains
+// (billing, team, referral, webhooks, credentials, channels, voice,
+// socket, app_state, core/jsonrpc) per graycyrus review of PR #1630.
+// Today they silently leak the user's local-AI endpoint as the base for
+// every hosted-backend call — same bug shape, different surface.
 pub fn effective_integrations_api_url(api_url: &Option<String>) -> String {
     if let Some(u) = api_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if looks_like_local_ai_endpoint(u) {
@@ -339,6 +353,24 @@ mod tests {
         // a real backend, must not be misclassified.
         assert!(!looks_like_local_ai_endpoint(
             "https://my-backend.example/v1"
+        ));
+    }
+
+    #[test]
+    fn looks_like_local_ai_rejects_substring_path_false_positives() {
+        // graycyrus review of #1630: an earlier version used
+        // `path.contains("/v1/chat/completions")` which would misclassify
+        // any real backend whose path merely embedded that substring —
+        // e.g. an audit-log endpoint suffixed with `-logs`. Both arms now
+        // use `ends_with`, so these URLs must classify as NON-local.
+        assert!(!looks_like_local_ai_endpoint(
+            "https://real-backend.example/audit/v1/chat/completions-logs"
+        ));
+        assert!(!looks_like_local_ai_endpoint(
+            "https://real-backend.example/v1/chat/completions/history"
+        ));
+        assert!(!looks_like_local_ai_endpoint(
+            "https://real-backend.example/v1/completions-archive"
         ));
     }
 

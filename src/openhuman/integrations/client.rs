@@ -238,9 +238,14 @@ impl IntegrationClient {
 ///
 /// Both the backend URL and the auth token come from **core defaults**:
 ///
-/// - backend URL → [`crate::api::config::effective_api_url`] applied to
-///   `config.api_url` (which itself falls back to the `BACKEND_URL` /
-///   `VITE_BACKEND_URL` env vars and finally the hosted default).
+/// - backend URL → [`crate::api::config::effective_integrations_api_url`]
+///   applied to `config.api_url`. Unlike the plain
+///   [`crate::api::config::effective_api_url`] resolver (which honours a
+///   user-set local-AI endpoint so chat completions still work), the
+///   integrations resolver detects local-AI URLs and falls back to the
+///   `BACKEND_URL` / `VITE_BACKEND_URL` env vars (and finally the hosted
+///   default) so backend-integration paths don't get concatenated onto a
+///   local Ollama/vLLM endpoint and 404.
 /// - auth token → [`crate::api::jwt::get_session_token`], i.e. the
 ///   app-session JWT written by `auth_store_session` — the same token
 ///   that billing, team, webhooks, referral, memory, etc. all use.

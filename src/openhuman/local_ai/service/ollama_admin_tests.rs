@@ -412,3 +412,173 @@ async fn list_models_errors_on_non_success() {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
     }
 }
+
+// ---- owned-PID lifecycle ------------------------------------------------
+//
+// These tests pin the contract that `kill_ollama_server` only touches
+// daemons openhuman spawned itself, and that the kill path actually
+// reaches the child process (the previous `taskkill /F /IM ollama.exe` /
+// `pkill -f` would terminate any Ollama on the host, including ones the
+// user started outside openhuman — the issue #1622 friendly-fire bug).
+
+#[tokio::test]
+async fn kill_ollama_server_with_no_owned_child_is_noop() {
+    let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
+        .lock()
+        .expect("local ai mutex");
+
+    let config = Config::default();
+    let service = LocalAiService::new(&config);
+
+    // A fresh service has never spawned anything, so `owned_ollama` is `None`.
+    assert!(
+        service.owned_ollama.lock().is_none(),
+        "owned_ollama must start as None"
+    );
+
+    // Must complete without panicking and leave the field None — i.e.
+    // never reach for an external daemon when there's nothing to kill.
+    service.kill_ollama_server().await;
+
+    assert!(
+        service.owned_ollama.lock().is_none(),
+        "owned_ollama must stay None after a no-op kill"
+    );
+}
+
+#[tokio::test]
+async fn kill_ollama_server_kills_owned_child() {
+    let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
+        .lock()
+        .expect("local ai mutex");
+
+    let config = Config::default();
+    let service = LocalAiService::new(&config);
+
+    // Spawn a long-lived child we fully control. We need something that
+    // sleeps for longer than the test's worst-case settle window so it
+    // can't exit on its own before our kill lands.
+    let mut cmd = if cfg!(windows) {
+        let mut c = tokio::process::Command::new("powershell");
+        c.args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"]);
+        c
+    } else {
+        let mut c = tokio::process::Command::new("sleep");
+        c.arg("30");
+        c
+    };
+    cmd.stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    let child = cmd.spawn().expect("spawn sleep/Start-Sleep child");
+    let pid = child.id().expect("child pid available");
+    *service.owned_ollama.lock() = Some(child);
+
+    // Sanity: child should be alive immediately after spawn.
+    assert!(
+        crate::openhuman::local_ai::service::spawn_marker::pid_is_alive(pid),
+        "child pid {pid} should be alive right after spawn"
+    );
+
+    service.kill_ollama_server().await;
+
+    // Owned slot is cleared — `take()` happened.
+    assert!(
+        service.owned_ollama.lock().is_none(),
+        "kill_ollama_server must take() the owned child"
+    );
+
+    // PID should no longer be alive. Allow a brief settle for the OS to
+    // update its process table — the kill is signalled but reap is async.
+    let mut still_alive = true;
+    for _ in 0..40 {
+        if !crate::openhuman::local_ai::service::spawn_marker::pid_is_alive(pid) {
+            still_alive = false;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(
+        !still_alive,
+        "child pid {pid} should be dead within 2s of kill_ollama_server"
+    );
+}
+
+#[tokio::test]
+async fn shutdown_owned_ollama_clears_marker_and_kills_child() {
+    let _guard = crate::openhuman::local_ai::LOCAL_AI_TEST_MUTEX
+        .lock()
+        .expect("local ai mutex");
+
+    // Redirect the workspace root to a tempdir so the marker file doesn't
+    // touch the real `~/.openhuman/`. Per `paths::shared_root_dir`, when
+    // `default_root_openhuman_dir()` errors, it falls back to
+    // `config_root_dir(config)` — which is `config.config_path.parent()`.
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = tmp.path().to_path_buf();
+    config.config_path = tmp.path().join("config.toml");
+
+    let service = LocalAiService::new(&config);
+
+    // Spawn the same long-running stub.
+    let mut cmd = if cfg!(windows) {
+        let mut c = tokio::process::Command::new("powershell");
+        c.args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"]);
+        c
+    } else {
+        let mut c = tokio::process::Command::new("sleep");
+        c.arg("30");
+        c
+    };
+    cmd.stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    let child = cmd.spawn().expect("spawn child");
+    let pid = child.id().expect("pid");
+    *service.owned_ollama.lock() = Some(child);
+
+    // Write a marker (mimicking what `start_and_wait_for_server` would do
+    // on a successful spawn) so we can verify shutdown clears it.
+    //
+    // NOTE: This test only verifies the shutdown path itself; it does not
+    // assert the marker survives the `default_root_openhuman_dir()`
+    // resolution on every CI environment. On hosts where the fallback
+    // resolves to a writable temp path, the write is exercised. On hosts
+    // where `default_root_openhuman_dir()` succeeds against the real home
+    // dir, we skip the marker assertion to avoid touching `~/.openhuman/`.
+    let marker_path = crate::openhuman::local_ai::paths::ollama_spawn_marker_path(&config);
+    let marker_writable = marker_path.starts_with(tmp.path());
+    if marker_writable {
+        crate::openhuman::local_ai::service::spawn_marker::write_marker_at(
+            &marker_path,
+            &crate::openhuman::local_ai::service::spawn_marker::OllamaSpawnMarker::new(
+                pid,
+                std::path::Path::new("test-stub"),
+            ),
+        )
+        .expect("write marker");
+        assert!(marker_path.exists(), "marker should exist before shutdown");
+    }
+
+    service.shutdown_owned_ollama(&config).await;
+
+    // Owned handle is gone.
+    assert!(service.owned_ollama.lock().is_none());
+
+    if marker_writable {
+        assert!(
+            !marker_path.exists(),
+            "shutdown_owned_ollama must clear the spawn marker"
+        );
+    }
+
+    // And the spawned process is dead.
+    let mut still_alive = true;
+    for _ in 0..40 {
+        if !crate::openhuman::local_ai::service::spawn_marker::pid_is_alive(pid) {
+            still_alive = false;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(!still_alive, "spawned stub pid {pid} should be dead");
+}

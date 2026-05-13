@@ -216,6 +216,9 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
     // sees. Best-effort — failures degrade to an empty integration
     // list, same as the live runtime.
     agent.fetch_connected_integrations().await;
+    // Mirror turn-1: synthesise `delegate_*` tools for connected
+    // Composio toolkits now that we know what's actually authorised.
+    agent.refresh_delegation_tools();
 
     let text = agent
         .build_system_prompt(LearnedContextData::default())

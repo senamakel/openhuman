@@ -79,8 +79,7 @@ function getPlatformCapabilities(): Record<string, unknown>[] {
 }
 
 /** Port for the automation driver: tauri-driver (4444) or Appium (4723). */
-const isTauriDriverHost =
-  process.platform === 'linux' || process.platform === 'win32';
+const isTauriDriverHost = process.platform === 'linux' || process.platform === 'win32';
 const driverPort = isTauriDriverHost
   ? parseInt(process.env.TAURI_DRIVER_PORT || '4444', 10)
   : parseInt(process.env.APPIUM_PORT || '4723', 10);

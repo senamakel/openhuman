@@ -249,7 +249,15 @@ impl IntegrationClient {
 /// callers that need a kill switch (e.g. twilio, google_places,
 /// parallel) gate tool registration at their own level.
 pub fn build_client(config: &crate::openhuman::config::Config) -> Option<Arc<IntegrationClient>> {
-    let backend_url = crate::api::config::effective_api_url(&config.api_url);
+    // Use the integrations-specific resolver: when `config.api_url` is set
+    // to a local-AI endpoint (Ollama, vLLM, …), it would still be perfect
+    // for `/v1/chat/completions`, but reusing it as the base for backend
+    // integration paths produces URLs like
+    //   http://127.0.0.1:11434/v1/agent-integrations/composio/toolkits
+    // which 404 against the local LLM and flooded Sentry
+    // (OPENHUMAN-TAURI-51 / -80 / -7Z). The helper falls through to env /
+    // default backend in that case so integrations actually work.
+    let backend_url = crate::api::config::effective_integrations_api_url(&config.api_url);
 
     // Primary: app-session JWT from the auth profile store.
     let session_token = match crate::api::jwt::get_session_token(config) {

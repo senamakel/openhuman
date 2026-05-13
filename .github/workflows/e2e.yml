@@ -217,7 +217,11 @@ jobs:
             . -> target
             app/src-tauri -> target
           cache-on-failure: true
-          key: e2e-windows
+          # `v2` suffix invalidates the prior cache that ended up pinning
+          # stale .rmeta artifacts (saw `error[E0061]: sys.refresh_processes`
+          # referencing a `local_ai/install.rs` line that doesn't exist on
+          # this branch — cargo cross-referenced an outdated .rmeta).
+          key: e2e-windows-v2
 
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile

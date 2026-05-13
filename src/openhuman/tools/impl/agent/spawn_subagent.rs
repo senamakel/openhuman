@@ -128,7 +128,7 @@ impl Tool for SpawnSubagentTool {
                 },
                 "dedicated_thread": {
                     "type": "boolean",
-                    "description": "Default `false`. Set `true` ONLY for long, complex sub-tasks where the parent thread should not be flooded with sub-agent output. The sub-agent's prompt and final summary land in a fresh worker-labeled thread the user can open from the thread list, and the parent receives a compact reference (worker thread id + brief summary) instead of the full transcript. Worker threads cannot themselves spawn another worker (sub-agents never see this tool), so this is a one-level-deep escape hatch."
+                    "description": "Temporarily disabled (see tinyhumansai/openhuman#1624). Passing `true` causes this tool to return an explicit error. Omit the field or pass `false` until the worker-thread UI surface lands."
                 }
             }
         })

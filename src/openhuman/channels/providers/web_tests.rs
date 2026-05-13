@@ -160,7 +160,10 @@ fn classify_inference_error_quotes_model_unavailable_detail() {
     let (category, message) = classify_inference_error(raw);
     assert_eq!(category, "model_unavailable");
     assert!(message.contains("Check your model settings"));
-    assert!(message.contains("gpt-5.5"), "should quote model name: {message}");
+    assert!(
+        message.contains("gpt-5.5"),
+        "should quote model name: {message}"
+    );
 }
 
 #[test]

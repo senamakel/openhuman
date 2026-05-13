@@ -167,13 +167,23 @@ impl Tool for SpawnSubagentTool {
             .filter(|s| !s.is_empty());
 
         // Worker-thread spawning is temporarily disabled until a proper UI
-        // showcase lands (see tinyhumansai/openhuman#1624). Force the inline
-        // path regardless of what the model requests.
-        // let dedicated_thread = args
-        //     .get("dedicated_thread")
-        //     .and_then(|v| v.as_bool())
-        //     .unwrap_or(false);
-        let _ = args.get("dedicated_thread");
+        // showcase lands (see tinyhumansai/openhuman#1624). Return an
+        // explicit error when callers request a dedicated thread so the
+        // behaviour is observable rather than silently downgraded.
+        let dedicated_thread_requested = args
+            .get("dedicated_thread")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if dedicated_thread_requested {
+            log::debug!(
+                "[spawn_subagent] dedicated_thread requested but temporarily \
+                 disabled (see tinyhumansai/openhuman#1624); rejecting call"
+            );
+            return Ok(ToolResult::error(
+                "spawn_subagent: `dedicated_thread` is temporarily disabled \
+                 (see tinyhumansai/openhuman#1624); retry without it.",
+            ));
+        }
         let dedicated_thread = false;
 
         // ── Validation ─────────────────────────────────────────────────

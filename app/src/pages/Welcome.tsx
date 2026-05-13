@@ -1,3 +1,4 @@
+import createDebug from 'debug';
 import { useState } from 'react';
 
 import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
@@ -15,6 +16,8 @@ import {
   normalizeRpcUrl,
   storeRpcUrl,
 } from '../utils/configPersistence';
+
+const log = createDebug('app:welcome');
 
 const Welcome = () => {
   const { isProcessing, errorMessage, requiresAppDataReset } = useDeepLinkAuthState();
@@ -35,7 +38,8 @@ const Welcome = () => {
       // `clearSession` step, just wipe local data and restart.
       await clearAllAppData();
     } catch (err) {
-      console.error('[Welcome] clearAllAppData failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      log('clearAllAppData failed: %s', message);
       setResetError('Could not clear app data. Please quit and reopen OpenHuman, then try again.');
       setIsClearingAppData(false);
     }

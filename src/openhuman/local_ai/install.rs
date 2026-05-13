@@ -23,7 +23,7 @@ pub(crate) fn is_ollama_installer_running() -> bool {
     // CPU/memory/disk/network. refresh_all() adds dozens of milliseconds of
     // blocking I/O on a loaded Windows machine and this function runs on the
     // async executor inside download_and_install_ollama.
-    sys.refresh_processes(ProcessesToUpdate::All);
+    sys.refresh_processes(ProcessesToUpdate::All, false);
     sys.processes().values().any(|p| {
         p.name()
             .to_string_lossy()

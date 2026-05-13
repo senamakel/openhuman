@@ -296,7 +296,9 @@ pub fn set_signed_out(signed_out: bool) {
 
 #[cfg(test)]
 pub fn set_signed_out(signed_out: bool) {
-    let Some(id) = test_state::current_id() else { return };
+    let Some(id) = test_state::current_id() else {
+        return;
+    };
     let prev = test_state::set_signed_out_for(id, signed_out);
     if prev != signed_out {
         log::info!("[scheduler_gate] signed_out {} -> {}", prev, signed_out);

@@ -71,7 +71,25 @@ pub struct Agent {
     /// Human-readable agent definition name (e.g. `"main"`,
     /// `"code_executor"`). Used as the `{agent}` component in session
     /// transcript paths: `sessions/DDMMYYYY/{agent}_{index}.md`.
+    ///
+    /// May be rewritten mid-session by
+    /// [`Agent::set_agent_definition_name`] (e.g. the web channel
+    /// stamps `"orchestrator_<short_thread>"` so each thread gets its
+    /// own transcript namespace). Anything that needs to resolve the
+    /// session back to its registry entry must use
+    /// [`Self::agent_definition_id`], not this field.
     pub(super) agent_definition_name: String,
+    /// Canonical agent id as registered in
+    /// [`AgentDefinitionRegistry`] (e.g. `"orchestrator"`,
+    /// `"integrations_agent"`). Set once at build time and never
+    /// rewritten — `set_agent_definition_name` only touches the
+    /// transcript-facing `agent_definition_name`, so registry lookups
+    /// (e.g. `refresh_delegation_tools` re-resolving the agent's
+    /// `subagents` list post-fetch) stay correct even after the web
+    /// channel's per-thread rename.
+    ///
+    /// [`AgentDefinitionRegistry`]: crate::openhuman::agent::harness::definition::AgentDefinitionRegistry
+    pub(super) agent_definition_id: String,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent overwrites within the
     /// same session.

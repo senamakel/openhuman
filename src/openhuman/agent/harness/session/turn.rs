@@ -1287,10 +1287,10 @@ impl Agent {
         let Some(reg) = AgentDefinitionRegistry::global() else {
             return;
         };
-        let Some(def) = reg.get(&self.agent_definition_name) else {
+        let Some(def) = reg.get(&self.agent_definition_id) else {
             log::debug!(
                 "[agent] refresh_delegation_tools: definition '{}' not in registry — skipping",
-                self.agent_definition_name
+                self.agent_definition_id
             );
             return;
         };
@@ -1367,8 +1367,9 @@ impl Agent {
         self.visible_tool_specs = Arc::new(visible_specs);
 
         log::info!(
-            "[agent] refresh_delegation_tools: added {} delegation tool(s) for agent '{}': {:?}",
+            "[agent] refresh_delegation_tools: added {} delegation tool(s) for agent '{}' (display='{}'): {:?}",
             new_names.len(),
+            self.agent_definition_id,
             self.agent_definition_name,
             new_names
         );

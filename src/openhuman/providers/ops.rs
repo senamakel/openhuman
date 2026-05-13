@@ -247,6 +247,11 @@ pub fn create_backend_inference_provider(
     options: &ProviderRuntimeOptions,
 ) -> anyhow::Result<Box<dyn Provider>> {
     if let (Some(url), Some(key)) = (inference_url, api_key) {
+        log::info!(
+            "[providers] inference target = custom_openai @ {} (api_key bytes={})",
+            url,
+            key.len()
+        );
         Ok(Box::new(
             crate::openhuman::providers::compatible::OpenAiCompatibleProvider::new(
                 "custom_openai",
@@ -261,6 +266,12 @@ pub fn create_backend_inference_provider(
                 "[providers] api_key provided without inference_url — key will be ignored, using OpenHuman backend"
             );
         }
+        log::info!(
+            "[providers] inference target = openhuman_backend (backend_url={}, inference_url_set={}, api_key_set={})",
+            backend_url.unwrap_or("<default>"),
+            inference_url.is_some(),
+            api_key.is_some()
+        );
         Ok(Box::new(openhuman_backend::OpenHumanBackendProvider::new(
             backend_url,
             options,
@@ -406,6 +417,12 @@ pub fn create_intelligent_routing_provider(
     // the host. Without this step the abstract tier name would reach
     // `custom_openai` and 404. The OpenHuman backend can dispatch tier names
     // natively, so we skip the wrap when routes are empty.
+    log::info!(
+        "[providers] intelligent routing: model_routes_count={} default_model={} inference_url_set={}",
+        config.model_routes.len(),
+        default_model,
+        inference_url.is_some()
+    );
     let remote: Box<dyn Provider> = if config.model_routes.is_empty() {
         backend
     } else {

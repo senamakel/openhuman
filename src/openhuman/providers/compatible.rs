@@ -260,11 +260,17 @@ impl OpenAiCompatibleProvider {
                     .ends_with("/chat/completions")
             });
 
-        if has_full_endpoint {
+        let url = if has_full_endpoint {
             self.base_url.clone()
         } else {
             format!("{}/chat/completions", self.base_url)
-        }
+        };
+        log::info!(
+            "[provider:{}] outbound chat/completions -> {}",
+            self.name,
+            url
+        );
+        url
     }
 
     fn path_ends_with(&self, suffix: &str) -> bool {

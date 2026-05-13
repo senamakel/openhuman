@@ -95,6 +95,12 @@ impl RouterProvider {
     fn resolve(&self, model: &str) -> (usize, String) {
         if let Some(hint) = model.strip_prefix("hint:") {
             if let Some((idx, resolved_model)) = self.routes.get(hint) {
+                log::info!(
+                    "[router] hint:{} -> model={} (provider_idx={})",
+                    hint,
+                    resolved_model,
+                    idx
+                );
                 return (*idx, resolved_model.clone());
             }
             tracing::warn!(
@@ -108,17 +114,28 @@ impl RouterProvider {
         // need them translated through the user's route table.
         if let Some(hint) = openhuman_tier_to_hint(model) {
             if let Some((idx, resolved_model)) = self.routes.get(hint) {
-                tracing::debug!(
-                    tier = model,
-                    hint = hint,
-                    resolved = resolved_model.as_str(),
-                    "Router mapped OpenHuman tier to configured route"
+                log::info!(
+                    "[router] tier {} -> hint={} -> model={} (provider_idx={})",
+                    model,
+                    hint,
+                    resolved_model,
+                    idx
                 );
                 return (*idx, resolved_model.clone());
             }
+            log::warn!(
+                "[router] tier {} matched hint={} but no route configured — passing through unchanged",
+                model,
+                hint
+            );
         }
 
         // Not a hint or hint not found — use default provider with the model as-is
+        log::info!(
+            "[router] passthrough model={} (provider_idx={})",
+            model,
+            self.default_index
+        );
         (self.default_index, model.to_string())
     }
 }

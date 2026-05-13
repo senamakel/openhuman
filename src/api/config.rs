@@ -46,7 +46,10 @@ pub fn effective_inference_url(
     {
         return u.to_string();
     }
-    api_url(&effective_api_url(api_url_override), OPENHUMAN_INFERENCE_PATH)
+    api_url(
+        &effective_api_url(api_url_override),
+        OPENHUMAN_INFERENCE_PATH,
+    )
 }
 
 pub fn effective_api_url(api_url: &Option<String>) -> String {

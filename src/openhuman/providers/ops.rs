@@ -454,15 +454,13 @@ mod tests {
 
     #[test]
     fn factory_backend() {
-        assert!(
-            create_backend_inference_provider(
-                None,
-                None,
-                None,
-                &ProviderRuntimeOptions::default()
-            )
-            .is_ok()
-        );
+        assert!(create_backend_inference_provider(
+            None,
+            None,
+            None,
+            &ProviderRuntimeOptions::default()
+        )
+        .is_ok());
     }
 
     #[test]

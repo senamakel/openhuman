@@ -38,6 +38,7 @@
 pub mod action_tool;
 pub mod bus;
 pub mod client;
+pub mod direct;
 pub mod ops;
 pub mod periodic;
 pub mod providers;
@@ -49,6 +50,9 @@ pub mod types;
 pub use action_tool::ComposioActionTool;
 pub use bus::{register_composio_trigger_subscriber, ComposioTriggerSubscriber};
 pub use client::{build_composio_client, ComposioClient};
+pub use direct::{
+    byo_unsupported, is_byo_unsupported, DirectComposioClient, BYO_UNSUPPORTED_PREFIX,
+};
 pub use ops::{
     fetch_connected_integrations, fetch_connected_integrations_status, fetch_toolkit_actions,
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,

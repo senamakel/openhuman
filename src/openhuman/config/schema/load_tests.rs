@@ -1302,3 +1302,32 @@ default_temperature = 0.7
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
 }
+
+// ── COMPOSIO_API_KEY env override ────────────────────────────────
+
+#[test]
+fn env_overlay_sets_composio_byo_key() {
+    let env = HashMapEnv::new().with("COMPOSIO_API_KEY", "  sk_env_xyz  ");
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(&env);
+    assert_eq!(cfg.composio.byo_api_key.as_deref(), Some("sk_env_xyz"));
+}
+
+#[test]
+fn env_overlay_ignores_blank_composio_byo_key() {
+    let env = HashMapEnv::new().with("COMPOSIO_API_KEY", "   ");
+    let mut cfg = Config::default();
+    cfg.composio.byo_api_key = Some("existing".to_string());
+    cfg.apply_env_overlay_with(&env);
+    // Blank env value must not clobber an existing config value.
+    assert_eq!(cfg.composio.byo_api_key.as_deref(), Some("existing"));
+}
+
+#[test]
+fn env_overlay_no_composio_var_leaves_key_unchanged() {
+    let env = HashMapEnv::new();
+    let mut cfg = Config::default();
+    cfg.composio.byo_api_key = Some("from-toml".to_string());
+    cfg.apply_env_overlay_with(&env);
+    assert_eq!(cfg.composio.byo_api_key.as_deref(), Some("from-toml"));
+}

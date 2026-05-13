@@ -8,6 +8,7 @@ import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDe
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
 import BackendProviderPanel from '../components/settings/panels/BackendProviderPanel';
 import BillingPanel from '../components/settings/panels/BillingPanel';
+import ComposioByoPanel from '../components/settings/panels/ComposioByoPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
 import ConnectionsPanel from '../components/settings/panels/ConnectionsPanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
@@ -319,6 +320,7 @@ const Settings = () => {
         <Route path="intelligence" element={<Intelligence />} />
         <Route path="webhooks-triggers" element={<Webhooks />} />
         <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
+        <Route path="composio-byo" element={wrapSettingsPage(<ComposioByoPanel />)} />
         {/* About / updates */}
         <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
         {/* Fallback */}

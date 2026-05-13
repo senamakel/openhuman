@@ -88,6 +88,32 @@ struct LocalAiSettingsUpdate {
     usage_subconscious: Option<bool>,
 }
 
+/// Update params for the BYO Composio API key.
+///
+/// Field handling:
+/// - omitted        → leave key unchanged.
+/// - `null`         → clear the key (revert to proxy mode).
+/// - `""` / spaces  → clear the key.
+/// - non-empty str  → set the key.
+///
+/// `serde(default, deserialize_with = ...)` is used so we can
+/// distinguish "field omitted" from "field present and null".
+#[derive(Debug, Default, Deserialize)]
+struct ComposioByoSettingsUpdate {
+    #[serde(default, deserialize_with = "deserialize_optional_optional_string")]
+    byo_api_key: Option<Option<String>>,
+}
+
+fn deserialize_optional_optional_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    Ok(Some(opt))
+}
+
 #[derive(Debug, Deserialize)]
 struct SetBrowserAllowAllParams {
     enabled: bool,
@@ -165,6 +191,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("update_voice_server_settings"),
         schemas("update_composio_trigger_settings"),
         schemas("get_composio_trigger_settings"),
+        schemas("update_composio_byo_settings"),
+        schemas("get_composio_byo_status"),
     ]
 }
 
@@ -277,6 +305,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_composio_trigger_settings"),
             handler: handle_get_composio_trigger_settings,
+        },
+        RegisteredController {
+            schema: schemas("update_composio_byo_settings"),
+            handler: handle_update_composio_byo_settings,
+        },
+        RegisteredController {
+            schema: schemas("get_composio_byo_status"),
+            handler: handle_get_composio_byo_status,
         },
     ]
 }
@@ -741,6 +777,52 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
+        "update_composio_byo_settings" => ControllerSchema {
+            namespace: "config",
+            function: "update_composio_byo_settings",
+            description:
+                "Set or clear the user-provided Composio API key. When set, the core \
+                 talks to api.composio.dev directly using this key. Triggers (webhooks) \
+                 are unavailable in BYO mode and return `composio_byo_unsupported:`. \
+                 Pass `null` or empty string to clear and revert to proxy mode.",
+            inputs: vec![FieldSchema {
+                name: "byo_api_key",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment:
+                    "Composio API key to use (`null`/empty to clear). Omit to leave unchanged.",
+                required: false,
+            }],
+            outputs: vec![json_output("snapshot", "Updated config snapshot.")],
+        },
+        "get_composio_byo_status" => ControllerSchema {
+            namespace: "config",
+            function: "get_composio_byo_status",
+            description:
+                "Read the current BYO Composio key status: whether a key is configured, \
+                 a masked preview for display, and which backend `build_composio_client` \
+                 will pick (`\"direct\"` for BYO, `\"proxy\"` otherwise).",
+            inputs: vec![],
+            outputs: vec![
+                FieldSchema {
+                    name: "active",
+                    ty: TypeSchema::Bool,
+                    comment: "True when a BYO key is configured (non-empty).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "masked_key",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Masked preview of the key, e.g. `sk_••••••abcd`. Null when unset.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "backend",
+                    ty: TypeSchema::String,
+                    comment: "`\"direct\"` (BYO active) or `\"proxy\"` (using openhuman backend).",
+                    required: true,
+                },
+            ],
+        },
         _ => ControllerSchema {
             namespace: "config",
             function: "unknown",
@@ -1087,6 +1169,48 @@ fn handle_get_composio_trigger_settings(_params: Map<String, Value>) -> Controll
             }
             Err(err) => {
                 log::warn!("[config][rpc] get_composio_trigger_settings failed: {err}");
+                Err(err)
+            }
+        }
+    })
+}
+
+fn handle_update_composio_byo_settings(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("[config][rpc] update_composio_byo_settings enter");
+        let update = match deserialize_params::<ComposioByoSettingsUpdate>(params) {
+            Ok(u) => u,
+            Err(err) => {
+                log::warn!("[config][rpc] update_composio_byo_settings invalid params: {err}");
+                return Err(err);
+            }
+        };
+        let patch = config_rpc::ComposioByoSettingsPatch {
+            byo_api_key: update.byo_api_key,
+        };
+        match config_rpc::load_and_apply_composio_byo_settings(patch).await {
+            Ok(outcome) => {
+                log::debug!("[config][rpc] update_composio_byo_settings ok");
+                to_json(outcome)
+            }
+            Err(err) => {
+                log::warn!("[config][rpc] update_composio_byo_settings failed: {err}");
+                Err(err)
+            }
+        }
+    })
+}
+
+fn handle_get_composio_byo_status(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async {
+        log::debug!("[config][rpc] get_composio_byo_status enter");
+        match config_rpc::get_composio_byo_status().await {
+            Ok(outcome) => {
+                log::debug!("[config][rpc] get_composio_byo_status ok");
+                to_json(outcome)
+            }
+            Err(err) => {
+                log::warn!("[config][rpc] get_composio_byo_status failed: {err}");
                 Err(err)
             }
         }

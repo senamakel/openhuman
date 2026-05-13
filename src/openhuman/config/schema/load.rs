@@ -1315,6 +1315,18 @@ impl Config {
             );
             self.context.tool_result_budget_bytes = self.agent.tool_result_budget_bytes;
         }
+
+        // `COMPOSIO_API_KEY` — user's BYO Composio API key. When set
+        // (non-empty), the core bypasses the openhuman backend proxy and
+        // calls api.composio.dev directly. Empty / whitespace-only
+        // values are ignored.
+        if let Some(key) = env.get("COMPOSIO_API_KEY") {
+            let trimmed = key.trim();
+            if !trimmed.is_empty() {
+                self.composio.byo_api_key = Some(trimmed.to_string());
+                tracing::debug!("[composio:config] BYO key loaded from COMPOSIO_API_KEY env");
+            }
+        }
     }
 
     pub async fn save(&self) -> Result<()> {

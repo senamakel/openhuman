@@ -728,3 +728,70 @@ async fn workspace_onboarding_flag_set_round_trip() {
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
 }
+
+// ── BYO Composio key ─────────────────────────────────────────────
+
+#[test]
+fn mask_secret_short_value_redacts_entirely() {
+    assert_eq!(mask_secret(""), "");
+    assert_eq!(mask_secret("ab"), "••");
+    assert_eq!(mask_secret("abcdefgh"), "••••••••");
+}
+
+#[test]
+fn mask_secret_keeps_prefix_and_suffix_for_real_keys() {
+    let masked = mask_secret("sk_live_abcdefghijklmnop");
+    assert!(masked.starts_with("sk_"), "prefix kept: {masked}");
+    assert!(masked.ends_with("mnop"), "suffix kept: {masked}");
+    assert!(masked.contains("••••"), "middle redacted: {masked}");
+    // Length of middle redaction is bounded — exact bullet count is
+    // not part of the contract, just that some redaction is present.
+    assert!(masked.len() < "sk_live_abcdefghijklmnop".len() + 4);
+}
+
+#[tokio::test]
+async fn apply_composio_byo_settings_sets_key() {
+    let mut config = Config::default();
+    let tmp = tempfile::tempdir().unwrap();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().to_path_buf();
+    let patch = ComposioByoSettingsPatch {
+        byo_api_key: Some(Some("  sk_live_xyz  ".to_string())),
+    };
+    apply_composio_byo_settings(&mut config, patch)
+        .await
+        .unwrap();
+    assert_eq!(config.composio.byo_api_key.as_deref(), Some("sk_live_xyz"));
+}
+
+#[tokio::test]
+async fn apply_composio_byo_settings_clears_with_null() {
+    let mut config = Config::default();
+    let tmp = tempfile::tempdir().unwrap();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().to_path_buf();
+    config.composio.byo_api_key = Some("sk_live_existing".to_string());
+    let patch = ComposioByoSettingsPatch {
+        byo_api_key: Some(None),
+    };
+    apply_composio_byo_settings(&mut config, patch)
+        .await
+        .unwrap();
+    assert!(config.composio.byo_api_key.is_none());
+}
+
+#[tokio::test]
+async fn apply_composio_byo_settings_treats_empty_string_as_clear() {
+    let mut config = Config::default();
+    let tmp = tempfile::tempdir().unwrap();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().to_path_buf();
+    config.composio.byo_api_key = Some("sk_live_existing".to_string());
+    let patch = ComposioByoSettingsPatch {
+        byo_api_key: Some(Some("   ".to_string())),
+    };
+    apply_composio_byo_settings(&mut config, patch)
+        .await
+        .unwrap();
+    assert!(config.composio.byo_api_key.is_none());
+}

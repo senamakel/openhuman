@@ -240,6 +240,14 @@ pub struct LocalAiSettingsPatch {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct ComposioByoSettingsPatch {
+    /// `Some(Some(key))` → set the BYO key (after trimming).
+    /// `Some(None)`      → clear the BYO key (revert to proxy mode).
+    /// `None`            → leave unchanged.
+    pub byo_api_key: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ComposioTriggerSettingsPatch {
     /// When `Some(true)`, disables triage for all toolkits.
     pub triage_disabled: Option<bool>,
@@ -621,6 +629,87 @@ pub async fn load_and_apply_composio_trigger_settings(
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     let mut config = load_config_with_timeout().await?;
     apply_composio_trigger_settings(&mut config, update).await
+}
+
+/// Apply a BYO-key patch and persist. See [`ComposioByoSettingsPatch`].
+///
+/// Whitespace-only keys are normalised to "clear". The returned
+/// snapshot includes a `composio_byo` summary so the UI can re-render
+/// from a single round-trip.
+pub async fn apply_composio_byo_settings(
+    config: &mut Config,
+    update: ComposioByoSettingsPatch,
+) -> Result<RpcOutcome<serde_json::Value>, String> {
+    if let Some(slot) = update.byo_api_key {
+        let normalized = slot.and_then(|s| {
+            let trimmed = s.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
+        let action = if normalized.is_some() {
+            "set"
+        } else {
+            "cleared"
+        };
+        config.composio.byo_api_key = normalized;
+        tracing::debug!(action = action, "[config][composio] byo_api_key updated");
+    }
+    config.save().await.map_err(|e| e.to_string())?;
+    let snapshot = snapshot_config_json(config)?;
+    Ok(RpcOutcome::new(
+        snapshot,
+        vec![format!(
+            "composio BYO settings saved to {}",
+            config.config_path.display()
+        )],
+    ))
+}
+
+/// Loads config, applies a BYO-key patch, and saves.
+pub async fn load_and_apply_composio_byo_settings(
+    update: ComposioByoSettingsPatch,
+) -> Result<RpcOutcome<serde_json::Value>, String> {
+    let mut config = load_config_with_timeout().await?;
+    apply_composio_byo_settings(&mut config, update).await
+}
+
+/// Read-only status of the BYO Composio key.
+///
+/// Returns `{ active, masked_key, backend }` where:
+/// - `active: bool`        — true if a non-empty key is configured.
+/// - `masked_key: String?` — `"sk_••••••XXXX"`-style preview, or null.
+/// - `backend: "direct"|"proxy"` — which transport `build_composio_client` will pick.
+pub async fn get_composio_byo_status() -> Result<RpcOutcome<serde_json::Value>, String> {
+    let config = load_config_with_timeout().await?;
+    let key = config.composio.byo_api_key_trimmed();
+    let active = key.is_some();
+    let masked = key.map(mask_secret);
+    let backend = if active { "direct" } else { "proxy" };
+    let result = serde_json::json!({
+        "active": active,
+        "masked_key": masked,
+        "backend": backend,
+    });
+    Ok(RpcOutcome::new(
+        result,
+        vec![format!("composio BYO status: backend={backend}")],
+    ))
+}
+
+/// Mask a secret for safe display: keeps the first 3 and last 4
+/// characters, redacts the middle. Returns `"••••"` for very short
+/// values where any prefix/suffix would leak the whole thing.
+fn mask_secret(s: &str) -> String {
+    let len = s.chars().count();
+    if len <= 8 {
+        return "•".repeat(len.min(8));
+    }
+    let prefix: String = s.chars().take(3).collect();
+    let suffix: String = s.chars().skip(len.saturating_sub(4)).collect();
+    format!("{prefix}••••{suffix}")
 }
 
 /// Reads the current composio trigger-triage settings.

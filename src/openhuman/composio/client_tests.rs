@@ -580,3 +580,81 @@ async fn delete_connection_surfaces_envelope_error_detail() {
     );
     assert!(msg.contains("400"), "expected status 400, got: {msg}");
 }
+
+// ── BYO routing ────────────────────────────────────────────────
+//
+// When `config.composio.byo_api_key` is set, `build_composio_client`
+// must return a Direct-backed client regardless of whether the user
+// is signed in. These tests cover the routing contract that
+// `ComposioClient::is_byo()` exposes.
+
+#[test]
+fn build_composio_client_picks_byo_when_key_set() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.composio.byo_api_key = Some("sk_test_abc123xyz".into());
+    let client = build_composio_client(&config).expect("BYO client builds without auth token");
+    assert!(client.is_byo(), "expected BYO/Direct backend");
+    assert_eq!(client.backend_label(), "direct");
+}
+
+#[test]
+fn build_composio_client_ignores_whitespace_only_byo_key() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.composio.byo_api_key = Some("   ".into());
+    // No auth token + whitespace-only BYO key → falls back to proxy
+    // path, which fails because no session token is stored.
+    assert!(
+        build_composio_client(&config).is_none(),
+        "whitespace-only BYO key should not switch backends"
+    );
+}
+
+#[tokio::test]
+async fn byo_client_trigger_methods_return_byo_unsupported() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.composio.byo_api_key = Some("sk_test_key".into());
+    let client = build_composio_client(&config).expect("BYO client");
+
+    let err = client
+        .create_trigger("GMAIL_NEW", None, None)
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .starts_with(crate::openhuman::composio::BYO_UNSUPPORTED_PREFIX),
+        "trigger error should carry BYO sentinel, got: {err}"
+    );
+
+    let err = client
+        .enable_trigger("conn", "slug", None)
+        .await
+        .unwrap_err();
+    assert!(err
+        .to_string()
+        .starts_with(crate::openhuman::composio::BYO_UNSUPPORTED_PREFIX));
+
+    let err = client.disable_trigger("trig").await.unwrap_err();
+    assert!(err
+        .to_string()
+        .starts_with(crate::openhuman::composio::BYO_UNSUPPORTED_PREFIX));
+}
+
+#[tokio::test]
+async fn byo_client_list_active_triggers_returns_empty_not_error() {
+    // UI surfaces call list_active_triggers on every poll; we want
+    // BYO mode to return an empty list rather than failing.
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.composio.byo_api_key = Some("sk_test_key".into());
+    let client = build_composio_client(&config).expect("BYO client");
+
+    let resp = client.list_active_triggers(None).await.unwrap();
+    assert!(resp.triggers.is_empty());
+}

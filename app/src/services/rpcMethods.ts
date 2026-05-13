@@ -1,11 +1,13 @@
 export const CORE_RPC_METHODS = {
   configGet: 'openhuman.config_get',
   configGetAnalyticsSettings: 'openhuman.config_get_analytics_settings',
+  configGetComposioByoStatus: 'openhuman.config_get_composio_byo_status',
   configGetComposioTriggerSettings: 'openhuman.config_get_composio_trigger_settings',
   configGetRuntimeFlags: 'openhuman.config_get_runtime_flags',
   configSetBrowserAllowAll: 'openhuman.config_set_browser_allow_all',
   configUpdateAnalyticsSettings: 'openhuman.config_update_analytics_settings',
   configUpdateBrowserSettings: 'openhuman.config_update_browser_settings',
+  configUpdateComposioByoSettings: 'openhuman.config_update_composio_byo_settings',
   configUpdateComposioTriggerSettings: 'openhuman.config_update_composio_trigger_settings',
   configUpdateLocalAiSettings: 'openhuman.config_update_local_ai_settings',
   configUpdateMemorySettings: 'openhuman.config_update_memory_settings',

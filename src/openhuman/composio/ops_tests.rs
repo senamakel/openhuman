@@ -931,3 +931,24 @@ async fn composio_disable_trigger_propagates_backend_error() {
         .unwrap_err();
     assert!(err.contains("disable_trigger failed"), "unexpected: {err}");
 }
+
+#[test]
+fn fmt_err_preserves_byo_unsupported_prefix() {
+    let inner = super::super::direct::byo_unsupported("triggers.create");
+    let s = fmt_err("create_trigger", inner);
+    assert!(
+        s.starts_with(super::super::direct::BYO_UNSUPPORTED_PREFIX),
+        "BYO sentinel must pass through unwrapped, got: {s}"
+    );
+}
+
+#[test]
+fn fmt_err_wraps_non_byo_errors_with_op_context() {
+    let inner = anyhow::anyhow!("network unreachable");
+    let s = fmt_err("list_toolkits", inner);
+    assert!(
+        s.starts_with("[composio] list_toolkits failed:"),
+        "got: {s}"
+    );
+    assert!(s.contains("network unreachable"), "got: {s}");
+}

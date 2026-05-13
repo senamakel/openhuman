@@ -34,18 +34,39 @@ use super::types::{
 };
 
 /// Resolve a [`ComposioClient`] from the root config, or return an
-/// error string that the caller can surface over RPC.
+/// error string the caller can surface over RPC.
 ///
-/// Composio is always enabled — it is proxied through our backend and
-/// has no client-side toggle or API key. The only reason this fails is
-/// that no app-session JWT has been stored yet (i.e. the user hasn't
-/// completed sign-in / `auth_store_session`).
+/// Two failure modes:
+///
+/// 1. **Proxy mode** (`config.composio.byo_api_key` unset) — fails when
+///    the user has no app-session JWT (i.e. they haven't completed
+///    sign-in / `auth_store_session`).
+/// 2. **BYO/Direct mode** — fails only if the BYO key fails validation
+///    (empty/whitespace, etc.), in which case `build_composio_client`
+///    falls back to attempting proxy mode first.
 fn resolve_client(config: &Config) -> OpResult<ComposioClient> {
     build_composio_client(config).ok_or_else(|| {
-        "composio unavailable: no backend session token. Sign in first \
-         (auth_store_session)."
+        "composio unavailable: no backend session token and no BYO API key. \
+         Sign in (auth_store_session) or set a Composio API key in Settings."
             .to_string()
     })
+}
+
+/// Format an `anyhow::Error` for RPC consumption while preserving the
+/// `composio_byo_unsupported:` sentinel prefix when present.
+///
+/// Without this, every error is wrapped as
+/// `"[composio] <op> failed: <inner>"`, which buries the sentinel and
+/// forces the UI to substring-search for it. With this helper, BYO
+/// sentinel errors pass through unchanged so RPC consumers can match
+/// on `startsWith("composio_byo_unsupported:")` directly. Non-BYO
+/// errors still get the operational context prefix for diagnostics.
+fn fmt_err(op: &str, err: anyhow::Error) -> String {
+    if super::direct::is_byo_unsupported(&err) {
+        err.to_string()
+    } else {
+        format!("[composio] {op} failed: {err:#}")
+    }
 }
 
 // ── Toolkits ────────────────────────────────────────────────────────
@@ -58,7 +79,7 @@ pub async fn composio_list_toolkits(
     let resp = client
         .list_toolkits()
         .await
-        .map_err(|e| format!("[composio] list_toolkits failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_toolkits", e))?;
     let count = resp.toolkits.len();
     Ok(RpcOutcome::new(
         resp,
@@ -76,7 +97,7 @@ pub async fn composio_list_connections(
     let resp = client
         .list_connections()
         .await
-        .map_err(|e| format!("[composio] list_connections failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_connections", e))?;
     let active = resp.connections.iter().filter(|c| c.is_active()).count();
     let total = resp.connections.len();
     // Reconcile the chat-runtime integrations cache against this fresh
@@ -104,7 +125,7 @@ pub async fn composio_authorize(
     let resp = client
         .authorize(toolkit, extra_params)
         .await
-        .map_err(|e| format!("[composio] authorize failed: {e:#}"))?;
+        .map_err(|e| fmt_err("authorize", e))?;
 
     // Publish an event so any interested subscribers (e.g. UI refreshers,
     // analytics) can react to the new connection handoff.
@@ -134,7 +155,7 @@ pub async fn composio_delete_connection(
     let resp = client
         .delete_connection(connection_id)
         .await
-        .map_err(|e| format!("[composio] delete_connection failed: {e:#}"))?;
+        .map_err(|e| fmt_err("delete_connection", e))?;
     if let Some(toolkit) = toolkit.as_deref() {
         let deleted =
             super::providers::profile::delete_connected_identity_facets(toolkit, connection_id);
@@ -182,7 +203,7 @@ pub async fn composio_list_tools(
     let resp = client
         .list_tools(toolkits.as_deref())
         .await
-        .map_err(|e| format!("[composio] list_tools failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_tools", e))?;
     let count = resp.tools.len();
     Ok(RpcOutcome::new(
         resp,
@@ -251,7 +272,7 @@ pub async fn composio_list_github_repos(
     let resp = client
         .list_github_repos(connection_id.as_deref())
         .await
-        .map_err(|e| format!("[composio] list_github_repos failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_github_repos", e))?;
     let count = resp.repositories.len();
     let connection_id = resp.connection_id.clone();
     Ok(RpcOutcome::new(
@@ -273,7 +294,7 @@ pub async fn composio_create_trigger(
     let resp = client
         .create_trigger(slug, connection_id.as_deref(), trigger_config)
         .await
-        .map_err(|e| format!("[composio] create_trigger failed: {e:#}"))?;
+        .map_err(|e| fmt_err("create_trigger", e))?;
     let trigger_id = resp.trigger_id.clone();
     Ok(RpcOutcome::new(
         resp,
@@ -295,7 +316,7 @@ pub async fn composio_list_available_triggers(
     let resp = client
         .list_available_triggers(toolkit, connection_id.as_deref())
         .await
-        .map_err(|e| format!("[composio] list_available_triggers failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_available_triggers", e))?;
     let count = resp.triggers.len();
     Ok(RpcOutcome::new(
         resp,
@@ -314,7 +335,7 @@ pub async fn composio_list_triggers(
     let resp = client
         .list_active_triggers(toolkit.as_deref())
         .await
-        .map_err(|e| format!("[composio] list_triggers failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_triggers", e))?;
     let count = resp.triggers.len();
     Ok(RpcOutcome::new(
         resp,
@@ -333,7 +354,7 @@ pub async fn composio_enable_trigger(
     let resp = client
         .enable_trigger(connection_id, slug, trigger_config)
         .await
-        .map_err(|e| format!("[composio] enable_trigger failed: {e:#}"))?;
+        .map_err(|e| fmt_err("enable_trigger", e))?;
     let trigger_id = resp.trigger_id.clone();
     Ok(RpcOutcome::new(
         resp,
@@ -350,7 +371,7 @@ pub async fn composio_disable_trigger(
     let resp = client
         .disable_trigger(trigger_id)
         .await
-        .map_err(|e| format!("[composio] disable_trigger failed: {e:#}"))?;
+        .map_err(|e| fmt_err("disable_trigger", e))?;
     let message = if resp.deleted {
         format!("composio: disabled trigger {trigger_id}")
     } else {
@@ -418,7 +439,7 @@ async fn resolve_toolkit_for_connection(
     let resp = client
         .list_connections()
         .await
-        .map_err(|e| format!("[composio] list_connections failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_connections", e))?;
     let conn = resp
         .connections
         .into_iter()
@@ -488,7 +509,7 @@ pub async fn composio_refresh_all_identities(
     let conns = client
         .list_connections()
         .await
-        .map_err(|e| format!("[composio] list_connections failed: {e:#}"))?;
+        .map_err(|e| fmt_err("list_connections", e))?;
 
     let mut report = RefreshIdentitiesReport::default();
     let mut messages: Vec<String> = Vec::with_capacity(conns.connections.len() + 1);

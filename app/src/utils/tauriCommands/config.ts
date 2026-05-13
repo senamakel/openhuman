@@ -293,6 +293,47 @@ export async function openhumanGetComposioTriggerSettings(): Promise<
   });
 }
 
+// ── Composio BYO (Bring Your Own API key) ──────────────────────────
+
+export interface ComposioByoStatus {
+  /** True when a non-empty BYO key is configured. */
+  active: boolean;
+  /** Masked preview of the key (e.g. `sk_••••••abcd`), or `null` when unset. */
+  masked_key: string | null;
+  /** Which transport the core will use: `"direct"` (BYO) or `"proxy"` (hosted backend). */
+  backend: 'direct' | 'proxy';
+}
+
+export interface ComposioByoSettingsUpdate {
+  /**
+   * Omit to leave unchanged. Pass `null` or `""` to clear. Pass a
+   * non-empty string to set the key. The core trims whitespace; any
+   * whitespace-only value is treated as a clear.
+   */
+  byo_api_key?: string | null;
+}
+
+export async function openhumanGetComposioByoStatus(): Promise<CommandResponse<ComposioByoStatus>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ComposioByoStatus>>({
+    method: 'openhuman.config_get_composio_byo_status',
+  });
+}
+
+export async function openhumanUpdateComposioByoSettings(
+  update: ComposioByoSettingsUpdate
+): Promise<CommandResponse<ConfigSnapshot>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+    method: 'openhuman.config_update_composio_byo_settings',
+    params: update,
+  });
+}
+
 export async function openhumanGetRuntimeFlags(): Promise<CommandResponse<RuntimeFlags>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');

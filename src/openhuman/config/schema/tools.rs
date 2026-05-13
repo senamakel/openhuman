@@ -267,10 +267,35 @@ pub struct ComposioConfig {
     /// field (e.g. `["gmail", "slack"]`).
     #[serde(default)]
     pub triage_disabled_toolkits: Vec<String>,
+    /// User-supplied Composio API key. When set, the core bypasses the
+    /// openhuman backend proxy (`/agent-integrations/composio/*`) and
+    /// talks to the Composio REST API directly using this key. The
+    /// backend proxy is the default when `None` or empty.
+    ///
+    /// Triggers (webhooks) are not supported in BYO mode — they require
+    /// the hosted backend to receive HMAC-verified Composio callbacks
+    /// and fan them out over Socket.IO. BYO trigger calls return a
+    /// `composio_byo_unsupported` error so the UI can surface a clear
+    /// "switch off BYO to use triggers" message.
+    ///
+    /// Env override: `COMPOSIO_API_KEY`.
+    #[serde(default)]
+    pub byo_api_key: Option<String>,
 }
 
 fn default_entity_id() -> String {
     "default".into()
+}
+
+impl ComposioConfig {
+    /// Returns `Some(trimmed)` only when the user actually supplied a
+    /// non-empty BYO key. Whitespace-only values are treated as unset.
+    pub fn byo_api_key_trimmed(&self) -> Option<&str> {
+        self.byo_api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    }
 }
 
 impl Default for ComposioConfig {
@@ -280,6 +305,7 @@ impl Default for ComposioConfig {
             entity_id: default_entity_id(),
             triage_disabled: false,
             triage_disabled_toolkits: Vec::new(),
+            byo_api_key: None,
         }
     }
 }

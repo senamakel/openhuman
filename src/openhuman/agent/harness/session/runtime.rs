@@ -502,29 +502,27 @@ impl Agent {
             }
             Err(err) => {
                 let sanitized_message = Self::sanitize_event_error_message(&err);
-                let full_error = format!("{err:#}");
-                if providers::is_budget_exhausted_message(&full_error) {
-                    tracing::info!(
-                        domain = "agent",
-                        operation = "run_single",
-                        session_id = self.event_session_id(),
-                        channel = self.event_channel(),
-                        error_kind = sanitized_message.as_str(),
-                        kind = "budget",
-                        "[agent] run_single budget-exhausted error — not reporting to Sentry"
-                    );
-                } else {
-                    crate::core::observability::report_error(
-                        &err,
-                        "agent",
-                        "run_single",
-                        &[
-                            ("session_id", self.event_session_id()),
-                            ("channel", self.event_channel()),
-                            ("error_kind", sanitized_message.as_str()),
-                        ],
-                    );
-                }
+                // OPENHUMAN-TAURI-5Z: upstream transient HTTP failures
+                // (408/429/502/503/504) are already retried + filtered at the
+                // provider layer. When retries exhaust they bubble up here via
+                // `Result::Err`, and re-reporting under `domain=agent` escapes
+                // the `domain=llm_provider` filter — one Sentry event per
+                // failed turn for a transient infrastructure blip. Route
+                // through `report_error_or_expected` so the classifier demotes
+                // those (and other expected user-state errors) to a warn-level
+                // breadcrumb while preserving the AgentError publish + return.
+                // Budget-exhausted 400s are also caught by `before_send` via
+                // `is_budget_event` as a second line of defense.
+                crate::core::observability::report_error_or_expected(
+                    &err,
+                    "agent",
+                    "run_single",
+                    &[
+                        ("session_id", self.event_session_id()),
+                        ("channel", self.event_channel()),
+                        ("error_kind", sanitized_message.as_str()),
+                    ],
+                );
                 publish_global(DomainEvent::AgentError {
                     session_id: self.event_session_id().to_string(),
                     message: sanitized_message,

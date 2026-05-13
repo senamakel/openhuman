@@ -134,6 +134,9 @@ pub(super) fn is_budget_exhausted_http_400(status: reqwest::StatusCode, body: &s
     status == reqwest::StatusCode::BAD_REQUEST && super::is_budget_exhausted_message(body)
 }
 
+/// Emit a structured `tracing::info!` for a budget-exhausted 400 that was
+/// demoted from Sentry. Call this instead of `report_error` at every provider
+/// call site where `is_budget_exhausted_http_400` returns `true`.
 pub(super) fn log_budget_exhausted_http_400(
     operation: &str,
     provider: &str,

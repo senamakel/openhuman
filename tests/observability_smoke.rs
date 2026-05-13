@@ -112,6 +112,27 @@ fn keeps_non_budget_400() {
 }
 
 #[test]
+fn keeps_budget_message_on_402() {
+    // DECISION: 402 Payment Required is not suppressed even when the body
+    // contains budget phrases. Only status 400 is treated as deterministic
+    // user-state by `is_budget_event`; 402 should still surface to Sentry
+    // as a signal (e.g. the backend adds a hard-gate payment wall).
+    let event = event_with_message(
+        &[
+            ("domain", "llm_provider"),
+            ("failure", "non_2xx"),
+            ("status", "402"),
+        ],
+        r#"{"error":"Insufficient budget"}"#,
+    );
+    assert_eq!(
+        count_captured(vec![event]),
+        1,
+        "402 with budget body must still reach Sentry"
+    );
+}
+
+#[test]
 fn drops_per_attempt_429_503_504_408_502() {
     // Each of these matches the tag shape `ops::api_error` sets when a
     // transient upstream status returns. With the filter installed in

@@ -1,3 +1,9 @@
+//! Phrase-based classifier for budget-exhaustion responses.
+//!
+//! Centralises the detection of deterministic user-state 400 bodies so
+//! every provider call site and the `before_send` filter share the same
+//! tight phrase list.
+
 /// Returns true if a 400 response body indicates the user is out of
 /// budget / has insufficient balance / over their plan. These are
 /// deterministic user-state errors — already surfaced in the UI as a

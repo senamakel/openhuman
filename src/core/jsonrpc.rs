@@ -994,6 +994,26 @@ async fn run_server_inner(
             .with_graceful_shutdown(crate::core::shutdown::signal())
             .await?;
     }
+
+    // Server has stopped accepting and in-flight requests drained.
+    // Kill any `ollama serve` openhuman itself spawned (no-op when the
+    // daemon was externally managed) and clear the spawn marker so the
+    // next launch doesn't try to reclaim a daemon that's already dead.
+    // Bounded so a wedged Ollama can't hold up app shutdown.
+    if let Some(svc) = crate::openhuman::local_ai::try_global() {
+        let cfg = crate::openhuman::config::Config::load_or_init()
+            .await
+            .unwrap_or_default();
+        log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
+        let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
+        if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
+            .await
+            .is_err()
+        {
+            log::warn!("[core] shutdown: ollama cleanup exceeded 2s budget; proceeding with exit");
+        }
+    }
+
     Ok(())
 }
 

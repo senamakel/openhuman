@@ -6,7 +6,13 @@ import {
   completeDeepLinkAuthProcessing,
   getDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
+import { storeSession } from '../tauriCommands';
 import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
+
+vi.mock('../../lib/coreState/store', () => ({
+  getCoreStateSnapshot: () => ({ isBootstrapping: false, snapshot: { sessionToken: null } }),
+  patchCoreStateSnapshot: vi.fn(),
+}));
 
 const windowControls = vi.hoisted(() => ({
   show: vi.fn().mockResolvedValue(undefined),
@@ -64,6 +70,36 @@ describe('desktopDeepLinkListener', () => {
       })
     );
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain('token%3Dsecret');
+  });
+
+  it('flags requiresAppDataReset when auth fails with a decryption error', async () => {
+    vi.mocked(storeSession).mockRejectedValueOnce(
+      new Error('Decryption failed — wrong key or tampered data')
+    );
+
+    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+
+    await setupDesktopDeepLinkListener();
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const state = getDeepLinkAuthState();
+    expect(state.requiresAppDataReset).toBe(true);
+    expect(state.errorMessage).toMatch(/Clear app data to start fresh/);
+    expect(state.isProcessing).toBe(false);
+  });
+
+  it('keeps requiresAppDataReset false for non-decryption auth failures', async () => {
+    vi.mocked(storeSession).mockRejectedValueOnce(new Error('network down'));
+
+    vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
+
+    await setupDesktopDeepLinkListener();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const state = getDeepLinkAuthState();
+    expect(state.requiresAppDataReset).toBe(false);
+    expect(state.errorMessage).toBe('Sign-in failed. Please try again.');
   });
 
   it('sanitizes provider and error code values from OAuth error deep links', async () => {

@@ -52,6 +52,11 @@ vi.mock('../../components/oauth/providerConfigs', () => ({
 
 vi.mock('../../store/deepLinkAuthState', () => ({ useDeepLinkAuthState: vi.fn() }));
 
+const mockClearAllAppData = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../utils/clearAllAppData', () => ({
+  clearAllAppData: (...args: unknown[]) => mockClearAllAppData(...args),
+}));
+
 vi.mock('../../services/coreRpcClient', () => ({
   clearCoreRpcUrlCache: vi.fn(),
   testCoreRpcConnection: vi.fn(),
@@ -150,6 +155,52 @@ describe('Welcome auth entrypoint', () => {
     render(<Welcome />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('OAuth failed');
+    expect(
+      screen.queryByRole('button', { name: /Clear app data & restart/ })
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('Welcome — decryption-failure recovery action', () => {
+  beforeEach(() => {
+    mockClearAllAppData.mockReset().mockResolvedValue(undefined);
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: "Sign-in failed because OpenHuman couldn't decrypt locally stored data.",
+      requiresAppDataReset: true,
+    });
+  });
+
+  it('renders the "Clear app data & restart" button when reset is required', () => {
+    render(<Welcome />);
+
+    expect(
+      screen.getByRole('button', { name: /Clear app data & restart/ })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/cloud account is unaffected/i)).toBeInTheDocument();
+  });
+
+  it('invokes clearAllAppData on click', async () => {
+    render(<Welcome />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear app data & restart/ }));
+
+    await waitFor(() => expect(mockClearAllAppData).toHaveBeenCalledTimes(1));
+    // Pre-login path: no clearSession callback is passed.
+    expect(mockClearAllAppData).toHaveBeenCalledWith();
+  });
+
+  it('surfaces an inline error if clearAllAppData rejects', async () => {
+    mockClearAllAppData.mockRejectedValueOnce(new Error('reset blew up'));
+
+    render(<Welcome />);
+    fireEvent.click(screen.getByRole('button', { name: /Clear app data & restart/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Could not clear app data/)).toBeInTheDocument();
+    });
+    // Button re-enabled so the user can retry.
+    expect(screen.getByRole('button', { name: /Clear app data & restart/ })).not.toBeDisabled();
   });
 });
 

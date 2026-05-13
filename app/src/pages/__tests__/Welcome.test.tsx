@@ -90,7 +90,7 @@ describe('Welcome auth entrypoint', () => {
   beforeEach(() => {
     oauthButtonSpy.mockReset();
     oauthOverrideSpy.mockReset();
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -125,7 +125,7 @@ describe('Welcome auth entrypoint', () => {
   });
 
   it('shows the deep-link processing state when auth is already in progress', () => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: true, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: true, errorMessage: null, requiresAppDataReset: false });
 
     render(<Welcome />);
 
@@ -136,6 +136,7 @@ describe('Welcome auth entrypoint', () => {
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
       errorMessage: 'OAuth failed',
+      requiresAppDataReset: false,
     });
 
     render(<Welcome />);
@@ -146,7 +147,7 @@ describe('Welcome auth entrypoint', () => {
 
 describe('Welcome — RPC URL advanced panel', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -216,7 +217,7 @@ describe('Welcome — RPC URL advanced panel', () => {
 
 describe('Welcome — Save button', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -294,7 +295,7 @@ describe('Welcome — Save button', () => {
 
 describe('Welcome — Test Connection button', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -419,7 +420,7 @@ describe('Welcome — Test Connection button', () => {
 
 describe('Welcome — Reset to Default button', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -475,7 +476,7 @@ describe('Welcome — Reset to Default button', () => {
 
 describe('Welcome — URL input behaviour', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
     vi.mocked(clearCoreRpcUrlCache).mockReset();
     vi.mocked(clearBackendUrlCache).mockReset();
     vi.mocked(storeRpcUrl).mockReset();
@@ -526,7 +527,7 @@ describe('Welcome — URL input behaviour', () => {
 
 describe('Welcome — OAuth buttons presence', () => {
   beforeEach(() => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: false, errorMessage: null, requiresAppDataReset: false });
   });
 
   it('renders all providers with showOnWelcome=true', () => {
@@ -544,7 +545,7 @@ describe('Welcome — OAuth buttons presence', () => {
   });
 
   it('hides OAuth buttons while auth is processing', () => {
-    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: true, errorMessage: null });
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({ isProcessing: true, errorMessage: null, requiresAppDataReset: false });
     render(<Welcome />);
 
     expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();

@@ -46,6 +46,7 @@ describe('desktopDeepLinkListener', () => {
       isProcessing: false,
       errorMessage:
         'Twitter/X sign-in failed before OpenHuman received authorization. Check the Twitter Developer Portal app settings: OAuth 2.0 must be enabled, callback URL must match the backend redirect URL exactly, and the client ID, client secret, and requested scopes must match the OpenHuman backend configuration.',
+      requiresAppDataReset: false,
     });
     expect(oauthErrorEvents).toHaveLength(1);
     expect(oauthErrorEvents[0].detail).toEqual({

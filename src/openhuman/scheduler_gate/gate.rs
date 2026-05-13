@@ -38,14 +38,15 @@ static LLM_PERMITS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 /// **Production**: one process-wide `Arc<Semaphore>` — the laptop-RAM
 /// safety contract documented on `LLM_SLOTS`.
 ///
-/// **Tests**: one `Arc<Semaphore>` per OS thread. Each `#[tokio::test]`
-/// runs its body on a current-thread runtime hosted by the cargo
-/// test-runner thread, so every test naturally gets its own permit
-/// pool and can't deadlock on a permit held by an unrelated test in
-/// another thread's runtime. The single-slot invariant (and any
-/// behaviour tied to it) is still observable *within* a test because
-/// every task that test spawns runs on the same current-thread
-/// runtime, hitting the same thread-local pool.
+/// **Tests**: one `Arc<Semaphore>` per tokio runtime, keyed by
+/// `tokio::runtime::Handle::current().id()` (see [`test_state`]).
+/// Each `#[tokio::test]` builds a fresh runtime → fresh id → fresh
+/// slot, immune to both cross-thread contention from parallel cargo
+/// workers and to libtest's reuse of the same OS thread for
+/// successive tests. The single-slot invariant (and behaviour
+/// tied to it) is still observable *within* a test because every
+/// task that test spawns runs on the same runtime → same id →
+/// same `Arc<Semaphore>`.
 #[cfg(not(test))]
 fn llm_permits() -> Arc<Semaphore> {
     LLM_PERMITS

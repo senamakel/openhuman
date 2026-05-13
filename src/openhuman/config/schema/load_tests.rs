@@ -113,7 +113,7 @@ fn clear_env(keys: &[&str]) {
 
 #[test]
 fn apply_env_overrides_picks_up_model() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_MODEL", "MODEL"]);
     unsafe {
         std::env::set_var("OPENHUMAN_MODEL", "gpt-5");
@@ -128,7 +128,7 @@ fn apply_env_overrides_picks_up_model() {
 
 #[test]
 fn apply_env_overrides_validates_temperature_range() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_TEMPERATURE"]);
     let mut cfg = Config::default();
     cfg.default_temperature = 0.5;
@@ -158,7 +158,7 @@ fn apply_env_overrides_validates_temperature_range() {
 
 #[test]
 fn apply_env_overrides_reasoning_enabled_parses_truthy_falsy() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_REASONING_ENABLED", "REASONING_ENABLED"]);
     let mut cfg = Config::default();
     cfg.runtime.reasoning_enabled = None;
@@ -188,7 +188,7 @@ fn apply_env_overrides_reasoning_enabled_parses_truthy_falsy() {
 
 #[test]
 fn apply_env_overrides_web_search_limits_only() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&[
         "OPENHUMAN_WEB_SEARCH_MAX_RESULTS",
         "WEB_SEARCH_MAX_RESULTS",
@@ -211,7 +211,7 @@ fn apply_env_overrides_web_search_limits_only() {
 
 #[test]
 fn apply_env_overrides_web_search_max_results_and_timeout_clamped() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&[
         "OPENHUMAN_WEB_SEARCH_MAX_RESULTS",
         "WEB_SEARCH_MAX_RESULTS",
@@ -250,7 +250,7 @@ fn apply_env_overrides_web_search_max_results_and_timeout_clamped() {
 
 #[test]
 fn apply_env_overrides_picks_up_sentry_dsn() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
     unsafe {
@@ -266,7 +266,7 @@ fn apply_env_overrides_picks_up_sentry_dsn() {
 
 #[test]
 fn apply_env_overrides_prefers_core_sentry_dsn_when_both_set() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
     unsafe {
@@ -284,7 +284,7 @@ fn apply_env_overrides_prefers_core_sentry_dsn_when_both_set() {
 
 #[test]
 fn apply_env_overrides_picks_up_core_sentry_dsn_alone() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
     unsafe {
@@ -938,7 +938,8 @@ async fn test_corrupt_config_no_backup_falls_back_to_defaults() {
     // Write invalid TOML — no .bak present.
     std::fs::write(&config_path, b"this is [not valid toml !!!").unwrap();
 
-    let result = parse_config_with_recovery(&config_path, "this is [not valid toml !!!").await;
+    let (result, was_corrupted) =
+        parse_config_with_recovery(&config_path, "this is [not valid toml !!!").await;
 
     // Must return default config values.
     assert!(
@@ -946,12 +947,7 @@ async fn test_corrupt_config_no_backup_falls_back_to_defaults() {
         "expected default temperature 0.7, got {}",
         result.default_temperature
     );
-    // The corrupt file should have been archived.
-    let corrupt_path = config_path.with_extension("toml.corrupt");
-    assert!(
-        corrupt_path.exists(),
-        "corrupt config should be archived to .corrupt"
-    );
+    assert!(was_corrupted, "parse failure must report corruption");
 }
 
 #[tokio::test]
@@ -967,13 +963,15 @@ async fn test_corrupt_config_valid_backup_recovers() {
     let bak_toml = "default_temperature = 1.5\n";
     std::fs::write(&backup_path, bak_toml).unwrap();
 
-    let result = parse_config_with_recovery(&config_path, "not [ valid toml").await;
+    let (result, was_corrupted) =
+        parse_config_with_recovery(&config_path, "not [ valid toml").await;
 
     assert!(
         (result.default_temperature - 1.5).abs() < f64::EPSILON,
         "expected backup temperature 1.5, got {}",
         result.default_temperature
     );
+    assert!(was_corrupted, "backup recovery must report corruption");
 }
 
 #[tokio::test]
@@ -986,12 +984,16 @@ async fn test_corrupt_config_corrupt_backup_falls_back_to_defaults() {
     std::fs::write(&config_path, b"invalid primary").unwrap();
     std::fs::write(&backup_path, b"invalid backup").unwrap();
 
-    let result = parse_config_with_recovery(&config_path, "invalid primary").await;
+    let (result, was_corrupted) = parse_config_with_recovery(&config_path, "invalid primary").await;
 
     assert!(
         (result.default_temperature - 0.7).abs() < f64::EPSILON,
         "expected default temperature 0.7 after double-corrupt, got {}",
         result.default_temperature
+    );
+    assert!(
+        was_corrupted,
+        "double-corrupt fallback must report corruption"
     );
 }
 
@@ -1062,12 +1064,14 @@ async fn test_save_then_corrupt_then_recover() {
         .unwrap();
 
     // Recovery should use .bak and return the saved temperature.
-    let recovered = parse_config_with_recovery(&config_path, "totally broken toml [[[").await;
+    let (recovered, was_corrupted) =
+        parse_config_with_recovery(&config_path, "totally broken toml [[[").await;
     assert!(
         (recovered.default_temperature - 1.3).abs() < f64::EPSILON,
         "expected recovered temperature 1.3, got {}",
         recovered.default_temperature
     );
+    assert!(was_corrupted, "recovery from .bak must report corruption");
 }
 
 #[test]
@@ -1075,7 +1079,7 @@ fn apply_env_overrides_commits_side_effects_to_runtime_proxy() {
     use crate::openhuman::config::schema::proxy::{runtime_proxy_config, set_runtime_proxy_config};
 
     // Hold the env lock so no other test races on proxy-related env vars.
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     clear_env(&[
         "OPENHUMAN_PROXY_ENABLED",
         "OPENHUMAN_HTTP_PROXY",
@@ -1121,4 +1125,180 @@ fn apply_env_overrides_commits_side_effects_to_runtime_proxy() {
     // Restore the global runtime proxy state so this test doesn't bleed into
     // other tests that inspect runtime_proxy_config().
     set_runtime_proxy_config(previous_runtime);
+}
+
+// ── config recovery (load_or_init with corrupted config.toml) ───
+
+/// Helper: write a file under a temp dir path.
+async fn write_file(path: &std::path::Path, contents: &str) {
+    tokio::fs::write(path, contents)
+        .await
+        .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+}
+
+const CORRUPTED_TOML: &str = "{{{ bad table header\n";
+
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+#[tokio::test]
+async fn load_or_init_recovers_from_backup_when_config_corrupted() {
+    let _g = env_lock();
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    let backup_path = root.join("config.toml.bak");
+
+    write_file(&config_path, CORRUPTED_TOML).await;
+    write_file(
+        &backup_path,
+        r#"default_model = "gpt-recovery-test"
+default_temperature = 0.7
+"#,
+    )
+    .await;
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", root.to_str().unwrap());
+    }
+
+    let config = Config::load_or_init().await.unwrap();
+
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some("gpt-recovery-test"),
+        "must load values from backup"
+    );
+
+    // The recovered config must have been persisted to disk.
+    let persisted = tokio::fs::read_to_string(&config_path).await.unwrap();
+    assert!(
+        persisted.contains("default_model"),
+        "recovered config must be written back to config.toml: {persisted}"
+    );
+
+    // The .bak must still be intact (save() must NOT have overwritten it
+    // with the corrupted primary).
+    let bak_contents = tokio::fs::read_to_string(&backup_path).await.unwrap();
+    assert!(
+        bak_contents.contains("gpt-recovery-test"),
+        "backup must not be overwritten by corrupted config during save: {bak_contents}"
+    );
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
+}
+
+#[tokio::test]
+async fn load_or_init_falls_back_to_defaults_when_backup_also_corrupted() {
+    let _g = env_lock();
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    let backup_path = root.join("config.toml.bak");
+
+    write_file(&config_path, CORRUPTED_TOML).await;
+    write_file(&backup_path, CORRUPTED_TOML).await;
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", root.to_str().unwrap());
+    }
+
+    let config = Config::load_or_init().await.unwrap();
+
+    // Config::default() sets default_model = Some("reasoning-v1").
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some(crate::openhuman::config::schema::DEFAULT_MODEL),
+        "must fall back to defaults when backup is also corrupted"
+    );
+
+    assert!(tokio::fs::try_exists(&config_path).await.unwrap());
+
+    // The corrupted backup should not be deleted by the recovery flow.
+    assert!(
+        tokio::fs::try_exists(&backup_path).await.unwrap(),
+        ".bak must not be deleted during recovery"
+    );
+
+    // The corrupted primary must have been renamed to .corrupted.
+    let corrupted_path = root.join("config.toml.corrupted");
+    assert!(
+        tokio::fs::try_exists(&corrupted_path).await.unwrap(),
+        "corrupted primary must be renamed to config.toml.corrupted"
+    );
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
+}
+
+#[tokio::test]
+async fn load_or_init_falls_back_to_defaults_when_no_backup() {
+    let _g = env_lock();
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    write_file(&config_path, CORRUPTED_TOML).await;
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", root.to_str().unwrap());
+    }
+
+    let config = Config::load_or_init().await.unwrap();
+
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some(crate::openhuman::config::schema::DEFAULT_MODEL),
+        "must fall back to defaults when no backup exists"
+    );
+
+    assert!(tokio::fs::try_exists(&config_path).await.unwrap());
+
+    // The corrupted primary must have been renamed to .corrupted.
+    let corrupted_path = root.join("config.toml.corrupted");
+    assert!(
+        tokio::fs::try_exists(&corrupted_path).await.unwrap(),
+        "corrupted primary must be renamed to config.toml.corrupted"
+    );
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
+}
+
+#[tokio::test]
+async fn load_or_init_does_not_trigger_recovery_on_valid_config() {
+    let _g = env_lock();
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    write_file(
+        &root.join("config.toml"),
+        r#"default_model = "gpt-valid"
+default_temperature = 0.7
+"#,
+    )
+    .await;
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", root.to_str().unwrap());
+    }
+
+    let config = Config::load_or_init().await.unwrap();
+
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some("gpt-valid"),
+        "valid config must load normally without recovery"
+    );
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
 }

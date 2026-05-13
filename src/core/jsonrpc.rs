@@ -22,6 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::all;
 use crate::core::types::{AppState, RpcError, RpcFailure, RpcRequest, RpcSuccess};
+use crate::rpc::StructuredRpcError;
 
 /// Axum handler for JSON-RPC POST requests.
 ///
@@ -55,22 +56,40 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             )
                 .into_response()
         }
-        Err(message) => {
+        Err(raw_message) => {
+            // Decode the controller-emitted structured envelope (if any)
+            // here at the transport boundary. Domains opt in by emitting a
+            // `StructuredRpcError` from their handlers — this layer never
+            // branches on the RPC method name to recover error semantics.
+            let structured = StructuredRpcError::decode(&raw_message);
+            let (display_message, error_data, expected_user_state) = match structured {
+                Some(envelope) => (
+                    envelope.message,
+                    envelope.data,
+                    envelope.expected_user_state,
+                ),
+                None => (raw_message, None, false),
+            };
+
             // Session-expired bubbles up as an "error" but is an expected
             // boundary condition (auth handler clears the local token and the
             // UI re-auths). Don't spam Sentry with it.
             //
-            // Param-validation failures ("unknown param 'x' for ns.fn",
-            // "missing required param 'x'", "invalid params: …") are also
-            // pure boundary mismatches: either the caller is a frontend on a
-            // different release than the running core (OPENHUMAN-TAURI-20:
-            // v0.53.22 UI shipped `api_key` before the matching schema input
-            // landed in #1467) or it is straight client-bug input. Sentry
-            // cannot help — we can neither retro-fix already-shipped
-            // installs nor learn anything from the noise — so log at info
-            // and skip the report.
+            // Domains that surface their own expected-user-state errors (stale
+            // thread refs, etc.) set the `expected_user_state` flag on their
+            // structured envelope and skip Sentry here uniformly.
             //
-            // Logging asymmetry between the two skip paths is intentional:
+            // Param-validation failures ("unknown param 'x' for ns.fn",
+            // "missing required param 'x'", "invalid params: expected object
+            // or null, got …") are also pure boundary mismatches: either the
+            // caller is a frontend on a different release than the running
+            // core (OPENHUMAN-TAURI-20: v0.53.22 UI shipped `api_key` before
+            // the matching schema input landed in #1467) or it is straight
+            // client-bug input. Sentry cannot help — we can neither retro-fix
+            // already-shipped installs nor learn anything from the noise — so
+            // log at info and skip the report.
+            //
+            // Logging asymmetry between the skip paths is intentional:
             // session-expired messages are a small set of fixed strings
             // (no caller-supplied content), so the full text is safe to
             // log. Param-validation messages embed caller-supplied param
@@ -78,17 +97,23 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             // deserialized values — log structurally with redacted body
             // to keep PII out of the sink while preserving the method
             // for grep / correlation.
-            if is_param_validation_error(&message) {
+            if expected_user_state {
+                tracing::info!(
+                    method = %method,
+                    "[rpc] expected-user-state error — skipping Sentry: {}",
+                    display_message
+                );
+            } else if is_param_validation_error(&display_message) {
                 tracing::info!(
                     method = %method,
                     elapsed_ms = ms as u64,
                     "[rpc] param-validation error (message redacted; skip-report)"
                 );
-            } else if is_session_expired_error(&message) {
-                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, message);
+            } else if is_session_expired_error(&display_message) {
+                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, display_message);
             } else {
                 crate::core::observability::report_error_or_expected(
-                    message.as_str(),
+                    display_message.as_str(),
                     "rpc",
                     "invoke_method",
                     &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
@@ -101,8 +126,8 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     id,
                     error: RpcError {
                         code: -32000,
-                        message,
-                        data: None,
+                        message: display_message,
+                        data: error_data,
                     },
                 }),
             )

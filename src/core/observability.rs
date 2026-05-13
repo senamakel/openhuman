@@ -1,4 +1,6 @@
-//! Centralised error reporting for the core.
+//! Centralised error reporting for the core, plus a Sentry
+//! `before_send` filter that drops per-attempt transient-upstream
+//! provider failures.
 //!
 //! Wraps `tracing::error!` (which the global subscriber forwards to Sentry via
 //! `sentry-tracing`) inside a `sentry::with_scope` so each captured event
@@ -17,6 +19,21 @@ use std::fmt::Display;
 /// and filterable in the Sentry UI — prefer them over free-form fields for
 /// anything you'd want to facet on (`error_kind`, `tool_name`, `method`).
 pub type Tag<'a> = (&'a str, &'a str);
+
+/// HTTP status codes that the reliable-provider layer already handles via
+/// retry + fallback, so per-attempt Sentry reports add noise without signal:
+///
+/// - **408** Request Timeout
+/// - **429** Too Many Requests
+/// - **502** Bad Gateway
+/// - **503** Service Unavailable
+/// - **504** Gateway Timeout
+///
+/// Single source of truth for both the call-site classifier
+/// (`openhuman::providers::ops::should_report_provider_http_failure`) and the
+/// `before_send` filter (`is_transient_provider_http_failure`). Update here
+/// and both sites pick it up — keeps the two layers from drifting.
+pub const TRANSIENT_PROVIDER_HTTP_STATUSES: &[u16] = &[408, 429, 502, 503, 504];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpectedErrorKind {
@@ -102,7 +119,12 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
     }
 }
 
-fn report_error_message(message: &str, domain: &str, operation: &str, extra: &[Tag<'_>]) {
+pub(crate) fn report_error_message(
+    message: &str,
+    domain: &str,
+    operation: &str,
+    extra: &[Tag<'_>],
+) {
     sentry::with_scope(
         |scope| {
             scope.set_tag("domain", domain);
@@ -120,6 +142,37 @@ fn report_error_message(message: &str, domain: &str, operation: &str, extra: &[T
             );
         },
     );
+}
+
+/// Returns true when a Sentry event is a per-attempt provider HTTP failure
+/// that the reliable-provider layer already handles via retry + fallback.
+///
+/// The primary suppression lives at the call site
+/// (`openhuman::providers::ops::should_report_provider_http_failure`),
+/// which short-circuits transient codes before `report_error` ever fires.
+/// This helper is intended for use inside the `sentry::ClientOptions`
+/// `before_send` hook as defense-in-depth — it catches any future call
+/// site that emits a `tracing::error!` with the same shape but bypasses
+/// the classifier.
+///
+/// Match criteria (all required):
+/// - tag `domain == "llm_provider"` — pins the filter to provider-originated
+///   events so an unrelated subsystem emitting `failure=non_2xx`/`status=503`
+///   for its own reasons doesn't get silently dropped
+/// - tag `failure == "non_2xx"` (the marker set by `ops::api_error`)
+/// - tag `status` parses to one of [`TRANSIENT_PROVIDER_HTTP_STATUSES`]
+pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -> bool {
+    let tags = &event.tags;
+    if tags.get("domain").map(String::as_str) != Some("llm_provider") {
+        return false;
+    }
+    if tags.get("failure").map(String::as_str) != Some("non_2xx") {
+        return false;
+    }
+    let Some(status_u16) = tags.get("status").and_then(|s| s.parse::<u16>().ok()) else {
+        return false;
+    };
+    TRANSIENT_PROVIDER_HTTP_STATUSES.contains(&status_u16)
 }
 
 #[cfg(test)]
@@ -175,6 +228,98 @@ mod tests {
             "test",
             "multi_tag",
             &[("a", "1"), ("b", "2"), ("c", "3"), ("d", "4")],
+        );
+    }
+
+    fn event_with_tags(pairs: &[(&str, &str)]) -> sentry::protocol::Event<'static> {
+        let mut event = sentry::protocol::Event::default();
+        let mut tags: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        for (k, v) in pairs {
+            tags.insert((*k).to_string(), (*v).to_string());
+        }
+        event.tags = tags;
+        event
+    }
+
+    #[test]
+    fn transient_filter_drops_429_408_502_503_504() {
+        for status in ["429", "408", "502", "503", "504"] {
+            let event = event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ]);
+            assert!(
+                is_transient_provider_http_failure(&event),
+                "status {status} must be classified as transient and filtered"
+            );
+        }
+    }
+
+    #[test]
+    fn transient_filter_keeps_permanent_failures() {
+        for status in ["400", "401", "403", "404", "500"] {
+            let event = event_with_tags(&[
+                ("domain", "llm_provider"),
+                ("failure", "non_2xx"),
+                ("status", status),
+            ]);
+            assert!(
+                !is_transient_provider_http_failure(&event),
+                "status {status} must NOT be filtered — it's actionable"
+            );
+        }
+    }
+
+    #[test]
+    fn transient_filter_keeps_aggregate_all_exhausted() {
+        let event = event_with_tags(&[
+            ("domain", "llm_provider"),
+            ("failure", "all_exhausted"),
+            ("status", "503"),
+        ]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "aggregate all_exhausted events must surface (they are the cascade signal)"
+        );
+    }
+
+    #[test]
+    fn transient_filter_keeps_events_with_no_status_tag() {
+        let event = event_with_tags(&[("domain", "llm_provider"), ("failure", "non_2xx")]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "missing status tag must not be silently dropped"
+        );
+    }
+
+    // Regression guard: the filter must scope to provider events only. Other
+    // subsystems emit `failure=non_2xx` (e.g.
+    // `providers/compatible.rs` uses the same marker for OAI-compatible
+    // error paths, but every site goes through `report_error(..,
+    // "llm_provider", ..)` so the domain tag is consistent), but the broader
+    // point is: any future caller that re-uses the same tag set for a
+    // different domain must NOT be silently dropped by this filter.
+    #[test]
+    fn transient_filter_keeps_events_with_no_domain_tag() {
+        let event = event_with_tags(&[("failure", "non_2xx"), ("status", "503")]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "missing domain tag means the event isn't provider-originated — must surface"
+        );
+    }
+
+    #[test]
+    fn transient_filter_keeps_events_from_other_domains() {
+        let event = event_with_tags(&[
+            ("domain", "scheduler"),
+            ("failure", "non_2xx"),
+            ("status", "503"),
+        ]);
+        assert!(
+            !is_transient_provider_http_failure(&event),
+            "non-provider domain must surface even if failure/status tags collide"
         );
     }
 

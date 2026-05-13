@@ -114,15 +114,18 @@ pub fn format_anyhow_chain(err: &anyhow::Error) -> String {
 
 /// Whether a non-2xx provider response is worth reporting to Sentry.
 ///
-/// 429 Too Many Requests is a transient, caller-side throttling signal — the
-/// reliable-provider layer already retries with backoff and falls back across
-/// providers/models, and the aggregate "all providers exhausted" event still
-/// fires if every attempt fails. Reporting each individual 429 floods Sentry
-/// (see OPENHUMAN-TAURI-6Y: ~8K events/day from one user being rate-limited
-/// by an upstream model). Callers should still propagate the error so retry
-/// and fallback logic runs unchanged; this only gates the Sentry report.
+/// Transient upstream statuses — 429 Too Many Requests, 408 Request Timeout,
+/// and 502/503/504 gateway-layer failures — are caller-side throttling or
+/// upstream-capacity signals. The reliable-provider layer already retries
+/// with backoff and falls back across providers/models, and the aggregate
+/// "all providers exhausted" event still fires if every attempt fails.
+/// Reporting each individual transient failure floods Sentry (see
+/// OPENHUMAN-TAURI-6Y / 2E / 84 / T: thousands of events/day per user from
+/// a single upstream rate-limit / outage window). Callers should still
+/// propagate the error so retry and fallback logic runs unchanged; this
+/// only gates the per-attempt Sentry report.
 pub fn should_report_provider_http_failure(status: reqwest::StatusCode) -> bool {
-    status != reqwest::StatusCode::TOO_MANY_REQUESTS
+    !crate::core::observability::TRANSIENT_PROVIDER_HTTP_STATUSES.contains(&status.as_u16())
 }
 
 /// Whether a "Budget exceeded" error from `provider` at `status` should be
@@ -430,26 +433,38 @@ mod tests {
     }
 
     #[test]
-    fn skips_sentry_report_for_429_only() {
-        // 429 is transient rate-limit — reliable.rs retries + falls back, and
-        // the aggregate "all providers exhausted" event still fires for genuine
-        // outages. Reporting each 429 individually floods Sentry.
-        assert!(!should_report_provider_http_failure(
-            reqwest::StatusCode::TOO_MANY_REQUESTS
-        ));
-        // Everything else (auth, server, gateway, etc.) is still worth a report.
-        assert!(should_report_provider_http_failure(
-            reqwest::StatusCode::UNAUTHORIZED
-        ));
-        assert!(should_report_provider_http_failure(
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR
-        ));
-        assert!(should_report_provider_http_failure(
-            reqwest::StatusCode::BAD_GATEWAY
-        ));
-        assert!(should_report_provider_http_failure(
-            reqwest::StatusCode::SERVICE_UNAVAILABLE
-        ));
+    fn skips_sentry_report_for_transient_upstream_statuses() {
+        // Transient statuses — 429 rate-limit, 408 client timeout, and 502/503/504
+        // gateway-layer failures — are retried by reliable.rs. The aggregate
+        // "all providers exhausted" event still fires for genuine outages.
+        // Reporting each attempt individually floods Sentry (OPENHUMAN-TAURI-2E
+        // ~1393 events, 84 ~1050 events, T ~871 events).
+        for transient in [
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            reqwest::StatusCode::REQUEST_TIMEOUT,
+            reqwest::StatusCode::BAD_GATEWAY,
+            reqwest::StatusCode::SERVICE_UNAVAILABLE,
+            reqwest::StatusCode::GATEWAY_TIMEOUT,
+        ] {
+            assert!(
+                !should_report_provider_http_failure(transient),
+                "transient status {transient} must not trigger per-attempt Sentry report"
+            );
+        }
+        // Auth + permanent server faults remain reportable — those are
+        // misconfiguration or genuine bugs, not transient capacity issues.
+        for reportable in [
+            reqwest::StatusCode::UNAUTHORIZED,
+            reqwest::StatusCode::FORBIDDEN,
+            reqwest::StatusCode::BAD_REQUEST,
+            reqwest::StatusCode::NOT_FOUND,
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        ] {
+            assert!(
+                should_report_provider_http_failure(reportable),
+                "status {reportable} must still report to Sentry"
+            );
+        }
     }
 
     // Confirm the Budget-exceeded suppression predicate is scoped correctly.

@@ -29,6 +29,24 @@ const MAX_REDIRECT_HOPS: u8 = 3;
 // Background loop
 // ---------------------------------------------------------------------------
 
+/// Number of consecutive `ConnectionOutcome::Failed` attempts at which the
+/// loop fires exactly one `error`-level log (and therefore one Sentry event).
+/// Below the threshold, repeated transient failures (gateway 5xx, TLS
+/// handshake resets, DNS blips) stay at `warn` and don't reach the Sentry
+/// tracing layer. Above the threshold, subsequent retries return to `warn` —
+/// the one-shot `error` at the threshold is sufficient to page on a sustained
+/// outage without generating unbounded events.
+///
+/// The value is 5 intentionally: the Sentry event fires on the **5th
+/// consecutive failed attempt**, which corresponds to ~15 seconds of
+/// accumulated backoff sleep (1 s + 2 s + 4 s + 8 s before the 5th try).
+/// Transient blips that recover within 4 attempts produce zero Sentry noise;
+/// sustained outages produce exactly one event per affected client.
+///
+/// See OPENHUMAN-TAURI-8M — a single gateway 503 incident generated 549
+/// Sentry events because every retry was logged at `error`.
+const FAIL_ESCALATE_THRESHOLD: u32 = 5;
+
 /// Background loop that manages the WebSocket connection and reconnection.
 pub(super) async fn ws_loop(
     url: String,
@@ -38,8 +56,24 @@ pub(super) async fn ws_loop(
     mut shutdown_rx: watch::Receiver<bool>,
     internal_tx: mpsc::UnboundedSender<String>,
 ) {
+    // Defense in depth: `SocketManager::connect` is the primary guard and
+    // will reject an empty token before spawning this task. This check
+    // covers any future caller that invokes `ws_loop` directly (e.g. tests
+    // or internal plumbing bypassing the manager). Without it, every attempt
+    // would either 401 at the SIO CONNECT step or fail upstream at the
+    // gateway, producing the retry-storm Sentry noise this module is designed
+    // to suppress.
+    if token.trim().is_empty() {
+        log::error!("[socket] ws_loop: refusing to start — empty session token");
+        *shared.status.write() = ConnectionStatus::Disconnected;
+        *shared.socket_id.write() = None;
+        emit_state_change(&shared);
+        return;
+    }
+
     let mut backoff = Duration::from_millis(1000);
     let max_backoff = Duration::from_secs(30);
+    let mut consecutive_failures: u32 = 0;
 
     // `ws_url` is the *resolved* socket URL we're currently connecting to.
     // If the backend responds with an HTTP 3xx during the upgrade (typical when
@@ -73,11 +107,23 @@ pub(super) async fn ws_loop(
                 break;
             }
             ConnectionOutcome::Lost(reason) => {
+                // `Lost` is only returned after a successful SIO CONNECT ACK
+                // (see `run_connection`), so reaching this arm proves the
+                // backend is reachable and the token is valid. Reset both
+                // the backoff and the failure streak.
+                if consecutive_failures > 0 {
+                    log::debug!(
+                        "[socket] Connection re-established; resetting failure streak ({} cleared)",
+                        consecutive_failures
+                    );
+                }
+                consecutive_failures = 0;
                 log::warn!("[socket] Connection lost: {}", reason);
-                backoff = Duration::from_millis(1000); // reset on established-then-lost
+                backoff = Duration::from_millis(1000);
             }
             ConnectionOutcome::Failed(reason) => {
-                log::error!("[socket] Connection failed: {}", reason);
+                consecutive_failures = consecutive_failures.saturating_add(1);
+                log_connection_failure(consecutive_failures, &reason);
                 // keep growing backoff
             }
         }
@@ -104,6 +150,44 @@ pub(super) async fn ws_loop(
     *shared.status.write() = ConnectionStatus::Disconnected;
     *shared.socket_id.write() = None;
     emit_state_change(&shared);
+}
+
+// ---------------------------------------------------------------------------
+// Failure logging
+// ---------------------------------------------------------------------------
+
+/// Log a connection failure at the appropriate level based on how many
+/// consecutive failures have occurred.
+///
+/// - Below `FAIL_ESCALATE_THRESHOLD`: `warn` — transient blips (DNS, gateway
+///   5xx, TLS resets) stay out of Sentry.
+/// - Exactly at the threshold: `error` — fires the one-shot Sentry event that
+///   signals a sustained outage.
+/// - Above the threshold: `warn` — already paged once; avoid unbounded events
+///   during a long outage.
+///
+/// Extracted as a pure function so it can be unit-tested without running an
+/// async event loop or touching the WS stack.
+fn log_connection_failure(consecutive: u32, reason: &str) {
+    if consecutive == FAIL_ESCALATE_THRESHOLD {
+        // One-shot escalation: fire exactly one Sentry-visible `error` event so
+        // sustained outages surface without generating unbounded events.
+        log::error!(
+            "[socket] Connection failed (sustained outage after {} attempts): {}",
+            consecutive,
+            reason
+        );
+    } else {
+        // Below threshold (transient blips) or above threshold (already fired
+        // the one-shot error): stay at `warn` so subsequent retries don't pile
+        // up additional Sentry events.
+        log::warn!(
+            "[socket] Connection failed (attempt {}/{}): {}",
+            consecutive,
+            FAIL_ESCALATE_THRESHOLD,
+            reason
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

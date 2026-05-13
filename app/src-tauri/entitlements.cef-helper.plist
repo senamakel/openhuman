@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Minimal entitlements applied to every CEF Helper.app inside
+      Contents/Frameworks/. Chromium's `DeriveCurrentValidationCategory()`
+      inspects each helper's entitlements at runtime to identify what kind
+      of helper it is (Renderer / GPU / Plugin / Alerts / Main). If the
+      helper carries the main-app entitlements (audio-input, camera,
+      network.client, etc.), the category derivation fails and the
+      embedded webview aborts with errSecCSReqFailed (-67030), leaving
+      the window blank.
+
+      These three are what Chromium requires across the helper types:
+        - allow-jit + allow-unsigned-executable-memory  : V8 JIT + WASM
+        - disable-library-validation                    : load CEF dylibs
+      Per-helper-type variation (some only need a subset) is benign for
+      the categories Chromium recognises, so we apply the same minimal
+      set to all helpers rather than maintaining 5 nearly-identical files.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

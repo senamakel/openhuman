@@ -128,7 +128,18 @@ impl SocketManager {
     ///
     /// Spawns a background `ws_loop` that manages the connection with automatic
     /// reconnection and exponential backoff.
+    ///
+    /// Returns `Err` immediately if `token` is empty — every reconnect attempt
+    /// would either 401 at the SIO CONNECT step or fail upstream at the gateway,
+    /// producing exactly the kind of retry-storm noise this module is designed to
+    /// suppress. Callers receive an actionable error and the RPC response reflects
+    /// the actual outcome rather than optimistically reporting `{"status":"Connecting"}`.
     pub async fn connect(&self, url: &str, token: &str) -> Result<(), String> {
+        if token.trim().is_empty() {
+            log::error!("[socket] connect: refusing to start — empty session token");
+            return Err("empty session token — authenticate first".to_string());
+        }
+
         // Ensure the rustls crypto provider is installed (needed for wss:// TLS).
         // This is a no-op if already installed.
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -337,5 +348,26 @@ mod tests {
         mgr.disconnect().await.unwrap();
         let err = mgr.emit("x", json!({})).await.unwrap_err();
         assert_eq!(err, "Not connected");
+    }
+
+    /// Empty-token guard at the `SocketManager::connect` boundary:
+    /// the RPC caller must receive an `Err` immediately — not
+    /// `{"status":"Connecting"}` — so the UI can surface an actionable error.
+    #[tokio::test]
+    async fn connect_rejects_empty_token_and_returns_err() {
+        let mgr = SocketManager::new();
+
+        // Bare empty string.
+        let err = mgr.connect("http://localhost:1", "").await.unwrap_err();
+        assert!(
+            err.contains("empty session token"),
+            "expected 'empty session token' in error, got: {err}"
+        );
+        assert_eq!(mgr.get_state().status, ConnectionStatus::Disconnected);
+
+        // Whitespace-only string (trim check).
+        let err = mgr.connect("http://localhost:1", "   ").await.unwrap_err();
+        assert!(err.contains("empty session token"), "{err}");
+        assert_eq!(mgr.get_state().status, ConnectionStatus::Disconnected);
     }
 }

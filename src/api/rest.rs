@@ -449,7 +449,20 @@ impl BackendOAuthClient {
             // temporarily unavailable). They are not code bugs and callers already
             // implement retry/disable logic, so skip Sentry to avoid noise.
             let is_transient_infra = matches!(status_code, 502 | 503 | 504);
-            if is_transient_infra {
+            let is_budget_exhausted = status_code == 400
+                && crate::openhuman::providers::is_budget_exhausted_message(&text);
+            if is_budget_exhausted {
+                tracing::info!(
+                    method = method.as_str(),
+                    path = url.path(),
+                    status = status_code,
+                    failure = "non_2xx",
+                    kind = "budget",
+                    "[backend_api] budget-exhausted 400 on {} {} — not reporting to Sentry",
+                    method.as_str(),
+                    url.path(),
+                );
+            } else if is_transient_infra {
                 tracing::warn!(
                     method = method.as_str(),
                     path = url.path(),

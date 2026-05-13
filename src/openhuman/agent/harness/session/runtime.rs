@@ -502,16 +502,29 @@ impl Agent {
             }
             Err(err) => {
                 let sanitized_message = Self::sanitize_event_error_message(&err);
-                crate::core::observability::report_error(
-                    &err,
-                    "agent",
-                    "run_single",
-                    &[
-                        ("session_id", self.event_session_id()),
-                        ("channel", self.event_channel()),
-                        ("error_kind", sanitized_message.as_str()),
-                    ],
-                );
+                let full_error = format!("{err:#}");
+                if providers::is_budget_exhausted_message(&full_error) {
+                    tracing::info!(
+                        domain = "agent",
+                        operation = "run_single",
+                        session_id = self.event_session_id(),
+                        channel = self.event_channel(),
+                        error_kind = sanitized_message.as_str(),
+                        kind = "budget",
+                        "[agent] run_single budget-exhausted error — not reporting to Sentry"
+                    );
+                } else {
+                    crate::core::observability::report_error(
+                        &err,
+                        "agent",
+                        "run_single",
+                        &[
+                            ("session_id", self.event_session_id()),
+                            ("channel", self.event_channel()),
+                            ("error_kind", sanitized_message.as_str()),
+                        ],
+                    );
+                }
                 publish_global(DomainEvent::AgentError {
                     session_id: self.event_session_id().to_string(),
                     message: sanitized_message,

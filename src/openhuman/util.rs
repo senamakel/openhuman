@@ -291,6 +291,22 @@ mod tests {
         assert_eq!(calls, 1);
     }
 
+    #[tokio::test]
+    async fn test_retry_with_backoff_async_bail_on_non_transient() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let calls = AtomicU32::new(0);
+        let result = retry_with_backoff_async("test_async_bail", 3, 1, || async {
+            calls.fetch_add(1, Ordering::SeqCst);
+            anyhow::bail!("permanent error");
+            #[allow(unreachable_code)]
+            Ok::<i32, anyhow::Error>(0)
+        })
+        .await;
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string(), "permanent error");
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
     #[test]
     fn test_retry_with_backoff_rejects_zero_attempts() {
         let mut calls = 0;
@@ -359,13 +375,7 @@ where
         match f() {
             Ok(val) => {
                 if i > 0 {
-                    tracing::info!(
-                        op = op_name,
-                        retries = i,
-                        "[util] {} succeeded after {} retries",
-                        op_name,
-                        i
-                    );
+                    tracing::info!(op = op_name, retries = i, "[util] succeeded after retries");
                 }
                 return Ok(val);
             }
@@ -386,12 +396,7 @@ where
                     max_attempts = attempts,
                     error = %e,
                     retry_in_ms = sleep_ms,
-                    "[util] {} failed (attempt {}/{}): {}. Retrying in {}ms...",
-                    op_name,
-                    i + 1,
-                    attempts,
-                    e,
-                    sleep_ms
+                    "[util] transient fs retry"
                 );
 
                 std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
@@ -423,13 +428,7 @@ where
         match f().await {
             Ok(val) => {
                 if i > 0 {
-                    tracing::info!(
-                        op = op_name,
-                        retries = i,
-                        "[util] {} succeeded after {} retries",
-                        op_name,
-                        i
-                    );
+                    tracing::info!(op = op_name, retries = i, "[util] succeeded after retries");
                 }
                 return Ok(val);
             }
@@ -450,12 +449,7 @@ where
                     max_attempts = attempts,
                     error = %e,
                     retry_in_ms = sleep_ms,
-                    "[util] {} failed (attempt {}/{}): {}. Retrying in {}ms...",
-                    op_name,
-                    i + 1,
-                    attempts,
-                    e,
-                    sleep_ms
+                    "[util] transient fs retry"
                 );
 
                 tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;

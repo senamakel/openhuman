@@ -1356,7 +1356,7 @@ pub async fn wipe_all_rpc(config: &Config) -> Result<RpcOutcome<WipeAllResponse>
 
     let resp = WipeAllResponse {
         rows_deleted,
-        dirs_removed: dirs_removed.clone(),
+        dirs_removed,
         sync_state_cleared,
     };
 
@@ -1416,17 +1416,19 @@ pub struct ResetTreeResponse {
 /// inert fallback to a real Ollama model) and want to re-summarise
 /// existing data without paying the upstream sync cost again.
 ///
-/// Three steps, each in its own SQL pass:
+/// Three steps, executed in this order:
 ///   1. Truncate `mem_tree_summaries`, `mem_tree_trees`,
 ///      `mem_tree_buffers`, `mem_tree_jobs`. The tree schema is
 ///      derived state — chunks are the source of truth.
-///   2. Remove `<content_root>/wiki/summaries/` on disk so stale
-///      `.md` files don't drift from the SQL truth.
-///   3. Reset every chunk's `lifecycle_status` to
+///   2. Reset every chunk's `lifecycle_status` to
 ///      `'pending_extraction'` and enqueue an `extract_chunk` job
 ///      keyed on the chunk id. The async worker picks each up and
 ///      re-runs entity extract → score → embed → append-to-buffer.
 ///      Seals happen automatically as L0 buffers cross the gate.
+///   3. Remove `<content_root>/wiki/summaries/` on disk so stale
+///      `.md` files don't drift from the SQL truth. Done last (and
+///      outside `spawn_blocking`) so the on-disk removal can use
+///      async retry without blocking the worker thread.
 pub async fn reset_tree_rpc(config: &Config) -> Result<RpcOutcome<ResetTreeResponse>, String> {
     use crate::openhuman::memory::tree::jobs::store as jobs_store;
     use crate::openhuman::memory::tree::jobs::types::{ExtractChunkPayload, NewJob};
@@ -1455,7 +1457,7 @@ pub async fn reset_tree_rpc(config: &Config) -> Result<RpcOutcome<ResetTreeRespo
                 Ok(total)
             })?;
 
-            // Step 3 — flip every chunk back to `pending_extraction` and
+            // Step 2 — flip every chunk back to `pending_extraction` and
             // enqueue an `extract_chunk` job per id.
             let (chunks_requeued, jobs_enqueued) =
                 with_connection(&cfg, |conn| -> anyhow::Result<(u64, u64)> {
@@ -1496,7 +1498,7 @@ pub async fn reset_tree_rpc(config: &Config) -> Result<RpcOutcome<ResetTreeRespo
         .map_err(|e| format!("reset_tree join error: {e}"))?
         .map_err(|e| format!("reset_tree: {e:#}"))?;
 
-    // Step 2 — wipe the on-disk wiki/summaries tree.
+    // Step 3 — wipe the on-disk wiki/summaries tree.
     // Use async retry to avoid blocking the executor during Windows sharing violations.
     let summaries_dir = config
         .memory_tree_content_root()

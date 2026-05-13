@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    build_http_schema_dump, default_state, escape_html, invoke_method, is_session_expired_error,
-    params_to_object, parse_json_params, rpc_handler, type_name,
+    build_http_schema_dump, default_state, escape_html, invoke_method, is_param_validation_error,
+    is_session_expired_error, params_to_object, parse_json_params, rpc_handler, type_name,
 };
 
 struct EnvVarGuard {
@@ -610,6 +610,42 @@ fn is_session_expired_error_does_not_match_unrelated_errors() {
     assert!(!is_session_expired_error("network timeout"));
     assert!(!is_session_expired_error("500 internal server error"));
     assert!(!is_session_expired_error(""));
+}
+
+#[test]
+fn is_param_validation_error_matches_the_three_validator_shapes() {
+    // Regression guard for OPENHUMAN-TAURI-20: pre-#1467 cores rejected
+    // `api_key` because it wasn't in the schema yet. The error string
+    // must keep matching here so it gets logged at info level and never
+    // reaches Sentry as an unactionable client/server skew event.
+    assert!(is_param_validation_error(
+        "unknown param 'api_key' for config.update_model_settings"
+    ));
+    // `all::validate_params` — missing required field.
+    assert!(is_param_validation_error(
+        "missing required param 'session_id': active session identifier"
+    ));
+    // `params_to_object` — params field is the wrong JSON shape.
+    assert!(is_param_validation_error(
+        "invalid params: expected object or null, got array"
+    ));
+}
+
+#[test]
+fn is_param_validation_error_does_not_match_unrelated_errors() {
+    // Handler-side / network / auth failures must still be reported.
+    assert!(!is_param_validation_error(
+        "backend returned 401 Unauthorized"
+    ));
+    assert!(!is_param_validation_error("network timeout"));
+    assert!(!is_param_validation_error(
+        "config.update_model_settings: store write failed"
+    ));
+    // Empty and substring-only matches don't qualify either.
+    assert!(!is_param_validation_error(""));
+    assert!(!is_param_validation_error(
+        "rpc failed: unknown param 'x' for ns.fn"
+    ));
 }
 
 #[test]

@@ -73,25 +73,51 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
 
             // Session-expired bubbles up as an "error" but is an expected
             // boundary condition (auth handler clears the local token and the
-            // UI re-auths). Don't spam Sentry with it. Domains that surface
-            // their own expected-user-state errors (stale thread refs, etc.)
-            // set the `expected_user_state` flag on their structured envelope
-            // and skip Sentry here uniformly.
+            // UI re-auths). Don't spam Sentry with it.
+            //
+            // Param-validation failures ("unknown param 'x' for ns.fn",
+            // "missing required param 'x'", "invalid params: …") are also
+            // pure boundary mismatches: either the caller is a frontend on a
+            // different release than the running core (OPENHUMAN-TAURI-20:
+            // v0.53.22 UI shipped `api_key` before the matching schema input
+            // landed in #1467) or it is straight client-bug input. Sentry
+            // cannot help — we can neither retro-fix already-shipped
+            // installs nor learn anything from the noise — so log at info
+            // and skip the report.
+            //
+            // Logging asymmetry between the two skip paths is intentional:
+            // session-expired messages are a small set of fixed strings
+            // (no caller-supplied content), so the full text is safe to
+            // log. Param-validation messages embed caller-supplied param
+            // names and, for the `invalid params: …` shape, can carry
+            // deserialized values — log structurally with redacted body
+            // to keep PII out of the sink while preserving the method
+            // for grep / correlation.
+            //
+            // Domains that surface their own expected-user-state errors
+            // (stale thread refs, etc.) set the `expected_user_state` flag
+            // on their structured envelope and skip Sentry here uniformly.
             if expected_user_state {
                 tracing::info!(
                     method = %method,
                     "[rpc] expected-user-state error — skipping Sentry: {}",
                     display_message
                 );
-            } else if !is_session_expired_error(&display_message) {
+            } else if is_param_validation_error(&display_message) {
+                tracing::info!(
+                    method = %method,
+                    elapsed_ms = ms as u64,
+                    "[rpc] param-validation error (message redacted; skip-report)"
+                );
+            } else if is_session_expired_error(&display_message) {
+                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, display_message);
+            } else {
                 crate::core::observability::report_error_or_expected(
                     display_message.as_str(),
                     "rpc",
                     "invoke_method",
                     &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                 );
-            } else {
-                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, display_message);
             }
             (
                 StatusCode::OK,
@@ -174,6 +200,40 @@ fn is_session_expired_error(msg: &str) -> bool {
         || lower.contains("no backend session token")
         || lower.contains("session jwt required")
         || msg.contains("SESSION_EXPIRED")
+}
+
+/// Returns `true` when the error message comes from JSON-RPC params validation
+/// rather than the underlying handler.
+///
+/// Three shapes, all emitted before the handler ever runs:
+///   * `"unknown param '<key>' for <ns>.<fn>"`       — `all::validate_params` (extra field)
+///   * `"missing required param '<key>': <comment>"` — `all::validate_params` (omitted required field)
+///   * `"invalid params: expected object or null, got <type>"` — `params_to_object` (wrong params shape)
+///
+/// These only fire when caller and server schemas drift at the transport layer
+/// — either a frontend on a different release than the running core, or a buggy
+/// external client. Reporting them to Sentry produces unactionable noise (we
+/// cannot patch an already-shipped install, and the message itself already
+/// names the bad field).
+///
+/// Note: domain-level validation errors (e.g. type/format checks emitted *inside*
+/// a controller's `rpc.rs` handler such as `"param 'x' must be a UUID"`) are
+/// intentionally *not* matched here — only the three shapes emitted by the
+/// transport-layer validators before the handler runs. Longer-term a typed
+/// `RpcError::ParamValidation` variant would remove the string-matching
+/// brittleness; the unit tests in `jsonrpc_tests.rs` lock the exact prefixes
+/// against the emit sites in `all::validate_params` and `params_to_object`.
+///
+/// `starts_with` (not `.contains()`) is deliberate: validator errors are always
+/// emitted as the full message body, so an anchored match avoids false positives
+/// from upstream handler text that happens to mention `"unknown param"`. The
+/// session-expired predicate uses `.contains()` because session-expired markers
+/// can appear mid-message — flip these to match and the test
+/// `is_param_validation_error_does_not_match_unrelated_errors` will break.
+fn is_param_validation_error(msg: &str) -> bool {
+    msg.starts_with("unknown param '")
+        || msg.starts_with("missing required param '")
+        || msg.starts_with("invalid params: ")
 }
 
 /// Internal method invocation logic.

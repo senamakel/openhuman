@@ -502,25 +502,46 @@ impl Agent {
             }
             Err(err) => {
                 let sanitized_message = Self::sanitize_event_error_message(&err);
-                // OPENHUMAN-TAURI-5Z: upstream transient HTTP failures
-                // (408/429/502/503/504) are already retried + filtered at the
-                // provider layer. When retries exhaust they bubble up here via
-                // `Result::Err`, and re-reporting under `domain=agent` escapes
-                // the `domain=llm_provider` filter — one Sentry event per
-                // failed turn for a transient infrastructure blip. Route
-                // through `report_error_or_expected` so the classifier demotes
-                // those (and other expected user-state errors) to a warn-level
-                // breadcrumb while preserving the AgentError publish + return.
-                crate::core::observability::report_error_or_expected(
-                    &err,
-                    "agent",
-                    "run_single",
-                    &[
-                        ("session_id", self.event_session_id()),
-                        ("channel", self.event_channel()),
-                        ("error_kind", sanitized_message.as_str()),
-                    ],
+                // The max-tool-iterations cap is a deterministic agent-state
+                // outcome, not a bug — the UI already surfaces the failure
+                // to the user via the chat-rendered "Error: Agent exceeded
+                // maximum tool iterations" message. Skip the Sentry funnel
+                // for this variant entirely and emit a structured
+                // `log::info!` (OPENHUMAN-TAURI-99 / -98).
+                //
+                // Other agent errors go through `report_error_or_expected`
+                // so OPENHUMAN-TAURI-5Z and friends — upstream transient
+                // HTTP that bubbles up under `domain=agent` and escapes
+                // the `domain=llm_provider` filter — get demoted to a
+                // warn-level breadcrumb without losing genuine bugs.
+                // `Err` propagation, the `AgentError` domain event, and
+                // downstream `recoverable=false` semantics are preserved.
+                let is_max_iter = matches!(
+                    err.downcast_ref::<AgentError>(),
+                    Some(AgentError::MaxIterationsExceeded { .. })
                 );
+                if is_max_iter {
+                    log::info!(
+                        target: "agent",
+                        "[agent.run_single] suppressed Sentry emission for max-iteration cap \
+                         session_id={} channel={} error_kind={} message={}",
+                        self.event_session_id(),
+                        self.event_channel(),
+                        sanitized_message.as_str(),
+                        err
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        &err,
+                        "agent",
+                        "run_single",
+                        &[
+                            ("session_id", self.event_session_id()),
+                            ("channel", self.event_channel()),
+                            ("error_kind", sanitized_message.as_str()),
+                        ],
+                    );
+                }
                 publish_global(DomainEvent::AgentError {
                     session_id: self.event_session_id().to_string(),
                     message: sanitized_message,

@@ -141,8 +141,13 @@ pub(super) fn is_budget_exceeded_suppressed(
     sanitized_body: &str,
 ) -> bool {
     provider == openhuman_backend::PROVIDER_LABEL
-        && status == reqwest::StatusCode::BAD_REQUEST
-        && sanitized_body.contains("Budget exceeded")
+        && matches!(
+            status,
+            reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::PAYMENT_REQUIRED
+        )
+        && sanitized_body
+            .to_ascii_lowercase()
+            .contains("budget exceeded")
 }
 
 /// Build a sanitized provider error from a failed HTTP response.
@@ -197,7 +202,7 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
             },
         );
     } else if is_budget_exceeded_user_state {
-        tracing::debug!(
+        tracing::info!(
             domain = "llm_provider",
             operation = "api_error",
             provider = provider,
@@ -494,6 +499,29 @@ mod tests {
                 BACKEND,
                 reqwest::StatusCode::BAD_REQUEST,
                 UNRELATED_BODY,
+            ));
+        }
+
+        #[test]
+        fn backend_402_budget_exceeded_is_suppressed() {
+            // 402 Payment Required is a valid alternative status the backend may
+            // return for the same user-state (no credits); it should be suppressed
+            // just like 400.
+            assert!(is_budget_exceeded_suppressed(
+                BACKEND,
+                reqwest::StatusCode::PAYMENT_REQUIRED,
+                BUDGET_BODY,
+            ));
+        }
+
+        #[test]
+        fn backend_402_budget_exceeded_case_insensitive() {
+            // Body casing should not affect suppression — e.g. "budget exceeded"
+            // (all-lowercase) from a future backend change.
+            assert!(is_budget_exceeded_suppressed(
+                BACKEND,
+                reqwest::StatusCode::PAYMENT_REQUIRED,
+                "budget exceeded: no credits",
             ));
         }
     }

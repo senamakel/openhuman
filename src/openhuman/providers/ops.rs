@@ -393,11 +393,43 @@ pub fn create_intelligent_routing_provider(
     config: &crate::openhuman::config::Config,
     options: &ProviderRuntimeOptions,
 ) -> anyhow::Result<Box<dyn Provider>> {
-    let remote = create_backend_inference_provider(inference_url, backend_url, api_key, options)?;
+    let backend = create_backend_inference_provider(inference_url, backend_url, api_key, options)?;
     let default_model = config
         .default_model
         .as_deref()
         .unwrap_or(crate::openhuman::config::DEFAULT_MODEL);
+
+    // When the user has configured `model_routes` (custom provider via
+    // BackendProviderPanel), wrap the remote in a RouterProvider so abstract
+    // tier names like `reasoning-v1` get translated to the configured
+    // provider-specific model id (e.g. `gpt-5.5`) BEFORE the request leaves
+    // the host. Without this step the abstract tier name would reach
+    // `custom_openai` and 404. The OpenHuman backend can dispatch tier names
+    // natively, so we skip the wrap when routes are empty.
+    let remote: Box<dyn Provider> = if config.model_routes.is_empty() {
+        backend
+    } else {
+        let providers: Vec<(String, Box<dyn Provider>)> =
+            vec![(INFERENCE_BACKEND_ID.to_string(), backend)];
+        let routes: Vec<(String, router::Route)> = config
+            .model_routes
+            .iter()
+            .map(|r| {
+                (
+                    r.hint.clone(),
+                    router::Route {
+                        provider_name: INFERENCE_BACKEND_ID.to_string(),
+                        model: r.model.clone(),
+                    },
+                )
+            })
+            .collect();
+        Box::new(router::RouterProvider::new(
+            providers,
+            routes,
+            default_model.to_string(),
+        ))
+    };
 
     let provider = crate::openhuman::routing::new_provider(remote, &config.local_ai, default_model);
     Ok(Box::new(provider))

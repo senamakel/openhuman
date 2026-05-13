@@ -67,6 +67,7 @@ pub(super) async fn ws_loop(
         log::error!("[socket] ws_loop: refusing to start — empty session token");
         *shared.status.write() = ConnectionStatus::Disconnected;
         *shared.socket_id.write() = None;
+        *shared.error.write() = None;
         emit_state_change(&shared);
         return;
     }

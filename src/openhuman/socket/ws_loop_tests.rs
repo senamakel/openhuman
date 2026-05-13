@@ -567,10 +567,11 @@ async fn ws_loop_refuses_to_start_with_empty_token() {
     });
 
     let res = tokio::time::timeout(tokio::time::Duration::from_secs(2), handle).await;
-    assert!(
-        matches!(res, Ok(Ok(()))),
-        "ws_loop must return cleanly on empty token (no timeout, no panic)"
-    );
+    match res {
+        Ok(Ok(())) => {} // returned in time without panic — guard fired correctly
+        Ok(Err(e)) => panic!("ws_loop panicked on empty token: {e}"),
+        Err(_) => panic!("ws_loop did not return within 2s — empty-token guard may have misfired"),
+    };
 
     assert_eq!(*shared.status.read(), ConnectionStatus::Disconnected);
     assert!(shared.socket_id.read().is_none());

@@ -462,9 +462,8 @@ impl AuthProfilesStore {
 
     fn acquire_lock(&self) -> Result<AuthProfileLockGuard> {
         if let Some(parent) = self.lock_path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
-                format!("Failed to create lock directory at {}", parent.display())
-            })?;
+            fs::create_dir_all(parent)
+                .with_context(|| "Failed to create auth profile lock directory".to_string())?;
         }
 
         let mut waited = 0_u64;
@@ -482,21 +481,14 @@ impl AuthProfilesStore {
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                     if waited >= LOCK_TIMEOUT_MS {
-                        anyhow::bail!(
-                            "Timed out waiting for auth profile lock at {}",
-                            self.lock_path.display()
-                        );
+                        anyhow::bail!("Timed out waiting for auth profile lock");
                     }
                     thread::sleep(Duration::from_millis(LOCK_WAIT_MS));
                     waited = waited.saturating_add(LOCK_WAIT_MS);
                 }
                 Err(e) => {
-                    return Err(e).with_context(|| {
-                        format!(
-                            "Failed to create auth profile lock at {}",
-                            self.lock_path.display()
-                        )
-                    });
+                    return Err(e)
+                        .with_context(|| "Failed to create auth profile lock".to_string());
                 }
             }
         }

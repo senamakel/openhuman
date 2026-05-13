@@ -214,6 +214,20 @@ fn clear_active_profile() {
 }
 
 #[test]
+fn auth_profile_lock_errors_do_not_include_local_paths() {
+    let tmp = TempDir::new().unwrap();
+    let invalid_state_dir = tmp.path().join("not-a-directory");
+    std::fs::write(&invalid_state_dir, "occupied").unwrap();
+
+    let store = AuthProfilesStore::new(&invalid_state_dir, false);
+    let err = store.load().unwrap_err().to_string();
+
+    assert!(err.contains("Failed to create auth profile lock directory"));
+    assert!(!err.contains(&tmp.path().display().to_string()));
+    assert!(!err.contains(&invalid_state_dir.display().to_string()));
+}
+
+#[test]
 fn update_profile_modifies_in_place() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);

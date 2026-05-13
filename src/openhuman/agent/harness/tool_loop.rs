@@ -851,7 +851,18 @@ pub(crate) async fn run_tool_call_loop(
         }
     }
 
-    anyhow::bail!("Agent exceeded maximum tool iterations ({max_iterations})")
+    // Return the typed `AgentError::MaxIterationsExceeded` variant (boxed
+    // through `anyhow::Error`) so downstream wrappers — notably
+    // `Agent::run_single` in `harness/session/runtime.rs` — can downcast and
+    // suppress Sentry emission for this deterministic agent-state outcome
+    // (OPENHUMAN-TAURI-99 / -98). The `Display` text is preserved verbatim so
+    // any caller that already inspects the string (UI chat surface, tests)
+    // continues to work.
+    Err(anyhow::Error::new(
+        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+            max: max_iterations,
+        },
+    ))
 }
 
 #[cfg(test)]

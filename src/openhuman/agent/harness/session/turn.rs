@@ -781,10 +781,18 @@ impl Agent {
                 "[agent_loop] exceeded maximum tool iterations max={}",
                 self.config.max_tool_iterations
             );
-            anyhow::bail!(
-                "Agent exceeded maximum tool iterations ({})",
-                self.config.max_tool_iterations
-            )
+            // Return the typed `AgentError::MaxIterationsExceeded` variant
+            // (boxed through `anyhow::Error`) so `Agent::run_single` can
+            // downcast at the Sentry funnel and suppress emission — this is
+            // a deterministic agent-state outcome, not a bug (OPENHUMAN-
+            // TAURI-99 / -98). The `Display` text is preserved verbatim so
+            // the user-visible chat-rendered "Error: Agent exceeded
+            // maximum tool iterations" string is unchanged.
+            Err(anyhow::Error::new(
+                crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+                    max: self.config.max_tool_iterations,
+                },
+            ))
         }; // end of `turn_body` async block
 
         // Run the turn body inside the parent-execution-context scope so

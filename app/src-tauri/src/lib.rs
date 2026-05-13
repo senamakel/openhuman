@@ -1250,6 +1250,13 @@ pub fn run() {
                 );
                 return None;
             }
+            if openhuman_core::core::observability::is_budget_event(&event) {
+                log::debug!(
+                    "[sentry-budget-filter] dropping budget-exhausted event: {:?}",
+                    event.message.as_deref().unwrap_or("<no message>")
+                );
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity.
             event.server_name = None;
             event.user = None;

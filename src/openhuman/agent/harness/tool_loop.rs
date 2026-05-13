@@ -430,7 +430,7 @@ pub(crate) async fn run_tool_call_loop(
                              aggregated all-providers-exhausted will report if applicable"
                         );
                     } else {
-                        crate::core::observability::report_error(
+                        crate::core::observability::report_error_or_expected(
                             &e,
                             "agent",
                             "provider_chat",

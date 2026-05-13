@@ -60,7 +60,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             // boundary condition (auth handler clears the local token and the
             // UI re-auths). Don't spam Sentry with it.
             if !is_session_expired_error(&message) {
-                crate::core::observability::report_error(
+                crate::core::observability::report_error_or_expected(
                     message.as_str(),
                     "rpc",
                     "invoke_method",
@@ -138,11 +138,17 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
 /// repeatedly reporting this as a hard error to Sentry. See #1465-ish: users
 /// stuck on the onboarding `SkillsStep` would spam `composio_list_connections`
 /// failures every 5 s without ever being bounced back to the login screen.
+///
+/// "session JWT required" covers the case where a prior 401 already cleared the
+/// token and the very next RPC call (e.g. `channels_telegram_login_start`) finds
+/// no JWT in the store. This is the same auth-boundary condition, just surfaced
+/// as a local guard rather than a backend response.
 fn is_session_expired_error(msg: &str) -> bool {
     let lower = msg.to_lowercase();
     (lower.contains("401") && lower.contains("unauthorized"))
         || lower.contains("invalid token")
         || lower.contains("no backend session token")
+        || lower.contains("session jwt required")
         || msg.contains("SESSION_EXPIRED")
 }
 

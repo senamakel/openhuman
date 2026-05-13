@@ -430,24 +430,46 @@ pub async fn start_chat(
                 );
                 let (classified_type, classified_message) = classify_inference_error(&err);
                 let classified_type_string = classified_type.to_string();
-                // Route through `report_error_or_expected` so transport-level
-                // connection failures (DNS/TCP/TLS handshake, ISP blocks —
-                // see OPENHUMAN-TAURI-32 for a RU user who couldn't reach
-                // `api.tinyhumans.ai` at all) get logged as warn-level
-                // breadcrumbs instead of error events. Sentry has no signal
-                // to act on these — no status, no trace, no payload — and
-                // every retry exhaustion produces another noisy event.
-                crate::core::observability::report_error_or_expected(
-                    detailed.as_str(),
-                    "web_channel",
-                    "run_chat_task",
-                    &[
-                        ("channel", "web"),
-                        ("error_type", classified_type),
-                        ("thread_id", thread_id_task.as_str()),
-                        ("request_id", request_id_task.as_str()),
-                    ],
-                );
+                // Max-tool-iterations cap is a deterministic agent-state
+                // outcome surfaced to the user via the existing
+                // `WebChannelEvent::chat_error` event below. Skip the
+                // Sentry funnel entirely for that variant
+                // (OPENHUMAN-TAURI-98). Substring match is required here
+                // because the typed `AgentError` was flattened to a
+                // `String` at the native-bus boundary.
+                //
+                // Other errors flow through `report_error_or_expected`
+                // so transport-level transient failures (DNS/TCP/TLS
+                // handshake, ISP blocks — OPENHUMAN-TAURI-32 for the RU
+                // user who couldn't reach api.tinyhumans.ai at all) get
+                // logged as warn-level breadcrumbs instead of error
+                // events. Sentry has no signal to act on those — no
+                // status, no trace, no payload — and every retry
+                // exhaustion produces another noisy event.
+                if crate::openhuman::agent::error::is_max_iterations_error(&err) {
+                    log::info!(
+                        target: "web_channel",
+                        "[web_channel.run_chat_task] suppressed Sentry emission for max-iteration \
+                         cap client_id={} thread_id={} request_id={} error_type={} message={}",
+                        client_id_task,
+                        thread_id_task,
+                        request_id_task,
+                        classified_type,
+                        detailed
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        detailed.as_str(),
+                        "web_channel",
+                        "run_chat_task",
+                        &[
+                            ("channel", "web"),
+                            ("error_type", classified_type),
+                            ("thread_id", thread_id_task.as_str()),
+                            ("request_id", request_id_task.as_str()),
+                        ],
+                    );
+                }
                 publish_web_channel_event(WebChannelEvent {
                     event: "chat_error".to_string(),
                     client_id: client_id_task.clone(),

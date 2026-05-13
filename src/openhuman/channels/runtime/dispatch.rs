@@ -1167,15 +1167,36 @@ pub(crate) async fn process_channel_message(
                 "  ❌ LLM error after {}ms: {e}",
                 started_at.elapsed().as_millis()
             );
-            crate::core::observability::report_error(
-                &e,
-                "channels",
-                "dispatch_llm_error",
-                &[
-                    ("channel", msg.channel.as_str()),
-                    ("provider", route.provider.as_str()),
-                ],
-            );
+            // The typed `AgentError` is flattened to a `String` at the
+            // native-bus boundary (`agent::bus` map_err → `e.to_string()`),
+            // so the downcast that works in `Agent::run_single` is not an
+            // option here — fall back to canonical-phrase substring match.
+            // The max-tool-iterations cap is a deterministic agent-state
+            // outcome and is already surfaced to the user as the
+            // chat-rendered "⚠️ Error: …" message just above. Skip the
+            // Sentry funnel (OPENHUMAN-TAURI-98) and emit `log::info!`
+            // instead — `Err` propagation through the surrounding match
+            // arm is unchanged.
+            if crate::openhuman::agent::error::is_max_iterations_error(&e.to_string()) {
+                log::info!(
+                    target: "channels",
+                    "[channels.dispatch] suppressed Sentry emission for max-iteration cap \
+                     channel={} provider={} message={}",
+                    msg.channel.as_str(),
+                    route.provider.as_str(),
+                    e
+                );
+            } else {
+                crate::core::observability::report_error(
+                    &e,
+                    "channels",
+                    "dispatch_llm_error",
+                    &[
+                        ("channel", msg.channel.as_str()),
+                        ("provider", route.provider.as_str()),
+                    ],
+                );
+            }
             if let Some(channel) = target_channel.as_ref() {
                 if let Some(ref draft_id) = draft_message_id {
                     let _ = channel

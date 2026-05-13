@@ -41,11 +41,64 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 | macOS tools | Xcode Command Line Tools | Needed for local desktop builds on macOS. |
 | Linux desktop packages | System GTK/WebKit/AppIndicator build deps | Install the package set Tauri requires for your distro before attempting desktop builds. |
 
+#### Windows-specific setup
+
+Windows requires several additional tools that are not needed on macOS or Linux. Install them in the order listed below, restarting your terminal after each step so PATH changes take effect.
+
+**1. Visual Studio C++ Build Tools**
+
+Rust's `cargo` needs a linker on Windows. The easiest way to get one is during `rustup-init`: select option **1** (Default installation) when prompted, which includes MSVC v143 and the Windows 11 SDK. This is the full Visual Studio installer, not the VS Code lightweight editor — it lives only on `C:` and consumes ~5.4 GB.
+
+**2. LLVM / Clang**
+
+`whisper-rs-sys` depends on `libclang`. Download the Windows x86_64 release from [github.com/llvm/llvm-project/releases](https://github.com/llvm/llvm-project/releases) (~822 MB). During install, check **"Add LLVM to system PATH for all users"**. If you see a "PATH too long" warning, skip the PATH step and set the environment variable manually:
+
+```
+LIBCLANG_PATH=C:\Program Files\LLVM\bin
+```
+
+**3. CMake**
+
+`whisper.cpp` requires CMake. Install via winget:
+
+```bash
+winget install Kitware.CMake
+```
+
+**4. Node.js and pnpm**
+
+Install Node.js 24+ and pnpm@10.10.0 as usual.
+
+**Recommended install order**
+
+1. VS Build Tools → restart terminal
+2. Rust (`rustup`) → restart terminal
+3. LLVM → restart terminal
+4. CMake → restart terminal
+5. Node.js + pnpm
+
+**Quick dependency check**
+
+```powershell
+# Verify all required tools are reachable
+rustc --version
+cargo --version
+clang --version
+cmake --version
+node --version
+pnpm --version
+
+# Verify libclang is accessible (needed by whisper-rs-sys)
+$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
+clang -v
+```
+
 #### Platform notes
 
 - **Web-only development** needs Node, pnpm, and the Rust toolchain present in the repo. You can usually ignore desktop-only system packages.
 - **Desktop development** needs the vendored Tauri/CEF setup. The preferred entrypoint is `pnpm --filter openhuman-app dev:app`, which ensures the vendored Tauri CLI is installed and configures `CEF_PATH`.
 - **Linux desktop builds** require extra system packages beyond Node/Rust. Follow the distro-specific Tauri dependency list before running desktop commands, then use the OpenHuman scripts below. For deeper platform troubleshooting, see [`gitbooks/developing/getting-set-up.md`](gitbooks/developing/getting-set-up.md).
+- **Windows desktop builds** additionally require Visual Studio C++ Build Tools (MSVC v143), LLVM/Clang, and CMake. See [Windows-specific setup](#windows-specific-setup) for the full list and install order.
 - **Skills development** happens in the separate [`tinyhumansai/openhuman-skills`](https://github.com/tinyhumansai/openhuman-skills) repository. This repo consumes built skill bundles from GitHub or a local override path; it does not vendor the skills source as a submodule.
 
 Example macOS bootstrap with Homebrew:

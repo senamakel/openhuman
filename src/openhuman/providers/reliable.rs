@@ -99,6 +99,11 @@ fn is_context_window_exceeded(err: &anyhow::Error) -> bool {
 /// into `is_rate_limited` (with its own retry-after parsing). If a new
 /// transient status is added to the const, **also add it to this `matches!`
 /// arm and the text-pattern list below**.
+///
+/// Note: 429 lives in `TRANSIENT_PROVIDER_HTTP_STATUSES` but is intentionally
+/// absent here — `is_rate_limited` handles it separately because 429 responses
+/// may carry a `Retry-After` header that `parse_retry_after_ms` uses to pick a
+/// precise backoff rather than the default exponential schedule.
 pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
         if let Some(status) = reqwest_err.status() {
@@ -111,6 +116,7 @@ pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
     lower.contains("no healthy upstream")
         || lower.contains("upstream unavailable")
         || lower.contains("service unavailable")
+        || lower.contains("503 service unavailable")
         || lower.contains("408 request timeout")
         || lower.contains("502 bad gateway")
         || lower.contains("504 gateway timeout")

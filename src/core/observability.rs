@@ -289,8 +289,8 @@ mod tests {
         );
     }
 
-    // Regression guard for CodeRabbit review on #1529: the filter must scope
-    // to provider events only. Other subsystems emit `failure=non_2xx` (e.g.
+    // Regression guard: the filter must scope to provider events only. Other
+    // subsystems emit `failure=non_2xx` (e.g.
     // `providers/compatible.rs` uses the same marker for OAI-compatible
     // error paths, but every site goes through `report_error(..,
     // "llm_provider", ..)` so the domain tag is consistent), but the broader

@@ -823,6 +823,12 @@ fn upstream_unhealthy_detects_504_gateway_timeout() {
 }
 
 #[test]
+fn upstream_unhealthy_detects_503_service_unavailable_with_provider_prefix() {
+    let err = anyhow::anyhow!("OpenAI API error (503 Service Unavailable): backend overloaded");
+    assert!(is_upstream_unhealthy(&err));
+}
+
+#[test]
 fn failure_reason_upstream_unhealthy_wins_over_rate_limited() {
     // Both rate_limited AND upstream_unhealthy — upstream_unhealthy must win.
     assert_eq!(failure_reason(true, false, true), "upstream_unhealthy");

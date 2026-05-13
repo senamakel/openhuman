@@ -59,6 +59,17 @@ fn main() {
             if openhuman_core::core::observability::is_transient_provider_http_failure(&event) {
                 return None;
             }
+            // Defense-in-depth: drop max-tool-iterations cap events that
+            // slipped past the call-site filters in
+            // `agent::harness::session::runtime::run_single`,
+            // `channels::runtime::dispatch`, and
+            // `channels::providers::web::run_chat_task`. The cap is a
+            // deterministic agent-state outcome surfaced to the user via
+            // the chat-rendered "Error: …" message — Sentry is the wrong
+            // surface for it (OPENHUMAN-TAURI-99 / -98).
+            if openhuman_core::core::observability::is_max_iterations_event(&event) {
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity
             event.server_name = None;
             // Attach the cached account uid so Sentry can count unique users

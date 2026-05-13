@@ -294,6 +294,34 @@ pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -
     TRANSIENT_PROVIDER_HTTP_STATUSES.contains(&status_u16)
 }
 
+/// Returns true when a Sentry event's message/exception text contains the
+/// canonical max-tool-iterations cap phrase (see
+/// `openhuman::agent::error::MAX_ITERATIONS_ERROR_PREFIX`).
+///
+/// Defense-in-depth filter for the Sentry `before_send` hook: the primary
+/// suppression lives at the call sites in `agent::harness::session::
+/// runtime::run_single`, `channels::runtime::dispatch`, and
+/// `channels::providers::web::run_chat_task`, all of which now skip
+/// `report_error` when this variant is detected. This filter catches any
+/// future call site that re-emits the message without going through those
+/// funnels — e.g. a new wrapper that calls `tracing::error!` directly with
+/// the typed error rendering — and keeps OPENHUMAN-TAURI-99 / -98
+/// permanently off Sentry without requiring touch-ups at each new site.
+///
+/// Match strategy: scans `event.message` first (the path used by
+/// `report_error_message` → `sentry::capture_message`) and falls back to
+/// the last exception's `value` (the shape `sentry-tracing` produces when
+/// stacktraces are attached). Both fields are checked for the canonical
+/// prefix so the filter stays robust to future Sentry plumbing changes.
+pub fn is_max_iterations_event(event: &sentry::protocol::Event<'_>) -> bool {
+    let direct = event.message.as_deref();
+    let from_exception = event.exception.last().and_then(|e| e.value.as_deref());
+    [direct, from_exception]
+        .into_iter()
+        .flatten()
+        .any(crate::openhuman::agent::error::is_max_iterations_error)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -622,5 +650,50 @@ mod tests {
             "provider_chat",
             &[("provider", "ollama")],
         );
+    }
+
+    fn event_with_message(msg: &str) -> sentry::protocol::Event<'static> {
+        let mut event = sentry::protocol::Event::default();
+        event.message = Some(msg.to_string());
+        event
+    }
+
+    fn event_with_exception_value(value: &str) -> sentry::protocol::Event<'static> {
+        let mut event = sentry::protocol::Event::default();
+        event.exception = vec![sentry::protocol::Exception {
+            value: Some(value.to_string()),
+            ..Default::default()
+        }]
+        .into();
+        event
+    }
+
+    #[test]
+    fn max_iterations_filter_matches_message_path() {
+        // `report_error_message` calls `sentry::capture_message`, which
+        // populates `event.message`. The filter must see the canonical
+        // phrase on that field path.
+        let event = event_with_message("Agent exceeded maximum tool iterations (8)");
+        assert!(is_max_iterations_event(&event));
+    }
+
+    #[test]
+    fn max_iterations_filter_matches_exception_path() {
+        // sentry-tracing with attach_stacktrace=true populates the
+        // exception list instead of (or in addition to) `event.message`.
+        // Filter must still catch the noise.
+        let event = event_with_exception_value(
+            "agent.run_single failed: Agent exceeded maximum tool iterations (10)",
+        );
+        assert!(is_max_iterations_event(&event));
+    }
+
+    #[test]
+    fn max_iterations_filter_keeps_unrelated_events() {
+        assert!(!is_max_iterations_event(&event_with_message(
+            "provider returned 503"
+        )));
+        assert!(!is_max_iterations_event(&event_with_message("")));
+        assert!(!is_max_iterations_event(&sentry::protocol::Event::default()));
     }
 }

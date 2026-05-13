@@ -1,10 +1,11 @@
-import { isTauri as coreIsTauri, invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import debug from 'debug';
 
 import { dispatchLocalAiMethod } from '../lib/ai/localCoreAiMemory';
 import { CORE_RPC_TIMEOUT_MS, CORE_RPC_URL } from '../utils/config';
 import { getStoredCoreToken, peekStoredRpcUrl } from '../utils/configPersistence';
 import { sanitizeError } from '../utils/sanitize';
+import { isTauri as coreIsTauri } from '../utils/tauriCommands/common';
 import { normalizeRpcMethod } from './rpcMethods';
 
 interface CoreRpcRelayRequest {

@@ -7,6 +7,8 @@ import {
   getDeepLinkAuthState,
   subscribeDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
+import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
+import { storeSession } from '../tauriCommands';
 
 const waitForAuthSettled = (): Promise<void> =>
   new Promise(resolve => {
@@ -21,8 +23,6 @@ const waitForAuthSettled = (): Promise<void> =>
       }
     });
   });
-import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
-import { storeSession } from '../tauriCommands';
 
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: () => ({ isBootstrapping: false, snapshot: { sessionToken: null } }),

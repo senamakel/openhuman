@@ -515,6 +515,42 @@ async fn parse_config_with_recovery(config_path: &Path, contents: &str) -> (Conf
     (Config::default(), true)
 }
 
+/// Older builds (#1342) wrote the user's custom OpenAI-compatible URL into
+/// `config.api_url`, double-purposing it as both the OpenHuman product
+/// backend URL AND the inference URL. That broke auth/billing/voice as
+/// soon as someone picked a non-OpenHuman provider. We now keep them in
+/// separate fields; on load, detect that legacy shape (any `api_url` whose
+/// path looks like a chat-completions endpoint) and move it.
+fn migrate_legacy_inference_url(config: &mut Config) {
+    if config.inference_url.is_some() {
+        return;
+    }
+    let Some(url) = config.api_url.as_deref() else {
+        return;
+    };
+    let trimmed = url.trim().trim_end_matches('/');
+    if !trimmed.ends_with("/chat/completions") {
+        return;
+    }
+    // OpenHuman's hosted backend exposes inference at `/openai/v1/chat/completions`;
+    // when api_url points there, the derived inference URL is already correct —
+    // just clear api_url so it falls back to the default base. For everything
+    // else, move the legacy value into inference_url.
+    let is_openhuman_backend = trimmed.starts_with("https://api.tinyhumans.ai/")
+        || trimmed.starts_with("https://staging-api.tinyhumans.ai/");
+    let moved = if is_openhuman_backend {
+        None
+    } else {
+        Some(trimmed.to_string())
+    };
+    tracing::info!(
+        "[config][migrate] splitting legacy api_url -> inference_url (api_url cleared, inference_url={})",
+        moved.as_deref().unwrap_or("<derived>")
+    );
+    config.inference_url = moved;
+    config.api_url = None;
+}
+
 fn migrate_legacy_autocomplete_disabled_apps(config: &mut Config) {
     // Legacy defaults blocked both terminal and code, which prevented Codex/CLI usage.
     // Migrate only the exact legacy default so custom user preferences remain untouched.
@@ -620,6 +656,7 @@ impl Config {
             config.config_path = config_path.clone();
             config.workspace_dir = workspace_dir;
             migrate_legacy_autocomplete_disabled_apps(&mut config);
+            migrate_legacy_inference_url(&mut config);
             config.apply_env_overrides();
 
             if config_was_corrupted {

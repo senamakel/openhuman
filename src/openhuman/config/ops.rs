@@ -169,6 +169,9 @@ pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String
 #[derive(Debug, Clone, Default)]
 pub struct ModelSettingsPatch {
     pub api_url: Option<String>,
+    /// Custom OpenAI-compatible LLM endpoint. Empty string clears the
+    /// override (inference falls back through the OpenHuman backend).
+    pub inference_url: Option<String>,
     pub api_key: Option<String>,
     pub default_model: Option<String>,
     pub default_temperature: Option<f64>,
@@ -275,6 +278,13 @@ pub async fn apply_model_settings(
             None
         } else {
             Some(api_url)
+        };
+    }
+    if let Some(inference_url) = update.inference_url {
+        config.inference_url = if inference_url.trim().is_empty() {
+            None
+        } else {
+            Some(inference_url.trim().to_string())
         };
     }
     if let Some(api_key) = update.api_key {

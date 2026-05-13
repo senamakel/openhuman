@@ -3,6 +3,19 @@ use super::Provider;
 use async_trait::async_trait;
 use std::collections::HashMap;
 
+/// Maps OpenHuman's abstract tier model names (`reasoning-v1`, `agentic-v1`,
+/// `coding-v1`, `summarization-v1`) to the hint slot in `model_routes`.
+/// Returns `None` for any model the router shouldn't rewrite.
+fn openhuman_tier_to_hint(model: &str) -> Option<&'static str> {
+    match model {
+        "reasoning-v1" => Some("reasoning"),
+        "agentic-v1" => Some("agentic"),
+        "coding-v1" => Some("coding"),
+        "summarization-v1" => Some("summarization"),
+        _ => None,
+    }
+}
+
 /// A single route: maps a task hint to a provider + model combo.
 #[derive(Debug, Clone)]
 pub struct Route {
@@ -71,9 +84,14 @@ impl RouterProvider {
 
     /// Resolve a model parameter to a (provider, actual_model) pair.
     ///
-    /// If the model starts with "hint:", look up the hint in the route table.
-    /// Otherwise, use the default provider with the given model name.
-    /// Resolve a model parameter to a (provider_index, actual_model) pair.
+    /// Resolution order:
+    /// 1. `hint:<name>` — direct hint lookup (e.g. `hint:reasoning`).
+    /// 2. OpenHuman abstract tier names — `reasoning-v1`, `agentic-v1`,
+    ///    `coding-v1`, `summarization-v1` map onto the corresponding hints
+    ///    so a custom provider gets the user-configured model id instead of
+    ///    the literal tier name (which is only meaningful to the OpenHuman
+    ///    backend and would 404 on OpenAI/Anthropic/etc.).
+    /// 3. Anything else passes through unchanged to the default provider.
     fn resolve(&self, model: &str) -> (usize, String) {
         if let Some(hint) = model.strip_prefix("hint:") {
             if let Some((idx, resolved_model)) = self.routes.get(hint) {
@@ -83,6 +101,21 @@ impl RouterProvider {
                 hint = hint,
                 "Unknown route hint, falling back to default provider"
             );
+        }
+
+        // OpenHuman abstract tier → hint mapping. These names are internal
+        // aliases the OpenHuman backend dispatches itself; custom providers
+        // need them translated through the user's route table.
+        if let Some(hint) = openhuman_tier_to_hint(model) {
+            if let Some((idx, resolved_model)) = self.routes.get(hint) {
+                tracing::debug!(
+                    tier = model,
+                    hint = hint,
+                    resolved = resolved_model.as_str(),
+                    "Router mapped OpenHuman tier to configured route"
+                );
+                return (*idx, resolved_model.clone());
+            }
         }
 
         // Not a hint or hint not found — use default provider with the model as-is

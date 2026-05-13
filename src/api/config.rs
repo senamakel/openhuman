@@ -17,6 +17,38 @@ pub const VITE_APP_ENV_VAR: &str = "VITE_OPENHUMAN_APP_ENV";
 /// 3. `BACKEND_URL` / `VITE_BACKEND_URL` baked in at compile time via `option_env!`
 /// 4. Environment-aware default: `app_env_from_env()` == `staging` →
 ///    [`DEFAULT_STAGING_API_BASE_URL`], otherwise [`DEFAULT_API_BASE_URL`]
+/// Default path the OpenHuman backend exposes for its OpenAI-compatible
+/// inference proxy. Joined onto [`effective_api_url`] when the user has not
+/// configured a custom `inference_url`.
+pub const OPENHUMAN_INFERENCE_PATH: &str = "/openai/v1/chat/completions";
+
+/// Resolves the LLM inference endpoint to call.
+///
+/// Derived state — not stored as a single field. Order:
+/// 1. `config.inference_url` when set (user pointed inference at a custom
+///    OpenAI-compatible endpoint — e.g. `https://api.openai.com/v1/chat/completions`).
+/// 2. Otherwise `effective_api_url(api_url)` joined with `/openai/v1/chat/completions`
+///    via the safe [`api_url`] helper, so inference flows through the OpenHuman
+///    backend's OpenAI-compat proxy.
+///
+/// This split is what keeps account/auth/billing calls (always `effective_api_url`)
+/// separate from inference (this function). Mixing them is what caused
+/// `/auth/me`, `/auth/google/login`, and `/voice/*` to start hitting
+/// `api.openai.com` when the user pointed `api_url` at a custom provider.
+pub fn effective_inference_url(
+    api_url_override: &Option<String>,
+    inference_url_override: &Option<String>,
+) -> String {
+    if let Some(u) = inference_url_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return u.to_string();
+    }
+    api_url(&effective_api_url(api_url_override), OPENHUMAN_INFERENCE_PATH)
+}
+
 pub fn effective_api_url(api_url: &Option<String>) -> String {
     if let Some(u) = api_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         return normalize_api_base_url(u);

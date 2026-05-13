@@ -659,6 +659,7 @@ impl Agent {
         };
 
         let provider: Box<dyn Provider> = providers::create_intelligent_routing_provider(
+            config.inference_url.as_deref(),
             config.api_url.as_deref(),
             config.api_key.as_deref(),
             config,
@@ -805,6 +806,7 @@ impl Agent {
                         == crate::openhuman::config::ReflectionSource::Cloud
                     {
                         Some(Arc::from(providers::create_routed_provider(
+                            config.inference_url.as_deref(),
                             config.api_url.as_deref(),
                             config.api_key.as_deref(),
                             &config.reliability,

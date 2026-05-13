@@ -231,7 +231,10 @@ const BackendProviderPanel = () => {
       const response = await openhumanGetClientConfig();
       const config = response.result;
       setClient(config);
-      const persistedUrl = config.api_url ?? '';
+      // The LLM Provider panel works exclusively against `inference_url` —
+      // `config.api_url` is the OpenHuman product backend URL and must never
+      // be redirected by this UI (auth/billing/voice all depend on it).
+      const persistedUrl = config.inference_url ?? '';
       const persistedRoutes = config.model_routes ?? [];
       setApiUrl(persistedUrl);
       setRoleModels(roleModelsFromRoutes(persistedRoutes));
@@ -301,8 +304,13 @@ const BackendProviderPanel = () => {
               const model = roleModels[hint].trim();
               return model ? [{ hint, model }] : [];
             });
+      // Persist the LLM endpoint into `inference_url`, NEVER `api_url`.
+      // OpenHuman preset → empty string clears `inference_url` so the core
+      // routes inference through the OpenHuman backend. Custom providers
+      // write their full chat-completions URL.
+      const inferenceUrlPayload = apiUrlDirty ? (isOpenHuman ? '' : apiUrl) : undefined;
       await openhumanUpdateModelSettings({
-        api_url: apiUrlDirty ? apiUrl : undefined,
+        inference_url: inferenceUrlPayload,
         api_key: apiKeyDirty ? apiKey : undefined,
         model_routes: routes,
       });

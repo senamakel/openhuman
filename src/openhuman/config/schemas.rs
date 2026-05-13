@@ -768,7 +768,14 @@ fn handle_get_config(_params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
+        log::debug!("[config][rpc] get_client_config enter");
+        let config = match config_rpc::load_config_with_timeout().await {
+            Ok(c) => c,
+            Err(err) => {
+                log::warn!("[config][rpc] get_client_config load failed: {err}");
+                return Err(err);
+            }
+        };
         let app_version =
             std::env::var("OPENHUMAN_APP_VERSION").unwrap_or_else(|_| "unknown".to_string());
         let api_key_set = config
@@ -781,6 +788,11 @@ fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
             .iter()
             .map(|r| serde_json::json!({ "hint": r.hint, "model": r.model }))
             .collect();
+        log::debug!(
+            "[config][rpc] get_client_config ok api_key_set={} model_routes_count={}",
+            api_key_set,
+            model_routes.len()
+        );
         to_json(RpcOutcome::new(
             serde_json::json!({
                 "api_url": config.api_url,

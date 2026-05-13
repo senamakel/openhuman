@@ -41,6 +41,10 @@ pub fn effective_api_url(api_url: &Option<String>) -> String {
 /// Heuristic is intentionally tight:
 /// - Host matches a well-known loopback name (`127.0.0.1` / `localhost` /
 ///   `::1` / `0.0.0.0`), OR
+/// - Host is a private RFC 1918 IPv4 range (`10.0.0.0/8`,
+///   `172.16.0.0/12`, `192.168.0.0/16`) — covers LAN-hosted Ollama at
+///   e.g. `http://192.168.1.100:11434/v1`, which would otherwise miss
+///   the heuristic and route integrations onto the local LLM, OR
 /// - Path explicitly ends with the OpenAI-style chat-completions endpoint
 ///   (`/v1/chat/completions` or `/v1/completions`).
 ///
@@ -64,7 +68,9 @@ pub fn looks_like_local_ai_endpoint(url: &str) -> bool {
     // the bare IPv6 loopback (`::1`), and IPv4 loopback all classify
     // correctly regardless of how url::Url renders them via `host_str()`.
     let host_is_loopback = match parsed.host() {
-        Some(url::Host::Ipv4(addr)) => addr.is_loopback() || addr.is_unspecified(),
+        Some(url::Host::Ipv4(addr)) => {
+            addr.is_loopback() || addr.is_unspecified() || addr.is_private()
+        }
         Some(url::Host::Ipv6(addr)) => addr.is_loopback() || addr.is_unspecified(),
         Some(url::Host::Domain(name)) => {
             let host = name.to_ascii_lowercase();
@@ -117,10 +123,11 @@ pub fn effective_integrations_api_url(api_url: &Option<String>) -> String {
     default_api_base_url_for_env(app_env_from_env().as_deref()).to_string()
 }
 
-/// Emit a single `warn!` per process the first time
+/// Emit a single `warn!` **once per process lifetime** the first time
 /// [`effective_integrations_api_url`] falls back away from a user-set
-/// local-AI URL. Repeats are suppressed via `std::sync::Once` so we don't
-/// spam logs on every integration request.
+/// local-AI URL. Subsequent calls — including calls with a *different*
+/// local-AI URL — are silently suppressed via `std::sync::Once` so we
+/// don't spam logs on every integration request.
 fn warn_integrations_url_fallback_once(local_url: &str) {
     use std::sync::Once;
     static WARNED: Once = Once::new();
@@ -431,14 +438,28 @@ mod tests {
     #[test]
     fn looks_like_local_ai_matches_chat_completions_path_on_non_loopback() {
         // Some self-hosted setups expose the OpenAI-compatible endpoint on
-        // a non-loopback host (LAN box, dev VM). The chat-completions path
-        // is still a strong tell that it's not our backend.
+        // a non-loopback, non-private host (dev VM with a public IP, tunnel,
+        // mDNS .local name). The chat-completions path is still a strong
+        // tell that it's not our backend.
         assert!(looks_like_local_ai_endpoint(
-            "http://10.0.0.5:8080/v1/chat/completions"
+            "http://203.0.113.5:8080/v1/chat/completions"
         ));
         assert!(looks_like_local_ai_endpoint(
-            "https://my-ollama.lan/v1/completions"
+            "https://my-ollama.example/v1/completions"
         ));
+    }
+
+    #[test]
+    fn looks_like_local_ai_matches_private_lan_hosts() {
+        // LAN-hosted Ollama / vLLM on RFC 1918 ranges — covered by the
+        // private-IP arm so users with `http://192.168.x.x:11434/v1`
+        // configurations don't see integration requests routed at the
+        // local LLM and 404.
+        assert!(looks_like_local_ai_endpoint(
+            "http://192.168.1.100:11434/v1"
+        ));
+        assert!(looks_like_local_ai_endpoint("http://10.0.0.5:8080/v1"));
+        assert!(looks_like_local_ai_endpoint("http://172.16.0.42:8000"));
     }
 
     #[test]

@@ -1305,7 +1305,9 @@ default_temperature = 0.7
 
 #[test]
 fn redact_url_strips_basic_auth_and_query() {
-    let out = redact_url_for_log("https://user:token@api.example.com/v1/chat/completions?api_key=sk-x&debug=1");
+    let out = redact_url_for_log(
+        "https://user:token@api.example.com/v1/chat/completions?api_key=sk-x&debug=1",
+    );
     assert!(!out.contains("token"), "got: {out}");
     assert!(!out.contains("sk-x"), "got: {out}");
     assert!(out.starts_with("https://api.example.com"), "got: {out}");

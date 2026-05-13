@@ -40,7 +40,9 @@ vi.mock('../../../utils/tauriCommands', () => ({
   scheduleCefProfilePurge: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockClearAllAppData = vi.fn().mockResolvedValue(undefined);
+const { mockClearAllAppData } = vi.hoisted(() => ({
+  mockClearAllAppData: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('../../../utils/clearAllAppData', () => ({
   clearAllAppData: (...args: unknown[]) => mockClearAllAppData(...args),
 }));

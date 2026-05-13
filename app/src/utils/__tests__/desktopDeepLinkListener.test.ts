@@ -5,7 +5,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   completeDeepLinkAuthProcessing,
   getDeepLinkAuthState,
+  subscribeDeepLinkAuthState,
 } from '../../store/deepLinkAuthState';
+
+const waitForAuthSettled = (): Promise<void> =>
+  new Promise(resolve => {
+    if (!getDeepLinkAuthState().isProcessing) {
+      resolve();
+      return;
+    }
+    const unsubscribe = subscribeDeepLinkAuthState(() => {
+      if (!getDeepLinkAuthState().isProcessing) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
 import { setupDesktopDeepLinkListener } from '../desktopDeepLinkListener';
 import { storeSession } from '../tauriCommands';
 
@@ -81,7 +96,7 @@ describe('desktopDeepLinkListener', () => {
 
     await setupDesktopDeepLinkListener();
 
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await waitForAuthSettled();
 
     const state = getDeepLinkAuthState();
     expect(state.requiresAppDataReset).toBe(true);
@@ -95,7 +110,7 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getCurrent).mockResolvedValue(['openhuman://auth?token=abc&key=auth']);
 
     await setupDesktopDeepLinkListener();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await waitForAuthSettled();
 
     const state = getDeepLinkAuthState();
     expect(state.requiresAppDataReset).toBe(false);

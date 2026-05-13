@@ -290,6 +290,44 @@ mod tests {
         assert_eq!(err.to_string(), "permanent error");
         assert_eq!(calls, 1);
     }
+
+    #[test]
+    fn test_retry_with_backoff_rejects_zero_attempts() {
+        let mut calls = 0;
+        let result = retry_with_backoff("zero_sync", 0, 1, || {
+            calls += 1;
+            Ok::<i32, anyhow::Error>(42)
+        });
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("requires attempts > 0"),
+            "unexpected error message: {}",
+            err
+        );
+        assert_eq!(calls, 0, "closure must not run when attempts == 0");
+    }
+
+    #[tokio::test]
+    async fn test_retry_with_backoff_async_rejects_zero_attempts() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let calls = AtomicU32::new(0);
+        let result = retry_with_backoff_async("zero_async", 0, 1, || async {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<i32, anyhow::Error>(42)
+        })
+        .await;
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("requires attempts > 0"),
+            "unexpected error message: {}",
+            err
+        );
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            0,
+            "closure must not run when attempts == 0"
+        );
+    }
 }
 
 /// Helper to retry a filesystem operation with exponential backoff.
@@ -313,6 +351,8 @@ pub fn retry_with_backoff<T, F>(
 where
     F: FnMut() -> anyhow::Result<T>,
 {
+    anyhow::ensure!(attempts > 0, "{} requires attempts > 0", op_name);
+
     let mut last_err: Option<anyhow::Error> = None;
 
     for i in 0..attempts {
@@ -375,6 +415,8 @@ where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<T>>,
 {
+    anyhow::ensure!(attempts > 0, "{} requires attempts > 0", op_name);
+
     let mut last_err: Option<anyhow::Error> = None;
 
     for i in 0..attempts {

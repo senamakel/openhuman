@@ -131,6 +131,11 @@ export interface ClientConfig {
   default_model: string | null;
   app_version: string;
   api_key_set: boolean;
+  /**
+   * Persisted task-hint -> model id pairs the core router will obey. Empty
+   * when the OpenHuman built-in router is active.
+   */
+  model_routes: ModelRoute[];
 }
 
 export async function openhumanGetClientConfig(): Promise<CommandResponse<ClientConfig>> {

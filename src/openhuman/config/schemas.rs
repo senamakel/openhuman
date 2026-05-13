@@ -325,6 +325,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "True when a custom backend api_key is stored locally. The key itself is never returned over RPC.",
                     required: true,
                 },
+                FieldSchema {
+                    name: "model_routes",
+                    ty: TypeSchema::Json,
+                    comment: "Persisted task-hint -> model id pairs the core router will obey. Empty when the OpenHuman built-in router is active.",
+                    required: true,
+                },
             ],
         },
         "update_model_settings" => ControllerSchema {
@@ -770,12 +776,18 @@ fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
             .as_deref()
             .map(|k| !k.trim().is_empty())
             .unwrap_or(false);
+        let model_routes: Vec<serde_json::Value> = config
+            .model_routes
+            .iter()
+            .map(|r| serde_json::json!({ "hint": r.hint, "model": r.model }))
+            .collect();
         to_json(RpcOutcome::new(
             serde_json::json!({
                 "api_url": config.api_url,
                 "default_model": config.default_model,
                 "app_version": app_version,
                 "api_key_set": api_key_set,
+                "model_routes": model_routes,
             }),
             vec!["client config read".to_string()],
         ))

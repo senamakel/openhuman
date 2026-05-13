@@ -164,12 +164,26 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   },
 ];
 
-function detectPreset(apiUrl: string): ProviderPreset {
+function detectPreset(apiUrl: string, routes: ModelRoute[]): ProviderPreset {
   const trimmed = apiUrl.trim();
-  if (!trimmed) return PROVIDER_PRESETS[0];
+  // Saved routes mean "non-OpenHuman provider"; an empty URL with routes is
+  // a hand-edited Custom setup, not the OpenHuman default.
+  const hasRoutes = routes.length > 0;
+  if (!trimmed)
+    return hasRoutes ? PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1] : PROVIDER_PRESETS[0];
   const match = PROVIDER_PRESETS.find(p => p.apiUrl && p.apiUrl === trimmed);
   if (match) return match;
   return PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1]; // custom
+}
+
+function roleModelsFromRoutes(routes: ModelRoute[]): RoleModels {
+  const out: RoleModels = { ...EMPTY_ROLE_MODELS };
+  for (const r of routes) {
+    if ((ROLE_HINTS as readonly string[]).includes(r.hint)) {
+      out[r.hint as RoleHint] = r.model;
+    }
+  }
+  return out;
 }
 
 /**
@@ -214,8 +228,10 @@ const BackendProviderPanel = () => {
       const config = response.result;
       setClient(config);
       const persistedUrl = config.api_url ?? '';
+      const persistedRoutes = config.model_routes ?? [];
       setApiUrl(persistedUrl);
-      setActivePresetId(detectPreset(persistedUrl).id);
+      setRoleModels(roleModelsFromRoutes(persistedRoutes));
+      setActivePresetId(detectPreset(persistedUrl, persistedRoutes).id);
       setApiKey('');
       setApiKeyDirty(false);
       setApiUrlDirty(false);
@@ -244,16 +260,22 @@ const BackendProviderPanel = () => {
   );
   const isOpenHuman = activePreset.id === 'openhuman';
 
-  const applyPreset = useCallback((preset: ProviderPreset) => {
-    setActivePresetId(preset.id);
-    setApiUrl(preset.apiUrl);
-    setApiUrlDirty(true);
-    // Reset role models to the preset's defaults so each switch gives a
-    // clean, opinionated starting point.
-    setRoleModels(preset.roleModels ? { ...preset.roleModels } : { ...EMPTY_ROLE_MODELS });
-    setRoleModelsDirty(true);
-    setStatus({ kind: 'idle', message: '' });
-  }, []);
+  const applyPreset = useCallback(
+    (preset: ProviderPreset) => {
+      // Re-clicking the currently active preset is a no-op — otherwise the
+      // user's saved/customized role models would be wiped just by tapping
+      // the highlighted card.
+      if (preset.id === activePresetId) return;
+      setActivePresetId(preset.id);
+      setApiUrl(preset.apiUrl);
+      setApiUrlDirty(true);
+      // Switching presets gives a clean, opinionated starting point.
+      setRoleModels(preset.roleModels ? { ...preset.roleModels } : { ...EMPTY_ROLE_MODELS });
+      setRoleModelsDirty(true);
+      setStatus({ kind: 'idle', message: '' });
+    },
+    [activePresetId]
+  );
 
   const handleSave = useCallback(async () => {
     setSaving(true);

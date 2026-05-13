@@ -1065,6 +1065,10 @@ async fn json_rpc_thread_not_found_errors_are_structured() {
     // error data — the domain controller emits a method-agnostic envelope and
     // jsonrpc.rs surfaces it verbatim. The frontend keys on `kind` +
     // `thread_id` (see `coreRpcClient.isThreadNotFoundRpcData`), not method.
+    assert!(
+        append_err["data"]["method"].is_null(),
+        "method must not appear in structured error data: the domain envelope is method-agnostic"
+    );
 
     let title = post_json_rpc(
         &rpc_base,

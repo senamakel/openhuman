@@ -24,10 +24,13 @@ impl ThreadsError {
     }
 
     pub fn from_thread_scoped_store_error(thread_id: &str, err: String) -> Self {
-        if parse_thread_not_found_message(&err).is_some() {
-            Self::not_found(thread_id)
-        } else {
-            Self::Message(err)
+        // Only promote to `NotFound` when the parsed id matches the requested
+        // `thread_id`. If the store reports a *different* missing id we return
+        // `Message` so the caller sees the real store error rather than
+        // clearing the wrong stale thread on the frontend.
+        match parse_thread_not_found_message(&err) {
+            Some(parsed_id) if parsed_id == thread_id => Self::not_found(thread_id),
+            _ => Self::Message(err),
         }
     }
 
@@ -149,5 +152,32 @@ mod tests {
             StructuredRpcError::decode(&raw).is_none(),
             "plain messages must not carry the structured sentinel"
         );
+    }
+
+    #[test]
+    fn from_thread_scoped_store_error_id_guard() {
+        // Matching id → NotFound
+        let matching = ThreadsError::from_thread_scoped_store_error(
+            "thread-123",
+            "thread thread-123 not found".to_string(),
+        );
+        assert_eq!(matching, ThreadsError::not_found("thread-123"));
+
+        // Mismatched id → Message (avoid clearing the wrong thread on the frontend)
+        let mismatch = ThreadsError::from_thread_scoped_store_error(
+            "thread-456",
+            "thread thread-123 not found".to_string(),
+        );
+        assert!(
+            matches!(mismatch, ThreadsError::Message(_)),
+            "mismatched id must produce Message, not NotFound"
+        );
+
+        // Unrecognised format → Message
+        let unrecognised = ThreadsError::from_thread_scoped_store_error(
+            "thread-123",
+            "some other error".to_string(),
+        );
+        assert!(matches!(unrecognised, ThreadsError::Message(_)));
     }
 }

@@ -52,7 +52,8 @@ impl StructuredRpcError {
     pub fn encode(&self) -> String {
         // serde_json::to_string on a struct of String/Option<Value>/bool
         // cannot fail in practice, so unwrap is acceptable.
-        let json = serde_json::to_string(self).unwrap_or_else(|_| String::from("{}"));
+        let json = serde_json::to_string(self)
+            .expect("StructuredRpcError serialization cannot fail: struct contains only String, Option<Value>, and bool");
         format!("{STRUCTURED_RPC_ERROR_SENTINEL}{json}")
     }
 

@@ -612,6 +612,17 @@ fn is_param_validation_error_does_not_match_unrelated_errors() {
     assert!(!is_param_validation_error(
         "rpc failed: unknown param 'x' for ns.fn"
     ));
+    // Handler-side serde deserialisation errors use `"invalid params: {serde_error}"` —
+    // those must still reach Sentry, not be silently suppressed. The predicate is
+    // anchored to the exact `params_to_object` template, not the bare prefix.
+    assert!(!is_param_validation_error(
+        "invalid params: missing field 'name' at line 1 column 1"
+    ));
+    assert!(!is_param_validation_error(
+        "invalid params: unknown variant 'foo', expected one of 'bar', 'baz'"
+    ));
+    // Generic bare prefix must not match.
+    assert!(!is_param_validation_error("invalid params: "));
 }
 
 #[test]

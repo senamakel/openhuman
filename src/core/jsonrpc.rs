@@ -181,9 +181,9 @@ fn is_session_expired_error(msg: &str) -> bool {
 /// rather than the underlying handler.
 ///
 /// Three shapes, all emitted before the handler ever runs:
-///   * `"unknown param '<key>' for <ns>.<fn>"`       — `all::validate_params` (extra field)
-///   * `"missing required param '<key>': <comment>"` — `all::validate_params` (omitted required field)
-///   * `"invalid params: expected object or null, got <type>"` — `params_to_object` (wrong params shape)
+///   * `"unknown param '<key>' for <ns>.<fn>"`                 — `all::validate_params` (extra field)
+///   * `"missing required param '<key>': <comment>"`           — `all::validate_params` (omitted required field)
+///   * `"invalid params: expected object or null, got <type>"` — `params_to_object` (wrong top-level JSON shape)
 ///
 /// These only fire when caller and server schemas drift at the transport layer
 /// — either a frontend on a different release than the running core, or a buggy
@@ -191,24 +191,23 @@ fn is_session_expired_error(msg: &str) -> bool {
 /// cannot patch an already-shipped install, and the message itself already
 /// names the bad field).
 ///
-/// Note: domain-level validation errors (e.g. type/format checks emitted *inside*
-/// a controller's `rpc.rs` handler such as `"param 'x' must be a UUID"`) are
-/// intentionally *not* matched here — only the three shapes emitted by the
-/// transport-layer validators before the handler runs. Longer-term a typed
-/// `RpcError::ParamValidation` variant would remove the string-matching
-/// brittleness; the unit tests in `jsonrpc_tests.rs` lock the exact prefixes
-/// against the emit sites in `all::validate_params` and `params_to_object`.
+/// Note: handler-side errors (e.g. serde deserialisation failures emitted as
+/// `"invalid params: {serde_error}"` inside a controller's `schemas.rs`) are
+/// intentionally *not* matched here. The third predicate is anchored to the
+/// exact `params_to_object` template (`"invalid params: expected object or null,
+/// got <type>"`), not the generic `"invalid params: "` prefix, so handler-side
+/// serde errors still reach Sentry. Longer-term a typed `RpcError::ParamValidation`
+/// variant would remove the string-matching brittleness entirely.
 ///
 /// `starts_with` (not `.contains()`) is deliberate: validator errors are always
 /// emitted as the full message body, so an anchored match avoids false positives
-/// from upstream handler text that happens to mention `"unknown param"`. The
-/// session-expired predicate uses `.contains()` because session-expired markers
-/// can appear mid-message — flip these to match and the test
-/// `is_param_validation_error_does_not_match_unrelated_errors` will break.
+/// from handler text that happens to mention `"unknown param"`. See
+/// `jsonrpc_tests.rs` — `is_param_validation_error_does_not_match_unrelated_errors`
+/// covers the anchored-vs-substring distinction.
 fn is_param_validation_error(msg: &str) -> bool {
     msg.starts_with("unknown param '")
         || msg.starts_with("missing required param '")
-        || msg.starts_with("invalid params: ")
+        || msg.starts_with("invalid params: expected object or null, got ")
 }
 
 /// Internal method invocation logic.

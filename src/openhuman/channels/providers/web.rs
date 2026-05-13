@@ -337,17 +337,30 @@ pub async fn start_chat(
                     client_id_task, thread_id_task, request_id_task, err
                 );
                 let (classified_type, classified_message) = classify_inference_error(&err);
-                crate::core::observability::report_error(
-                    detailed.as_str(),
-                    "web_channel",
-                    "run_chat_task",
-                    &[
-                        ("channel", "web"),
-                        ("error_type", classified_type),
-                        ("thread_id", thread_id_task.as_str()),
-                        ("request_id", request_id_task.as_str()),
-                    ],
-                );
+                let err_string = err.to_string();
+                if crate::core::observability::is_transient_message_failure(&err_string) {
+                    // Downstream (backend_api / provider / integrations) already
+                    // demoted the underlying transient HTTP failure. Re-emitting
+                    // at error level here recreates the noise (#92, #95).
+                    log::warn!(
+                        "[web-channel] transient downstream failure thread_id={} request_id={} — not reporting to Sentry: {}",
+                        thread_id_task,
+                        request_id_task,
+                        err_string
+                    );
+                } else {
+                    crate::core::observability::report_error(
+                        detailed.as_str(),
+                        "web_channel",
+                        "run_chat_task",
+                        &[
+                            ("channel", "web"),
+                            ("error_type", classified_type),
+                            ("thread_id", thread_id_task.as_str()),
+                            ("request_id", request_id_task.as_str()),
+                        ],
+                    );
+                }
                 publish_web_channel_event(WebChannelEvent {
                     event: "chat_error".to_string(),
                     client_id: client_id_task.clone(),

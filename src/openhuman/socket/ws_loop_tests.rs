@@ -260,7 +260,8 @@ fn log_connection_failure_does_not_panic_below_threshold() {
 
 #[test]
 fn log_connection_failure_does_not_panic_at_and_above_threshold() {
-    // Calls at and above threshold escalate to error — must also not panic.
+    // Threshold call escalates to error once; above-threshold calls stay at warn
+    // (one-shot escalation). This test asserts the no-panic invariant across both.
     for i in FAIL_ESCALATE_THRESHOLD..=FAIL_ESCALATE_THRESHOLD + 3 {
         log_connection_failure(i, "simulated sustained failure");
     }

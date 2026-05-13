@@ -99,6 +99,22 @@ const SettingsHome = () => {
           ),
           onClick: () => navigateToSettings('notifications'),
         },
+        {
+          id: 'mascot',
+          title: 'Mascot',
+          description: 'Pick the mascot color used across the app',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 21a9 9 0 100-18 9 9 0 000 18zM9 10h.01M15 10h.01M9.5 15c.83.67 1.67 1 2.5 1s1.67-.33 2.5-1"
+              />
+            </svg>
+          ),
+          onClick: () => navigateToSettings('mascot'),
+        },
       ],
     },
     {

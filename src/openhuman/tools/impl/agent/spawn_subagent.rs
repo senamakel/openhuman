@@ -166,10 +166,15 @@ impl Tool for SpawnSubagentTool {
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
 
-        let dedicated_thread = args
-            .get("dedicated_thread")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        // Worker-thread spawning is temporarily disabled until a proper UI
+        // showcase lands (see tinyhumansai/openhuman#1624). Force the inline
+        // path regardless of what the model requests.
+        // let dedicated_thread = args
+        //     .get("dedicated_thread")
+        //     .and_then(|v| v.as_bool())
+        //     .unwrap_or(false);
+        let _ = args.get("dedicated_thread");
+        let dedicated_thread = false;
 
         // ── Validation ─────────────────────────────────────────────────
         if agent_id.is_empty() {

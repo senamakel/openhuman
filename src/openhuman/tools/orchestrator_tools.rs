@@ -29,7 +29,11 @@ use crate::openhuman::agent::harness::definition::{
 };
 use crate::openhuman::context::prompt::ConnectedIntegration;
 
-use super::{ArchetypeDelegationTool, SkillDelegationTool, SpawnWorkerThreadTool, Tool};
+// SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
+// temporarily disabled (see tinyhumansai/openhuman#1624).
+#[allow(unused_imports)]
+use super::SpawnWorkerThreadTool;
+use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
 
 /// Synthesise the delegation tool list for an agent based on its
 /// declarative `subagents` field.
@@ -66,9 +70,12 @@ pub fn collect_orchestrator_tools(
     let mut tools: Vec<Box<dyn Tool>> = Vec::new();
 
     // Orchestrator-only tool: spawn_worker_thread.
-    if definition.id == "orchestrator" {
-        tools.push(Box::new(SpawnWorkerThreadTool::new()));
-    }
+    // Temporarily disabled — worker threads do not yet have a proper UI
+    // showcase (see tinyhumansai/openhuman#1624). Re-enable once the
+    // dedicated worker-thread surface lands.
+    // if definition.id == "orchestrator" {
+    //     tools.push(Box::new(SpawnWorkerThreadTool::new()));
+    // }
 
     for entry in &definition.subagents {
         match entry {

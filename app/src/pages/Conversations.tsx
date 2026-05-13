@@ -940,6 +940,10 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
 
   const filteredThreads = useMemo(() => {
     const base = threads.filter(t => {
+      // Hide worker/subagent threads from the conversation list. They are
+      // currently surfaced inline inside the parent thread via WorkerThreadRefCard.
+      // A dedicated showcase is tracked in tinyhumansai/openhuman#1624.
+      if (t.parentThreadId) return false;
       if (selectedLabel === 'all') return true;
       return t.labels?.includes(selectedLabel);
     });

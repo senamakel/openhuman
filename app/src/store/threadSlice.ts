@@ -120,6 +120,38 @@ export const loadThreadMessages = createAsyncThunk(
   }
 );
 
+/**
+ * Shared stale-thread handler used by write thunks.
+ *
+ * When `isThreadNotFoundCoreRpcError` is true the thunk should:
+ *   1. Evict the stale thread from Redux state immediately.
+ *   2. Reload the thread list so the sidebar reflects backend state.
+ *   3. Reject with `THREAD_NOT_FOUND_MESSAGE` so callers can branch on it
+ *      without inspecting error message strings.
+ *
+ * The `loadThreads` failure is swallowed — a network hiccup on the refresh
+ * should not surface an additional error on top of the stale-thread UX.
+ */
+/**
+ * Side-effect half of stale-thread cleanup: evict the thread from Redux state
+ * and reload the thread list. Separated from the `rejectWithValue` call so the
+ * thunk return type is inferred purely from `rejectWithValue(THREAD_NOT_FOUND_MESSAGE)`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function evictStaleThread(threadId: string, dispatch: (action: any) => any): Promise<void> {
+  dispatch(clearStaleThread(threadId));
+  try {
+    await dispatch(loadThreads()).unwrap();
+  } catch (refreshError) {
+    if (IS_DEV) {
+      console.debug('[threadSlice] stale-thread list refresh failed', {
+        threadId,
+        error: refreshError,
+      });
+    }
+  }
+}
+
 export const addMessageLocal = createAsyncThunk(
   'thread/addMessageLocal',
   async (payload: { threadId: string; message: ThreadMessage }, { dispatch, rejectWithValue }) => {
@@ -140,17 +172,7 @@ export const addMessageLocal = createAsyncThunk(
       return { threadId: payload.threadId, message: persisted };
     } catch (error) {
       if (isThreadNotFoundCoreRpcError(error, payload.threadId)) {
-        dispatch(clearStaleThread(payload.threadId));
-        try {
-          await dispatch(loadThreads()).unwrap();
-        } catch (refreshError) {
-          if (IS_DEV) {
-            console.debug('[threadSlice] addMessageLocal stale-thread refresh failed', {
-              threadId: payload.threadId,
-              error: refreshError,
-            });
-          }
-        }
+        await evictStaleThread(payload.threadId, dispatch);
         return rejectWithValue(THREAD_NOT_FOUND_MESSAGE);
       }
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to save message');
@@ -190,17 +212,7 @@ export const addInferenceResponse = createAsyncThunk(
       return { threadId: targetThreadId, message: persisted };
     } catch (error) {
       if (isThreadNotFoundCoreRpcError(error, targetThreadId)) {
-        dispatch(clearStaleThread(targetThreadId));
-        try {
-          await dispatch(loadThreads()).unwrap();
-        } catch (refreshError) {
-          if (IS_DEV) {
-            console.debug('[threadSlice] addInferenceResponse stale-thread refresh failed', {
-              threadId: targetThreadId,
-              error: refreshError,
-            });
-          }
-        }
+        await evictStaleThread(targetThreadId, dispatch);
         return rejectWithValue(THREAD_NOT_FOUND_MESSAGE);
       }
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to save response');
@@ -219,17 +231,7 @@ export const generateThreadTitleIfNeeded = createAsyncThunk(
       thread = await threadApi.generateTitleIfNeeded(payload.threadId, payload.assistantMessage);
     } catch (error) {
       if (isThreadNotFoundCoreRpcError(error, payload.threadId)) {
-        dispatch(clearStaleThread(payload.threadId));
-        try {
-          await dispatch(loadThreads()).unwrap();
-        } catch (refreshError) {
-          if (IS_DEV) {
-            console.debug('[threadSlice] generateThreadTitleIfNeeded stale-thread refresh failed', {
-              threadId: payload.threadId,
-              error: refreshError,
-            });
-          }
-        }
+        await evictStaleThread(payload.threadId, dispatch);
         return rejectWithValue(THREAD_NOT_FOUND_MESSAGE);
       }
       return rejectWithValue(

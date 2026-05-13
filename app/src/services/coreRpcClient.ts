@@ -102,8 +102,10 @@ export function classifyRpcError(
 
 function isThreadNotFoundRpcData(data: unknown): boolean {
   if (!data || typeof data !== 'object') return false;
-  const kind = (data as { kind?: unknown }).kind;
-  return kind === 'ThreadNotFound' || kind === 'thread_not_found';
+  // The server only ever emits kind === 'ThreadNotFound' (see
+  // src/openhuman/threads/error.rs THREAD_NOT_FOUND_KIND). The snake_case
+  // variant is not produced anywhere; keep only the canonical form.
+  return (data as { kind?: unknown }).kind === 'ThreadNotFound';
 }
 
 function threadIdFromRpcData(data: unknown): string | null {

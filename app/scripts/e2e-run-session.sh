@@ -200,12 +200,53 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
-# Sanity-check that there's at least one page-type CDP target — chromedriver's
-# debuggerAddress attach picks the first page target, and if the app hasn't
-# opened a window yet we get a confusing "no such window" failure.
-PAGE_TARGETS="$(curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/list" 2>/dev/null | grep -c '"type": *"page"' || true)"
-if [ "${PAGE_TARGETS:-0}" -lt 1 ]; then
-  echo "[runner] Warning: no page-type CDP targets visible yet — Appium may have to wait."
+# Wait for the main app target (tauri.localhost) to be visible, then close the
+# CEF prewarm child-webview slot (about:blank) so chromedriver attaches to the
+# real app. Without this, debuggerAddress picks the first page target — which
+# is the prewarm — and chromedriver's session is bound to a target CEF may
+# garbage-collect mid-test, killing the session with "session terminated".
+echo "[runner] Waiting for main app CDP target (tauri.localhost) ..."
+MAIN_TARGET_ID=""
+for i in $(seq 1 60); do
+  TARGETS_JSON="$(curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/list" 2>/dev/null || true)"
+  MAIN_TARGET_ID="$(printf '%s' "$TARGETS_JSON" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for t in data:
+    if t.get("type") == "page" and "tauri.localhost" in (t.get("url") or ""):
+        print(t.get("id", ""))
+        break
+' 2>/dev/null || true)"
+  if [ -n "$MAIN_TARGET_ID" ]; then
+    echo "[runner] Main app target: $MAIN_TARGET_ID"
+    break
+  fi
+  if [ "$i" -eq 60 ]; then
+    echo "[runner] Warning: main app target never appeared — chromedriver may attach to the wrong target."
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$MAIN_TARGET_ID" ]; then
+  printf '%s' "$TARGETS_JSON" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for t in data:
+    if t.get("type") == "page" and (t.get("url") or "").startswith("about:"):
+        print(t.get("id", ""))
+' 2>/dev/null | while read -r STALE_ID; do
+    if [ -n "$STALE_ID" ]; then
+      echo "[runner] Closing prewarm/about:blank target: $STALE_ID"
+      curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/close/$STALE_ID" > /dev/null 2>&1 || true
+    fi
+  done
 fi
 
 # ------------------------------------------------------------------------------

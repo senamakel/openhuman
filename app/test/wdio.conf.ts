@@ -89,6 +89,45 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     timeout: 120_000,
   },
   autoCompileOpts: { tsNodeOpts: { project: tsconfigE2ePath } },
+  /**
+   * After the chromedriver session attaches, switch the active window to
+   * the main OpenHuman app webview.
+   *
+   * CEF exposes multiple CDP page targets:
+   *   - `about:blank`  — the CEF prewarm hot-loaded child-webview slot
+   *                     (see CEF_PREWARM_LABEL in src-tauri/src/lib.rs).
+   *   - `OpenHuman` @ `http://tauri.localhost/#/` — the main React app.
+   *
+   * `debuggerAddress` makes chromedriver attach to the *first* page target,
+   * which is `about:blank`. Without this switch, every spec ends up looking
+   * at an empty document. We pick the first window whose URL contains
+   * `tauri.localhost`, falling back to the first non-`about:blank`.
+   */
+  before: async function () {
+    const handles = await browser.getWindowHandles();
+    let target: string | null = null;
+    for (const handle of handles) {
+      await browser.switchToWindow(handle);
+      const url = await browser.getUrl();
+      if (url.includes('tauri.localhost')) {
+        target = handle;
+        break;
+      }
+    }
+    if (!target) {
+      for (const handle of handles) {
+        await browser.switchToWindow(handle);
+        const url = await browser.getUrl();
+        if (!url.startsWith('about:')) {
+          target = handle;
+          break;
+        }
+      }
+    }
+    if (target) {
+      await browser.switchToWindow(target);
+    }
+  },
   afterTest: async function (
     test: { title: string; parent?: string },
     _context: unknown,

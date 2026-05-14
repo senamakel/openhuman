@@ -399,8 +399,23 @@ async fn cross_chat_entity_index_spans_source_boundaries() {
         "alice must have at least one mention"
     );
 
-    // Also verify carol is discoverable from chat B.
-    let carol = matches.iter().find(|m| {
+    // Also verify carol (from chat B) is discoverable via her own
+    // canonical entity — a separate search call, since the entity index is
+    // keyed by query string and "alice" does not surface carol's row.
+    let res_carol = search
+        .execute(json!({"query": "carol"}))
+        .await
+        .expect("search_entities (carol) must not error");
+    assert!(
+        !res_carol.is_error,
+        "search_entities for carol returned error: {}",
+        res_carol.output()
+    );
+    let carol_json: Value = serde_json::from_str(&res_carol.output()).unwrap();
+    let carol_matches = carol_json
+        .as_array()
+        .expect("search_entities returns an array");
+    let carol = carol_matches.iter().find(|m| {
         m.get("canonical_id")
             .and_then(|v| v.as_str())
             .map(|s| s.contains("carol"))
@@ -408,7 +423,7 @@ async fn cross_chat_entity_index_spans_source_boundaries() {
     });
     assert!(
         carol.is_some(),
-        "carol from chat B must also be discoverable"
+        "carol from chat B must also be discoverable; got: {carol_json:?}"
     );
 }
 

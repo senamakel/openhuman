@@ -590,7 +590,21 @@ async fn assets_status_sets_ollama_available_false_when_binary_missing() {
     // can't reliably verify the false path without intercepting PATH. We instead
     // test the method directly.
     let present = service.ollama_binary_present(&config);
-    // Restore env.
+
+    // Run the production path under the SAME env that produced `present` so
+    // assets_status sees the same world `ollama_binary_present` did.
+    // Restoring OLLAMA_BIN before this call would let a host-set OLLAMA_BIN
+    // pointing at a real binary leak into assets_status and contradict
+    // `present == false`, making the test host-dependent.
+    let probe_outcome = if !present {
+        let started = std::time::Instant::now();
+        let status = service.assets_status(&config).await.unwrap();
+        Some((status, started.elapsed()))
+    } else {
+        None
+    };
+
+    // Restore env *after* the production path has run.
     unsafe {
         match prev_ollama_bin {
             Some(v) => std::env::set_var("OLLAMA_BIN", v),
@@ -602,11 +616,7 @@ async fn assets_status_sets_ollama_available_false_when_binary_missing() {
     // We assert the logical contract: when present is false, assets_status must
     // not fire any HTTP probes (verified by timing — a 500ms connect timeout
     // per probe × 3 probes would be > 1s; the test should complete instantly).
-    if !present {
-        let started = std::time::Instant::now();
-        let status = service.assets_status(&config).await.unwrap();
-        let elapsed = started.elapsed();
-
+    if let Some((status, elapsed)) = probe_outcome {
         assert!(
             !status.ollama_available,
             "assets_status must report ollama_available=false when binary missing"

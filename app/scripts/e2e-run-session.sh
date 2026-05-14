@@ -235,11 +235,17 @@ for i in $(seq 1 60); do
     break
   fi
   if ! kill -0 "$APP_PID" 2>/dev/null; then
-    echo "ERROR: CEF app exited before CDP came up. See $APP_LOG" >&2
+    echo "ERROR: CEF app exited before CDP came up. App log follows:" >&2
+    echo "----- $APP_LOG -----" >&2
+    cat "$APP_LOG" >&2 || true
+    echo "----- end log -----" >&2
     exit 1
   fi
   if [ "$i" -eq 60 ]; then
-    echo "ERROR: CDP did not come up within 60s. See $APP_LOG" >&2
+    echo "ERROR: CDP did not come up within 60s. App log follows:" >&2
+    echo "----- $APP_LOG -----" >&2
+    cat "$APP_LOG" >&2 || true
+    echo "----- end log -----" >&2
     exit 1
   fi
   sleep 1

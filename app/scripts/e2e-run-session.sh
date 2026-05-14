@@ -221,9 +221,22 @@ esac
 # ------------------------------------------------------------------------------
 LOG_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 APP_LOG="$LOG_DIR/openhuman-e2e-app-${LOG_SUFFIX}.log"
-echo "[runner] Launching CEF app: $APP_BIN"
+APP_ARGS=()
+# CEF/Chromium refuses to start as root unless --no-sandbox is passed
+# (crbug.com/638180). The Linux CI container (openhuman_ci) runs as root,
+# so add the flag there. On macOS/Windows runners we're a regular user and
+# the sandbox should stay on.
+case "$OS" in
+  Linux)
+    if [ "$(id -u 2>/dev/null || echo 0)" = "0" ]; then
+      APP_ARGS+=("--no-sandbox")
+      echo "[runner] Running as root → passing --no-sandbox to CEF."
+    fi
+    ;;
+esac
+echo "[runner] Launching CEF app: $APP_BIN ${APP_ARGS[*]:-}"
 echo "[runner]   App logs: $APP_LOG"
-"$APP_BIN" > "$APP_LOG" 2>&1 &
+"$APP_BIN" "${APP_ARGS[@]}" > "$APP_LOG" 2>&1 &
 APP_PID=$!
 
 echo "[runner] Waiting for CDP at http://127.0.0.1:${CEF_CDP_PORT}/json/version ..."

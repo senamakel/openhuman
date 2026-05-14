@@ -420,6 +420,8 @@ impl AgentBuilder {
             omit_profile: self.omit_profile.unwrap_or(true),
             omit_memory_md: self.omit_memory_md.unwrap_or(true),
             payload_summarizer: self.payload_summarizer,
+            last_seen_integrations_hash: 0,
+            synthesized_tool_names: std::collections::HashSet::new(),
         })
     }
 }

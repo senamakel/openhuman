@@ -1532,7 +1532,9 @@ pub async fn reset_tree_rpc(config: &Config) -> Result<RpcOutcome<ResetTreeRespo
         }
     }
 
-    // Wake the worker pool so the freshly-enqueued jobs start running.
+    // Wake the worker pool. Done after the on-disk cleanup so jobs don't
+    // start racing against an in-progress directory removal; the small
+    // delay (at most the retry window on Windows) is acceptable.
     crate::openhuman::memory::tree::jobs::wake_workers();
 
     let resp = ResetTreeResponse {

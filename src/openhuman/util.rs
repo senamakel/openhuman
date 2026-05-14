@@ -389,7 +389,7 @@ where
                     break;
                 }
 
-                let sleep_ms = base_ms * 2u64.pow(i);
+                let sleep_ms = base_ms.saturating_mul(2u64.saturating_pow(i)).min(30_000);
                 tracing::warn!(
                     op = op_name,
                     attempt = i + 1,
@@ -442,7 +442,7 @@ where
                     break;
                 }
 
-                let sleep_ms = base_ms * 2u64.pow(i);
+                let sleep_ms = base_ms.saturating_mul(2u64.saturating_pow(i)).min(30_000);
                 tracing::warn!(
                     op = op_name,
                     attempt = i + 1,

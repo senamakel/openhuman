@@ -150,6 +150,16 @@ async fn already_ingested(
         .map_err(|e| anyhow::anyhow!("already_ingested join error: {e}"))?
 }
 
+/// Build a trailing body preview (last ~2048 bytes), safe for multibyte UTF-8.
+fn build_body_preview(md: &str) -> String {
+    let len = md.len();
+    if len <= 2048 {
+        return md.to_string();
+    }
+    let start = crate::openhuman::util::floor_char_boundary(md, len - 2048);
+    md[start..].to_string()
+}
+
 async fn persist(
     config: &Config,
     source_id: &str,
@@ -163,15 +173,7 @@ async fn persist(
     // sources are conversational and have no trailing structure worth scanning, so
     // they get body_preview = None.
     let body_preview: Option<String> = match source_kind_for_store {
-        SourceKind::Email | SourceKind::Document => {
-            let md = &canonical.markdown;
-            let len = md.len();
-            Some(if len <= 2048 {
-                md.clone()
-            } else {
-                md[len - 2048..].to_string()
-            })
-        }
+        SourceKind::Email | SourceKind::Document => Some(build_body_preview(&canonical.markdown)),
         _ => None,
     };
 
@@ -540,5 +542,33 @@ mod tests {
         drain_until_idle(&cfg).await.unwrap();
         assert_eq!(count_chunks(&cfg).unwrap(), 1);
         assert_eq!(count_scores(&cfg).unwrap(), 1);
+    }
+
+    #[test]
+    fn body_preview_short_string_returned_whole() {
+        let short = "Hello world";
+        assert_eq!(super::build_body_preview(short), short);
+    }
+
+    #[test]
+    fn body_preview_long_ascii_truncates_to_trailing_bytes() {
+        let long = "A".repeat(4096);
+        let preview = super::build_body_preview(&long);
+        assert_eq!(preview.len(), 2048); // ASCII has no multibyte rounding
+    }
+
+    #[test]
+    fn body_preview_multibyte_at_cut_point_does_not_panic() {
+        // U+200C (ZWNJ) is 3 bytes: E2 80 8C
+        // Construct so len - 2048 lands inside the 3-byte codepoint.
+        let prefix = "X".repeat(2045);
+        let zwnj = "\u{200C}"; // 3 bytes at positions 2045..2048
+        let suffix = "Y".repeat(2046); // total = 2045 + 3 + 2046 = 4094; len-2048 = 2046 → inside ZWNJ
+        let input = format!("{}{}{}", prefix, zwnj, suffix);
+        assert_eq!(input.len(), 4094);
+        // This is the exact regression case: len - 2048 = 2046, byte index inside ZWNJ
+        let preview = super::build_body_preview(&input); // must not panic
+        assert!(preview.is_char_boundary(0));
+        assert!(preview.len() >= 2046); // at least the suffix
     }
 }

@@ -218,7 +218,10 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
     agent.fetch_connected_integrations().await;
     // Mirror turn-1: synthesise `delegate_*` tools for connected
     // Composio toolkits now that we know what's actually authorised.
-    agent.refresh_delegation_tools();
+    // The shared-Arc failure path is unreachable here (this is the
+    // debug dumper running against a freshly-built agent — no
+    // sub-agent has cloned the tool list), so ignore the bool return.
+    let _ = agent.refresh_delegation_tools();
 
     let text = agent
         .build_system_prompt(LearnedContextData::default())

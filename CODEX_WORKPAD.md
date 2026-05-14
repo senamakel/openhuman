@@ -35,7 +35,7 @@ Results:
 
 ## Lint Warning Cleanup - 2026-05-13
 
-Scope:
+Original source checkout scope:
 
 - Removed one stale `eslint-disable-next-line no-console` directive from
   `app/src/services/meetCallService.ts`.
@@ -52,8 +52,10 @@ compiler `set-state-in-effect` warnings plus one `no-explicit-any` warning.
 
 Follow-up cleanup:
 
-- Replaced the remaining `no-explicit-any` cast in
-  `app/src/lib/mcp/transport.ts` with a typed MCP event handler map.
+- Replaced the remaining `no-explicit-any` cast in the source checkout's
+  `app/src/lib/mcp/transport.ts` with a typed MCP event handler map. This
+  transport cleanup was already obsolete on the clean `origin/main` extraction
+  branch and is not part of the PR branch.
 - `pnpm run lint`: passed with 36 warnings, down from 37. Remaining warnings
   are React compiler `set-state-in-effect` warnings.
 - `pnpm run typecheck`: passed.
@@ -81,34 +83,85 @@ Added `docs/PORTFOLIO_READINESS.md` with:
 
 No product behavior changes.
 
-Validation refresh:
+## Clean PR Extraction - 2026-05-13
 
-- `pnpm run lint`: passed with 33 React compiler warnings.
-- `pnpm run typecheck`: passed.
-- `pnpm run test`: passed, 214 test files and 1 skipped; 1,977 tests passed
-  and 3 skipped. Existing Vitest localStorage/jsdom navigation warnings remain.
-- `pnpm run test:rust`: passed via `scripts/test-rust-with-mock.sh`.
-- `git diff --check`: passed.
+Implementation branch: `codex/openhuman-portfolio-lint-readiness-upstream`.
+Base: `upstream/main` at `83bc5648`.
+
+The source checkout was already on `codex/operator-mvp-plan` with generated
+architecture artifacts and several cleanup changes. The clean extraction keeps
+only the still-relevant portfolio lint/readiness slice:
+
+- `.gitignore` ignores local `.cocoindex_code/` index output.
+- `app/src/components/settings/panels/RecoveryPhrasePanel.tsx` moves recovery
+  phrase mode resets into the explicit mode switch handler.
+- `app/src/pages/Mnemonic.tsx` moves mnemonic mode resets into the explicit
+  mode switch handler.
+- `app/src/pages/Conversations.tsx` removes dead label reset state now that the
+  fixed tab model owns label categories.
+- `docs/PORTFOLIO_READINESS.md` records validation evidence and the remaining
+  warning boundary.
+
+Excluded:
+
+- Generated `docs/architecture/` scan artifacts.
+- Obsolete source-checkout changes that were already absent from current
+  `upstream/main`, including the MCP transport cast cleanup and removed meet call
+  service cleanup.
+- Broader Core RPC, config, or scanner-memory architecture refactors.
 
 Gemini secondary review:
 
-- Attempted with Gemini CLI on 2026-05-13 for the scoped
-  portfolio-readiness cleanup.
-- Blocked by `MODEL_CAPACITY_EXHAUSTED` / HTTP 429 for
-  `gemini-3-flash-preview`; no Gemini findings were returned.
+- Pre-review was attempted with `gemini-2.5-flash`, but Gemini repeatedly
+  returned 429 model-capacity errors. This branch therefore has local validation
+  evidence but no completed Gemini review for the OpenHuman slice.
 
-PR handoff:
+Validation on the upstream-based clean extraction branch:
 
-- Opened upstream PR: https://github.com/tinyhumansai/openhuman/pull/1661
-- Initial pushed head: `ef7144a6`.
-- GitHub initially reported merge state `DIRTY`.
-- Merged `upstream/main` into `codex/operator-mvp-plan`, resolving the only
-  conflict in `app/src-tauri/Cargo.lock` to the upstream/package manifest
-  version `0.53.41`.
-- Reconciled pushed head: `df628c98`.
-- Post-merge pre-push hook passed `format:check`, `lint` with 31 existing
-  React compiler warnings, `compile`, `rust:check`, and
-  `lint:commands-tokens` using `CARGO_ENCODED_RUSTFLAGS='' RUSTC_WRAPPER=` to
-  avoid the local `ld64.lld` / `-ld_new` linker configuration failure.
-- GitHub now reports merge state `BLOCKED` and no checks at the time of this
-  note; generated `docs/architecture/` output remains intentionally untracked.
+```bash
+pnpm install
+```
+
+Result: passed after the upstream rebase installed the missing current
+workspace packages from the local pnpm store. Build scripts were left
+unapproved.
+
+```bash
+pnpm run lint
+```
+
+Result: passed with 35 warnings. Remaining warnings are
+`react-hooks/set-state-in-effect`.
+
+```bash
+pnpm run typecheck
+```
+
+Result: passed.
+
+```bash
+pnpm --filter openhuman-app exec vitest run --config test/vitest.config.ts src/pages/__tests__/Conversations.test.tsx src/pages/__tests__/Conversations.render.test.tsx src/components/settings/panels/__tests__/RecoveryPhrasePanel.test.tsx
+```
+
+Result: passed, `3` files and `24` tests. Vitest still emitted the known Node
+`localStorage is not available` warning.
+
+```bash
+git diff --check
+```
+
+Result: passed.
+
+```bash
+pnpm --filter openhuman-app exec prettier --check .
+```
+
+Result: passed from `app/`.
+
+```bash
+cargo fmt --manifest-path Cargo.toml --all --check
+cargo fmt --manifest-path app/src-tauri/Cargo.toml --all --check
+cargo check --manifest-path app/src-tauri/Cargo.toml
+```
+
+Result: passed. `cargo check` emitted existing Rust warnings.

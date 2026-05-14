@@ -19,36 +19,40 @@ Run from the repo root:
 ```bash
 pnpm run typecheck
 pnpm run lint
-pnpm run test
-pnpm run test:rust
+pnpm --filter openhuman-app exec vitest run --config test/vitest.config.ts src/pages/__tests__/Conversations.test.tsx src/pages/__tests__/Conversations.render.test.tsx src/components/settings/panels/__tests__/RecoveryPhrasePanel.test.tsx
+pnpm --filter openhuman-app exec prettier --check .
+cargo fmt --manifest-path Cargo.toml --all --check
+cargo fmt --manifest-path app/src-tauri/Cargo.toml --all --check
+cargo check --manifest-path app/src-tauri/Cargo.toml
 git diff --check
 ```
 
-Latest portfolio-readiness run:
+Latest clean-branch portfolio-readiness run:
 
 - `pnpm run typecheck`: passed.
-- `pnpm run lint`: passed with 33 warnings. The remaining warning family is
+- `pnpm run lint`: passed with 35 warnings. The remaining warning family is
   React compiler `set-state-in-effect`.
-- `pnpm run test`: passed, 214 test files, 1 skipped; 1,977 tests passed, 3
-  skipped.
-- `pnpm run test:rust`: passed through `scripts/test-rust-with-mock.sh`.
+- Focused Vitest coverage for the touched React areas passed: `3` files and
+-  `24` tests across Conversations and Recovery Phrase panel tests.
+- `pnpm --filter openhuman-app exec prettier --check .`: passed from `app/`.
+- Rust format checks for the root and Tauri manifests passed.
+- `cargo check --manifest-path app/src-tauri/Cargo.toml`: passed with existing
+  Rust warnings.
 - `git diff --check`: passed.
 
 ## Cleanup Performed
 
-- Removed a stale `eslint-disable-next-line no-console` directive in
-  `app/src/services/meetCallService.ts`.
-- Replaced an `any` cast in `app/src/lib/mcp/transport.ts` with a typed MCP
-  event-handler map.
 - Moved mnemonic/recovery-phrase mode resets into the explicit mode switch
   handlers.
 - Removed dead sidebar label reset state now that conversation labels use a
   fixed tab model.
+- Ignored local `.cocoindex_code/` index output so code-index experiments do
+  not dirty the repo.
 - Recorded validation evidence in `CODEX_WORKPAD.md`.
 
 ## Remaining Presentation Debt
 
-- The lint output is not presentation-clean yet because 33 React compiler
+- The lint output is not presentation-clean yet because 35 React compiler
   warnings remain.
 - Most warnings are synchronous state updates inside effects. Some may be
   harmless legacy patterns, but they should be either refactored or explicitly

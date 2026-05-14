@@ -70,6 +70,11 @@ fn main() {
             if openhuman_core::core::observability::is_max_iterations_event(&event) {
                 return None;
             }
+            if openhuman_core::core::observability::is_transient_backend_api_failure(&event)
+                || openhuman_core::core::observability::is_transient_integrations_failure(&event)
+            {
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity
             event.server_name = None;
             // Attach the cached account uid so Sentry can count unique users

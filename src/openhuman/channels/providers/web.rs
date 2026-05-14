@@ -446,7 +446,7 @@ pub async fn start_chat(
                 // events. Sentry has no signal to act on those — no
                 // status, no trace, no payload — and every retry
                 // exhaustion produces another noisy event.
-                if crate::openhuman::agent::error::is_max_iterations_error(&err) {
+                if crate::openhuman::agent::error::is_max_iterations_error(&detailed) {
                     log::info!(
                         target: "web_channel",
                         "[web_channel.run_chat_task] suppressed Sentry emission for max-iteration \

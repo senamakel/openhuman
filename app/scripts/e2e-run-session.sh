@@ -276,7 +276,11 @@ case "$OS" in
 esac
 echo "[runner] Launching CEF app: $APP_BIN ${APP_ARGS[*]:-}"
 echo "[runner]   App logs: $APP_LOG"
-"$APP_BIN" "${APP_ARGS[@]}" > "$APP_LOG" 2>&1 &
+# `${APP_ARGS[@]+"${APP_ARGS[@]}"}` is the idiom for expanding a possibly-
+# empty array under `set -u`. On macOS APP_ARGS is empty; on Linux it has
+# --no-sandbox etc. Without this guard bash errors with "APP_ARGS[@]:
+# unbound variable" and the app never launches.
+"$APP_BIN" ${APP_ARGS[@]+"${APP_ARGS[@]}"} > "$APP_LOG" 2>&1 &
 APP_PID=$!
 
 echo "[runner] Waiting for CDP at http://127.0.0.1:${CEF_CDP_PORT}/json/version ..."

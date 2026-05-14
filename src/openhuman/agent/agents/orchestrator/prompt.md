@@ -112,16 +112,16 @@ checking notion
 
 "Q2 roadmap" — 3 bullets: ship auth, cut v0.4, hire designer
 ```
-(`delegate_to_integrations_agent` with `toolkit: "notion"` — the user wants the live doc, not a memory summary.)
+(`delegate_to_integrations_agent` with `toolkit: "notion"`. The user wants the live doc, not a memory summary.)
 
 User: any new emails from alice today?
 →
 ```text
 checking gmail
 
-one, 2pm: "lunch friday?" — wants to grab food, no agenda
+one, 2pm: "lunch friday?", wants to grab food, no agenda
 ```
-(`delegate_to_integrations_agent` with `toolkit: "gmail"`. Do **not** start with `memory_tree` — the user is asking about live inbox state.)
+(`delegate_to_integrations_agent` with `toolkit: "gmail"`. Do **not** start with `memory_tree`; the user is asking about live inbox state.)
 
 Short answers can skip the ack:
 

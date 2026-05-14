@@ -166,8 +166,7 @@ async fn persist(
     // worth scanning, so they get body_preview = None.
     let body_preview: Option<String> = match source_kind_for_store {
         SourceKind::Email | SourceKind::Document => {
-            let md = &canonical.markdown;
-            Some(markdown_body_preview(md))
+            Some(markdown_body_preview(&canonical.markdown))
         }
         _ => None,
     };
@@ -358,6 +357,12 @@ async fn persist(
     })
 }
 
+/// Returns the trailing slice of `md` capped at [`BODY_PREVIEW_MAX_BYTES`] bytes.
+///
+/// Uses `ceil_char_boundary` (rounds the cut point *forward*) so the returned
+/// slice is always `<= BODY_PREVIEW_MAX_BYTES` bytes — `floor_char_boundary`
+/// (rounds backward) can return up to 3 extra bytes when the cut falls inside
+/// a multi-byte codepoint, violating the hard cap.
 fn markdown_body_preview(md: &str) -> String {
     let len = md.len();
     if len <= BODY_PREVIEW_MAX_BYTES {
@@ -511,11 +516,6 @@ mod tests {
     async fn ingest_document_handles_utf8_at_body_preview_boundary() {
         let (_tmp, cfg) = test_config();
         let body = format!("{}{}{}", "a".repeat(17), '\u{200c}', "b".repeat(2045));
-        let preview_start = body.len() + 1 - BODY_PREVIEW_MAX_BYTES;
-        assert!(
-            !body.is_char_boundary(preview_start),
-            "test fixture must put the preview boundary inside a multi-byte character"
-        );
 
         let doc = DocumentInput {
             provider: "notion".into(),

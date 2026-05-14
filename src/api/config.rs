@@ -17,6 +17,41 @@ pub const VITE_APP_ENV_VAR: &str = "VITE_OPENHUMAN_APP_ENV";
 /// 3. `BACKEND_URL` / `VITE_BACKEND_URL` baked in at compile time via `option_env!`
 /// 4. Environment-aware default: `app_env_from_env()` == `staging` →
 ///    [`DEFAULT_STAGING_API_BASE_URL`], otherwise [`DEFAULT_API_BASE_URL`]
+/// Default path the OpenHuman backend exposes for its OpenAI-compatible
+/// inference proxy. Joined onto [`effective_api_url`] when the user has not
+/// configured a custom `inference_url`.
+pub const OPENHUMAN_INFERENCE_PATH: &str = "/openai/v1/chat/completions";
+
+/// Resolves the LLM inference endpoint to call.
+///
+/// Derived state — not stored as a single field. Order:
+/// 1. `config.inference_url` when set (user pointed inference at a custom
+///    OpenAI-compatible endpoint — e.g. `https://api.openai.com/v1/chat/completions`).
+/// 2. Otherwise `effective_api_url(api_url)` joined with `/openai/v1/chat/completions`
+///    via the safe [`api_url`] helper, so inference flows through the OpenHuman
+///    backend's OpenAI-compat proxy.
+///
+/// This split is what keeps account/auth/billing calls (always `effective_api_url`)
+/// separate from inference (this function). Mixing them is what caused
+/// `/auth/me`, `/auth/google/login`, and `/voice/*` to start hitting
+/// `api.openai.com` when the user pointed `api_url` at a custom provider.
+pub fn effective_inference_url(
+    api_url_override: &Option<String>,
+    inference_url_override: &Option<String>,
+) -> String {
+    if let Some(u) = inference_url_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return u.to_string();
+    }
+    api_url(
+        &effective_api_url(api_url_override),
+        OPENHUMAN_INFERENCE_PATH,
+    )
+}
+
 pub fn effective_api_url(api_url: &Option<String>) -> String {
     if let Some(u) = api_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         return normalize_api_base_url(u);
@@ -30,6 +65,43 @@ pub fn effective_api_url(api_url: &Option<String>) -> String {
 /// Trim and strip trailing slashes so paths join consistently.
 pub fn normalize_api_base_url(url: &str) -> String {
     url.trim().trim_end_matches('/').to_string()
+}
+
+/// Safely join an API base URL with a path.
+///
+/// Behaviour:
+/// - Empty `path` → normalized `base` (no trailing slash).
+/// - `path` starting with `/` → replaces any path on `base` (RFC 3986
+///   absolute-path reference). This is the case that protects us from a
+///   misconfigured `api_url` like `https://api.tinyhumans.ai/openai/v1/chat/completions`
+///   silently corrupting every `/agent-integrations/...` call.
+/// - If `base` fails to parse as a URL, falls back to slash-safe concat
+///   so callers always get a usable string.
+///
+/// Paths SHOULD start with `/`. Relative paths (no leading slash) are
+/// resolved against the base path per RFC 3986, which means the base's
+/// last path segment is dropped — almost never what you want for an API.
+pub fn api_url(base: &str, path: &str) -> String {
+    let base_trimmed = base.trim();
+    if path.is_empty() {
+        return normalize_api_base_url(base_trimmed);
+    }
+    match url::Url::parse(base_trimmed) {
+        Ok(parsed) => match parsed.join(path) {
+            Ok(joined) => joined.to_string().trim_end_matches('/').to_string(),
+            Err(_) => fallback_concat(base_trimmed, path),
+        },
+        Err(_) => fallback_concat(base_trimmed, path),
+    }
+}
+
+fn fallback_concat(base: &str, path: &str) -> String {
+    let base = base.trim_end_matches('/');
+    if path.starts_with('/') {
+        format!("{base}{path}")
+    } else {
+        format!("{base}/{path}")
+    }
 }
 
 /// Resolve API base URL from the environment.
@@ -116,6 +188,70 @@ mod tests {
     // Serialise all env-mutating tests to prevent flaky failures under
     // parallel test execution (std::env is process-global).
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    #[test]
+    fn api_url_empty_path_returns_normalized_base() {
+        assert_eq!(
+            api_url("https://api.tinyhumans.ai", ""),
+            "https://api.tinyhumans.ai"
+        );
+        assert_eq!(
+            api_url("https://api.tinyhumans.ai/", ""),
+            "https://api.tinyhumans.ai"
+        );
+        assert_eq!(
+            api_url("  https://api.tinyhumans.ai/  ", ""),
+            "https://api.tinyhumans.ai"
+        );
+    }
+
+    #[test]
+    fn api_url_absolute_path_replaces_base_path() {
+        // This is the regression: api_url misconfigured with a path baked in
+        // must not corrupt /agent-integrations/* calls.
+        assert_eq!(
+            api_url(
+                "https://api.tinyhumans.ai/openai/v1/chat/completions",
+                "/agent-integrations/composio/toolkits"
+            ),
+            "https://api.tinyhumans.ai/agent-integrations/composio/toolkits"
+        );
+    }
+
+    #[test]
+    fn api_url_clean_base_joins_cleanly() {
+        assert_eq!(
+            api_url(
+                "https://api.tinyhumans.ai",
+                "/agent-integrations/composio/toolkits"
+            ),
+            "https://api.tinyhumans.ai/agent-integrations/composio/toolkits"
+        );
+        assert_eq!(
+            api_url(
+                "https://api.tinyhumans.ai/",
+                "/agent-integrations/composio/toolkits"
+            ),
+            "https://api.tinyhumans.ai/agent-integrations/composio/toolkits"
+        );
+    }
+
+    #[test]
+    fn api_url_preserves_query_string_on_path() {
+        assert_eq!(
+            api_url(
+                "https://api.tinyhumans.ai",
+                "/agent-integrations/composio/tools?toolkits=gmail"
+            ),
+            "https://api.tinyhumans.ai/agent-integrations/composio/tools?toolkits=gmail"
+        );
+    }
+
+    #[test]
+    fn api_url_unparseable_base_falls_back_to_concat() {
+        assert_eq!(api_url("not a url", "/x"), "not a url/x");
+        assert_eq!(api_url("not a url/", "/x"), "not a url/x");
+    }
 
     #[test]
     fn staging_app_env_uses_staging_default_api() {

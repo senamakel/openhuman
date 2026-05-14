@@ -17,7 +17,14 @@ struct ModelRouteUpdate {
 
 #[derive(Debug, Deserialize)]
 struct ModelSettingsUpdate {
+    /// OpenHuman product backend URL. Used for auth, billing, voice, and
+    /// every non-inference HTTP call. Almost always left blank so it
+    /// defaults to the canonical hosted backend.
     api_url: Option<String>,
+    /// Custom OpenAI-compatible LLM endpoint. When set together with
+    /// `api_key`, inference talks directly to this URL instead of routing
+    /// through the OpenHuman backend. Send an empty string to clear.
+    inference_url: Option<String>,
     /// Optional API key for OpenAI-compatible backends. Stored verbatim in
     /// `config.toml` on the user's machine — see #1342 (local-first / pluggable
     /// backends). The key is never echoed back over RPC; `get_client_config`
@@ -304,7 +311,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "api_url",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Configured backend API URL, if any.",
+                    comment: "Configured OpenHuman product backend URL, if any.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "inference_url",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Custom OpenAI-compatible LLM endpoint, if any. When set together with an api_key, inference goes direct to this URL.",
                     required: false,
                 },
                 FieldSchema {
@@ -325,6 +338,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "True when a custom backend api_key is stored locally. The key itself is never returned over RPC.",
                     required: true,
                 },
+                FieldSchema {
+                    name: "model_routes",
+                    ty: TypeSchema::Json,
+                    comment: "Persisted task-hint -> model id pairs the core router will obey. Empty when the OpenHuman built-in router is active.",
+                    required: true,
+                },
             ],
         },
         "update_model_settings" => ControllerSchema {
@@ -332,8 +351,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "update_model_settings",
             description: "Update model and backend connection settings, including a custom OpenAI-compatible backend (api_url + api_key).",
             inputs: vec![
-                optional_string("api_url", "Backend API URL. Set to a non-default URL together with `api_key` to point inference at any OpenAI-compatible provider."),
-                optional_string("api_key", "Optional API key for the configured backend. Pass an empty string to clear a previously stored key."),
+                optional_string("api_url", "OpenHuman product backend URL (auth/billing/voice). Almost always left blank; the inference URL is a separate `inference_url` field."),
+                optional_string("inference_url", "Custom OpenAI-compatible LLM endpoint. When set together with `api_key`, inference goes direct to this URL instead of the OpenHuman backend. Pass an empty string to clear."),
+                optional_string("api_key", "Optional API key for the configured inference endpoint. Pass an empty string to clear a previously stored key."),
                 optional_string("default_model", "Default model id."),
                 FieldSchema {
                     name: "default_temperature",
@@ -762,7 +782,14 @@ fn handle_get_config(_params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
+        log::debug!("[config][rpc] get_client_config enter");
+        let config = match config_rpc::load_config_with_timeout().await {
+            Ok(c) => c,
+            Err(err) => {
+                log::warn!("[config][rpc] get_client_config load failed: {err}");
+                return Err(err);
+            }
+        };
         let app_version =
             std::env::var("OPENHUMAN_APP_VERSION").unwrap_or_else(|_| "unknown".to_string());
         let api_key_set = config
@@ -770,12 +797,24 @@ fn handle_get_client_config(_params: Map<String, Value>) -> ControllerFuture {
             .as_deref()
             .map(|k| !k.trim().is_empty())
             .unwrap_or(false);
+        let model_routes: Vec<serde_json::Value> = config
+            .model_routes
+            .iter()
+            .map(|r| serde_json::json!({ "hint": r.hint, "model": r.model }))
+            .collect();
+        log::debug!(
+            "[config][rpc] get_client_config ok api_key_set={} model_routes_count={}",
+            api_key_set,
+            model_routes.len()
+        );
         to_json(RpcOutcome::new(
             serde_json::json!({
                 "api_url": config.api_url,
+                "inference_url": config.inference_url,
                 "default_model": config.default_model,
                 "app_version": app_version,
                 "api_key_set": api_key_set,
+                "model_routes": model_routes,
             }),
             vec!["client config read".to_string()],
         ))
@@ -787,6 +826,7 @@ fn handle_update_model_settings(params: Map<String, Value>) -> ControllerFuture 
         let update = deserialize_params::<ModelSettingsUpdate>(params)?;
         let patch = config_rpc::ModelSettingsPatch {
             api_url: update.api_url,
+            inference_url: update.inference_url,
             api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,

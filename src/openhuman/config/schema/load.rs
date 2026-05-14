@@ -515,6 +515,77 @@ async fn parse_config_with_recovery(config_path: &Path, contents: &str) -> (Conf
     (Config::default(), true)
 }
 
+/// Older builds (#1342) wrote the user's custom OpenAI-compatible URL into
+/// `config.api_url`, double-purposing it as both the OpenHuman product
+/// backend URL AND the inference URL. That broke auth/billing/voice as
+/// soon as someone picked a non-OpenHuman provider. We now keep them in
+/// separate fields; on load, detect that legacy shape (any `api_url` whose
+/// path looks like a chat-completions endpoint) and move it.
+fn migrate_legacy_inference_url(config: &mut Config) {
+    if config.inference_url.is_some() {
+        return;
+    }
+    let Some(url) = config.api_url.as_deref() else {
+        return;
+    };
+    let trimmed = url.trim().trim_end_matches('/');
+    if !trimmed.ends_with("/chat/completions") {
+        return;
+    }
+    // OpenHuman's hosted backend exposes inference at `/openai/v1/chat/completions`;
+    // when api_url points there, the derived inference URL is already correct —
+    // just clear api_url so it falls back to the default base. For everything
+    // else, move the legacy value into inference_url.
+    let is_openhuman_backend = trimmed.starts_with("https://api.tinyhumans.ai/")
+        || trimmed.starts_with("https://staging-api.tinyhumans.ai/");
+    let moved = if is_openhuman_backend {
+        None
+    } else {
+        Some(trimmed.to_string())
+    };
+    // Log the URL with userinfo (basic-auth creds) and query string stripped
+    // so credentials embedded by callers — `https://user:token@host/v1/...`
+    // or `?api_key=...` — don't end up in log files / Sentry breadcrumbs.
+    let logged = match moved.as_deref() {
+        None => "<derived>".to_string(),
+        Some(u) => redact_url_for_log(u),
+    };
+    tracing::info!(
+        "[config][migrate] splitting legacy api_url -> inference_url (api_url cleared, inference_url={})",
+        logged
+    );
+    config.inference_url = moved;
+    config.api_url = None;
+}
+
+/// Strip userinfo (basic-auth) and query string from a URL string for log
+/// emission. Falls back to a coarse `<host>/...` form when parsing fails so
+/// we never leak the raw input. Public only so the migration's unit test
+/// can assert the behaviour.
+pub(super) fn redact_url_for_log(raw: &str) -> String {
+    if let Ok(mut url) = url::Url::parse(raw) {
+        let _ = url.set_username("");
+        let _ = url.set_password(None);
+        url.set_query(None);
+        url.set_fragment(None);
+        return url.to_string();
+    }
+    // Unparseable — keep the scheme+host hint, drop everything after the
+    // first `?` or `#`, and replace any `:port@host` userinfo with `***`.
+    let truncated = raw
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(raw)
+        .trim_end_matches('/');
+    if let Some((scheme, rest)) = truncated.split_once("://") {
+        if let Some((_, host_path)) = rest.split_once('@') {
+            return format!("{scheme}://***@{host_path}");
+        }
+        return format!("{scheme}://{rest}");
+    }
+    "<unparseable url>".to_string()
+}
+
 fn migrate_legacy_autocomplete_disabled_apps(config: &mut Config) {
     // Legacy defaults blocked both terminal and code, which prevented Codex/CLI usage.
     // Migrate only the exact legacy default so custom user preferences remain untouched.
@@ -620,6 +691,7 @@ impl Config {
             config.config_path = config_path.clone();
             config.workspace_dir = workspace_dir;
             migrate_legacy_autocomplete_disabled_apps(&mut config);
+            migrate_legacy_inference_url(&mut config);
             config.apply_env_overrides();
 
             if config_was_corrupted {

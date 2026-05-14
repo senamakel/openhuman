@@ -973,10 +973,6 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     );
   }, [filteredThreads]);
 
-  const allLabels = useMemo(() => {
-    return Array.from(new Set(threads.flatMap(t => t.labels ?? []))).sort();
-  }, [threads]);
-
   // Fixed tab set so categories don't disappear when empty and the active
   // filter state remains unambiguous regardless of what threads exist.
   const labelTabs = [
@@ -985,13 +981,6 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     { label: 'Briefing', value: 'briefing' },
     { label: 'Notification', value: 'notification' },
   ];
-
-  // Reset stale selectedLabel when the last thread carrying that label is deleted.
-  useEffect(() => {
-    if (selectedLabel !== 'all' && !allLabels.includes(selectedLabel)) {
-      setSelectedLabel('all');
-    }
-  }, [allLabels, selectedLabel]);
 
   const isSidebar = variant === 'sidebar';
   // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough

@@ -220,6 +220,7 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
     let mut cfg = tmp_config(&tmp);
     let patch = ModelSettingsPatch {
         api_url: Some("https://api.example.test".into()),
+        inference_url: None,
         api_key: None,
         default_model: Some("gpt-4o".into()),
         default_temperature: Some(0.25),
@@ -243,6 +244,7 @@ async fn apply_model_settings_stores_api_key_and_clears_when_empty() {
     let mut cfg = tmp_config(&tmp);
     let set = ModelSettingsPatch {
         api_url: Some("https://llm.example.test/v1".into()),
+        inference_url: None,
         api_key: Some("  sk-test-1234  ".into()),
         default_model: Some("gpt-4o-mini".into()),
         default_temperature: None,
@@ -253,6 +255,7 @@ async fn apply_model_settings_stores_api_key_and_clears_when_empty() {
 
     let clear = ModelSettingsPatch {
         api_url: None,
+        inference_url: None,
         api_key: Some("".into()),
         default_model: None,
         default_temperature: None,
@@ -275,6 +278,7 @@ async fn apply_model_settings_replaces_model_routes_when_some_and_keeps_when_non
     let mut cfg = tmp_config(&tmp);
     let set_routes = ModelSettingsPatch {
         api_url: None,
+        inference_url: None,
         api_key: None,
         default_model: None,
         default_temperature: None,
@@ -298,6 +302,7 @@ async fn apply_model_settings_replaces_model_routes_when_some_and_keeps_when_non
     // None — leave routes alone.
     let touch_other = ModelSettingsPatch {
         api_url: Some("https://x.test/v1".into()),
+        inference_url: None,
         api_key: None,
         default_model: None,
         default_temperature: None,
@@ -312,6 +317,7 @@ async fn apply_model_settings_replaces_model_routes_when_some_and_keeps_when_non
     // Empty vec — clear.
     let clear_routes = ModelSettingsPatch {
         api_url: None,
+        inference_url: None,
         api_key: None,
         default_model: None,
         default_temperature: None,
@@ -330,6 +336,7 @@ async fn apply_model_settings_empty_strings_clear_optional_fields() {
     cfg.default_model = Some("prev-model".into());
     let patch = ModelSettingsPatch {
         api_url: Some("".into()),
+        inference_url: None,
         api_key: None,
         default_model: Some("".into()),
         default_temperature: None,

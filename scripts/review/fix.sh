@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # fix.sh <pr-number> [--agent <tool>] [extra-prompt]
-# Sync the PR, run pr-reviewer to identify issues and apply fixes, then hand
-# off to pr-manager-lite to run the quality suite, commit, and push.
+# Sync the PR locally, then hand a fully-inlined "review + fix + push" prompt
+# to the chosen agent. The prompt is loaded from scripts/review/prompts/fix.md
+# so the workflow is agent-agnostic (no reliance on Claude Code's named
+# subagent registry).
 #
 # --agent picks the CLI that drives the work. Default: claude.
 # A trailing positional <extra-prompt> (any free-form text) is appended to the
@@ -36,16 +38,48 @@ done
 require "$agent"
 sync_pr "$pr"
 
-prompt="I've already checked out branch pr/$REVIEW_PR with main \
-merged in and upstream tracking set (repo: $REVIEW_REPO_RESOLVED). Use the \
-pr-reviewer agent to review PR #$REVIEW_PR and fix the issues it finds. Then \
-use the pr-manager-lite agent to run the quality suite, commit, and push the \
-changes back to the PR branch."
+template="$here/prompts/fix.md"
+if [ ! -f "$template" ]; then
+  echo "[review] missing prompt template: $template" >&2
+  exit 1
+fi
+
+if [ "${REVIEW_HAS_CONFLICTS:-0}" = "1" ]; then
+  conflict_block="# ⚠️ Merge conflicts to resolve FIRST
+
+When the PR branch was merged with current \`main\`, the following files were left with unresolved conflict markers (\`<<<<<<<\` / \`=======\` / \`>>>>>>>\`):
+
+$(printf -- '- %s\n' $REVIEW_CONFLICT_FILES)
+
+Before doing anything else:
+
+1. Read each conflicted file and understand both sides — read surrounding code, recent commits on \`main\`, and the PR's intent before resolving.
+2. Resolve the conflicts by choosing the correct combination of both sides (NOT \`--ours\` / \`--theirs\` blanket strategies and NOT \`git rebase --skip\`).
+3. \`git add\` the resolved files and finish the merge with a clear merge commit: \`git commit --no-edit\` (the conflict-resolution merge message is already staged) — or supply a one-line message if you prefer.
+4. Run formatters / typecheck / tests on the resolved files to confirm nothing regressed.
+
+Only after conflicts are cleanly resolved should you proceed to the review/fix workflow below."
+else
+  conflict_block=""
+fi
+
+prompt=$(awk -v pr="$REVIEW_PR" -v repo="$REVIEW_REPO_RESOLVED" \
+             -v head_repo="$REVIEW_HEAD_REPO" -v head_branch="$REVIEW_HEAD_BRANCH" \
+             -v conflict="$conflict_block" '
+  {
+    gsub(/__PR__/, pr);
+    gsub(/__REPO__/, repo);
+    gsub(/__HEAD_REPO__/, head_repo);
+    gsub(/__HEAD_BRANCH__/, head_branch);
+    gsub(/__CONFLICT_BLOCK__/, conflict);
+    print
+  }
+' "$template")
 
 if [ -n "$extra_prompt" ]; then
   prompt="${prompt}
 
-Additional instructions from the user:
+# Additional instructions from the user
 ${extra_prompt}"
 fi
 

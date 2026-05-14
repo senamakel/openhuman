@@ -90,5 +90,4 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     // Back in generate mode
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
   });
-
 });

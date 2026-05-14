@@ -526,9 +526,7 @@ async fn history_privacy_required_suppresses_fallback_even_on_error() {
 
     let r = router(Arc::clone(&local), Arc::clone(&remote), health, hints);
     let messages = vec![ChatMessage::user("private query")];
-    let err = r
-        .chat_with_history(&messages, "hint:reaction", 0.7)
-        .await;
+    let err = r.chat_with_history(&messages, "hint:reaction", 0.7).await;
 
     // Error propagates (no fallback permitted) and remote is never called.
     assert!(

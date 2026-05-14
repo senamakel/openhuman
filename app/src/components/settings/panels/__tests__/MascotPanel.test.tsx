@@ -1,14 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { REHYDRATE } from 'redux-persist';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
+import { REHYDRATE } from 'redux-persist';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import mascotReducer, {
-  DEFAULT_MASCOT_COLOR,
-  setMascotColor,
-} from '../../../../store/mascotSlice';
+import mascotReducer, { DEFAULT_MASCOT_COLOR, setMascotColor } from '../../../../store/mascotSlice';
 import MascotPanel from '../MascotPanel';
 
 const { mockNavigateBack } = vi.hoisted(() => ({ mockNavigateBack: vi.fn() }));
@@ -86,63 +83,39 @@ describe('MascotPanel', () => {
 describe('MascotPanel — mascotSlice rehydrate guard', () => {
   it('restores a known persisted color from a REHYDRATE action', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'mascot',
-      payload: { color: 'burgundy' },
-    });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: { color: 'burgundy' } });
     expect(store.getState().mascot.color).toBe('burgundy');
   });
 
   it('falls back to yellow when REHYDRATE contains an unknown color string', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'mascot',
-      payload: { color: 'hot-pink' },
-    });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: { color: 'hot-pink' } });
     expect(store.getState().mascot.color).toBe(DEFAULT_MASCOT_COLOR);
   });
 
   it('falls back to yellow when REHYDRATE payload is missing the color field', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'mascot',
-      payload: {},
-    });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: {} });
     expect(store.getState().mascot.color).toBe(DEFAULT_MASCOT_COLOR);
   });
 
   it('falls back to yellow when REHYDRATE payload is null', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'mascot',
-      payload: null,
-    });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: null });
     expect(store.getState().mascot.color).toBe(DEFAULT_MASCOT_COLOR);
   });
 
   it('ignores REHYDRATE actions for other slice keys', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
     store.dispatch(setMascotColor('navy'));
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'someOtherSlice',
-      payload: { color: 'green' },
-    });
+    store.dispatch({ type: REHYDRATE, key: 'someOtherSlice', payload: { color: 'green' } });
     // Should remain navy — we only handle key === 'mascot'.
     expect(store.getState().mascot.color).toBe('navy');
   });
 
   it('renders the rehydrated color as selected in the panel', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({
-      type: REHYDRATE,
-      key: 'mascot',
-      payload: { color: 'green' },
-    });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: { color: 'green' } });
     render(
       <Provider store={store}>
         <MemoryRouter>

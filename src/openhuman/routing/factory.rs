@@ -200,10 +200,7 @@ mod tests {
         // is set — a real URL check would require a running server.
         let _guard = crate::openhuman::local_ai::local_ai_test_guard();
         unsafe {
-            std::env::set_var(
-                "OPENHUMAN_LOCAL_INFERENCE_URL",
-                "http://127.0.0.1:9999/v1",
-            );
+            std::env::set_var("OPENHUMAN_LOCAL_INFERENCE_URL", "http://127.0.0.1:9999/v1");
         }
         let mut cfg = LocalAiConfig::default();
         cfg.runtime_enabled = true;

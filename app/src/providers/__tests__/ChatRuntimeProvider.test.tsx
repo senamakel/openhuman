@@ -876,30 +876,27 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       ['tool_error', 'A tool call failed during this request.'],
       ['provider_error', 'The AI provider returned an error.'],
       ['model_unavailable', 'The selected model is currently unavailable.'],
-    ] as const)(
-      'forwards server message for error_type %s',
-      async (error_type, serverMessage) => {
-        const listeners = renderProvider();
-        const threadId = `t-${error_type}`;
+    ] as const)('forwards server message for error_type %s', async (error_type, serverMessage) => {
+      const listeners = renderProvider();
+      const threadId = `t-${error_type}`;
 
-        act(() => {
-          listeners.onError?.({
-            thread_id: threadId,
-            request_id: 'r1',
-            message: serverMessage,
-            error_type,
-            round: 0,
-          });
+      act(() => {
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          message: serverMessage,
+          error_type,
+          round: 0,
         });
+      });
 
-        await waitFor(() =>
-          expect(threadApi.appendMessage).toHaveBeenCalledWith(
-            threadId,
-            expect.objectContaining({ content: serverMessage, sender: 'agent' })
-          )
-        );
-      }
-    );
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          threadId,
+          expect.objectContaining({ content: serverMessage, sender: 'agent' })
+        )
+      );
+    });
 
     it('replaces raw internal message with user-facing constant for inference type', async () => {
       const listeners = renderProvider();
@@ -924,9 +921,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       // The raw server string must NOT leak through.
       expect(threadApi.appendMessage).not.toHaveBeenCalledWith(
         threadId,
-        expect.objectContaining({
-          content: expect.stringContaining('channel closed unexpectedly'),
-        })
+        expect.objectContaining({ content: expect.stringContaining('channel closed unexpectedly') })
       );
     });
 

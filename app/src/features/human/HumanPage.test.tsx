@@ -6,10 +6,13 @@
  * key is present, `true` when the stored value is `'1'`, and `false` for `'0'`.
  * Toggling the checkbox writes the updated value back to localStorage.
  */
-import { act, fireEvent, render, screen } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ── Static import (after mocks are hoisted) ──────────────────────────────
+import HumanPage from './HumanPage';
 
 // ── Heavy dependency stubs ────────────────────────────────────────────────
 
@@ -17,24 +20,13 @@ vi.mock('../../pages/Conversations', () => ({
   default: () => <div data-testid="conversations-stub" />,
 }));
 
-vi.mock('./Mascot', () => ({
-  YellowMascot: () => <div data-testid="mascot-stub" />,
-}));
+vi.mock('./Mascot', () => ({ YellowMascot: () => <div data-testid="mascot-stub" /> }));
 
-vi.mock('./useHumanMascot', () => ({
-  useHumanMascot: () => ({ face: 'idle', visemes: [] }),
-}));
+vi.mock('./useHumanMascot', () => ({ useHumanMascot: () => ({ face: 'idle', visemes: [] }) }));
 
-vi.mock('../../store/hooks', () => ({
-  useAppSelector: () => 'yellow',
-}));
+vi.mock('../../store/hooks', () => ({ useAppSelector: () => 'yellow' }));
 
-vi.mock('../../store/mascotSlice', () => ({
-  selectMascotColor: () => 'yellow',
-}));
-
-// ── Static import (after mocks are hoisted) ──────────────────────────────
-import HumanPage from './HumanPage';
+vi.mock('../../store/mascotSlice', () => ({ selectMascotColor: () => 'yellow' }));
 
 const SPEAK_REPLIES_KEY = 'human.speakReplies';
 

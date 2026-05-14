@@ -205,8 +205,14 @@ fn extract_messages_preserves_id_field_for_early_stop() {
     });
     let msgs = extract_messages(&v);
     assert_eq!(msgs.len(), 2);
-    assert_eq!(msgs[0]["id"], "msg_abc", "first message id must be preserved");
-    assert_eq!(msgs[1]["id"], "msg_def", "second message id must be preserved");
+    assert_eq!(
+        msgs[0]["id"], "msg_abc",
+        "first message id must be preserved"
+    );
+    assert_eq!(
+        msgs[1]["id"], "msg_def",
+        "second message id must be preserved"
+    );
 }
 
 /// Variant: messages embedded in `data.data.messages` (deeper nesting

@@ -363,22 +363,20 @@ async fn cross_chat_entity_index_spans_source_boundaries() {
         .execute(json!({"query": "alice"}))
         .await
         .expect("search_entities must not error");
-    assert!(!res.is_error, "search_entities returned error: {}", res.output());
+    assert!(
+        !res.is_error,
+        "search_entities returned error: {}",
+        res.output()
+    );
 
     let json: Value = serde_json::from_str(&res.output()).unwrap();
     let matches = json.as_array().expect("search_entities returns an array");
 
     let alice = matches
         .iter()
-        .find(|m| {
-            m.get("canonical_id")
-                .and_then(|v| v.as_str())
-                == Some("email:alice@example.com")
-        })
+        .find(|m| m.get("canonical_id").and_then(|v| v.as_str()) == Some("email:alice@example.com"))
         .unwrap_or_else(|| {
-            panic!(
-                "alice should be discoverable across source boundaries; got: {json:?}"
-            )
+            panic!("alice should be discoverable across source boundaries; got: {json:?}")
         });
 
     // alice was mentioned in chat A only; this assertion confirms the cross-chat
@@ -399,7 +397,10 @@ async fn cross_chat_entity_index_spans_source_boundaries() {
             .map(|s| s.contains("carol"))
             .unwrap_or(false)
     });
-    assert!(carol.is_some(), "carol from chat B must also be discoverable");
+    assert!(
+        carol.is_some(),
+        "carol from chat B must also be discoverable"
+    );
 }
 
 /// Proves fetch_leaves returns a populated `source_ref` on each hydrated
@@ -459,7 +460,11 @@ async fn fetch_leaves_hydrates_source_ref_for_cited_chunks() {
         .execute(json!({"entity_id": "email:alice@example.com"}))
         .await
         .expect("query_topic must not error");
-    assert!(!topic_res.is_error, "query_topic error: {}", topic_res.output());
+    assert!(
+        !topic_res.is_error,
+        "query_topic error: {}",
+        topic_res.output()
+    );
 
     let topic_json: Value = serde_json::from_str(&topic_res.output()).unwrap();
     let hits = topic_json
@@ -492,12 +497,19 @@ async fn fetch_leaves_hydrates_source_ref_for_cited_chunks() {
         .execute(json!({"chunk_ids": leaf_ids}))
         .await
         .expect("fetch_leaves must not error");
-    assert!(!fetch_res.is_error, "fetch_leaves error: {}", fetch_res.output());
+    assert!(
+        !fetch_res.is_error,
+        "fetch_leaves error: {}",
+        fetch_res.output()
+    );
 
     let fetched: Value = serde_json::from_str(&fetch_res.output()).unwrap();
     let leaves = fetched.as_array().expect("fetch_leaves returns array");
 
-    assert!(!leaves.is_empty(), "fetch_leaves must hydrate at least one chunk");
+    assert!(
+        !leaves.is_empty(),
+        "fetch_leaves must hydrate at least one chunk"
+    );
 
     // Every leaf that has a source_ref at the ingest level must preserve it.
     // The email thread had explicit source_refs on both messages — at least one
@@ -514,22 +526,13 @@ async fn fetch_leaves_hydrates_source_ref_for_cited_chunks() {
 
     // Verify content round-trips.
     for leaf in leaves {
-        let content = leaf
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let content = leaf.get("content").and_then(|v| v.as_str()).unwrap_or("");
         assert!(
             !content.is_empty(),
             "fetch_leaves leaf must carry non-empty content for citation"
         );
-        let node_id = leaf
-            .get("node_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        assert!(
-            !node_id.is_empty(),
-            "fetch_leaves leaf must carry node_id"
-        );
+        let node_id = leaf.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+        assert!(!node_id.is_empty(), "fetch_leaves leaf must carry node_id");
     }
 }
 

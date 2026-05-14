@@ -591,7 +591,9 @@ mod tests {
     #[test]
     fn looks_like_local_ai_matches_v1_subpath_on_loopback() {
         // /v1/models, /v1/embeddings etc. on loopback are local-AI signals.
-        assert!(looks_like_local_ai_endpoint("http://localhost:11434/v1/models"));
+        assert!(looks_like_local_ai_endpoint(
+            "http://localhost:11434/v1/models"
+        ));
         assert!(looks_like_local_ai_endpoint(
             "http://127.0.0.1:8080/v1/embeddings"
         ));

@@ -646,7 +646,10 @@ async fn execute_tool_surfaces_revoked_token_error() {
     );
     let base = start_mock_backend(app).await;
     let client = build_client_for(base);
-    let resp = client.execute_tool("GMAIL_FETCH_EMAILS", None).await.unwrap();
+    let resp = client
+        .execute_tool("GMAIL_FETCH_EMAILS", None)
+        .await
+        .unwrap();
     assert!(!resp.successful);
     let err = resp.error.unwrap();
     assert!(

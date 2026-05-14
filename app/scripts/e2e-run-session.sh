@@ -173,6 +173,31 @@ if [ -z "${APP_BIN:-}" ] || [ ! -x "$APP_BIN" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# Ensure a dbus session bus exists on Linux.
+#
+# The Tauri `single-instance` plugin (used inside OpenHuman) talks to dbus
+# via zbus on Linux. If DBUS_SESSION_BUS_ADDRESS is missing or set to
+# `disabled:` (which is the openhuman_ci container default), the plugin
+# panics during plugin setup:
+#   panicked at plugins/single-instance/src/platform_impl/linux.rs:57
+#   Result::unwrap() on Err(Address("unsupported transport 'disabled'"))
+# So start a real session bus with `dbus-launch` and inherit its
+# DBUS_SESSION_BUS_ADDRESS for the rest of the runner.
+# ------------------------------------------------------------------------------
+if [ "$OS" = "Linux" ]; then
+  if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || \
+     printf '%s' "${DBUS_SESSION_BUS_ADDRESS:-}" | grep -q '^disabled'; then
+    if command -v dbus-launch >/dev/null 2>&1; then
+      DBUS_LAUNCH_OUT="$(dbus-launch --sh-syntax)"
+      eval "$DBUS_LAUNCH_OUT"
+      echo "[runner] Started dbus session bus: $DBUS_SESSION_BUS_ADDRESS"
+    else
+      echo "[runner] Warning: dbus-launch not available — single-instance plugin may panic."
+    fi
+  fi
+fi
+
+# ------------------------------------------------------------------------------
 # Make CEF runtime libraries discoverable.
 #
 # macOS bundles the framework into `OpenHuman.app/Contents/Frameworks/` so the

@@ -399,7 +399,14 @@ if [ -n "$CHROMIUM_FULL_VERSION" ] && [ ! -x "$CD_BINARY" ]; then
   mkdir -p "$CD_CACHE_DIR"
   CD_ZIP="$CD_CACHE_DIR/chromedriver.zip"
   if curl -fSL "$CD_URL" -o "$CD_ZIP"; then
-    (cd "$CD_CACHE_DIR" && unzip -o -q chromedriver.zip)
+    if command -v unzip >/dev/null 2>&1; then
+      (cd "$CD_CACHE_DIR" && unzip -o -q chromedriver.zip)
+    else
+      # The openhuman_ci docker image doesn't ship `unzip`; use Python's
+      # stdlib zipfile so we don't have to add a system package install.
+      python3 -c "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
+        "$CD_ZIP" "$CD_CACHE_DIR"
+    fi
     chmod +x "$CD_BINARY" 2>/dev/null || true
   else
     echo "[runner] Warning: chromedriver $CHROMIUM_FULL_VERSION not on Chrome for Testing; falling back to Appium-bundled chromedriver."

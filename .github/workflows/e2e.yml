@@ -125,8 +125,8 @@ jobs:
           name: e2e-artifacts-linux
           path: |
             app/test/e2e/artifacts/
-            /tmp/openhuman-e2e-app-*.log
-            /tmp/appium-e2e-*.log
+            ${{ runner.temp }}/openhuman-e2e-app-*.log
+            ${{ runner.temp }}/appium-e2e-*.log
           if-no-files-found: ignore
           retention-days: 7
 
@@ -152,6 +152,13 @@ jobs:
 
       - name: Install Rust (rust-toolchain.toml)
         uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          # macos-latest is arm64, but the vendored tauri-cli's build.rs
+          # (tauri-bundler/build.rs:134) compiles a CEF helper for
+          # x86_64-apple-darwin to produce a universal binary, so the
+          # x86_64 target's libstd must be installed even though the
+          # final E2E binary is arm64 only.
+          targets: x86_64-apple-darwin
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
@@ -196,8 +203,8 @@ jobs:
           name: e2e-artifacts-macos
           path: |
             app/test/e2e/artifacts/
-            /tmp/openhuman-e2e-app-*.log
-            /tmp/appium-e2e-*.log
+            ${{ runner.temp }}/openhuman-e2e-app-*.log
+            ${{ runner.temp }}/appium-e2e-*.log
           if-no-files-found: ignore
           retention-days: 7
 
@@ -275,7 +282,7 @@ jobs:
           name: e2e-artifacts-windows
           path: |
             app/test/e2e/artifacts/
-            /tmp/openhuman-e2e-app-*.log
-            /tmp/appium-e2e-*.log
+            ${{ runner.temp }}/openhuman-e2e-app-*.log
+            ${{ runner.temp }}/appium-e2e-*.log
           if-no-files-found: ignore
           retention-days: 7

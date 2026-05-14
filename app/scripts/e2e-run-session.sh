@@ -173,9 +173,54 @@ if [ -z "${APP_BIN:-}" ] || [ ! -x "$APP_BIN" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# Make CEF runtime libraries discoverable.
+#
+# macOS bundles the framework into `OpenHuman.app/Contents/Frameworks/` so the
+# OS resolves it automatically. On Linux + Windows we build with --no-bundle
+# (faster, no .deb / .msi staging needed for tests), which means the bare
+# binary has no co-located libcef.so / libcef.dll. CEF lives in the
+# vendored-tauri-cli cache that `ensure-tauri-cli.sh` pinned via CEF_PATH:
+#   $CEF_PATH/<cef-version>/cef_<os>_<arch>/{libcef.so,libcef.dll,Resources,…}
+#
+# We find the only versioned directory under CEF_PATH and prepend its CEF
+# dist dir to LD_LIBRARY_PATH (Linux) / PATH (Windows). On macOS this is a
+# no-op — the .app bundle already self-resolves.
+# ------------------------------------------------------------------------------
+CEF_PATH="${CEF_PATH:-$HOME/Library/Caches/tauri-cef}"
+case "$OS" in
+  Linux)
+    CEF_DIST_DIR="$(ls -d "$CEF_PATH"/*/cef_linux_* 2>/dev/null | head -1)"
+    if [ -n "$CEF_DIST_DIR" ] && [ -d "$CEF_DIST_DIR" ]; then
+      export LD_LIBRARY_PATH="$CEF_DIST_DIR:${LD_LIBRARY_PATH:-}"
+      echo "[runner] LD_LIBRARY_PATH includes: $CEF_DIST_DIR"
+    else
+      echo "[runner] Warning: no CEF Linux distribution found under $CEF_PATH — libcef.so may fail to load."
+    fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    CEF_DIST_DIR="$(ls -d "$CEF_PATH"/*/cef_windows_* 2>/dev/null | head -1)"
+    if [ -n "$CEF_DIST_DIR" ] && [ -d "$CEF_DIST_DIR" ]; then
+      # Windows uses PATH for DLL resolution. Use the native Windows path form
+      # so the CEF binary itself can find libcef.dll even though we're running
+      # under git-bash.
+      if command -v cygpath >/dev/null 2>&1; then
+        WIN_CEF_DIST="$(cygpath -w "$CEF_DIST_DIR")"
+      else
+        WIN_CEF_DIST="$CEF_DIST_DIR"
+      fi
+      export PATH="$CEF_DIST_DIR:$PATH"
+      echo "[runner] PATH includes: $CEF_DIST_DIR (win: $WIN_CEF_DIST)"
+    else
+      echo "[runner] Warning: no CEF Windows distribution found under $CEF_PATH — libcef.dll may fail to load."
+    fi
+    ;;
+esac
+
+# ------------------------------------------------------------------------------
 # Launch CEF app — CDP on 19222 is already enabled in lib.rs (see CLAUDE.md).
 # ------------------------------------------------------------------------------
-APP_LOG="/tmp/openhuman-e2e-app-${LOG_SUFFIX}.log"
+LOG_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+APP_LOG="$LOG_DIR/openhuman-e2e-app-${LOG_SUFFIX}.log"
 echo "[runner] Launching CEF app: $APP_BIN"
 echo "[runner]   App logs: $APP_LOG"
 "$APP_BIN" > "$APP_LOG" 2>&1 &
@@ -319,7 +364,7 @@ source "$SCRIPT_DIR/e2e-resolve-node-appium.sh"
 echo "[runner] Ensuring Appium chromium driver is installed..."
 "$APPIUM_BIN" driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
-APPIUM_LOG="/tmp/appium-e2e-${LOG_SUFFIX}.log"
+APPIUM_LOG="$LOG_DIR/appium-e2e-${LOG_SUFFIX}.log"
 echo "[runner] Starting Appium on port $APPIUM_PORT"
 echo "[runner]   Appium logs: $APPIUM_LOG"
 "$APPIUM_BIN" --port "$APPIUM_PORT" --relaxed-security > "$APPIUM_LOG" 2>&1 &

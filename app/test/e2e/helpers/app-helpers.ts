@@ -22,7 +22,16 @@ import { isTauriDriver } from './platform';
 export async function waitForApp(): Promise<void> {
   try {
     await waitForAppReady(15_000);
-  } catch {
+  } catch (error) {
+    // Only swallow genuine readiness timeouts (the error waitForAppReady
+    // throws when the DOM never settles in the budget). Anything else —
+    // session terminated, executeScript not supported, the DOM crashed —
+    // surfaces with full context instead of being hidden behind a blind
+    // 5s pause.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('waitForAppReady timed out')) {
+      throw error;
+    }
     // Fall back to the legacy fixed pause so specs that historically tolerated
     // a slow startup don't regress.
     await browser.pause(5_000);

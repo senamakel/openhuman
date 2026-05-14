@@ -86,6 +86,9 @@ echo "[runner] Killing any running OpenHuman instances..."
 case "$OS" in
   Darwin) pkill -f "OpenHuman" 2>/dev/null || true ;;
   Linux)  pkill -f "OpenHuman" 2>/dev/null || true ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    taskkill //F //IM "OpenHuman.exe" 2>/dev/null || true
+    ;;
 esac
 sleep 1
 
@@ -212,9 +215,27 @@ fi
 # no-op — the .app bundle already self-resolves.
 # ------------------------------------------------------------------------------
 CEF_PATH="${CEF_PATH:-$HOME/Library/Caches/tauri-cef}"
+
+# Pick exactly one CEF distribution per platform. If two cached versions
+# coexist (e.g. after a CEF upgrade) `head -1` silently picks an arbitrary
+# one and the binary can load the wrong libcef — Linux/Windows then fail
+# only on warmed runners. Error out so the failure is loud.
+pick_one_cef_dist() {
+  local pattern="$1"
+  local matches
+  mapfile -t matches < <(find "$CEF_PATH" -mindepth 2 -maxdepth 2 -type d -name "$pattern" 2>/dev/null | sort)
+  if [ "${#matches[@]}" -gt 1 ]; then
+    echo "ERROR: multiple CEF distributions found under $CEF_PATH matching $pattern:" >&2
+    printf '  %s\n' "${matches[@]}" >&2
+    echo "Set CEF_PATH to a directory containing exactly one cef_* version." >&2
+    return 1
+  fi
+  printf '%s' "${matches[0]:-}"
+}
+
 case "$OS" in
   Linux)
-    CEF_DIST_DIR="$(ls -d "$CEF_PATH"/*/cef_linux_* 2>/dev/null | head -1)"
+    CEF_DIST_DIR="$(pick_one_cef_dist 'cef_linux_*')" || exit 1
     if [ -n "$CEF_DIST_DIR" ] && [ -d "$CEF_DIST_DIR" ]; then
       export LD_LIBRARY_PATH="$CEF_DIST_DIR:${LD_LIBRARY_PATH:-}"
       echo "[runner] LD_LIBRARY_PATH includes: $CEF_DIST_DIR"
@@ -223,7 +244,7 @@ case "$OS" in
     fi
     ;;
   MINGW*|MSYS*|CYGWIN*|Windows_NT)
-    CEF_DIST_DIR="$(ls -d "$CEF_PATH"/*/cef_windows_* 2>/dev/null | head -1)"
+    CEF_DIST_DIR="$(pick_one_cef_dist 'cef_windows_*')" || exit 1
     if [ -n "$CEF_DIST_DIR" ] && [ -d "$CEF_DIST_DIR" ]; then
       # Windows uses PATH for DLL resolution. Use the native Windows path form
       # so the CEF binary itself can find libcef.dll even though we're running
@@ -435,12 +456,30 @@ echo "[runner] Ensuring Appium chromium driver is installed..."
 "$APPIUM_BIN" driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
 APPIUM_LOG="$LOG_DIR/appium-e2e-${LOG_SUFFIX}.log"
+
+# Fail fast if something else is already serving on the Appium port. Otherwise
+# `curl /status` succeeds against the stale server while our just-launched
+# Appium dies with EADDRINUSE — we'd silently drive the wrong instance.
+if curl -sf "http://127.0.0.1:$APPIUM_PORT/status" >/dev/null 2>&1; then
+  echo "ERROR: Appium is already listening on port $APPIUM_PORT. Stop the stale server or set APPIUM_PORT." >&2
+  exit 1
+fi
+
 echo "[runner] Starting Appium on port $APPIUM_PORT"
 echo "[runner]   Appium logs: $APPIUM_LOG"
 "$APPIUM_BIN" --port "$APPIUM_PORT" --relaxed-security > "$APPIUM_LOG" 2>&1 &
 APPIUM_PID=$!
 
 for i in $(seq 1 30); do
+  # If Appium crashed between forks (e.g. unhandled driver-load error), bail
+  # out instead of polling /status for 30s.
+  if ! kill -0 "$APPIUM_PID" 2>/dev/null; then
+    echo "ERROR: Appium exited before becoming ready. Appium log follows:" >&2
+    echo "----- $APPIUM_LOG -----" >&2
+    cat "$APPIUM_LOG" >&2 || true
+    echo "----- end log -----" >&2
+    exit 1
+  fi
   if curl -sf "http://127.0.0.1:$APPIUM_PORT/status" >/dev/null 2>&1; then
     echo "[runner] Appium is ready."
     break

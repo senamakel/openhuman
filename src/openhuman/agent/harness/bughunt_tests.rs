@@ -65,11 +65,9 @@ impl Tool for ArgsCapturingTool {
 
 #[tokio::test]
 async fn native_tool_call_decodes_json_encoded_arguments_string() {
-    let provider = KeywordScriptedProvider::new(vec![KeywordRule::final_reply(
-        "captured-ok",
-        "done",
-    )])
-    .with_native_tools(true);
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("captured-ok", "done")])
+            .with_native_tools(true);
 
     // Forced first turn: native tool_call with arguments as a STRING.
     provider.push_forced_response(ChatResponse {
@@ -87,8 +85,22 @@ async fn native_tool_call_decodes_json_encoded_arguments_string() {
     let mut history = vec![ChatMessage::user("anything")];
 
     let out = run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 3, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        3,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -114,11 +126,9 @@ async fn native_tool_call_decodes_json_encoded_arguments_string() {
 
 #[tokio::test]
 async fn documents_silent_drop_of_non_json_arguments_string() {
-    let provider = KeywordScriptedProvider::new(vec![KeywordRule::final_reply(
-        "captured-ok",
-        "done",
-    )])
-    .with_native_tools(true);
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("captured-ok", "done")])
+            .with_native_tools(true);
 
     provider.push_forced_response(ChatResponse {
         text: None,
@@ -136,8 +146,22 @@ async fn documents_silent_drop_of_non_json_arguments_string() {
     let mut history = vec![ChatMessage::user("hi")];
 
     run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 3, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        3,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -158,10 +182,8 @@ async fn documents_silent_drop_of_non_json_arguments_string() {
 
 #[tokio::test]
 async fn parallel_tool_calls_in_single_iteration_all_execute() {
-    let provider = KeywordScriptedProvider::new(vec![KeywordRule::final_reply(
-        "tool_b-ok",
-        "all done",
-    )]);
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("tool_b-ok", "all done")]);
 
     // Both tool calls share one assistant turn (XML path).
     provider.push_forced_response(ChatResponse {
@@ -180,8 +202,22 @@ async fn parallel_tool_calls_in_single_iteration_all_execute() {
     let mut history = vec![ChatMessage::user("do both")];
 
     let out = run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -208,8 +244,22 @@ async fn same_named_tool_in_registry_first_match_wins() {
     let mut history = vec![ChatMessage::user("go ahead")];
 
     let out = run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -226,10 +276,8 @@ async fn same_named_tool_in_registry_first_match_wins() {
 
 #[tokio::test]
 async fn markdown_fenced_tool_call_block_is_parsed() {
-    let provider = KeywordScriptedProvider::new(vec![KeywordRule::final_reply(
-        "tool_a-ok",
-        "ok done",
-    )]);
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("tool_a-ok", "ok done")]);
 
     provider.push_forced_response(ChatResponse {
         text: Some(
@@ -248,8 +296,22 @@ async fn markdown_fenced_tool_call_block_is_parsed() {
     let mut history = vec![ChatMessage::user("anything")];
 
     let out = run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -268,11 +330,9 @@ async fn markdown_fenced_tool_call_block_is_parsed() {
 
 #[tokio::test]
 async fn native_tool_calls_take_precedence_over_xml_in_text() {
-    let provider = KeywordScriptedProvider::new(vec![KeywordRule::final_reply(
-        "tool_a-ok",
-        "done",
-    )])
-    .with_native_tools(true);
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("tool_a-ok", "done")])
+            .with_native_tools(true);
 
     provider.push_forced_response(ChatResponse {
         text: Some("<tool_call>{\"name\":\"tool_a\",\"arguments\":{}}</tool_call>".into()),
@@ -289,8 +349,22 @@ async fn native_tool_calls_take_precedence_over_xml_in_text() {
     let mut history = vec![ChatMessage::user("call it")];
 
     run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -334,8 +408,22 @@ async fn per_tool_max_result_size_caps_history_payload() {
     let mut history = vec![ChatMessage::user("go big")];
 
     run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -371,8 +459,22 @@ async fn empty_response_with_no_tool_calls_terminates_with_empty_text() {
     let mut history = vec![ChatMessage::user("hi")];
 
     let out = run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], None, None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -400,8 +502,22 @@ async fn progress_sink_emits_lifecycle_events_in_order() {
 
     let mut history = vec![ChatMessage::user("go go")];
     run_tool_call_loop(
-        &provider, &mut history, &tools, "mock", "m", 0.0, true, None, "channel",
-        &mm(), 5, None, None, &[], Some(tx), None,
+        &provider,
+        &mut history,
+        &tools,
+        "mock",
+        "m",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        Some(tx),
+        None,
     )
     .await
     .unwrap();
@@ -433,6 +549,9 @@ async fn progress_sink_emits_lifecycle_events_in_order() {
 
     // ToolCallStarted must precede its matching ToolCallCompleted.
     let started = kinds.iter().position(|k| *k == "ToolCallStarted").unwrap();
-    let completed = kinds.iter().position(|k| *k == "ToolCallCompleted").unwrap();
+    let completed = kinds
+        .iter()
+        .position(|k| *k == "ToolCallCompleted")
+        .unwrap();
     assert!(started < completed);
 }

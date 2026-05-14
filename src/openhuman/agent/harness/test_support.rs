@@ -281,9 +281,7 @@ impl Provider for KeywordScriptedProvider {
                 }
                 for c in &rule.tool_calls {
                     body.push_str("<tool_call>");
-                    body.push_str(
-                        &json!({"name": c.name, "arguments": c.arguments}).to_string(),
-                    );
+                    body.push_str(&json!({"name": c.name, "arguments": c.arguments}).to_string());
                     body.push_str("</tool_call>\n");
                 }
                 Some(body)
@@ -604,17 +602,10 @@ pub async fn spawn_fake_composio_backend(fixture: ComposioFixture) -> FakeCompos
             delete({
                 let st = state.clone();
                 move |Path(id): Path<String>| async move {
-                    record::<()>(
-                        &st.requests,
-                        "DELETE",
-                        &format!("/connections/{id}"),
-                        None,
-                    )
-                    .await;
+                    record::<()>(&st.requests, "DELETE", &format!("/connections/{id}"), None).await;
                     let mut fx = st.fixture.lock();
-                    fx.connections.retain(|c| {
-                        c.get("id").and_then(|v| v.as_str()).unwrap_or("") != id
-                    });
+                    fx.connections
+                        .retain(|c| c.get("id").and_then(|v| v.as_str()).unwrap_or("") != id);
                     Json(json!({
                         "success": true,
                         "data": {"deleted": true}

@@ -10,9 +10,7 @@ use super::test_support::{
 };
 use super::tool_loop::run_tool_call_loop;
 use crate::openhuman::providers::{ChatMessage, ChatResponse};
-use crate::openhuman::tools::traits::{
-    PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope,
-};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::{
@@ -118,7 +116,11 @@ async fn keyword_provider_drives_prompt_guided_tool_loop_to_completion() {
     .expect("loop should complete");
 
     assert_eq!(result, "Here is the answer.");
-    assert_eq!(search_calls.lock().len(), 1, "tool should fire exactly once");
+    assert_eq!(
+        search_calls.lock().len(),
+        1,
+        "tool should fire exactly once"
+    );
     assert_eq!(search_calls.lock()[0]["q"], "rust");
     assert!(provider.turn_count() >= 2);
 }
@@ -227,10 +229,7 @@ async fn keyword_provider_chains_multiple_tools_across_iterations() {
 #[tokio::test]
 async fn keyword_provider_unknown_tool_surfaces_error_and_loop_continues() {
     let provider = KeywordScriptedProvider::new(vec![
-        KeywordRule::tool_call(
-            "go",
-            ScriptedToolCall::new("nonexistent_tool", json!({})),
-        ),
+        KeywordRule::tool_call("go", ScriptedToolCall::new("nonexistent_tool", json!({}))),
         // After we see "Unknown tool" in the role=tool injection, give up.
         KeywordRule::final_reply("unknown tool", "Sorry, I can't do that."),
     ]);
@@ -350,10 +349,7 @@ async fn agent_loop_refuses_clirpconly_tools() {
     };
 
     let provider = KeywordScriptedProvider::new(vec![
-        KeywordRule::tool_call(
-            "use",
-            ScriptedToolCall::new("cli_only_tool", json!({})),
-        ),
+        KeywordRule::tool_call("use", ScriptedToolCall::new("cli_only_tool", json!({}))),
         KeywordRule::final_reply("only available via", "Denied as expected."),
     ]);
 
@@ -412,10 +408,7 @@ impl Tool for FailingTool {
 #[tokio::test]
 async fn tool_error_result_is_surfaced_to_next_iteration() {
     let provider = KeywordScriptedProvider::new(vec![
-        KeywordRule::tool_call(
-            "try",
-            ScriptedToolCall::new("fail_tool", json!({})),
-        ),
+        KeywordRule::tool_call("try", ScriptedToolCall::new("fail_tool", json!({}))),
         KeywordRule::final_reply("boom", "got the error"),
     ]);
 
@@ -470,10 +463,7 @@ impl Tool for PanickyTool {
 #[tokio::test]
 async fn tool_anyhow_error_surfaces_in_history() {
     let provider = KeywordScriptedProvider::new(vec![
-        KeywordRule::tool_call(
-            "run",
-            ScriptedToolCall::new("panicky", json!({})),
-        ),
+        KeywordRule::tool_call("run", ScriptedToolCall::new("panicky", json!({}))),
         KeywordRule::final_reply("kaboom", "tool blew up"),
     ]);
 
@@ -511,10 +501,7 @@ async fn tool_anyhow_error_surfaces_in_history() {
 async fn visible_tool_names_whitelist_rejects_filtered_out_tools() {
     let provider = KeywordScriptedProvider::new(vec![
         // Model asks for a tool that *exists* but is filtered out.
-        KeywordRule::tool_call(
-            "go",
-            ScriptedToolCall::new("hidden", json!({})),
-        ),
+        KeywordRule::tool_call("go", ScriptedToolCall::new("hidden", json!({}))),
         KeywordRule::final_reply("unknown tool", "Cannot reach hidden tool."),
     ]);
 

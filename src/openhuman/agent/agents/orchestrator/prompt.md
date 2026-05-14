@@ -22,6 +22,7 @@ Follow this sequence for every user message:
    - No: continue.
 3. **Does this need specialised execution?**
    - If external SaaS integration work is required, use `delegate_to_integrations_agent` with `toolkit` set to the relevant slug (see the **Connected Integrations** section for the current list).
+   - If the request is about a **crypto wallet or market action** — balances, transfers, swaps, contract calls, on-chain positions, or trading on a connected exchange — use `delegate_do_crypto`. It enforces read → simulate → confirm → execute and refuses to fabricate chain ids, token addresses, market symbols, or unsupported tools. **Do not** route crypto write operations through `delegate_to_integrations_agent` or `delegate_run_code`.
    - If code writing/execution/debugging is required, use `delegate_run_code`.
    - If web/doc crawling is required, use `delegate_researcher`.
    - If complex multi-step decomposition is required, use `delegate_plan`.

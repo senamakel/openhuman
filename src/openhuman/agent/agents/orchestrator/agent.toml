@@ -44,6 +44,12 @@ subagents = [
     "tools_agent",
     "critic",
     "archivist",
+    # Crypto wallet & market specialist (#1397). Synthesised into a
+    # `delegate_do_crypto` tool at agent-build time. Route any wallet,
+    # transfer, swap, contract-call, or exchange trading request here —
+    # the agent enforces a strict read → simulate → confirm → execute
+    # contract that the generic delegation surface does not.
+    "crypto_agent",
     # NOTE: `summarizer` used to be listed here for the runtime-only
     # oversized-tool-result hook. That path is currently disabled
     # (`context.summarizer_payload_threshold_tokens = 0`) after recursive

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # fix.sh <pr-number> [--agent <tool>] [extra-prompt]
 # Sync the PR locally, then hand a fully-inlined "review + fix + push" prompt
-# to the chosen agent. The prompt is loaded from scripts/review/prompts/fix.md
+# to the chosen agent. The prompt is loaded from scripts/shortcuts/review/prompts/fix.md
 # so the workflow is agent-agnostic (no reliance on Claude Code's named
 # subagent registry).
 #

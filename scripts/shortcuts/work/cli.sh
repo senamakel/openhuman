@@ -34,7 +34,7 @@ Flags:
 Env:
   WORK_REPO=owner/name           Override target repo (default: upstream remote,
                                  falls back to origin). Same resolution as
-                                 scripts/review.
+                                 scripts/shortcuts/review.
   WORK_BRANCH_PREFIX=issue       Branch name is <prefix>/<num>-<slug> (default:
                                  issue).
 EOF

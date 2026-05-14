@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # review.sh <pr-number> [--agent <tool>] [extra-prompt]
 # Sync the PR locally, then hand a fully-inlined CodeRabbit-style review prompt
-# to the chosen agent. The prompt is loaded from scripts/review/prompts/review.md
+# to the chosen agent. The prompt is loaded from scripts/shortcuts/review/prompts/review.md
 # so the workflow is agent-agnostic (no reliance on Claude Code's named
 # subagent registry).
 #

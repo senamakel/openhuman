@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for scripts/review/*.sh
+# Shared helpers for scripts/shortcuts/review/*.sh
 # Source this file; do not execute directly.
 
 set -euo pipefail

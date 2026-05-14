@@ -222,16 +222,31 @@ esac
 LOG_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 APP_LOG="$LOG_DIR/openhuman-e2e-app-${LOG_SUFFIX}.log"
 APP_ARGS=()
-# CEF/Chromium refuses to start as root unless --no-sandbox is passed
-# (crbug.com/638180). The Linux CI container (openhuman_ci) runs as root,
-# so add the flag there. On macOS/Windows runners we're a regular user and
-# the sandbox should stay on.
+# CEF/Chromium needs extra coaxing in headless / containerized Linux runs:
+#
+#   --no-sandbox            crbug.com/638180 — refuses to start as root
+#                           without this. The openhuman_ci docker image
+#                           runs as uid 0.
+#   --disable-dev-shm-usage docker /dev/shm is often 64 MB; Chromium
+#                           assumes ≥2 GB and crashes mid-startup
+#                           ("Failed global descriptor lookup: 7" in the
+#                           zygote helper).
+#   --disable-gpu           no GPU in the CI container.
+#   --no-zygote             skips the zygote launcher that wants dbus.
+#
+# Apply only on Linux. macOS/Windows runners are unprivileged users with a
+# real display / GPU; leaving the sandbox on there is correct.
 case "$OS" in
   Linux)
     if [ "$(id -u 2>/dev/null || echo 0)" = "0" ]; then
       APP_ARGS+=("--no-sandbox")
-      echo "[runner] Running as root → passing --no-sandbox to CEF."
     fi
+    APP_ARGS+=(
+      "--disable-dev-shm-usage"
+      "--disable-gpu"
+      "--no-zygote"
+    )
+    echo "[runner] Linux CEF args: ${APP_ARGS[*]}"
     ;;
 esac
 echo "[runner] Launching CEF app: $APP_BIN ${APP_ARGS[*]:-}"

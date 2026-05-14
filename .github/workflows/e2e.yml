@@ -185,6 +185,19 @@ jobs:
       - name: Build E2E app
         run: pnpm --filter openhuman-app test:e2e:build
 
+      # Adhoc-sign the unsigned debug bundle. macOS now kills processes that
+      # load dynamic frameworks (the CEF helper apps) from an unsigned bundle
+      # — the parent OpenHuman process exits within ~2s with an empty log.
+      # Adhoc signing (-) satisfies the loader without needing a real
+      # developer-ID cert. `--force --deep` re-signs the embedded helper
+      # apps and the framework too.
+      - name: Adhoc-sign the .app bundle
+        run: |
+          codesign --force --deep --sign - \
+            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+          codesign --verify --deep --verbose=2 \
+            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+
       - name: Run smoke spec
         run: bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
 

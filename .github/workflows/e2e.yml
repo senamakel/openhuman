@@ -160,6 +160,17 @@ jobs:
           # final E2E binary is arm64 only.
           targets: x86_64-apple-darwin
 
+      - name: Verify cargo resolves to real toolchain
+        # Defensive against rustup-init being shadowed onto cargo's name in
+        # PATH (observed once where `cargo install --path X` printed
+        # "rustup-init[EXE]: unexpected argument 'install' found"). Force
+        # the rustup default to the requested version and print what
+        # `cargo` actually is.
+        run: |
+          rustup default 1.93.0 || true
+          which cargo
+          cargo --version
+
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
@@ -167,7 +178,10 @@ jobs:
             . -> target
             app/src-tauri -> target
           cache-on-failure: true
-          key: e2e-macos-unified
+          # v2 suffix invalidates a cache that had a broken cargo binary
+          # ("error: unexpected argument 'install' found" from rustup-init
+          # when ensure-tauri-cli ran `cargo install --locked --path`).
+          key: e2e-macos-unified-v2
 
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile

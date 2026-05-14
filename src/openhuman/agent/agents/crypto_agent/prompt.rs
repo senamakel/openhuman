@@ -15,18 +15,28 @@ use anyhow::Result;
 const ARCHETYPE: &str = include_str!("prompt.md");
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
+    tracing::debug!(
+        agent_id = ctx.agent_id,
+        model = ctx.model_name,
+        tool_count = ctx.tools.len(),
+        skill_count = ctx.skills.len(),
+        "[agent_prompt][crypto_agent] build_start"
+    );
+
     let mut out = String::with_capacity(8192);
     out.push_str(ARCHETYPE.trim_end());
     out.push_str("\n\n");
 
     let user_files = render_user_files(ctx)?;
-    if !user_files.trim().is_empty() {
+    let user_files_present = !user_files.trim().is_empty();
+    if user_files_present {
         out.push_str(user_files.trim_end());
         out.push_str("\n\n");
     }
 
     let tools = render_tools(ctx)?;
-    if !tools.trim().is_empty() {
+    let tools_present = !tools.trim().is_empty();
+    if tools_present {
         out.push_str(tools.trim_end());
         out.push_str("\n\n");
     }
@@ -36,11 +46,20 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     out.push_str("\n\n");
 
     let workspace = render_workspace(ctx)?;
-    if !workspace.trim().is_empty() {
+    let workspace_present = !workspace.trim().is_empty();
+    if workspace_present {
         out.push_str(workspace.trim_end());
         out.push('\n');
     }
 
+    tracing::trace!(
+        agent_id = ctx.agent_id,
+        prompt_len = out.len(),
+        user_files_present,
+        tools_present,
+        workspace_present,
+        "[agent_prompt][crypto_agent] build_done"
+    );
     Ok(out)
 }
 

@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { transcribeCloud } from './voice/sttClient';
 import { encodeBlobToWav } from './voice/wavEncoder';
 
+/** Minimal descriptor for an audio input device. */
+interface AudioInputDevice {
+  deviceId: string;
+  label: string;
+}
+
 const composerLog = debug('human:mic-composer');
 
 /** MIME types MediaRecorder will be asked to use, in priority order.
@@ -34,6 +40,8 @@ export interface MicCloudComposerProps {
    *  passing a hint is meaningfully more accurate than auto-detect on
    *  short utterances. Set to empty string to let Scribe auto-detect. */
   language?: string;
+  /** Show a microphone device selector beneath the button. Defaults to false. */
+  showDeviceSelector?: boolean;
 }
 
 type RecordingState = 'idle' | 'recording' | 'transcribing';
@@ -52,8 +60,11 @@ export function MicCloudComposer({
   onSubmit,
   onError,
   language = 'en',
+  showDeviceSelector = false,
 }: MicCloudComposerProps) {
   const [state, setState] = useState<RecordingState>('idle');
+  const [devices, setDevices] = useState<AudioInputDevice[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -84,6 +95,113 @@ export function MicCloudComposer({
       recorderRef.current = null;
     };
   }, []);
+
+  // Enumerate audio input devices when the selector is shown, and refresh the
+  // list after the user grants mic permission (labels are hidden until then).
+  useEffect(() => {
+    if (!showDeviceSelector) return;
+    async function loadDevices() {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        const inputs = all
+          .filter(d => d.kind === 'audioinput')
+          .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${i + 1}` }));
+        setDevices(inputs);
+        // Keep the selected device valid; fall back to default.
+        setSelectedDeviceId(prev =>
+          inputs.some(d => d.deviceId === prev) ? prev : (inputs[0]?.deviceId ?? '')
+        );
+        composerLog('enumerated %d audio inputs', inputs.length);
+      } catch (err) {
+        composerLog('enumerateDevices failed: %s', err);
+      }
+    }
+    void loadDevices();
+    const onDeviceChange = () => void loadDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange);
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', onDeviceChange);
+  }, [showDeviceSelector]);
+
+  // Spacebar = tap-to-toggle (#1471). Scoped to whatever surface mounts
+  // this composer — today only the Human agent page. The listener lives
+  // on the window so the user doesn't have to click the mascot stage
+  // first, but it bails out when focus is inside an editable control or
+  // a button so the shortcut never steals a keystroke from real input.
+  useEffect(() => {
+    function shouldIgnoreFocus(target: EventTarget | null): boolean {
+      // Non-HTMLElement targets (SVG nodes, `document` itself) are
+      // never text inputs, so the spacebar shortcut is safe to fire —
+      // returning `false` here means "do not suppress".
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') {
+        return true;
+      }
+      // contenteditable surfaces (rich-text composers, ProseMirror,
+      // etc.). `target.isContentEditable` is the right check in real
+      // browsers because it walks the inheritance chain, but jsdom
+      // doesn't compute the flag for plain `<div contenteditable>`,
+      // so we additionally walk up via `closest` to cover both the
+      // jsdom + production case.
+      if (target.isContentEditable) return true;
+      const editableAncestor = target.closest('[contenteditable]');
+      if (editableAncestor instanceof HTMLElement) {
+        const value = editableAncestor.getAttribute('contenteditable');
+        // `contenteditable=""` and `contenteditable="true"` both mean
+        // editable; `"false"` explicitly opts out.
+        if (value === '' || value === 'true' || value === 'plaintext-only') {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      // `event.code` is layout-independent — `'Space'` is the physical
+      // bar key on every layout, where `event.key === ' '` would also
+      // match remaps that shouldn't trigger voice. Stick to `code`.
+      if (event.code !== 'Space') return;
+      // Don't fight repeat-key autorepeat — the toggle should be edge-
+      // triggered, not continuous.
+      if (event.repeat) return;
+      // Bare spacebar only. Modifier combinations (Shift-Space etc.) are
+      // owned by the rest of the app and must keep flowing through.
+      if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (shouldIgnoreFocus(event.target ?? document.activeElement)) {
+        composerLog(
+          'spacebar ignored — focus inside editable target=%s',
+          (event.target as HTMLElement | null)?.tagName ?? '<non-html>'
+        );
+        return;
+      }
+      // Prevent the default page-scroll behaviour and any focused-button
+      // click activation (the user might be tabbed onto the mic button
+      // itself, which would otherwise fire twice).
+      event.preventDefault();
+      if (disabled || state === 'transcribing') {
+        composerLog('spacebar ignored — disabled=%s state=%s', disabled, state);
+        return;
+      }
+      composerLog('spacebar toggle state=%s', state);
+      if (state === 'recording') {
+        stopRecording();
+      } else {
+        void startRecording();
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // `state` is the only changing dependency the handler reads; the
+    // refs are stable and `disabled` is captured via closure. Re-binding
+    // on every state transition is cheap and keeps the snapshot in sync.
+    // `startRecording` / `stopRecording` are plain function declarations
+    // hoisted inside the component body — their identity is stable within
+    // each render, so omitting them from the dep list is intentional, not
+    // a stale-closure risk.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, disabled]);
 
   function stopStream() {
     if (streamRef.current) {
@@ -116,6 +234,7 @@ export function MicCloudComposer({
       //     transcription drops words in our flow)
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
+          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
           channelCount: 1,
           sampleRate: 48000,
           echoCancellation: true,
@@ -123,11 +242,32 @@ export function MicCloudComposer({
           autoGainControl: true,
         },
       });
+      // After the first successful grant, refresh device labels (they are
+      // blank until the user has given permission).
+      if (showDeviceSelector) {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        const inputs = all
+          .filter(d => d.kind === 'audioinput')
+          .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${i + 1}` }));
+        setDevices(inputs);
+      }
     } catch (err) {
       startInFlightRef.current = false;
       const msg = err instanceof Error ? err.message : String(err);
       composerLog('getUserMedia rejected: %s', msg);
-      onError?.(`Microphone permission denied: ${msg}`);
+      if (err instanceof DOMException) {
+        if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+          onError?.(`Microphone permission denied: ${msg}`);
+        } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+          onError?.('Selected microphone is unavailable — try a different device.');
+        } else if (err.name === 'NotReadableError') {
+          onError?.('Microphone is in use by another application.');
+        } else {
+          onError?.(`Microphone error: ${msg}`);
+        }
+      } else {
+        onError?.(`Microphone error: ${msg}`);
+      }
       return;
     }
 
@@ -285,50 +425,66 @@ export function MicCloudComposer({
         : 'Tap and speak';
 
   return (
-    <div className="flex items-center justify-center gap-3">
-      <button
-        type="button"
-        aria-label={isRecording ? 'Stop recording and send' : 'Start recording'}
-        onClick={() => (isRecording ? stopRecording() : void startRecording())}
-        disabled={buttonDisabled}
-        className={`relative w-14 h-14 flex items-center justify-center rounded-full text-white shadow-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-          isRecording ? 'bg-coral-500 hover:bg-coral-400' : 'bg-primary-500 hover:bg-primary-600'
-        }`}>
-        {isRecording && (
-          <span className="absolute inset-0 rounded-full bg-coral-500/40 animate-ping" />
-        )}
-        {isBusy ? (
-          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
+    <div className="flex flex-col items-center gap-2">
+      {showDeviceSelector && devices.length > 0 && (
+        <select
+          aria-label="Microphone device"
+          value={selectedDeviceId}
+          onChange={e => setSelectedDeviceId(e.target.value)}
+          disabled={state !== 'idle' || devices.length <= 1}
+          className="text-xs text-stone-600 bg-stone-100 border border-stone-200 rounded px-2 py-1 max-w-[220px] truncate disabled:opacity-50">
+          {devices.map(d => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      )}
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          aria-label={isRecording ? 'Stop recording and send' : 'Start recording'}
+          onClick={() => (isRecording ? stopRecording() : void startRecording())}
+          disabled={buttonDisabled}
+          className={`relative w-14 h-14 flex items-center justify-center rounded-full text-white shadow-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            isRecording ? 'bg-coral-500 hover:bg-coral-400' : 'bg-primary-500 hover:bg-primary-600'
+          }`}>
+          {isRecording && (
+            <span className="absolute inset-0 rounded-full bg-coral-500/40 animate-ping" />
+          )}
+          {isBusy ? (
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="relative w-6 h-6"
+              fill="none"
               stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-        ) : (
-          <svg
-            className="relative w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
-            />
-          </svg>
-        )}
-      </button>
-      <span className="text-xs text-stone-500 select-none">{label}</span>
+              strokeWidth={1.8}
+              viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+              />
+            </svg>
+          )}
+        </button>
+        <span className="text-xs text-stone-500 select-none">{label}</span>
+      </div>
     </div>
   );
 }

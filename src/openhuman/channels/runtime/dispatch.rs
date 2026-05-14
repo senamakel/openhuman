@@ -499,7 +499,8 @@ async fn resolve_target_agent(channel: &str) -> AgentScoping {
 /// * every tool name in the agent's `[tools] named = [...]` list
 ///   (when the scope is [`ToolScope::Named`]); and
 /// * every name produced by the per-turn synthesised delegation tools
-///   in `extra_tools` (e.g. `research`, `delegate_gmail`).
+///   in `extra_tools` (e.g. `research`, `plan`,
+///   `delegate_to_integrations_agent`).
 ///
 /// When the agent's tool scope is [`ToolScope::Wildcard`] **and** there
 /// are no `extra_tools`, returns `None` to preserve the legacy
@@ -632,9 +633,11 @@ mod scoping_tests {
 
     /// `ToolScope::Named` with extras returns the union of the TOML
     /// named list and the extras' names. This is the orchestrator's
-    /// path: 4 direct tools from the TOML + N synthesised delegation
-    /// tools (`research`, `plan`, `delegate_gmail`, …) → all of them
-    /// visible to the orchestrator's LLM.
+    /// path: direct tools from the TOML + the synthesised delegation
+    /// tools (`research`, `plan`, `delegate_to_integrations_agent`)
+    /// → all of them visible to the orchestrator's LLM. The stub
+    /// names in this test are arbitrary; they exercise the union
+    /// logic, not the real synthesiser.
     #[test]
     fn named_scope_with_extras_returns_union() {
         let def = def_with_scope(ToolScope::Named(vec![
@@ -1167,15 +1170,36 @@ pub(crate) async fn process_channel_message(
                 "  ❌ LLM error after {}ms: {e}",
                 started_at.elapsed().as_millis()
             );
-            crate::core::observability::report_error(
-                &e,
-                "channels",
-                "dispatch_llm_error",
-                &[
-                    ("channel", msg.channel.as_str()),
-                    ("provider", route.provider.as_str()),
-                ],
-            );
+            // The typed `AgentError` is flattened to a `String` at the
+            // native-bus boundary (`agent::bus` map_err → `e.to_string()`),
+            // so the downcast that works in `Agent::run_single` is not an
+            // option here — fall back to canonical-phrase substring match.
+            // The max-tool-iterations cap is a deterministic agent-state
+            // outcome and is already surfaced to the user as the
+            // chat-rendered "⚠️ Error: …" message just above. Skip the
+            // Sentry funnel (OPENHUMAN-TAURI-98) and emit `log::info!`
+            // instead — `Err` propagation through the surrounding match
+            // arm is unchanged.
+            if crate::openhuman::agent::error::is_max_iterations_error(&e.to_string()) {
+                log::info!(
+                    target: "channels",
+                    "[channels.dispatch] suppressed Sentry emission for max-iteration cap \
+                     channel={} provider={} message={}",
+                    msg.channel.as_str(),
+                    route.provider.as_str(),
+                    e
+                );
+            } else {
+                crate::core::observability::report_error(
+                    &e,
+                    "channels",
+                    "dispatch_llm_error",
+                    &[
+                        ("channel", msg.channel.as_str()),
+                        ("provider", route.provider.as_str()),
+                    ],
+                );
+            }
             if let Some(channel) = target_channel.as_ref() {
                 if let Some(ref draft_id) = draft_message_id {
                     let _ = channel

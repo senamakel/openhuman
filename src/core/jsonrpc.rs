@@ -22,6 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::all;
 use crate::core::types::{AppState, RpcError, RpcFailure, RpcRequest, RpcSuccess};
+use crate::rpc::StructuredRpcError;
 
 /// Axum handler for JSON-RPC POST requests.
 ///
@@ -55,19 +56,88 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
             )
                 .into_response()
         }
-        Err(message) => {
+        Err(raw_message) => {
+            // Decode the controller-emitted structured envelope (if any)
+            // here at the transport boundary. Domains opt in by emitting a
+            // `StructuredRpcError` from their handlers — this layer never
+            // branches on the RPC method name to recover error semantics.
+            let structured = StructuredRpcError::decode(&raw_message);
+            let (display_message, error_data, expected_user_state) = match structured {
+                Some(envelope) => (
+                    envelope.message,
+                    envelope.data,
+                    envelope.expected_user_state,
+                ),
+                None => (raw_message, None, false),
+            };
+
             // Session-expired bubbles up as an "error" but is an expected
             // boundary condition (auth handler clears the local token and the
             // UI re-auths). Don't spam Sentry with it.
-            if !is_session_expired_error(&message) {
-                crate::core::observability::report_error(
-                    message.as_str(),
+            //
+            // Param-validation failures ("unknown param 'x' for ns.fn",
+            // "missing required param 'x'", "invalid params: …") are also
+            // pure boundary mismatches: either the caller is a frontend on a
+            // different release than the running core (OPENHUMAN-TAURI-20:
+            // v0.53.22 UI shipped `api_key` before the matching schema input
+            // landed in #1467) or it is straight client-bug input. Sentry
+            // cannot help — we can neither retro-fix already-shipped
+            // installs nor learn anything from the noise — so log at info
+            // and skip the report.
+            //
+            // Logging asymmetry between the two skip paths is intentional:
+            // session-expired messages are a small set of fixed strings
+            // (no caller-supplied content), so the full text is safe to
+            // log. Param-validation messages embed caller-supplied param
+            // names and, for the `invalid params: …` shape, can carry
+            // deserialized values — log structurally with redacted body
+            // to keep PII out of the sink while preserving the method
+            // for grep / correlation.
+            //
+            // Domains that surface their own expected-user-state errors
+            // (stale thread refs, etc.) set the `expected_user_state` flag
+            // on their structured envelope and skip Sentry here uniformly.
+            if expected_user_state {
+                tracing::info!(
+                    method = %method,
+                    "[rpc] expected-user-state error — skipping Sentry: {}",
+                    display_message
+                );
+            } else if is_param_validation_error(&display_message) {
+                tracing::info!(
+                    method = %method,
+                    elapsed_ms = ms as u64,
+                    "[rpc] param-validation error (message redacted; skip-report)"
+                );
+            } else if is_session_expired_error(&display_message) {
+                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, display_message);
+            } else if crate::core::observability::is_transient_message_failure(&display_message) {
+                // Downstream call (backend_api / integrations / provider) already
+                // demoted the underlying transient failure to a warn. The error
+                // string still propagates up to here; re-reporting at error level
+                // would re-create the very Sentry noise the lower-layer demote
+                // was meant to avoid (#8Z, #93, #8W, #96).
+                //
+                // Redact before logging — `display_message` is upstream-derived
+                // (backend / provider response) and can carry URL fragments,
+                // query params, or pasted-through provider error text that
+                // includes tokens. `sanitize_api_error` runs the same scrub
+                // used in the SessionExpired publish path below.
+                let redacted =
+                    crate::openhuman::providers::ops::sanitize_api_error(&display_message);
+                tracing::warn!(
+                    method = %method,
+                    elapsed_ms = ms as u64,
+                    error = %redacted,
+                    "[rpc] transient downstream failure — not reporting to Sentry (message redacted)"
+                );
+            } else {
+                crate::core::observability::report_error_or_expected(
+                    display_message.as_str(),
                     "rpc",
                     "invoke_method",
                     &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                 );
-            } else {
-                tracing::info!("[rpc] {} -> err ({}ms): {}", method, ms, message);
             }
             (
                 StatusCode::OK,
@@ -76,8 +146,8 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     id,
                     error: RpcError {
                         code: -32000,
-                        message,
-                        data: None,
+                        message: display_message,
+                        data: error_data,
                     },
                 }),
             )
@@ -100,17 +170,28 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
 pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Result<Value, String> {
     let result = invoke_method_inner(state, method, params).await;
 
-    // Session auto-cleanup: If the backend says we're unauthorized,
-    // we should reflect that locally by clearing the stored token.
+    // Session auto-cleanup: if the backend says we're unauthorized, publish
+    // a `SessionExpired` event. The credentials subscriber clears the stored
+    // token, flips the scheduler-gate signed-out override so background
+    // workers stand down, and (eventually) pushes a sign-out to the UI.
+    // Centralising via the event bus means 401 detection from any path
+    // (this one, `llm_provider.api_error`, …) gets the same teardown.
     if let Err(ref msg) = result {
         if is_session_expired_error(msg) {
             log::warn!(
-                "[jsonrpc] backend returned 401 for method '{}' — clearing stored session",
+                "[jsonrpc] backend returned 401 for method '{}' — publishing SessionExpired",
                 method
             );
-            if let Ok(config) = crate::openhuman::config::rpc::load_config_with_timeout().await {
-                let _ = crate::openhuman::credentials::rpc::clear_session(&config).await;
-            }
+            // Scrub before publishing — subscribers log `reason`, and the
+            // upstream error string could include API keys / tokens from
+            // pasted-through provider replies. `sanitize_api_error` runs
+            // `scrub_secret_patterns` and truncates.
+            crate::core::event_bus::publish_global(
+                crate::core::event_bus::DomainEvent::SessionExpired {
+                    source: format!("jsonrpc.invoke_method:{method}"),
+                    reason: crate::openhuman::providers::ops::sanitize_api_error(msg),
+                },
+            );
         }
     }
 
@@ -118,11 +199,61 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
 }
 
 /// Helper to determine if an error message indicates an expired or invalid session.
+///
+/// "No backend session token" is also treated as a session-expired signal: the
+/// auth profile is missing entirely (the user was never signed in, or their
+/// stored profile was wiped between login and the next RPC). The frontend may
+/// still believe it holds a session token from an optimistic post-login patch,
+/// so we want the same auto-cleanup + UI-level re-auth path to fire instead of
+/// repeatedly reporting this as a hard error to Sentry. See #1465-ish: users
+/// stuck on the onboarding `SkillsStep` would spam `composio_list_connections`
+/// failures every 5 s without ever being bounced back to the login screen.
+///
+/// "session JWT required" covers the case where a prior 401 already cleared the
+/// token and the very next RPC call (e.g. `channels_telegram_login_start`) finds
+/// no JWT in the store. This is the same auth-boundary condition, just surfaced
+/// as a local guard rather than a backend response.
 fn is_session_expired_error(msg: &str) -> bool {
     let lower = msg.to_lowercase();
     (lower.contains("401") && lower.contains("unauthorized"))
         || lower.contains("invalid token")
+        || lower.contains("no backend session token")
+        || lower.contains("session jwt required")
         || msg.contains("SESSION_EXPIRED")
+}
+
+/// Returns `true` when the error message comes from JSON-RPC params validation
+/// rather than the underlying handler.
+///
+/// Three shapes, all emitted before the handler ever runs:
+///   * `"unknown param '<key>' for <ns>.<fn>"`       — `all::validate_params` (extra field)
+///   * `"missing required param '<key>': <comment>"` — `all::validate_params` (omitted required field)
+///   * `"invalid params: expected object or null, got <type>"` — `params_to_object` (wrong params shape)
+///
+/// These only fire when caller and server schemas drift at the transport layer
+/// — either a frontend on a different release than the running core, or a buggy
+/// external client. Reporting them to Sentry produces unactionable noise (we
+/// cannot patch an already-shipped install, and the message itself already
+/// names the bad field).
+///
+/// Note: domain-level validation errors (e.g. type/format checks emitted *inside*
+/// a controller's `rpc.rs` handler such as `"param 'x' must be a UUID"`) are
+/// intentionally *not* matched here — only the three shapes emitted by the
+/// transport-layer validators before the handler runs. Longer-term a typed
+/// `RpcError::ParamValidation` variant would remove the string-matching
+/// brittleness; the unit tests in `jsonrpc_tests.rs` lock the exact prefixes
+/// against the emit sites in `all::validate_params` and `params_to_object`.
+///
+/// `starts_with` (not `.contains()`) is deliberate: validator errors are always
+/// emitted as the full message body, so an anchored match avoids false positives
+/// from upstream handler text that happens to mention `"unknown param"`. The
+/// session-expired predicate uses `.contains()` because session-expired markers
+/// can appear mid-message — flip these to match and the test
+/// `is_param_validation_error_does_not_match_unrelated_errors` will break.
+fn is_param_validation_error(msg: &str) -> bool {
+    msg.starts_with("unknown param '")
+        || msg.starts_with("missing required param '")
+        || msg.starts_with("invalid params: ")
 }
 
 /// Internal method invocation logic.
@@ -883,6 +1014,26 @@ async fn run_server_inner(
             .with_graceful_shutdown(crate::core::shutdown::signal())
             .await?;
     }
+
+    // Server has stopped accepting and in-flight requests drained.
+    // Kill any `ollama serve` openhuman itself spawned (no-op when the
+    // daemon was externally managed) and clear the spawn marker so the
+    // next launch doesn't try to reclaim a daemon that's already dead.
+    // Bounded so a wedged Ollama can't hold up app shutdown.
+    if let Some(svc) = crate::openhuman::local_ai::try_global() {
+        let cfg = crate::openhuman::config::Config::load_or_init()
+            .await
+            .unwrap_or_default();
+        log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
+        let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
+        if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
+            .await
+            .is_err()
+        {
+            log::warn!("[core] shutdown: ollama cleanup exceeded 2s budget; proceeding with exit");
+        }
+    }
+
     Ok(())
 }
 
@@ -934,6 +1085,42 @@ fn register_domain_subscribers(
         // (otherwise they fall back to `Policy::Normal` and miss the
         // initial throttle decision on battery-powered hosts).
         crate::openhuman::scheduler_gate::init_global(&config);
+
+        // Seed the scheduler-gate signed-out override from the on-disk
+        // session. Without this, a sidecar that boots with no stored JWT
+        // would happily spin up cron / channel loops and fire LLM requests
+        // that all 401 immediately.
+        match crate::api::jwt::get_session_token(&config) {
+            Ok(Some(_)) => {
+                crate::openhuman::scheduler_gate::set_signed_out(false);
+            }
+            Ok(None) => {
+                log::info!(
+                    "[auth] no session token at startup — scheduler gate set to signed_out"
+                );
+                crate::openhuman::scheduler_gate::set_signed_out(true);
+            }
+            Err(err) => {
+                log::warn!(
+                    "[auth] failed to read session token at startup ({err}) — assuming signed_out"
+                );
+                crate::openhuman::scheduler_gate::set_signed_out(true);
+            }
+        }
+
+        // Register the SessionExpired handler before any subscribers that
+        // might publish 401-derived events, so the very first 401 is
+        // routed through `clear_session` + the scheduler-gate override.
+        if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
+            crate::openhuman::credentials::bus::SessionExpiredSubscriber::new(),
+        )) {
+            std::mem::forget(handle);
+        } else {
+            log::warn!(
+                "[event_bus] failed to register SessionExpired subscriber — bus not initialized"
+            );
+        }
+
         crate::openhuman::memory::tree::jobs::start(config.clone());
 
         // Restart requests go through a subscriber so every trigger path shares
@@ -960,7 +1147,7 @@ fn register_domain_subscribers(
         crate::openhuman::agent::bus::register_agent_handlers();
 
         log::info!(
-            "[event_bus] domain subscribers registered (webhook, channel, health, conversation, composio, restart, proactive, agent)"
+            "[event_bus] domain subscribers registered (webhook, channel, health, conversation, composio, restart, proactive, agent, session_expired)"
         );
     });
 }

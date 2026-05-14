@@ -1,7 +1,10 @@
 //! Device profile detection for guided model selection.
 
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 use sysinfo::System;
+
+static DEVICE_PROFILE_CACHE: OnceLock<DeviceProfile> = OnceLock::new();
 
 /// Summary of local hardware relevant for model tier selection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,11 +25,19 @@ impl DeviceProfile {
     }
 }
 
-/// Probe the current machine and return a [`DeviceProfile`].
+/// Return the detected [`DeviceProfile`] for the current machine.
 ///
+/// The profile is probed once on first call and cached for the process lifetime.
+/// Hardware changes during runtime are detected after the app restarts.
 /// GPU detection is best-effort: Apple Silicon is assumed to have a GPU (Metal);
 /// on other platforms we report "unknown" unless more specific probing is added later.
 pub fn detect_device_profile() -> DeviceProfile {
+    DEVICE_PROFILE_CACHE
+        .get_or_init(detect_device_profile_uncached)
+        .clone()
+}
+
+fn detect_device_profile_uncached() -> DeviceProfile {
     let mut sys = System::new_all();
     sys.refresh_all();
 
@@ -99,12 +110,16 @@ fn detect_gpu(cpu_brand: &str, os_name: &str) -> (bool, Option<String>) {
 /// Probe for an NVIDIA GPU by running `nvidia-smi --query-gpu=name --format=csv,noheader`.
 /// Returns `Some("NVIDIA <name> (CUDA)")` on success, `None` if nvidia-smi is not available.
 fn probe_nvidia_smi() -> Option<String> {
-    let output = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name", "--format=csv,noheader"])
+    let mut cmd = std::process::Command::new("nvidia-smi");
+    cmd.args(["--query-gpu=name", "--format=csv,noheader"])
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .output()
-        .ok()?;
+        .stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output().ok()?;
 
     if !output.status.success() {
         return None;

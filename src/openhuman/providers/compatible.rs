@@ -11,7 +11,11 @@ mod compatible_stream;
 #[path = "compatible_types.rs"]
 mod compatible_types;
 
-pub(crate) use compatible_parse::{parse_sse_line, strip_think_tags};
+#[cfg(test)]
+pub(crate) use compatible_parse::{
+    parse_provider_tool_call_from_value, parse_sse_line, strip_think_tags,
+};
+#[cfg(test)]
 pub(crate) use compatible_types::ResponsesResponse;
 
 use crate::openhuman::providers::traits::{
@@ -67,6 +71,8 @@ pub struct OpenAiCompatibleProvider {
 /// How the provider expects the API key to be sent.
 #[derive(Debug, Clone)]
 pub enum AuthStyle {
+    /// No authentication header.
+    None,
     /// `Authorization: Bearer <key>`
     Bearer,
     /// `x-api-key: <key>` (used by some Chinese providers)
@@ -256,11 +262,17 @@ impl OpenAiCompatibleProvider {
                     .ends_with("/chat/completions")
             });
 
-        if has_full_endpoint {
+        let url = if has_full_endpoint {
             self.base_url.clone()
         } else {
             format!("{}/chat/completions", self.base_url)
-        }
+        };
+        log::info!(
+            "[provider:{}] outbound chat/completions -> {}",
+            self.name,
+            url
+        );
+        url
     }
 
     fn path_ends_with(&self, suffix: &str) -> bool {
@@ -320,21 +332,43 @@ impl OpenAiCompatibleProvider {
             .collect()
     }
 
+    fn credential_for_request(&self) -> anyhow::Result<Option<&str>> {
+        if matches!(&self.auth_header, AuthStyle::None) {
+            return Ok(None);
+        }
+
+        self.credential
+            .as_deref()
+            .map(str::trim)
+            .filter(|credential| !credential.is_empty())
+            .map(Some)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "{} API key not set. Configure via the web UI or set the appropriate env var.",
+                    self.name
+                )
+            })
+    }
+
     fn apply_auth_header(
         &self,
         req: reqwest::RequestBuilder,
-        credential: &str,
+        credential: Option<&str>,
     ) -> reqwest::RequestBuilder {
-        match &self.auth_header {
-            AuthStyle::Bearer => req.header("Authorization", format!("Bearer {credential}")),
-            AuthStyle::XApiKey => req.header("x-api-key", credential),
-            AuthStyle::Custom(header) => req.header(header, credential),
+        match (&self.auth_header, credential) {
+            (AuthStyle::None, _) => req,
+            (_, None) => req,
+            (AuthStyle::Bearer, Some(credential)) => {
+                req.header("Authorization", format!("Bearer {credential}"))
+            }
+            (AuthStyle::XApiKey, Some(credential)) => req.header("x-api-key", credential),
+            (AuthStyle::Custom(header), Some(credential)) => req.header(header, credential),
         }
     }
 
     async fn chat_via_responses(
         &self,
-        credential: &str,
+        credential: Option<&str>,
         messages: &[ChatMessage],
         model: &str,
     ) -> anyhow::Result<String> {
@@ -366,17 +400,19 @@ impl OpenAiCompatibleProvider {
             let error = response.text().await?;
             let sanitized = super::sanitize_api_error(&error);
             let message = format!("{} Responses API error: {sanitized}", self.name);
-            crate::core::observability::report_error(
-                message.as_str(),
-                "llm_provider",
-                "responses_api",
-                &[
-                    ("provider", self.name.as_str()),
-                    ("model", model),
-                    ("status", status_str.as_str()),
-                    ("failure", "non_2xx"),
-                ],
-            );
+            if super::should_report_provider_http_failure(status) {
+                crate::core::observability::report_error(
+                    message.as_str(),
+                    "llm_provider",
+                    "responses_api",
+                    &[
+                        ("provider", self.name.as_str()),
+                        ("model", model),
+                        ("status", status_str.as_str()),
+                        ("failure", "non_2xx"),
+                    ],
+                );
+            }
             anyhow::bail!(message);
         }
 
@@ -662,7 +698,7 @@ impl OpenAiCompatibleProvider {
     /// OpenAI/Fireworks streaming schema that tolerates unknown fields.
     async fn stream_native_chat(
         &self,
-        credential: &str,
+        credential: Option<&str>,
         native_request: &NativeChatRequest,
         delta_tx: &tokio::sync::mpsc::Sender<crate::openhuman::providers::ProviderDelta>,
         dump_seq: u64,
@@ -700,17 +736,19 @@ impl OpenAiCompatibleProvider {
                 "{} streaming API error ({}): {}",
                 self.name, status, sanitized
             );
-            crate::core::observability::report_error(
-                message.as_str(),
-                "llm_provider",
-                "streaming_chat",
-                &[
-                    ("provider", self.name.as_str()),
-                    ("model", native_request.model.as_str()),
-                    ("status", status_str.as_str()),
-                    ("failure", "non_2xx"),
-                ],
-            );
+            if super::should_report_provider_http_failure(status) {
+                crate::core::observability::report_error(
+                    message.as_str(),
+                    "llm_provider",
+                    "streaming_chat",
+                    &[
+                        ("provider", self.name.as_str()),
+                        ("model", native_request.model.as_str()),
+                        ("status", status_str.as_str()),
+                        ("failure", "non_2xx"),
+                    ],
+                );
+            }
             anyhow::bail!(message);
         }
 
@@ -957,10 +995,12 @@ impl OpenAiCompatibleProvider {
                         None
                     } else {
                         // Try to parse as JSON first so downstream
-                        // `normalize_function_arguments` can handle the
-                        // usual Value path; fall back to a JSON-string
-                        // value if the accumulated text isn't valid
-                        // JSON yet.
+                        // `normalize_function_arguments` can take the
+                        // usual Value (object) path; fall back to a
+                        // JSON-string value for partially-assembled or
+                        // permanently malformed fragments.
+                        // `normalize_function_arguments` validates and
+                        // discards malformed strings (OPENHUMAN-TAURI-6F).
                         Some(
                             serde_json::from_str(&c.arguments)
                                 .unwrap_or(serde_json::Value::String(c.arguments)),
@@ -1057,12 +1097,7 @@ impl Provider for OpenAiCompatibleProvider {
         model: &str,
         temperature: f64,
     ) -> anyhow::Result<String> {
-        let credential = self.credential.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} API key not set. Configure via the web UI or set the appropriate env var.",
-                self.name
-            )
-        })?;
+        let credential = self.credential_for_request()?;
 
         let mut messages = Vec::new();
 
@@ -1155,17 +1190,19 @@ impl Provider for OpenAiCompatibleProvider {
 
             let status_str = status.as_u16().to_string();
             let message = format!("{} API error ({status}): {sanitized}", self.name);
-            crate::core::observability::report_error(
-                message.as_str(),
-                "llm_provider",
-                "chat_completions",
-                &[
-                    ("provider", self.name.as_str()),
-                    ("model", model),
-                    ("status", status_str.as_str()),
-                    ("failure", "non_2xx"),
-                ],
-            );
+            if super::should_report_provider_http_failure(status) {
+                crate::core::observability::report_error(
+                    message.as_str(),
+                    "llm_provider",
+                    "chat_completions",
+                    &[
+                        ("provider", self.name.as_str()),
+                        ("model", model),
+                        ("status", status_str.as_str()),
+                        ("failure", "non_2xx"),
+                    ],
+                );
+            }
             anyhow::bail!(message);
         }
 
@@ -1198,12 +1235,7 @@ impl Provider for OpenAiCompatibleProvider {
         model: &str,
         temperature: f64,
     ) -> anyhow::Result<String> {
-        let credential = self.credential.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} API key not set. Configure via the web UI or set the appropriate env var.",
-                self.name
-            )
-        })?;
+        let credential = self.credential_for_request()?;
 
         let effective_messages = if self.merge_system_into_user {
             Self::flatten_system_messages(messages)
@@ -1303,12 +1335,7 @@ impl Provider for OpenAiCompatibleProvider {
         model: &str,
         temperature: f64,
     ) -> anyhow::Result<ProviderChatResponse> {
-        let credential = self.credential.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} API key not set. Configure via the web UI or set the appropriate env var.",
-                self.name
-            )
-        })?;
+        let credential = self.credential_for_request()?;
 
         let effective_messages = if self.merge_system_into_user {
             Self::flatten_system_messages(messages)
@@ -1405,12 +1432,7 @@ impl Provider for OpenAiCompatibleProvider {
         model: &str,
         temperature: f64,
     ) -> anyhow::Result<ProviderChatResponse> {
-        let credential = self.credential.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} API key not set. Configure via the web UI or set the appropriate env var.",
-                self.name
-            )
-        })?;
+        let credential = self.credential_for_request()?;
 
         let tools = Self::convert_tool_specs(request.tools);
         let effective_messages = if self.merge_system_into_user {
@@ -1552,17 +1574,19 @@ impl Provider for OpenAiCompatibleProvider {
 
             let status_str = status.as_u16().to_string();
             let message = format!("{} API error ({status}): {sanitized}", self.name);
-            crate::core::observability::report_error(
-                message.as_str(),
-                "llm_provider",
-                "native_chat",
-                &[
-                    ("provider", self.name.as_str()),
-                    ("model", model),
-                    ("status", status_str.as_str()),
-                    ("failure", "non_2xx"),
-                ],
-            );
+            if super::should_report_provider_http_failure(status) {
+                crate::core::observability::report_error(
+                    message.as_str(),
+                    "llm_provider",
+                    "native_chat",
+                    &[
+                        ("provider", self.name.as_str()),
+                        ("model", model),
+                        ("status", status_str.as_str()),
+                        ("failure", "non_2xx"),
+                    ],
+                );
+            }
             anyhow::bail!(message);
         }
 
@@ -1589,17 +1613,11 @@ impl Provider for OpenAiCompatibleProvider {
         temperature: f64,
         options: StreamOptions,
     ) -> stream::BoxStream<'static, StreamResult<StreamChunk>> {
-        let credential = match self.credential.as_ref() {
-            Some(value) => value.clone(),
-            None => {
-                let provider_name = self.name.clone();
-                return stream::once(async move {
-                    Err(StreamError::Provider(format!(
-                        "{} API key not set",
-                        provider_name
-                    )))
-                })
-                .boxed();
+        let credential = match self.credential_for_request() {
+            Ok(value) => value.map(str::to_string),
+            Err(err) => {
+                return stream::once(async move { Err(StreamError::Provider(err.to_string())) })
+                    .boxed();
             }
         };
 
@@ -1638,12 +1656,17 @@ impl Provider for OpenAiCompatibleProvider {
             let mut req_builder = client.post(&url).json(&request);
 
             // Apply auth header
-            req_builder = match &auth_header {
-                AuthStyle::Bearer => {
-                    req_builder.header("Authorization", format!("Bearer {}", credential))
+            req_builder = match (&auth_header, credential.as_deref()) {
+                (AuthStyle::None, _) | (_, None) => req_builder,
+                (AuthStyle::Bearer, Some(credential)) => {
+                    req_builder.header("Authorization", format!("Bearer {credential}"))
                 }
-                AuthStyle::XApiKey => req_builder.header("x-api-key", &credential),
-                AuthStyle::Custom(header) => req_builder.header(header, &credential),
+                (AuthStyle::XApiKey, Some(credential)) => {
+                    req_builder.header("x-api-key", credential)
+                }
+                (AuthStyle::Custom(header), Some(credential)) => {
+                    req_builder.header(header, credential)
+                }
             };
 
             // Set accept header for streaming
@@ -1678,17 +1701,19 @@ impl Provider for OpenAiCompatibleProvider {
                 };
                 let sanitized_error = super::sanitize_api_error(&raw_error);
                 let message = format!("{}: {}", status, sanitized_error);
-                crate::core::observability::report_error(
-                    message.as_str(),
-                    "llm_provider",
-                    "stream_chat",
-                    &[
-                        ("provider", provider_name.as_str()),
-                        ("model", model_owned.as_str()),
-                        ("status", status_str.as_str()),
-                        ("failure", "non_2xx"),
-                    ],
-                );
+                if super::should_report_provider_http_failure(status) {
+                    crate::core::observability::report_error(
+                        message.as_str(),
+                        "llm_provider",
+                        "stream_chat",
+                        &[
+                            ("provider", provider_name.as_str()),
+                            ("model", model_owned.as_str()),
+                            ("status", status_str.as_str()),
+                            ("failure", "non_2xx"),
+                        ],
+                    );
+                }
                 let _ = tx.send(Err(StreamError::Provider(message))).await;
                 return;
             }
@@ -1716,7 +1741,7 @@ impl Provider for OpenAiCompatibleProvider {
             // the goal is TLS handshake and HTTP/2 negotiation.
             let url = self.chat_completions_url();
             let _ = self
-                .apply_auth_header(self.http_client().get(&url), credential)
+                .apply_auth_header(self.http_client().get(&url), Some(credential.as_str()))
                 .send()
                 .await?;
         }

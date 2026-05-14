@@ -11,11 +11,33 @@ export interface ConfigSnapshot {
   config_path: string;
 }
 
+export interface ModelRoute {
+  hint: string;
+  model: string;
+}
+
 export interface ModelSettingsUpdate {
+  /**
+   * OpenHuman product backend URL. Almost always left untouched; the
+   * inference endpoint is the separate `inference_url` field.
+   */
   api_url?: string | null;
+  /**
+   * Custom OpenAI-compatible LLM endpoint. When set together with
+   * `api_key`, inference talks directly to this URL instead of routing
+   * through the OpenHuman backend. Send an empty string to clear.
+   */
+  inference_url?: string | null;
   api_key?: string | null;
   default_model?: string | null;
   default_temperature?: number | null;
+  /**
+   * When present, REPLACES `config.model_routes` wholesale with these
+   * `(hint, model)` pairs. Send `[]` to clear all routes (used when switching
+   * back to the OpenHuman backend whose built-in router picks per-task models
+   * on its own). Omit to leave existing routes untouched.
+   */
+  model_routes?: ModelRoute[] | null;
 }
 
 /**
@@ -109,6 +131,39 @@ export async function openhumanGetConfig(): Promise<CommandResponse<ConfigSnapsh
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({ method: CORE_RPC_METHODS.configGet });
 }
 
+/**
+ * Safe client-facing config slice. Never contains the raw api_key — only
+ * `api_key_set` indicates whether a custom backend key is stored. See
+ * `config.get_client_config` in `src/openhuman/config/schemas.rs`.
+ */
+export interface ClientConfig {
+  /** OpenHuman product backend URL (auth/billing/voice). */
+  api_url: string | null;
+  /**
+   * Custom OpenAI-compatible LLM endpoint. When set with an api_key, the
+   * core routes inference directly to this URL instead of the OpenHuman
+   * backend. This is what the LLM Provider settings panel reads/writes.
+   */
+  inference_url: string | null;
+  default_model: string | null;
+  app_version: string;
+  api_key_set: boolean;
+  /**
+   * Persisted task-hint -> model id pairs the core router will obey. Empty
+   * when the OpenHuman built-in router is active.
+   */
+  model_routes: ModelRoute[];
+}
+
+export async function openhumanGetClientConfig(): Promise<CommandResponse<ClientConfig>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<ClientConfig>>({
+    method: 'openhuman.config_get_client_config',
+  });
+}
+
 export async function openhumanUpdateModelSettings(
   update: ModelSettingsUpdate
 ): Promise<CommandResponse<ConfigSnapshot>> {
@@ -116,7 +171,7 @@ export async function openhumanUpdateModelSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_model_settings',
+    method: CORE_RPC_METHODS.configUpdateModelSettings,
     params: update,
   });
 }
@@ -128,7 +183,7 @@ export async function openhumanUpdateMemorySettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_memory_settings',
+    method: CORE_RPC_METHODS.configUpdateMemorySettings,
     params: update,
   });
 }
@@ -140,7 +195,7 @@ export async function openhumanUpdateRuntimeSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_runtime_settings',
+    method: CORE_RPC_METHODS.configUpdateRuntimeSettings,
     params: update,
   });
 }
@@ -152,7 +207,7 @@ export async function openhumanUpdateBrowserSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_browser_settings',
+    method: CORE_RPC_METHODS.configUpdateBrowserSettings,
     params: update,
   });
 }
@@ -164,7 +219,7 @@ export async function openhumanUpdateScreenIntelligenceSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_screen_intelligence_settings',
+    method: CORE_RPC_METHODS.configUpdateScreenIntelligenceSettings,
     params: update,
   });
 }
@@ -176,7 +231,7 @@ export async function openhumanUpdateLocalAiSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_local_ai_settings',
+    method: 'openhuman.config_update_local_ai_settings',
     params: update,
   });
 }
@@ -188,7 +243,7 @@ export async function openhumanUpdateAnalyticsSettings(update: {
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_analytics_settings',
+    method: CORE_RPC_METHODS.configUpdateAnalyticsSettings,
     params: update,
   });
 }
@@ -200,7 +255,7 @@ export async function openhumanGetAnalyticsSettings(): Promise<
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<{ enabled: boolean }>>({
-    method: 'openhuman.get_analytics_settings',
+    method: CORE_RPC_METHODS.configGetAnalyticsSettings,
   });
 }
 
@@ -244,7 +299,7 @@ export async function openhumanUpdateComposioTriggerSettings(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.update_composio_trigger_settings',
+    method: 'openhuman.config_update_composio_trigger_settings',
     params: update,
   });
 }
@@ -256,7 +311,7 @@ export async function openhumanGetComposioTriggerSettings(): Promise<
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<ComposioTriggerSettings>>({
-    method: 'openhuman.get_composio_trigger_settings',
+    method: 'openhuman.config_get_composio_trigger_settings',
   });
 }
 
@@ -265,7 +320,7 @@ export async function openhumanGetRuntimeFlags(): Promise<CommandResponse<Runtim
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<RuntimeFlags>>({
-    method: 'openhuman.get_runtime_flags',
+    method: CORE_RPC_METHODS.configGetRuntimeFlags,
   });
 }
 
@@ -276,7 +331,7 @@ export async function openhumanSetBrowserAllowAll(
     throw new Error('Not running in Tauri');
   }
   return await callCoreRpc<CommandResponse<RuntimeFlags>>({
-    method: 'openhuman.set_browser_allow_all',
+    method: CORE_RPC_METHODS.configSetBrowserAllowAll,
     params: { enabled },
   });
 }

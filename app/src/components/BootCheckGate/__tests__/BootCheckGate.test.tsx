@@ -8,12 +8,19 @@
  *   - Assert rendered text and dispatched actions for each meaningful state.
  */
 import { configureStore } from '@reduxjs/toolkit';
+import { isTauri } from '@tauri-apps/api/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import coreModeReducer, { type CoreModeState } from '../../../store/coreModeSlice';
 import BootCheckGate from '../BootCheckGate';
+
+// The global test setup mocks isTauri()=>false (web). The existing picker
+// behavior under test was written for desktop (local option visible,
+// pre-selected). Force desktop runtime for those describes; the new web
+// describe at the bottom flips it back to false.
+const mockedIsTauri = vi.mocked(isTauri);
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -67,6 +74,11 @@ function renderGate(store = makeStore()) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// All describes below assume desktop unless they explicitly opt out.
+beforeEach(() => {
+  mockedIsTauri.mockReturnValue(true);
+});
 
 describe('BootCheckGate — picker (unset mode)', () => {
   it('shows the mode picker when coreMode is unset', () => {
@@ -470,5 +482,69 @@ describe('BootCheckGate — pre-set mode (subsequent launches)', () => {
     });
 
     expect(screen.queryByText('Choose core mode')).not.toBeInTheDocument();
+  });
+});
+
+describe('BootCheckGate — picker (web build, !isTauri)', () => {
+  beforeEach(() => {
+    mockedIsTauri.mockReturnValue(false);
+  });
+
+  it('uses the web-friendly title and hides the Local option', () => {
+    renderGate();
+
+    expect(screen.getByText('Connect to your core')).toBeInTheDocument();
+    expect(screen.queryByText('Choose core mode')).not.toBeInTheDocument();
+    expect(screen.queryByText('Local (recommended)')).not.toBeInTheDocument();
+    // The selectable Cloud tile is also gone — cloud is implicit and the
+    // URL/token form is rendered directly.
+    expect(screen.queryByRole('button', { name: 'Cloud' })).not.toBeInTheDocument();
+  });
+
+  it('renders the cloud form fields immediately (cloud is the only option)', () => {
+    renderGate();
+
+    expect(screen.getByPlaceholderText(/https:\/\/core\.example\.com/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Bearer token/i)).toBeInTheDocument();
+  });
+
+  it('shows a Download desktop app CTA linking to the release page', () => {
+    renderGate();
+
+    const cta = screen.getByTestId('web-download-cta');
+    expect(cta).toBeInTheDocument();
+    const link = cta.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute('href')).toMatch(
+      /github\.com\/tinyhumansai\/openhuman\/releases\/latest/
+    );
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toMatch(/noopener/);
+  });
+
+  it('continues into a cloud boot check when URL + token are provided', async () => {
+    mockRunBootCheck.mockResolvedValue({ kind: 'match' });
+
+    renderGate();
+
+    fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
+      target: { value: 'https://core.example.com/rpc' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+      target: { value: 'tok-web' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('app-content')).toBeInTheDocument();
+    });
+    expect(mockRunBootCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'cloud',
+        url: 'https://core.example.com/rpc',
+        token: 'tok-web',
+      }),
+      expect.any(Object)
+    );
   });
 });

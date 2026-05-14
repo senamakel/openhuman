@@ -10,6 +10,12 @@ import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 const host = process.env.TAURI_DEV_HOST;
 
+// Optional override so parallel `dev:app:win` runs across worktrees can
+// avoid the hardcoded 1420 collision. Default 1420 preserves prior behavior;
+// HMR companion port is dev port + 1 (used only when TAURI_DEV_HOST is set).
+const devPort = Number(process.env.OPENHUMAN_DEV_PORT) || 1420;
+const hmrPort = devPort + 1;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
   readFileSync(resolve(__dirname, "package.json"), "utf8"),
@@ -84,6 +90,15 @@ function guardCefRelListSupportsPlugin(): PluginOption {
   };
 }
 
+// `VITE_OPENHUMAN_TARGET=web` switches the build to the browser-hosted
+// flavor: output lands in `dist-web/` so the desktop build artifact in
+// `dist/` (consumed by `cargo tauri build`) is never clobbered, and the
+// `import.meta.env.VITE_OPENHUMAN_TARGET` value is exposed to runtime code
+// that wants a build-time signal in addition to the runtime `isTauri()`
+// check. Default (`undefined` / `desktop`) keeps the historical behavior.
+const buildTarget = (process.env.VITE_OPENHUMAN_TARGET ?? "desktop").trim();
+const isWebTarget = buildTarget === "web";
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   root: "src",
@@ -98,7 +113,7 @@ export default defineConfig(async () => ({
   // the shell exports staging URLs.
   envDir: resolve(__dirname, ".."),
   build: {
-    outDir: "../dist",
+    outDir: isWebTarget ? "../dist-web" : "../dist",
     emptyOutDir: true,
     // Desktop CEF has surfaced a runtime where `link.relList.supports` is
     // truthy but not callable. Vite calls it both in the modulepreload
@@ -129,7 +144,7 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
+    port: devPort,
     strictPort: true,
     // `false` lets Vite pick its own loopback default; on Windows that lands
     // on `::1` only, leaving 127.0.0.1 unbound. The Tauri dev-server proxy
@@ -152,7 +167,7 @@ export default defineConfig(async () => ({
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: hmrPort,
         }
       : {
           // Tauri CEF loads the app from tauri.localhost; without this the
@@ -160,8 +175,8 @@ export default defineConfig(async () => ({
           // Force the client to connect to the Vite dev server directly.
           protocol: "ws",
           host: "localhost",
-          port: 1420,
-          clientPort: 1420,
+          port: devPort,
+          clientPort: devPort,
         },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri` directory (includes src-tauri/ai)

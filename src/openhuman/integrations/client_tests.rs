@@ -184,3 +184,83 @@ async fn get_403_propagates_backend_error_envelope_message() {
     );
     assert!(msg.contains("403"), "expected status code, got: {msg}");
 }
+
+// ── OPENHUMAN-TAURI-BC regression: wire format pins to classifier ─
+
+/// Regression guard for OPENHUMAN-TAURI-BC: the exact bail message
+/// `IntegrationClient::post` builds for a 4xx user-input failure must
+/// classify as `BackendUserError` so the observability layer routes
+/// the report through a warn breadcrumb instead of a Sentry event.
+///
+/// If the format string in `client.rs` drifts away from the prefix
+/// `is_backend_user_error_message` matches on, every Composio /
+/// integrations 4xx will start spamming Sentry again — exactly the
+/// regression this guards.
+#[tokio::test]
+async fn post_400_user_input_failure_classifies_as_backend_user_error() {
+    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+
+    let app = Router::new().route(
+        "/agent-integrations/composio/authorize",
+        post(|| async {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "error": "Composio authorization failed: 400 {\"error\":{\"message\":\"Missing required fields: Tenant Name\",\"slug\":\"ConnectedAccount_MissingRequiredFields\",\"status\":400}}"
+                })),
+            )
+                .into_response()
+        }),
+    );
+    let base = start_mock_backend(app).await;
+    let client = client_for(base);
+    let err = client
+        .post::<serde_json::Value>(
+            "/agent-integrations/composio/authorize",
+            &json!({ "toolkit": "sharepoint" }),
+        )
+        .await
+        .expect_err("400 must surface as Err");
+    let msg = format!("{err:#}");
+
+    // The propagated message must still match the classifier — both the
+    // `IntegrationClient::post` bail string and the
+    // `observability::report_error_or_expected` argument share the same
+    // shape, so this is a tight pin against drift on either side.
+    assert_eq!(
+        expected_error_kind(&msg),
+        Some(ExpectedErrorKind::BackendUserError),
+        "OPENHUMAN-TAURI-BC: propagated 400 must classify as BackendUserError; got: {msg}"
+    );
+}
+
+/// Counterpart: a 5xx must remain actionable. If the classifier ever
+/// over-reaches and silences 5xx, this test catches it before users do.
+#[tokio::test]
+async fn post_500_remains_actionable() {
+    use crate::core::observability::expected_error_kind;
+
+    let app = Router::new().route(
+        "/foo",
+        post(|| async {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "<html>upstream blew up</html>",
+            )
+                .into_response()
+        }),
+    );
+    let base = start_mock_backend(app).await;
+    let client = client_for(base);
+    let err = client
+        .post::<serde_json::Value>("/foo", &json!({}))
+        .await
+        .expect_err("500 must surface as Err");
+    let msg = format!("{err:#}");
+    assert_eq!(
+        expected_error_kind(&msg),
+        None,
+        "5xx must remain actionable, not classified as expected; got: {msg}"
+    );
+}

@@ -15,6 +15,7 @@ import MicCloudComposer from '../features/human/MicCloudComposer';
 // import { ONBOARDING_WELCOME_THREAD_LABEL } from '../constants/onboardingChat';
 import { useStickToBottom } from '../hooks/useStickToBottom';
 import { useUsageState } from '../hooks/useUsageState';
+import { trackEvent } from '../services/analytics';
 // [#1123] getCoreStateSnapshot and isWelcomeLocked commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // import { getCoreStateSnapshot, isWelcomeLocked } from '../lib/coreState/store';
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
@@ -38,6 +39,7 @@ import {
   persistReaction,
   setActiveThread,
   setSelectedThread,
+  THREAD_NOT_FOUND_MESSAGE,
 } from '../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
@@ -108,6 +110,24 @@ export function isComposerInteractionBlocked(args: {
   rustChat: boolean;
 }): boolean {
   return !args.rustChat || Boolean(args.activeThreadId) || args.welcomePending;
+}
+
+/**
+ * Normalise the value thrown out of `dispatch(loadThreads()).unwrap()` into a
+ * displayable string. `createAsyncThunk` re-throws Redux's `SerializedError`
+ * (a plain object, not an `Error` instance) when the thunk rejects — which is
+ * why the original Sentry report (OPENHUMAN-REACT-X) showed up as
+ * "Non-Error promise rejection captured with value: …" rather than a stack.
+ * Exported so the mount-effect's `.catch` stays a one-liner and the message
+ * shape can be unit-tested without mounting the full page.
+ */
+export function formatThreadLoadError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return String(err);
 }
 
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
@@ -273,21 +293,31 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
         //   return;
         // }
         const threadStateForSelect = store.getState().thread;
-        if (data.threads.length > 0) {
+        // Worker/subagent threads are hidden from the conversation list
+        // (see tinyhumansai/openhuman#1624). Match the sidebar filter here so
+        // initial/resume selection can't auto-pick a hidden thread and leave
+        // the UI showing a thread that isn't in the list.
+        const visibleThreads = data.threads.filter(t => !t.parentThreadId);
+        if (visibleThreads.length > 0) {
           // Prefer the thread the user was last viewing (persisted across
           // reloads via redux-persist on the `thread` slice). Only fall
           // through to "most recent" if that thread no longer exists
-          // server-side (deleted, purged, or different user).
+          // server-side (deleted, purged, or different user) — or is now
+          // hidden because it's a worker thread.
           const persistedId = threadStateForSelect.selectedThreadId;
           const resumeId =
-            persistedId && data.threads.some(t => t.id === persistedId)
+            persistedId && visibleThreads.some(t => t.id === persistedId)
               ? persistedId
-              : data.threads[0].id;
+              : visibleThreads[0].id;
           dispatch(setSelectedThread(resumeId));
           void dispatch(loadThreadMessages(resumeId));
         } else {
           void handleCreateNewThread();
         }
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.warn('[conversations] loadThreads failed on mount:', formatThreadLoadError(err));
       });
 
     return () => {
@@ -370,25 +400,26 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
     sendingThreadIdRef.current = threadId;
     sendingTimeoutRef.current = setTimeout(() => {
-      console.warn('[chat] silence timeout: no inference signal for 600s');
+      console.warn('[chat] silence timeout: no inference signal for 120s');
       setSendError(
         chatSendError(
           'safety_timeout',
-          'No response from the agent after 10 minutes. Try again or check your connection.'
+          'No response from the agent after 2 minutes. Try again or check your connection.'
         )
       );
       dispatch(clearRuntimeForThread({ threadId }));
       dispatch(setActiveThread(null));
       sendingTimeoutRef.current = null;
       sendingThreadIdRef.current = null;
-    }, 600_000);
+    }, 120_000);
   };
 
-  // Rearm the silence timer on every inference status change for the
-  // sending thread (tool_call, tool_result, iteration_start, subagent_*
-  // all update inferenceStatusByThread). When the status is cleared
-  // (chat_done / chat_error), drop the timer — the completion handlers
-  // take over UI cleanup.
+  // Rearm the silence timer on every inference signal for the sending
+  // thread. Tool / iteration / subagent events bump `inferenceStatusByThread`;
+  // pure-text streams (no tools) only bump `streamingAssistantByThread`, so
+  // both must be watched — otherwise a long text stream would trip the
+  // safety timer mid-reply. When the status is cleared (chat_done /
+  // chat_error), drop the timer — the completion handlers own UI cleanup.
   useEffect(() => {
     const threadId = sendingThreadIdRef.current;
     if (!threadId || !sendingTimeoutRef.current) return;
@@ -401,9 +432,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     }
     armSilenceTimer(threadId);
     // armSilenceTimer is stable (refs + dispatch); depending on the
-    // selector reference is enough to rearm on every progress event.
+    // selector references is enough to rearm on every progress event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inferenceStatusByThread]);
+  }, [inferenceStatusByThread, streamingAssistantByThread]);
 
   useEffect(() => {
     if (
@@ -557,6 +588,14 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     try {
       await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage })).unwrap();
     } catch (error) {
+      // RTK's unwrap() re-throws the rejectWithValue payload directly (a plain
+      // string, not an Error). Check for the stale-thread sentinel before
+      // coercing to a display string so this guard doesn't accidentally match
+      // unrelated errors whose `.toString()` happens to equal the sentinel.
+      if (error === THREAD_NOT_FOUND_MESSAGE) {
+        setSendError(null);
+        return;
+      }
       const msg = error instanceof Error ? error.message : String(error);
       setSendError(chatSendError('cloud_send_failed', msg));
       return;
@@ -580,6 +619,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     // (auto-react, autocomplete, etc.) — never as a primary chat path.
     try {
       await chatSend({ threadId: sendingThreadId, message: trimmed, model: CHAT_MODEL_ID });
+      trackEvent('chat_message_sent');
 
       // Active-thread reset happens in the global ChatRuntimeProvider events.
     } catch (err) {
@@ -906,6 +946,10 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
 
   const filteredThreads = useMemo(() => {
     const base = threads.filter(t => {
+      // Hide worker/subagent threads from the conversation list. They are
+      // currently surfaced inline inside the parent thread via WorkerThreadRefCard.
+      // A dedicated showcase is tracked in tinyhumansai/openhuman#1624.
+      if (t.parentThreadId) return false;
       if (selectedLabel === 'all') return true;
       return t.labels?.includes(selectedLabel);
     });
@@ -929,10 +973,6 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     );
   }, [filteredThreads]);
 
-  const allLabels = useMemo(() => {
-    return Array.from(new Set(threads.flatMap(t => t.labels ?? []))).sort();
-  }, [threads]);
-
   // Fixed tab set so categories don't disappear when empty and the active
   // filter state remains unambiguous regardless of what threads exist.
   const labelTabs = [
@@ -941,13 +981,6 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     { label: 'Briefing', value: 'briefing' },
     { label: 'Notification', value: 'notification' },
   ];
-
-  // Reset stale selectedLabel when the last thread carrying that label is deleted.
-  useEffect(() => {
-    if (selectedLabel !== 'all' && !allLabels.includes(selectedLabel)) {
-      setSelectedLabel('all');
-    }
-  }, [allLabels, selectedLabel]);
 
   const isSidebar = variant === 'sidebar';
   // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
@@ -1642,6 +1675,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
               disabled={composerInteractionBlocked || !selectedThreadId}
               onSubmit={text => handleSendMessage(text)}
               onError={message => setSendError(chatSendError('voice_transcription', message))}
+              showDeviceSelector
             />
           ) : inputMode === 'text' ? (
             <div className="flex items-end gap-3">

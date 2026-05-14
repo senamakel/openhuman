@@ -248,6 +248,37 @@ fn custom_auth_style() {
     assert!(matches!(p.auth_header, AuthStyle::Custom(_)));
 }
 
+#[test]
+fn no_auth_style_allows_missing_key() {
+    let p =
+        OpenAiCompatibleProvider::new("ollama", "http://localhost:11434/v1", None, AuthStyle::None);
+    assert!(matches!(p.auth_header, AuthStyle::None));
+    assert!(p.credential_for_request().unwrap().is_none());
+
+    let req = p
+        .apply_auth_header(
+            p.http_client()
+                .post("http://localhost:11434/v1/chat/completions"),
+            None,
+        )
+        .build()
+        .unwrap();
+    assert!(req.headers().get("authorization").is_none());
+    assert!(req.headers().get("x-api-key").is_none());
+}
+
+#[test]
+fn blank_required_key_counts_as_missing() {
+    let p = OpenAiCompatibleProvider::new(
+        "custom",
+        "https://api.example.com",
+        Some("  "),
+        AuthStyle::Bearer,
+    );
+    let err = p.credential_for_request().unwrap_err().to_string();
+    assert!(err.contains("custom API key not set"), "err: {err}");
+}
+
 #[tokio::test]
 async fn all_compatible_providers_fail_without_key() {
     let providers = vec![
@@ -330,7 +361,11 @@ fn build_responses_prompt_preserves_multi_turn_history() {
 async fn chat_via_responses_requires_non_system_message() {
     let provider = make_provider("custom", "https://api.example.com", Some("test-key"));
     let err = provider
-        .chat_via_responses("test-key", &[ChatMessage::system("policy")], "gpt-test")
+        .chat_via_responses(
+            Some("test-key"),
+            &[ChatMessage::system("policy")],
+            "gpt-test",
+        )
         .await
         .expect_err("system-only fallback payload should fail");
 
@@ -1111,4 +1146,59 @@ fn parse_sse_line_done_sentinel() {
     let line = "data: [DONE]";
     let result = parse_sse_line(line).unwrap();
     assert_eq!(result, None);
+}
+
+#[test]
+fn normalize_function_arguments_valid_json_string_preserved() {
+    let v = Some(serde_json::Value::String(r#"{"path":"/tmp"}"#.to_string()));
+    assert_eq!(normalize_function_arguments(v), r#"{"path":"/tmp"}"#);
+}
+
+#[test]
+fn normalize_function_arguments_invalid_json_string_falls_back_to_empty_object() {
+    // OPENHUMAN-TAURI-6F: model emitted malformed JSON in `function.arguments`.
+    // Forwarding the raw string back upstream causes a 400 from the backend's
+    // `json.loads`. Substitute `{}` instead.
+    for raw in ["{a:1}", "{'k':'v'}", "{\n", "{,}"] {
+        let v = Some(serde_json::Value::String(raw.to_string()));
+        assert_eq!(normalize_function_arguments(v), "{}", "raw = {raw:?}");
+    }
+}
+
+#[test]
+fn normalize_function_arguments_empty_or_null_becomes_empty_object() {
+    assert_eq!(
+        normalize_function_arguments(Some(serde_json::Value::String("   ".to_string()))),
+        "{}"
+    );
+    assert_eq!(
+        normalize_function_arguments(Some(serde_json::Value::Null)),
+        "{}"
+    );
+    assert_eq!(normalize_function_arguments(None), "{}");
+}
+
+#[test]
+fn normalize_function_arguments_object_value_serializes() {
+    let v = Some(serde_json::json!({"path": "/tmp"}));
+    assert_eq!(normalize_function_arguments(v), r#"{"path":"/tmp"}"#);
+}
+
+#[test]
+fn parse_provider_tool_call_from_value_guards_malformed_arguments() {
+    // OPENHUMAN-TAURI-6F: the early-return path in
+    // `parse_provider_tool_call_from_value` previously bypassed
+    // `normalize_function_arguments`, forwarding malformed JSON strings
+    // directly. Verify the guard now applies on both code paths.
+    let value = serde_json::json!({
+        "id": "call_bad",
+        "name": "shell",
+        "arguments": "{a:1}"
+    });
+    let result = parse_provider_tool_call_from_value(&value);
+    let call = result.expect("should produce a ToolCall");
+    assert_eq!(
+        call.arguments, "{}",
+        "malformed arguments string must be normalised to {{}} via the first-path guard"
+    );
 }

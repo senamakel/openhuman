@@ -9,8 +9,9 @@
 //
 // Splitting it this way keeps platform-specific window code in the shell
 // while the validation rules live (and are tested) in the core.
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
+import { isTauri } from '../utils/tauriCommands/common';
 import { callCoreRpc } from './coreRpcClient';
 
 export type MeetJoinCallInput = { meetUrl: string; displayName: string };
@@ -63,7 +64,6 @@ export async function joinMeetCall(input: MeetJoinCallInput): Promise<MeetJoinCa
     // `instanceof Error` — surfaces the real reason instead of a fallback.
     const reason =
       err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
-    // eslint-disable-next-line no-console
     console.error('[meet-call] meet_call_open_window invoke rejected:', err);
     throw new Error(`meet_call_open_window failed: ${reason}`);
   }

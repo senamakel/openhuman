@@ -32,12 +32,19 @@ vi.mock('../../../store', () => ({ persistor: { purge: vi.fn().mockResolvedValue
 
 vi.mock('../../../utils/links', () => ({ BILLING_DASHBOARD_URL: 'https://billing.example.com' }));
 
-vi.mock('../../../utils/openUrl', () => ({ openUrl: vi.fn() }));
+vi.mock('../../../utils/openUrl', () => ({ openUrl: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock('../../../utils/tauriCommands', () => ({
   resetOpenHumanDataAndRestartCore: vi.fn().mockResolvedValue(undefined),
   restartApp: vi.fn().mockResolvedValue(undefined),
   scheduleCefProfilePurge: vi.fn().mockResolvedValue(undefined),
+}));
+
+const { mockClearAllAppData } = vi.hoisted(() => ({
+  mockClearAllAppData: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../../../utils/clearAllAppData', () => ({
+  clearAllAppData: (...args: unknown[]) => mockClearAllAppData(...args),
 }));
 
 vi.mock('../../walkthrough/AppWalkthrough', () => ({ resetWalkthrough: vi.fn() }));
@@ -243,6 +250,28 @@ describe('SettingsHome', () => {
 
       await user.click(screen.getByText('Developer Options').closest('button')!);
       expect(mockNavigateToSettings).toHaveBeenCalledWith('developer-options');
+    });
+  });
+
+  describe('Clear App Data flow', () => {
+    beforeEach(() => {
+      mockClearAllAppData.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('passes the current snapshot user id + clearSession to clearAllAppData', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByText('Clear App Data').closest('button')!);
+      // Confirm in the modal
+      const confirmButtons = screen.getAllByRole('button', { name: /Clear App Data/i });
+      // The last one is the modal confirm button (first is the menu item we just clicked).
+      await user.click(confirmButtons[confirmButtons.length - 1]);
+
+      expect(mockClearAllAppData).toHaveBeenCalledTimes(1);
+      const args = mockClearAllAppData.mock.calls[0][0];
+      expect(args).toMatchObject({ userId: null });
+      expect(typeof args.clearSession).toBe('function');
     });
   });
 });

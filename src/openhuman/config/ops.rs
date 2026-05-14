@@ -169,9 +169,18 @@ pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String
 #[derive(Debug, Clone, Default)]
 pub struct ModelSettingsPatch {
     pub api_url: Option<String>,
+    /// Custom OpenAI-compatible LLM endpoint. Empty string clears the
+    /// override (inference falls back through the OpenHuman backend).
+    pub inference_url: Option<String>,
     pub api_key: Option<String>,
     pub default_model: Option<String>,
     pub default_temperature: Option<f64>,
+    /// When `Some`, REPLACES the entire `config.model_routes` array with the
+    /// supplied (hint, model) pairs. Pass `Some(vec![])` to clear all routes
+    /// (e.g. when switching back to the OpenHuman backend whose built-in
+    /// router picks per-task models on its own). Leave `None` to keep the
+    /// current routes untouched.
+    pub model_routes: Option<Vec<crate::openhuman::config::ModelRouteConfig>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -271,6 +280,13 @@ pub async fn apply_model_settings(
             Some(api_url)
         };
     }
+    if let Some(inference_url) = update.inference_url {
+        config.inference_url = if inference_url.trim().is_empty() {
+            None
+        } else {
+            Some(inference_url.trim().to_string())
+        };
+    }
     if let Some(api_key) = update.api_key {
         let trimmed_key = api_key.trim();
         config.api_key = if trimmed_key.is_empty() {
@@ -288,6 +304,11 @@ pub async fn apply_model_settings(
     }
     if let Some(temp) = update.default_temperature {
         config.default_temperature = temp;
+    }
+    if let Some(routes) = update.model_routes {
+        // Full replacement — UI sends the canonical set for the active provider
+        // (or an empty vec when switching back to the OpenHuman in-built router).
+        config.model_routes = routes;
     }
     config.save().await.map_err(|e| e.to_string())?;
     let snapshot = snapshot_config_json(config)?;

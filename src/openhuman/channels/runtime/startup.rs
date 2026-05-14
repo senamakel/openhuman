@@ -161,6 +161,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         reasoning_enabled: config.runtime.reasoning_enabled,
     };
     let provider: Arc<dyn Provider> = Arc::from(providers::create_intelligent_routing_provider(
+        config.inference_url.as_deref(),
         config.api_url.as_deref(),
         config.api_key.as_deref(),
         &config,
@@ -184,8 +185,10 @@ pub async fn start_channels(config: Config) -> Result<()> {
         .clone()
         .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.into());
     let temperature = config.default_temperature;
-    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage(
+    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_local_ai(
         &config.memory,
+        &config.local_ai,
+        &[],
         Some(&config.storage.provider.config),
         &config.workspace_dir,
     )?);
@@ -590,6 +593,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         provider_cache: Arc::new(Mutex::new(provider_cache_seed)),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: config.api_url.clone(),
+        inference_url: config.inference_url.clone(),
         reliability: Arc::new(config.reliability.clone()),
         provider_runtime_options,
         workspace_dir: Arc::new(config.workspace_dir.clone()),

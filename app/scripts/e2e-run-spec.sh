@@ -3,7 +3,7 @@
 # Run a single WebDriverIO E2E spec.
 #
 # - macOS: Appium mac2 driver (started locally, port 4723)
-# - Linux: tauri-driver (started locally, port 4444)
+# - Linux: tauri-driver (started locally, port 4444; blocked for default CEF builds)
 #
 # Usage:
 #   ./app/scripts/e2e-run-spec.sh test/e2e/specs/login-flow.spec.ts [log-suffix]
@@ -84,7 +84,7 @@ fi
 # Write config.toml into the default ~/.openhuman/ so the core process
 # uses the mock server URL. Appium Mac2 launches the .app via XCUITest
 # which does NOT inherit shell environment variables, so BACKEND_URL
-# never reaches the core sidecar. Writing api_url to the config file
+# never reaches the embedded core process. Writing api_url to the config file
 # is the reliable cross-platform approach.
 E2E_CONFIG_DIR="$HOME/.openhuman"
 E2E_CONFIG_FILE="$E2E_CONFIG_DIR/config.toml"
@@ -118,72 +118,99 @@ if ! grep -q "127.0.0.1:${E2E_MOCK_PORT}" "$DIST_JS"; then
 fi
 if ! grep -q "127.0.0.1:${E2E_MOCK_PORT}" "$DIST_JS"; then
   echo "ERROR: frontend bundle does NOT contain mock server URL (127.0.0.1:${E2E_MOCK_PORT})." >&2
-  echo "       Run 'yarn test:e2e:build' to rebuild with the mock URL." >&2
+  echo "       Run 'pnpm test:e2e:build' to rebuild with the mock URL." >&2
   exit 1
 fi
 echo "Verified: frontend bundle contains mock server URL."
 
-if [ "$OS" = "Linux" ]; then
-  # ---------------------------------------------------------------------------
-  # Linux: start tauri-driver
-  # ---------------------------------------------------------------------------
-  export TAURI_DRIVER_PORT="${TAURI_DRIVER_PORT:-4444}"
-  DRIVER_LOG="/tmp/tauri-driver-e2e-${LOG_SUFFIX}.log"
+case "$OS" in
+  Linux|MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    # -------------------------------------------------------------------------
+    # Linux + Windows: start tauri-driver (WebKitWebDriver/Linux,
+    # MSEdgeDriver/Windows under the hood).
+    # -------------------------------------------------------------------------
+    export TAURI_DRIVER_PORT="${TAURI_DRIVER_PORT:-4444}"
+    case "$OS" in
+      MINGW*|MSYS*|CYGWIN*|Windows_NT)
+        DRIVER_LOG="${TMP:-${TEMP:-${TMPDIR:-/tmp}}}/tauri-driver-e2e-${LOG_SUFFIX}.log"
+        TAURI_DRIVER_NAME="tauri-driver.exe"
+        ;;
+      *)
+        DRIVER_LOG="/tmp/tauri-driver-e2e-${LOG_SUFFIX}.log"
+        TAURI_DRIVER_NAME="tauri-driver"
+        ;;
+    esac
 
-  TAURI_DRIVER_BIN="$(command -v tauri-driver 2>/dev/null || true)"
-  if [ -z "${TAURI_DRIVER_BIN:-}" ] || [ ! -x "$TAURI_DRIVER_BIN" ]; then
-    # Try cargo bin path
-    TAURI_DRIVER_BIN="$HOME/.cargo/bin/tauri-driver"
-  fi
-  if [ ! -x "$TAURI_DRIVER_BIN" ]; then
-    echo "ERROR: tauri-driver not found. Install with: cargo install tauri-driver" >&2
+    TAURI_DRIVER_BIN="$(command -v "$TAURI_DRIVER_NAME" 2>/dev/null || true)"
+    if [ -z "${TAURI_DRIVER_BIN:-}" ] || [ ! -x "$TAURI_DRIVER_BIN" ]; then
+      # Prefer the POSIX $HOME/.cargo/bin path so `-x` works in git-bash on
+      # Windows. Only fall back to %USERPROFILE% (converted to a POSIX path
+      # via cygpath if available) when $HOME doesn't have the binary —
+      # that covers cases where the runner's HOME is overridden.
+      TAURI_DRIVER_BIN="$HOME/.cargo/bin/$TAURI_DRIVER_NAME"
+      if [ ! -x "$TAURI_DRIVER_BIN" ] && [ -n "${USERPROFILE:-}" ]; then
+        if command -v cygpath >/dev/null 2>&1; then
+          TAURI_DRIVER_BIN="$(cygpath -u "$USERPROFILE")/.cargo/bin/$TAURI_DRIVER_NAME"
+        else
+          TAURI_DRIVER_BIN="$USERPROFILE/.cargo/bin/$TAURI_DRIVER_NAME"
+        fi
+      fi
+    fi
+    if [ ! -x "$TAURI_DRIVER_BIN" ]; then
+      echo "ERROR: $TAURI_DRIVER_NAME not found. Install with: cargo install tauri-driver" >&2
+      exit 1
+    fi
+
+    echo "Starting tauri-driver on port $TAURI_DRIVER_PORT..."
+    echo "  Driver logs: $DRIVER_LOG"
+    "$TAURI_DRIVER_BIN" --port "$TAURI_DRIVER_PORT" > "$DRIVER_LOG" 2>&1 &
+    DRIVER_PID=$!
+
+    for i in $(seq 1 15); do
+      if curl -sf "http://127.0.0.1:$TAURI_DRIVER_PORT/status" >/dev/null 2>&1; then
+        echo "tauri-driver is ready."
+        break
+      fi
+      if [ "$i" -eq 15 ]; then
+        echo "ERROR: tauri-driver did not start within 15 seconds." >&2
+        cat "$DRIVER_LOG" >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    ;;
+  Darwin)
+    # -------------------------------------------------------------------------
+    # macOS: start Appium Mac2.
+    # -------------------------------------------------------------------------
+    export APPIUM_PORT="${APPIUM_PORT:-4723}"
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/e2e-resolve-node-appium.sh"
+
+    APPIUM_LOG="/tmp/appium-e2e-${LOG_SUFFIX}.log"
+    NODE_VER=$("$NODE24" --version)
+    echo "Starting Appium on port $APPIUM_PORT (Node $NODE_VER)..."
+    echo "  Appium logs: $APPIUM_LOG"
+    "$APPIUM_BIN" --port "$APPIUM_PORT" --relaxed-security > "$APPIUM_LOG" 2>&1 &
+    DRIVER_PID=$!
+
+    for i in $(seq 1 30); do
+      if curl -sf "http://127.0.0.1:$APPIUM_PORT/status" >/dev/null 2>&1; then
+        echo "Appium is ready."
+        break
+      fi
+      if [ "$i" -eq 30 ]; then
+        echo "ERROR: Appium did not start within 30 seconds." >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    ;;
+  *)
+    echo "ERROR: unsupported OS for e2e: $OS" >&2
     exit 1
-  fi
-
-  echo "Starting tauri-driver on port $TAURI_DRIVER_PORT..."
-  echo "  Driver logs: $DRIVER_LOG"
-  "$TAURI_DRIVER_BIN" --port "$TAURI_DRIVER_PORT" > "$DRIVER_LOG" 2>&1 &
-  DRIVER_PID=$!
-
-  for i in $(seq 1 15); do
-    if curl -sf "http://127.0.0.1:$TAURI_DRIVER_PORT/status" >/dev/null 2>&1; then
-      echo "tauri-driver is ready."
-      break
-    fi
-    if [ "$i" -eq 15 ]; then
-      echo "ERROR: tauri-driver did not start within 15 seconds." >&2
-      cat "$DRIVER_LOG" >&2
-      exit 1
-    fi
-    sleep 1
-  done
-else
-  # ---------------------------------------------------------------------------
-  # macOS: start Appium
-  # ---------------------------------------------------------------------------
-  export APPIUM_PORT="${APPIUM_PORT:-4723}"
-  # shellcheck source=/dev/null
-  source "$SCRIPT_DIR/e2e-resolve-node-appium.sh"
-
-  APPIUM_LOG="/tmp/appium-e2e-${LOG_SUFFIX}.log"
-  NODE_VER=$("$NODE24" --version)
-  echo "Starting Appium on port $APPIUM_PORT (Node $NODE_VER)..."
-  echo "  Appium logs: $APPIUM_LOG"
-  "$APPIUM_BIN" --port "$APPIUM_PORT" --relaxed-security > "$APPIUM_LOG" 2>&1 &
-  DRIVER_PID=$!
-
-  for i in $(seq 1 30); do
-    if curl -sf "http://127.0.0.1:$APPIUM_PORT/status" >/dev/null 2>&1; then
-      echo "Appium is ready."
-      break
-    fi
-    if [ "$i" -eq 30 ]; then
-      echo "ERROR: Appium did not start within 30 seconds." >&2
-      exit 1
-    fi
-    sleep 1
-  done
-fi
+    ;;
+esac
 
 echo "Running E2E spec ($SPEC)..."
 pnpm exec wdio run test/wdio.conf.ts --spec "$SPEC"

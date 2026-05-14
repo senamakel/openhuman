@@ -156,7 +156,11 @@ impl SiServer {
                 );
             }
             Err(e) => {
-                error!("{LOG_PREFIX} failed to start session: {e}");
+                if is_expected_benign_start_session_failure(&e) {
+                    info!("{LOG_PREFIX} failed to start session: {e}");
+                } else {
+                    error!("{LOG_PREFIX} failed to start session: {e}");
+                }
                 *self.last_error.lock().await = Some(e.clone());
                 *self.state.lock().await = ServerState::Stopped;
                 return Err(e);
@@ -330,6 +334,11 @@ pub async fn start_if_enabled(app_config: &Config) {
         return;
     }
 
+    if !cfg!(target_os = "macos") {
+        info!("{LOG_PREFIX} screen intelligence accessibility engine is macOS-only in V1; embedded server autostart skipped on this platform");
+        return;
+    }
+
     let server_config = SiServerConfig {
         ttl_secs: app_config.screen_intelligence.session_ttl_secs,
         log_interval_secs: 10,
@@ -354,9 +363,53 @@ pub async fn start_if_enabled(app_config: &Config) {
 
     tokio::spawn(async move {
         if let Err(e) = server.run(&config_for_run).await {
-            error!("{LOG_PREFIX} embedded server exited with error: {e}");
+            if is_expected_benign_start_session_failure(&e) {
+                info!("{LOG_PREFIX} embedded server autostart skipped: {e}");
+            } else if e.contains("session already active") {
+                info!("{LOG_PREFIX} embedded server session already active (benign)");
+            } else {
+                error!("{LOG_PREFIX} embedded server exited with error: {e}");
+            }
         }
     });
+}
+
+/// True when an engine-side error is the documented "accessibility engine is
+/// macOS-only in V1" signal reaching us on a non-macOS host. Centralises the
+/// classifier so the log-level decision (`info!` vs `error!`) stays in sync
+/// across every site that consumes `engine::*` failures — currently
+/// `SiServer::run` (start_session error) and `start_if_enabled`'s spawned
+/// `server.run` future.
+fn is_expected_macos_only_failure(err: &str) -> bool {
+    !cfg!(target_os = "macos") && err.contains("macOS-only")
+}
+
+/// True when an engine-side `start_session` error is a benign idempotency
+/// signal — the engine already has a live session, so the embedded server's
+/// own `start_session` call is a duplicate, not a failure. Canonical wire
+/// shape from `engine::start_session`:
+///
+/// ```text
+/// "session already active"
+/// ```
+///
+/// Reaches the server when the engine session was created via a different
+/// entry point before the embedded `run()` got there — typically
+/// `screen_intelligence.enable` invoked over RPC, or a prior `run()` cycle
+/// that left the engine session in place across a server restart
+/// (OPENHUMAN-TAURI-5H). The session is *running*, so the right behaviour
+/// is to step aside, not log an error event to Sentry.
+fn is_expected_session_already_active_failure(err: &str) -> bool {
+    err.contains("session already active")
+}
+
+/// Union of the two known-benign `start_session` failure shapes (`macOS-only`
+/// on non-macOS hosts and `session already active`). Use this at every site
+/// that decides between `info!` and `error!` for a `SiServer::run` failure —
+/// keeps the two classifiers in lockstep across `SiServer::run` itself and
+/// `start_if_enabled`'s spawned future.
+fn is_expected_benign_start_session_failure(err: &str) -> bool {
+    is_expected_macos_only_failure(err) || is_expected_session_already_active_failure(err)
 }
 
 /// Run the screen intelligence server standalone (blocking). Intended for CLI usage.
@@ -442,5 +495,119 @@ mod tests {
     fn truncate_long() {
         let result = truncate("hello world this is a long string", 10);
         assert!(result.ends_with('…'));
+    }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    async fn start_if_enabled_skips_on_non_macos() {
+        let mut config = Config::default();
+        config.screen_intelligence.enabled = true;
+
+        // Record pre-state. The global server is a `OnceLock`-style singleton —
+        // if no test in this binary has touched it yet, `try_global_server()`
+        // returns None. On non-macOS, `start_if_enabled` must NOT advance that
+        // None to Some — that's the no-op contract this PR enforces. A
+        // weaker test that only checked post-state would silently pass even
+        // if behavior regressed to "create-then-stop", which is the failure
+        // shape we're explicitly guarding against (per CodeRabbit review on
+        // #1542).
+        let pre_state = try_global_server();
+
+        start_if_enabled(&config).await;
+
+        let post_state = try_global_server();
+        if pre_state.is_none() {
+            assert!(
+                post_state.is_none(),
+                "non-macOS autostart must not initialize the global server"
+            );
+        } else if let Some(server) = post_state {
+            let status = server.status().await;
+            assert_eq!(status.state, ServerState::Stopped);
+        }
+    }
+
+    #[test]
+    fn is_expected_macos_only_failure_classifies_known_signal() {
+        // The classifier returns true ONLY when:
+        //   1. running on a non-macOS target, AND
+        //   2. the error text contains the engine's "macOS-only" marker.
+        // Anything else stays at `error!` level so genuine engine failures
+        // still surface in Sentry.
+        let macos_marker = "accessibility automation is macOS-only in V1";
+        let other_error = "session start failed: io error: broken pipe";
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert!(is_expected_macos_only_failure(macos_marker));
+            assert!(!is_expected_macos_only_failure(other_error));
+        }
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS the platform check is false up front — the marker is
+            // ignored. A "macOS-only" error reaching us on macOS would be a
+            // real bug worth surfacing at error! level.
+            assert!(!is_expected_macos_only_failure(macos_marker));
+            assert!(!is_expected_macos_only_failure(other_error));
+        }
+    }
+
+    #[test]
+    fn is_expected_session_already_active_failure_classifies_known_signal() {
+        // OPENHUMAN-TAURI-5H: the canonical wire shape returned by
+        // `engine::start_session` when the engine already has a live
+        // session. Must classify on every platform — the duplicate is
+        // benign idempotency regardless of host OS.
+        assert!(is_expected_session_already_active_failure(
+            "session already active"
+        ));
+        // Substring match so wrapped / prefixed forms still classify.
+        assert!(is_expected_session_already_active_failure(
+            "screen intelligence: session already active"
+        ));
+        // Unrelated session-domain errors must NOT classify — they're real
+        // failures that should still surface as Sentry events.
+        assert!(!is_expected_session_already_active_failure(
+            "accessibility permission is not granted"
+        ));
+        assert!(!is_expected_session_already_active_failure(
+            "session start failed: io error: broken pipe"
+        ));
+    }
+
+    #[test]
+    fn is_expected_benign_start_session_failure_is_union_of_classifiers() {
+        // The union helper is what every call site (`SiServer::run`,
+        // `start_if_enabled`'s spawned future) consumes. It must return
+        // `true` for either known-benign shape and `false` for genuine
+        // engine failures.
+        assert!(is_expected_benign_start_session_failure(
+            "session already active"
+        ));
+        assert!(!is_expected_benign_start_session_failure(
+            "accessibility permission is not granted"
+        ));
+        assert!(!is_expected_benign_start_session_failure(
+            "screen recording permission is not granted"
+        ));
+
+        #[cfg(not(target_os = "macos"))]
+        assert!(is_expected_benign_start_session_failure(
+            "accessibility automation is macOS-only in V1"
+        ));
+    }
+
+    #[tokio::test]
+    #[cfg(target_os = "macos")]
+    async fn start_if_enabled_continues_on_macos() {
+        let mut config = Config::default();
+        config.screen_intelligence.enabled = true;
+
+        // On macOS, it should at least initialize the global server.
+        // We don't necessarily want it to succeed in full run() if permissions are missing,
+        // but it should get past the platform check.
+        start_if_enabled(&config).await;
+
+        assert!(try_global_server().is_some());
     }
 }

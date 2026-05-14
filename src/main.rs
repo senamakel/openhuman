@@ -46,10 +46,48 @@ fn main() {
         environment: Some(std::borrow::Cow::Owned(resolve_environment())),
         send_default_pii: false,
         before_send: Some(std::sync::Arc::new(|mut event| {
+            // Defense-in-depth: drop transient-upstream provider failures that
+            // slipped past the call-site classifier. The reliable-provider
+            // layer already retries 429/408/502/503/504 with backoff +
+            // fallback, and the aggregate "all providers exhausted" event
+            // still fires for genuine outages. Per-attempt reports flood
+            // Sentry — see OPENHUMAN-TAURI-2E (~1393 events), -84 (~1050),
+            // -T (~871). The primary fix lives in
+            // `openhuman::providers::ops::should_report_provider_http_failure`
+            // (transient codes excluded). This filter catches any future call
+            // site that bypasses it.
+            if openhuman_core::core::observability::is_transient_provider_http_failure(&event) {
+                return None;
+            }
+            // Defense-in-depth: drop max-tool-iterations cap events that
+            // slipped past the call-site filters in
+            // `agent::harness::session::runtime::run_single`,
+            // `channels::runtime::dispatch`, and
+            // `channels::providers::web::run_chat_task`. The cap is a
+            // deterministic agent-state outcome surfaced to the user via
+            // the chat-rendered "Error: …" message — Sentry is the wrong
+            // surface for it (OPENHUMAN-TAURI-99 / -98).
+            if openhuman_core::core::observability::is_max_iterations_event(&event) {
+                return None;
+            }
+            if openhuman_core::core::observability::is_transient_backend_api_failure(&event)
+                || openhuman_core::core::observability::is_transient_integrations_failure(&event)
+            {
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity
             event.server_name = None;
-            // Strip user context entirely
-            event.user = None;
+            // Attach the cached account uid so Sentry can count unique users
+            // affected by an issue. We only carry `id` — never email, name,
+            // or IP — so this stays consistent with `send_default_pii: false`.
+            // Empty/missing on early-startup events (cache populates after
+            // the first `auth_get_me` RPC); that's expected.
+            event.user = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+                .and_then(|identity| identity.id)
+                .map(|id| sentry::User {
+                    id: Some(id),
+                    ..Default::default()
+                });
             // Scrub exception messages for secrets
             for exc in &mut event.exception.values {
                 if let Some(ref value) = exc.value {

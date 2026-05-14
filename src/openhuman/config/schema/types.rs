@@ -30,7 +30,15 @@ pub struct Config {
     pub config_path: PathBuf,
     pub api_url: Option<String>,
     pub api_key: Option<String>,
+    /// Custom LLM inference endpoint (OpenAI-compatible). When set together
+    /// with `api_key`, the inference provider talks directly to this URL
+    /// instead of routing through the OpenHuman backend. Account/auth/billing
+    /// calls always continue to use `api_url` — keeping inference and
+    /// product-backend concerns cleanly separated.
+    #[serde(default)]
+    pub inference_url: Option<String>,
     pub default_model: Option<String>,
+    #[serde(default = "default_temperature_value")]
     pub default_temperature: f64,
 
     #[serde(default)]
@@ -217,6 +225,17 @@ pub struct Config {
     pub chat_onboarding_completed: bool,
 }
 
+/// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.
+pub(crate) const DEFAULT_TEMPERATURE: f64 = 0.7;
+
+/// Returns the default temperature used by `#[serde(default = "default_temperature_value")]`.
+/// A bare `#[serde(default)]` would give `0.0`; this ensures the field
+/// round-trips correctly even when `default_temperature` is omitted from
+/// an existing `config.toml`.
+fn default_temperature_value() -> f64 {
+    DEFAULT_TEMPERATURE
+}
+
 impl Config {
     /// Resolve the root directory where chunk `.md` files are stored.
     ///
@@ -255,8 +274,9 @@ impl Default for Config {
             config_path: openhuman_dir.join("config.toml"),
             api_url: None,
             api_key: None,
+            inference_url: None,
             default_model: Some(DEFAULT_MODEL.to_string()),
-            default_temperature: 0.7,
+            default_temperature: DEFAULT_TEMPERATURE,
             observability: ObservabilityConfig::default(),
             autonomy: AutonomyConfig::default(),
             runtime: RuntimeConfig::default(),

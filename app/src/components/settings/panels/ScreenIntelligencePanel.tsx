@@ -20,7 +20,7 @@ const formatRemaining = (remainingMs: number | null): string => {
 };
 
 const ScreenIntelligencePanel = () => {
-  const { navigateBack, navigateToSettings, breadcrumbs } = useSettingsNavigation();
+  const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const {
     status,
     lastRestartSummary,
@@ -237,7 +237,8 @@ const ScreenIntelligencePanel = () => {
           </div>
         )}
 
-        <button
+        {/* Screen Awareness Debug entry hidden alongside Developer Options entries. */}
+        {/* <button
           type="button"
           onClick={() => navigateToSettings('screen-awareness-debug')}
           className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors">
@@ -245,7 +246,7 @@ const ScreenIntelligencePanel = () => {
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-        </button>
+        </button> */}
       </div>
     </div>
   );

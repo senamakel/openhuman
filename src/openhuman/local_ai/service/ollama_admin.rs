@@ -11,7 +11,9 @@ use crate::openhuman::local_ai::ollama_api::{
 };
 use crate::openhuman::local_ai::paths::{find_workspace_ollama_binary, workspace_ollama_binary};
 use crate::openhuman::local_ai::presets::{self, VisionMode};
+use crate::openhuman::local_ai::process_util::apply_no_window;
 
+use super::spawn_marker::{self, OllamaSpawnMarker};
 use super::LocalAiService;
 
 impl LocalAiService {
@@ -19,19 +21,33 @@ impl LocalAiService {
         &self,
         config: &Config,
     ) -> Result<(), String> {
+        // If openhuman crashed last session and left a daemon running, the
+        // spawn marker lets us recognise it and reclaim it (kill + respawn
+        // under owned-child tracking) instead of either leaking it forever
+        // or hitting an external daemon that just happens to be on :11434.
+        self.reclaim_orphan_if_ours(config).await;
+
         if self.ollama_healthy().await {
             // Server is running — verify it can actually execute models by checking
             // if the runner works. A stale server with a missing binary will 500.
             if self.ollama_runner_ok().await {
                 return Ok(());
             }
-            // Runner is broken (e.g. binary moved). Kill stale server and restart.
-            log::warn!("[local_ai] Ollama server responds but runner is broken, restarting");
+            // Runner is broken (e.g. binary moved).
+            log::warn!("[local_ai] Ollama server responds but runner is broken");
+            // Only restart if we own it. Killing an external daemon's
+            // broken runner is the user's job, not ours — friendly-fire.
             self.kill_ollama_server().await;
+            if self.ollama_healthy().await {
+                // Our kill was a no-op (or didn't take effect) — daemon is external.
+                return Err("An external Ollama daemon on :11434 has a broken runner. \
+                     Restart it manually (or stop it so openhuman can take over)."
+                    .to_string());
+            }
         }
 
         let ollama_cmd = self.resolve_or_install_ollama_binary(config).await?;
-        self.start_and_wait_for_server(&ollama_cmd).await
+        self.start_and_wait_for_server(config, &ollama_cmd).await
     }
 
     /// Like `ensure_ollama_server`, but forces a fresh install of the Ollama binary
@@ -48,41 +64,105 @@ impl LocalAiService {
             let system_bin = find_system_ollama_binary()
                 .ok_or_else(|| "Ollama installed but binary not found on system".to_string())?;
             // Try to use the system binary directly.
-            return self.start_and_wait_for_server(&system_bin).await;
+            return self.start_and_wait_for_server(config, &system_bin).await;
         };
 
-        self.start_and_wait_for_server(&ollama_cmd).await
+        self.start_and_wait_for_server(config, &ollama_cmd).await
     }
 
-    async fn start_and_wait_for_server(&self, ollama_cmd: &Path) -> Result<(), String> {
+    /// Check if a healthy daemon on `:11434` is actually openhuman's own
+    /// orphan from a prior session (i.e. we crashed before the graceful
+    /// shutdown hook fired). If so, kill it so the upcoming spawn can
+    /// resume owned-child tracking. External daemons are never touched.
+    async fn reclaim_orphan_if_ours(&self, config: &Config) {
+        let Some(marker) = spawn_marker::read_marker(config) else {
+            return;
+        };
+        if !spawn_marker::pid_is_alive(marker.pid) {
+            log::debug!(
+                "[local_ai] stale ollama spawn marker (pid={} no longer alive); clearing",
+                marker.pid
+            );
+            spawn_marker::clear_marker(config);
+            return;
+        }
+        if !self.ollama_healthy().await {
+            // PID is alive but :11434 isn't healthy — either Ollama is
+            // mid-boot or the recorded PID was reused for an unrelated
+            // process. Leave the marker; either the daemon will come up
+            // and the next call will reclaim it, or `start_and_wait_for_server`
+            // will overwrite it on a fresh spawn.
+            log::debug!(
+                "[local_ai] ollama spawn marker pid={} alive but :11434 not healthy yet; \
+                 deferring reclaim",
+                marker.pid
+            );
+            return;
+        }
+        log::info!(
+            "[local_ai] reclaiming openhuman-owned ollama orphan from prior session \
+             (pid={}, binary={})",
+            marker.pid,
+            marker.binary_path
+        );
+        kill_pid_by_id(marker.pid);
+        spawn_marker::clear_marker(config);
+        // Brief settle so the listener releases :11434 before we respawn.
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    async fn start_and_wait_for_server(
+        &self,
+        config: &Config,
+        ollama_cmd: &Path,
+    ) -> Result<(), String> {
         if self.ollama_healthy().await {
+            // A daemon is already up — adopt it. We did NOT spawn it (or any
+            // prior spawn was already reclaimed in `reclaim_orphan_if_ours`),
+            // so `owned_ollama` stays `None` and the daemon survives openhuman
+            // exit. This is the contract: external/adopted daemons are never
+            // killed; only our own children die with us.
             return Ok(());
         }
 
-        if let Err(err) = tokio::process::Command::new(ollama_cmd)
+        // Defensive: if a previous spawn attempt left a stale `Child` in
+        // `owned_ollama` (e.g. ensure_ollama_server_fresh after a failed
+        // first pass), clear it before respawning. Without this, the new
+        // child would replace the field and the old one would be leaked.
+        self.kill_ollama_server().await;
+        spawn_marker::clear_marker(config);
+
+        let mut version_cmd = tokio::process::Command::new(ollama_cmd);
+        version_cmd
             .arg("--version")
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .await
-        {
+            .stderr(std::process::Stdio::null());
+        apply_no_window(&mut version_cmd);
+        if let Err(err) = version_cmd.status().await {
             return Err(format!(
                 "Ollama binary not available ({}; error: {err}).",
                 ollama_cmd.display()
             ));
         }
 
-        match tokio::process::Command::new(ollama_cmd)
+        let mut serve_cmd = tokio::process::Command::new(ollama_cmd);
+        serve_cmd
             .arg("serve")
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-        {
-            Ok(_) => {
+            // Pipe stderr so we can detect specific failure modes — most
+            // importantly Windows Controlled Folder Access blocks, which
+            // surface as "Access is denied" / "operation was blocked" /
+            // 0x80070005 in Ollama's own stderr when CFA refuses writes
+            // to the model cache or even prevents the binary from running.
+            .stderr(std::process::Stdio::piped());
+        apply_no_window(&mut serve_cmd);
+        let mut serve_child = match serve_cmd.spawn() {
+            Ok(child) => {
                 log::debug!(
                     "[local_ai] spawned `ollama serve` from {}",
                     ollama_cmd.display()
                 );
+                child
             }
             Err(err) => {
                 log::warn!(
@@ -94,15 +174,99 @@ impl LocalAiService {
                     ollama_cmd.display()
                 ));
             }
+        };
+
+        // Drain stderr into a bounded buffer in the background. We keep
+        // the last ~16KB so we can quote it back to the user / Sentry on
+        // failure but don't grow unbounded if Ollama logs heavily.
+        let stderr_buffer = std::sync::Arc::new(parking_lot::Mutex::new(String::new()));
+        if let Some(stderr) = serve_child.stderr.take() {
+            let buf = std::sync::Arc::clone(&stderr_buffer);
+            tokio::spawn(async move {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+                let mut reader = BufReader::new(stderr);
+                let mut line = String::new();
+                while reader
+                    .read_line(&mut line)
+                    .await
+                    .map(|n| n > 0)
+                    .unwrap_or(false)
+                {
+                    let mut b = buf.lock();
+                    let new_len = b.len() + line.len();
+                    if new_len > 16 * 1024 {
+                        let drop_n = new_len - 16 * 1024;
+                        let drop_n = std::cmp::min(drop_n, b.len());
+                        b.drain(0..drop_n);
+                    }
+                    b.push_str(&line);
+                    line.clear();
+                }
+            });
         }
 
         for _ in 0..20 {
             if self.ollama_healthy().await {
+                // Daemon is up. Take ownership so we can kill it on exit and
+                // write the spawn marker so a crashed openhuman can reclaim
+                // this PID on next launch instead of orphaning it forever.
+                let pid = serve_child.id().unwrap_or(0);
+                if pid == 0 {
+                    log::warn!(
+                        "[local_ai] spawned ollama child has no PID — owned-child kill \
+                         will be a no-op but daemon is healthy, continuing"
+                    );
+                } else {
+                    let marker = OllamaSpawnMarker::new(pid, ollama_cmd);
+                    if let Err(e) = spawn_marker::write_marker(config, &marker) {
+                        // Marker write failure is non-fatal — graceful shutdown
+                        // still kills via the in-memory `Child` handle. Only
+                        // crash-recovery on next launch is degraded.
+                        log::warn!(
+                            "[local_ai] failed to write ollama spawn marker (pid={pid}): {e}"
+                        );
+                    }
+                }
+                *self.owned_ollama.lock() = Some(serve_child);
                 return Ok(());
             }
             tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         }
 
+        // Health probe timed out. The serve child is unhealthy and may be
+        // holding the Ollama port — kill it before returning so the next
+        // bootstrap attempt isn't blocked by a zombie listener.
+        if let Err(err) = serve_child.kill().await {
+            log::warn!("[local_ai] failed to kill unhealthy `ollama serve` child: {err}");
+        }
+
+        // Classify the failure from captured stderr.
+        let stderr_snapshot = stderr_buffer.lock().clone();
+        let lowered = stderr_snapshot.to_ascii_lowercase();
+        // Match only explicit Controlled Folder Access markers. Generic
+        // strings like "access is denied" or "is not recognized as a trusted"
+        // appear in many unrelated Windows errors and previously caused us
+        // to surface a misleading CFA remediation message.
+        let cfa_signatures = ["controlled folder access", "operation was blocked"];
+        let cfa_hit = cfa_signatures.iter().any(|sig| lowered.contains(sig));
+        if cfa_hit {
+            log::warn!(
+                "[local_ai] Ollama failed to start — Controlled Folder Access blocked it. \
+                 stderr tail: {stderr_snapshot}"
+            );
+            self.status.lock().error_detail = Some(stderr_snapshot);
+            return Err(format!(
+                "Ollama was blocked by Windows Controlled Folder Access. \
+                 Open Windows Security → Ransomware protection → Allow an app \
+                 through Controlled folder access, and add `{}`.",
+                ollama_cmd.display()
+            ));
+        }
+        // Non-CFA timeout — surface the stderr tail anyway for diagnosis.
+        if !stderr_snapshot.is_empty() {
+            log::warn!("[local_ai] Ollama not reachable. stderr tail: {stderr_snapshot}");
+            self.status.lock().error_detail = Some(stderr_snapshot);
+        }
         Err("Ollama runtime is not reachable after fresh install. Start `ollama serve` manually and retry.".to_string())
     }
 
@@ -170,14 +334,12 @@ impl LocalAiService {
     }
 
     async fn command_works(&self, command: &Path) -> bool {
-        tokio::process::Command::new(command)
-            .arg("--version")
+        let mut cmd = tokio::process::Command::new(command);
+        cmd.arg("--version")
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .await
-            .map(|s| s.success())
-            .unwrap_or(false)
+            .stderr(std::process::Stdio::null());
+        apply_no_window(&mut cmd);
+        cmd.status().await.map(|s| s.success()).unwrap_or(false)
     }
 
     async fn download_and_install_ollama(&self, config: &Config) -> Result<(), String> {
@@ -185,6 +347,71 @@ impl LocalAiService {
         tokio::fs::create_dir_all(&install_dir)
             .await
             .map_err(|e| format!("failed to create Ollama install directory: {e}"))?;
+
+        // Crash-resume guard: Inno Setup's installer is spawned via
+        // PowerShell's `Start-Process`, which creates a top-level process.
+        // It outlives OpenHuman crashing, the user closing the app, or
+        // the bootstrap task being cancelled. If a prior launch left an
+        // OllamaSetup.exe running, wait for it instead of starting a
+        // second one — two concurrent installers race on the same dir
+        // and corrupt the install.
+        if crate::openhuman::local_ai::install::is_ollama_installer_running() {
+            log::info!(
+                "[local_ai] detected in-flight OllamaSetup.exe — \
+                 waiting for it to finish before deciding whether to install"
+            );
+            {
+                let mut status = self.status.lock();
+                status.state = "installing".to_string();
+                status.warning = Some("Resuming Ollama install from a previous launch".to_string());
+                status.error_detail = None;
+                status.error_category = None;
+            }
+            // Bounded wait: a stuck OllamaSetup.exe (e.g. Inno Setup dialog
+            // waiting on user input) must not block app startup forever. Five
+            // minutes covers a slow download + UAC prompt; past that we mark
+            // the install as failed-but-recoverable and let the caller decide.
+            let wait_start = std::time::Instant::now();
+            const INSTALLER_WAIT_TIMEOUT: std::time::Duration =
+                std::time::Duration::from_secs(5 * 60);
+            let mut timed_out = false;
+            while crate::openhuman::local_ai::install::is_ollama_installer_running() {
+                if wait_start.elapsed() >= INSTALLER_WAIT_TIMEOUT {
+                    timed_out = true;
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+            if timed_out {
+                log::warn!(
+                    "[local_ai] OllamaSetup.exe still running after {}s — giving up the wait",
+                    INSTALLER_WAIT_TIMEOUT.as_secs()
+                );
+                let mut status = self.status.lock();
+                status.state = "install_failed".to_string();
+                status.warning = None;
+                status.error_category = Some("install_stuck".to_string());
+                status.error_detail = Some(format!(
+                    "Previous OllamaSetup.exe install was still running after {}s. \
+                     Cancel the installer (System tray / Task Manager) and retry.",
+                    INSTALLER_WAIT_TIMEOUT.as_secs()
+                ));
+                return Err("Previous Ollama installer is stuck. Cancel it and retry.".to_string());
+            }
+            // The prior installer is gone. If it succeeded, our regular
+            // discovery paths will find the binary and we can short-circuit
+            // the install entirely. If it failed, fall through and run a
+            // fresh install below.
+            if find_workspace_ollama_binary(config).is_some()
+                || find_system_ollama_binary().is_some()
+            {
+                log::info!("[local_ai] resumed prior install completed successfully");
+                return Ok(());
+            }
+            log::warn!(
+                "[local_ai] prior installer exited but binary not found — running fresh install"
+            );
+        }
 
         {
             let mut status = self.status.lock();
@@ -271,6 +498,36 @@ impl LocalAiService {
             .await
             .map(|r| r.status().is_success())
             .unwrap_or(false)
+    }
+
+    /// Filesystem-only precondition: is *any* Ollama binary discoverable?
+    ///
+    /// This is the cheapest possible check — no process spawns, no HTTP, no
+    /// timeouts. Callers that need to decide whether it's even worth talking
+    /// to `/api/tags` should consult this first. Returning `false` here means
+    /// the UI should drive the user to install Ollama instead of polling for
+    /// model state that can never appear.
+    pub(in crate::openhuman::local_ai::service) fn ollama_binary_present(
+        &self,
+        config: &Config,
+    ) -> bool {
+        if let Some(ref custom) = config.local_ai.ollama_binary_path {
+            if PathBuf::from(custom).is_file() {
+                return true;
+            }
+        }
+        if let Some(env_path) = std::env::var("OLLAMA_BIN")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+        {
+            if PathBuf::from(env_path).is_file() {
+                return true;
+            }
+        }
+        if find_workspace_ollama_binary(config).is_some() {
+            return true;
+        }
+        find_system_ollama_binary().is_some()
     }
 
     pub(in crate::openhuman::local_ai::service) async fn ensure_models_available(
@@ -880,38 +1137,75 @@ impl LocalAiService {
     }
 
     /// Kill any running Ollama server process so we can restart with the correct binary.
+    /// Kill the `ollama serve` daemon openhuman itself spawned, if any.
+    ///
+    /// **No-op when openhuman never spawned a daemon** (i.e. it adopted an
+    /// externally-managed one via the `ollama_healthy()` fast-path, or no
+    /// daemon was started at all). This avoids the friendly-fire bug from
+    /// the previous blanket `taskkill /IM ollama.exe` / `pkill -f` which
+    /// would terminate any Ollama on the host — including ones started by
+    /// the user's CLI, tray app, or other tooling.
+    ///
+    /// External daemons can be replaced/restarted by the user; killing
+    /// them out from under their owner is never the right move from inside
+    /// a desktop app.
     async fn kill_ollama_server(&self) {
-        #[cfg(unix)]
-        {
-            let _ = tokio::process::Command::new("pkill")
-                .arg("-f")
-                .arg("ollama serve")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .await;
-            // Give it a moment to die.
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let maybe_child = self.owned_ollama.lock().take();
+        let Some(mut child) = maybe_child else {
+            log::debug!(
+                "[local_ai] kill_ollama_server: no openhuman-owned daemon; \
+                 leaving any external Ollama on :11434 untouched"
+            );
+            return;
+        };
+        let pid = child.id().unwrap_or(0);
+        match child.kill().await {
+            Ok(()) => {
+                log::info!("[local_ai] killed openhuman-owned ollama serve (pid={pid})");
+                // Reap so the OS doesn't keep the zombie around on Unix.
+                let _ = child.wait().await;
+            }
+            Err(err) => {
+                log::warn!("[local_ai] kill of owned ollama serve pid={pid} failed: {err}");
+            }
         }
-        #[cfg(windows)]
-        {
-            let _ = tokio::process::Command::new("taskkill")
-                .args(["/F", "/IM", "ollama.exe"])
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .await;
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        }
+        // Give the kernel a moment to release :11434 before any imminent
+        // respawn races for the same port.
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    /// Public shutdown hook for the Tauri exit lifecycle.
+    ///
+    /// Kills the openhuman-owned `ollama serve` (if any) and clears the
+    /// spawn marker so the next launch doesn't try to reclaim a daemon
+    /// that's already dead. Idempotent — safe to call from both
+    /// `RunEvent::ExitRequested` and window-close paths.
+    pub async fn shutdown_owned_ollama(&self, config: &Config) {
+        self.kill_ollama_server().await;
+        spawn_marker::clear_marker(config);
     }
 
     pub(in crate::openhuman::local_ai::service) async fn has_model(
         &self,
         model: &str,
     ) -> Result<bool, String> {
+        // Issue the /api/tags GET directly. We previously short-circuited via
+        // ollama_healthy(), but that doubled the number of /api/tags round-trips
+        // on healthy polls (one probe + one tags fetch). With three has_model()
+        // calls per assets_status poll (chat, vision, embedding) that was 6
+        // network calls instead of 3. The 500ms connect_timeout on the shared
+        // reqwest client (set in bootstrap.rs) bounds the cost when the server
+        // is down — the connect failure surfaces as Err, same as ollama_healthy()
+        // would have surfaced as `false`.
+        log::debug!("[local_ai] has_model: checking for model `{model}`");
         let response = self
             .http
             .get(format!("{}/api/tags", ollama_base_url()))
+            // Per-request timeout matches list_models (5s). The shared client's
+            // connect_timeout only bounds the TCP handshake; without this a
+            // hung server (accepted connection, no response body) would block
+            // assets_status polls indefinitely.
+            .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
             .map_err(|e| format!("ollama tags request failed: {e}"))?;
@@ -947,6 +1241,33 @@ fn interrupted_pull_settle_window_secs(observed_bytes: bool, settle_window_secs:
         settle_window_secs.max(1)
     } else {
         0
+    }
+}
+
+/// Kill a process by PID using `sysinfo`'s cross-platform `Process::kill`.
+///
+/// Used by `reclaim_orphan_if_ours` where we no longer have the original
+/// `tokio::process::Child` handle (the spawning openhuman crashed) but
+/// recorded the PID in the spawn marker.
+fn kill_pid_by_id(pid: u32) {
+    use sysinfo::{Pid, ProcessesToUpdate, System};
+    let target = Pid::from_u32(pid);
+    let mut sys = System::new();
+    sys.refresh_processes(ProcessesToUpdate::Some(&[target]), true);
+    match sys.process(target) {
+        Some(proc) => {
+            if proc.kill() {
+                log::info!("[local_ai] killed reclaimed ollama orphan pid={pid}");
+            } else {
+                // sysinfo's kill returns false if the platform refused
+                // (permissions, race with exit). The next ollama_healthy()
+                // check will reveal whether the daemon is actually gone.
+                log::warn!("[local_ai] sysinfo Process::kill returned false for pid={pid}");
+            }
+        }
+        None => {
+            log::debug!("[local_ai] kill_pid_by_id: pid={pid} no longer present");
+        }
     }
 }
 

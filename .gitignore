@@ -1,6 +1,9 @@
 # Workflow docs (local only)
 workflow
 create_issue
+review_pr
+sentry_bugs
+remove_dupe_nonsense_issues
 
 # Diagnostic harness output (scripts/diagnose-cef-runtime.mjs)
 diagnosis-*.json
@@ -19,12 +22,19 @@ package-lock.json
 node_modules
 dist
 dist-ssr
+dist-web
 *.local
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+# pnpm local store (created when --store-dir points into the repo)
+.pnpm-store/
+
+# E2E test artifacts (screenshots, logs, traces — never checked in)
+app/test/e2e/artifacts/
 
 my_docs
 
@@ -65,6 +75,10 @@ wdio-logs/
 test-results/
 coverage/
 app/public/generated/remotion/
+app/test/e2e/artifacts/
+
+# Local pnpm store (created when network-restricted hosts cache the store inside the repo)
+.pnpm-store/
 
 tauri.key
 tauri.key.pub
@@ -78,3 +92,5 @@ overlay/src-tauri/target/
 .claude/*.lock
 app/.claude/scheduled_tasks.lock
 target-test-run
+# CocoIndex Code (ccc)
+/.cocoindex_code/

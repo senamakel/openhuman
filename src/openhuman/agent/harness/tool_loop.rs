@@ -87,10 +87,11 @@ pub(crate) async fn agent_turn(
 ///
 /// * `extra_tools` — per-turn synthesised tools to splice alongside the
 ///   persistent `tools_registry`. The agent-dispatch path uses this to
-///   surface delegation tools (`research`, `delegate_gmail`, …) that
-///   are synthesised fresh per turn from the active agent's
-///   `subagents` field and the current Composio integration list, and
-///   therefore are not registered in the global startup-time registry.
+///   surface delegation tools (`research`, `plan`,
+///   `delegate_to_integrations_agent`, …) that are synthesised fresh
+///   per turn from the active agent's `subagents` field and the
+///   current Composio integration list, and therefore are not
+///   registered in the global startup-time registry.
 ///
 /// The combined tool list seen by the LLM this turn is
 /// `tools_registry.iter().chain(extra_tools.iter())`, further narrowed
@@ -408,16 +409,39 @@ pub(crate) async fn run_tool_call_loop(
                     )
                 }
                 Err(e) => {
-                    crate::core::observability::report_error(
-                        &e,
-                        "agent",
-                        "provider_chat",
-                        &[
-                            ("provider", provider_name),
-                            ("model", model),
-                            ("iteration", &(iteration + 1).to_string()),
-                        ],
-                    );
+                    // Transient upstream failures (rate-limit, gateway 5xx, "no
+                    // healthy upstream", etc.) are already classified + retried
+                    // by reliable.rs and produce an aggregate Sentry event only
+                    // when every provider/model is exhausted. Reporting each
+                    // per-iteration provider_chat error here duplicates the
+                    // signal and floods Sentry — see OPENHUMAN-TAURI-3Y/3Z
+                    // (~46 events combined) and the underlying TAURI-2E/84/T
+                    // (~3300 events from raw per-attempt 429/503/504 reports).
+                    let transient = crate::openhuman::providers::reliable::is_rate_limited(&e)
+                        || crate::openhuman::providers::reliable::is_upstream_unhealthy(&e);
+                    if transient {
+                        tracing::warn!(
+                            domain = "agent",
+                            operation = "provider_chat",
+                            provider = provider_name,
+                            model = model,
+                            iteration = iteration + 1,
+                            error = %format!("{e:#}"),
+                            "[agent] transient provider_chat failure — retried upstream; \
+                             aggregated all-providers-exhausted will report if applicable"
+                        );
+                    } else {
+                        crate::core::observability::report_error_or_expected(
+                            &e,
+                            "agent",
+                            "provider_chat",
+                            &[
+                                ("provider", provider_name),
+                                ("model", model),
+                                ("iteration", &(iteration + 1).to_string()),
+                            ],
+                        );
+                    }
                     return Err(e);
                 }
             };
@@ -828,7 +852,18 @@ pub(crate) async fn run_tool_call_loop(
         }
     }
 
-    anyhow::bail!("Agent exceeded maximum tool iterations ({max_iterations})")
+    // Return the typed `AgentError::MaxIterationsExceeded` variant (boxed
+    // through `anyhow::Error`) so downstream wrappers — notably
+    // `Agent::run_single` in `harness/session/runtime.rs` — can downcast and
+    // suppress Sentry emission for this deterministic agent-state outcome
+    // (OPENHUMAN-TAURI-99 / -98). The `Display` text is preserved verbatim so
+    // any caller that already inspects the string (UI chat surface, tests)
+    // continues to work.
+    Err(anyhow::Error::new(
+        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+            max: max_iterations,
+        },
+    ))
 }
 
 #[cfg(test)]

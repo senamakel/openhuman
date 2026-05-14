@@ -31,7 +31,7 @@ mod webview_apis;
 mod whatsapp_scanner;
 mod window_state;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri::WindowEvent;
 #[cfg(not(target_os = "linux"))]
 use tauri::{
@@ -330,6 +330,15 @@ struct AppUpdateInfo {
     body: Option<String>,
 }
 
+fn no_app_update_available(current_version: String) -> AppUpdateInfo {
+    AppUpdateInfo {
+        current_version,
+        available: false,
+        available_version: None,
+        body: None,
+    }
+}
+
 /// Probe the updater endpoint and report whether a newer shell build is available.
 /// Does NOT download or install. Pair with `apply_app_update` to actually upgrade.
 #[tauri::command]
@@ -359,16 +368,13 @@ async fn check_app_update(app: tauri::AppHandle<AppRuntime>) -> Result<AppUpdate
         }
         Ok(None) => {
             log::info!("[app-update] no update available");
-            Ok(AppUpdateInfo {
-                current_version,
-                available: false,
-                available_version: None,
-                body: None,
-            })
+            Ok(no_app_update_available(current_version))
         }
         Err(e) => {
-            log::warn!("[app-update] check failed: {e}");
-            Err(format!("update check failed: {e}"))
+            log::warn!(
+                "[app-update] check failed; treating as no update available for this probe: {e}"
+            );
+            Ok(no_app_update_available(current_version))
         }
     }
 }
@@ -822,7 +828,96 @@ fn mascot_native_window_is_open() -> bool {
     false
 }
 
+/// Hide or show the OS top-level main-window frame on Windows by enumerating
+/// this process's top-level windows and matching the visible
+/// `Chrome_WidgetWin_1` host. `WebviewWindow::hwnd()` from the vendored CEF
+/// runtime returns a `cef::Window` internal handle that `ShowWindow` rejects,
+/// so we walk the OS window list instead (#1607). Empirically there is one
+/// matching top-level frame; the single-instance lock window uses class
+/// `com.openhuman.app-sic` and is excluded.
+///
+/// `SW_HIDE` removes the frame from screen AND taskbar — full hide-to-tray as
+/// PR #1548 intended. On restore, the IsWindowVisible filter excludes hidden
+/// windows, so we also accept currently-hidden Chrome_WidgetWin_1 frames when
+/// `hide=false`.
+#[cfg(target_os = "windows")]
+fn set_main_window_hidden(hide: bool) {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetClassNameW, GetWindowThreadProcessId, IsWindowVisible, ShowWindow, SW_HIDE,
+        SW_SHOW,
+    };
+
+    struct EnumCtx {
+        target_pid: u32,
+        action: i32,
+        require_visible: bool,
+        matched: u32,
+    }
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let ctx = unsafe { &mut *(lparam as *mut EnumCtx) };
+        let mut pid: u32 = 0;
+        unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+        if pid != ctx.target_pid {
+            return 1;
+        }
+        if ctx.require_visible && unsafe { IsWindowVisible(hwnd) } == 0 {
+            return 1;
+        }
+        let mut class_buf = [0u16; 64];
+        let n = unsafe { GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32) };
+        if n <= 0 {
+            return 1;
+        }
+        let class = OsString::from_wide(&class_buf[..n as usize])
+            .to_string_lossy()
+            .into_owned();
+        if class != "Chrome_WidgetWin_1" {
+            return 1;
+        }
+        unsafe { ShowWindow(hwnd, ctx.action) };
+        ctx.matched += 1;
+        1
+    }
+
+    let action = if hide { SW_HIDE } else { SW_SHOW };
+    let mut ctx = EnumCtx {
+        target_pid: std::process::id(),
+        action,
+        // Hide path: only touch currently-visible frames. Show path: also
+        // pick up frames already in the SW_HIDE state.
+        require_visible: hide,
+        matched: 0,
+    };
+    unsafe { EnumWindows(Some(enum_proc), &mut ctx as *mut _ as LPARAM) };
+    log::info!(
+        "[window-hide] EnumWindows: action={} matched={} pid={}",
+        if hide { "SW_HIDE" } else { "SW_SHOW" },
+        ctx.matched,
+        ctx.target_pid,
+    );
+}
+
 fn show_main_window(app: &AppHandle<AppRuntime>) -> Result<(), String> {
+    // On Windows: surface the OS top-level Chrome_WidgetWin_1 frame BEFORE
+    // any Tauri lookups. After our close handler's SW_HIDE the runtime
+    // briefly drops the `WebviewWindow` record for "main" (CEF treats the
+    // hidden host as gone), so `get_webview_window("main")` returns None
+    // and the early `?` below would abort before SW_SHOW fires (#1607).
+    // EnumWindows + SW_SHOW operates directly on the OS HWND that
+    // survived independently, and the runtime re-tracks the window once
+    // it's visible again.
+    #[cfg(target_os = "windows")]
+    {
+        set_main_window_hidden(false);
+        if let Some(webview) = app.get_webview("main") {
+            let _ = webview.show();
+            let _ = webview.set_focus();
+        }
+    }
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
@@ -835,6 +930,26 @@ fn show_main_window(app: &AppHandle<AppRuntime>) -> Result<(), String> {
     window
         .set_focus()
         .map_err(|err| format!("failed to focus main window: {err}"))?;
+    // `WebviewWindow::set_focus` only dispatches `WindowMessage::SetFocus`
+    // (vendor/tauri-cef cef_impl.rs `WindowMessage::SetFocus` → `window.request_focus()`),
+    // which lifts the OS window but does NOT call `CefBrowserHost::SetFocus(true)`.
+    // Without that CEF-level focus call the renderer never gets wired as the
+    // keyboard input target on cold launch: the chat textarea accepts focus
+    // (cursor blinks) but `WM_KEYDOWN` messages aren't forwarded to it, so
+    // typing is silently dead until the user click-outside / click-back
+    // triggers `WM_KILLFOCUS`+`WM_SETFOCUS` and CEF's window handler routes
+    // through `host.set_focus(1)` internally.
+    //
+    // Explicitly dispatch `WebviewMessage::SetFocus` (cef_impl.rs handler
+    // for that variant), which is what actually invokes
+    // `CefBrowserHost::SetFocus(true)`.
+    let webview: &tauri::Webview<AppRuntime> = window.as_ref();
+    if let Err(err) = webview.set_focus() {
+        log::warn!(
+            "[show_main_window] CEF webview set_focus failed (non-fatal — \
+             keyboard routing may not initialize until user click-outside-and-back): {err}"
+        );
+    }
     Ok(())
 }
 #[cfg(target_os = "linux")]
@@ -888,7 +1003,7 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
             "tray_show_window" => {
                 log::info!("[tray] action=show_window source=menu");
                 if let Err(err) = show_main_window(app) {
-                    log::error!("[tray] failed to show main window from menu: {err}");
+                    log::warn!("[tray] failed to show main window from menu: {err}");
                 }
             }
             "tray_toggle_mascot" => {
@@ -916,7 +1031,7 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
             {
                 log::info!("[tray] action=show_window source=left_click");
                 if let Err(err) = show_main_window(tray.app_handle()) {
-                    log::error!("[tray] failed to show main window from tray click: {err}");
+                    log::warn!("[tray] failed to show main window from tray click: {err}");
                 }
             }
         })
@@ -1099,6 +1214,64 @@ fn shutdown_app_sync(app_handle: &AppHandle<AppRuntime>, exit_code: i32) {
     app_handle.exit(exit_code);
 }
 
+#[cfg(target_os = "linux")]
+const WSL_X11_DESKTOP_WARNING: &str = "[startup] likely unsupported desktop environment: WSL with classic X11 forwarding detected (DISPLAY is set, but WAYLAND_DISPLAY/WSLg markers are absent). OpenHuman's Tauri/CEF desktop flow is fragile in this setup; use native Windows development or Windows 11 WSLg for desktop GUI work.";
+
+#[cfg(any(target_os = "linux", test))]
+fn should_warn_for_wsl_x11_desktop(
+    is_wsl: bool,
+    display_set: bool,
+    wayland_display_set: bool,
+    wslg_marker_set: bool,
+) -> bool {
+    is_wsl && display_set && !wayland_display_set && !wslg_marker_set
+}
+
+#[cfg(target_os = "linux")]
+fn is_wsl_environment() -> bool {
+    if std::env::var("WSL_DISTRO_NAME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .is_some()
+    {
+        return true;
+    }
+
+    std::fs::read_to_string("/proc/sys/kernel/osrelease")
+        .ok()
+        .map(|release| release.to_ascii_lowercase().contains("microsoft"))
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "linux")]
+fn has_non_empty_env(key: &str) -> bool {
+    std::env::var(key)
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .is_some()
+}
+
+#[cfg(target_os = "linux")]
+fn has_wslg_marker() -> bool {
+    has_non_empty_env("WSLG_RUNTIME_DIR") || std::path::Path::new("/mnt/wslg").exists()
+}
+
+#[cfg(target_os = "linux")]
+fn warn_if_wsl_x11_desktop_launch() {
+    if should_warn_for_wsl_x11_desktop(
+        is_wsl_environment(),
+        has_non_empty_env("DISPLAY"),
+        has_non_empty_env("WAYLAND_DISPLAY"),
+        has_wslg_marker(),
+    ) {
+        log::warn!("{WSL_X11_DESKTOP_WARNING}");
+        eprintln!("{WSL_X11_DESKTOP_WARNING}");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn warn_if_wsl_x11_desktop_launch() {}
+
 pub fn run() {
     // Initialize Sentry for the Tauri shell (desktop host) process before any
     // other startup work. Reads `OPENHUMAN_TAURI_SENTRY_DSN` at runtime first,
@@ -1122,6 +1295,43 @@ pub fn run() {
         environment: Some(std::borrow::Cow::Owned(resolve_sentry_environment())),
         send_default_pii: false,
         before_send: Some(std::sync::Arc::new(|mut event| {
+            // Drop "dev-server fetch failed" noise: the vendored
+            // `tauri-runtime-cef` dev proxy
+            // (vendor/tauri-cef/crates/tauri/src/protocol/tauri.rs) calls
+            // `log::error!("Failed to request {url}: {err}")` whenever the
+            // CEF webview asks for an asset on `http://localhost:1420` (the
+            // Vite dev URL baked into `tauri.conf.json`). That `log::error!`
+            // is bridged into `tracing` and picked up by the sentry-tracing
+            // layer as an Event — see `src/core/logging.rs::sentry_tracing_layer`.
+            // In packaged staging/production builds Vite isn't running, so
+            // the request correctly fails — but the failure is noise we
+            // don't want in Sentry (issue OPENHUMAN-TAURI-V, 66+ events).
+            // See [sentry-localhost-filter] log line below for diagnostics.
+            if event_is_localhost_dev_fetch_noise(&event) {
+                log::debug!(
+                    "[sentry-localhost-filter] dropping dev-server fetch noise event: {:?}",
+                    event.message.as_deref().unwrap_or("<no message>")
+                );
+                return None;
+            }
+            // Defense-in-depth: drop max-tool-iterations cap events that
+            // slipped past the call-site filters in the core (see
+            // `openhuman_core::core::observability::is_max_iterations_event`
+            // for the rationale). The shell links the core in-process so
+            // any captured event for this deterministic agent-state
+            // outcome is filtered here too (OPENHUMAN-TAURI-99 / -98).
+            if openhuman_core::core::observability::is_max_iterations_event(&event) {
+                log::debug!(
+                    "[sentry-max-iter-filter] dropping max-iteration cap noise event: {:?}",
+                    event.message.as_deref().unwrap_or("<no message>")
+                );
+                return None;
+            }
+            if openhuman_core::core::observability::is_transient_backend_api_failure(&event)
+                || openhuman_core::core::observability::is_transient_integrations_failure(&event)
+            {
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity.
             event.server_name = None;
             event.user = None;
@@ -1183,6 +1393,8 @@ pub fn run() {
         let os_ver = "n/a".to_string();
         log::info!("[startup] platform: arch={arch} os={os} os_version={os_ver}");
     }
+
+    warn_if_wsl_x11_desktop_launch();
 
     // The vendored tauri-cef dev-server proxy builds a reqwest 0.13 client
     // (see vendor/tauri-cef/crates/tauri/src/protocol/tauri.rs) which calls
@@ -1333,7 +1545,16 @@ pub fn run() {
                 }
             };
         if let Some(path) = fake_camera_arg {
-            args.push(("--use-fake-device-for-media-stream", None));
+            // `--use-file-for-fake-video-capture` alone (CEF 146 / Chromium 128+)
+            // injects the Y4M as the video capture source without replacing the
+            // audio capture device. The old belt-and-suspenders flag
+            // `--use-fake-device-for-media-stream` is deliberately omitted here:
+            // it replaced ALL media capture devices — including audio — with fake
+            // ones, causing a sine-wave test tone (beeping) to be recorded instead
+            // of the real microphone whenever `getUserMedia({audio:true})` was
+            // called from the main app WebView (e.g. the mascot voice composer).
+            // `--use-fake-ui-for-media-stream` is kept so Meet's permission prompt
+            // is auto-granted without interrupting the join flow.
             args.push(("--use-fake-ui-for-media-stream", None));
             args.push(("--use-file-for-fake-video-capture", Some(path)));
         }
@@ -1362,6 +1583,31 @@ pub fn run() {
     };
 
     let builder = builder
+        // Single-instance guard — MUST be the first plugin registered so the
+        // secondary-process exit path triggers before any other plugin setup
+        // (and before `Builder::build()` reaches `CefRuntime::init`). Without
+        // this, launching a second instance races into CEF init while the
+        // primary still holds the cache lock; `cef::initialize` returns 0 and
+        // the vendored runtime asserts (Sentry OPENHUMAN-TAURI-A — 442 events
+        // across Win10/11 + Linux, all releases). The callback receives the
+        // secondary's argv/cwd; we forward deep-link args and focus the main
+        // window. Deep-link payloads stay handled by `tauri-plugin-deep-link`
+        // — we just need to wake the primary so it observes them.
+        .plugin(tauri_plugin_single_instance::init(
+            |app: &AppHandle<AppRuntime>, args, cwd| {
+                // Don't log raw argv/cwd: deep-link callbacks (OAuth codes,
+                // magic links) can carry auth tokens that would otherwise leak
+                // into desktop logs and Sentry breadcrumbs. CodeRabbit on #1510.
+                log::info!(
+                    "[single-instance] secondary launch detected, focusing primary (argc={}, cwd_present={})",
+                    args.len(),
+                    !cwd.is_empty()
+                );
+                if let Err(err) = show_main_window(app) {
+                    log::warn!("[single-instance] failed to focus main window: {err}");
+                }
+            },
+        ))
         // Explicitly disable `open_js_links_on_click`: tauri-plugin-opener
         // defaults to injecting `init-iife.js` into *every* webview — a
         // global click listener that invokes `plugin:opener|open_url` via
@@ -1569,6 +1815,89 @@ pub fn run() {
                 if !daemon_mode {
                     if let Err(err) = window.show() {
                         log::warn!("[window-state] show main window failed: {err}");
+                    }
+                    // CEF keyboard routing fix — cold launch:
+                    //
+                    // `window.show()` does not wire the renderer as the
+                    // keyboard input target. `Window::set_focus` only
+                    // dispatches `WindowMessage::SetFocus` → `request_focus`,
+                    // which lifts the OS window but does not call
+                    // `CefBrowserHost::SetFocus(true)`. Without that
+                    // CEF-level focus, the textarea accepts focus on cold
+                    // launch (cursor blinks) but `WM_KEYDOWN` messages
+                    // never reach the renderer — typing is silently dead
+                    // until the user click-outside / click-back triggers
+                    // `WM_KILLFOCUS`+`WM_SETFOCUS`, which CEF's window
+                    // handler routes through `host.set_focus(1)` internally.
+                    //
+                    // We need to call `webview.set_focus()` (which dispatches
+                    // `WebviewMessage::SetFocus` → `host.set_focus(1)`)
+                    // *after* CEF has finished creating the browser — too
+                    // early and `browser()`/`host()` return None and the
+                    // call silently no-ops. Defer the call to a spawned
+                    // task with a small delay so CEF's browser-create
+                    // settles. Then call it again after another delay as
+                    // belt-and-suspenders for slower init paths.
+                    // Previous attempts at calling `webview.set_focus()` alone
+                    // confirmed the dispatch reaches CEF (both returned Ok),
+                    // but keyboard routing stayed broken. `host.set_focus(1)`
+                    // alone is insufficient — CEF's internal focus state
+                    // needs a blur-then-focus *cycle* to wire keyboard
+                    // routing on cold launch (matches the user-discovered
+                    // workaround: click outside the window, then click back).
+                    //
+                    // The vendored tauri-cef doesn't expose `set_focus(false)`,
+                    // so we mimic the cycle at the OS-window level:
+                    // minimize triggers `WM_KILLFOCUS` (CEF's window handler
+                    // propagates this to `host.set_focus(0)`), unminimize
+                    // restores the window and triggers `WM_SETFOCUS` →
+                    // `host.set_focus(1)`. Pair with explicit `set_focus`
+                    // calls on both Window and Webview to cover the case
+                    // where minimize/unminimize raced ahead of CEF's
+                    // browser-create.
+                    // Windows-only: the bug class (CEF host-renderer focus
+                    // desync after a `visible: false` → `show()` transition
+                    // without a real `WM_KILLFOCUS`+`WM_SETFOCUS` edge)
+                    // manifests on the Windows CEF integration. macOS and
+                    // Linux CEF use different focus propagation paths and
+                    // don't exhibit the symptom, so running the
+                    // minimize/unminimize cycle there would just be a
+                    // visible flicker for no benefit. (Per CodeRabbit
+                    // review on PR #1528.)
+                    #[cfg(target_os = "windows")]
+                    {
+                    log::info!("[focus-fix] scheduling deferred CEF focus-cycle");
+                    let webview_window_clone = window.clone();
+                    tauri::async_runtime::spawn(async move {
+                        // Wait for CEF to finish creating the browser host
+                        // (synchronous setup() returns before this completes).
+                        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                        // Blur-then-focus cycle via minimize/unminimize.
+                        // This is what the manual click-outside / click-back
+                        // workaround does at the Win32 level.
+                        log::info!("[focus-fix] starting minimize→unminimize focus cycle");
+                        if let Err(err) = webview_window_clone.minimize() {
+                            log::warn!("[focus-fix] minimize failed: {err}");
+                        }
+                        // Tiny pause so Windows actually processes the
+                        // minimize before we ask to restore.
+                        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+                        if let Err(err) = webview_window_clone.unminimize() {
+                            log::warn!("[focus-fix] unminimize failed: {err}");
+                        }
+                        // Belt-and-suspenders: explicit Window + Webview focus
+                        // after the cycle in case the minimize→restore path
+                        // didn't propagate.
+                        tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+                        if let Err(err) = webview_window_clone.set_focus() {
+                            log::warn!("[focus-fix] post-cycle window.set_focus failed: {err}");
+                        }
+                        let webview: &tauri::Webview<AppRuntime> = webview_window_clone.as_ref();
+                        if let Err(err) = webview.set_focus() {
+                            log::warn!("[focus-fix] post-cycle webview.set_focus failed: {err}");
+                        }
+                        log::info!("[focus-fix] focus cycle complete");
+                    });
                     }
                 }
             }
@@ -1950,6 +2279,22 @@ pub fn run() {
                 );
                 }
             }
+            // Intercept the main window's close request on macOS so the user
+            // can re-open the app from the tray icon. Letting the OS destroy
+            // the webview makes `get_webview_window("main")` return None on
+            // the next tray-click and surfaces as `[tray] failed to show main
+            // window from tray click: main window not found`
+            // (OPENHUMAN-TAURI-2X — 21 events, Windows only).
+            //
+            // macOS uses `window.hide()` because the vendored CEF runtime
+            // routes that through `set_application_visibility(false)` at the
+            // NSApplication level (`tauri-runtime-cef/src/lib.rs:588`), which
+            // hides the CEF browser surface together with the host window.
+            // Windows is handled in the separate arm below — see issue #1607.
+            //
+            // Linux is left out: `setup_tray` early-returns on Linux because
+            // tray creation panics inside GTK during packaged runs, so the
+            // hide-on-close behavior would strand the user with no way back.
             #[cfg(target_os = "macos")]
             RunEvent::WindowEvent {
                 label,
@@ -1963,6 +2308,39 @@ pub fn run() {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.hide();
                 }
+            }
+            // Windows: full hide-to-tray.
+            //
+            // PR #1548 routed Windows X click into the same prevent_close +
+            // `window.hide()` branch as macOS, but on Windows the vendored
+            // CEF runtime's WindowMessage::Hide / Minimize / Restore
+            // (`tauri-runtime-cef/src/cef_impl.rs`) only operate on a
+            // `cef::Window` internal handle that does not correspond to the
+            // visible `Chrome_WidgetWin_1` top-level frame — `ShowWindow`
+            // calls against it are silent no-ops. We bypass the runtime
+            // entirely and walk the OS window list to issue SW_HIDE / SW_SHOW
+            // directly on the matching top-level frame (issue #1607).
+            #[cfg(target_os = "windows")]
+            RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
+            } if label == "main" => {
+                log::info!(
+                    "[window] close requested on main window — hiding to tray"
+                );
+                api.prevent_close();
+                // Hide the OS top-level Chrome_WidgetWin_1 frame via
+                // EnumWindows + SW_HIDE — full hide-to-tray as PR #1548
+                // intended. `window.hide()` and `window.minimize()` through
+                // the vendored CEF runtime are no-ops on Windows because
+                // `WebviewWindow::hwnd()` returns a cef::Window proxy handle
+                // rather than the visible top-level frame; we walk the OS
+                // window list directly instead (#1607). SW_HIDE on the host
+                // frame cascades to all child HWNDs (including the CEF
+                // browser surface), so no separate `webview.hide()` is
+                // needed and `show_main_window` only has to issue SW_SHOW.
+                set_main_window_hidden(true);
             }
             #[cfg(target_os = "macos")]
             RunEvent::Reopen { .. } => {
@@ -2031,6 +2409,56 @@ pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
 /// every surface (React frontend, core sidecar, Tauri shell) group under the
 /// same release in Sentry and benefit from the same source-map / debug-info
 /// upload.
+/// Return `true` when the Sentry event is a "Failed to request
+/// http://localhost:…" message originating from the vendored
+/// `tauri-runtime-cef` dev-server proxy.
+///
+/// The proxy logs this message via `log::error!` (see
+/// `app/src-tauri/vendor/tauri-cef/crates/tauri/src/protocol/tauri.rs`)
+/// every time the CEF webview asks for an asset on the Vite dev URL
+/// (`http://localhost:1420` per `tauri.conf.json`). In packaged
+/// staging/production builds Vite isn't running, so the request fails —
+/// but the failure is benign and shouldn't be reported.
+///
+/// The match is conservative: it checks the exact `Failed to request ` +
+/// `http://localhost` / `http://127.0.0.1` prefix that only the dev-proxy
+/// emits. Production HTTP errors from elsewhere in the shell or core use
+/// different message shapes and won't be filtered.
+fn event_is_localhost_dev_fetch_noise(event: &sentry::protocol::Event<'_>) -> bool {
+    // sentry-tracing 0.47 (with default `attach_stacktrace=false`) stores the
+    // log message in `event.message`. Check there first; fall back to the
+    // last exception's `value` for the (currently unused) stacktrace-enabled
+    // path so the filter stays correct if attach_stacktrace ever flips.
+    let direct = event.message.as_deref();
+    let from_exception = event.exception.last().and_then(|e| e.value.as_deref());
+    [direct, from_exception]
+        .into_iter()
+        .flatten()
+        .any(message_is_localhost_dev_fetch_noise)
+}
+
+/// Pure prefix check, separated from `event_is_localhost_dev_fetch_noise`
+/// so the matching rule can be unit-tested without constructing a full
+/// Sentry `Event`.
+fn message_is_localhost_dev_fetch_noise(message: &str) -> bool {
+    // The tauri-cef dev proxy formats the message as:
+    //   `Failed to request {url}: {err}`
+    // so anchoring on `Failed to request http://localhost` / `127.0.0.1` is
+    // sufficient and avoids matching unrelated "Failed to request …" errors
+    // elsewhere in the codebase that target real hosts.
+    //
+    // Note: no `[::1]` (IPv6 loopback) entry — the vendored tauri-cef dev
+    // proxy resolves `localhost` to IPv4 via reqwest's default resolver, so
+    // dev-server fetches always surface as `http://localhost:` or
+    // `http://127.0.0.1:`. Add an `[::1]` prefix if that ever changes
+    // (per graycyrus note on PR #1545).
+    const PREFIXES: &[&str] = &[
+        "Failed to request http://localhost:",
+        "Failed to request http://127.0.0.1:",
+    ];
+    PREFIXES.iter().any(|p| message.starts_with(p))
+}
+
 fn build_sentry_release_tag() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let sha = option_env!("OPENHUMAN_BUILD_SHA").unwrap_or("").trim();
@@ -2170,6 +2598,16 @@ mod tests {
         // _check_runtime::<AppRuntime>(); // Would require importing
     }
 
+    #[test]
+    fn no_app_update_available_result_is_quiet_unavailable() {
+        let info = no_app_update_available("0.53.43".to_string());
+
+        assert_eq!(info.current_version, "0.53.43");
+        assert!(!info.available);
+        assert!(info.available_version.is_none());
+        assert!(info.body.is_none());
+    }
+
     /// Verify tray logging patterns exist (grep-friendly)
     #[test]
     fn tray_setup_logging_patterns_exist() {
@@ -2232,6 +2670,27 @@ mod tests {
             !ver.split('.').next().unwrap_or("").is_empty(),
             "version must have at least one numeric component"
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // WSL + X11 desktop startup warning (issue #1653)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn wsl_x11_warning_detects_classic_x11_forwarding() {
+        assert!(should_warn_for_wsl_x11_desktop(true, true, false, false));
+    }
+
+    #[test]
+    fn wsl_x11_warning_skips_non_wsl_or_headless_runs() {
+        assert!(!should_warn_for_wsl_x11_desktop(false, true, false, false));
+        assert!(!should_warn_for_wsl_x11_desktop(true, false, false, false));
+    }
+
+    #[test]
+    fn wsl_x11_warning_skips_wslg_or_wayland_runs() {
+        assert!(!should_warn_for_wsl_x11_desktop(true, true, true, false));
+        assert!(!should_warn_for_wsl_x11_desktop(true, true, false, true));
     }
 
     // -------------------------------------------------------------------------
@@ -2398,5 +2857,124 @@ mod tests {
             None => std::env::remove_var(key),
         }
         assert_eq!(env, "production");
+    }
+
+    // ── Sentry before_send filter: drop "Failed to request http://localhost:…"
+    //    noise emitted by the vendored tauri-runtime-cef dev proxy in packaged
+    //    builds (issue OPENHUMAN-TAURI-V). Tests target the pure
+    //    `message_is_localhost_dev_fetch_noise` helper so the rule can be
+    //    asserted without standing up a Sentry client.
+
+    #[test]
+    fn localhost_dev_fetch_noise_drops_vite_dev_url_1420() {
+        // The exact message shape reported by the latest event tag in Sentry
+        // (URL repeated by reqwest's `error sending request for url (…)`).
+        let msg = "Failed to request http://localhost:1420/components/skills/SkillCard.tsx: \
+                   error sending request for url (http://localhost:1420/components/skills/SkillCard.tsx)";
+        assert!(
+            message_is_localhost_dev_fetch_noise(msg),
+            "expected Vite dev-server fetch failure to be filtered"
+        );
+    }
+
+    #[test]
+    fn localhost_dev_fetch_noise_drops_127_0_0_1_dev_url() {
+        // Some environments resolve `localhost` to 127.0.0.1 at the reqwest
+        // layer; the formatted message can carry either spelling.
+        let msg = "Failed to request http://127.0.0.1:1420/index.html: \
+                   error sending request for url (http://127.0.0.1:1420/index.html)";
+        assert!(
+            message_is_localhost_dev_fetch_noise(msg),
+            "expected 127.0.0.1 dev-server fetch failure to be filtered"
+        );
+    }
+
+    #[test]
+    fn localhost_dev_fetch_noise_passes_production_url_through() {
+        // Real upstream failures (e.g. backend API errors surfaced via the
+        // same `Failed to request …` wording elsewhere) must NOT be filtered —
+        // they're the high-signal events Sentry exists for.
+        let msg = "Failed to request https://api.openhuman.ai/v1/skills: \
+                   error sending request for url (https://api.openhuman.ai/v1/skills)";
+        assert!(
+            !message_is_localhost_dev_fetch_noise(msg),
+            "production API errors must NOT be filtered out"
+        );
+    }
+
+    #[test]
+    fn localhost_dev_fetch_noise_passes_unrelated_localhost_messages() {
+        // The filter is anchored on the dev-proxy's exact prefix to avoid
+        // accidentally dropping any error that happens to mention localhost
+        // (e.g. core-sidecar transport errors logged from coreRpcClient).
+        let msg =
+            "[core_rpc] transport error: error sending request for url (http://localhost:7788/rpc)";
+        assert!(
+            !message_is_localhost_dev_fetch_noise(msg),
+            "non-tauri-cef localhost errors must NOT be filtered"
+        );
+    }
+
+    #[test]
+    fn event_filter_uses_message_field() {
+        // event-level coverage: when sentry-tracing populates
+        // `event.message` (default with `attach_stacktrace=false`), the
+        // filter should see the noise payload through the primary read
+        // path. Per graycyrus on PR #1545.
+        let mut event = sentry::protocol::Event::new();
+        event.message = Some("Failed to request http://localhost:1420/foo: timeout".into());
+        assert!(
+            event_is_localhost_dev_fetch_noise(&event),
+            "event.message read path must catch noise messages"
+        );
+    }
+
+    #[test]
+    fn event_filter_falls_back_to_last_exception_value() {
+        // event-level coverage: if `attach_stacktrace` is ever turned on,
+        // sentry-tracing populates `event.exception` instead of (or in
+        // addition to) `event.message`. Filter must still see the noise
+        // payload through the exception fallback. Per graycyrus on PR #1545.
+        let mut event = sentry::protocol::Event::new();
+        event.message = None;
+        event.exception.values.push(sentry::protocol::Exception {
+            ty: "log".into(),
+            value: Some("Failed to request http://localhost:1420/foo: timeout".into()),
+            ..Default::default()
+        });
+        assert!(
+            event_is_localhost_dev_fetch_noise(&event),
+            "exception fallback must catch noise messages when event.message is absent"
+        );
+    }
+
+    #[test]
+    fn event_filter_passes_through_when_neither_field_matches() {
+        // Negative event-level case: no noise prefix in either field →
+        // event must NOT be filtered.
+        let mut event = sentry::protocol::Event::new();
+        event.message = Some("genuine production error".into());
+        event.exception.values.push(sentry::protocol::Exception {
+            ty: "log".into(),
+            value: Some("connection refused (10061)".into()),
+            ..Default::default()
+        });
+        assert!(
+            !event_is_localhost_dev_fetch_noise(&event),
+            "legitimate production events must pass through"
+        );
+    }
+
+    #[test]
+    fn localhost_dev_fetch_noise_anchors_to_message_start() {
+        // CodeRabbit (PR #1545) caught that the predicate used
+        // `contains` rather than `starts_with`. Regression: a message
+        // that merely embeds the dev-proxy prefix later in its text
+        // must NOT be filtered — only messages that *begin* with it.
+        let msg = "User report: `Failed to request http://localhost:1420/foo` was logged earlier";
+        assert!(
+            !message_is_localhost_dev_fetch_noise(msg),
+            "messages that merely contain the dev-proxy prefix must NOT be filtered"
+        );
     }
 }

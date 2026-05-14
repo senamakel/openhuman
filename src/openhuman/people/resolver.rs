@@ -376,4 +376,149 @@ mod tests {
         assert_eq!(seeded, 0);
         assert_eq!(skipped, 1);
     }
+
+    // ── Cross-source merge safety tests (issue#1538) ──────────────────────────
+    //
+    // The people resolver must NOT silently merge two distinct identities that
+    // happen to share only a display name or only an unverified handle from
+    // different sources. These tests lock in the "ambiguous cross-source"
+    // contract: two handles from unrelated sources remain distinct unless
+    // explicitly linked via `link()`.
+
+    /// Two contacts that share only a display name (no email or phone overlap)
+    /// must NOT be merged — they may be homonymous individuals.
+    #[tokio::test]
+    async fn same_display_name_from_different_sources_does_not_merge() {
+        let s = PeopleStore::open_in_memory().unwrap();
+        let r = HandleResolver::new(&s);
+
+        // Source A — email-backed identity
+        let id_a = r
+            .resolve_or_create(&Handle::Email("alice@company-a.com".into()))
+            .await
+            .unwrap();
+        r.link(
+            &Handle::Email("alice@company-a.com".into()),
+            Handle::DisplayName("Alice Smith".into()),
+        )
+        .await
+        .unwrap();
+
+        // Source B — different email; same display name (a different Alice Smith)
+        let id_b = r
+            .resolve_or_create(&Handle::Email("alice@company-b.com".into()))
+            .await
+            .unwrap();
+        // Do NOT link to "Alice Smith" — that would be an explicit merge.
+
+        // The two email-backed identities must be distinct.
+        assert_ne!(
+            id_a, id_b,
+            "two email handles with identical display names must not be merged without explicit link"
+        );
+
+        // Resolving the display name returns the ONE identity that was explicitly linked.
+        let via_name = r
+            .resolve(&Handle::DisplayName("Alice Smith".into()))
+            .await
+            .unwrap();
+        assert_eq!(
+            via_name,
+            Some(id_a),
+            "display name resolves to the explicitly linked identity"
+        );
+
+        // company-b Alice is still addressable by email only.
+        let via_b_email = r
+            .resolve(&Handle::Email("alice@company-b.com".into()))
+            .await
+            .unwrap();
+        assert_eq!(via_b_email, Some(id_b));
+    }
+
+    /// Minting the same email handle from two logically distinct call sites
+    /// must always collapse to one `PersonId` (idempotent mint). This is the
+    /// safe side of cross-source: we never mint duplicates for an identical
+    /// canonical handle.
+    #[tokio::test]
+    async fn same_email_from_two_sources_collapses_to_one_person() {
+        let s = PeopleStore::open_in_memory().unwrap();
+        let r = HandleResolver::new(&s);
+
+        // Simulate two different ingestion paths (gmail vs slack) that both
+        // surface the same email address.
+        let from_gmail = r
+            .resolve_or_create(&Handle::Email("shared@example.com".into()))
+            .await
+            .unwrap();
+        let from_slack = r
+            .resolve_or_create(&Handle::Email("shared@example.com".into()))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            from_gmail, from_slack,
+            "identical canonical email from two ingestion paths must resolve to one PersonId"
+        );
+
+        // Exactly one person in the store.
+        let people = s.list().await.unwrap();
+        assert_eq!(
+            people.len(),
+            1,
+            "no duplicate person rows must exist for the same canonical email"
+        );
+    }
+
+    /// An iMessage phone handle from one source and an email from a different
+    /// source for the SAME real person must stay distinct until explicitly linked.
+    /// Memory must not unsafely merge the same person's identities across sources
+    /// (issue#1538).
+    #[tokio::test]
+    async fn phone_and_email_from_different_sources_are_not_merged_without_link() {
+        let s = PeopleStore::open_in_memory().unwrap();
+        let r = HandleResolver::new(&s);
+
+        // iMessage source sees only a phone.
+        let id_phone = r
+            .resolve_or_create(&Handle::IMessage("+15550001234".into()))
+            .await
+            .unwrap();
+
+        // Gmail source sees only an email.
+        let id_email = r
+            .resolve_or_create(&Handle::Email("sam@example.com".into()))
+            .await
+            .unwrap();
+
+        // Without an explicit link these are separate identities.
+        assert_ne!(
+            id_phone, id_email,
+            "phone and email from unrelated sources must not be auto-merged"
+        );
+
+        // After an explicit link they share a PersonId.
+        let after_link = r
+            .link(
+                &Handle::IMessage("+15550001234".into()),
+                Handle::Email("sam@example.com".into()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            after_link, id_phone,
+            "link must use the primary handle's PersonId"
+        );
+
+        // Now the email resolves to the phone's PersonId.
+        let resolved = r
+            .resolve(&Handle::Email("sam@example.com".into()))
+            .await
+            .unwrap();
+        assert_eq!(
+            resolved,
+            Some(id_phone),
+            "after explicit link, email handle must resolve to the phone-originated PersonId"
+        );
+    }
 }

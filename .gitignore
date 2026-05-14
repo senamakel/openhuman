@@ -94,3 +94,7 @@ app/.claude/scheduled_tasks.lock
 target-test-run
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+
+app/test/e2e/.cache/
+test-map.md
+.test-gap-analysis.md

@@ -344,6 +344,76 @@ mod tests {
             "closure must not run when attempts == 0"
         );
     }
+
+    // ── is_transient_fs_error ──────────────────────────────────────
+
+    /// The test-cfg backdoor: any error containing `__TEST_TRANSIENT__` is
+    /// treated as transient so retry logic can be exercised on non-Windows
+    /// CI runners without faking OS error codes.
+    #[test]
+    fn is_transient_fs_error_recognises_test_sentinel() {
+        let err = anyhow::anyhow!("__TEST_TRANSIENT__ simulated lock violation");
+        assert!(
+            is_transient_fs_error(&err),
+            "__TEST_TRANSIENT__ sentinel must be recognised as transient in test builds"
+        );
+    }
+
+    /// A plain anyhow error (no io::Error chain) must not be treated as
+    /// transient — the backoff must not swallow unknown failures.
+    #[test]
+    fn is_transient_fs_error_rejects_plain_anyhow_error() {
+        let err = anyhow::anyhow!("some permanent application error");
+        assert!(
+            !is_transient_fs_error(&err),
+            "plain anyhow error without IO chain must not be transient"
+        );
+    }
+
+    /// A chained io::Error with `ErrorKind::NotFound` is not a transient
+    /// locking error — we should not retry it.
+    #[test]
+    fn is_transient_fs_error_rejects_not_found_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err = anyhow::Error::new(io_err);
+        // On non-Windows the function can only return `true` for the
+        // __TEST_TRANSIENT__ sentinel; real IO errors fall through to `false`.
+        #[cfg(not(windows))]
+        assert!(
+            !is_transient_fs_error(&err),
+            "NotFound IO error must not be transient on non-Windows"
+        );
+    }
+
+    /// Verify that retry_with_backoff retries exactly when the test
+    /// sentinel is present and bails immediately on a non-transient error.
+    /// This exercises the `is_transient_fs_error` integration path.
+    #[test]
+    fn retry_with_backoff_respects_transient_classification() {
+        let mut calls = 0usize;
+
+        // Transient path: retries until success.
+        let result = retry_with_backoff("transient_class", 3, 1, || {
+            calls += 1;
+            if calls < 2 {
+                anyhow::bail!("__TEST_TRANSIENT__ lock error");
+            }
+            Ok(calls)
+        });
+        assert_eq!(result.unwrap(), 2, "should succeed on second attempt");
+        assert_eq!(calls, 2, "must have retried once");
+
+        // Non-transient path: bails after first attempt.
+        let mut calls2 = 0usize;
+        let result2 = retry_with_backoff("non_transient_class", 3, 1, || {
+            calls2 += 1;
+            anyhow::bail!("hard permanent error");
+            #[allow(unreachable_code)]
+            Ok::<_, anyhow::Error>(())
+        });
+        assert!(result2.is_err(), "non-transient must fail");
+        assert_eq!(calls2, 1, "must NOT retry a non-transient error");
+    }
 }
 
 /// Helper to retry a filesystem operation with exponential backoff.

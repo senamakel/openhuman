@@ -1,116 +1,73 @@
 import type { Options } from '@wdio/types';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { captureFailureArtifacts } from './e2e/helpers/artifacts';
 
+/**
+ * Unified WDIO config — single Appium Chromium-driver session that attaches
+ * to the running CEF app over its remote-debugging port (CDP).
+ *
+ * One automation backend on every platform:
+ *
+ *   macOS / Linux / Windows  →  Appium Chromium driver  →  CEF :19222
+ *
+ * The runner script (`scripts/e2e-run-session.sh`) is responsible for:
+ *   1. Launching the built CEF app binary.
+ *   2. Waiting until `http://127.0.0.1:19222/json/version` responds (CDP up).
+ *   3. Starting Appium with the `chromium` driver installed.
+ *   4. Invoking `wdio` against this config.
+ *
+ * WDIO creates ONE session per worker. With `maxInstances: 1` and no
+ * cross-spec teardown, all specs run sequentially in the same session,
+ * against the same app process — no restart cost between spec files.
+ * Tests are intentionally order-dependent: state from spec N flows into
+ * spec N+1. Each spec is responsible for any reset it requires.
+ */
+
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(configDir, '..');
-const repoRoot = path.resolve(projectRoot, '..');
 const tsconfigE2ePath = path.join(projectRoot, 'test', 'tsconfig.e2e.json');
 const testSpecsPath = path.join(projectRoot, 'test', 'e2e', 'specs', '**', '*.spec.ts');
 
-/**
- * Resolve the path to the built Tauri application.
- *
- * - macOS: .app bundle for Appium Mac2
- * - Linux: debug binary for tauri-driver
- * - Windows: .exe for tauri-driver
- */
-function getAppPath(): string {
-  const bundleBases = [
-    path.join(projectRoot, 'src-tauri', 'target', 'debug', 'bundle'),
-    path.join(repoRoot, 'target', 'debug', 'bundle'),
-  ];
-
-  switch (process.platform) {
-    case 'darwin': {
-      for (const base of bundleBases) {
-        const appPath = path.join(base, 'macos', 'OpenHuman.app');
-        if (fs.existsSync(appPath)) {
-          return appPath;
-        }
-      }
-      return path.join(bundleBases[0], 'macos', 'OpenHuman.app');
-    }
-    case 'win32':
-      return path.join(projectRoot, 'src-tauri', 'target', 'debug', 'OpenHuman.exe');
-    case 'linux': {
-      // tauri-driver launches the binary directly (not a bundle).
-      // Prefer the Tauri build output (src-tauri/target) over the repo-root
-      // target/ which may contain a stale core-only binary.
-      const candidates = [
-        path.join(projectRoot, 'src-tauri', 'target', 'debug', 'OpenHuman'),
-        path.join(repoRoot, 'target', 'debug', 'OpenHuman'),
-      ];
-      for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) return candidate;
-      }
-      return candidates[0];
-    }
-    default:
-      throw new Error(`Unsupported platform: ${process.platform}`);
-  }
-}
-
-/**
- * Build capabilities for the current platform.
- *
- * - Linux:   tauri-driver (W3C WebDriver, port 4444)
- * - Windows: tauri-driver (W3C WebDriver, port 4444) — same as Linux,
- *            launches the bare .exe rather than a bundle.
- * - macOS:   Appium Mac2 (XCUITest, port 4723)
- */
-function getPlatformCapabilities(): Record<string, unknown>[] {
-  if (process.platform === 'linux' || process.platform === 'win32') {
-    return [{ 'tauri:options': { application: getAppPath() } }];
-  }
-
-  // macOS: Appium Mac2
-  return [
-    {
-      platformName: 'mac',
-      'appium:automationName': 'Mac2',
-      'appium:app': getAppPath(),
-      'appium:showServerLogs': true,
-    },
-  ];
-}
-
-/** Port for the automation driver: tauri-driver (4444) or Appium (4723). */
-const isTauriDriverHost = process.platform === 'linux' || process.platform === 'win32';
-const driverPort = isTauriDriverHost
-  ? parseInt(process.env.TAURI_DRIVER_PORT || '4444', 10)
-  : parseInt(process.env.APPIUM_PORT || '4723', 10);
+const APPIUM_PORT = parseInt(process.env.APPIUM_PORT || '4723', 10);
+const CEF_CDP_HOST = process.env.CEF_CDP_HOST || '127.0.0.1';
+const CEF_CDP_PORT = parseInt(process.env.CEF_CDP_PORT || '19222', 10);
 
 export const config: Options.Testrunner & Record<string, unknown> = {
   runner: 'local',
   hostname: '127.0.0.1',
-  port: driverPort,
+  port: APPIUM_PORT,
+  path: '/',
   specs: [testSpecsPath],
   rootDir: projectRoot,
-  maxInstances: 1, // Tauri apps are single-instance
-  capabilities: getPlatformCapabilities(),
+  // Single session — Tauri+CEF is one app instance.
+  maxInstances: 1,
+  capabilities: [
+    {
+      platformName: 'chromium',
+      'appium:automationName': 'Chromium',
+      'goog:chromeOptions': {
+        // Attach to the already-running CEF process. chromedriver will not
+        // try to launch its own Chrome — it picks the first page target
+        // exposed at this address (which is the main OpenHuman webview).
+        debuggerAddress: `${CEF_CDP_HOST}:${CEF_CDP_PORT}`,
+      },
+    },
+  ],
   logLevel: 'warn',
   bail: 0,
   waitforTimeout: 10_000,
-  // Linux tauri-driver can take longer to establish the initial session on
-  // loaded CI runners; keep macOS defaults while giving Linux more headroom.
-  connectionRetryTimeout: isTauriDriverHost ? 240_000 : 120_000,
-  connectionRetryCount: isTauriDriverHost ? 5 : 3,
-  // No appium/tauri-driver service — driver is started externally via scripts.
+  connectionRetryTimeout: 120_000,
+  connectionRetryCount: 3,
   framework: 'mocha',
   reporters: ['spec'],
   mochaOpts: {
     ui: 'bdd',
-    timeout: 120_000, // Billing/settings tests need extra time for API polling
+    // Billing/settings flows poll on real timers; keep the generous budget.
+    timeout: 120_000,
   },
   autoCompileOpts: { tsNodeOpts: { project: tsconfigE2ePath } },
-  /**
-   * Always capture screenshot + page source on failure so agents can
-   * inspect what the app looked like the moment the assertion failed.
-   */
   afterTest: async function (
     test: { title: string; parent?: string },
     _context: unknown,

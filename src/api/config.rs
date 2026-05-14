@@ -39,18 +39,25 @@ pub fn effective_api_url(api_url: &Option<String>) -> String {
 /// the integrations base.
 ///
 /// Heuristic is intentionally tight:
-/// - Host matches a well-known loopback name (`127.0.0.1` / `localhost` /
-///   `::1` / `0.0.0.0`), OR
-/// - Host is a private RFC 1918 IPv4 range (`10.0.0.0/8`,
-///   `172.16.0.0/12`, `192.168.0.0/16`) — covers LAN-hosted Ollama at
-///   e.g. `http://192.168.1.100:11434/v1`, which would otherwise miss
-///   the heuristic and route integrations onto the local LLM, OR
 /// - Path explicitly ends with the OpenAI-style chat-completions endpoint
-///   (`/v1/chat/completions` or `/v1/completions`).
+///   (`/v1/chat/completions` or `/v1/completions`) — matches anywhere, OR
+/// - Host is loopback (`127.0.0.1` / `localhost` / `::1` / `0.0.0.0`) or
+///   a private RFC 1918 IPv4 range (`10.0.0.0/8`, `172.16.0.0/12`,
+///   `192.168.0.0/16`) **AND** the URL carries an additional LLM signal:
+///   either a known local-AI port (`11434` Ollama, `8000` vLLM, `8080`
+///   common alt, `1234` LM Studio, `8888` Jupyter-style proxies) or a
+///   path beginning with `/v1`.
 ///
-/// Both path arms use `ends_with` rather than `contains` so a real backend
-/// URL whose path merely embeds the segment as a substring
-/// (e.g. `/audit/v1/chat/completions-logs`) is NOT misclassified.
+/// The combined loopback/private + LLM-signal requirement avoids
+/// misclassifying ad-hoc mock backends bound on `127.0.0.1:<random port>`
+/// with no path (the standard pattern used by our integration tests) as
+/// local-AI while still catching every real-world Sentry case — those
+/// always have either an LLM port or `/v1` in the URL.
+///
+/// Both path arms in the chat-completions check use `ends_with` rather
+/// than `contains` so a real backend URL whose path merely embeds the
+/// segment as a substring (e.g. `/audit/v1/chat/completions-logs`) is
+/// NOT misclassified.
 ///
 /// We deliberately do NOT match a bare `/v1` — that's a legitimate API
 /// version suffix used by many self-hosted backends, and over-matching here
@@ -64,10 +71,19 @@ pub fn looks_like_local_ai_endpoint(url: &str) -> bool {
         Ok(u) => u,
         Err(_) => return false,
     };
+    let path = parsed.path();
+    // Path-based match wins regardless of host so an OpenAI-style endpoint
+    // exposed on any host (LAN, tunnel, public IP) still classifies.
+    // `ends_with` (not `contains`) keeps a real backend whose path merely
+    // embeds the segment as a substring (e.g. `/audit/v1/chat/completions-logs`)
+    // from being misclassified.
+    if path.ends_with("/v1/chat/completions") || path.ends_with("/v1/completions") {
+        return true;
+    }
     // Match by typed host so IPv4-mapped IPv6 (`::ffff:127.0.0.1`),
     // the bare IPv6 loopback (`::1`), and IPv4 loopback all classify
     // correctly regardless of how url::Url renders them via `host_str()`.
-    let host_is_loopback = match parsed.host() {
+    let host_is_local = match parsed.host() {
         Some(url::Host::Ipv4(addr)) => {
             addr.is_loopback() || addr.is_unspecified() || addr.is_private()
         }
@@ -78,14 +94,20 @@ pub fn looks_like_local_ai_endpoint(url: &str) -> bool {
         }
         None => false,
     };
-    if host_is_loopback {
-        return true;
+    if !host_is_local {
+        return false;
     }
-    let path = parsed.path();
-    // Both arms use `ends_with` so URLs that merely embed the segment as a
-    // substring (e.g. `/audit/v1/chat/completions-logs` on a real backend)
-    // are NOT misclassified as local-AI and silently routed to the default.
-    path.ends_with("/v1/chat/completions") || path.ends_with("/v1/completions")
+    // Loopback / private host alone is not enough — many tests bind
+    // mock backends on `127.0.0.1:<random ephemeral port>` with no path,
+    // and we must not misclassify those as local-AI. Require an
+    // additional LLM signal: a known local-AI port or a `/v1` path.
+    const LOCAL_AI_PORTS: &[u16] = &[11434, 8000, 8080, 1234, 8888];
+    let port_signals_llm = parsed
+        .port()
+        .map(|p| LOCAL_AI_PORTS.contains(&p))
+        .unwrap_or(false);
+    let path_signals_llm = path.starts_with("/v1/") || path == "/v1";
+    port_signals_llm || path_signals_llm
 }
 
 /// Resolves the API base URL to use for **backend-proxied integrations**
@@ -447,6 +469,20 @@ mod tests {
         assert!(looks_like_local_ai_endpoint(
             "https://my-ollama.example/v1/completions"
         ));
+    }
+
+    #[test]
+    fn looks_like_local_ai_rejects_bare_loopback_with_random_port() {
+        // Integration tests (e.g. `composio/ops_tests.rs`) bind mock
+        // backends on `127.0.0.1:0` and let the kernel pick an ephemeral
+        // port (~32768-60999), with no path. Loopback alone is *not* a
+        // local-AI signal — we must not misclassify these as local-AI or
+        // every integration test that goes through `build_client` will
+        // see its request silently rerouted to the production backend.
+        assert!(!looks_like_local_ai_endpoint("http://127.0.0.1:54321"));
+        assert!(!looks_like_local_ai_endpoint("http://127.0.0.1:42000/"));
+        assert!(!looks_like_local_ai_endpoint("http://localhost:33333"));
+        assert!(!looks_like_local_ai_endpoint("http://[::1]:51234"));
     }
 
     #[test]

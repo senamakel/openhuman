@@ -81,6 +81,15 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
     ),
 ];
 
+/// Returns the server-side legacy → canonical RPC alias table.
+///
+/// Keep this as the single Rust metadata source for alias consumers and tests;
+/// drift guards compare it with the frontend catalog in
+/// `app/src/services/rpcMethods.ts`.
+fn legacy_aliases() -> &'static [(&'static str, &'static str)] {
+    LEGACY_ALIASES
+}
+
 /// Resolves a legacy RPC method name to its canonical form, if any.
 ///
 /// Returns the canonical name when `method` is a known legacy alias;
@@ -92,7 +101,7 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
 /// matched-canonical branch returns `&'static`, the pass-through branch
 /// returns the input borrow; elision picks the tighter input lifetime.
 pub fn resolve_legacy(method: &str) -> &str {
-    for (legacy, canonical) in LEGACY_ALIASES {
+    for (legacy, canonical) in legacy_aliases() {
         if *legacy == method {
             return canonical;
         }
@@ -103,6 +112,104 @@ pub fn resolve_legacy(method: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn frontend_rpc_catalog_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("app/src/services/rpcMethods.ts")
+    }
+
+    fn read_frontend_rpc_catalog() -> String {
+        let path = frontend_rpc_catalog_path();
+        fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
+    }
+
+    fn object_body_after_marker<'a>(source: &'a str, marker: &str, terminator: &str) -> &'a str {
+        let marker_start = source
+            .find(marker)
+            .unwrap_or_else(|| panic!("missing marker `{marker}` in frontend RPC catalog"));
+        let object_start = marker_start
+            + source[marker_start..]
+                .find('{')
+                .unwrap_or_else(|| panic!("missing object start after `{marker}`"))
+            + 1;
+        let rest = &source[object_start..];
+        let object_end = rest
+            .find(terminator)
+            .unwrap_or_else(|| panic!("missing terminator `{terminator}` after `{marker}`"));
+        &rest[..object_end]
+    }
+
+    fn quoted_value(text: &str) -> String {
+        let (quote_index, quote) = text
+            .char_indices()
+            .find(|(_, ch)| *ch == '\'' || *ch == '"')
+            .unwrap_or_else(|| panic!("expected quoted value in `{text}`"));
+        let value_start = quote_index + quote.len_utf8();
+        let rest = &text[value_start..];
+        let value_end = rest
+            .find(quote)
+            .unwrap_or_else(|| panic!("unterminated quoted value in `{text}`"));
+        rest[..value_end].to_string()
+    }
+
+    fn parse_core_rpc_methods(source: &str) -> BTreeMap<String, String> {
+        let body = object_body_after_marker(source, "export const CORE_RPC_METHODS", "} as const;");
+        let mut methods = BTreeMap::new();
+        for line in body.lines().map(str::trim).filter(|line| !line.is_empty()) {
+            let Some((key, value)) = line.split_once(':') else {
+                continue;
+            };
+            methods.insert(key.trim().to_string(), quoted_value(value));
+        }
+        methods
+    }
+
+    fn parse_frontend_legacy_aliases(
+        source: &str,
+        core_methods: &BTreeMap<String, String>,
+    ) -> BTreeMap<String, String> {
+        let body = object_body_after_marker(source, "export const LEGACY_METHOD_ALIASES", "};");
+        let compact = body
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut aliases = BTreeMap::new();
+        for entry in compact
+            .split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+        {
+            let (legacy, target_expr) = entry
+                .split_once(':')
+                .unwrap_or_else(|| panic!("expected legacy alias entry, got `{entry}`"));
+            let legacy = quoted_value(legacy);
+            let target_expr = target_expr.trim();
+            let canonical = if let Some(key) = target_expr.strip_prefix("CORE_RPC_METHODS.") {
+                core_methods
+                    .get(key)
+                    .unwrap_or_else(|| {
+                        panic!("legacy alias references unknown CORE_RPC_METHODS.{key}")
+                    })
+                    .clone()
+            } else {
+                quoted_value(target_expr)
+            };
+            aliases.insert(legacy, canonical);
+        }
+        aliases
+    }
+
+    fn registered_http_methods() -> BTreeSet<String> {
+        crate::core::all::all_http_method_schemas()
+            .into_iter()
+            .map(|method| method.method)
+            .collect()
+    }
 
     #[test]
     fn resolve_legacy_rewrites_every_table_entry() {
@@ -156,5 +263,53 @@ mod tests {
         // the table when it matches, not a copy of the input.
         let out = resolve_legacy("openhuman.ping");
         assert_eq!(out, "core.ping");
+    }
+
+    #[test]
+    fn frontend_core_rpc_methods_exist_in_core_schema_registry() {
+        let source = read_frontend_rpc_catalog();
+        let core_methods = parse_core_rpc_methods(&source);
+        let registered = registered_http_methods();
+        let missing: Vec<_> = core_methods
+            .values()
+            .filter(|method| !registered.contains(*method))
+            .cloned()
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "frontend CORE_RPC_METHODS contains methods absent from all_http_method_schemas(): {missing:?}"
+        );
+    }
+
+    #[test]
+    fn frontend_legacy_aliases_match_server_alias_table() {
+        let source = read_frontend_rpc_catalog();
+        let core_methods = parse_core_rpc_methods(&source);
+        let frontend_aliases = parse_frontend_legacy_aliases(&source, &core_methods);
+        let server_aliases: BTreeMap<String, String> = legacy_aliases()
+            .iter()
+            .map(|(legacy, canonical)| ((*legacy).to_string(), (*canonical).to_string()))
+            .collect();
+
+        assert_eq!(
+            frontend_aliases, server_aliases,
+            "frontend LEGACY_METHOD_ALIASES must stay in sync with src/core/legacy_aliases.rs"
+        );
+    }
+
+    #[test]
+    fn legacy_alias_targets_exist_in_core_schema_registry() {
+        let registered = registered_http_methods();
+        let missing: Vec<_> = legacy_aliases()
+            .iter()
+            .filter(|(_, canonical)| !registered.contains(*canonical))
+            .map(|(legacy, canonical)| format!("{legacy} -> {canonical}"))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "legacy aliases point at methods absent from all_http_method_schemas(): {missing:?}"
+        );
     }
 }

@@ -34,6 +34,15 @@ const APPIUM_PORT = parseInt(process.env.APPIUM_PORT || '4723', 10);
 const CEF_CDP_HOST = process.env.CEF_CDP_HOST || '127.0.0.1';
 const CEF_CDP_PORT = parseInt(process.env.CEF_CDP_PORT || '19222', 10);
 
+// appium-chromium-driver advertises support for platformName ∈ {windows, mac, linux}
+// (not "chromium" — that's only the automationName). Pick the actual OS so the
+// capability negotiation succeeds.
+function platformNameForHost(): 'mac' | 'linux' | 'windows' {
+  if (process.platform === 'darwin') return 'mac';
+  if (process.platform === 'win32') return 'windows';
+  return 'linux';
+}
+
 export const config: Options.Testrunner & Record<string, unknown> = {
   runner: 'local',
   hostname: '127.0.0.1',
@@ -45,8 +54,20 @@ export const config: Options.Testrunner & Record<string, unknown> = {
   maxInstances: 1,
   capabilities: [
     {
-      platformName: 'chromium',
+      platformName: platformNameForHost(),
       'appium:automationName': 'Chromium',
+      // The runner downloads a chromedriver whose major matches CEF's
+      // bundled Chromium and exports its path here. If unset, Appium falls
+      // back to its bundled chromedriver — which usually drifts ahead of
+      // CEF and produces a "ChromeDriver only supports Chrome version N"
+      // session-creation error.
+      //
+      // Appium chromium driver names this capability `executable` (see
+      // appium-chromium-driver/build/lib/desired-caps.js), not the more
+      // common Chrome-driver name `chromedriverExecutable`.
+      ...(process.env.E2E_CHROMEDRIVER_PATH
+        ? { 'appium:executable': process.env.E2E_CHROMEDRIVER_PATH }
+        : {}),
       'goog:chromeOptions': {
         // Attach to the already-running CEF process. chromedriver will not
         // try to launch its own Chrome — it picks the first page target

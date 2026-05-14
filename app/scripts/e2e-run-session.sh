@@ -182,8 +182,10 @@ echo "[runner]   App logs: $APP_LOG"
 APP_PID=$!
 
 echo "[runner] Waiting for CDP at http://127.0.0.1:${CEF_CDP_PORT}/json/version ..."
+CDP_VERSION_JSON=""
 for i in $(seq 1 60); do
-  if curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/version" >/dev/null 2>&1; then
+  CDP_VERSION_JSON="$(curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/version" 2>/dev/null || true)"
+  if [ -n "$CDP_VERSION_JSON" ]; then
     echo "[runner] CDP is ready."
     break
   fi
@@ -204,6 +206,64 @@ done
 PAGE_TARGETS="$(curl -sf "http://127.0.0.1:${CEF_CDP_PORT}/json/list" 2>/dev/null | grep -c '"type": *"page"' || true)"
 if [ "${PAGE_TARGETS:-0}" -lt 1 ]; then
   echo "[runner] Warning: no page-type CDP targets visible yet — Appium may have to wait."
+fi
+
+# ------------------------------------------------------------------------------
+# Resolve a chromedriver whose major matches CEF's bundled Chromium.
+#
+# chromedriver is strict about same-major-version matching (e.g. cd148 cannot
+# talk to Chrome 146). The Appium chromium driver ships its own bundled
+# chromedriver but that often drifts ahead of CEF's pinned Chromium.
+# Solution: parse Chromium's version from /json/version, then download the
+# matching chromedriver from Chrome for Testing into a workspace-local cache.
+# We pass the resulting binary to Appium via the `appium:chromedriverExecutable`
+# capability (wired in wdio.conf.ts via E2E_CHROMEDRIVER_PATH).
+# ------------------------------------------------------------------------------
+CHROMIUM_FULL_VERSION="$(echo "$CDP_VERSION_JSON" | sed -n 's/.*"Browser": *"[^/]*\/\([^"]*\)".*/\1/p' | head -1)"
+if [ -z "$CHROMIUM_FULL_VERSION" ]; then
+  CHROMIUM_FULL_VERSION="$(echo "$CDP_VERSION_JSON" | sed -n 's/.*"Browser": *"\([^"]*\)".*/\1/p' | sed 's/^[^/]*\///' | head -1)"
+fi
+echo "[runner] CEF Chromium version: ${CHROMIUM_FULL_VERSION:-<unknown>}"
+
+case "$OS" in
+  Darwin)
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+      arm64) CFT_PLATFORM="mac-arm64" ;;
+      x86_64) CFT_PLATFORM="mac-x64" ;;
+      *) CFT_PLATFORM="mac-arm64" ;;
+    esac
+    CD_EXE_NAME="chromedriver"
+    ;;
+  Linux)
+    CFT_PLATFORM="linux64"
+    CD_EXE_NAME="chromedriver"
+    ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    CFT_PLATFORM="win64"
+    CD_EXE_NAME="chromedriver.exe"
+    ;;
+esac
+
+CD_CACHE_DIR="$APP_DIR/test/e2e/.cache/chromedriver/${CHROMIUM_FULL_VERSION:-unknown}-${CFT_PLATFORM}"
+CD_BINARY="$CD_CACHE_DIR/chromedriver-${CFT_PLATFORM}/${CD_EXE_NAME}"
+
+if [ -n "$CHROMIUM_FULL_VERSION" ] && [ ! -x "$CD_BINARY" ]; then
+  CD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROMIUM_FULL_VERSION}/${CFT_PLATFORM}/chromedriver-${CFT_PLATFORM}.zip"
+  echo "[runner] Downloading matching chromedriver: $CD_URL"
+  mkdir -p "$CD_CACHE_DIR"
+  CD_ZIP="$CD_CACHE_DIR/chromedriver.zip"
+  if curl -fSL "$CD_URL" -o "$CD_ZIP"; then
+    (cd "$CD_CACHE_DIR" && unzip -o -q chromedriver.zip)
+    chmod +x "$CD_BINARY" 2>/dev/null || true
+  else
+    echo "[runner] Warning: chromedriver $CHROMIUM_FULL_VERSION not on Chrome for Testing; falling back to Appium-bundled chromedriver."
+  fi
+fi
+
+if [ -x "$CD_BINARY" ]; then
+  export E2E_CHROMEDRIVER_PATH="$CD_BINARY"
+  echo "[runner] Using chromedriver: $E2E_CHROMEDRIVER_PATH"
 fi
 
 # ------------------------------------------------------------------------------

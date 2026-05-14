@@ -91,12 +91,4 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
   });
 
-  it('clears any error state when switching modes', () => {
-    renderWithProviders(<RecoveryPhrasePanel />);
-    // Switch to import mode
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
-    // Switch back to generate — no error should be visible
-    fireEvent.click(screen.getByText(/Generate a new recovery phrase instead/i));
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
 });

@@ -52,6 +52,41 @@ fn test_config() -> (TempDir, Config) {
     (tmp, cfg)
 }
 
+// ── RAII env guard shared by all tests in this file ──────────────────────────
+
+struct EnvGuard {
+    key: &'static str,
+    prev: Option<std::ffi::OsString>,
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        // SAFETY: cargo test runs each integration test binary in its own
+        // process; nothing else in this bin mutates these env vars, and the
+        // guard restores the previous value on drop.
+        unsafe {
+            match self.prev.take() {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+}
+
+/// Sets `OPENHUMAN_WORKSPACE` to `tmp.path()` and returns an RAII guard that
+/// restores the previous value on drop. This makes the tool wrappers (which
+/// call `load_config_with_timeout` internally) resolve to the same workspace
+/// that was used for ingest.
+fn set_workspace_env(tmp: &TempDir) -> EnvGuard {
+    let prev = std::env::var_os("OPENHUMAN_WORKSPACE");
+    // SAFETY: see EnvGuard::Drop above.
+    unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path()) };
+    EnvGuard {
+        key: "OPENHUMAN_WORKSPACE",
+        prev,
+    }
+}
+
 fn alice_phoenix_thread() -> EmailThread {
     EmailThread {
         provider: "gmail".into(),
@@ -143,42 +178,16 @@ async fn orchestrator_query_topic_tool_returns_alice_phoenix_hits() {
         .await
         .expect("job queue should drain cleanly");
 
-    // ── Set workspace dir so config_rpc::load_config_with_timeout()
-    //    inside the tool resolves to the same workspace we just ingested
-    //    into. The tool wrappers always go through that loader (mirrors
-    //    the production RPC handlers in retrieval/schemas.rs).
-    struct EnvGuard {
-        key: &'static str,
-        prev: Option<std::ffi::OsString>,
-    }
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            // SAFETY: see `EnvGuard::set` below — this integration test
-            // binary owns the env var for its lifetime.
-            unsafe {
-                match self.prev.take() {
-                    Some(v) => std::env::set_var(self.key, v),
-                    None => std::env::remove_var(self.key),
-                }
-            }
-        }
-    }
-    impl EnvGuard {
-        fn set(key: &'static str, val: &std::ffi::OsStr) -> Self {
-            let prev = std::env::var_os(key);
-            // SAFETY: `cargo test` defaults to running each integration
-            // test bin in its own process; nothing else in this bin
-            // mutates `OPENHUMAN_WORKSPACE`. The guard restores the
-            // previous value on drop.
-            unsafe { std::env::set_var(key, val) };
-            Self { key, prev }
-        }
-    }
+    // Set workspace dir so config_rpc::load_config_with_timeout() inside the
+    // tool resolves to the same workspace we just ingested into. The tool
+    // wrappers always go through that loader (mirrors the production RPC
+    // handlers in retrieval/schemas.rs).
+    //
     // Pointing OPENHUMAN_WORKSPACE at `tmp` (not `tmp/workspace`) makes
     // `resolve_config_dir_for_workspace` derive `tmp/workspace` as the
     // resolved workspace_dir — matching what we already passed into
     // `ingest_email` via `cfg.workspace_dir`.
-    let _ws_guard = EnvGuard::set("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
+    let _ws_guard = set_workspace_env(&tmp);
 
     // ── 1. search_entities resolves "alice" → email:alice@example.com.
     //    Mirrors the orchestrator prompt's "ALWAYS call this first when
@@ -533,36 +542,5 @@ async fn fetch_leaves_hydrates_source_ref_for_cited_chunks() {
         );
         let node_id = leaf.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
         assert!(!node_id.is_empty(), "fetch_leaves leaf must carry node_id");
-    }
-}
-
-// ── RAII env guard shared by the new tests ───────────────────────────────────
-
-struct EnvGuard {
-    key: &'static str,
-    prev: Option<std::ffi::OsString>,
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match self.prev.take() {
-                Some(v) => std::env::set_var(self.key, v),
-                None => std::env::remove_var(self.key),
-            }
-        }
-    }
-}
-
-/// Sets `OPENHUMAN_WORKSPACE` to `tmp.path()` and returns an RAII guard that
-/// restores the previous value on drop. This makes the tool wrappers (which
-/// call `load_config_with_timeout` internally) resolve to the same workspace
-/// that was used for ingest.
-fn set_workspace_env(tmp: &TempDir) -> EnvGuard {
-    let prev = std::env::var_os("OPENHUMAN_WORKSPACE");
-    unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path()) };
-    EnvGuard {
-        key: "OPENHUMAN_WORKSPACE",
-        prev,
     }
 }

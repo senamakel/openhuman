@@ -642,29 +642,46 @@ async fn assets_status_sets_ollama_available_false_when_binary_missing() {
 
 #[test]
 fn binary_present_returns_false_for_nonexistent_custom_path() {
+    // Scrub every lookup path the helper consults so the custom-path branch
+    // is the only signal: nonexistent custom path, no OLLAMA_BIN, no
+    // workspace install, and an empty PATH so system lookup also misses.
+    let _guard = crate::openhuman::local_ai::local_ai_test_guard();
+
+    let prev_ollama_bin = std::env::var_os("OLLAMA_BIN");
+    let prev_path = std::env::var_os("PATH");
+    // SAFETY: the test guard above serializes local_ai env mutations.
+    unsafe {
+        std::env::remove_var("OLLAMA_BIN");
+        std::env::set_var("PATH", "");
+    }
+
     let mut config = Config::default();
     config.local_ai.ollama_binary_path = Some("/nonexistent/path/to/ollama".to_string());
-    // Remove OLLAMA_BIN env and workspace — we only want to test the custom
-    // path branch returning false when the file doesn't exist.
     config.workspace_dir = std::path::PathBuf::from("/nonexistent/workspace");
-    let service = LocalAiService::new(&config);
-    // Custom path points to a non-existent file → custom-path branch returns false.
-    // The function may still return true if system ollama is installed, so we
-    // only assert the negative case when we can be confident there's no system binary.
-    // To keep this deterministic, we check that a path like "/nonexistent/..." is a file.
     assert!(
         !std::path::Path::new("/nonexistent/path/to/ollama").is_file(),
         "precondition: test path must not exist"
     );
-    // When the custom path file doesn't exist, that branch returns false.
-    // (System binary may still make the overall result true — we test the branch,
-    //  not the entire function, through direct path check.)
-    let custom_path = std::path::PathBuf::from("/nonexistent/path/to/ollama");
+
+    let service = LocalAiService::new(&config);
+    let present = service.ollama_binary_present(&config);
+
+    // SAFETY: restore prior env in the same guarded section.
+    unsafe {
+        match prev_ollama_bin {
+            Some(v) => std::env::set_var("OLLAMA_BIN", v),
+            None => std::env::remove_var("OLLAMA_BIN"),
+        }
+        match prev_path {
+            Some(v) => std::env::set_var("PATH", v),
+            None => std::env::remove_var("PATH"),
+        }
+    }
+
     assert!(
-        !custom_path.is_file(),
-        "a nonexistent custom ollama path must not be reported as present"
+        !present,
+        "a nonexistent custom ollama path with no env/workspace/system fallback must not be reported as present"
     );
-    let _ = service; // used
 }
 
 #[test]

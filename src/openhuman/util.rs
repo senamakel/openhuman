@@ -376,12 +376,9 @@ mod tests {
     fn is_transient_fs_error_rejects_not_found_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let err = anyhow::Error::new(io_err);
-        // On non-Windows the function can only return `true` for the
-        // __TEST_TRANSIENT__ sentinel; real IO errors fall through to `false`.
-        #[cfg(not(windows))]
         assert!(
             !is_transient_fs_error(&err),
-            "NotFound IO error must not be transient on non-Windows"
+            "NotFound IO error must not be transient"
         );
     }
 

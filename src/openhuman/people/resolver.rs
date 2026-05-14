@@ -404,17 +404,38 @@ mod tests {
         .await
         .unwrap();
 
-        // Source B — different email; same display name (a different Alice Smith)
+        // Source B — different email; the same display name surfaces again,
+        // but as a *separate* DisplayName-backed mint (NOT linked to either
+        // email). This is the actual collision scenario: two ingestion paths
+        // both encounter "Alice Smith" without any cross-source identifier.
         let id_b = r
             .resolve_or_create(&Handle::Email("alice@company-b.com".into()))
             .await
             .unwrap();
-        // Do NOT link to "Alice Smith" — that would be an explicit merge.
+        // The display-name resolver must already pin to id_a (linked above),
+        // so a second mint of the same DisplayName does NOT spawn a third
+        // identity — but crucially it also does NOT silently merge id_b into id_a.
+        let id_name_again = r
+            .resolve_or_create(&Handle::DisplayName("Alice Smith".into()))
+            .await
+            .unwrap();
 
         // The two email-backed identities must be distinct.
         assert_ne!(
             id_a, id_b,
             "two email handles with identical display names must not be merged without explicit link"
+        );
+
+        // The repeated DisplayName mint resolves to the linked identity (id_a),
+        // NOT to id_b. If display names auto-merged, id_b would have collapsed
+        // into id_a; if they minted fresh on every call, this would be a third id.
+        assert_eq!(
+            id_name_again, id_a,
+            "repeated DisplayName mint should resolve to the existing linked identity"
+        );
+        assert_ne!(
+            id_name_again, id_b,
+            "DisplayName collision must not silently merge id_b into id_a"
         );
 
         // Resolving the display name returns the ONE identity that was explicitly linked.

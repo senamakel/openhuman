@@ -148,9 +148,13 @@ mod tests {
         cfg.runtime_enabled = false;
         let p = make_provider(&cfg);
         // When local is disabled, the routing provider defers everything to
-        // remote.  supports_streaming reflects the remote provider's capability
-        // (StubProvider returns false), but crucially it must not panic.
-        let _ = p.supports_streaming();
+        // remote. StubProvider reports `supports_streaming = false`, so the
+        // composite must surface that — this also exercises the
+        // local-disabled branch in supports_streaming without panicking.
+        assert!(
+            !p.supports_streaming(),
+            "expected remote streaming capability (StubProvider=false) when local runtime is disabled"
+        );
     }
 
     #[test]

@@ -146,7 +146,7 @@ After posting the review:
 
 ## 7. Final report (to the user)
 
-```
+```text
 ## PR #__PR__ — Review posted
 
 ### Findings raised: <total>

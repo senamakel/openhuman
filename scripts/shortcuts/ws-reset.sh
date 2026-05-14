@@ -33,8 +33,8 @@ if ! git remote get-url upstream >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ "$FORCE" -ne 1 ] && ! git diff --quiet HEAD --; then
-  echo "ws-reset: working tree has uncommitted changes. Re-run with --force to discard." >&2
+if [ "$FORCE" -ne 1 ] && [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  echo "ws-reset: working tree has uncommitted changes or untracked files. Re-run with --force to discard." >&2
   exit 1
 fi
 

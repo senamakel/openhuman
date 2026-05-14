@@ -49,7 +49,7 @@ if [ "${REVIEW_HAS_CONFLICTS:-0}" = "1" ]; then
 
 When the PR branch was merged with current \`main\`, the following files were left with unresolved conflict markers (\`<<<<<<<\` / \`=======\` / \`>>>>>>>\`):
 
-$(printf -- '- %s\n' $REVIEW_CONFLICT_FILES)
+$(printf '%s\n' "$REVIEW_CONFLICT_FILES" | sed 's/^/- /')
 
 Before doing anything else:
 

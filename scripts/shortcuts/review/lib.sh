@@ -118,9 +118,13 @@ sync_pr() {
   REVIEW_HAS_CONFLICTS=0
   REVIEW_CONFLICT_FILES=""
   if ! git merge --no-edit main; then
+    REVIEW_CONFLICT_FILES=$(git diff --name-only --diff-filter=U | sort -u)
+    if [ -z "$REVIEW_CONFLICT_FILES" ]; then
+      fail "git merge main failed for a non-conflict reason"
+      return 1
+    fi
     echo "[review] ! conflicts detected in PR #$pr, continuing."
     REVIEW_HAS_CONFLICTS=1
-    REVIEW_CONFLICT_FILES=$(git diff --name-only --diff-filter=U | sort -u)
   fi
 
   # Prefer an existing SSH remote pointing at this fork to avoid https auth prompts.

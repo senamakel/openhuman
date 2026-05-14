@@ -49,7 +49,7 @@ if [ "${REVIEW_HAS_CONFLICTS:-0}" = "1" ]; then
 
 When the PR branch was merged with current \`main\`, the following files were left with unresolved conflict markers:
 
-$(printf -- '- %s\n' $REVIEW_CONFLICT_FILES)
+$(printf '%s\n' "$REVIEW_CONFLICT_FILES" | sed 's/^/- /')
 
 Since this is a **review-only** run, do NOT resolve them — but you MUST call them out prominently in the review walkthrough as a blocker (with severity 🛑) and request changes on the PR. Tell the author exactly which files need attention before this PR can merge."
 else

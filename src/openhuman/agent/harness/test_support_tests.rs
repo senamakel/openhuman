@@ -684,3 +684,295 @@ async fn harness_invokes_composio_action_tool_against_fake_backend() {
     assert_eq!(exec.2["tool"], "GMAIL_SEND_EMAIL");
     assert_eq!(exec.2["arguments"]["recipient_email"], "alice@example.com");
 }
+
+// ── 13. Orchestrator-prompt → delegation → Composio round-trip ────
+//
+// End-to-end test that ties together the three things the user needs
+// confidence in:
+//
+//   1. The orchestrator's system prompt (built by
+//      `orchestrator::prompt::build`) advertises a connected toolkit
+//      via the collapsed `delegate_to_integrations_agent` tool.
+//   2. Given that prompt and a user task that mentions the toolkit,
+//      the LLM (mocked) emits a tool call that satisfies the real
+//      `SkillDelegationTool` schema.
+//   3. Delegation reaches the integrations side, where a
+//      `ComposioActionTool` is dispatched against a real
+//      `ComposioClient` pointed at a hermetic fake backend — and the
+//      backend records the action with the orchestrator-provided args.
+//
+// To avoid pulling in the full sub-agent runner, the test substitutes
+// a `TestDelegationTool` that mirrors `SkillDelegationTool`'s contract
+// (same tool name, same schema validation against the connected
+// toolkit list) but runs a *nested* `run_tool_call_loop` for the
+// integrations side instead of calling `dispatch_subagent`. The
+// nested loop is the same code path the real integrations_agent uses,
+// so the wiring under test is the orchestrator → delegation arg →
+// integrations LLM → ComposioActionTool → backend chain.
+
+struct TestDelegationTool {
+    connected_toolkits: Vec<(String, String)>,
+    nested_tools: Arc<parking_lot::Mutex<Option<Vec<Box<dyn Tool>>>>>,
+    inner_provider: Arc<KeywordScriptedProvider>,
+}
+
+impl TestDelegationTool {
+    fn new(
+        connected_toolkits: Vec<(String, String)>,
+        nested_tools: Vec<Box<dyn Tool>>,
+        inner_provider: Arc<KeywordScriptedProvider>,
+    ) -> Self {
+        Self {
+            connected_toolkits,
+            nested_tools: Arc::new(parking_lot::Mutex::new(Some(nested_tools))),
+            inner_provider,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for TestDelegationTool {
+    fn name(&self) -> &str {
+        // Mirror SkillDelegationTool's canonical name so the orchestrator
+        // system prompt's references resolve.
+        "delegate_to_integrations_agent"
+    }
+    fn description(&self) -> &str {
+        "Delegate to integrations_agent (test stand-in for SkillDelegationTool)."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        // Same shape as the real SkillDelegationTool.
+        let slugs: Vec<&str> = self
+            .connected_toolkits
+            .iter()
+            .map(|(s, _)| s.as_str())
+            .collect();
+        json!({
+            "type": "object",
+            "required": ["toolkit", "prompt"],
+            "properties": {
+                "toolkit": {"type": "string", "enum": slugs},
+                "prompt": {"type": "string"}
+            }
+        })
+    }
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let toolkit = args
+            .get("toolkit")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let prompt = args
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if toolkit.is_empty() {
+            return Ok(ToolResult::error("`toolkit` is required"));
+        }
+        let known = self
+            .connected_toolkits
+            .iter()
+            .any(|(slug, _)| slug == &toolkit);
+        if !known {
+            return Ok(ToolResult::error(format!(
+                "toolkit `{toolkit}` is not connected"
+            )));
+        }
+        if prompt.is_empty() {
+            return Ok(ToolResult::error("`prompt` is required"));
+        }
+
+        // Take ownership of the nested tool list (one-shot).
+        let nested_tools = self
+            .nested_tools
+            .lock()
+            .take()
+            .expect("nested tools already consumed");
+
+        // Run a NESTED tool loop — same code path the integrations_agent
+        // uses inside the real sub-agent runner.
+        let mut nested_history = vec![ChatMessage::user(format!("[toolkit={toolkit}] {prompt}"))];
+        let out = run_tool_call_loop(
+            self.inner_provider.as_ref(),
+            &mut nested_history,
+            &nested_tools,
+            "test-integrations",
+            "test-model",
+            0.0,
+            true,
+            None,
+            "channel",
+            &mm(),
+            5,
+            None,
+            None,
+            &[],
+            None,
+            None,
+        )
+        .await?;
+
+        Ok(ToolResult::success(out))
+    }
+}
+
+#[tokio::test]
+async fn orchestrator_prompt_drives_composio_call_via_delegation_chain() {
+    use crate::openhuman::agent::agents::orchestrator::prompt as orch_prompt;
+    use crate::openhuman::agent::prompts::types::ConnectedIntegration;
+    use crate::openhuman::composio::ComposioActionTool;
+
+    // ── 1. Build the orchestrator's system prompt with gmail wired in.
+    let integrations = vec![ConnectedIntegration {
+        toolkit: "gmail".into(),
+        description: "Email send/fetch via Gmail.".into(),
+        tools: Vec::new(),
+        connected: true,
+    }];
+    let ctx = {
+        use crate::openhuman::context::prompt::{LearnedContextData, ToolCallFormat};
+        use std::collections::HashSet;
+        use std::sync::OnceLock;
+        static EMPTY: OnceLock<HashSet<String>> = OnceLock::new();
+        crate::openhuman::context::prompt::PromptContext {
+            workspace_dir: std::path::Path::new("."),
+            model_name: "test",
+            agent_id: "orchestrator",
+            tools: &[],
+            skills: &[],
+            dispatcher_instructions: "",
+            learned: LearnedContextData::default(),
+            visible_tool_names: EMPTY.get_or_init(HashSet::new),
+            tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &integrations,
+            connected_identities_md: String::new(),
+            include_profile: false,
+            include_memory_md: false,
+            curated_snapshot: None,
+            user_identity: None,
+        }
+    };
+    let system_prompt = orch_prompt::build(&ctx).expect("build orchestrator prompt");
+    // The prompt must explicitly route gmail tasks via the collapsed
+    // delegation tool — otherwise the orchestrator can't know to call it.
+    assert!(system_prompt.contains("## Connected Integrations"));
+    assert!(system_prompt.contains("delegate_to_integrations_agent"));
+    assert!(system_prompt.contains("toolkit: \"gmail\""));
+
+    // ── 2. Spawn the fake Composio backend + wire a ComposioActionTool.
+    let backend = spawn_fake_composio_backend(ComposioFixture::realistic()).await;
+    let composio_client = backend.client();
+    let gmail_action_tool: Box<dyn Tool> = Box::new(ComposioActionTool::new(
+        composio_client,
+        "GMAIL_SEND_EMAIL".to_string(),
+        "Send a Gmail email".to_string(),
+        Some(json!({"type": "object"})),
+    ));
+
+    // ── 3. Inner (integrations-side) provider: emit a ComposioActionTool call,
+    // then a final reply once it sees the action's success marker.
+    let inner_provider = Arc::new(KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "toolkit=gmail",
+            ScriptedToolCall::new(
+                "GMAIL_SEND_EMAIL",
+                json!({
+                    "recipient_email": "alice@example.com",
+                    "subject": "hi",
+                    "body": "hello from orchestrator",
+                }),
+            ),
+        ),
+        KeywordRule::final_reply("gmail-msg-1234", "delivered"),
+    ]));
+
+    let nested_tools: Vec<Box<dyn Tool>> = vec![gmail_action_tool];
+
+    // ── 4. Outer (orchestrator) provider: when the user asks to email Alice
+    // via gmail, emit the delegation tool call. After the delegation
+    // returns "delivered", produce the final user-facing reply.
+    let outer_provider = KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "send an email to alice",
+            ScriptedToolCall::new(
+                "delegate_to_integrations_agent",
+                json!({
+                    "toolkit": "gmail",
+                    "prompt": "Send an email to alice@example.com saying hi"
+                }),
+            ),
+        ),
+        KeywordRule::final_reply("delivered", "I've sent the email to Alice."),
+    ]);
+
+    // ── 5. Wire the test delegation tool that bridges outer -> inner loop.
+    let delegation_tool: Box<dyn Tool> = Box::new(TestDelegationTool::new(
+        vec![(
+            "gmail".to_string(),
+            "Email send/fetch via Gmail.".to_string(),
+        )],
+        nested_tools,
+        inner_provider.clone(),
+    ));
+    let outer_tools: Vec<Box<dyn Tool>> = vec![delegation_tool];
+
+    let mut history = vec![
+        ChatMessage::system(system_prompt),
+        ChatMessage::user("Please send an email to alice@example.com saying hi via gmail."),
+    ];
+
+    // ── 6. Drive the outer (orchestrator) loop.
+    let final_reply = run_tool_call_loop(
+        &outer_provider,
+        &mut history,
+        &outer_tools,
+        "orchestrator-mock",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        5,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("orchestrator loop should complete");
+
+    assert_eq!(final_reply, "I've sent the email to Alice.");
+
+    // ── 7. Assert the Composio backend actually received the action with
+    // the orchestrator-routed arguments.
+    let backend_reqs = backend.requests();
+    let exec = backend_reqs
+        .iter()
+        .find(|(m, p, _)| m == "POST" && p == "/execute")
+        .expect("Composio /execute must have been called via the orchestrator chain");
+    assert_eq!(exec.2["tool"], "GMAIL_SEND_EMAIL");
+    assert_eq!(exec.2["arguments"]["recipient_email"], "alice@example.com");
+    assert_eq!(exec.2["arguments"]["subject"], "hi");
+
+    // ── 8. Both sides of the chain should have seen exactly one turn that
+    // emitted the expected call.
+    let outer_turns = outer_provider.turns();
+    assert!(
+        outer_turns
+            .iter()
+            .any(|t| t.rule_keyword.as_deref() == Some("send an email to alice")),
+        "orchestrator must have matched the delegation rule"
+    );
+    let inner_turns = inner_provider.turns();
+    assert!(
+        inner_turns
+            .iter()
+            .any(|t| t.rule_keyword.as_deref() == Some("toolkit=gmail")),
+        "integrations agent must have matched its tool-call rule"
+    );
+}

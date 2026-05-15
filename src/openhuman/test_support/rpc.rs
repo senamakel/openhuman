@@ -63,7 +63,10 @@ pub async fn reset() -> Result<RpcOutcome<ResetSummary>, String> {
         .map_err(|e| format!("test_reset: failed to resolve default root dir: {e:#}"))?;
     clear_active_user(&root)
         .map_err(|e| format!("test_reset: failed to clear active user: {e:#}"))?;
-    log::debug!("[test_reset] step=clear_active_user ok root={}", root.display());
+    log::debug!(
+        "[test_reset] step=clear_active_user ok root={}",
+        root.display()
+    );
 
     let summary = ResetSummary {
         cron_jobs_removed,

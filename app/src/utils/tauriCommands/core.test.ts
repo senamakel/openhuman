@@ -77,10 +77,7 @@ describe('tauriCommands/core', () => {
       // IS_DEV: true → derived IS_DEV_LIKE). Override with doMock +
       // resetModules so a fresh import of ./core sees IS_DEV_LIKE=false and
       // runs the production branch (#1068 dev workaround should be inert).
-      vi.doMock('../config', () => ({
-        IS_DEV: false,
-        IS_DEV_LIKE: false,
-      }));
+      vi.doMock('../config', () => ({ IS_DEV: false, IS_DEV_LIKE: false }));
       vi.resetModules();
       const prodCore = await import('./core');
 

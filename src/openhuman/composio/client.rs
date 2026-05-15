@@ -233,6 +233,28 @@ impl ComposioClient {
             .await
     }
 
+    /// Single-shot `execute_tool` — same body construction and slug validation
+    /// as [`Self::execute_tool`], but **without** the inner post-OAuth retry
+    /// that [`Self::execute_tool_with_post_oauth_retry`] performs. Reserved
+    /// for callers that already own a higher-level retry policy and would
+    /// otherwise stack two retry layers (4 hits to the gateway instead of 2).
+    /// In particular, [`super::auth_retry::execute_with_auth_retry`] uses
+    /// this entry point so its `must retry exactly once` contract still
+    /// holds after PR #1707 introduced the inner retry.
+    pub(crate) async fn execute_tool_once(
+        &self,
+        tool: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> Result<ComposioExecuteResponse> {
+        let tool = tool.trim();
+        if tool.is_empty() {
+            anyhow::bail!("composio.execute_tool_once: tool slug must not be empty");
+        }
+        let arguments = arguments.unwrap_or(serde_json::Value::Object(Default::default()));
+        let body = json!({ "tool": tool, "arguments": arguments });
+        self.post_execute_tool(&body).await
+    }
+
     /// `GET /agent-integrations/composio/github/repos` — list repositories
     /// available via the user's authorized GitHub connected account.
     pub async fn list_github_repos(

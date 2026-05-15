@@ -5,6 +5,7 @@ import { HashRouter as Router, useLocation, useNavigate } from 'react-router-dom
 import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
+import AppBackground from './components/AppBackground';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
 import BootCheckGate from './components/BootCheckGate/BootCheckGate';
 import BottomTabBar from './components/BottomTabBar';
@@ -13,7 +14,6 @@ import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
-import MeshGradient from './components/MeshGradient';
 import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import GlobalUpsellBanner from './components/upsell/GlobalUpsellBanner';
@@ -181,8 +181,8 @@ function AppShell() {
 
   return (
     <div className="relative h-screen flex flex-col overflow-hidden">
-      <MeshGradient />
-      <div className="app-dotted-canvas relative z-10 flex-1 flex flex-col overflow-hidden">
+      <AppBackground />
+      <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
         <div
           className={`flex-1 overflow-y-auto ${
             // [#1123] welcomeLocked removed — welcome-agent onboarding replaced by Joyride walkthrough

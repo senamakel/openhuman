@@ -11,6 +11,7 @@ import { MemoryRouter } from 'react-router-dom';
 import channelConnectionsReducer from '../store/channelConnectionsSlice';
 import connectivityReducer from '../store/connectivitySlice';
 import coreModeReducer from '../store/coreModeSlice';
+import localeReducer from '../store/localeSlice';
 import mascotReducer from '../store/mascotSlice';
 import socketReducer from '../store/socketSlice';
 
@@ -26,6 +27,7 @@ const testRootReducer = combineReducers({
   channelConnections: channelConnectionsReducer,
   connectivity: connectivityReducer,
   coreMode: coreModeReducer,
+  locale: localeReducer,
   mascot: mascotReducer,
   socket: socketReducer,
 });

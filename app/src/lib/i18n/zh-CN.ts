@@ -132,8 +132,9 @@ const zhCN: TranslationMap = {
 
   // Welcome page
   'welcome.title': '欢迎使用 OpenHuman',
-  'welcome.subtitle': '你的社区 AI 助手',
+  'welcome.subtitle': '你的私人 AI 超级智能。私密、简单、强大。',
   'welcome.connectPrompt': '输入 Core RPC 地址以开始使用',
+  'welcome.selectRuntime': '选择运行时',
   'welcome.urlPlaceholder': 'http://localhost:8089',
   'welcome.invalidUrl': '请输入有效的 HTTP 或 HTTPS URL',
   'welcome.connecting': '连接中...',

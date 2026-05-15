@@ -148,11 +148,7 @@ fn apply_failure_result_not_applied_and_no_staged_path() {
 #[test]
 fn apply_failure_result_message_contains_error() {
     let info = sample_update_info("0.51.0", "0.50.0", true);
-    let result = apply_failure_result(
-        info,
-        UpdateRestartStrategy::SelfReplace,
-        "network timeout",
-    );
+    let result = apply_failure_result(info, UpdateRestartStrategy::SelfReplace, "network timeout");
     assert!(
         result.message.contains("network timeout"),
         "message should contain the error string, got: {}",
@@ -172,8 +168,7 @@ async fn supervisor_strategy_sets_restart_requested_false() {
         restart_strategy: UpdateRestartStrategy::SelfReplace,
     };
     let result =
-        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor)
-            .await;
+        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor).await;
     assert!(result.applied, "staged update → applied must be true");
     assert!(
         !result.restart_requested,
@@ -192,8 +187,7 @@ async fn supervisor_strategy_staged_path_preserved() {
         restart_strategy: UpdateRestartStrategy::SelfReplace,
     };
     let result =
-        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor)
-            .await;
+        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor).await;
     assert_eq!(
         result.staged_path.as_deref(),
         Some("/tmp/openhuman-core-x86_64"),
@@ -211,8 +205,7 @@ async fn supervisor_strategy_message_mentions_supervisor() {
         restart_strategy: UpdateRestartStrategy::SelfReplace,
     };
     let result =
-        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor)
-            .await;
+        build_run_result_from_staged_update(info, applied, UpdateRestartStrategy::Supervisor).await;
     assert!(
         result.message.contains("supervisor"),
         "supervisor strategy message should mention supervisor, got: {}",
@@ -253,19 +246,14 @@ async fn update_run_rejected_when_rpc_mutations_disabled() {
     );
     let err_str = err.unwrap().as_str().unwrap_or("");
     assert!(
-        err_str.contains("rpc_mutations_enabled=false")
-            || err_str.contains("disabled"),
+        err_str.contains("rpc_mutations_enabled=false") || err_str.contains("disabled"),
         "error message should mention the policy, got: {err_str}"
     );
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-fn sample_update_info(
-    current: &str,
-    latest: &str,
-    update_available: bool,
-) -> UpdateInfo {
+fn sample_update_info(current: &str, latest: &str, update_available: bool) -> UpdateInfo {
     UpdateInfo {
         latest_version: latest.to_owned(),
         current_version: current.to_owned(),

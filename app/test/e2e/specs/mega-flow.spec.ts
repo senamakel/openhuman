@@ -623,7 +623,10 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
       result.result ??
       result.value?.result ??
       {};
-    console.log(`${LOG} update.version: raw result =`, JSON.stringify(result.result ?? result.value));
+    console.log(
+      `${LOG} update.version: raw result =`,
+      JSON.stringify(result.result ?? result.value)
+    );
 
     // version must be a non-empty string that looks like semver (X.Y.Z).
     const version: string = info?.version ?? '';
@@ -679,8 +682,7 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
     // First ingest — must succeed.
     const first = await callOpenhumanRpc('openhuman.notification_ingest', notifPayload);
     expect(first.ok).toBe(true);
-    const firstSkipped: boolean =
-      first.result?.skipped ?? first.result?.result?.skipped ?? false;
+    const firstSkipped: boolean = first.result?.skipped ?? first.result?.result?.skipped ?? false;
     console.log(`${LOG} dedup: first ingest skipped=${firstSkipped}`);
 
     // Second ingest with identical params — must also return ok (not crash).
@@ -698,10 +700,7 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
     expect(list.ok).toBe(true);
 
     const items: unknown[] =
-      list.result?.items ??
-      list.result?.result?.items ??
-      list.value?.result?.items ??
-      [];
+      list.result?.items ?? list.result?.result?.items ?? list.value?.result?.items ?? [];
     expect(Array.isArray(items)).toBe(true);
 
     // Count items with the dedup title — must be exactly 1 (or 0 if the
@@ -715,9 +714,7 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
         (item as Record<string, unknown>).title === 'Duplicate notification title'
     );
     expect(matchingItems.length).toBeLessThanOrEqual(1);
-    console.log(
-      `${LOG} dedup: found ${matchingItems.length} matching record(s) — dedup confirmed`
-    );
+    console.log(`${LOG} dedup: found ${matchingItems.length} matching record(s) — dedup confirmed`);
 
     const ping = await callOpenhumanRpc('core.ping', {});
     expect(ping.ok).toBe(true);
@@ -742,10 +739,7 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
     const create = await callOpenhumanRpc('openhuman.threads_create_new', {});
     expect(create.ok).toBe(true);
     const threadId: string =
-      create.result?.result?.id ??
-      create.result?.id ??
-      create.value?.result?.id ??
-      '';
+      create.result?.result?.id ?? create.result?.id ?? create.value?.result?.id ?? '';
     expect(typeof threadId).toBe('string');
     expect(threadId.length).toBeGreaterThan(0);
     console.log(`${LOG} thread-crud: created thread id = ${threadId}`);
@@ -784,12 +778,12 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
 
     const found = messages.find(
       (m: unknown) =>
-        typeof m === 'object' &&
-        m !== null &&
-        (m as Record<string, unknown>).id === msgId
+        typeof m === 'object' && m !== null && (m as Record<string, unknown>).id === msgId
     );
     expect(found).toBeDefined();
-    console.log(`${LOG} thread-crud: message ${msgId} confirmed in list (${messages.length} total)`);
+    console.log(
+      `${LOG} thread-crud: message ${msgId} confirmed in list (${messages.length} total)`
+    );
 
     const ping = await callOpenhumanRpc('core.ping', {});
     expect(ping.ok).toBe(true);

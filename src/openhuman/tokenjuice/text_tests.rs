@@ -9,11 +9,9 @@
 //! - 3-layer overlay precedence: project > user > builtin.
 //! - Rule loader gracefully handles invalid regex (diagnostic, no panic).
 
-use crate::openhuman::tokenjuice::text::{
-    clamp_text_middle, dedupe_adjacent, strip_ansi,
-};
-use crate::openhuman::tokenjuice::text::width::{count_text_chars, graphemes};
 use crate::openhuman::tokenjuice::rules::loader::{load_rules, LoadRuleOptions};
+use crate::openhuman::tokenjuice::text::width::{count_text_chars, graphemes};
+use crate::openhuman::tokenjuice::text::{clamp_text_middle, dedupe_adjacent, strip_ansi};
 use crate::openhuman::tokenjuice::types::RuleOrigin;
 
 // ── strip_ansi — multi-byte / emoji safety ───────────────────────────────────
@@ -319,7 +317,11 @@ fn invalid_regex_in_skip_patterns_does_not_panic() {
     };
 
     // Must not panic; invalid regex is silently dropped.
-    let compiled = compile_rule(rule, RuleOrigin::Builtin, "builtin:test/bad-skip".to_owned());
+    let compiled = compile_rule(
+        rule,
+        RuleOrigin::Builtin,
+        "builtin:test/bad-skip".to_owned(),
+    );
 
     // The invalid pattern is dropped; the valid one should be retained.
     assert_eq!(
@@ -396,10 +398,7 @@ fn invalid_regex_loaded_from_disk_is_skipped_not_fatal() {
         "valid rule must still load alongside the bad-regex rule"
     );
     // The bad-regex rule is also present but with empty compiled skip patterns.
-    if let Some(bad) = rules
-        .iter()
-        .find(|r| r.rule.id == "test/disk-bad-regex")
-    {
+    if let Some(bad) = rules.iter().find(|r| r.rule.id == "test/disk-bad-regex") {
         assert!(
             bad.compiled.skip_patterns.is_empty(),
             "bad-regex rule must have empty compiled skip_patterns"

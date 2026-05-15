@@ -33,7 +33,10 @@ fn is_enabled_returns_true_for_truthy_values() {
     let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     for v in ["1", "true", "yes", "on", "TRUE", "YES", "ON"] {
         std::env::set_var("OPENHUMAN_SERVICE_MOCK", v);
-        assert!(is_enabled(), "is_enabled should be true for OPENHUMAN_SERVICE_MOCK={v}");
+        assert!(
+            is_enabled(),
+            "is_enabled should be true for OPENHUMAN_SERVICE_MOCK={v}"
+        );
     }
     std::env::remove_var("OPENHUMAN_SERVICE_MOCK");
 }
@@ -43,7 +46,10 @@ fn is_enabled_returns_false_for_falsy_values() {
     let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     for v in ["0", "false", "no", "off", "FALSE"] {
         std::env::set_var("OPENHUMAN_SERVICE_MOCK", v);
-        assert!(!is_enabled(), "is_enabled should be false for OPENHUMAN_SERVICE_MOCK={v}");
+        assert!(
+            !is_enabled(),
+            "is_enabled should be false for OPENHUMAN_SERVICE_MOCK={v}"
+        );
     }
     std::env::remove_var("OPENHUMAN_SERVICE_MOCK");
 }

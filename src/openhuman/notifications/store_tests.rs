@@ -224,7 +224,11 @@ fn insert_if_not_recent_with_different_body_inserts_both() {
     );
 
     let items = list(&config, 10, 0, Some("slack"), None).unwrap();
-    assert_eq!(items.len(), 2, "both notifications with different body should be stored");
+    assert_eq!(
+        items.len(),
+        2,
+        "both notifications with different body should be stored"
+    );
 }
 
 #[test]
@@ -242,7 +246,11 @@ fn insert_if_not_recent_with_different_provider_inserts_both() {
     );
 
     let items = list(&config, 10, 0, None, None).unwrap();
-    assert_eq!(items.len(), 2, "notifications for different providers are distinct");
+    assert_eq!(
+        items.len(),
+        2,
+        "notifications for different providers are distinct"
+    );
 }
 
 #[test]
@@ -265,5 +273,9 @@ fn insert_if_not_recent_after_expiry_inserts_again() {
     );
 
     let items = list(&config, 10, 0, Some("slack"), None).unwrap();
-    assert_eq!(items.len(), 2, "both old and fresh entries should be stored");
+    assert_eq!(
+        items.len(),
+        2,
+        "both old and fresh entries should be stored"
+    );
 }

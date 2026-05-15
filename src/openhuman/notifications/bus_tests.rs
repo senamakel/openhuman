@@ -24,7 +24,10 @@ fn webhook_at_exactly_400_emits_system_notification() {
     };
     let n = event_to_notification(&ev).expect("status=400 should emit notification");
     assert_eq!(n.category, CoreNotificationCategory::System);
-    assert!(n.body.contains("400"), "body should mention status code 400");
+    assert!(
+        n.body.contains("400"),
+        "body should mention status code 400"
+    );
 }
 
 #[test]
@@ -138,7 +141,10 @@ fn subagent_completed_id_contains_parent_and_task() {
         iterations: 4,
     };
     let n = event_to_notification(&ev).unwrap();
-    assert!(n.id.contains("sess-abc"), "id should contain parent_session");
+    assert!(
+        n.id.contains("sess-abc"),
+        "id should contain parent_session"
+    );
     assert!(n.id.contains("task-xyz"), "id should contain task_id");
 }
 
@@ -206,7 +212,9 @@ fn publish_and_subscribe_deliver_event() {
     // At least one subscriber (the one we just created) should receive it.
     assert!(sent >= 1, "should have at least one subscriber");
 
-    let received = rx.try_recv().expect("subscriber should have received the event");
+    let received = rx
+        .try_recv()
+        .expect("subscriber should have received the event");
     assert_eq!(received.id, "test-123");
     assert_eq!(received.title, "Test");
     assert_eq!(received.category, CoreNotificationCategory::System);

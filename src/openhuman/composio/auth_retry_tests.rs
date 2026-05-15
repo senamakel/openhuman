@@ -182,7 +182,27 @@ async fn does_not_retry_on_first_attempt_success() {
 /// If Composio still returns the auth-error payload on the second call
 /// (gateway not actually recovered, or real credential problem
 /// masquerading as the post-OAuth string), surface the second response
-/// verbatim — exactly one retry, never a loop.
+/// verbatim — bounded retries, never a loop.
+///
+/// **NOTE on the gateway-hit count**: There are TWO retry layers stacked
+/// for this error shape today —
+///
+/// - This module (`auth_retry.rs`, added in #1708) wraps every composio
+///   tool call with one outer retry on `RETRYABLE_AUTH_ERRORS`.
+/// - `ComposioClient::execute_tool` (changed by #1707, merged
+///   independently) wraps every call with one inner retry on
+///   `is_post_oauth_auth_readiness_error`, which catches the same
+///   `"Connection error, try to authenticate"` string.
+///
+/// So an error that triggers BOTH classifiers fires 4 gateway hits
+/// (outer attempt 1: inner-retry → 2 hits, outer attempt 2: inner-retry
+/// → 2 hits). The user-visible contract — "bounded retries, never an
+/// infinite loop" — is preserved. The assertion below pins the compound
+/// count so a future fix that collapses the two layers surfaces here
+/// and the operator updates this test alongside the production change.
+///
+/// TODO(composio-retry-dedup): collapse the two retry layers — see
+/// `auth_retry.rs` doc-comment vs `client.rs::execute_tool_with_post_oauth_retry`.
 #[tokio::test]
 async fn retries_once_only_even_when_second_call_still_errors() {
     let counter = Arc::new(AtomicUsize::new(0));
@@ -218,17 +238,12 @@ async fn retries_once_only_even_when_second_call_still_errors() {
         resp.error.as_deref(),
         Some("Connection error, try to authenticate")
     );
-    // Wrapper makes exactly 2 logical execute_tool() calls (1 initial + 1
-    // retry). On Linux CI runners we observe up to one stale-pool
-    // retransmit per logical call from hyper's connection-pool recovery,
-    // so the *physical* hit count can be as high as 4. Tolerate that
-    // upper bound while still catching the infinite-loop regression this
-    // test guards against — a real loop would push the counter into the
-    // tens. Locally and on macOS this stays at 2.
-    let physical_hits = counter.load(Ordering::SeqCst);
-    assert!(
-        (2..=4).contains(&physical_hits),
-        "must retry exactly once, never a third time; physical hits = {physical_hits}"
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        4,
+        "compound retry: outer (auth_retry.rs, #1708) × inner \
+         (execute_tool_with_post_oauth_retry, #1707) = 4 gateway hits. \
+         Pinning so a future collapse of the two layers surfaces here."
     );
 }
 

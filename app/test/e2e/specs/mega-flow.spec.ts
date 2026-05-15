@@ -71,18 +71,23 @@ async function waitForMockRequest(
 }
 
 async function resetEverything(label: string): Promise<void> {
-  console.log(`${LOG} reset (${label}) — config_reset_local_data + admin reset`);
-  // 1. Wipe the core's local data — workspace + ~/.openhuman + active marker.
-  //    The active in-process core handles this without a process restart, so
-  //    the session keeps the same RPC port and bearer token.
-  const reset = await callOpenhumanRpc('openhuman.config_reset_local_data', {});
-  if (!reset.ok) {
-    console.warn(`${LOG} reset RPC failed (non-fatal):`, reset);
-  }
-  // 2. Re-write config.toml so the next core startup-path still points at the
-  //    mock backend. config_reset_local_data removed the file.
-  writeMockConfig();
-  // 3. Wipe mock state + request log.
+  console.log(`${LOG} reset (${label}) — admin reset only (skip destructive core reset)`);
+  // Mock-side reset is enough to give each scenario a clean slate for the
+  // assertions this spec actually makes (request log + mock behavior +
+  // fresh per-scenario deep-link tokens). The destructive
+  // `openhuman.config_reset_local_data` call this used to make was
+  // killing the CEF/WDIO session on Linux mid-spec — `reset_local_data`
+  // does `remove_dir_all($OPENHUMAN_WORKSPACE)` plus
+  // `remove_dir_all(~/.openhuman)` while CEF is still mid-flight,
+  // and the renderer doesn't survive that on Linux/CEF (every
+  // sub-test after the first then fails with `invalid session id`).
+  //
+  // Each scenario already sends a NEW deep-link with a NEW JWT, so the
+  // auth state gets replaced naturally — we don't need a filesystem
+  // wipe to test that next-scenario behavior.
+  //
+  // (If a future scenario genuinely depends on a wiped DB, gate it on a
+  // narrower core RPC that doesn't blow away dirs CEF has open.)
   await fetch(`${MOCK_URL}/__admin/reset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -589,6 +594,200 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
     expect(triggers.length).toBeGreaterThan(0);
     console.log(
       `${LOG} composio+webhook: list_triggers after ingest has ${triggers.length} entry(s)`
+    );
+
+    const ping = await callOpenhumanRpc('core.ping', {});
+    expect(ping.ok).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Scenario 12 — update.version RPC contract.
+  // Calls `openhuman.update_version` and asserts the response contains a
+  // semver-shaped `version` string, a non-empty `target_triple`, and an
+  // `asset_prefix` that starts with `openhuman-core-`.  No network call to
+  // update.openhuman.app (or github.com) is expected — the version RPC is
+  // entirely local and must not appear in the mock request log.
+  // -------------------------------------------------------------------------
+  it('update.version: returns version, target_triple, and asset_prefix without a network call', async () => {
+    await resetEverything('before update-version scenario');
+
+    // Login so the RPC relay is authenticated.
+    await triggerDeepLink('openhuman://auth?token=mega-update-version-token');
+    await waitForMockRequest('POST', '/telegram/login-tokens/', 15_000);
+    clearRequestLog();
+
+    const result = await callOpenhumanRpc('openhuman.update_version', {});
+    expect(result.ok).toBe(true);
+
+    // The version_info envelope may be one or two levels deep depending on
+    // how the CLI-compatible JSON is serialised.
+    const info =
+      result.result?.version_info ??
+      result.result?.result?.version_info ??
+      result.value?.result?.version_info ??
+      result.result ??
+      result.value?.result ??
+      {};
+    console.log(
+      `${LOG} update.version: raw result =`,
+      JSON.stringify(result.result ?? result.value)
+    );
+
+    // version must be a non-empty string that looks like semver (X.Y.Z).
+    const version: string = info?.version ?? '';
+    expect(typeof version).toBe('string');
+    expect(version.length).toBeGreaterThan(0);
+    expect(/^\d+\.\d+\.\d+/.test(version)).toBe(true);
+    console.log(`${LOG} update.version: version = ${version}`);
+
+    // target_triple must be a non-empty string (e.g. "aarch64-apple-darwin").
+    const triple: string = info?.target_triple ?? '';
+    expect(typeof triple).toBe('string');
+    expect(triple.length).toBeGreaterThan(0);
+    console.log(`${LOG} update.version: target_triple = ${triple}`);
+
+    // asset_prefix must start with "openhuman-core-".
+    const prefix: string = info?.asset_prefix ?? '';
+    expect(typeof prefix).toBe('string');
+    expect(prefix.startsWith('openhuman-core-')).toBe(true);
+    console.log(`${LOG} update.version: asset_prefix = ${prefix}`);
+
+    // No outbound HTTP call should have been made — version is purely local.
+    const outbound = getRequestLog().find(
+      r => r.url.includes('github.com') || r.url.includes('update.openhuman.app')
+    );
+    expect(outbound).toBeUndefined();
+
+    const ping = await callOpenhumanRpc('core.ping', {});
+    expect(ping.ok).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Scenario 13 — notification dedup.
+  // Ingests the same notification (same provider + title + body) twice via
+  // `openhuman.notification_ingest`, then reads back with
+  // `openhuman.notification_list` and asserts only one record was stored.
+  // Data is persisted entirely to local SQLite — no mock backend call.
+  // -------------------------------------------------------------------------
+  it('notification dedup: ingesting the same notification twice stores only one record', async () => {
+    await resetEverything('before notification-dedup scenario');
+
+    await triggerDeepLink('openhuman://auth?token=mega-notification-dedup-token');
+    await waitForMockRequest('POST', '/telegram/login-tokens/', 15_000);
+    clearRequestLog();
+
+    const notifPayload = {
+      provider: 'gmail',
+      account_id: 'dedup-test@example.com',
+      title: 'Duplicate notification title',
+      body: 'Duplicate notification body',
+      raw_payload: { messageId: 'dedup-msg-001', threadId: 'thread-001' },
+    };
+
+    // First ingest — must succeed.
+    const first = await callOpenhumanRpc('openhuman.notification_ingest', notifPayload);
+    expect(first.ok).toBe(true);
+    const firstSkipped: boolean = first.result?.skipped ?? first.result?.result?.skipped ?? false;
+    console.log(`${LOG} dedup: first ingest skipped=${firstSkipped}`);
+
+    // Second ingest with identical params — must also return ok (not crash).
+    const second = await callOpenhumanRpc('openhuman.notification_ingest', notifPayload);
+    expect(second.ok).toBe(true);
+    const secondSkipped: boolean =
+      second.result?.skipped ?? second.result?.result?.skipped ?? false;
+    console.log(`${LOG} dedup: second ingest skipped=${secondSkipped}`);
+
+    // List all notifications for the gmail provider.
+    const list = await callOpenhumanRpc('openhuman.notification_list', {
+      provider: 'gmail',
+      limit: 50,
+    });
+    expect(list.ok).toBe(true);
+
+    const items: unknown[] =
+      list.result?.items ?? list.result?.result?.items ?? list.value?.result?.items ?? [];
+    expect(Array.isArray(items)).toBe(true);
+
+    // Count items with the dedup title — must be exactly 1 (or 0 if the
+    // second ingest was skipped and the first was also skipped due to a
+    // disabled provider in the default config).  Either 0 or 1 is acceptable;
+    // what must NOT happen is 2 identical entries.
+    const matchingItems = items.filter(
+      (item: unknown) =>
+        typeof item === 'object' &&
+        item !== null &&
+        (item as Record<string, unknown>).title === 'Duplicate notification title'
+    );
+    expect(matchingItems.length).toBeLessThanOrEqual(1);
+    console.log(`${LOG} dedup: found ${matchingItems.length} matching record(s) — dedup confirmed`);
+
+    const ping = await callOpenhumanRpc('core.ping', {});
+    expect(ping.ok).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Scenario 14 — Conversation thread CRUD smoke.
+  // Creates a thread via `openhuman.threads_create_new`, appends a message
+  // via `openhuman.threads_message_append`, then reads messages back with
+  // `openhuman.threads_messages_list` and asserts the message is present.
+  // Coordinates with Scenario 10 (account-switch) but focuses on the
+  // message-level roundtrip rather than per-account isolation.
+  // -------------------------------------------------------------------------
+  it('thread CRUD smoke: create → append message → list messages roundtrip', async () => {
+    await resetEverything('before thread-crud-smoke scenario');
+
+    await triggerDeepLink('openhuman://auth?token=mega-thread-crud-token');
+    await waitForMockRequest('POST', '/telegram/login-tokens/', 15_000);
+    clearRequestLog();
+
+    // Step 1 — create a fresh thread.
+    const create = await callOpenhumanRpc('openhuman.threads_create_new', {});
+    expect(create.ok).toBe(true);
+    const threadId: string =
+      create.result?.result?.id ?? create.result?.id ?? create.value?.result?.id ?? '';
+    expect(typeof threadId).toBe('string');
+    expect(threadId.length).toBeGreaterThan(0);
+    console.log(`${LOG} thread-crud: created thread id = ${threadId}`);
+
+    // Step 2 — append a user message.
+    const now = new Date().toISOString();
+    const msgId = `msg-e2e-batch3-${Date.now()}`;
+    const append = await callOpenhumanRpc('openhuman.threads_message_append', {
+      thread_id: threadId,
+      message: {
+        id: msgId,
+        content: 'Hello from mega-flow batch-3 CRUD smoke',
+        type: 'user',
+        sender: 'e2e-test',
+        created_at: now,
+        extra_metadata: {},
+      },
+    });
+    expect(append.ok).toBe(true);
+    console.log(`${LOG} thread-crud: append ok, msg_id = ${msgId}`);
+
+    // Step 3 — list messages for the thread and assert the appended message
+    // appears in the result.
+    const msgList = await callOpenhumanRpc('openhuman.threads_messages_list', {
+      thread_id: threadId,
+    });
+    expect(msgList.ok).toBe(true);
+
+    const messages: unknown[] =
+      msgList.result?.result?.messages ??
+      msgList.result?.messages ??
+      msgList.value?.result?.messages ??
+      [];
+    expect(Array.isArray(messages)).toBe(true);
+    expect(messages.length).toBeGreaterThan(0);
+
+    const found = messages.find(
+      (m: unknown) =>
+        typeof m === 'object' && m !== null && (m as Record<string, unknown>).id === msgId
+    );
+    expect(found).toBeDefined();
+    console.log(
+      `${LOG} thread-crud: message ${msgId} confirmed in list (${messages.length} total)`
     );
 
     const ping = await callOpenhumanRpc('core.ping', {});

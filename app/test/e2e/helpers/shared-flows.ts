@@ -328,6 +328,46 @@ export async function waitForOnboardingOverlayHidden(timeout = 10_000): Promise<
 }
 
 /**
+ * BootCheckGate shows a "Choose core mode" modal on fresh storage. It sits
+ * *in front of* the routed page, so onboarding never mounts behind it. We
+ * click the primary "Continue" CTA via a synthetic MouseEvent and retry
+ * until the modal is gone (a single click can race against the gate's
+ * re-render). Exported so specs that bypass `walkOnboarding` can still
+ * call this directly.
+ */
+export async function dismissBootCheckGateIfVisible(timeoutMs = 12_000): Promise<boolean> {
+  if (!supportsExecuteScript()) return false;
+  const deadline = Date.now() + timeoutMs;
+  let everSeen = false;
+  while (Date.now() < deadline) {
+    const status = await browser.execute(() => {
+      const heading = Array.from(document.querySelectorAll('h2')).find(
+        h => (h.textContent ?? '').trim() === 'Choose core mode'
+      );
+      if (!heading) return 'gone';
+      const modal = heading.closest('.fixed') ?? heading.parentElement;
+      if (!modal) return 'gone';
+      const buttons = Array.from(modal.querySelectorAll<HTMLButtonElement>('button'));
+      const primary =
+        buttons.find(b => (b.textContent ?? '').trim() === 'Continue') ??
+        buttons.find(b => /bg-ocean-500/.test(b.className)) ??
+        buttons[buttons.length - 1];
+      if (!primary) return 'visible-no-button';
+      ['mousedown', 'mouseup', 'click'].forEach(type => {
+        primary.dispatchEvent(
+          new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
+        );
+      });
+      return 'clicked';
+    });
+    if (status === 'gone') return everSeen;
+    everSeen = true;
+    await browser.pause(800);
+  }
+  return everSeen;
+}
+
+/**
  * Walk through onboarding by advancing the `data-testid="onboarding-next-button"`
  * until it unmounts. The button is rendered on every step (see
  * app/src/pages/onboarding/components/OnboardingNextButton.tsx), so we don't
@@ -337,6 +377,10 @@ export async function waitForOnboardingOverlayHidden(timeout = 10_000): Promise<
  *
  * We dispatch a real synthetic MouseEvent so React's onClick fires reliably,
  * and bail out if the button gets stuck in a permanently-disabled state.
+ *
+ * Dismisses BootCheckGate ("Choose core mode") first if it's blocking the
+ * route — onboarding sits behind it, so without this the walker just times
+ * out waiting for the next-button to mount.
  */
 export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promise<void> {
   if (!supportsExecuteScript()) {
@@ -345,6 +389,14 @@ export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promis
     const clicked = await clickFirstMatch(['Continue'], 3_000);
     if (clicked) console.log(`${logPrefix} Onboarding: clicked Continue (legacy fallback)`);
     return;
+  }
+
+  // Onboarding mounts beneath BootCheckGate. If the user is fresh-installed
+  // the gate is up and onboarding will never render until we confirm it.
+  const dismissed = await dismissBootCheckGateIfVisible();
+  if (dismissed) {
+    console.log(`${logPrefix} Dismissed BootCheckGate before onboarding`);
+    await browser.pause(1_500);
   }
 
   // Wait up to 15s for the onboarding shell to actually mount. If the user is
@@ -372,7 +424,8 @@ export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promis
       const btn = document.querySelector<HTMLButtonElement>(
         '[data-testid="onboarding-next-button"]'
       );
-      if (!btn) return 'gone';
+      const onOnboardingHash = window.location.hash.startsWith('#/onboarding');
+      if (!btn) return onOnboardingHash ? 'gone-but-onboarding-hash' : 'gone';
       if (btn.disabled) return 'disabled';
       ['mousedown', 'mouseup', 'click'].forEach(type => {
         btn.dispatchEvent(
@@ -385,6 +438,13 @@ export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promis
     if (status === 'gone') {
       console.log(`${logPrefix} Onboarding dismissed after ${step} step(s)`);
       return;
+    }
+    if (status === 'gone-but-onboarding-hash') {
+      // The button momentarily unmounts between steps (animation / lazy render).
+      // Don't claim victory yet — wait for the next step to render.
+      console.log(`${logPrefix} Onboarding next-button absent but hash still on /onboarding — waiting`);
+      await browser.pause(1_500);
+      continue;
     }
     if (status === 'disabled') {
       // Some steps gate the button on async work (skill catalog fetch, local

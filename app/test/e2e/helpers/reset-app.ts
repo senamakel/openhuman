@@ -24,7 +24,7 @@ import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
 import { supportsExecuteScript } from './platform';
 
-import { walkOnboarding } from './shared-flows';
+import { dismissBootCheckGateIfVisible, walkOnboarding } from './shared-flows';
 
 interface ResetAppOptions {
   /** Skip the auth + onboarding bootstrap. Use for specs that test the welcome/login screens themselves. */
@@ -35,46 +35,6 @@ interface ResetAppOptions {
 
 function stepLog(message: string): void {
   console.log(`[resetApp][${new Date().toISOString()}] ${message}`);
-}
-
-/**
- * The Tauri shell's BootCheckGate shows a "Choose core mode" modal whenever
- * Redux `coreMode.kind === 'unset'`. Click the primary "Continue" CTA to
- * confirm bundled-core mode. We dispatch a real synthetic MouseEvent so
- * React's onClick handler picks it up reliably, and retry until the modal
- * is gone (a single click can race against the gate's re-render).
- */
-async function dismissCoreModeModalIfVisible(timeoutMs = 15_000): Promise<boolean> {
-  if (!supportsExecuteScript()) return false;
-  const deadline = Date.now() + timeoutMs;
-  let everSeen = false;
-  while (Date.now() < deadline) {
-    const status = await browser.execute(() => {
-      const heading = Array.from(document.querySelectorAll('h2')).find(
-        h => (h.textContent ?? '').trim() === 'Choose core mode'
-      );
-      if (!heading) return 'gone';
-      const modal = heading.closest('.fixed') ?? heading.parentElement;
-      if (!modal) return 'gone';
-      const buttons = Array.from(modal.querySelectorAll<HTMLButtonElement>('button'));
-      const primary =
-        buttons.find(b => (b.textContent ?? '').trim() === 'Continue') ??
-        buttons.find(b => /bg-ocean-500/.test(b.className)) ??
-        buttons[buttons.length - 1];
-      if (!primary) return 'visible-no-button';
-      ['mousedown', 'mouseup', 'click'].forEach(type => {
-        primary.dispatchEvent(
-          new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
-        );
-      });
-      return 'clicked';
-    });
-    if (status === 'gone') return everSeen;
-    everSeen = true;
-    await browser.pause(800);
-  }
-  stepLog('"Choose core mode" modal never dismissed within budget');
-  return everSeen;
 }
 
 /**
@@ -156,7 +116,7 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
   await waitForWindowVisible(25_000);
   await waitForWebView(15_000);
   await waitForAppReady(15_000);
-  await dismissCoreModeModalIfVisible();
+  await dismissBootCheckGateIfVisible();
 
   if (options.skipAuth) {
     stepLog('skipAuth=true — stopping before auth bypass');
@@ -168,7 +128,7 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
   await waitForAppReady(15_000);
   // BootCheckGate may re-mount after the deep-link routes to /home; dismiss
   // the modal again if it slid back into view.
-  await dismissCoreModeModalIfVisible(8_000);
+  await dismissBootCheckGateIfVisible(8_000);
   await walkOnboarding(logPrefix);
 
   stepLog('Reset + onboarding complete');

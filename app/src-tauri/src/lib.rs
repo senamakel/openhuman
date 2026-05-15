@@ -1688,6 +1688,20 @@ pub fn run() {
             args.push(("--disable-gpu-compositing", None));
             log::info!("[cef-startup] Intel macOS detected: adding --disable-gpu-compositing (issue #1012)");
         }
+        // Issue #1697 — Linux AppImage fails to launch on Mesa 26+ (Arch,
+        // Manjaro, EndeavourOS, CachyOS) with EGL_BAD_ATTRIBUTE during GPU
+        // context creation. Chromium's EGL initialization returns
+        // EGL_BAD_ATTRIBUTE for both ES 3.0 and 2.0 contexts on Mesa 26+,
+        // producing ContextResult::kFatalFailure. Disabling the entire GPU
+        // process forces SwiftShader software rendering so the app launches
+        // on these distros. The same CEF version works on Ubuntu/deb-based
+        // distros with older Mesa; this flag degrades gracefully there
+        // (software-only rendering, no WebGL).
+        #[cfg(target_os = "linux")]
+        {
+            args.push(("--disable-gpu", None));
+            log::info!("[cef-startup] Linux detected: adding --disable-gpu (issue #1697)");
+        }
         tauri::Builder::<tauri::Cef>::new().command_line_args::<&str, &str>(args)
     };
 

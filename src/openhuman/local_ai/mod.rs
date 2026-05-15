@@ -20,6 +20,8 @@ mod schemas;
 pub mod sentiment;
 
 mod install;
+pub(crate) mod install_piper;
+pub(crate) mod install_whisper;
 pub(crate) mod lm_studio_api;
 pub(crate) mod model_ids;
 mod ollama_api;
@@ -30,6 +32,7 @@ pub(crate) mod paths;
 pub(crate) mod provider;
 mod service;
 mod types;
+pub(crate) mod voice_install_common;
 
 pub use core::*;
 pub use device::DeviceProfile;

@@ -11,8 +11,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::http::{header, HeaderValue};
-use axum::middleware::{from_fn, Next};
 use axum::{routing::post, Json, Router};
 use serde_json::{json, Value};
 
@@ -20,21 +18,6 @@ use super::*;
 use crate::openhuman::integrations::IntegrationClient;
 
 async fn start_mock_backend(app: Router) -> String {
-    // Force `Connection: close` on every response so reqwest's pool drops
-    // the socket instead of keeping it warm. Without this, hyper's stale-
-    // pool detection can transparently retransmit a logical POST under CI
-    // scheduler load, inflating the per-test request counters and breaking
-    // exact-count assertions that prove the retry contract (one logical
-    // retry, never a loop). The auth-retry path itself is unchanged — this
-    // only neutralises a measurement artefact in the test harness.
-    let app = app.layer(from_fn(
-        |req: axum::extract::Request, next: Next| async move {
-            let mut resp = next.run(req).await;
-            resp.headers_mut()
-                .insert(header::CONNECTION, HeaderValue::from_static("close"));
-            resp
-        },
-    ));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {

@@ -1,10 +1,10 @@
-# scripts/work
+# scripts/shortcuts/work
 
 Automate picking up a GitHub issue: sync `main`, cut a working branch, and
 hand the issue off to an LLM CLI to start implementing.
 
-Mirrors the structure of [`scripts/review`](../review) and reuses its
-`lib.sh` helpers.
+Mirrors the structure of [`scripts/shortcuts/review`](../review) and reuses
+its `lib.sh` helpers.
 
 ## Usage
 

@@ -37,6 +37,46 @@ function stepLog(message: string): void {
 }
 
 /**
+ * The Tauri shell's BootCheckGate shows a "Choose core mode" modal whenever
+ * Redux `coreMode.kind === 'unset'`. Click the primary "Continue" CTA to
+ * confirm bundled-core mode. We dispatch a real synthetic MouseEvent so
+ * React's onClick handler picks it up reliably, and retry until the modal
+ * is gone (a single click can race against the gate's re-render).
+ */
+async function dismissCoreModeModalIfVisible(timeoutMs = 15_000): Promise<boolean> {
+  if (!supportsExecuteScript()) return false;
+  const deadline = Date.now() + timeoutMs;
+  let everSeen = false;
+  while (Date.now() < deadline) {
+    const status = await browser.execute(() => {
+      const heading = Array.from(document.querySelectorAll('h2')).find(
+        h => (h.textContent ?? '').trim() === 'Choose core mode'
+      );
+      if (!heading) return 'gone';
+      const modal = heading.closest('.fixed') ?? heading.parentElement;
+      if (!modal) return 'gone';
+      const buttons = Array.from(modal.querySelectorAll<HTMLButtonElement>('button'));
+      const primary =
+        buttons.find(b => (b.textContent ?? '').trim() === 'Continue') ??
+        buttons.find(b => /bg-ocean-500/.test(b.className)) ??
+        buttons[buttons.length - 1];
+      if (!primary) return 'visible-no-button';
+      ['mousedown', 'mouseup', 'click'].forEach(type => {
+        primary.dispatchEvent(
+          new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
+        );
+      });
+      return 'clicked';
+    });
+    if (status === 'gone') return everSeen;
+    everSeen = true;
+    await browser.pause(800);
+  }
+  stepLog('"Choose core mode" modal never dismissed within budget');
+  return everSeen;
+}
+
+/**
  * Wipe sidecar + renderer state and (by default) re-auth + onboard.
  *
  * Order matters:
@@ -59,35 +99,62 @@ export async function resetApp(
   const logPrefix = options.logPrefix ?? '[resetApp]';
 
   stepLog(`Calling openhuman.test_reset for ${userId}`);
-  const reset = await callOpenhumanRpc('openhuman.test_reset', {});
-  if (!reset.ok) {
-    throw new Error(
-      `openhuman.test_reset failed: ${JSON.stringify(reset.error ?? reset)}`
-    );
+  // The sidecar only spawns after the first successful user login, so the
+  // very first spec of a run hits an unreachable RPC — that's not an error,
+  // a freshly-launched workspace is already in the same "pristine" state
+  // the wipe would have produced. Race the RPC call against a short budget
+  // and treat the result as a flag: did we actually wipe anything?
+  const reset = await Promise.race([
+    callOpenhumanRpc('openhuman.test_reset', {}),
+    new Promise<{ ok: false; error: string }>(resolve =>
+      setTimeout(
+        () => resolve({ ok: false, error: 'test_reset RPC probe timed out (sidecar likely not started)' }),
+        8_000
+      )
+    ),
+  ]);
+  let didWipe = false;
+  if (reset.ok) {
+    stepLog(`Sidecar wipe ok: ${JSON.stringify(reset.result)}`);
+    didWipe = true;
+  } else {
+    const errText = String(reset.error ?? '');
+    const unreachable =
+      errText.includes('not reachable') ||
+      errText.includes('probe timed out') ||
+      errText.includes('ECONNREFUSED');
+    if (!unreachable) {
+      throw new Error(`openhuman.test_reset failed: ${errText || JSON.stringify(reset)}`);
+    }
+    stepLog(`Sidecar not reachable (${errText}) — treating as fresh launch, skipping wipe`);
   }
-  stepLog(`Sidecar wipe ok: ${JSON.stringify(reset.result)}`);
 
-  if (supportsExecuteScript()) {
+  // Only reload the renderer when we actually wiped state — otherwise we
+  // throw away the in-app "Choose core mode" acceptance the app shell has
+  // already cleared, and end up wedged behind that modal on first launch.
+  if (didWipe && supportsExecuteScript()) {
     stepLog('Clearing renderer storage + reloading webview');
     await browser.execute(() => {
       try {
         window.localStorage.clear();
         window.sessionStorage.clear();
       } catch (err) {
-        // Some embedded origins block storage access — best-effort.
         console.warn('[resetApp] storage.clear failed', err);
       }
       window.location.replace('#/');
       window.location.reload();
     });
+  } else if (didWipe) {
+    stepLog('execute() unsupported — skipping renderer reload (state may be stale)');
   } else {
-    stepLog('execute() unsupported — skipping renderer reload');
+    stepLog('Skipping renderer reload — nothing was wiped');
   }
 
   await waitForApp();
   await waitForWindowVisible(25_000);
   await waitForWebView(15_000);
   await waitForAppReady(15_000);
+  await dismissCoreModeModalIfVisible();
 
   if (options.skipAuth) {
     stepLog('skipAuth=true — stopping before auth bypass');
@@ -97,6 +164,9 @@ export async function resetApp(
   stepLog(`Triggering auth deep-link bypass for ${userId}`);
   await triggerAuthDeepLinkBypass(userId);
   await waitForAppReady(15_000);
+  // BootCheckGate may re-mount after the deep-link routes to /home; dismiss
+  // the modal again if it slid back into view.
+  await dismissCoreModeModalIfVisible(8_000);
   await completeOnboardingIfVisible(logPrefix);
 
   stepLog('Reset + onboarding complete');

@@ -79,8 +79,16 @@ export async function restartApp(): Promise<void> {
     console.debug('[app] restartApp: skipped — not running in Tauri');
     return;
   }
-  if (IS_DEV) {
-    console.debug('[app] restartApp: dev mode → window.location.reload()');
+  // `import.meta.env.MODE` is honored by `vite build --mode development`
+  // (the E2E build uses that — see app/scripts/e2e-build.sh). `IS_DEV` is
+  // only true under `vite dev`, never `vite build`, so we'd otherwise hit
+  // the OS-level restart path in the packaged E2E binary and kill the
+  // WebDriver CDP target every time identity flips on login.
+  const isDevLike = IS_DEV || import.meta.env.MODE === 'development';
+  if (isDevLike) {
+    console.debug(
+      `[app] restartApp: dev-like (mode=${import.meta.env.MODE}, dev=${import.meta.env.DEV}) → window.location.reload()`
+    );
     window.location.reload();
     return;
   }

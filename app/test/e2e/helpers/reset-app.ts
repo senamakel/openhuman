@@ -24,11 +24,7 @@ import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
 import { supportsExecuteScript } from './platform';
 
-// Note: we deliberately do NOT use shared-flows' completeOnboardingIfVisible
-// here — that walker matches a hardcoded list of step *titles* (Welcome,
-// Install Skills, …) and silently skips when the onboarding flow grows a
-// new step (e.g. "Connect your Gmail"). We key off the onboarding-next-button
-// testid instead, which is stable across steps.
+import { walkOnboarding } from './shared-flows';
 
 interface ResetAppOptions {
   /** Skip the auth + onboarding bootstrap. Use for specs that test the welcome/login screens themselves. */
@@ -173,76 +169,8 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
   // BootCheckGate may re-mount after the deep-link routes to /home; dismiss
   // the modal again if it slid back into view.
   await dismissCoreModeModalIfVisible(8_000);
-  await walkOnboardingViaTestId(logPrefix);
+  await walkOnboarding(logPrefix);
 
   stepLog('Reset + onboarding complete');
   return userId;
-}
-
-/**
- * Click the onboarding "Continue" button repeatedly until it disappears.
- *
- * The button has `data-testid="onboarding-next-button"` on every step
- * (see app/src/pages/onboarding/components/OnboardingNextButton.tsx), so
- * we don't need to know the step *content* — we just keep advancing while
- * the testid is mounted. Capped at 12 iterations to avoid runaway clicks
- * if a step ever wedges.
- */
-async function walkOnboardingViaTestId(logPrefix: string, maxSteps = 12): Promise<number> {
-  if (!supportsExecuteScript()) return 0;
-
-  // First, wait up to 15s for the onboarding shell to mount at all. If it
-  // never appears the user is already on /home (e.g. onboarding pre-completed
-  // for this user id) and we just return.
-  const appeared = await browser
-    .waitUntil(
-      async () =>
-        Boolean(
-          await browser.execute(
-            () => document.querySelector('[data-testid="onboarding-next-button"]') !== null
-          )
-        ),
-      { timeout: 15_000, interval: 500, timeoutMsg: 'onboarding-next-button never appeared' }
-    )
-    .catch(() => false);
-
-  if (!appeared) {
-    stepLog(`${logPrefix} Onboarding next-button never appeared — assuming already onboarded`);
-    return 0;
-  }
-
-  let steps = 0;
-  for (let i = 0; i < maxSteps; i += 1) {
-    const stillMounted = await browser.execute(() => {
-      const btn = document.querySelector<HTMLButtonElement>(
-        '[data-testid="onboarding-next-button"]'
-      );
-      if (!btn) return false;
-      if (btn.disabled) return 'disabled';
-      ['mousedown', 'mouseup', 'click'].forEach(type => {
-        btn.dispatchEvent(
-          new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
-        );
-      });
-      return true;
-    });
-
-    if (stillMounted === false) {
-      stepLog(`${logPrefix} Onboarding finished after ${steps} step(s)`);
-      return steps;
-    }
-    if (stillMounted === 'disabled') {
-      // Some steps gate the button on async work (e.g. fetching skills).
-      // Give it a moment, then re-check; if it stays disabled the step
-      // is in a permanently-stuck state and we bail out.
-      stepLog(`${logPrefix} Next-button disabled at step ${steps} — waiting for it to enable`);
-      await browser.pause(2_000);
-      continue;
-    }
-    steps += 1;
-    // Most steps animate in/out — wait a beat for the next one to render.
-    await browser.pause(steps >= 4 ? 3_000 : 1_500);
-  }
-  stepLog(`${logPrefix} Hit max onboarding steps (${maxSteps}) — moving on`);
-  return steps;
 }

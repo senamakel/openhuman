@@ -328,52 +328,76 @@ export async function waitForOnboardingOverlayHidden(timeout = 10_000): Promise<
 }
 
 /**
- * Walk through onboarding: Welcome → Local AI → Screen & Accessibility → Tools → Skills.
- * Each step uses the shared primary button label "Continue" (see OnboardingNextButton).
- * Completing the last step dismisses the overlay.
+ * Walk through onboarding by advancing the `data-testid="onboarding-next-button"`
+ * until it unmounts. The button is rendered on every step (see
+ * app/src/pages/onboarding/components/OnboardingNextButton.tsx), so we don't
+ * need to track step *titles* — title-based detection silently skipped any
+ * step that wasn't in `ONBOARDING_OVERLAY_TEXTS` (e.g. "Connect your Gmail")
+ * and left specs wedged behind onboarding while reporting success.
+ *
+ * We dispatch a real synthetic MouseEvent so React's onClick fires reliably,
+ * and bail out if the button gets stuck in a permanently-disabled state.
  */
-export async function walkOnboarding(logPrefix = '[E2E]') {
-  let visible = false;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    if (await onboardingOverlayLikelyVisible()) {
-      visible = true;
-      break;
-    }
-    await browser.pause(400);
-  }
-
-  if (!visible) {
-    console.log(`${logPrefix} Onboarding overlay not visible — skipping`);
-    await browser.pause(1_000);
+export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promise<void> {
+  if (!supportsExecuteScript()) {
+    // Mac2/no-script fallback: legacy "Continue" matcher, kept so the
+    // unsupported-driver branch isn't a hard failure for old harnesses.
+    const clicked = await clickFirstMatch(['Continue'], 3_000);
+    if (clicked) console.log(`${logPrefix} Onboarding: clicked Continue (legacy fallback)`);
     return;
   }
 
-  // Up to 6 "Continue" clicks — covers 5 steps plus one retry if the list is still loading.
-  for (let step = 0; step < 6; step++) {
-    if (!(await onboardingOverlayLikelyVisible())) {
-      console.log(`${logPrefix} Onboarding dismissed after step ${step}`);
+  // Wait up to 15s for the onboarding shell to actually mount. If the user is
+  // already onboarded (e.g. resuming an existing session) the button never
+  // appears and we return without firing any clicks.
+  const appeared = await browser
+    .waitUntil(
+      async () =>
+        Boolean(
+          await browser.execute(
+            () => document.querySelector('[data-testid="onboarding-next-button"]') !== null
+          )
+        ),
+      { timeout: 15_000, interval: 500, timeoutMsg: 'onboarding-next-button never appeared' }
+    )
+    .catch(() => false);
+
+  if (!appeared) {
+    console.log(`${logPrefix} Onboarding next-button never appeared — assuming already onboarded`);
+    return;
+  }
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const status = await browser.execute(() => {
+      const btn = document.querySelector<HTMLButtonElement>(
+        '[data-testid="onboarding-next-button"]'
+      );
+      if (!btn) return 'gone';
+      if (btn.disabled) return 'disabled';
+      ['mousedown', 'mouseup', 'click'].forEach(type => {
+        btn.dispatchEvent(
+          new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
+        );
+      });
+      return 'clicked';
+    });
+
+    if (status === 'gone') {
+      console.log(`${logPrefix} Onboarding dismissed after ${step} step(s)`);
       return;
     }
-
-    const clicked = await clickFirstMatch(['Continue'], 12_000);
-    if (clicked) {
-      console.log(`${logPrefix} Onboarding step ${step}: clicked Continue`);
-      await browser.pause(step >= 4 ? 4_000 : 2_000);
-    } else {
-      const installSkillsLabel = ONBOARDING_OVERLAY_TEXTS[ONBOARDING_OVERLAY_TEXTS.length - 1]!;
-      if (await textExists(installSkillsLabel)) {
-        await browser.pause(2_500);
-        const retry = await clickFirstMatch(['Continue'], 10_000);
-        if (retry) {
-          console.log(
-            `${logPrefix} Onboarding step ${step}: retry Continue on ${installSkillsLabel}`
-          );
-          await browser.pause(4_000);
-        }
-      }
-      break;
+    if (status === 'disabled') {
+      // Some steps gate the button on async work (skill catalog fetch, local
+      // AI download check). Give it a beat, then retry; if it stays disabled
+      // for too long we bail rather than spinning forever.
+      console.log(`${logPrefix} Onboarding step ${step}: next-button disabled — waiting`);
+      await browser.pause(2_000);
+      continue;
     }
+    console.log(`${logPrefix} Onboarding step ${step}: clicked Continue`);
+    await browser.pause(step >= 4 ? 3_000 : 1_500);
   }
+  console.log(`${logPrefix} Onboarding hit max steps (${maxSteps}) — moving on`);
 }
 
 /**

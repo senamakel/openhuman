@@ -1,25 +1,41 @@
 /**
  * Cross-platform app lifecycle helpers for E2E tests.
  *
- * ## Appium Mac2 (macOS)
- * XCUITest launches the .app bundle.  The app starts with visible:false
- * (tray app) — only the menu bar is visible until a deep link shows the window.
- * Readiness is detected by polling the accessibility tree element count.
+ * The harness is unified onto Appium Chromium driver attached to CEF's
+ * remote-debugging (CDP) port on macOS / Linux / Windows. The session
+ * exposes the WebView DOM directly — standard CSS selectors, `el.click()`,
+ * and `browser.execute(...)` all work as in a normal browser session.
  *
- * ## tauri-driver (Linux)
- * tauri-driver launches the debug binary directly and exposes the WebView
- * DOM via W3C WebDriver.  Readiness is detected by checking document state
- * and the presence of the React root element.
+ * Readiness checks use `document.readyState` + React-root presence;
+ * the old Mac2 accessibility-tree polling is gone.
  */
 import { isTauriDriver } from './platform';
 
 /**
  * Wait for the app process to be ready.
- * The app starts with a hidden window, so we just wait for the process
- * to initialize (driver has already launched it).
+ *
+ * The runner script has already launched the CEF binary and confirmed CDP
+ * is responding on :19222 before WDIO connects, so by the time a spec runs
+ * we usually just need to give the React root a beat to mount. Specs that
+ * need a stricter guarantee should call `waitForAppReady` directly.
  */
 export async function waitForApp(): Promise<void> {
-  await browser.pause(5_000);
+  try {
+    await waitForAppReady(15_000);
+  } catch (error) {
+    // Only swallow genuine readiness timeouts (the error waitForAppReady
+    // throws when the DOM never settles in the budget). Anything else —
+    // session terminated, executeScript not supported, the DOM crashed —
+    // surfaces with full context instead of being hidden behind a blind
+    // 5s pause.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('waitForAppReady timed out')) {
+      throw error;
+    }
+    // Fall back to the legacy fixed pause so specs that historically tolerated
+    // a slow startup don't regress.
+    await browser.pause(5_000);
+  }
 }
 
 /**

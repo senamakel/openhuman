@@ -454,6 +454,86 @@ mod tests {
         }
     }
 
+    // ── effective_embedding_settings (unprobed selection priority) ────────
+
+    #[test]
+    fn embedding_settings_defaults_to_cloud_when_no_local_ai() {
+        let mem = MemoryConfig::default();
+        let (provider, model, dims) = effective_embedding_settings(&mem, None);
+        assert_eq!(
+            provider, "cloud",
+            "no local-AI config must default to cloud"
+        );
+        assert!(!model.is_empty(), "cloud model must be non-empty");
+        assert!(dims > 0, "cloud dimensions must be positive");
+    }
+
+    #[test]
+    fn embedding_settings_uses_memory_config_when_local_ai_disabled() {
+        let mut mem = MemoryConfig::default();
+        mem.embedding_provider = "openai".to_string();
+        mem.embedding_model = "text-embedding-3-small".to_string();
+        mem.embedding_dimensions = 1536;
+
+        let mut local_ai = LocalAiConfig::default();
+        local_ai.runtime_enabled = true;
+        local_ai.usage.embeddings = false; // explicitly disabled
+
+        let (provider, model, dims) = effective_embedding_settings(&mem, Some(&local_ai));
+        assert_eq!(
+            provider, "openai",
+            "when local embeddings disabled, memory config must be used"
+        );
+        assert_eq!(model, "text-embedding-3-small");
+        assert_eq!(dims, 1536);
+    }
+
+    #[test]
+    fn embedding_settings_local_ai_opt_in_overrides_memory_config() {
+        // memory.embedding_provider says "cloud" — but local_ai.usage.embeddings
+        // is the stronger signal and must override it.
+        let mem = MemoryConfig::default(); // cloud by default
+        let mut local_ai = LocalAiConfig::default();
+        local_ai.runtime_enabled = true;
+        local_ai.usage.embeddings = true;
+        local_ai.embedding_model_id = "nomic-embed-text:latest".to_string();
+
+        let (provider, model, dims) = effective_embedding_settings(&mem, Some(&local_ai));
+        assert_eq!(
+            provider, "ollama",
+            "local-AI opt-in must override memory.embedding_provider"
+        );
+        assert_eq!(model, "nomic-embed-text:latest");
+        assert_eq!(
+            dims,
+            crate::openhuman::embeddings::DEFAULT_OLLAMA_DIMENSIONS,
+            "dimensions must default to Ollama default"
+        );
+    }
+
+    #[test]
+    fn embedding_settings_local_ai_opt_in_with_empty_model_uses_default() {
+        // When the user has opted in but the model field is empty/whitespace,
+        // the default Ollama model must be used rather than passing "" to Ollama.
+        let mem = MemoryConfig::default();
+        let mut local_ai = LocalAiConfig::default();
+        local_ai.runtime_enabled = true;
+        local_ai.usage.embeddings = true;
+        local_ai.embedding_model_id = "   ".to_string(); // whitespace only
+
+        let (provider, model, dims) = effective_embedding_settings(&mem, Some(&local_ai));
+        assert_eq!(provider, "ollama");
+        assert_eq!(
+            model,
+            crate::openhuman::embeddings::DEFAULT_OLLAMA_MODEL,
+            "empty model ID must fall back to default Ollama model"
+        );
+        assert_eq!(
+            dims,
+            crate::openhuman::embeddings::DEFAULT_OLLAMA_DIMENSIONS
+        );
+    }
+
     #[test]
     fn effective_memory_backend_name_always_returns_namespace() {
         assert_eq!(effective_memory_backend_name("sqlite", None), "namespace");

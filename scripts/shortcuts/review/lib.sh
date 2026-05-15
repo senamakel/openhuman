@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for scripts/review/*.sh
+# Shared helpers for scripts/shortcuts/review/*.sh
 # Source this file; do not execute directly.
 
 set -euo pipefail
@@ -115,7 +115,17 @@ sync_pr() {
   git checkout "$local_branch"
 
   echo "[review] merging main into $local_branch (conflicts will not abort)..."
-  git merge main || echo "[review] ! conflicts detected in PR #$pr, continuing."
+  REVIEW_HAS_CONFLICTS=0
+  REVIEW_CONFLICT_FILES=""
+  if ! git merge --no-edit main; then
+    REVIEW_CONFLICT_FILES=$(git diff --name-only --diff-filter=U | sort -u)
+    if [ -z "$REVIEW_CONFLICT_FILES" ]; then
+      fail "git merge main failed for a non-conflict reason"
+      return 1
+    fi
+    echo "[review] ! conflicts detected in PR #$pr, continuing."
+    REVIEW_HAS_CONFLICTS=1
+  fi
 
   # Prefer an existing SSH remote pointing at this fork to avoid https auth prompts.
   local remote_name="remote-$pr"
@@ -146,4 +156,8 @@ sync_pr() {
   REVIEW_LOCAL_BRANCH="$local_branch"
   REVIEW_HEAD_REPO="$head_repo"
   REVIEW_HEAD_BRANCH="$head_branch"
+  REVIEW_PUSH_REMOTE="$remote_name"
+  export REVIEW_PR REVIEW_REPO_RESOLVED REVIEW_LOCAL_BRANCH \
+         REVIEW_HEAD_REPO REVIEW_HEAD_BRANCH REVIEW_PUSH_REMOTE \
+         REVIEW_HAS_CONFLICTS REVIEW_CONFLICT_FILES
 }

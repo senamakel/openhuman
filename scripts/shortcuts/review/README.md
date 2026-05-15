@@ -1,4 +1,4 @@
-# scripts/review
+# scripts/shortcuts/review
 
 Helpers for working through PRs on this repo. Runnable directly — no zshrc
 integration needed.
@@ -40,11 +40,11 @@ pnpm review --help
 Or invoke the scripts directly:
 
 ```sh
-scripts/review/sync.sh 123
-scripts/review/review.sh 123
-scripts/review/fix.sh 123
-scripts/review/coverage.sh 123
-scripts/review/merge.sh 123
+scripts/shortcuts/review/sync.sh 123
+scripts/shortcuts/review/review.sh 123
+scripts/shortcuts/review/fix.sh 123
+scripts/shortcuts/review/coverage.sh 123
+scripts/shortcuts/review/merge.sh 123
 ```
 
 ## Config

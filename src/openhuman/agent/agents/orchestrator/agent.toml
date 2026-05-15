@@ -55,7 +55,12 @@ subagents = [
 ]
 
 [model]
-hint = "reasoning"
+# Orchestrator is the user-facing front-line agent; conversational latency
+# dominates UX. `hint:chat` resolves to the backend's fast chat tier
+# (currently `reasoning-quick-v1` — Kimi K2.6 Turbo) for low TTFT on
+# routing / direct-reply turns. Deep reasoning happens via delegation to
+# `planner` / `researcher`, which keep `hint:reasoning`.
+hint = "chat"
 
 [tools]
 # Direct tools — things the orchestrator calls itself rather than

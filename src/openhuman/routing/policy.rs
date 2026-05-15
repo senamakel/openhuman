@@ -91,6 +91,9 @@ impl RoutingTarget {
 /// - `hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`,
 ///   `hint:lightweight` → [`TaskCategory::Lightweight`]
 /// - `hint:summarize`, `hint:medium`, `hint:tool_lite` → [`TaskCategory::Medium`]
+/// - `hint:chat` → [`TaskCategory::Heavy`] (always remote — resolves to the
+///   backend's fast chat tier; the local model is too slow for the
+///   conversational TTFT budget that motivated this hint).
 /// - All other `hint:*` values and exact model names → [`TaskCategory::Heavy`]
 pub fn classify(model: &str) -> TaskCategory {
     match model.strip_prefix("hint:") {

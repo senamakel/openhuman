@@ -94,3 +94,5 @@ app/.claude/scheduled_tasks.lock
 target-test-run
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+
+tmp/

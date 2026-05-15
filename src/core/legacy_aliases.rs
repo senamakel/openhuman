@@ -159,9 +159,12 @@ mod tests {
         let body = object_body_after_marker(source, "export const CORE_RPC_METHODS", "} as const;");
         let mut methods = BTreeMap::new();
         for line in body.lines().map(str::trim).filter(|line| !line.is_empty()) {
-            let Some((key, value)) = line.split_once(':') else {
+            if line.starts_with("//") {
                 continue;
-            };
+            }
+            let (key, value) = line
+                .split_once(':')
+                .unwrap_or_else(|| panic!("malformed CORE_RPC_METHODS entry: `{line}`"));
             methods.insert(key.trim().to_string(), quoted_value(value));
         }
         methods
@@ -209,6 +212,100 @@ mod tests {
             .into_iter()
             .map(|method| method.method)
             .collect()
+    }
+
+    #[test]
+    fn quoted_value_extracts_single_quoted_string() {
+        assert_eq!(quoted_value(": 'hello'"), "hello");
+    }
+
+    #[test]
+    fn quoted_value_extracts_double_quoted_string() {
+        assert_eq!(quoted_value(": \"hello\""), "hello");
+    }
+
+    #[test]
+    #[should_panic(expected = "expected quoted value")]
+    fn quoted_value_panics_on_unquoted_text() {
+        let _ = quoted_value(": bare-token");
+    }
+
+    #[test]
+    #[should_panic(expected = "unterminated quoted value")]
+    fn quoted_value_panics_on_unterminated_quote() {
+        let _ = quoted_value(": 'open-but-never-closed");
+    }
+
+    #[test]
+    fn object_body_after_marker_returns_inner_body() {
+        let source = "noise\nexport const FOO = {\n  alpha: 'a',\n  beta: 'b',\n} as const;\nrest";
+        let body = object_body_after_marker(source, "export const FOO", "} as const;");
+        assert!(body.contains("alpha: 'a'"));
+        assert!(body.contains("beta: 'b'"));
+        assert!(!body.contains("rest"));
+        assert!(!body.contains("noise"));
+    }
+
+    #[test]
+    #[should_panic(expected = "missing marker")]
+    fn object_body_after_marker_panics_when_marker_absent() {
+        let _ = object_body_after_marker("nothing here", "export const MISSING", "};");
+    }
+
+    #[test]
+    #[should_panic(expected = "missing terminator")]
+    fn object_body_after_marker_panics_when_terminator_absent() {
+        let _ = object_body_after_marker(
+            "export const FOO = { alpha: 'a',",
+            "export const FOO",
+            "} as const;",
+        );
+    }
+
+    #[test]
+    fn parse_core_rpc_methods_extracts_entries_and_skips_comments() {
+        let source = "export const CORE_RPC_METHODS = {\n  // a comment that should be skipped\n  alphaMethod: 'openhuman.alpha',\n  betaMethod: 'openhuman.beta',\n} as const;\n";
+        let methods = parse_core_rpc_methods(source);
+        assert_eq!(
+            methods.get("alphaMethod").map(String::as_str),
+            Some("openhuman.alpha")
+        );
+        assert_eq!(
+            methods.get("betaMethod").map(String::as_str),
+            Some("openhuman.beta")
+        );
+        assert_eq!(methods.len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "malformed CORE_RPC_METHODS entry")]
+    fn parse_core_rpc_methods_panics_on_non_colon_line() {
+        let source =
+            "export const CORE_RPC_METHODS = {\n  alphaMethod 'openhuman.alpha',\n} as const;\n";
+        let _ = parse_core_rpc_methods(source);
+    }
+
+    #[test]
+    fn parse_frontend_legacy_aliases_resolves_core_method_refs_and_literals() {
+        let source = "export const CORE_RPC_METHODS = {\n  alphaMethod: 'openhuman.alpha',\n} as const;\n\nexport const LEGACY_METHOD_ALIASES: Record<string, CoreRpcMethod> = {\n  'openhuman.legacy_alpha': CORE_RPC_METHODS.alphaMethod,\n  'openhuman.legacy_literal': 'openhuman.literal_target',\n};\n";
+        let core_methods = parse_core_rpc_methods(source);
+        let aliases = parse_frontend_legacy_aliases(source, &core_methods);
+        assert_eq!(
+            aliases.get("openhuman.legacy_alpha").map(String::as_str),
+            Some("openhuman.alpha")
+        );
+        assert_eq!(
+            aliases.get("openhuman.legacy_literal").map(String::as_str),
+            Some("openhuman.literal_target")
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "legacy alias references unknown CORE_RPC_METHODS")]
+    fn parse_frontend_legacy_aliases_panics_on_unknown_core_method_ref() {
+        let source = "export const CORE_RPC_METHODS = {\n  alphaMethod: 'openhuman.alpha',\n} as const;\n\nexport const LEGACY_METHOD_ALIASES: Record<string, CoreRpcMethod> = {\n  'openhuman.legacy_alpha': CORE_RPC_METHODS.doesNotExist,\n};\n";
+        let core_methods = parse_core_rpc_methods(source);
+        let _ = parse_frontend_legacy_aliases(source, &core_methods);
     }
 
     #[test]

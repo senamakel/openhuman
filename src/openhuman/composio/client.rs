@@ -251,8 +251,26 @@ impl ComposioClient {
             anyhow::bail!("composio.execute_tool_once: tool slug must not be empty");
         }
         let arguments = arguments.unwrap_or(serde_json::Value::Object(Default::default()));
+        tracing::debug!(
+            tool = %tool,
+            "[composio] execute_tool_once start"
+        );
         let body = json!({ "tool": tool, "arguments": arguments });
-        self.post_execute_tool(&body).await
+        let result = self.post_execute_tool(&body).await;
+        match &result {
+            Ok(resp) => tracing::debug!(
+                tool = %tool,
+                successful = resp.successful,
+                has_error = resp.error.is_some(),
+                "[composio] execute_tool_once completed"
+            ),
+            Err(err) => tracing::debug!(
+                tool = %tool,
+                error = %err,
+                "[composio] execute_tool_once failed"
+            ),
+        }
+        result
     }
 
     /// `GET /agent-integrations/composio/github/repos` — list repositories

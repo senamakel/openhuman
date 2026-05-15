@@ -1,14 +1,26 @@
 /**
  * Deep-link trigger utilities for E2E tests.
  *
- * ## tauri-driver (Linux — preferred CI path)
- * `browser.execute()` is fully supported, so `window.__simulateDeepLink()` is
- * the primary strategy.  Shell fallback uses `xdg-open`.
+ * All three platforms now run under Appium chromium driver attached to CEF,
+ * which supports W3C `browser.execute()`. The primary path is therefore
+ * `window.__simulateDeepLink()` injected into the WebView.
  *
- * ## Appium Mac2 (macOS — local dev path)
- * Mac2 does NOT support W3C Execute Script in WKWebView.  Strategies (in order):
- * 1. `macos: activateApp` + `macos: deepLink` extension commands
- * 2. Shell `open -a ... "url"` fallback
+ * Strategy order:
+ *   1. WebView `__simulateDeepLink()` — works on every platform.
+ *   2. macOS-only `macos: launchApp` + `macos: deepLink` extension commands
+ *      (kept for the macOS shell-out path that lets the OS dispatch the URL
+ *      scheme through Launch Services).
+ *   3. macOS shell `open -a … "url"`.
+ *
+ * Linux has no shell fallback: `xdg-open openhuman://…` requires a
+ * `.desktop` file registering the URL scheme, which the CI container does
+ * not have, so attempting it just produces noise. If the WebView simulate
+ * fails on Linux, `triggerDeepLink` throws immediately.
+ *
+ * When the WebDriver session has been torn down (`A session is either
+ * terminated or not started`), every fallback also fails with the same
+ * error — so we detect that case once via `isSessionDeadError` and rethrow
+ * a clear message instead of letting the cascade of retries spam the log.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,6 +42,20 @@ function execCommand(command: string): Promise<void> {
       else resolve();
     });
   });
+}
+
+/**
+ * A "session is either terminated or not started" error from the WebDriver
+ * client means CEF/Appium has already dropped the connection. Retrying or
+ * falling back to other strategies is pointless — every subsequent call
+ * will produce the same error (which is what caused the ~hundred-line
+ * WARN/ERROR cascade in the Linux job we're trying to fix). Detect it
+ * once, fail fast, and surface a clean error.
+ */
+function isSessionDeadError(err: unknown): boolean {
+  if (!err) return false;
+  const message = err instanceof Error ? err.message : String(err);
+  return /session is either terminated or not started|invalid session id/i.test(message);
 }
 
 /**
@@ -66,6 +92,15 @@ async function trySimulateDeepLinkInWebView(url: string): Promise<boolean> {
     if (ping !== true) return false;
   } catch (err) {
     deepLinkDebug('execute ping failed', err instanceof Error ? err.message : err);
+    // Bubble up dead-session so the caller can short-circuit the
+    // macOS / xdg-open fallback chain instead of spamming the log
+    // with identical "session terminated" errors for every retry.
+    if (isSessionDeadError(err)) {
+      throw new Error(
+        `WebDriver session is dead — cannot deliver deep link ${url}. ` +
+          `The CEF app or driver likely crashed in an earlier step.`
+      );
+    }
     return false;
   }
 
@@ -140,52 +175,76 @@ export async function triggerDeepLink(url: string): Promise<void> {
   });
 
   if (typeof browser !== 'undefined') {
-    // Strategy 1: WebView simulate (works on tauri-driver, skipped on Mac2)
-    if (await trySimulateDeepLinkInWebView(url)) {
-      deepLinkDebug('deep link delivered via WebView simulate');
-      return;
+    // Strategy 1: WebView simulate — the only reliable path on the unified
+    // CEF/Appium-Chromium harness. If it succeeds we're done; if it throws
+    // a dead-session error there's nothing more to try (the macOS extension
+    // commands and shell fallback both require a live driver too, or in
+    // Linux's case a `.desktop` file registering the `openhuman://` scheme
+    // that the CI container doesn't have).
+    try {
+      if (await trySimulateDeepLinkInWebView(url)) {
+        deepLinkDebug('deep link delivered via WebView simulate');
+        return;
+      }
+    } catch (err) {
+      // Dead-session: rethrow with the clear message so WDIO reports the
+      // real cause instead of a "Failed to trigger deep link: xdg-open"
+      // red herring.
+      if (isSessionDeadError(err)) throw err;
+      // Other errors (e.g. JS exception inside the page): keep trying
+      // the platform-specific fallbacks below.
+      deepLinkDebug(
+        'WebView simulate threw, continuing to fallbacks',
+        err instanceof Error ? err.message : err
+      );
     }
 
-    try {
-      await browser.execute('macos: launchApp', {
-        bundleId: 'com.openhuman.app',
-        arguments: [url],
-      } as Record<string, unknown>);
-      deepLinkDebug('macos: launchApp OK');
-    } catch (err) {
-      deepLinkDebug('macos: launchApp failed', err instanceof Error ? err.message : err);
-    }
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
+    // Strategy 2: macOS-only extension commands. Skip outright on Linux —
+    // they always fail there with the same "session terminated" cascade
+    // we're trying to silence.
+    if (process.platform === 'darwin') {
       try {
-        await browser.execute('macos: deepLink', { url, bundleId: 'com.openhuman.app' } as Record<
-          string,
-          unknown
-        >);
-        deepLinkDebug('macos: deepLink OK', { attempt });
-        await browser.pause(300);
-        return;
+        await browser.execute('macos: launchApp', {
+          bundleId: 'com.openhuman.app',
+          arguments: [url],
+        } as Record<string, unknown>);
+        deepLinkDebug('macos: launchApp OK');
       } catch (err) {
-        deepLinkDebug('macos: deepLink failed', {
-          attempt,
-          error: err instanceof Error ? err.message : err,
-        });
-        await browser.pause(250);
+        if (isSessionDeadError(err)) throw err;
+        deepLinkDebug('macos: launchApp failed', err instanceof Error ? err.message : err);
+      }
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          await browser.execute('macos: deepLink', { url, bundleId: 'com.openhuman.app' } as Record<
+            string,
+            unknown
+          >);
+          deepLinkDebug('macos: deepLink OK', { attempt });
+          await browser.pause(300);
+          return;
+        } catch (err) {
+          if (isSessionDeadError(err)) throw err;
+          deepLinkDebug('macos: deepLink failed', {
+            attempt,
+            error: err instanceof Error ? err.message : err,
+          });
+          await browser.pause(250);
+        }
       }
     }
   }
 
   // Strategy 3: Shell fallback
   if (process.platform === 'linux') {
-    // On Linux, use xdg-open for URL scheme dispatch
-    try {
-      deepLinkDebug('fallback shell: xdg-open', url);
-      await execCommand(`xdg-open "${url}"`);
-      deepLinkDebug('deep link dispatched via xdg-open');
-      return;
-    } catch (err) {
-      deepLinkDebug('xdg-open failed', err instanceof Error ? err.message : err);
-      throw new Error(`Failed to trigger deep link: ${err instanceof Error ? err.message : err}`);
-    }
+    // The Linux CI container does not register `openhuman://` with
+    // xdg-mime, so `xdg-open` cannot dispatch the URL — it just errors
+    // with `Command failed`. The only deep-link path that works under
+    // CEF/Appium-Chromium on Linux is the in-WebView simulate above; if
+    // we got here it already failed, and there is nothing to recover to.
+    throw new Error(
+      `Failed to trigger deep link ${url}: WebView simulate failed and ` +
+        `xdg-open is not a valid fallback on Linux (no .desktop registration).`
+    );
   }
 
   // macOS shell fallback

@@ -93,6 +93,11 @@ cleanup() {
     fi
   fi
   if [ -n "$CREATED_TEMP_WORKSPACE" ]; then
+    # Tolerate transient races: even after the kill above, a CEF helper
+    # may still be flushing CEF/Default/* on a slow Linux runner. Retry
+    # a few times, then leave anything residual for the next CI tmp
+    # cleanup pass — we must not fail the whole job on cleanup leftovers
+    # when the test itself passed.
     for attempt in 1 2 3; do
       rm -rf "$CREATED_TEMP_WORKSPACE" 2>/dev/null && break
       echo "[runner] Warning: temporary workspace cleanup failed (attempt $attempt): $CREATED_TEMP_WORKSPACE" >&2

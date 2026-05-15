@@ -95,8 +95,8 @@ async function waitForRowActionLabel(
         .filter(div => (div.textContent ?? '').trim() === name);
       const container = rows[0]?.closest('div.p-4');
       if (!container) return null;
-      const labels = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).map(
-        b => (b.textContent ?? '').trim()
+      const labels = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).map(b =>
+        (b.textContent ?? '').trim()
       );
       // We care about the toggle button (first one in the row).
       return labels[0] ?? null;
@@ -181,10 +181,11 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     expect(clicked).toBe(true);
 
     // UI assertion first — the row should disappear and the empty state appear.
-    const gone = await browser.waitUntil(
-      async () => !(await textExists(MORNING_BRIEFING)),
-      { timeout: 10_000, interval: 500, timeoutMsg: 'morning_briefing row never disappeared' }
-    );
+    const gone = await browser.waitUntil(async () => !(await textExists(MORNING_BRIEFING)), {
+      timeout: 10_000,
+      interval: 500,
+      timeoutMsg: 'morning_briefing row never disappeared',
+    });
     expect(gone).toBe(true);
     expect(await textExists('No core cron jobs found.')).toBe(true);
 

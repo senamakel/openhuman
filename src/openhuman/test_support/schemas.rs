@@ -38,8 +38,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                         FieldSchema {
                             name: "onboarding_was_completed",
                             ty: TypeSchema::Bool,
-                            comment:
-                                "Whether chat_onboarding_completed was true before the reset.",
+                            comment: "Whether chat_onboarding_completed was true before the reset.",
                             required: true,
                         },
                         FieldSchema {

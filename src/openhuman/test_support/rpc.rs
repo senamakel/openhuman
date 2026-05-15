@@ -38,8 +38,8 @@ pub async fn reset() -> Result<RpcOutcome<ResetSummary>, String> {
     let onboarding_was_completed = config.chat_onboarding_completed;
     let api_key_was_set = config.api_key.is_some();
 
-    let cron_jobs_removed =
-        cron::clear_all_jobs(&config).map_err(|e| format!("test_reset: cron wipe failed: {e:#}"))?;
+    let cron_jobs_removed = cron::clear_all_jobs(&config)
+        .map_err(|e| format!("test_reset: cron wipe failed: {e:#}"))?;
 
     config.chat_onboarding_completed = false;
     config.api_key = None;

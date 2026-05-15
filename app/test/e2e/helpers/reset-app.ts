@@ -23,6 +23,7 @@ import { callOpenhumanRpc } from './core-rpc';
 import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
 import { supportsExecuteScript } from './platform';
+
 // Note: we deliberately do NOT use shared-flows' completeOnboardingIfVisible
 // here — that walker matches a hardcoded list of step *titles* (Welcome,
 // Install Skills, …) and silently skips when the onboarding flow grows a
@@ -96,10 +97,7 @@ async function dismissCoreModeModalIfVisible(timeoutMs = 15_000): Promise<boolea
  * Returns the userId that was authenticated (mirrors what the spec passed
  * in) so callers can use it for mock-backend request-log assertions.
  */
-export async function resetApp(
-  userId: string,
-  options: ResetAppOptions = {}
-): Promise<string> {
+export async function resetApp(userId: string, options: ResetAppOptions = {}): Promise<string> {
   const logPrefix = options.logPrefix ?? '[resetApp]';
 
   stepLog(`Calling openhuman.test_reset for ${userId}`);
@@ -112,7 +110,11 @@ export async function resetApp(
     callOpenhumanRpc('openhuman.test_reset', {}),
     new Promise<{ ok: false; error: string }>(resolve =>
       setTimeout(
-        () => resolve({ ok: false, error: 'test_reset RPC probe timed out (sidecar likely not started)' }),
+        () =>
+          resolve({
+            ok: false,
+            error: 'test_reset RPC probe timed out (sidecar likely not started)',
+          }),
         8_000
       )
     ),
@@ -192,15 +194,17 @@ async function walkOnboardingViaTestId(logPrefix: string, maxSteps = 12): Promis
   // First, wait up to 15s for the onboarding shell to mount at all. If it
   // never appears the user is already on /home (e.g. onboarding pre-completed
   // for this user id) and we just return.
-  const appeared = await browser.waitUntil(
-    async () =>
-      Boolean(
-        await browser.execute(
-          () => document.querySelector('[data-testid="onboarding-next-button"]') !== null
-        )
-      ),
-    { timeout: 15_000, interval: 500, timeoutMsg: 'onboarding-next-button never appeared' }
-  ).catch(() => false);
+  const appeared = await browser
+    .waitUntil(
+      async () =>
+        Boolean(
+          await browser.execute(
+            () => document.querySelector('[data-testid="onboarding-next-button"]') !== null
+          )
+        ),
+      { timeout: 15_000, interval: 500, timeoutMsg: 'onboarding-next-button never appeared' }
+    )
+    .catch(() => false);
 
   if (!appeared) {
     stepLog(`${logPrefix} Onboarding next-button never appeared — assuming already onboarded`);

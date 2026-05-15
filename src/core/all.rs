@@ -183,8 +183,7 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Team and role management
     controllers.extend(crate::openhuman::team::all_team_registered_controllers());
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
-    controllers
-        .extend(crate::openhuman::test_support::all_test_support_registered_controllers());
+    controllers.extend(crate::openhuman::test_support::all_test_support_registered_controllers());
     // Local wallet metadata and onboarding status
     controllers.extend(crate::openhuman::wallet::all_wallet_registered_controllers());
     // Local assistive surfaces over third-party provider apps

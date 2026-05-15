@@ -183,6 +183,10 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Team and role management
     controllers.extend(crate::openhuman::team::all_team_registered_controllers());
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
+    // Gated behind the `e2e-test-support` cargo feature so shipped binaries
+    // never even register the destructive wipe RPC. Flipped on by the E2E
+    // build script (app/scripts/e2e-build.sh).
+    #[cfg(feature = "e2e-test-support")]
     controllers.extend(crate::openhuman::test_support::all_test_support_registered_controllers());
     // Local wallet metadata and onboarding status
     controllers.extend(crate::openhuman::wallet::all_wallet_registered_controllers());
@@ -281,6 +285,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::referral::all_referral_controller_schemas());
     schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
     schemas.extend(crate::openhuman::team::all_team_controller_schemas());
+    #[cfg(feature = "e2e-test-support")]
     schemas.extend(crate::openhuman::test_support::all_test_support_controller_schemas());
     schemas.extend(crate::openhuman::wallet::all_wallet_controller_schemas());
     schemas.extend(crate::openhuman::provider_surfaces::all_provider_surfaces_controller_schemas());

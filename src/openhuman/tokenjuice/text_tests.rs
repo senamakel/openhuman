@@ -125,24 +125,42 @@ fn dedupe_adjacent_multibyte_lines_collapsed() {
 #[test]
 fn clamp_text_middle_output_is_valid_utf8() {
     // A long string of CJK characters (each is 3 bytes in UTF-8).
+    // String is always valid UTF-8, so a tautological from_utf8 check would
+    // not actually verify the grapheme-safety contract. Instead, assert that
+    // every grapheme in the clamped output also exists as a complete grapheme
+    // in the source (i.e. no partial cluster fragments leaked through).
     let cjk: String = "中文字符测试！".repeat(50);
     let clamped = clamp_text_middle(&cjk, 30);
-    // Must be decodable UTF-8 (from_utf8 would Err if bytes are broken).
-    assert!(
-        std::str::from_utf8(clamped.as_bytes()).is_ok(),
-        "clamp_text_middle output must be valid UTF-8 for CJK input"
-    );
+    let source_graphemes: std::collections::HashSet<&str> = graphemes(&cjk).into_iter().collect();
+    for g in graphemes(&clamped) {
+        // The omission marker is the only legitimate non-source content.
+        if g == "·" || g.chars().all(|c| c.is_ascii_punctuation() || c.is_ascii_whitespace() || c.is_ascii_alphanumeric()) {
+            continue;
+        }
+        assert!(
+            source_graphemes.contains(g),
+            "grapheme {g:?} in clamp output is not a whole grapheme of the source"
+        );
+    }
 }
 
 #[test]
 fn clamp_text_middle_does_not_split_emoji_grapheme() {
     // Each emoji is 4 bytes; a naïve byte split could land in the middle.
+    // Verify boundary correctness by counting graphemes — the clamp must
+    // never produce a partial codepoint or partial grapheme.
     let emojis: String = "😀".repeat(100);
     let clamped = clamp_text_middle(&emojis, 20);
-    assert!(
-        std::str::from_utf8(clamped.as_bytes()).is_ok(),
-        "clamp_text_middle must not split emoji"
-    );
+    // Every non-marker grapheme in the output must equal "😀" (source has
+    // exactly one distinct grapheme). A partial split would leave a
+    // replacement char or a stray surrogate-equivalent sequence.
+    for g in graphemes(&clamped) {
+        let only_ascii = g.chars().all(|c| c.is_ascii());
+        assert!(
+            g == "😀" || only_ascii,
+            "unexpected grapheme {g:?} — partial emoji split detected"
+        );
+    }
 }
 
 #[test]
@@ -182,13 +200,19 @@ fn clamp_text_middle_grapheme_count_respects_limit() {
 #[test]
 fn clamp_text_middle_zwj_sequence_not_split() {
     // ZWJ family emoji repeated; each base char is 4 bytes, ZWJ is 3 bytes.
+    // Assert no partial ZWJ family fragments survive in the output: any
+    // grapheme containing the ZWJ codepoint must be the full family unit.
     let zwj_unit = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"; // family
     let long: String = (zwj_unit.to_owned() + "\n").repeat(100);
     let clamped = clamp_text_middle(&long, 30);
-    assert!(
-        std::str::from_utf8(clamped.as_bytes()).is_ok(),
-        "clamp_text_middle must not split ZWJ sequence"
-    );
+    for g in graphemes(&clamped) {
+        if g.contains('\u{200D}') || g.chars().any(|c| matches!(c, '\u{1F468}' | '\u{1F469}' | '\u{1F467}')) {
+            assert_eq!(
+                g, zwj_unit,
+                "clamp produced partial ZWJ cluster {g:?}; expected the full family unit"
+            );
+        }
+    }
 }
 
 // ── grapheme helper round-trip ────────────────────────────────────────────────
@@ -397,12 +421,15 @@ fn invalid_regex_loaded_from_disk_is_skipped_not_fatal() {
         rules.iter().any(|r| r.rule.id == "test/disk-good"),
         "valid rule must still load alongside the bad-regex rule"
     );
-    // The bad-regex rule is also present but with empty compiled skip patterns.
-    if let Some(bad) = rules.iter().find(|r| r.rule.id == "test/disk-bad-regex") {
-        assert!(
-            bad.compiled.skip_patterns.is_empty(),
-            "bad-regex rule must have empty compiled skip_patterns"
-        );
-    }
-    // Either way: no panic is the primary guarantee.
+    // The bad-regex rule must still load — but with the invalid skip pattern
+    // dropped so the rule itself is non-fatal. Asserting presence avoids a
+    // false positive where the rule is silently dropped entirely.
+    let bad = rules
+        .iter()
+        .find(|r| r.rule.id == "test/disk-bad-regex")
+        .expect("bad-regex rule must still load");
+    assert!(
+        bad.compiled.skip_patterns.is_empty(),
+        "bad-regex rule must have empty compiled skip_patterns"
+    );
 }

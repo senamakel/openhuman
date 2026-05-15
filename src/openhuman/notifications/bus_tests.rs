@@ -212,9 +212,19 @@ fn publish_and_subscribe_deliver_event() {
     // At least one subscriber (the one we just created) should receive it.
     assert!(sent >= 1, "should have at least one subscriber");
 
-    let received = rx
-        .try_recv()
-        .expect("subscriber should have received the event");
+    // The bus is a process-wide static broadcast channel — when other tests
+    // run in parallel and publish their own events, our receiver may see
+    // them too. Drain up to N events looking for the one we just sent so
+    // this test is order-independent.
+    let received = (0..64)
+        .find_map(|_| match rx.try_recv() {
+            Ok(msg) if msg.id == evt.id => Some(msg),
+            Ok(_) => None,
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => None,
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => None,
+            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => None,
+        })
+        .expect("subscriber should receive the test event");
     assert_eq!(received.id, "test-123");
     assert_eq!(received.title, "Test");
     assert_eq!(received.category, CoreNotificationCategory::System);

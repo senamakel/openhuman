@@ -4548,6 +4548,7 @@ dependencies = [
  "enigo",
  "env_logger",
  "fantoccini",
+ "flate2",
  "fs2",
  "futures",
  "futures-util",

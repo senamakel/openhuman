@@ -61,7 +61,14 @@ subagents = [
 ]
 
 [model]
-hint = "reasoning"
+# `reasoning-quick` (Kimi K2.6 Turbo on Fireworks via backend PR #760)
+# is tuned for low time-to-first-token on conversational turns. The
+# orchestrator is a planner/router that mostly picks a delegate and
+# synthesises sub-agent output — workload that doesn't benefit from
+# the slower deep-reasoning tier. Sub-agents that need heavier
+# reasoning can still opt into `reasoning-v1` (DeepSeek V4 Pro) via
+# `ModelSpec::Hint("reasoning")` in their own definitions.
+hint = "reasoning-quick"
 
 [tools]
 # Direct tools — things the orchestrator calls itself rather than

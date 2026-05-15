@@ -4612,6 +4612,7 @@ dependencies = [
  "dotenvy",
  "enigo",
  "env_logger",
+ "flate2",
  "fs2",
  "futures",
  "futures-util",

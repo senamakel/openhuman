@@ -56,6 +56,13 @@ case "${1:-smoke}" in
     ;;
   *)
     ensure_built
+    # `case "${1:-smoke}"` only defaults the test for matching — the loop
+    # below iterates the real `"$@"`, which is empty on a no-arg invocation.
+    # Re-set the positional params so a bare `./e2e/run-local.sh` actually
+    # runs the smoke spec instead of silently doing nothing.
+    if [ "$#" -eq 0 ]; then
+      set -- smoke
+    fi
     for name in "$@"; do
       run_spec "$name"
     done

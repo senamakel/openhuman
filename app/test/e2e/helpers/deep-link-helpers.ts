@@ -55,7 +55,13 @@ function execCommand(command: string): Promise<void> {
 function isSessionDeadError(err: unknown): boolean {
   if (!err) return false;
   const message = err instanceof Error ? err.message : String(err);
-  return /session is either terminated or not started|invalid session id/i.test(message);
+  // First two patterns are what WebDriver / Appium raise directly; the
+  // third matches our own wrapped error (rethrown from inner helpers) so
+  // an outer catcher still recognises the dead-session case after we
+  // replace the message for clarity.
+  return /session is either terminated or not started|invalid session id|WebDriver session is dead/i.test(
+    message
+  );
 }
 
 /**
@@ -120,18 +126,38 @@ async function trySimulateDeepLinkInWebView(url: string): Promise<boolean> {
       poll += 1;
     } catch (err) {
       deepLinkDebug('ready check failed', err instanceof Error ? err.message : err);
+      // Same rationale as the ping check above: once the session is gone
+      // there's nothing to recover to. Bubble up so triggerDeepLink can
+      // skip the macOS / Linux fallbacks instead of returning a generic
+      // `false` that hides the root cause.
+      if (isSessionDeadError(err)) {
+        throw new Error(
+          `WebDriver session is dead — cannot deliver deep link ${url}. ` +
+            `The CEF app or driver likely crashed in an earlier step.`
+        );
+      }
       return false;
     }
 
     if (ready) {
       deepLinkDebug('invoking window.__simulateDeepLink');
-      await browser.execute(async (u: string) => {
-        const w = window as Window & { __simulateDeepLink?: (x: string) => Promise<void> };
-        if (!w.__simulateDeepLink) {
-          throw new Error('__simulateDeepLink is not available');
+      try {
+        await browser.execute(async (u: string) => {
+          const w = window as Window & { __simulateDeepLink?: (x: string) => Promise<void> };
+          if (!w.__simulateDeepLink) {
+            throw new Error('__simulateDeepLink is not available');
+          }
+          await w.__simulateDeepLink(u);
+        }, url);
+      } catch (err) {
+        if (isSessionDeadError(err)) {
+          throw new Error(
+            `WebDriver session is dead — cannot deliver deep link ${url}. ` +
+              `The CEF app or driver likely crashed in an earlier step.`
+          );
         }
-        await w.__simulateDeepLink(u);
-      }, url);
+        throw err;
+      }
       deepLinkDebug('simulate deep link finished OK');
       return true;
     }

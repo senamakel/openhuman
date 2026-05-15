@@ -209,6 +209,21 @@ const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "intelligence.agentmemory_backend",
+        name: "agentmemory Memory Backend",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Opt-in Memory trait backend that delegates every store/recall/get/list/forget \
+            call to a locally-running agentmemory REST server. Selected via \
+            `memory.backend = \"agentmemory\"` in config.toml. Allows users who self-host \
+            agentmemory across Claude Code, Cursor, Codex, and OpenCode to share a single durable \
+            memory store. Default backend remains sqlite; selecting agentmemory is non-breaking.",
+        how_to: "Set `memory.backend = \"agentmemory\"` in config.toml. \
+            See gitbooks/features/obsidian-wiki/agentmemory-backend.md for setup and config keys.",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "intelligence.memory_workspace",
         name: "Memory Workspace",
         domain: "intelligence",
@@ -239,6 +254,16 @@ const CAPABILITIES: &[Capability] = &[
         category: CapabilityCategory::Intelligence,
         description: "Ask questions about your ingested email/chat/document memory in chat. The orchestrator can resolve names to canonical ids, query summaries by source/topic/global window, drill into details, and cite raw chunks.",
         how_to: "Chat > ask the assistant about people, conversations, or windows",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
+        id: "intelligence.mcp_server",
+        name: "MCP Server",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Expose a curated, read-only memory-tree tool surface over stdio MCP for local MCP-compatible clients.",
+        how_to: "Run `openhuman-core mcp` and configure the local MCP client to launch that command.",
         status: CapabilityStatus::Beta,
         privacy: LOCAL_RAW,
     },

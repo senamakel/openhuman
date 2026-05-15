@@ -293,10 +293,7 @@ pub fn prepare_process_cache_path() -> Result<PathBuf, String> {
     // per-user `users/<id>/cef` layout that owns multi-account isolation.
     if let Some(preset) = configured_cache_path_from_env() {
         std::fs::create_dir_all(&preset).map_err(|error| {
-            format!(
-                "create pre-set CEF cache dir {}: {error}",
-                preset.display()
-            )
+            format!("create pre-set CEF cache dir {}: {error}", preset.display())
         })?;
         log::info!(
             "[cef-profile] honoring pre-set OPENHUMAN_CEF_CACHE_PATH={}",

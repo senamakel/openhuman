@@ -442,7 +442,9 @@ export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promis
     if (status === 'gone-but-onboarding-hash') {
       // The button momentarily unmounts between steps (animation / lazy render).
       // Don't claim victory yet — wait for the next step to render.
-      console.log(`${logPrefix} Onboarding next-button absent but hash still on /onboarding — waiting`);
+      console.log(
+        `${logPrefix} Onboarding next-button absent but hash still on /onboarding — waiting`
+      );
       await browser.pause(1_500);
       continue;
     }

@@ -23,7 +23,6 @@ import { callOpenhumanRpc } from './core-rpc';
 import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
 import { supportsExecuteScript } from './platform';
-
 import { dismissBootCheckGateIfVisible, walkOnboarding } from './shared-flows';
 
 interface ResetAppOptions {

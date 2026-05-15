@@ -134,7 +134,11 @@ fn clamp_text_middle_output_is_valid_utf8() {
     let source_graphemes: std::collections::HashSet<&str> = graphemes(&cjk).into_iter().collect();
     for g in graphemes(&clamped) {
         // The omission marker is the only legitimate non-source content.
-        if g == "·" || g.chars().all(|c| c.is_ascii_punctuation() || c.is_ascii_whitespace() || c.is_ascii_alphanumeric()) {
+        if g == "·"
+            || g.chars().all(|c| {
+                c.is_ascii_punctuation() || c.is_ascii_whitespace() || c.is_ascii_alphanumeric()
+            })
+        {
             continue;
         }
         assert!(
@@ -206,7 +210,10 @@ fn clamp_text_middle_zwj_sequence_not_split() {
     let long: String = (zwj_unit.to_owned() + "\n").repeat(100);
     let clamped = clamp_text_middle(&long, 30);
     for g in graphemes(&clamped) {
-        if g.contains('\u{200D}') || g.chars().any(|c| matches!(c, '\u{1F468}' | '\u{1F469}' | '\u{1F467}')) {
+        if g.contains('\u{200D}')
+            || g.chars()
+                .any(|c| matches!(c, '\u{1F468}' | '\u{1F469}' | '\u{1F467}'))
+        {
             assert_eq!(
                 g, zwj_unit,
                 "clamp produced partial ZWJ cluster {g:?}; expected the full family unit"

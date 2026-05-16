@@ -247,6 +247,8 @@ run_case() {
 }
 ```
 
+- **Rust test file naming**: when extracting Rust tests out of an implementation file, prefer a sibling `*_test.rs` file wired in with `#[cfg(test)] #[path = "..._test.rs"] mod tests;`. Do not create ad hoc `_test/` or `_tests/` directories for single-module Rust tests unless a broader multi-file test fixture truly requires a directory.
+
 ### Test authoring checklist
 
 - Add/update unit tests for logic changes before stacking additional features.

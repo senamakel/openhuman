@@ -5,11 +5,11 @@
 //! and history threading.
 
 use super::test_support::{
-    spawn_fake_composio_backend, ComposioFixture, KeywordRule, KeywordScriptedProvider,
-    ScriptedToolCall,
+    spawn_fake_composio_backend, ComposioExecuteRule, ComposioFixture, KeywordRule,
+    KeywordScriptedProvider, ScriptedToolCall,
 };
 use super::tool_loop::run_tool_call_loop;
-use crate::openhuman::providers::{ChatMessage, ChatResponse};
+use crate::openhuman::providers::{ChatMessage, ChatRequest, ChatResponse, Provider};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 use async_trait::async_trait;
 use serde_json::json;
@@ -20,6 +20,244 @@ use std::sync::{
 
 fn mm() -> crate::openhuman::config::MultimodalConfig {
     crate::openhuman::config::MultimodalConfig::default()
+}
+
+#[tokio::test]
+async fn keyword_provider_records_forced_then_fallback_turns() {
+    let provider =
+        KeywordScriptedProvider::new(vec![KeywordRule::final_reply("matched", "final answer")])
+            .with_native_tools(true)
+            .with_vision(true)
+            .with_fallback("fallback reply");
+
+    let caps = provider.capabilities();
+    assert!(caps.native_tool_calling);
+    assert!(caps.vision);
+
+    provider.push_forced_response(ChatResponse {
+        text: Some("forced reply".into()),
+        tool_calls: vec![],
+        usage: None,
+    });
+
+    let messages = vec![ChatMessage::user("nothing should match here")];
+    let forced = provider
+        .chat(
+            ChatRequest {
+                messages: &messages,
+                tools: None,
+                stream: None,
+            },
+            "test-model",
+            0.0,
+        )
+        .await
+        .expect("forced response");
+    assert_eq!(forced.text.as_deref(), Some("forced reply"));
+
+    let fallback = provider
+        .chat(
+            ChatRequest {
+                messages: &messages,
+                tools: None,
+                stream: None,
+            },
+            "test-model",
+            0.0,
+        )
+        .await
+        .expect("fallback response");
+    assert_eq!(fallback.text.as_deref(), Some("fallback reply"));
+
+    let turns = provider.turns();
+    assert_eq!(turns.len(), 2);
+    assert_eq!(turns[0].rule_keyword, None);
+    assert_eq!(turns[0].emitted_text.as_deref(), Some("forced reply"));
+    assert_eq!(turns[1].rule_keyword, None);
+    assert_eq!(turns[1].emitted_text.as_deref(), Some("fallback reply"));
+}
+
+#[tokio::test]
+async fn keyword_provider_prompt_guided_text_wraps_tool_calls_and_honors_fire_limit() {
+    let provider = KeywordScriptedProvider::new(vec![KeywordRule::tool_call(
+        "search please",
+        ScriptedToolCall::new("search_tool", json!({"q": "rust"})),
+    )
+    .with_text("Looking it up.")]);
+
+    let messages = vec![
+        ChatMessage::assistant("earlier assistant turn"),
+        ChatMessage::tool("search please from a tool result"),
+    ];
+
+    let first = provider
+        .chat(
+            ChatRequest {
+                messages: &messages,
+                tools: None,
+                stream: None,
+            },
+            "test-model",
+            0.0,
+        )
+        .await
+        .expect("prompt-guided response");
+
+    let text = first.text.expect("prompt-guided text body");
+    assert!(first.tool_calls.is_empty());
+    assert!(text.starts_with("Looking it up.\n"));
+    assert!(text.contains("<tool_call>"));
+    assert!(text.contains("\"name\":\"search_tool\""));
+    assert!(text.contains("\"q\":\"rust\""));
+
+    let second = provider
+        .chat(
+            ChatRequest {
+                messages: &messages,
+                tools: None,
+                stream: None,
+            },
+            "test-model",
+            0.0,
+        )
+        .await
+        .expect("fallback after max_fires");
+    assert_eq!(second.text.as_deref(), Some("done"));
+    assert_eq!(provider.turn_count(), 2);
+}
+
+#[tokio::test]
+async fn fake_composio_backend_serves_routes_and_uses_response_fallbacks() {
+    let mut fixture = ComposioFixture::realistic();
+    fixture.execute_rules = vec![ComposioExecuteRule::new(
+        "GMAIL_FETCH_EMAILS",
+        json!({"messages": [{"id": "gmail-priority-2"}]}),
+    )
+    .when_argument_contains("arguments.query", "release blocker")];
+
+    let backend = spawn_fake_composio_backend(fixture).await;
+    let http = reqwest::Client::new();
+
+    let toolkits: serde_json::Value = http
+        .get(format!(
+            "{}/agent-integrations/composio/toolkits",
+            backend.base_url
+        ))
+        .send()
+        .await
+        .expect("toolkits request")
+        .json()
+        .await
+        .expect("toolkits json");
+    assert_eq!(toolkits["data"]["toolkits"][0], "gmail");
+
+    let authorize: serde_json::Value = http
+        .post(format!(
+            "{}/agent-integrations/composio/authorize",
+            backend.base_url
+        ))
+        .json(&json!({"toolkit": "gmail"}))
+        .send()
+        .await
+        .expect("authorize request")
+        .json()
+        .await
+        .expect("authorize json");
+    assert_eq!(authorize["data"]["connectionId"], "conn_gmail_pending",);
+
+    let rule_match: serde_json::Value = http
+        .post(format!(
+            "{}/agent-integrations/composio/execute",
+            backend.base_url
+        ))
+        .json(&json!({
+            "tool": "GMAIL_FETCH_EMAILS",
+            "arguments": {"query": "Need RELEASE BLOCKER updates"},
+        }))
+        .send()
+        .await
+        .expect("execute request")
+        .json()
+        .await
+        .expect("execute json");
+    assert_eq!(
+        rule_match["data"]["data"]["messages"][0]["id"],
+        "gmail-priority-2",
+    );
+
+    let execute_fallback: serde_json::Value = http
+        .post(format!(
+            "{}/agent-integrations/composio/execute",
+            backend.base_url
+        ))
+        .json(&json!({
+            "tool": "GMAIL_FETCH_EMAILS",
+            "arguments": {"page": 1},
+        }))
+        .send()
+        .await
+        .expect("execute fallback request")
+        .json()
+        .await
+        .expect("execute fallback json");
+    assert_eq!(execute_fallback["data"]["data"]["messages"][0]["id"], "m1",);
+
+    let default_execute: serde_json::Value = http
+        .post(format!(
+            "{}/agent-integrations/composio/execute",
+            backend.base_url
+        ))
+        .json(&json!({
+            "tool": "UNKNOWN_ACTION",
+            "arguments": {"topic": "ops"},
+        }))
+        .send()
+        .await
+        .expect("default execute request")
+        .json()
+        .await
+        .expect("default execute json");
+    assert_eq!(default_execute["data"]["data"]["ok"], true);
+    assert_eq!(default_execute["data"]["data"]["action"], "UNKNOWN_ACTION");
+
+    let delete: serde_json::Value = http
+        .delete(format!(
+            "{}/agent-integrations/composio/connections/conn_gmail_1",
+            backend.base_url
+        ))
+        .send()
+        .await
+        .expect("delete request")
+        .json()
+        .await
+        .expect("delete json");
+    assert_eq!(delete["data"]["deleted"], true);
+
+    let requests = backend.requests();
+    assert!(
+        requests
+            .iter()
+            .any(|(m, p, _)| m == "GET" && p == "/toolkits"),
+        "expected toolkits route to be recorded"
+    );
+    assert!(
+        requests
+            .iter()
+            .any(|(m, p, _)| m == "POST" && p == "/authorize"),
+        "expected authorize route to be recorded"
+    );
+    assert!(
+        requests
+            .iter()
+            .any(|(m, p, body)| m == "POST" && p == "/execute" && body["tool"] == "UNKNOWN_ACTION"),
+        "expected execute route to record unknown action body"
+    );
+    assert!(
+        requests
+            .iter()
+            .any(|(m, p, _)| m == "DELETE" && p == "/connections/conn_gmail_1"),
+        "expected delete route to be recorded"
+    );
 }
 
 /// Generic test tool: records the args it was called with and returns
@@ -519,7 +757,135 @@ async fn crypto_wallet_send_flow_does_not_execute_when_confirmation_is_not_grant
     );
 }
 
-// ── 5. Unknown tool name handled gracefully ───────────────────────
+#[tokio::test]
+async fn keyword_provider_uses_latest_tool_result_to_drive_the_next_tool_call() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "start lookup",
+            ScriptedToolCall::new("lookup_tool", json!({"symbol": "BTC"})),
+        ),
+        KeywordRule::tool_call(
+            "lookup_tool-ok",
+            ScriptedToolCall::new("enrich_tool", json!({"source": "lookup"})),
+        ),
+        KeywordRule::final_reply("enrich_tool-ok", "Finished after the second tool."),
+    ])
+    .with_native_tools(true);
+
+    let (lookup_tool, lookup_calls) = RecordingTool::echo("lookup_tool");
+    let (enrich_tool, enrich_calls) = RecordingTool::echo("enrich_tool");
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(lookup_tool), Box::new(enrich_tool)];
+
+    let mut history = vec![ChatMessage::user("please start lookup for BTC")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        10,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("loop should complete");
+
+    assert_eq!(out, "Finished after the second tool.");
+    assert_eq!(lookup_calls.lock().as_slice(), &[json!({"symbol": "BTC"})]);
+    assert_eq!(
+        enrich_calls.lock().as_slice(),
+        &[json!({"source": "lookup"})]
+    );
+
+    let turns = provider.turns();
+    assert_eq!(
+        turns.len(),
+        3,
+        "expected two tool turns and one final reply"
+    );
+    assert_eq!(turns[0].rule_keyword.as_deref(), Some("start lookup"));
+    assert_eq!(turns[1].rule_keyword.as_deref(), Some("lookup_tool-ok"));
+    assert_eq!(turns[2].rule_keyword.as_deref(), Some("enrich_tool-ok"));
+
+    let second_turn_probe = turns[1]
+        .messages
+        .iter()
+        .rev()
+        .find(|msg| msg.role == "tool")
+        .map(|msg| msg.content.clone())
+        .unwrap_or_default();
+    assert!(
+        second_turn_probe.contains("lookup_tool-ok"),
+        "second turn should be driven by the first tool result, got: {second_turn_probe}"
+    );
+}
+
+#[tokio::test]
+async fn keyword_provider_executes_multiple_native_tool_calls_from_one_turn() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule {
+            keyword: "do both".to_string(),
+            tool_calls: vec![
+                ScriptedToolCall::new("lookup_tool", json!({"symbol": "BTC"})),
+                ScriptedToolCall::new("enrich_tool", json!({"source": "coinbase"})),
+            ],
+            final_text: Some("Running both tools.".to_string()),
+            max_fires: Some(1),
+        },
+        KeywordRule::final_reply("enrich_tool-ok", "Both tools completed."),
+    ])
+    .with_native_tools(true);
+
+    let (lookup_tool, lookup_calls) = RecordingTool::echo("lookup_tool");
+    let (enrich_tool, enrich_calls) = RecordingTool::echo("enrich_tool");
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(lookup_tool), Box::new(enrich_tool)];
+
+    let mut history = vec![ChatMessage::user("please do both actions now")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        10,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("loop should complete");
+
+    assert_eq!(out, "Both tools completed.");
+    assert_eq!(lookup_calls.lock().as_slice(), &[json!({"symbol": "BTC"})]);
+    assert_eq!(
+        enrich_calls.lock().as_slice(),
+        &[json!({"source": "coinbase"})]
+    );
+
+    let turns = provider.turns();
+    assert_eq!(turns[0].emitted_tool_calls.len(), 2);
+    assert_eq!(turns[0].emitted_tool_calls[0].name, "lookup_tool");
+    assert_eq!(turns[0].emitted_tool_calls[1].name, "enrich_tool");
+}
+
+// ── 6. Unknown tool name handled gracefully ───────────────────────
 
 #[tokio::test]
 async fn keyword_provider_unknown_tool_surfaces_error_and_loop_continues() {
@@ -916,6 +1282,55 @@ async fn fake_composio_backend_serves_realistic_toolkits() {
     assert!(reqs.iter().any(|(_, p, _)| p == "/toolkits"));
     assert!(reqs.iter().any(|(_, p, _)| p == "/connections"));
     assert!(reqs.iter().any(|(_, p, _)| p == "/execute"));
+}
+
+#[tokio::test]
+async fn fake_composio_backend_can_match_execute_rules_by_argument_content() {
+    let mut fixture = ComposioFixture::realistic();
+    fixture.execute_rules.push(
+        ComposioExecuteRule::new(
+            "GMAIL_FETCH_EMAILS",
+            json!({
+                "messages": [
+                    {
+                        "id": "gmail-priority-1",
+                        "subject": "Release blocker",
+                        "snippet": "The release blocker is the broken memory recall spec."
+                    }
+                ]
+            }),
+        )
+        .when_argument_contains("arguments.query", "release blocker"),
+    );
+    let backend = spawn_fake_composio_backend(fixture).await;
+    let client = backend.client();
+
+    let exec = client
+        .execute_tool(
+            "GMAIL_FETCH_EMAILS",
+            Some(json!({
+                "query": "label:inbox release blocker",
+                "max_results": 5
+            })),
+        )
+        .await
+        .unwrap();
+
+    assert!(exec.successful, "execute should report success");
+    let resp_json = serde_json::to_value(&exec.data).unwrap();
+    assert!(
+        resp_json.to_string().contains("gmail-priority-1"),
+        "expected rule-driven response, got: {resp_json}"
+    );
+    let reqs = backend.requests();
+    let exec_req = reqs
+        .iter()
+        .find(|(method, path, _)| method == "POST" && path == "/execute")
+        .expect("execute request should be recorded");
+    assert_eq!(
+        exec_req.2["arguments"]["query"],
+        "label:inbox release blocker"
+    );
 }
 
 // ── 12. End-to-end: harness drives a Composio tool against fake backend

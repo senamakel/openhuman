@@ -1,6 +1,81 @@
 import { json, setCors } from "../http.mjs";
 import { behavior, parseBehaviorJson, setMockBehavior } from "../state.mjs";
 
+function headerValue(headers, name) {
+  const raw = headers?.[name];
+  if (Array.isArray(raw)) return raw.join(", ");
+  return typeof raw === "string" ? raw : "";
+}
+
+function requestRuleMatches(rule, ctx) {
+  if (!rule || typeof rule !== "object") return false;
+  const { url, parsedBody, req } = ctx;
+  const model =
+    typeof parsedBody?.model === "string" ? parsedBody.model : "e2e-mock-model";
+  const stream = parsedBody?.stream === true;
+  const authorization = headerValue(req?.headers, "authorization");
+  const xApiKey = headerValue(req?.headers, "x-api-key");
+
+  if (typeof rule.path === "string" && rule.path !== url) return false;
+  if (typeof rule.model === "string" && rule.model !== model) return false;
+  if (typeof rule.stream === "boolean" && rule.stream !== stream) return false;
+
+  if (typeof rule.authorization === "string") {
+    if (rule.authorization === "present" && !authorization) return false;
+    if (rule.authorization === "missing" && authorization) return false;
+    if (
+      rule.authorization !== "present" &&
+      rule.authorization !== "missing" &&
+      authorization !== rule.authorization
+    ) {
+      return false;
+    }
+  }
+
+  if (typeof rule.xApiKey === "string") {
+    if (rule.xApiKey === "present" && !xApiKey) return false;
+    if (rule.xApiKey === "missing" && xApiKey) return false;
+    if (
+      rule.xApiKey !== "present" &&
+      rule.xApiKey !== "missing" &&
+      xApiKey !== rule.xApiKey
+    ) {
+      return false;
+    }
+  }
+
+  if (typeof rule.keyword === "string") {
+    const probe = pickProbeText(parsedBody).toLowerCase();
+    if (!probe.includes(rule.keyword.toLowerCase())) return false;
+  }
+
+  return true;
+}
+
+function resolveRequestRule(ctx) {
+  const rules = parseBehaviorJson("llmRequestRules", []);
+  if (!Array.isArray(rules)) return null;
+  for (const rule of rules) {
+    if (requestRuleMatches(rule, ctx)) return rule;
+  }
+  return null;
+}
+
+function sendRuleError(res, rule) {
+  const status = Number.isInteger(rule?.status) ? rule.status : 401;
+  const message =
+    typeof rule?.error === "string" && rule.error.length > 0
+      ? rule.error
+      : "mock LLM request rejected";
+  json(res, status, {
+    error: {
+      message,
+      type: rule?.type || "invalid_request_error",
+      code: rule?.code || null,
+    },
+  });
+}
+
 // ── Streaming helpers ─────────────────────────────────────────────
 //
 // When the agent harness calls the OpenAI-compatible endpoint with
@@ -146,11 +221,15 @@ function defaultStreamScript({ content, toolCalls }) {
   return script;
 }
 
-function handleStreamingCompletion({ res, model, mockBehavior, parsedBody }) {
+function handleStreamingCompletion({ res, model, mockBehavior, parsedBody, rule }) {
   writeSseHead(res);
 
   // 1. Explicit streaming script overrides everything.
-  let script = parseBehaviorJson("llmStreamScript", null);
+  let script = Array.isArray(rule?.streamScript) ? rule.streamScript : null;
+
+  if (!Array.isArray(script)) {
+    script = parseBehaviorJson("llmStreamScript", null);
+  }
 
   if (!Array.isArray(script)) {
     // 2. Forced queue: pop the next entry and convert it into a script.
@@ -186,11 +265,16 @@ function handleStreamingCompletion({ res, model, mockBehavior, parsedBody }) {
   if (!Array.isArray(script)) {
     // 4. Default: stream a short greeting in a few chunks.
     const fallback =
-      typeof mockBehavior.llmFallbackContent === "string" &&
-      mockBehavior.llmFallbackContent.length > 0
-        ? mockBehavior.llmFallbackContent
+      typeof rule?.content === "string" && rule.content.length > 0
+        ? rule.content
+        : typeof mockBehavior.llmFallbackContent === "string" &&
+            mockBehavior.llmFallbackContent.length > 0
+          ? mockBehavior.llmFallbackContent
         : "Hello from e2e mock agent";
-    script = defaultStreamScript({ content: fallback });
+    script = defaultStreamScript({
+      content: fallback,
+      toolCalls: Array.isArray(rule?.toolCalls) ? rule.toolCalls : undefined,
+    });
   }
 
   const defaultDelayMs = Number.isFinite(
@@ -411,14 +495,17 @@ function buildResponse({ model, content, toolCalls }) {
 }
 
 /**
- * Drive a mock OpenAI-compatible /v1/chat/completions endpoint with
- * keyword-based responses. Returns true if the request was handled.
+ * Drive a mock OpenAI-compatible chat-completions endpoint with
+ * keyword-based responses. Accepts both `/v1/chat/completions` and
+ * root-based `/chat/completions` URLs because custom providers often
+ * let users enter either the API root or an explicit `/v1` base.
+ * Returns true if the request was handled.
  */
 export function handleLlmCompletions(ctx) {
   const { method, url, parsedBody, res } = ctx;
   if (
     method !== "POST" ||
-    !/^\/openai\/v1\/chat\/completions\/?$/.test(url)
+    !/^(\/openai)?(\/v1)?\/chat\/completions\/?$/.test(url)
   ) {
     return false;
   }
@@ -426,6 +513,29 @@ export function handleLlmCompletions(ctx) {
   const mockBehavior = behavior();
   const model =
     typeof parsedBody?.model === "string" ? parsedBody.model : "e2e-mock-model";
+  const requestRule = resolveRequestRule(ctx);
+
+  if (requestRule?.error || (requestRule?.status && requestRule.status >= 400)) {
+    if (
+      parsedBody?.stream === true &&
+      requestRule?.error &&
+      !(Number.isInteger(requestRule?.status) && requestRule.status >= 400)
+    ) {
+      writeSseHead(res);
+      writeSseEvent(res, {
+        error: {
+          message:
+            requestRule?.error || "mock LLM streaming request rejected",
+          type: requestRule?.type || "invalid_request_error",
+          code: requestRule?.code || null,
+        },
+      });
+      res.end();
+      return true;
+    }
+    sendRuleError(res, requestRule);
+    return true;
+  }
 
   // ── Streaming branch ────────────────────────────────────────────
   // Drive the OpenAI SSE protocol when the caller requested it. The
@@ -438,7 +548,29 @@ export function handleLlmCompletions(ctx) {
       model,
       mockBehavior,
       parsedBody,
+      rule: requestRule,
     });
+  }
+
+  if (requestRule?.body && typeof requestRule.body === "object") {
+    json(res, Number.isInteger(requestRule.status) ? requestRule.status : 200, requestRule.body);
+    return true;
+  }
+
+  if (
+    Array.isArray(requestRule?.toolCalls) ||
+    typeof requestRule?.content === "string"
+  ) {
+    json(
+      res,
+      Number.isInteger(requestRule?.status) ? requestRule.status : 200,
+      buildResponse({
+        model,
+        content: requestRule?.content ?? "",
+        toolCalls: requestRule?.toolCalls ?? [],
+      }),
+    );
+    return true;
   }
 
   // 1. Forced queue — replay exact ChatResponse objects in order.

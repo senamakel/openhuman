@@ -11,6 +11,15 @@ name: Test (reusable)
 on:
   workflow_call:
     inputs:
+      ref:
+        description:
+          Git ref (tag or SHA) to test. Release workflows pass the
+          freshly-pushed staging/production tag here so pretest validates
+          the exact commit the build matrix will check out, not main HEAD
+          at workflow_dispatch time. Defaults to empty (checkout uses its
+          own default, i.e. the workflow's triggering ref).
+        type: string
+        default: ""
       run_unit:
         description: Run frontend Vitest suite.
         type: boolean
@@ -39,6 +48,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 1
       - name: Cache pnpm store
         uses: actions/cache@v5
@@ -76,6 +86,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 1
           submodules: recursive
       - name: Cache Rust build artifacts
@@ -103,6 +114,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 1
           # Required for app/src-tauri/vendor/tauri-cef.
           submodules: recursive

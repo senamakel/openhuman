@@ -21,8 +21,13 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
   loadLocalProviderSnapshot: vi.fn(),
   setCloudProviderKey: vi.fn(),
   clearCloudProviderKey: vi.fn(),
-  serializeProviderRef: vi.fn((r: { kind: string; model?: string }) =>
-    r.kind === 'primary' ? 'cloud' : r.kind === 'local' ? `ollama:${r.model}` : `cloud:${r.model}`
+  serializeProviderRef: vi.fn(
+    (r: { kind: string; providerSlug?: string; model?: string }) =>
+      r.kind === 'openhuman'
+        ? 'openhuman'
+        : r.kind === 'local'
+          ? `ollama:${r.model}`
+          : `${r.providerSlug}:${r.model}`
   ),
   localProvider: { download: vi.fn(), applyPreset: vi.fn() },
 }));
@@ -39,22 +44,22 @@ const baseSettings = {
   cloudProviders: [
     {
       id: 'p_oh_x',
-      type: 'openhuman' as const,
+      slug: 'openhuman',
+      label: 'OpenHuman',
       endpoint: 'https://api.openhuman.ai/v1',
-      default_model: 'reasoning-v1',
+      auth_style: 'openhuman_jwt' as const,
       has_api_key: false,
     },
   ],
-  primaryCloudId: 'p_oh_x',
   routing: {
-    reasoning: { kind: 'primary' as const },
-    agentic: { kind: 'primary' as const },
-    coding: { kind: 'primary' as const },
-    memory: { kind: 'primary' as const },
-    embeddings: { kind: 'primary' as const },
-    heartbeat: { kind: 'primary' as const },
-    learning: { kind: 'primary' as const },
-    subconscious: { kind: 'primary' as const },
+    reasoning: { kind: 'openhuman' as const },
+    agentic: { kind: 'openhuman' as const },
+    coding: { kind: 'openhuman' as const },
+    memory: { kind: 'openhuman' as const },
+    embeddings: { kind: 'openhuman' as const },
+    heartbeat: { kind: 'openhuman' as const },
+    learning: { kind: 'openhuman' as const },
+    subconscious: { kind: 'openhuman' as const },
   },
 };
 

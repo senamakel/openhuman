@@ -15,17 +15,11 @@
  * runs when accessibility queries reach the WebView and tolerates
  * regression-free skip on locked-down hosts.
  */
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  clickNativeButton,
-  textExists,
-  waitForText,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
-import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
+import { clickNativeButton, textExists, waitForText } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
+import { navigateToSkills } from '../helpers/shared-flows';
 import { clearRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
 
 const LOG = '[ComposioTriggersE2E]';
@@ -51,6 +45,7 @@ describe('Composio trigger toggles (UI + core RPC)', () => {
     );
     setMockBehavior('composioActiveTriggers', JSON.stringify([]));
     await waitForApp();
+    await resetApp('e2e-composio-triggers');
     clearRequestLog();
   });
 
@@ -59,11 +54,9 @@ describe('Composio trigger toggles (UI + core RPC)', () => {
   });
 
   it('signs in deterministically', async () => {
-    await triggerAuthDeepLinkBypass('e2e-composio-triggers-token');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible(LOG);
+    // resetApp() above already handled auth + onboarding; assert it stuck.
+    const hash = await browser.execute(() => window.location.hash);
+    expect(String(hash)).toContain('/home');
   });
 
   it('list_available_triggers returns the seeded Gmail catalog', async () => {

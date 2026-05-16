@@ -12,6 +12,7 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { clickText, textExists } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   navigateToBilling,
   navigateToHome,
@@ -52,6 +53,8 @@ describe('Card Payment Flow', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Wipe prior-spec state; the spec drives real login via performFullLogin.
+    await resetApp('e2e-card-payment-reset', { skipAuth: true });
     clearRequestLog();
   });
 

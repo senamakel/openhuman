@@ -1,9 +1,6 @@
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import { waitForWebView, waitForWindowVisible } from '../helpers/element-helpers';
-import { supportsExecuteScript } from '../helpers/platform';
-import { completeOnboardingIfVisible } from '../helpers/shared-flows';
+import { resetApp } from '../helpers/reset-app';
 import { startMockServer, stopMockServer } from '../mock-server';
 
 /**
@@ -37,22 +34,10 @@ const TEST_TITLE = 'Memory roundtrip canary';
 const TEST_CONTENT = 'OpenHuman memory roundtrip canary fact #773';
 
 describe('Memory subsystem round-trip', () => {
-  before(async function beforeSuite() {
-    if (!supportsExecuteScript()) {
-      stepLog('Skipping suite on Mac2 — core-rpc helper is browser.execute-bound');
-      this.skip();
-    }
-
-    stepLog('starting mock server');
+  before(async () => {
     await startMockServer();
-    stepLog('waiting for app');
     await waitForApp();
-    stepLog('triggering auth bypass deep link');
-    await triggerAuthDeepLinkBypass('e2e-memory-roundtrip');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[MemoryRoundTripE2E]');
+    await resetApp('e2e-memory-roundtrip');
 
     // Memory subsystem must be initialised before doc_put / recall.
     stepLog('initialising memory subsystem');

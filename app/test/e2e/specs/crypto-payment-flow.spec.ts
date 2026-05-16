@@ -11,6 +11,7 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { clickText, clickToggle, textExists } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   navigateToBilling,
   navigateToHome,
@@ -51,6 +52,8 @@ describe('Crypto Payment Flow', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Wipe prior-spec state; the spec drives real login via performFullLogin.
+    await resetApp('e2e-crypto-payment-reset', { skipAuth: true });
     clearRequestLog();
   });
 

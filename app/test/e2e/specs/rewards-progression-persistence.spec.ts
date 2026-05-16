@@ -1,13 +1,6 @@
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  textExists,
-  waitForText,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
-import { supportsExecuteScript } from '../helpers/platform';
-import { completeOnboardingIfVisible } from '../helpers/shared-flows';
+import { waitForApp } from '../helpers/app-helpers';
+import { textExists, waitForText } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   resetMockBehavior,
   setMockBehavior,
@@ -85,22 +78,10 @@ async function waitForRewardsSnapshot(timeout = 15_000): Promise<void> {
 }
 
 describe('Rewards progression & persistence', () => {
-  before(async function beforeSuite() {
-    if (!supportsExecuteScript()) {
-      stepLog('Skipping suite on Mac2 — Rewards bottom-tab label not mapped for Appium');
-      this.skip();
-    }
-
-    stepLog('starting mock server');
+  before(async () => {
     await startMockServer();
-    stepLog('waiting for app');
     await waitForApp();
-    stepLog('triggering auth bypass deep link');
-    await triggerAuthDeepLinkBypass('e2e-rewards-progression');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[RewardsProgressionE2E]');
+    await resetApp('e2e-rewards-progression');
   });
 
   after(async () => {

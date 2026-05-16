@@ -19,6 +19,7 @@
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { captureCheckpoint, getArtifactDir, saveMockRequestLog } from '../helpers/artifacts';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   clickText,
   textExists,
@@ -62,6 +63,9 @@ describe('Agent review — canonical onboarding + privacy flow', () => {
 
     await startMockServer();
     await waitForApp();
+    // Wipe prior-spec state but stop before auth — the spec drives the
+    // login + onboarding flow itself via triggerAuthDeepLink.
+    await resetApp('e2e-agent-review-reset', { skipAuth: true });
     clearRequestLog();
   });
 

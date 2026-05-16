@@ -359,34 +359,54 @@ impl ParallelHarnessProvider {
         self.record_active_peak(current);
         sleep(Duration::from_millis(25)).await;
 
-        let response = if flattened.contains(RESEARCH_PROMPT_CANARY) {
-            if flattened.contains("research-step-3-ok") {
-                text_response(RESEARCH_DONE_CANARY)
-            } else if flattened.contains("research-step-2-ok") {
-                tool_response("fixture_step", json!({ "branch": "research", "step": 3 }))
-            } else if flattened.contains("research-step-1-ok") {
-                tool_response("fixture_step", json!({ "branch": "research", "step": 2 }))
+        let response = (|| -> anyhow::Result<ChatResponse> {
+            if flattened.contains(RESEARCH_PROMPT_CANARY) {
+                if flattened.contains("research-step-3-ok") {
+                    Ok(text_response(RESEARCH_DONE_CANARY))
+                } else if flattened.contains("research-step-2-ok") {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "research", "step": 3 }),
+                    ))
+                } else if flattened.contains("research-step-1-ok") {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "research", "step": 2 }),
+                    ))
+                } else {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "research", "step": 1 }),
+                    ))
+                }
+            } else if flattened.contains(PLANNER_PROMPT_CANARY) {
+                if flattened.contains("planner-step-3-ok") {
+                    Ok(text_response(PLANNER_DONE_CANARY))
+                } else if flattened.contains("planner-step-2-ok") {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "planner", "step": 3 }),
+                    ))
+                } else if flattened.contains("planner-step-1-ok") {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "planner", "step": 2 }),
+                    ))
+                } else {
+                    Ok(tool_response(
+                        "fixture_step",
+                        json!({ "branch": "planner", "step": 1 }),
+                    ))
+                }
             } else {
-                tool_response("fixture_step", json!({ "branch": "research", "step": 1 }))
+                anyhow::bail!("unexpected subagent payload: {flattened}");
             }
-        } else if flattened.contains(PLANNER_PROMPT_CANARY) {
-            if flattened.contains("planner-step-3-ok") {
-                text_response(PLANNER_DONE_CANARY)
-            } else if flattened.contains("planner-step-2-ok") {
-                tool_response("fixture_step", json!({ "branch": "planner", "step": 3 }))
-            } else if flattened.contains("planner-step-1-ok") {
-                tool_response("fixture_step", json!({ "branch": "planner", "step": 2 }))
-            } else {
-                tool_response("fixture_step", json!({ "branch": "planner", "step": 1 }))
-            }
-        } else {
-            anyhow::bail!("unexpected subagent payload: {flattened}");
-        };
+        })();
 
         self.state
             .active_subagent_calls
             .fetch_sub(1, Ordering::SeqCst);
-        Ok(response)
+        response
     }
 }
 

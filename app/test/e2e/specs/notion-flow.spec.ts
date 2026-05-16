@@ -21,6 +21,7 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   clickButton,
   clickNativeButton,
@@ -205,6 +206,9 @@ describe('Notion Integration Flows', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Wipe prior-spec state; the spec drives its own real-login pass
+    // via performFullLogin so we use resetApp(skipAuth) here.
+    await resetApp('e2e-notion-flow-reset', { skipAuth: true });
     clearRequestLog();
 
     // Full login + onboarding — lands on Home

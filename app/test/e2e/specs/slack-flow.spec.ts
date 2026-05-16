@@ -1,73 +1,39 @@
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  clickButton,
-  textExists,
-  waitForText,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
-import { supportsExecuteScript } from '../helpers/platform';
-import {
-  completeOnboardingIfVisible,
-  navigateViaHash,
-  openAddAccountModal,
-} from '../helpers/shared-flows';
-import { startMockServer, stopMockServer } from '../mock-server';
-
+// @ts-nocheck
 /**
  * Smoke spec for the Slack account integration (feature 10.1.4).
  *
- * Goal: prove that the Accounts page exposes Slack as an addable provider,
- * the Add Account modal lists it with its label + description, and that
- * selecting it dismisses the picker and registers an account on the rail.
+ * Proves the Accounts page exposes Slack as an addable provider, the Add
+ * Account modal lists it with its label + description, and selecting it
+ * dismisses the picker and registers an account on the rail.
  *
  * Deferred to follow-up PRs:
- *  - Real Slack OAuth happy path (workspace selection, scope grant)
- *  - Inbound channel sync (10.3.x)
- *  - Send / reply / thread (10.4.x)
- *
- * Mac2 skipped — Accounts rail labels are not mapped in the Appium helpers.
+ *   - Real Slack OAuth happy path (workspace selection, scope grant)
+ *   - Inbound channel sync (10.3.x)
+ *   - Send / reply / thread (10.4.x)
  */
-function stepLog(message: string, context?: unknown): void {
-  const stamp = new Date().toISOString();
-  if (context === undefined) {
-    console.log(`[SlackFlowE2E][${stamp}] ${message}`);
-    return;
-  }
-  console.log(`[SlackFlowE2E][${stamp}] ${message}`, JSON.stringify(context, null, 2));
-}
+import { waitForApp } from '../helpers/app-helpers';
+import { clickButton, textExists, waitForText } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
+import { navigateViaHash, openAddAccountModal } from '../helpers/shared-flows';
+import { startMockServer, stopMockServer } from '../mock-server';
+
+const USER_ID = 'e2e-slack-flow';
 
 describe('Slack account integration smoke', () => {
-  before(async function beforeSuite() {
-    if (!supportsExecuteScript()) {
-      stepLog('Skipping suite on Mac2 — Accounts rail not mapped for Appium');
-      this.skip();
-    }
-
-    stepLog('starting mock server');
+  before(async () => {
     await startMockServer();
-    stepLog('waiting for app');
     await waitForApp();
-    stepLog('triggering auth bypass deep link');
-    await triggerAuthDeepLinkBypass('e2e-slack-flow');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[SlackFlowE2E]');
+    await resetApp(USER_ID);
   });
 
   after(async () => {
-    stepLog('stopping mock server');
     await stopMockServer();
   });
 
   it('shows Slack as an addable provider in the Add Account modal', async () => {
-    stepLog('navigating to /accounts');
     await navigateViaHash('/accounts');
     await waitForText('Add app', 15_000);
 
-    stepLog('opening Add Account modal');
     await openAddAccountModal();
 
     await waitForText('Slack', 10_000);
@@ -76,14 +42,12 @@ describe('Slack account integration smoke', () => {
   });
 
   it('selecting Slack closes the modal and registers an account on the rail', async () => {
-    // Set up route + modal independently so this case is runnable in isolation.
-    stepLog('navigating to /accounts (independent setup)');
+    // Re-open the picker so this case is runnable in isolation.
     await navigateViaHash('/accounts');
     await waitForText('Add app', 15_000);
     await openAddAccountModal();
     await waitForText('Slack', 10_000);
 
-    stepLog('clicking Slack tile via shared helper');
     await clickButton('Slack');
 
     // 1) Modal must close.
@@ -92,11 +56,11 @@ describe('Slack account integration smoke', () => {
       timeoutMsg: 'Add account modal did not close after picking Slack',
     });
 
-    // 2) Redux must record a new account with provider === "slack" — the
-    // backing-state mock-effect that proves registration. The Slack tile
-    // label and the post-pick rail tooltip share the literal string "Slack",
-    // so a pure DOM assertion cannot distinguish them. The store handle is
-    // exposed on `window.__OPENHUMAN_STORE__` from `app/src/store/index.ts`.
+    // 2) Redux must record a new account with provider === "slack". The
+    // store handle is exposed on `window.__OPENHUMAN_STORE__` (see
+    // app/src/store/index.ts); a pure DOM assertion can't distinguish the
+    // Slack tile label from the post-pick rail tooltip — both render the
+    // literal "Slack" — so we read state directly.
     const registered = await browser.waitUntil(
       async () =>
         await browser.execute(() => {

@@ -23,6 +23,7 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   clickButton,
   clickNativeButton,
@@ -203,6 +204,11 @@ describe('Gmail Integration Flows', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Wipe prior-spec state + reach Home via resetApp's deep-link bypass.
+    // performFullLogin() below relies on triggerAuthDeepLink (full flow,
+    // not the bypass key=auth), so we use resetApp(skipAuth) and let the
+    // spec drive its own real-login pass.
+    await resetApp('e2e-gmail-flow-reset', { skipAuth: true });
     clearRequestLog();
 
     // Full login + onboarding — lands on Home

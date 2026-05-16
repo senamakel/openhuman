@@ -495,14 +495,17 @@ function buildResponse({ model, content, toolCalls }) {
 }
 
 /**
- * Drive a mock OpenAI-compatible /v1/chat/completions endpoint with
- * keyword-based responses. Returns true if the request was handled.
+ * Drive a mock OpenAI-compatible chat-completions endpoint with
+ * keyword-based responses. Accepts both `/v1/chat/completions` and
+ * root-based `/chat/completions` URLs because custom providers often
+ * let users enter either the API root or an explicit `/v1` base.
+ * Returns true if the request was handled.
  */
 export function handleLlmCompletions(ctx) {
   const { method, url, parsedBody, res } = ctx;
   if (
     method !== "POST" ||
-    !/^(\/openai)?\/v1\/chat\/completions\/?$/.test(url)
+    !/^(\/openai)?(\/v1)?\/chat\/completions\/?$/.test(url)
   ) {
     return false;
   }

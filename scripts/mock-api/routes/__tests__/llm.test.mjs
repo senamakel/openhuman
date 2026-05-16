@@ -130,6 +130,42 @@ test("streams request-rule scripts for root chat completions path", async () => 
   assert.equal(ctx.res.ended, true);
 });
 
+test("returns HTTP error for streaming rules with status >= 400", () => {
+  setMockBehaviors(
+    {
+      llmRequestRules: JSON.stringify([
+        {
+          path: "/chat/completions",
+          stream: true,
+          status: 401,
+          error: "unauthorized",
+          type: "auth_error",
+        },
+      ]),
+    },
+    "replace",
+  );
+
+  const ctx = makeCtx({
+    url: "/chat/completions",
+    parsedBody: {
+      model: "gpt-oss",
+      stream: true,
+      messages: [{ role: "user", content: "stream please" }],
+    },
+  });
+
+  const handled = handleLlmCompletions(ctx);
+
+  assert.equal(handled, true);
+  assert.equal(ctx.res.statusCode, 401);
+  assert.equal(ctx.res.headers["Content-Type"], "application/json");
+  const body = JSON.parse(ctx.res.body);
+  assert.equal(body.error.message, "unauthorized");
+  assert.equal(body.error.type, "auth_error");
+  assert.doesNotMatch(ctx.res.body, /^data:/m);
+});
+
 test("returns false for non-LLM routes", () => {
   const ctx = makeCtx({ method: "GET", url: "/chat/completions" });
   assert.equal(handleLlmCompletions(ctx), false);

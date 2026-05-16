@@ -516,7 +516,11 @@ export function handleLlmCompletions(ctx) {
   const requestRule = resolveRequestRule(ctx);
 
   if (requestRule?.error || (requestRule?.status && requestRule.status >= 400)) {
-    if (parsedBody?.stream === true) {
+    if (
+      parsedBody?.stream === true &&
+      requestRule?.error &&
+      !(Number.isInteger(requestRule?.status) && requestRule.status >= 400)
+    ) {
       writeSseHead(res);
       writeSseEvent(res, {
         error: {

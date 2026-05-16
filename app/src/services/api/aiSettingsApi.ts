@@ -256,6 +256,165 @@ export async function setCloudProviderKey(
   });
 }
 
+// ─── Provider key validation ──────────────────────────────────────────────
+//
+// Sanity-checks an API key by hitting the provider's "list models" endpoint.
+// Returns `ok: true` plus the model count on success, or `ok: false` with a
+// short error string on failure. Best-effort: providers we don't know how
+// to validate against (custom / local runtimes) resolve to `{ ok: true }`
+// without making a request, since "no failure" is the most useful default.
+
+export interface ProviderValidationResult {
+  ok: boolean;
+  /** Number of models the endpoint returned on success, when available. */
+  modelCount?: number;
+  /** Sorted model IDs returned by the endpoint, when parseable. Used by
+   *  the custom-routing dialog to populate a model dropdown without
+   *  having to round-trip back through the core for the decrypted key. */
+  modelIds?: string[];
+  /** Short human-readable failure reason on `ok: false`. */
+  error?: string;
+}
+
+interface ValidationEndpoint {
+  url: string;
+  authHeader: (apiKey: string) => Record<string, string>;
+  /** Extract the models list from the parsed JSON response, if shaped. */
+  extractList?: (json: unknown) => unknown[] | null;
+}
+
+const PROVIDER_VALIDATION: Partial<Record<CloudProviderType, ValidationEndpoint>> = {
+  openai: {
+    url: 'https://api.openai.com/v1/models',
+    authHeader: key => ({ Authorization: `Bearer ${key}` }),
+    extractList: json =>
+      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+        ? ((json as Record<string, unknown>).data as unknown[])
+        : null,
+  },
+  anthropic: {
+    url: 'https://api.anthropic.com/v1/models',
+    authHeader: key => ({
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    }),
+    extractList: json =>
+      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+        ? ((json as Record<string, unknown>).data as unknown[])
+        : null,
+  },
+  openrouter: {
+    url: 'https://openrouter.ai/api/v1/models',
+    authHeader: key => ({ Authorization: `Bearer ${key}` }),
+    extractList: json =>
+      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+        ? ((json as Record<string, unknown>).data as unknown[])
+        : null,
+  },
+};
+
+export async function validateCloudProviderKey(
+  providerType: CloudProviderType,
+  apiKey: string
+): Promise<ProviderValidationResult> {
+  const cfg = PROVIDER_VALIDATION[providerType];
+  if (!cfg) {
+    // Custom / local-runtime entries don't have a known models endpoint;
+    // accept the key as-is.
+    return { ok: true };
+  }
+  try {
+    const res = await fetch(cfg.url, {
+      method: 'GET',
+      headers: cfg.authHeader(apiKey),
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, error: 'Key rejected — check it and try again.' };
+      }
+      return { ok: false, error: `Models endpoint returned ${res.status} ${res.statusText}.` };
+    }
+    let modelCount: number | undefined;
+    let modelIds: string[] | undefined;
+    try {
+      const json = (await res.json()) as unknown;
+      const list = cfg.extractList?.(json);
+      if (Array.isArray(list)) {
+        modelCount = list.length;
+        const ids = list
+          .map(entry => {
+            if (typeof entry === 'string') return entry;
+            if (entry && typeof entry === 'object' && 'id' in (entry as Record<string, unknown>)) {
+              const id = (entry as Record<string, unknown>).id;
+              if (typeof id === 'string') return id;
+            }
+            return null;
+          })
+          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+        if (ids.length > 0) modelIds = ids.sort();
+      }
+    } catch {
+      // Body parse failed — the 2xx alone is good enough.
+    }
+    return { ok: true, modelCount, modelIds };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+// ─── Provider model-id cache ─────────────────────────────────────────────
+//
+// `validateCloudProviderKey` is the only path where the renderer has the
+// plaintext key in hand, so it doubles as the source of truth for the
+// per-provider model dropdown shown in the custom-routing dialog. Cache
+// the IDs here (localStorage) so the dropdown is populated immediately on
+// subsequent loads without re-prompting the user for their key.
+
+const MODEL_CACHE_PREFIX = 'openhuman.provider_model_ids.v1.';
+
+function modelCacheKey(providerType: CloudProviderType): string {
+  return `${MODEL_CACHE_PREFIX}${providerType}`;
+}
+
+export function cacheProviderModelIds(
+  providerType: CloudProviderType,
+  modelIds: string[]
+): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(modelCacheKey(providerType), JSON.stringify(modelIds));
+  } catch {
+    // Storage full / blocked — caching is best-effort.
+  }
+}
+
+export function loadProviderModelIds(providerType: CloudProviderType): string[] {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(modelCacheKey(providerType));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.filter((s): s is string => typeof s === 'string' && s.length > 0);
+    }
+  } catch {
+    // Bad JSON / parse failure — fall through.
+  }
+  return [];
+}
+
+export function clearProviderModelIds(providerType: CloudProviderType): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(modelCacheKey(providerType));
+  } catch {
+    // best-effort
+  }
+}
+
 /** Clear a stored API key. */
 export async function clearCloudProviderKey(providerType: CloudProviderType): Promise<void> {
   if (providerType === 'openhuman') {

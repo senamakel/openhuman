@@ -22,13 +22,17 @@ import {
 import {
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
+  cacheProviderModelIds,
   clearCloudProviderKey,
+  clearProviderModelIds,
   type CloudProviderView,
   loadAISettings,
   loadLocalProviderSnapshot,
+  loadProviderModelIds,
   type LocalProviderSnapshot,
   saveAISettings,
   setCloudProviderKey,
+  validateCloudProviderKey,
 } from '../../../services/api/aiSettingsApi';
 import type { CloudProviderType as ApiCloudProviderType } from '../../../utils/tauriCommands/config';
 import SettingsHeader from '../components/SettingsHeader';
@@ -479,11 +483,13 @@ const ProviderKeyDialog = ({
   type: CloudProviderType;
   label: string;
   onCancel: () => void;
-  onSubmit: (apiKey: string) => Promise<void> | void;
+  onSubmit: (apiKey: string, modelIds?: string[]) => Promise<void> | void;
 }) => {
   const [apiKey, setApiKey] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'testing' | 'saving'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const busy = phase !== 'idle';
 
   const placeholder =
     type === 'openai'
@@ -500,13 +506,30 @@ const ProviderKeyDialog = ({
       setError('Please paste your API key to continue.');
       return;
     }
-    setSaving(true);
     setError(null);
+    setSuccess(null);
+
+    // Sanity-check the key against the provider's models endpoint before
+    // we persist anything. For provider types we don't know how to verify
+    // (custom / local runtimes) `validateCloudProviderKey` resolves
+    // `{ ok: true }` without making a request, so this is a no-op there.
+    setPhase('testing');
+    const result = await validateCloudProviderKey(type, trimmed);
+    if (!result.ok) {
+      setError(result.error ?? "Couldn't verify that key. Please try again.");
+      setPhase('idle');
+      return;
+    }
+    if (typeof result.modelCount === 'number') {
+      setSuccess(`Key looks good — ${result.modelCount} models available.`);
+    }
+
+    setPhase('saving');
     try {
-      await onSubmit(trimmed);
+      await onSubmit(trimmed, result.modelIds);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setSaving(false);
+      setPhase('idle');
     }
   };
 
@@ -530,34 +553,48 @@ const ProviderKeyDialog = ({
           </label>
           <input
             id="provider-key-input"
-            type="password"
+            type="text"
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
             spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             value={apiKey}
             placeholder={placeholder}
+            disabled={busy}
             onChange={e => {
               setApiKey(e.target.value);
               setError(null);
+              setSuccess(null);
             }}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60"
           />
           {error ? <p className="text-xs font-medium text-red-600">{error}</p> : null}
+          {success && !error ? (
+            <p className="text-xs font-medium text-emerald-600">{success}</p>
+          ) : null}
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            disabled={saving}
+            disabled={busy}
             className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
             Cancel
           </button>
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving}
+            disabled={busy}
             className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
-            {saving ? 'Saving…' : 'Save'}
+            {phase === 'testing'
+              ? 'Testing…'
+              : phase === 'saving'
+                ? 'Saving…'
+                : 'Save'}
           </button>
         </div>
       </div>
@@ -658,6 +695,10 @@ interface CustomRoutingDialogProps {
   cloudProviders: CloudProvider[];
   localModels: OllamaModel[];
   ollamaRunning: boolean;
+  /** Per-provider-type model id catalog cached from the validation step.
+   *  Empty array for a given type means "no cache, fall back to free-text
+   *  model input". */
+  cloudModelIds: Partial<Record<CloudProviderType, string[]>>;
   onClose: () => void;
   onSubmit: (next: ProviderRef) => void;
 }
@@ -672,6 +713,7 @@ const CustomRoutingDialog = ({
   cloudProviders,
   localModels,
   ollamaRunning,
+  cloudModelIds,
   onClose,
   onSubmit,
 }: CustomRoutingDialogProps) => {
@@ -791,13 +833,48 @@ const CustomRoutingDialog = ({
                   ))}
                 </select>
               ) : (
-                <input
-                  type="text"
-                  value={model}
-                  onChange={e => setModel(e.target.value)}
-                  placeholder={selectedCloud?.defaultModel ?? 'model-id'}
-                  className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                />
+                (() => {
+                  const cachedIds =
+                    selectedCloud && cloudModelIds[selectedCloud.type]
+                      ? (cloudModelIds[selectedCloud.type] ?? [])
+                      : [];
+                  // When we have a cached model list for this provider
+                  // (populated at validation time), show a dropdown. Fall
+                  // back to free-text otherwise — e.g. for `custom` /
+                  // LM Studio / Ollama where we don't pre-query models.
+                  if (cachedIds.length > 0) {
+                    // Make sure the currently-selected model id is in the
+                    // option list even if it's missing from the cached
+                    // catalog (typo, deprecated id, etc.) so the dropdown
+                    // never silently swallows the user's choice.
+                    const visibleIds = cachedIds.includes(model)
+                      ? cachedIds
+                      : model
+                        ? [model, ...cachedIds]
+                        : cachedIds;
+                    return (
+                      <select
+                        value={model}
+                        onChange={e => setModel(e.target.value)}
+                        className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-mono text-stone-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                        {visibleIds.map(id => (
+                          <option key={id} value={id}>
+                            {id}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  }
+                  return (
+                    <input
+                      type="text"
+                      value={model}
+                      onChange={e => setModel(e.target.value)}
+                      placeholder={selectedCloud?.defaultModel ?? 'model-id'}
+                      className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  );
+                })()
               )}
             </div>
           </div>
@@ -900,6 +977,18 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
     [draft]
   );
 
+  // Per-type cache of model IDs we captured at validation time. Used to
+  // populate the model dropdown in CustomRoutingDialog. Recomputed when
+  // the set of active cloud providers changes (toggle on/off).
+  const cloudModelIdsMap = useMemo(() => {
+    const out: Partial<Record<CloudProviderType, string[]>> = {};
+    for (const p of draft.cloudProviders) {
+      if (p.type === 'openhuman') continue;
+      out[p.type] = loadProviderModelIds(p.type);
+    }
+    return out;
+  }, [draft.cloudProviders]);
+
   const updateRouting = (id: WorkloadId, next: ProviderRef) =>
     setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
 
@@ -982,7 +1071,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     onToggle={() => {
                       if (enabled && existing) {
                         // Toggle OFF: remove the provider + scrub any
-                        // routing entries that pin to it.
+                        // routing entries that pin to it + drop the
+                        // cached model-id list for this provider type.
                         const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
                         const nextPrimaryId =
                           draft.primaryCloudId === existing.id
@@ -1002,6 +1092,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                           primaryCloudId: nextPrimaryId,
                           routing: nextRouting,
                         });
+                        clearProviderModelIds(type);
                       } else {
                         // Toggle ON: open the API-key popup. The chip
                         // only flips after the dialog saves.
@@ -1216,6 +1307,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               cloudProviders={draft.cloudProviders}
               localModels={installed}
               ollamaRunning={ollama.state === 'running'}
+              cloudModelIds={cloudModelIdsMap}
               onClose={() => setCustomDialogFor(null)}
               onSubmit={next => {
                 updateRouting(customDialogFor, next);
@@ -1233,7 +1325,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             setKeyDialogFor(null);
             setPendingLocalLabel(null);
           }}
-          onSubmit={async apiKey => {
+          onSubmit={async (apiKey, modelIds) => {
             const type = keyDialogFor;
             const localLabel = pendingLocalLabel;
             setBusyAction(`toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : type}`);
@@ -1252,6 +1344,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               });
               if (type !== 'openhuman') {
                 await setCloudProviderKey(type as ApiCloudProviderType, apiKey);
+              }
+              // Persist the model IDs so the custom-routing dropdown is
+              // populated for this provider without needing the plaintext
+              // key again. Best-effort.
+              if (modelIds && modelIds.length > 0) {
+                cacheProviderModelIds(type, modelIds);
               }
               setKeyDialogFor(null);
               setPendingLocalLabel(null);

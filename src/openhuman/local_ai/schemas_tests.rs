@@ -238,7 +238,7 @@ async fn handle_apply_preset_accepts_valid_tier_and_persists() {
 }
 
 #[tokio::test]
-async fn handle_set_ollama_path_rejects_nonexistent_path() {
+async fn handle_set_ollama_path_reports_external_runtime_contract() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     unsafe {
@@ -252,22 +252,22 @@ async fn handle_set_ollama_path_rejects_nonexistent_path() {
     unsafe {
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
-    assert!(err.contains("Ollama binary not found"));
+    assert!(err.contains("no longer manages an Ollama binary path"));
 }
 
 #[tokio::test]
-async fn handle_set_ollama_path_accepts_empty_string_to_clear() {
+async fn handle_set_ollama_path_rejects_empty_string_too() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
     }
     let params = Map::from_iter([("path".to_string(), serde_json::json!(""))]);
-    // Empty path clears the setting — must not error.
-    let _ = handle_local_ai_set_ollama_path(params).await.expect("ok");
+    let err = handle_local_ai_set_ollama_path(params).await.unwrap_err();
     unsafe {
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
+    assert!(err.contains("no longer manages an Ollama binary path"));
 }
 
 /// Regression test for the CodeRabbit #7 race on PR #1755: when two

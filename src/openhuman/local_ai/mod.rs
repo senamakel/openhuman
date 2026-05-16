@@ -43,6 +43,7 @@ pub use presets::{ModelPreset, ModelTier, VisionMode};
 pub use schemas::{
     all_controller_schemas as all_local_ai_controller_schemas,
     all_registered_controllers as all_local_ai_registered_controllers,
+    schemas as local_ai_controller_schema,
 };
 pub use sentiment::SentimentResult;
 pub(crate) use service::whisper_engine;

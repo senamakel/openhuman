@@ -1,5 +1,9 @@
 /**
- * Local AI / Ollama commands.
+ * Local AI / Ollama-facing commands routed through the core.
+ *
+ * The renderer never talks to Ollama directly. It always calls the core, and
+ * the core decides whether to route a request to the configured inference
+ * backend (for example an external Ollama endpoint).
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
 import { CommandResponse, isTauri, tauriErrorMessage } from './common';
@@ -51,10 +55,9 @@ export interface LocalAiAssetsStatus {
   tts: LocalAiAssetStatus;
   quantization: string;
   /**
-   * True when the core can find an Ollama binary on disk. When false the UI
-   * should render an "Install Ollama" CTA instead of model state — every
-   * Ollama-backed asset will be reported as `missing` and `/api/tags`
-   * probes are skipped entirely (no 30s timeout).
+   * True when the configured Ollama endpoint is reachable enough for model
+   * checks. When false the UI should render external-runtime guidance instead
+   * of pretending the app can install or launch Ollama itself.
    */
   ollama_available: boolean;
 }

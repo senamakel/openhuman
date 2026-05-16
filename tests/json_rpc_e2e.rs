@@ -3340,6 +3340,186 @@ async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     rpc_join.abort();
 }
 
+#[tokio::test]
+async fn json_rpc_inference_namespace_lm_studio_prompt_and_status() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _tier_guard = EnvVarGuard::unset("OPENHUMAN_LOCAL_AI_TIER");
+    let _lm_env_guard = EnvVarGuard::unset("OPENHUMAN_LM_STUDIO_BASE_URL");
+    let _lm_alias_env_guard = EnvVarGuard::unset("LM_STUDIO_BASE_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let lm_app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async {
+                Json(json!({
+                    "object": "list",
+                    "data": [
+                        { "id": "local-model", "object": "model", "owned_by": "lm-studio" }
+                    ]
+                }))
+            }),
+        )
+        .route(
+            "/v1/chat/completions",
+            post(|Json(_body): Json<Value>| async move {
+                Json(json!({
+                    "id": "chatcmpl-inference-e2e",
+                    "object": "chat.completion",
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "hello from inference namespace"
+                        },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": {
+                        "prompt_tokens": 7,
+                        "completion_tokens": 5,
+                        "total_tokens": 12
+                    }
+                }))
+            }),
+        );
+    let (lm_addr, lm_join) = serve_on_ephemeral(lm_app).await;
+    let lm_base = format!("http://{lm_addr}/v1");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let update = post_json_rpc(
+        &rpc_base,
+        360,
+        "openhuman.config_update_local_ai_settings",
+        json!({
+            "runtime_enabled": true,
+            "opt_in_confirmed": true,
+            "provider": "lm_studio",
+            "base_url": lm_base,
+            "model_id": "local-model",
+            "chat_model_id": "local-model"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_local_ai_settings for inference namespace");
+
+    let status = post_json_rpc(&rpc_base, 361, "openhuman.inference_status", json!({})).await;
+    let status_result = assert_no_jsonrpc_error(&status, "inference_status");
+    let status_payload = status_result.get("result").unwrap_or(status_result);
+    assert_eq!(
+        status_payload.get("provider").and_then(Value::as_str),
+        Some("lm_studio")
+    );
+
+    let prompt = post_json_rpc(
+        &rpc_base,
+        362,
+        "openhuman.inference_prompt",
+        json!({
+            "prompt": "hello",
+            "max_tokens": 16,
+            "no_think": true
+        }),
+    )
+    .await;
+    let prompt_result = assert_no_jsonrpc_error(&prompt, "inference_prompt");
+    assert_eq!(
+        extract_string_outcome(prompt_result),
+        "hello from inference namespace"
+    );
+
+    let summarize = post_json_rpc(
+        &rpc_base,
+        363,
+        "openhuman.inference_summarize",
+        json!({
+            "text": "summarize me",
+            "max_tokens": 16
+        }),
+    )
+    .await;
+    let summarize_result = assert_no_jsonrpc_error(&summarize, "inference_summarize");
+    assert_eq!(
+        extract_string_outcome(summarize_result),
+        "hello from inference namespace"
+    );
+
+    lm_join.abort();
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreachable() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _tier_guard = EnvVarGuard::unset("OPENHUMAN_LOCAL_AI_TIER");
+    let _ollama_url_guard = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", "http://127.0.0.1:1");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let update = post_json_rpc(
+        &rpc_base,
+        364,
+        "openhuman.config_update_local_ai_settings",
+        json!({
+            "runtime_enabled": true,
+            "opt_in_confirmed": true,
+            "provider": "ollama",
+            "model_id": "gemma3:1b-it-qat",
+            "chat_model_id": "gemma3:1b-it-qat"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_local_ai_settings for unreachable ollama");
+
+    let prompt = post_json_rpc(
+        &rpc_base,
+        365,
+        "openhuman.inference_prompt",
+        json!({
+            "prompt": "hello",
+            "max_tokens": 16,
+            "no_think": true
+        }),
+    )
+    .await;
+    let prompt_err = assert_jsonrpc_error(&prompt, "inference_prompt unreachable ollama");
+    assert!(
+        prompt_err.contains("no longer starts or installs Ollama automatically"),
+        "unexpected error: {prompt_err}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 // ── Billing & Team E2E tests ──────────────────────────────────────────────────
 
 /// End-to-end test for billing RPC methods.

@@ -410,7 +410,7 @@ async fn build_runtime_snapshot(config: &Config) -> RuntimeSnapshot {
             .await
     };
 
-    let local_ai = match crate::openhuman::local_ai::rpc::local_ai_status(config).await {
+    let local_ai = match crate::openhuman::inference::rpc::inference_status(config).await {
         Ok(outcome) => outcome.value,
         Err(error) => {
             warn!("{LOG_PREFIX} local_ai status failed during snapshot: {error}");

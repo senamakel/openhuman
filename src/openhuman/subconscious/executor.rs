@@ -209,7 +209,7 @@ async fn execute_with_local_model(
         },
     ];
 
-    let outcome = crate::openhuman::local_ai::ops::local_ai_chat(&config, messages, None)
+    let outcome = crate::openhuman::inference::ops::inference_chat(&config, messages, None)
         .await
         .map_err(|e| format!("local model: {e}"))?;
 

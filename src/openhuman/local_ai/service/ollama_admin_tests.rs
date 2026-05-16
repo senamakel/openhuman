@@ -124,6 +124,100 @@ async fn ollama_healthy_returns_false_on_unreachable_url() {
 }
 
 #[tokio::test]
+async fn ensure_ollama_server_requires_external_runtime_when_unreachable() {
+    let _guard = crate::openhuman::local_ai::local_ai_test_guard();
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", "http://127.0.0.1:1");
+    }
+
+    let config = Config::default();
+    let service = LocalAiService::new(&config);
+    let err = service
+        .ensure_ollama_server(&config)
+        .await
+        .expect_err("unreachable runtime should fail");
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
+    }
+
+    assert!(
+        err.contains("no longer starts or installs Ollama automatically"),
+        "unexpected error: {err}"
+    );
+}
+
+#[tokio::test]
+async fn ensure_ollama_server_reports_broken_external_runner_without_restart_attempt() {
+    let _guard = crate::openhuman::local_ai::local_ai_test_guard();
+
+    let app = Router::new()
+        .route("/api/tags", get(|| async { Json(json!({ "models": [] })) }))
+        .route(
+            "/api/show",
+            axum::routing::post(|| async {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "fork/exec /broken/ollama: no such file or directory",
+                )
+            }),
+        );
+    let base = spawn_mock(app).await;
+    unsafe {
+        std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", &base);
+    }
+
+    let config = Config::default();
+    let service = LocalAiService::new(&config);
+    let err = service
+        .ensure_ollama_server(&config)
+        .await
+        .expect_err("broken runner should fail");
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
+    }
+
+    assert!(
+        err.contains("cannot execute models") || err.contains("Restart the external runtime"),
+        "unexpected error: {err}"
+    );
+}
+
+#[tokio::test]
+async fn assets_status_marks_ollama_unavailable_when_runtime_is_down_even_if_binary_exists() {
+    let _guard = crate::openhuman::local_ai::local_ai_test_guard();
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", "http://127.0.0.1:1");
+    }
+    let fake_ollama = std::env::current_exe().expect("current exe");
+    let prev_ollama_bin = std::env::var_os("OLLAMA_BIN");
+    unsafe {
+        std::env::set_var("OLLAMA_BIN", &fake_ollama);
+    }
+
+    let config = Config::default();
+    let service = LocalAiService::new(&config);
+    let status = service.assets_status(&config).await.expect("assets status");
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
+        match prev_ollama_bin {
+            Some(value) => std::env::set_var("OLLAMA_BIN", value),
+            None => std::env::remove_var("OLLAMA_BIN"),
+        }
+    }
+
+    assert!(
+        !status.ollama_available,
+        "runtime-down status must not be treated as available"
+    );
+    assert_ne!(status.chat.state, "ready");
+}
+
+#[tokio::test]
 async fn diagnostics_reports_server_unreachable_when_url_unbound() {
     let _guard = crate::openhuman::local_ai::local_ai_test_guard();
 
@@ -151,8 +245,8 @@ async fn diagnostics_reports_server_unreachable_when_url_unbound() {
         .cloned()
         .unwrap_or_default();
     assert!(
-        !repair_actions.is_empty(),
-        "unreachable server must produce at least one repair action"
+        repair_actions.is_empty(),
+        "OpenHuman should not suggest app-managed repair actions anymore"
     );
     unsafe {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
@@ -181,16 +275,13 @@ async fn diagnostics_with_running_server_but_missing_models_flags_issues() {
     // No models are installed → expected chat model issue surfaces.
     let issues = diag["issues"].as_array().cloned().unwrap_or_default();
     assert!(!issues.is_empty());
-    // Missing chat model should produce a pull_model repair action.
     let repair_actions = diag["repair_actions"]
         .as_array()
         .cloned()
         .unwrap_or_default();
     assert!(
-        repair_actions
-            .iter()
-            .any(|a| a["action"].as_str() == Some("pull_model")),
-        "missing models must produce pull_model repair action"
+        repair_actions.is_empty(),
+        "missing models should no longer surface app-managed pull actions"
     );
     unsafe {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
@@ -286,7 +377,7 @@ async fn resolve_binary_path_finds_binary_via_ollama_bin_env() {
 }
 
 #[tokio::test]
-async fn diagnostics_repair_actions_include_start_server_when_binary_known() {
+async fn diagnostics_repair_actions_are_empty_when_binary_is_known_but_server_is_down() {
     let _guard = crate::openhuman::local_ai::local_ai_test_guard();
 
     let tmp = tempfile::tempdir().unwrap();
@@ -312,10 +403,8 @@ async fn diagnostics_repair_actions_include_start_server_when_binary_known() {
         .cloned()
         .unwrap_or_default();
     assert!(
-        repair_actions
-            .iter()
-            .any(|a| a["action"].as_str() == Some("start_server")),
-        "when binary is known but server is down, repair action should be start_server"
+        repair_actions.is_empty(),
+        "when server is down, diagnostics should not advertise app-managed start actions"
     );
 
     unsafe {

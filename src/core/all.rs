@@ -149,6 +149,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::service::all_service_registered_controllers());
     // Data migration utilities
     controllers.extend(crate::openhuman::migration::all_migration_registered_controllers());
+    // External inference runtime access
+    controllers.extend(crate::openhuman::inference::all_inference_registered_controllers());
     // Local AI model management and inference
     controllers.extend(crate::openhuman::local_ai::all_local_ai_registered_controllers());
     // People resolution and interaction scoring
@@ -271,6 +273,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::credentials::all_credentials_controller_schemas());
     schemas.extend(crate::openhuman::service::all_service_controller_schemas());
     schemas.extend(crate::openhuman::migration::all_migration_controller_schemas());
+    schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
     schemas.extend(crate::openhuman::local_ai::all_local_ai_controller_schemas());
     schemas.extend(crate::openhuman::people::all_people_controller_schemas());
     schemas.extend(
@@ -357,6 +360,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "doctor" => Some("Run diagnostics for workspace and runtime health."),
         "encrypt" => Some("Encrypt secure values managed by secret storage."),
         "health" => Some("Process and component health snapshots."),
+        "inference" => Some("Connect to configured text, vision, and embedding inference runtimes."),
         "local_ai" => Some("Local AI chat, inference, downloads, and media operations."),
         "migrate" => Some("Data migration utilities."),
         "screen_intelligence" => Some("Screen capture, permissions, and accessibility automation."),

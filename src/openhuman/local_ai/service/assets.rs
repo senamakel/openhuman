@@ -37,23 +37,21 @@ impl LocalAiService {
             "[local_ai:assets:provider_routing] entry"
         );
 
-        // Pre-flight precondition: if no Ollama binary exists anywhere
-        // discoverable, every Ollama-backed `has_model` call will fail (or
-        // time out). LM Studio still delegates embeddings to Ollama in this
-        // first provider slice, so it needs the same pre-flight for the
-        // embedding branch.
+        // External-runtime precondition: OpenHuman no longer installs or
+        // starts Ollama itself, so the interesting question is whether the
+        // user-managed runtime is reachable right now.
         let uses_ollama_assets = matches!(
             provider,
             LocalAiProvider::Ollama | LocalAiProvider::LmStudio
         );
         let ollama_available = if uses_ollama_assets {
-            let present = self.ollama_binary_present(config);
+            let present = self.ollama_healthy().await;
             debug!(
                 target: "local_ai::assets",
                 %correlation_id,
                 provider = %provider.as_str(),
                 ollama_available = present,
-                "[local_ai:assets:provider_routing] ollama binary check"
+                "[local_ai:assets:provider_routing] ollama runtime check"
             );
             present
         } else {
@@ -121,7 +119,7 @@ impl LocalAiService {
                     %correlation_id,
                     provider = "ollama",
                     model = %embedding_model,
-                    "[local_ai:assets:provider_routing] lm studio embedding check skipped; ollama binary missing"
+                    "[local_ai:assets:provider_routing] lm studio embedding check skipped; ollama runtime unavailable"
                 );
                 false
             };
@@ -216,7 +214,7 @@ impl LocalAiService {
             trace!(
                 target: "local_ai::assets",
                 %correlation_id,
-                branch = "ollama_missing_binary",
+                branch = "ollama_runtime_unavailable",
                 "[local_ai:assets:provider_routing] selected provider branch"
             );
             (false, false, false)

@@ -176,23 +176,8 @@ pub async fn local_ai_status(
 pub async fn local_ai_shutdown_owned(
     config: &mut Config,
 ) -> Result<RpcOutcome<local_ai::LocalAiStatus>, String> {
-    let service = local_ai::global(config);
-    service.shutdown_owned_ollama(config).await;
-
-    // Shift any ollama-routed workload back to "cloud" (= primary).
-    let cleared = clear_ollama_workload_routes(config);
-    if cleared > 0 {
-        log::info!(
-            "[local_ai] shutdown_owned: shifted {cleared} ollama-routed workload(s) back to cloud"
-        );
-        config.save().await.map_err(|e| e.to_string())?;
-    }
-
-    service.mark_disabled(config);
-    Ok(RpcOutcome::single_log(
-        service.status(),
-        "local ai runtime gated off (owned daemon killed if any)",
-    ))
+    let _ = config;
+    Err("OpenHuman does not manage the Ollama process anymore. Stop or restart your external Ollama runtime directly.".to_string())
 }
 
 /// Clear every per-workload `*_provider` field whose stored value starts
@@ -234,21 +219,8 @@ pub async fn local_ai_download(
     config: &Config,
     force: bool,
 ) -> Result<RpcOutcome<local_ai::LocalAiStatus>, String> {
-    let service = local_ai::global(config);
-    if force {
-        service.reset_to_idle(config);
-    }
-    let service_clone = service.clone();
-    let config_clone = config.clone();
-    tokio::spawn(async move {
-        if let Err(err) = service_clone.download_all_models(&config_clone).await {
-            service_clone.mark_degraded(err);
-        }
-    });
-    Ok(RpcOutcome::single_log(
-        service.status(),
-        "local ai full model download triggered",
-    ))
+    let _ = (config, force);
+    Err("OpenHuman no longer downloads or starts Ollama for you. Start your external Ollama runtime and pull models yourself.".to_string())
 }
 
 /// Triggers a download of all local AI assets and returns progress information.
@@ -256,25 +228,8 @@ pub async fn local_ai_download_all_assets(
     config: &Config,
     force: bool,
 ) -> Result<RpcOutcome<LocalAiDownloadsProgress>, String> {
-    let service = local_ai::global(config);
-    if force {
-        service.reset_to_idle(config);
-    }
-    let service_clone = service.clone();
-    let config_clone = config.clone();
-    tokio::spawn(async move {
-        if let Err(err) = service_clone.download_all_models(&config_clone).await {
-            service_clone.mark_degraded(err);
-        }
-    });
-    let progress = service
-        .downloads_progress(config)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        progress,
-        "local ai full asset download triggered",
-    ))
+    let _ = (config, force);
+    Err("OpenHuman no longer downloads Ollama assets. Start your external Ollama runtime and manage model pulls yourself.".to_string())
 }
 
 /// Generates a summary of the provided text using local AI models.
@@ -467,14 +422,21 @@ pub async fn local_ai_download_asset(
     config: &Config,
     capability: &str,
 ) -> Result<RpcOutcome<LocalAiAssetsStatus>, String> {
-    let service = local_ai::global(config);
-    let output = service
-        .download_asset(config, capability.trim())
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        output,
-        "local ai asset download triggered",
+    let capability = capability.trim().to_ascii_lowercase();
+    if matches!(capability.as_str(), "stt" | "tts") {
+        let service = local_ai::global(config);
+        let output = service
+            .download_asset(config, capability.as_str())
+            .await
+            .map_err(|e| e.to_string())?;
+        return Ok(RpcOutcome::single_log(
+            output,
+            "local ai voice asset download triggered",
+        ));
+    }
+
+    Err(format!(
+        "OpenHuman no longer downloads `{capability}` via Ollama. Start your external Ollama runtime and pull that model yourself."
     ))
 }
 

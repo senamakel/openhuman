@@ -95,11 +95,9 @@ pub struct LocalAiAssetsStatus {
     pub stt: LocalAiAssetStatus,
     pub tts: LocalAiAssetStatus,
     pub quantization: String,
-    /// True when an Ollama binary is discoverable on disk (workspace install,
-    /// system install, or via `OLLAMA_BIN`/configured path). When false, the
-    /// frontend should render an "Install Ollama" CTA instead of model state —
-    /// querying `/api/tags` against a missing server otherwise lets a 30s
-    /// connect timeout cascade through `has_model`.
+    /// True when the configured Ollama endpoint is reachable enough for model
+    /// checks. When false, the frontend should render external-runtime
+    /// guidance rather than app-managed install/start affordances.
     pub ollama_available: bool,
 }
 

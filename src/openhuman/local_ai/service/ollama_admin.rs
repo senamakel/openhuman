@@ -25,35 +25,22 @@ fn lm_studio_models_error_means_unreachable(error: &str) -> bool {
 impl LocalAiService {
     pub(in crate::openhuman::local_ai::service) async fn ensure_ollama_server(
         &self,
-        config: &Config,
+        _config: &Config,
     ) -> Result<(), String> {
-        // If openhuman crashed last session and left a daemon running, the
-        // spawn marker lets us recognise it and reclaim it (kill + respawn
-        // under owned-child tracking) instead of either leaking it forever
-        // or hitting an external daemon that just happens to be on :11434.
-        self.reclaim_orphan_if_ours(config).await;
-
         if self.ollama_healthy().await {
-            // Server is running — verify it can actually execute models by checking
-            // if the runner works. A stale server with a missing binary will 500.
             if self.ollama_runner_ok().await {
                 return Ok(());
             }
-            // Runner is broken (e.g. binary moved).
             log::warn!("[local_ai] Ollama server responds but runner is broken");
-            // Only restart if we own it. Killing an external daemon's
-            // broken runner is the user's job, not ours — friendly-fire.
-            self.kill_ollama_server().await;
-            if self.ollama_healthy().await {
-                // Our kill was a no-op (or didn't take effect) — daemon is external.
-                return Err("An external Ollama daemon on :11434 has a broken runner. \
-                     Restart it manually (or stop it so openhuman can take over)."
-                    .to_string());
-            }
+            return Err(
+                "Configured Ollama runtime is reachable but cannot execute models. Restart the external runtime and retry."
+                    .to_string(),
+            );
         }
-
-        let ollama_cmd = self.resolve_or_install_ollama_binary(config).await?;
-        self.start_and_wait_for_server(config, &ollama_cmd).await
+        let base_url = ollama_base_url();
+        Err(format!(
+            "OpenHuman no longer starts or installs Ollama automatically. Start your inference runtime yourself and make sure it is reachable at {base_url}."
+        ))
     }
 
     /// Like `ensure_ollama_server`, but forces a fresh install of the Ollama binary
@@ -62,18 +49,7 @@ impl LocalAiService {
         &self,
         config: &Config,
     ) -> Result<(), String> {
-        // Force a fresh download regardless of existing binaries.
-        self.download_and_install_ollama(config).await?;
-
-        let Some(ollama_cmd) = find_workspace_ollama_binary(config) else {
-            // Also check system path after install.
-            let system_bin = find_system_ollama_binary()
-                .ok_or_else(|| "Ollama installed but binary not found on system".to_string())?;
-            // Try to use the system binary directly.
-            return self.start_and_wait_for_server(config, &system_bin).await;
-        };
-
-        self.start_and_wait_for_server(config, &ollama_cmd).await
+        self.ensure_ollama_server(config).await
     }
 
     /// Check if a healthy daemon on `:11434` is actually openhuman's own
@@ -496,7 +472,7 @@ impl LocalAiService {
         Ok(())
     }
 
-    async fn ollama_healthy(&self) -> bool {
+    pub(in crate::openhuman::local_ai::service) async fn ollama_healthy(&self) -> bool {
         self.http
             .get(format!("{}/api/tags", ollama_base_url()))
             .timeout(std::time::Duration::from_secs(2))
@@ -883,38 +859,22 @@ impl LocalAiService {
         let binary_path = self.resolve_binary_path(config);
 
         let mut issues: Vec<String> = Vec::new();
-        let mut repair_actions: Vec<serde_json::Value> = Vec::new();
+        let repair_actions: Vec<serde_json::Value> = Vec::new();
 
         if !healthy {
             issues.push(format!(
                 "Ollama server is not running or not reachable at {}",
                 base_url
             ));
-            if binary_path.is_none() {
-                repair_actions.push(serde_json::json!({"action": "install_ollama"}));
-            } else {
-                repair_actions.push(serde_json::json!({
-                    "action": "start_server",
-                    "binary_path": binary_path,
-                }));
-            }
         }
         if healthy && !chat_found {
             issues.push(format!("Chat model `{}` is not installed", expected_chat));
-            repair_actions.push(serde_json::json!({
-                "action": "pull_model",
-                "model": expected_chat,
-            }));
         }
         if healthy && config.local_ai.preload_embedding_model && !embedding_found {
             issues.push(format!(
                 "Embedding model `{}` is not installed",
                 expected_embedding
             ));
-            repair_actions.push(serde_json::json!({
-                "action": "pull_model",
-                "model": expected_embedding,
-            }));
         }
         if healthy
             && matches!(
@@ -927,10 +887,6 @@ impl LocalAiService {
                 "Vision model `{}` is not installed",
                 expected_vision
             ));
-            repair_actions.push(serde_json::json!({
-                "action": "pull_model",
-                "model": expected_vision,
-            }));
         }
         if let Some(ref e) = tags_error {
             issues.push(format!("Failed to list models: {e}"));
@@ -1064,7 +1020,7 @@ impl LocalAiService {
             .any(|name| name == &expected_chat.to_ascii_lowercase());
 
         let mut issues: Vec<String> = Vec::new();
-        let mut repair_actions: Vec<serde_json::Value> = Vec::new();
+        let repair_actions: Vec<serde_json::Value> = Vec::new();
 
         if !healthy {
             let detail = models_error
@@ -1075,25 +1031,14 @@ impl LocalAiService {
                 "LM Studio server is not running or not reachable at {}{}",
                 base_url, detail
             ));
-            repair_actions.push(serde_json::json!({
-                "action": "start_lm_studio_server",
-                "base_url": base_url,
-            }));
         }
         if healthy && models_error.is_none() && models.is_empty() {
             issues.push("LM Studio is reachable but no models are loaded".to_string());
-            repair_actions.push(serde_json::json!({
-                "action": "load_lm_studio_model",
-            }));
         } else if healthy && models_error.is_none() && !chat_found {
             issues.push(format!(
                 "Chat model `{}` is not loaded in LM Studio",
                 expected_chat
             ));
-            repair_actions.push(serde_json::json!({
-                "action": "load_lm_studio_model",
-                "model": expected_chat,
-            }));
         }
         if healthy {
             if let Some(ref err) = models_error {

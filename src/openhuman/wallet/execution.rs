@@ -366,6 +366,19 @@ fn take_quote(quote_id: &str) -> Result<PreparedTransaction, String> {
     Ok(quote)
 }
 
+/// Read-only snapshot of the current prepared-quote store for test-support
+/// introspection RPCs. Includes awaiting-confirmation quotes and quotes that
+/// have already moved to `ready_to_sign` but have not yet been consumed.
+pub fn prepared_quotes_for_test() -> Vec<PreparedTransaction> {
+    let now = now_ms();
+    QUOTE_STORE
+        .lock()
+        .iter()
+        .filter(|q| q.expires_at_ms > now && q.status != PreparedStatus::Consumed)
+        .cloned()
+        .collect()
+}
+
 #[cfg(test)]
 fn reset_quote_store_for_tests() {
     QUOTE_STORE.lock().clear();

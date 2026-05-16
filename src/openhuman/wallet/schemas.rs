@@ -18,8 +18,7 @@ struct SetupWalletParams {
     consent_granted: bool,
     source: WalletSetupSource,
     mnemonic_word_count: u8,
-    #[serde(default)]
-    encrypted_mnemonic: Option<String>,
+    encrypted_mnemonic: String,
     accounts: Vec<WalletAccount>,
 }
 
@@ -136,10 +135,10 @@ pub fn wallet_schemas(function: &str) -> ControllerSchema {
                 ),
                 FieldSchema {
                     name: "encryptedMnemonic",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    ty: TypeSchema::String,
                     comment:
-                        "Optional encrypted recovery phrase payload created via openhuman.encrypt_secret. Required for on-chain signing/broadcast.",
-                    required: false,
+                        "Encrypted recovery phrase payload created via openhuman.encrypt_secret. Required for on-chain signing/broadcast.",
+                    required: true,
                 },
                 required_json(
                     "accounts",
@@ -335,7 +334,7 @@ fn handle_setup(params: Map<String, Value>) -> ControllerFuture {
             consent_granted: payload.consent_granted,
             source: payload.source,
             mnemonic_word_count: payload.mnemonic_word_count,
-            encrypted_mnemonic: payload.encrypted_mnemonic,
+            encrypted_mnemonic: Some(payload.encrypted_mnemonic),
             accounts: payload.accounts,
         })
         .await?
@@ -448,7 +447,7 @@ mod tests {
             .iter()
             .find(|field| field.name == "encryptedMnemonic")
             .expect("encryptedMnemonic input present");
-        assert!(!encrypted.required);
+        assert!(encrypted.required);
     }
 
     #[test]

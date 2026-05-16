@@ -29,7 +29,7 @@ import {
   typeIntoComposer,
 } from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, textExists } from '../helpers/element-helpers';
+import { clickText, clickToggle, textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import {
@@ -85,13 +85,14 @@ const FORCED_RESPONSES = [
 ];
 
 async function clickRecoveryConsentCheckbox(): Promise<void> {
-  const clicked = await browser.execute(() => {
-    const input = document.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-    if (!input) return false;
-    if (!input.checked) input.click();
-    return input.checked;
-  });
-  expect(clicked).toBe(true);
+  const checkbox = await browser.$('input[type="checkbox"]');
+  if (!(await checkbox.isExisting())) {
+    throw new Error('Recovery phrase consent checkbox not found');
+  }
+  if (!(await checkbox.isSelected())) {
+    await clickToggle();
+  }
+  await expect(checkbox).toBeSelected();
 }
 
 describe('Chat harness — wallet flow', () => {

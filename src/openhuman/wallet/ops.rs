@@ -270,6 +270,17 @@ fn validate_setup(params: &WalletSetupParams) -> Result<Vec<WalletAccount>, Stri
                 .join(", ")
         ));
     }
+    if params
+        .encrypted_mnemonic
+        .as_ref()
+        .map(|value| value.trim().is_empty())
+        .unwrap_or(true)
+    {
+        return Err(
+            "wallet setup requires encrypted mnemonic material for signing-enabled local wallets"
+                .to_string(),
+        );
+    }
 
     let mut normalized = Vec::with_capacity(params.accounts.len());
     for account in &params.accounts {
@@ -367,15 +378,20 @@ pub async fn status() -> Result<RpcOutcome<WalletStatus>, String> {
 pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
     let accounts = validate_setup(&params)?;
+    let encrypted_mnemonic = params
+        .encrypted_mnemonic
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "wallet setup requires encrypted mnemonic material for signing-enabled local wallets"
+                .to_string()
+        })?;
     let state = StoredWalletState {
         consent_granted: params.consent_granted,
         source: params.source,
         mnemonic_word_count: params.mnemonic_word_count,
-        encrypted_mnemonic: params
-            .encrypted_mnemonic
-            .as_ref()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()),
+        encrypted_mnemonic: Some(encrypted_mnemonic),
         accounts,
         updated_at_ms: current_time_ms(),
     };
@@ -509,6 +525,15 @@ mod tests {
         assert!(validate_setup(&params)
             .expect_err("invalid word count should fail")
             .contains("unsupported mnemonic word count"));
+    }
+
+    #[test]
+    fn validate_setup_rejects_missing_encrypted_mnemonic() {
+        let mut params = sample_params();
+        params.encrypted_mnemonic = Some("   ".to_string());
+        assert!(validate_setup(&params)
+            .expect_err("missing encrypted mnemonic should fail")
+            .contains("encrypted mnemonic material"));
     }
 
     #[test]

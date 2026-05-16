@@ -486,5 +486,5 @@ fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> String {
 }
 
 #[cfg(test)]
-#[path = "spawn_parallel_agents_tests.rs"]
+#[path = "spawn_parallel_agents_test.rs"]
 mod tests;

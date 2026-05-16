@@ -562,7 +562,7 @@ describe('VoicePanel', () => {
       // appears. The dropdown is the gate-keeper of the section.
       const section = await screen.findByTestId('mascot-voice-section');
       // DEBUG: full DOM if section appears empty
-       
+
       console.log('SECTION HTML:', section.outerHTML.slice(0, 2000));
       const select = (await screen.findByTestId('mascot-voice-select')) as HTMLSelectElement;
       // With no override stored, the picker reflects the build-time default.

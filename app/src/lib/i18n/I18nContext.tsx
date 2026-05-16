@@ -45,7 +45,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       const map = translations[locale] ?? resolveEn();
       return map[key] ?? resolveEn()[key] ?? key;
     },
-     
+
     [locale]
   );
 

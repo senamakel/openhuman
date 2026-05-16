@@ -4,8 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../../../test/test-utils';
 import RecoveryPhrasePanel from '../RecoveryPhrasePanel';
 
- 
-
 vi.mock('../../../../providers/CoreStateProvider', () => ({
   useCoreState: () => ({
     snapshot: { currentUser: null },

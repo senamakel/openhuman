@@ -1260,7 +1260,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                   await setCloudProviderKey(upserted.type as ApiCloudProviderType, apiKey);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
-                   
+
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
                 }
               }
@@ -1275,7 +1275,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               await reload();
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
-               
+
               console.warn('[ai-settings] clearCloudProviderKey failed', msg);
             }
           }}

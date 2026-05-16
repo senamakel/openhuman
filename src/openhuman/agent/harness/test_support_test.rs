@@ -288,6 +288,59 @@ impl RecordingTool {
     }
 }
 
+struct SequencedTool {
+    name_str: String,
+    result: ToolResult,
+    calls: Arc<parking_lot::Mutex<Vec<serde_json::Value>>>,
+    sequence: Arc<parking_lot::Mutex<Vec<String>>>,
+}
+
+impl SequencedTool {
+    fn new(
+        name: &str,
+        result: ToolResult,
+        sequence: Arc<parking_lot::Mutex<Vec<String>>>,
+    ) -> (Self, Arc<parking_lot::Mutex<Vec<serde_json::Value>>>) {
+        let calls = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        (
+            Self {
+                name_str: name.to_string(),
+                result,
+                calls: calls.clone(),
+                sequence,
+            },
+            calls,
+        )
+    }
+}
+
+#[async_trait]
+impl Tool for SequencedTool {
+    fn name(&self) -> &str {
+        &self.name_str
+    }
+    fn description(&self) -> &str {
+        &self.name_str
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({"type": "object", "additionalProperties": true})
+    }
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::ReadOnly
+    }
+    fn scope(&self) -> ToolScope {
+        ToolScope::All
+    }
+    fn category(&self) -> ToolCategory {
+        ToolCategory::System
+    }
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.sequence.lock().push(self.name_str.clone());
+        self.calls.lock().push(args);
+        Ok(self.result.clone())
+    }
+}
+
 #[async_trait]
 impl Tool for RecordingTool {
     fn name(&self) -> &str {
@@ -462,6 +515,248 @@ async fn keyword_provider_chains_multiple_tools_across_iterations() {
     assert_eq!(send_calls.lock().len(), 1);
 }
 
+// ── 4. Crypto wallet flow: inspect → quote → confirm → execute ───
+
+#[tokio::test]
+async fn crypto_wallet_send_flow_sequences_wallet_tools_and_confirmation_gate() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "send john $5",
+            ScriptedToolCall::new("wallet_status", json!({})),
+        ),
+        KeywordRule::tool_call(
+            "wallet_status-ok",
+            ScriptedToolCall::new("wallet_balances", json!({})),
+        ),
+        KeywordRule::tool_call(
+            "wallet_balances-ok",
+            ScriptedToolCall::new("wallet_chain_status", json!({})),
+        ),
+        KeywordRule::tool_call(
+            "wallet_chain_status-ok",
+            ScriptedToolCall::new(
+                "wallet_prepare_transfer",
+                json!({
+                    "chain": "evm",
+                    "to_address": "0x00000000000000000000000000000000000000aa",
+                    "amount_raw": "5000000",
+                }),
+            ),
+        ),
+        KeywordRule::tool_call(
+            "wallet_prepare_transfer-ok",
+            ScriptedToolCall::new(
+                "ask_user_clarification",
+                json!({"question": "Send $5 to John on EVM?"}),
+            ),
+        ),
+        KeywordRule::tool_call(
+            "ask_user_clarification-ok",
+            ScriptedToolCall::new(
+                "wallet_execute_prepared",
+                json!({"quoteId": "q_test_send_john", "confirmed": true}),
+            ),
+        ),
+        KeywordRule::final_reply(
+            "wallet_execute_prepared-ok",
+            "Prepared quote confirmed and handed to the wallet signer.",
+        ),
+    ])
+    .with_native_tools(true);
+
+    let sequence = Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let (wallet_status, wallet_status_calls) = SequencedTool::new(
+        "wallet_status",
+        ToolResult::success("wallet_status-ok"),
+        sequence.clone(),
+    );
+    let (wallet_balances, wallet_balances_calls) = SequencedTool::new(
+        "wallet_balances",
+        ToolResult::success("wallet_balances-ok"),
+        sequence.clone(),
+    );
+    let (wallet_chain_status, wallet_chain_status_calls) = SequencedTool::new(
+        "wallet_chain_status",
+        ToolResult::success("wallet_chain_status-ok"),
+        sequence.clone(),
+    );
+    let (wallet_prepare_transfer, wallet_prepare_transfer_calls) = SequencedTool::new(
+        "wallet_prepare_transfer",
+        ToolResult::success("wallet_prepare_transfer-ok"),
+        sequence.clone(),
+    );
+    let (ask_user_clarification, ask_user_clarification_calls) = SequencedTool::new(
+        "ask_user_clarification",
+        ToolResult::success("ask_user_clarification-ok"),
+        sequence.clone(),
+    );
+    let (wallet_execute_prepared, wallet_execute_prepared_calls) = SequencedTool::new(
+        "wallet_execute_prepared",
+        ToolResult::success("wallet_execute_prepared-ok"),
+        sequence.clone(),
+    );
+
+    let tools: Vec<Box<dyn Tool>> = vec![
+        Box::new(wallet_status),
+        Box::new(wallet_balances),
+        Box::new(wallet_chain_status),
+        Box::new(wallet_prepare_transfer),
+        Box::new(ask_user_clarification),
+        Box::new(wallet_execute_prepared),
+    ];
+    let mut history = vec![ChatMessage::user("Please send John $5 on EVM.")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "web",
+        &mm(),
+        10,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("crypto wallet flow should complete");
+
+    assert_eq!(
+        out,
+        "Prepared quote confirmed and handed to the wallet signer."
+    );
+    assert_eq!(
+        sequence.lock().clone(),
+        vec![
+            "wallet_status",
+            "wallet_balances",
+            "wallet_chain_status",
+            "wallet_prepare_transfer",
+            "ask_user_clarification",
+            "wallet_execute_prepared",
+        ]
+    );
+    assert_eq!(wallet_status_calls.lock().len(), 1);
+    assert_eq!(wallet_balances_calls.lock().len(), 1);
+    assert_eq!(wallet_chain_status_calls.lock().len(), 1);
+    assert_eq!(
+        wallet_prepare_transfer_calls.lock()[0],
+        json!({
+            "chain": "evm",
+            "to_address": "0x00000000000000000000000000000000000000aa",
+            "amount_raw": "5000000",
+        })
+    );
+    assert_eq!(
+        ask_user_clarification_calls.lock()[0]["question"],
+        "Send $5 to John on EVM?"
+    );
+    assert_eq!(
+        wallet_execute_prepared_calls.lock()[0],
+        json!({"quoteId": "q_test_send_john", "confirmed": true})
+    );
+}
+
+#[tokio::test]
+async fn crypto_wallet_send_flow_does_not_execute_when_confirmation_is_not_granted() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "send john $5",
+            ScriptedToolCall::new("wallet_status", json!({})),
+        ),
+        KeywordRule::tool_call(
+            "wallet_status-ok",
+            ScriptedToolCall::new("wallet_prepare_transfer", json!({"chain": "evm"})),
+        ),
+        KeywordRule::tool_call(
+            "wallet_prepare_transfer-ok",
+            ScriptedToolCall::new(
+                "ask_user_clarification",
+                json!({"question": "Confirm the transfer?"}),
+            ),
+        ),
+        KeywordRule::final_reply(
+            "user declined the transfer",
+            "Cancelled before execution because the user did not confirm.",
+        ),
+    ])
+    .with_native_tools(true);
+
+    let sequence = Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let (wallet_status, _) = SequencedTool::new(
+        "wallet_status",
+        ToolResult::success("wallet_status-ok"),
+        sequence.clone(),
+    );
+    let (wallet_prepare_transfer, _) = SequencedTool::new(
+        "wallet_prepare_transfer",
+        ToolResult::success("wallet_prepare_transfer-ok"),
+        sequence.clone(),
+    );
+    let (ask_user_clarification, _) = SequencedTool::new(
+        "ask_user_clarification",
+        ToolResult::success("user declined the transfer"),
+        sequence.clone(),
+    );
+    let (wallet_execute_prepared, wallet_execute_prepared_calls) = SequencedTool::new(
+        "wallet_execute_prepared",
+        ToolResult::success("wallet_execute_prepared-ok"),
+        sequence.clone(),
+    );
+
+    let tools: Vec<Box<dyn Tool>> = vec![
+        Box::new(wallet_status),
+        Box::new(wallet_prepare_transfer),
+        Box::new(ask_user_clarification),
+        Box::new(wallet_execute_prepared),
+    ];
+    let mut history = vec![ChatMessage::user("Please send John $5 on EVM.")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "telegram",
+        &mm(),
+        8,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("declined flow should still complete");
+
+    assert_eq!(
+        out,
+        "Cancelled before execution because the user did not confirm."
+    );
+    assert_eq!(
+        sequence.lock().clone(),
+        vec![
+            "wallet_status",
+            "wallet_prepare_transfer",
+            "ask_user_clarification",
+        ]
+    );
+    assert!(
+        wallet_execute_prepared_calls.lock().is_empty(),
+        "execute tool must not run after a declined confirmation"
+    );
+}
+
 #[tokio::test]
 async fn keyword_provider_uses_latest_tool_result_to_drive_the_next_tool_call() {
     let provider = KeywordScriptedProvider::new(vec![
@@ -590,7 +885,7 @@ async fn keyword_provider_executes_multiple_native_tool_calls_from_one_turn() {
     assert_eq!(turns[0].emitted_tool_calls[1].name, "enrich_tool");
 }
 
-// ── 4. Unknown tool name handled gracefully ───────────────────────
+// ── 6. Unknown tool name handled gracefully ───────────────────────
 
 #[tokio::test]
 async fn keyword_provider_unknown_tool_surfaces_error_and_loop_continues() {

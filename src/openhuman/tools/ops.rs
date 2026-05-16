@@ -155,6 +155,15 @@ pub fn all_tools_with_runtime(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
+        Box::new(AudioGeneratePodcastTool::new(
+            config.clone(),
+            security.clone(),
+        )),
+        Box::new(AudioEmailPodcastTool::new(config.clone(), security.clone())),
+        Box::new(AudioGenerateAndEmailPodcastTool::new(
+            config.clone(),
+            security.clone(),
+        )),
         Box::new(GmailUnsubscribeTool),
     ];
 

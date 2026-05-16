@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   clearSocketEventLog,
   disconnectMockSockets,
+  emitMockAgentAudioStream,
   emitMockSocketEvent,
   listSocketSessions,
   resetMockBehavior,
@@ -98,6 +99,45 @@ test("supports polling-only clients", async () => {
     assert.equal(readyPayload.userId, "mock-user");
   } finally {
     pollingSocket.disconnect();
+  }
+});
+
+test("streams mock agent audio events through a real socket.io client", async () => {
+  const started = await startMockServer(18575, { retryIfInUse: true });
+  const baseUrl = `http://127.0.0.1:${started.port}`;
+  const socket = createSocket(baseUrl, {
+    auth: { token: "mock-jwt-token" },
+    transports: ["polling", "websocket"],
+  });
+
+  try {
+    await onceSocket(socket, "ready");
+    const startPromise = onceSocket(socket, "agent:audio:start");
+    const chunkPromise = onceSocket(socket, "agent:audio:chunk");
+    const endPromise = onceSocket(socket, "agent:audio:end");
+
+    const delivered = emitMockAgentAudioStream({
+      sessionId: "session-audio-1",
+      text: "listen now",
+      voiceId: "voice-1",
+      chunks: ["SUQz", "TU9DSw=="],
+      chunkDelayMs: 5,
+    });
+    assert.equal(delivered, 1);
+
+    const startedPayload = await startPromise;
+    assert.equal(startedPayload.sessionId, "session-audio-1");
+    assert.equal(startedPayload.voiceId, "voice-1");
+    assert.equal(startedPayload.contentType, "audio/mpeg");
+
+    const chunkPayload = await chunkPromise;
+    assert.equal(chunkPayload.chunk, "SUQz");
+
+    const endedPayload = await endPromise;
+    assert.equal(endedPayload.sessionId, "session-audio-1");
+    assert.equal(endedPayload.ttsCharCount, "listen now".length);
+  } finally {
+    socket.disconnect();
   }
 });
 

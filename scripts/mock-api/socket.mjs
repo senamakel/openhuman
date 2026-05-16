@@ -1,5 +1,6 @@
 export {
   disconnectMockSockets,
+  emitMockAgentAudioStream,
   emitMockSocketEvent,
   handleSocketRequest,
   handleWebSocketUpgrade,

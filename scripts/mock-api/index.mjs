@@ -27,4 +27,8 @@ export {
   setMockBehavior,
   setMockBehaviors,
 } from "./state.mjs";
-export { disconnectMockSockets, emitMockSocketEvent } from "./socket.mjs";
+export {
+  disconnectMockSockets,
+  emitMockAgentAudioStream,
+  emitMockSocketEvent,
+} from "./socket.mjs";

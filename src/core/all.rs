@@ -108,6 +108,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::about_app::all_about_app_registered_controllers());
     // Core application shell state
     controllers.extend(crate::openhuman::app_state::all_app_state_registered_controllers());
+    // Audio generation + podcast-style email delivery
+    controllers.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_registered_controllers());
     // Composio integration controllers
     controllers.extend(crate::openhuman::composio::all_composio_registered_controllers());
     // Scheduled job management
@@ -251,6 +253,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     let mut schemas = Vec::new();
     schemas.extend(crate::openhuman::about_app::all_about_app_controller_schemas());
     schemas.extend(crate::openhuman::app_state::all_app_state_controller_schemas());
+    schemas.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_controller_schemas());
     schemas.extend(crate::openhuman::composio::all_composio_controller_schemas());
     schemas.extend(crate::openhuman::cron::all_cron_controller_schemas());
     schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());

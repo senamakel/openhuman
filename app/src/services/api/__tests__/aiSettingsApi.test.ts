@@ -6,6 +6,20 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// ─── Import SUT after mocks ───────────────────────────────────────────────────
+
+import {
+  type AISettings,
+  clearCloudProviderKey,
+  listProviderModels,
+  loadAISettings,
+  parseProviderString,
+  type ProviderRef,
+  saveAISettings,
+  serializeProviderRef,
+  setCloudProviderKey,
+} from '../aiSettingsApi';
+
 // ─── Mock declarations (must be hoisted before imports) ───────────────────────
 
 const mockOpenhumanGetClientConfig = vi.fn();
@@ -44,20 +58,6 @@ vi.mock('../../../utils/tauriCommands/localAi', () => ({
   openhumanLocalAiSetOllamaPath: vi.fn().mockResolvedValue({}),
   openhumanLocalAiShutdownOwned: vi.fn().mockResolvedValue({}),
 }));
-
-// ─── Import SUT after mocks ───────────────────────────────────────────────────
-
-import {
-  clearCloudProviderKey,
-  listProviderModels,
-  loadAISettings,
-  parseProviderString,
-  saveAISettings,
-  serializeProviderRef,
-  setCloudProviderKey,
-  type AISettings,
-  type ProviderRef,
-} from '../aiSettingsApi';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -267,7 +267,11 @@ describe('loadAISettings', () => {
 
     const settings = await loadAISettings();
 
-    expect(settings.routing.reasoning).toEqual({ kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o' });
+    expect(settings.routing.reasoning).toEqual({
+      kind: 'cloud',
+      providerSlug: 'openai',
+      model: 'gpt-4o',
+    });
     expect(settings.routing.agentic).toEqual({
       kind: 'cloud',
       providerSlug: 'anthropic',
@@ -345,7 +349,11 @@ describe('loadAISettings', () => {
     expect(anthropic.auth_style).toBe('anthropic');
     expect(anthropic.has_api_key).toBe(true);
 
-    expect(settings.routing.reasoning).toEqual({ kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o' });
+    expect(settings.routing.reasoning).toEqual({
+      kind: 'cloud',
+      providerSlug: 'openai',
+      model: 'gpt-4o',
+    });
     expect(settings.routing.agentic).toEqual({
       kind: 'cloud',
       providerSlug: 'anthropic',
@@ -396,9 +404,7 @@ describe('saveAISettings', () => {
 
   it('sends only changed routing fields when providers are unchanged', async () => {
     const prev = makeSettings();
-    const next = makeSettings({
-      routing: { ...prev.routing, reasoning: { kind: 'openhuman' } },
-    });
+    const next = makeSettings({ routing: { ...prev.routing, reasoning: { kind: 'openhuman' } } });
 
     await saveAISettings(prev, next);
 
@@ -446,10 +452,7 @@ describe('saveAISettings', () => {
         subconscious: { kind: 'openhuman' },
       },
     };
-    const next: AISettings = {
-      cloudProviders: [anthropicProvider],
-      routing: { ...prev.routing },
-    };
+    const next: AISettings = { cloudProviders: [anthropicProvider], routing: { ...prev.routing } };
 
     await saveAISettings(prev, next);
 
@@ -460,7 +463,10 @@ describe('saveAISettings', () => {
   it('sends both providers and routing when both change', async () => {
     const prev = makeSettings({ cloudProviders: [] });
     const next = makeSettings({
-      routing: { ...makeSettings().routing, coding: { kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o-mini' } },
+      routing: {
+        ...makeSettings().routing,
+        coding: { kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o-mini' },
+      },
     });
 
     await saveAISettings(prev, next);

@@ -67,12 +67,7 @@ const baseSettings = {
   },
 };
 
-const baseLocalSnapshot = {
-  status: null,
-  diagnostics: null,
-  presets: null,
-  installedModels: [],
-};
+const baseLocalSnapshot = { status: null, diagnostics: null, presets: null, installedModels: [] };
 
 describe('AIPanel', () => {
   beforeEach(() => {
@@ -133,7 +128,11 @@ describe('AIPanel', () => {
         },
       ],
       routing: {
-        reasoning: { kind: 'cloud' as const, providerSlug: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+        reasoning: {
+          kind: 'cloud' as const,
+          providerSlug: 'anthropic',
+          model: 'claude-3-5-sonnet-20241022',
+        },
         agentic: { kind: 'openhuman' as const },
         coding: { kind: 'openhuman' as const },
         memory: { kind: 'openhuman' as const },
@@ -179,10 +178,7 @@ describe('AIPanel', () => {
 
   it('clicking the OpenAI chip toggle (when disabled) opens the API-key dialog', async () => {
     // Load with no openai provider → chip is off.
-    vi.mocked(loadAISettings).mockResolvedValue({
-      ...baseSettings,
-      cloudProviders: [],
-    });
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
     await waitFor(() => expect(screen.getAllByText(/OpenAI/i).length).toBeGreaterThan(0));
@@ -192,17 +188,16 @@ describe('AIPanel', () => {
     fireEvent.click(connectSwitch);
 
     // ProviderKeyDialog should appear.
-    await waitFor(() => expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument()
+    );
     // The input for the API key should be visible.
     expect(screen.getByLabelText(/API key/i)).toBeInTheDocument();
   });
 
   it('clicking the Custom chip (when disabled) opens the CloudProviderEditor, not the key dialog', async () => {
     // Load with no custom provider → chip is off.
-    vi.mocked(loadAISettings).mockResolvedValue({
-      ...baseSettings,
-      cloudProviders: [],
-    });
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
     await waitFor(() => expect(screen.getAllByText(/Custom/i).length).toBeGreaterThan(0));
@@ -265,7 +260,9 @@ describe('AIPanel', () => {
     const [, nextSettings] = vi.mocked(saveAISettings).mock.calls[0];
 
     // Provider should be gone.
-    expect(nextSettings.cloudProviders.find((p: { slug: string }) => p.slug === 'openai')).toBeUndefined();
+    expect(
+      nextSettings.cloudProviders.find((p: { slug: string }) => p.slug === 'openai')
+    ).toBeUndefined();
 
     // Routing entries that were pinned to openai must be reset to openhuman.
     expect(nextSettings.routing.reasoning).toEqual({ kind: 'openhuman' });
@@ -277,10 +274,7 @@ describe('AIPanel', () => {
   // ─── API-key dialog: failed setCloudProviderKey does not add provider ────────
 
   it('when setCloudProviderKey throws, the provider is NOT added to the draft', async () => {
-    vi.mocked(loadAISettings).mockResolvedValue({
-      ...baseSettings,
-      cloudProviders: [],
-    });
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     // Make setCloudProviderKey reject.
     vi.mocked(setCloudProviderKey).mockRejectedValue(new Error('key store failed'));
 
@@ -296,7 +290,9 @@ describe('AIPanel', () => {
 
     // Open the dialog.
     fireEvent.click(screen.getByRole('switch', { name: /Connect OpenAI/i }));
-    await waitFor(() => expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument()
+    );
 
     // Fill in a key and submit.
     fireEvent.change(screen.getByLabelText(/API key/i), { target: { value: 'sk-bad-key' } });

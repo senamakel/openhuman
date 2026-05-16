@@ -525,8 +525,10 @@ mod tests {
                 for required in [
                     "wallet_status",
                     "wallet_balances",
+                    "wallet_network_defaults",
                     "wallet_supported_assets",
                     "wallet_chain_status",
+                    "wallet_encode_erc20_transfer",
                 ] {
                     assert!(
                         tools.iter().any(|t| t == required),

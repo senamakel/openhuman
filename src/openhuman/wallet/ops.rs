@@ -63,6 +63,8 @@ pub struct WalletSetupParams {
     pub consent_granted: bool,
     pub source: WalletSetupSource,
     pub mnemonic_word_count: u8,
+    #[serde(default)]
+    pub encrypted_mnemonic: Option<String>,
     pub accounts: Vec<WalletAccount>,
 }
 
@@ -72,8 +74,16 @@ struct StoredWalletState {
     pub consent_granted: bool,
     pub source: WalletSetupSource,
     pub mnemonic_word_count: u8,
+    #[serde(default)]
+    pub encrypted_mnemonic: Option<String>,
     pub accounts: Vec<WalletAccount>,
     pub updated_at_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WalletSecretMaterial {
+    pub encrypted_mnemonic: String,
+    pub derivation_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -82,6 +92,7 @@ pub struct WalletStatus {
     pub configured: bool,
     pub onboarding_completed: bool,
     pub consent_granted: bool,
+    pub secret_stored: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<WalletSetupSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,12 +185,13 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
         }
     };
 
-    let validation_params = WalletSetupParams {
-        consent_granted: state.consent_granted,
-        source: state.source,
-        mnemonic_word_count: state.mnemonic_word_count,
-        accounts: state.accounts.clone(),
-    };
+        let validation_params = WalletSetupParams {
+            consent_granted: state.consent_granted,
+            source: state.source,
+            mnemonic_word_count: state.mnemonic_word_count,
+            encrypted_mnemonic: state.encrypted_mnemonic.clone(),
+            accounts: state.accounts.clone(),
+        };
     if let Err(validation_error) = validate_setup(&validation_params) {
         warn!(
             "{LOG_PREFIX} stored wallet state at {} failed validation: {validation_error}",
@@ -311,6 +323,11 @@ fn to_status(state: Option<StoredWalletState>) -> WalletStatus {
             configured: true,
             onboarding_completed: state.consent_granted && !state.accounts.is_empty(),
             consent_granted: state.consent_granted,
+            secret_stored: state
+                .encrypted_mnemonic
+                .as_ref()
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false),
             source: Some(state.source),
             mnemonic_word_count: Some(state.mnemonic_word_count),
             accounts: state.accounts,
@@ -320,6 +337,7 @@ fn to_status(state: Option<StoredWalletState>) -> WalletStatus {
             configured: false,
             onboarding_completed: false,
             consent_granted: false,
+            secret_stored: false,
             source: None,
             mnemonic_word_count: None,
             accounts: Vec::new(),
@@ -353,6 +371,11 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
         consent_granted: params.consent_granted,
         source: params.source,
         mnemonic_word_count: params.mnemonic_word_count,
+        encrypted_mnemonic: params
+            .encrypted_mnemonic
+            .as_ref()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
         accounts,
         updated_at_ms: current_time_ms(),
     };
@@ -362,16 +385,43 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
     let status = to_status(Some(state));
 
     debug!(
-        "{LOG_PREFIX} setup saved source={:?} account_count={} mnemonic_words={}",
+        "{LOG_PREFIX} setup saved source={:?} account_count={} mnemonic_words={} secret_stored={}",
         status.source,
         status.accounts.len(),
-        status.mnemonic_word_count.unwrap_or_default()
+        status.mnemonic_word_count.unwrap_or_default(),
+        status.secret_stored
     );
 
     Ok(RpcOutcome::new(
         status,
         vec!["wallet setup saved".to_string()],
     ))
+}
+
+pub(crate) async fn secret_material(chain: WalletChain) -> Result<WalletSecretMaterial, String> {
+    let config = config_rpc::load_config_with_timeout().await?;
+    let _guard = WALLET_STATE_FILE_LOCK.lock();
+    let state = load_stored_wallet_state_unlocked(&config)?
+        .ok_or_else(|| "wallet is not configured; run wallet setup first".to_string())?;
+    let encrypted_mnemonic = state
+        .encrypted_mnemonic
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "wallet secret material is missing; re-import the recovery phrase to enable signing"
+                .to_string()
+        })?;
+    let derivation_path = state
+        .accounts
+        .iter()
+        .find(|account| account.chain == chain)
+        .map(|account| account.derivation_path.clone())
+        .ok_or_else(|| format!("no wallet account derived for chain '{}'", chain.as_str()))?;
+    Ok(WalletSecretMaterial {
+        encrypted_mnemonic,
+        derivation_path,
+    })
 }
 
 #[cfg(test)]
@@ -391,6 +441,7 @@ mod tests {
             consent_granted: true,
             source: WalletSetupSource::Imported,
             mnemonic_word_count: 12,
+            encrypted_mnemonic: Some("enc2:abc".to_string()),
             accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
         }
     }
@@ -434,6 +485,7 @@ mod tests {
         let status = to_status(None);
         assert!(!status.configured);
         assert!(!status.onboarding_completed);
+        assert!(!status.secret_stored);
         assert!(status.accounts.is_empty());
     }
 
@@ -443,12 +495,14 @@ mod tests {
             consent_granted: true,
             source: WalletSetupSource::Generated,
             mnemonic_word_count: 24,
+            encrypted_mnemonic: Some("enc2:abc".to_string()),
             accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
             updated_at_ms: 123,
         };
         let status = to_status(Some(state));
         assert!(status.configured);
         assert!(status.onboarding_completed);
+        assert!(status.secret_stored);
         assert_eq!(status.accounts.len(), 4);
         assert_eq!(status.updated_at_ms, Some(123));
     }

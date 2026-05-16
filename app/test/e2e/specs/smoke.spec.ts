@@ -50,22 +50,19 @@ describe('Smoke', () => {
   // on it. The first three `it`s above already cover "harness
   // attaches + window is mapped + DOM rendered" which is what smoke
   // is for.
-  it.skip(
-    '(SKIPPED — see above) reaches a logged-in route after auth + onboarding',
-    async () => {
-      await waitForAppReady(10_000);
-      let hash = '';
-      await browser.waitUntil(
-        async () => {
-          hash = (await browser.execute(() => window.location.hash)) as string;
-          return /^#\/(home|onboarding)/.test(hash);
-        },
-        { timeout: 15_000, timeoutMsg: 'hash never settled to #/home or #/onboarding' }
-      );
-      if (hash.startsWith('#/home')) {
-        const homeText = await waitForHomePage(15_000);
-        expect(homeText).toBeTruthy();
-      }
+  it.skip('(SKIPPED — see above) reaches a logged-in route after auth + onboarding', async () => {
+    await waitForAppReady(10_000);
+    let hash = '';
+    await browser.waitUntil(
+      async () => {
+        hash = (await browser.execute(() => window.location.hash)) as string;
+        return /^#\/(home|onboarding)/.test(hash);
+      },
+      { timeout: 15_000, timeoutMsg: 'hash never settled to #/home or #/onboarding' }
+    );
+    if (hash.startsWith('#/home')) {
+      const homeText = await waitForHomePage(15_000);
+      expect(homeText).toBeTruthy();
     }
-  );
+  });
 });

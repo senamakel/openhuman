@@ -2,15 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   joinMeetingViaMascotBot,
-  SERVER_OVERLOADED_MESSAGE,
   type MascotJoinMeetingError,
+  SERVER_OVERLOADED_MESSAGE,
 } from '../meetCallService';
 
 const postMock = vi.fn();
 
-vi.mock('../apiClient', () => ({
-  apiClient: { post: (...args: unknown[]) => postMock(...args) },
-}));
+vi.mock('../apiClient', () => ({ apiClient: { post: (...args: unknown[]) => postMock(...args) } }));
 
 describe('joinMeetingViaMascotBot', () => {
   beforeEach(() => postMock.mockReset());
@@ -55,10 +53,7 @@ describe('joinMeetingViaMascotBot', () => {
     postMock.mockRejectedValueOnce({ success: false, error: SERVER_OVERLOADED_MESSAGE });
     let caught: MascotJoinMeetingError | undefined;
     try {
-      await joinMeetingViaMascotBot({
-        platform: 'gmeet',
-        meetUrl: 'https://meet.google.com/abc',
-      });
+      await joinMeetingViaMascotBot({ platform: 'gmeet', meetUrl: 'https://meet.google.com/abc' });
     } catch (e) {
       caught = e as MascotJoinMeetingError;
     }

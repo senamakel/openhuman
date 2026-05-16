@@ -79,7 +79,8 @@ const en: TranslationMap = {
   'settings.about': 'About',
   'settings.aboutDesc': 'App version and software updates',
   'settings.developerOptions': 'Advanced',
-  'settings.developerOptionsDesc': 'AI configuration, messaging channels, tools, diagnostics, and debug panels',
+  'settings.developerOptionsDesc':
+    'AI configuration, messaging channels, tools, diagnostics, and debug panels',
   'settings.clearAppData': 'Clear App Data',
   'settings.clearAppDataDesc': 'Sign out and permanently clear all local app data',
   'settings.logOut': 'Log out',
@@ -241,7 +242,8 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f4': 'No API keys to manage',
   'onboarding.runtimeChoice.cloud.f5': 'Simple to set up',
   'onboarding.runtimeChoice.custom.title': 'Run Custom',
-  'onboarding.runtimeChoice.custom.tagline': "Bring your own keys. Full control of what you're using.",
+  'onboarding.runtimeChoice.custom.tagline':
+    "Bring your own keys. Full control of what you're using.",
   'onboarding.runtimeChoice.custom.f1': "You'll need API keys for almost everything",
   'onboarding.runtimeChoice.custom.f2': 'Reuses services you already pay for',
   'onboarding.runtimeChoice.custom.f3': 'Can be free if you run everything locally',
@@ -255,7 +257,7 @@ const en: TranslationMap = {
   // Onboarding: API keys step (only when Custom is picked)
   'onboarding.apiKeys.title': "Let's Add Your API Keys",
   'onboarding.apiKeys.subtitle':
-    "You can paste them now or skip and add them later in Settings › AI. Keys are stored on this device, encrypted at rest.",
+    'You can paste them now or skip and add them later in Settings › AI. Keys are stored on this device, encrypted at rest.',
   'onboarding.apiKeys.openaiLabel': 'OpenAI API key',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'Anthropic API key',
@@ -296,7 +298,7 @@ const en: TranslationMap = {
   'onboarding.custom.voice.title': 'Voice',
   'onboarding.custom.voice.subtitle': 'Speech-to-text and text-to-speech for voice mode.',
   'onboarding.custom.voice.defaultDesc':
-    "OpenHuman ships with managed STT/TTS that just works. Nothing to wire up.",
+    'OpenHuman ships with managed STT/TTS that just works. Nothing to wire up.',
   'onboarding.custom.voice.configureDesc':
     'Use your own ElevenLabs / OpenAI Whisper / etc. Configure in Settings › Voice.',
 
@@ -315,16 +317,16 @@ const en: TranslationMap = {
   'onboarding.custom.search.defaultDesc':
     'OpenHuman uses a managed search backend. No keys needed.',
   'onboarding.custom.search.configureDesc':
-    "Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.",
+    'Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.',
 
   // Onboarding: Custom > Memory
   'onboarding.custom.memory.title': 'Memory',
   'onboarding.custom.memory.subtitle':
     'How OpenHuman remembers your context, preferences, and prior conversations.',
   'onboarding.custom.memory.defaultDesc':
-    "OpenHuman manages memory storage and retrieval automatically. Nothing to set up.",
+    'OpenHuman manages memory storage and retrieval automatically. Nothing to set up.',
   'onboarding.custom.memory.configureDesc':
-    "Inspect, export, or wipe memory yourself. Configure in Settings › Memory.",
+    'Inspect, export, or wipe memory yourself. Configure in Settings › Memory.',
 
   // Accounts
   'accounts.addAccount': 'Add Account',
@@ -396,7 +398,7 @@ const en: TranslationMap = {
   'misc.downloading': 'Downloading...',
   'misc.installing': 'Installing...',
   'misc.beta':
-    "OpenHuman is in early beta. Feel free to share feedback or report any bugs you run into — every report helps us ship faster.",
+    'OpenHuman is in early beta. Feel free to share feedback or report any bugs you run into — every report helps us ship faster.',
   'misc.betaFeedback': 'Send feedback',
 
   // Mnemonic / Recovery

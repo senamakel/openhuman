@@ -4,12 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import VoicePanel from '../../../components/settings/panels/VoicePanel';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
-import {
-  CUSTOM_WIZARD_ROUTES,
-  CUSTOM_WIZARD_STEPS,
-} from '../customWizardSteps';
-import type { CustomStepChoice } from '../OnboardingContext';
-import { useOnboardingContext } from '../OnboardingContext';
+import { CUSTOM_WIZARD_ROUTES, CUSTOM_WIZARD_STEPS } from '../customWizardSteps';
+import { type CustomStepChoice, useOnboardingContext } from '../OnboardingContext';
 import CustomWizardStep from '../steps/CustomWizardStep';
 
 const STEP_KEY = 'voice' as const;
@@ -26,10 +22,7 @@ const CustomVoicePage = () => {
 
   const persistChoice = (next: CustomStepChoice) => {
     setChoice(next);
-    setDraft(prev => ({
-      ...prev,
-      customChoices: { ...prev.customChoices, [STEP_KEY]: next },
-    }));
+    setDraft(prev => ({ ...prev, customChoices: { ...prev.customChoices, [STEP_KEY]: next } }));
   };
 
   const isLast = STEP_INDEX === CUSTOM_WIZARD_STEPS.length - 1;

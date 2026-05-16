@@ -15,9 +15,12 @@ const ConfigureLaterCallout = ({ settingsHref }: ConfigureLaterCalloutProps) => 
   const { t } = useT();
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-stone-700 leading-relaxed">{t('onboarding.custom.configureLater')}</p>
+      <p className="text-xs text-stone-700 leading-relaxed">
+        {t('onboarding.custom.configureLater')}
+      </p>
       <p className="text-[11px] text-stone-500" data-testid="configure-later-hint">
-        {t('onboarding.custom.openSettings')}: <code className="text-stone-700">{settingsHref}</code>
+        {t('onboarding.custom.openSettings')}:{' '}
+        <code className="text-stone-700">{settingsHref}</code>
       </p>
     </div>
   );

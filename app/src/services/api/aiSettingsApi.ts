@@ -288,18 +288,21 @@ const PROVIDER_VALIDATION: Partial<Record<CloudProviderType, ValidationEndpoint>
     url: 'https://api.openai.com/v1/models',
     authHeader: key => ({ Authorization: `Bearer ${key}` }),
     extractList: json =>
-      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+      typeof json === 'object' &&
+      json &&
+      'data' in json &&
+      Array.isArray((json as Record<string, unknown>).data)
         ? ((json as Record<string, unknown>).data as unknown[])
         : null,
   },
   anthropic: {
     url: 'https://api.anthropic.com/v1/models',
-    authHeader: key => ({
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-    }),
+    authHeader: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }),
     extractList: json =>
-      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+      typeof json === 'object' &&
+      json &&
+      'data' in json &&
+      Array.isArray((json as Record<string, unknown>).data)
         ? ((json as Record<string, unknown>).data as unknown[])
         : null,
   },
@@ -307,7 +310,10 @@ const PROVIDER_VALIDATION: Partial<Record<CloudProviderType, ValidationEndpoint>
     url: 'https://openrouter.ai/api/v1/models',
     authHeader: key => ({ Authorization: `Bearer ${key}` }),
     extractList: json =>
-      typeof json === 'object' && json && 'data' in json && Array.isArray((json as Record<string, unknown>).data)
+      typeof json === 'object' &&
+      json &&
+      'data' in json &&
+      Array.isArray((json as Record<string, unknown>).data)
         ? ((json as Record<string, unknown>).data as unknown[])
         : null,
   },
@@ -324,10 +330,7 @@ export async function validateCloudProviderKey(
     return { ok: true };
   }
   try {
-    const res = await fetch(cfg.url, {
-      method: 'GET',
-      headers: cfg.authHeader(apiKey),
-    });
+    const res = await fetch(cfg.url, { method: 'GET', headers: cfg.authHeader(apiKey) });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         return { ok: false, error: 'Key rejected — check it and try again.' };
@@ -358,10 +361,7 @@ export async function validateCloudProviderKey(
     }
     return { ok: true, modelCount, modelIds };
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -379,10 +379,7 @@ function modelCacheKey(providerType: CloudProviderType): string {
   return `${MODEL_CACHE_PREFIX}${providerType}`;
 }
 
-export function cacheProviderModelIds(
-  providerType: CloudProviderType,
-  modelIds: string[]
-): void {
+export function cacheProviderModelIds(providerType: CloudProviderType, modelIds: string[]): void {
   if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(modelCacheKey(providerType), JSON.stringify(modelIds));

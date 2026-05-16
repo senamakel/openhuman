@@ -23,7 +23,7 @@ vi.mock('../../hooks/useUsageState', () => ({
 // Default: return 'ok' so most tests see the normal state.
 const useAppSelectorMock = vi.fn(() => 'ok' as string);
 vi.mock('../../store/hooks', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   useAppSelector: (_selector: unknown) => useAppSelectorMock(),
 }));
 

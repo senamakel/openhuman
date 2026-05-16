@@ -49,9 +49,7 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
         <h1 className="text-2xl font-display text-stone-900 mb-2 leading-tight">
           {t('onboarding.apiKeys.title')}
         </h1>
-        <p className="text-stone-500 text-sm leading-relaxed">
-          {t('onboarding.apiKeys.subtitle')}
-        </p>
+        <p className="text-stone-500 text-sm leading-relaxed">{t('onboarding.apiKeys.subtitle')}</p>
       </div>
 
       <div className="mt-6 flex flex-col gap-4">

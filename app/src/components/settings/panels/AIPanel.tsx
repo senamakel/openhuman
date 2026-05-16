@@ -9,15 +9,7 @@
  * per row, so the resolved provider+model is always rendered inline.
  */
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  LuCheck,
-  LuCircleAlert,
-  LuCloud,
-  LuServer,
-  LuShield,
-  LuWand,
-  LuZap,
-} from 'react-icons/lu';
+import { LuCheck, LuCircleAlert, LuCloud, LuServer, LuShield, LuWand, LuZap } from 'react-icons/lu';
 
 import {
   type AISettings as ApiAISettings,
@@ -590,11 +582,7 @@ const ProviderKeyDialog = ({
             onClick={() => void handleSave()}
             disabled={busy}
             className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
-            {phase === 'testing'
-              ? 'Testing…'
-              : phase === 'saving'
-                ? 'Saving…'
-                : 'Save'}
+            {phase === 'testing' ? 'Testing…' : phase === 'saving' ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
@@ -703,9 +691,7 @@ interface CustomRoutingDialogProps {
   onSubmit: (next: ProviderRef) => void;
 }
 
-type CustomDialogSource =
-  | { kind: 'cloud'; providerId: string }
-  | { kind: 'local' };
+type CustomDialogSource = { kind: 'cloud'; providerId: string } | { kind: 'local' };
 
 const CustomRoutingDialog = ({
   workload,
@@ -797,7 +783,9 @@ const CustomRoutingDialog = ({
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-stone-700">Provider</label>
               <select
-                value={source ? `${source.kind}:${source.kind === 'cloud' ? source.providerId : ''}` : ''}
+                value={
+                  source ? `${source.kind}:${source.kind === 'cloud' ? source.providerId : ''}` : ''
+                }
                 onChange={e => {
                   const [kind, providerId] = e.target.value.split(':');
                   if (kind === 'local') {
@@ -1040,39 +1028,91 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           <div className="border-b border-stone-200 pb-2">
             <h2 className="text-base font-semibold text-stone-900">LLM Providers</h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Connect the language-model backends you want OpenHuman to use. Toggle a provider on
-              to add its key; toggle off to disconnect.
+              Connect the language-model backends you want OpenHuman to use. Toggle a provider on to
+              add its key; toggle off to disconnect.
             </p>
           </div>
 
-        {/* ─── Provider chip-toggle list ────────────────────────────────── */}
-        <section className="space-y-3">
+          {/* ─── Provider chip-toggle list ────────────────────────────────── */}
+          <section className="space-y-3">
+            {loading && <div className="text-xs text-stone-500">Loading…</div>}
+            {error && (
+              <div className="rounded-md border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
+                {error}
+              </div>
+            )}
 
-          {loading && <div className="text-xs text-stone-500">Loading…</div>}
-          {error && (
-            <div className="rounded-md border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
-              {error}
-            </div>
-          )}
+            <div className="flex flex-wrap gap-2">
+              {(['openai', 'anthropic', 'openrouter', 'custom'] as CloudProviderType[]).map(
+                type => {
+                  const meta = PROVIDER_META[type];
+                  const existing = draft.cloudProviders.find(cp => cp.type === type);
+                  const enabled = !!existing;
+                  return (
+                    <ProviderToggleChip
+                      key={type}
+                      type={type}
+                      label={meta.label}
+                      enabled={enabled}
+                      busy={busyAction === `toggle-${type}`}
+                      onToggle={() => {
+                        if (enabled && existing) {
+                          // Toggle OFF: remove the provider + scrub any
+                          // routing entries that pin to it + drop the
+                          // cached model-id list for this provider type.
+                          const remaining = draft.cloudProviders.filter(
+                            cp => cp.id !== existing.id
+                          );
+                          const nextPrimaryId =
+                            draft.primaryCloudId === existing.id
+                              ? (remaining[0]?.id ?? null)
+                              : draft.primaryCloudId;
+                          const nextRouting = Object.fromEntries(
+                            Object.entries(draft.routing).map(([wid, ref]) => [
+                              wid,
+                              ref.kind === 'cloud' && ref.providerId === existing.id
+                                ? { kind: 'primary' as const }
+                                : ref,
+                            ])
+                          ) as typeof draft.routing;
+                          setDraft({
+                            ...draft,
+                            cloudProviders: remaining,
+                            primaryCloudId: nextPrimaryId,
+                            routing: nextRouting,
+                          });
+                          clearProviderModelIds(type);
+                        } else {
+                          // Toggle ON: open the API-key popup. The chip
+                          // only flips after the dialog saves.
+                          setKeyDialogFor(type);
+                        }
+                      }}
+                    />
+                  );
+                }
+              )}
 
-          <div className="flex flex-wrap gap-2">
-            {(['openai', 'anthropic', 'openrouter', 'custom'] as CloudProviderType[]).map(
-              type => {
-                const meta = PROVIDER_META[type];
-                const existing = draft.cloudProviders.find(cp => cp.type === type);
+              {/* LM Studio + Ollama — local runtimes. Stored as `type: 'custom'`
+                with a distinguishing label so the existing CloudProvider
+                machinery doesn't need a new variant. Toggle ON prompts for
+                the local endpoint URL via the same API-key dialog (the
+                "key" field doubles as the endpoint here). */}
+              {(['lmstudio', 'ollama'] as const).map(localKind => {
+                const label = PROVIDER_CHIP_LABEL[localKind];
+                const existing = draft.cloudProviders.find(
+                  cp => cp.type === 'custom' && cp.label === label
+                );
                 const enabled = !!existing;
                 return (
                   <ProviderToggleChip
-                    key={type}
-                    type={type}
-                    label={meta.label}
+                    key={localKind}
+                    type={localKind}
+                    label={label}
                     enabled={enabled}
-                    busy={busyAction === `toggle-${type}`}
+                    busy={busyAction === `toggle-${localKind}`}
                     onToggle={() => {
                       if (enabled && existing) {
-                        // Toggle OFF: remove the provider + scrub any
-                        // routing entries that pin to it + drop the
-                        // cached model-id list for this provider type.
                         const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
                         const nextPrimaryId =
                           draft.primaryCloudId === existing.id
@@ -1092,69 +1132,16 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                           primaryCloudId: nextPrimaryId,
                           routing: nextRouting,
                         });
-                        clearProviderModelIds(type);
                       } else {
-                        // Toggle ON: open the API-key popup. The chip
-                        // only flips after the dialog saves.
-                        setKeyDialogFor(type);
+                        setKeyDialogFor('custom');
+                        setPendingLocalLabel(label);
                       }
                     }}
                   />
                 );
-              }
-            )}
-
-            {/* LM Studio + Ollama — local runtimes. Stored as `type: 'custom'`
-                with a distinguishing label so the existing CloudProvider
-                machinery doesn't need a new variant. Toggle ON prompts for
-                the local endpoint URL via the same API-key dialog (the
-                "key" field doubles as the endpoint here). */}
-            {(['lmstudio', 'ollama'] as const).map(localKind => {
-              const label = PROVIDER_CHIP_LABEL[localKind];
-              const existing = draft.cloudProviders.find(
-                cp => cp.type === 'custom' && cp.label === label
-              );
-              const enabled = !!existing;
-              return (
-                <ProviderToggleChip
-                  key={localKind}
-                  type={localKind}
-                  label={label}
-                  enabled={enabled}
-                  busy={busyAction === `toggle-${localKind}`}
-                  onToggle={() => {
-                    if (enabled && existing) {
-                      const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
-                      const nextPrimaryId =
-                        draft.primaryCloudId === existing.id
-                          ? (remaining[0]?.id ?? null)
-                          : draft.primaryCloudId;
-                      const nextRouting = Object.fromEntries(
-                        Object.entries(draft.routing).map(([wid, ref]) => [
-                          wid,
-                          ref.kind === 'cloud' && ref.providerId === existing.id
-                            ? { kind: 'primary' as const }
-                            : ref,
-                        ])
-                      ) as typeof draft.routing;
-                      setDraft({
-                        ...draft,
-                        cloudProviders: remaining,
-                        primaryCloudId: nextPrimaryId,
-                        routing: nextRouting,
-                      });
-                    } else {
-                      setKeyDialogFor('custom');
-                      setPendingLocalLabel(label);
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
-        </section>
-
-
+              })}
+            </div>
+          </section>
         </div>
         {/* end of Auth section */}
 
@@ -1172,62 +1159,61 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             </p>
           </div>
 
-        <section className="space-y-3">
+          <section className="space-y-3">
+            <div className="overflow-hidden rounded-lg border border-stone-200 bg-stone-50 px-3">
+              <div className="pt-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                  Chat
+                </div>
+                <div className="divide-y divide-stone-200">
+                  {chatRows.map(w => (
+                    <WorkloadRow
+                      key={w.id}
+                      workload={w}
+                      ref_={draft.routing[w.id]}
+                      primary={primary}
+                      cloudProviders={draft.cloudProviders}
+                      localModels={installed}
+                      ollamaState={ollama.state}
+                      onChange={next => updateRouting(w.id, next)}
+                      onCustomClick={() => setCustomDialogFor(w.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="pb-3 pt-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                  Background
+                </div>
+                <div className="divide-y divide-stone-200">
+                  {bgRows.map(w => (
+                    <WorkloadRow
+                      key={w.id}
+                      workload={w}
+                      ref_={draft.routing[w.id]}
+                      primary={primary}
+                      cloudProviders={draft.cloudProviders}
+                      localModels={installed}
+                      ollamaState={ollama.state}
+                      onChange={next => updateRouting(w.id, next)}
+                      onCustomClick={() => setCustomDialogFor(w.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
 
-          <div className="overflow-hidden rounded-lg border border-stone-200 bg-stone-50 px-3">
-            <div className="pt-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
-                Chat
+            {primary && (
+              <div className="text-[11px] text-stone-500">
+                Default resolves to{' '}
+                <span className="font-mono text-stone-700">
+                  {primary.type === 'openhuman'
+                    ? 'OpenHuman'
+                    : `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`}
+                </span>
               </div>
-              <div className="divide-y divide-stone-200">
-                {chatRows.map(w => (
-                  <WorkloadRow
-                    key={w.id}
-                    workload={w}
-                    ref_={draft.routing[w.id]}
-                    primary={primary}
-                    cloudProviders={draft.cloudProviders}
-                    localModels={installed}
-                    ollamaState={ollama.state}
-                    onChange={next => updateRouting(w.id, next)}
-                    onCustomClick={() => setCustomDialogFor(w.id)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="pb-3 pt-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
-                Background
-              </div>
-              <div className="divide-y divide-stone-200">
-                {bgRows.map(w => (
-                  <WorkloadRow
-                    key={w.id}
-                    workload={w}
-                    ref_={draft.routing[w.id]}
-                    primary={primary}
-                    cloudProviders={draft.cloudProviders}
-                    localModels={installed}
-                    ollamaState={ollama.state}
-                    onChange={next => updateRouting(w.id, next)}
-                    onCustomClick={() => setCustomDialogFor(w.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {primary && (
-            <div className="text-[11px] text-stone-500">
-              Default resolves to{' '}
-              <span className="font-mono text-stone-700">
-                {primary.type === 'openhuman'
-                  ? 'OpenHuman'
-                  : `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`}
-              </span>
-            </div>
-          )}
-        </section>
+            )}
+          </section>
         </div>
         {/* end of Routing section */}
       </div>
@@ -1274,7 +1260,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                   await setCloudProviderKey(upserted.type as ApiCloudProviderType, apiKey);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
-                  // eslint-disable-next-line no-console
+                   
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
                 }
               }
@@ -1289,7 +1275,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               await reload();
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
-              // eslint-disable-next-line no-console
+               
               console.warn('[ai-settings] clearCloudProviderKey failed', msg);
             }
           }}
@@ -1328,7 +1314,9 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           onSubmit={async (apiKey, modelIds) => {
             const type = keyDialogFor;
             const localLabel = pendingLocalLabel;
-            setBusyAction(`toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : type}`);
+            setBusyAction(
+              `toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : type}`
+            );
             try {
               const upserted: CloudProvider = {
                 id: `p_${type}_${Math.random().toString(36).slice(2, 7)}`,
@@ -1338,10 +1326,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 defaultModel: '',
                 maskedKey: maskKeyLabel(true),
               };
-              setDraft({
-                ...draft,
-                cloudProviders: [...draft.cloudProviders, upserted],
-              });
+              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
               if (type !== 'openhuman') {
                 await setCloudProviderKey(type as ApiCloudProviderType, apiKey);
               }

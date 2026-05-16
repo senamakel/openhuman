@@ -220,7 +220,8 @@ jobs:
     name: Build desktop matrix
     needs: [prepare-build, pretest-tests, pretest-e2e]
     if: >-
-      (needs.pretest-tests.result == 'success'
+      always()
+      && (needs.pretest-tests.result == 'success'
           || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
       && (needs.pretest-e2e.result == 'success'
           || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))
@@ -268,7 +269,8 @@ jobs:
     name: "Docker: build (no push)"
     needs: [prepare-build, pretest-tests, pretest-e2e]
     if: >-
-      (needs.pretest-tests.result == 'success'
+      always()
+      && (needs.pretest-tests.result == 'success'
           || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
       && (needs.pretest-e2e.result == 'success'
           || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))

@@ -270,6 +270,10 @@ fn probe_python_version(path: &Path) -> Option<String> {
     }
 }
 
+pub(crate) fn probe_python_version_public(path: &Path) -> Option<String> {
+    probe_python_version(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

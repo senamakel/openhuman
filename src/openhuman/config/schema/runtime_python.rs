@@ -26,6 +26,10 @@ pub struct RuntimePythonConfig {
     /// installs. Empty string means "use the runtime default cache dir".
     #[serde(default)]
     pub cache_dir: String,
+    /// Optional upstream release tag for managed standalone Python builds.
+    /// Empty string means "query the latest release at install time".
+    #[serde(default)]
+    pub managed_release_tag: String,
     /// When `true`, probe the host `PATH` for a compatible interpreter before
     /// attempting any managed-runtime flow. Useful for development; the
     /// intended shipped path is a managed interpreter owned by OpenHuman.
@@ -46,7 +50,7 @@ fn default_minimum_version() -> String {
 }
 
 fn default_prefer_system() -> bool {
-    true
+    false
 }
 
 impl Default for RuntimePythonConfig {
@@ -55,6 +59,7 @@ impl Default for RuntimePythonConfig {
             enabled: default_enabled(),
             minimum_version: default_minimum_version(),
             cache_dir: String::new(),
+            managed_release_tag: String::new(),
             prefer_system: default_prefer_system(),
             preferred_command: String::new(),
         }

@@ -1166,6 +1166,12 @@ impl Config {
                 self.runtime_python.cache_dir = trimmed.to_string();
             }
         }
+        if let Some(tag) = env.get("OPENHUMAN_RUNTIME_PYTHON_MANAGED_RELEASE_TAG") {
+            let trimmed = tag.trim();
+            if !trimmed.is_empty() {
+                self.runtime_python.managed_release_tag = trimmed.to_string();
+            }
+        }
         if let Some(flag) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM") {
             if let Some(prefer_system) =
                 parse_env_bool("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM", &flag)

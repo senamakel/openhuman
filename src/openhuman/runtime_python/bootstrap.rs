@@ -1,13 +1,16 @@
 //! Python bootstrap orchestrator.
 //!
-//! Today the bootstrap resolves a compatible system Python 3.12+ interpreter.
-//! The type surface already reserves room for a managed distribution so callers
-//! do not need to change once bundled/downloaded CPython lands.
+//! Resolves a managed standalone CPython distribution by default, with an
+//! optional system-Python override for development.
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use reqwest::Client;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use super::downloader::{download_distribution, fetch_release_metadata, select_distribution};
+use super::extractor::{atomic_install, extract_distribution};
 use super::resolver::{detect_system_python, SystemPython};
 use crate::openhuman::config::schema::RuntimePythonConfig;
 
@@ -34,6 +37,7 @@ pub struct ResolvedPython {
 /// Serialised bootstrap entrypoint for Python runtime resolution.
 pub struct PythonBootstrap {
     config: RuntimePythonConfig,
+    client: Client,
     cached: Arc<Mutex<Option<ResolvedPython>>>,
 }
 
@@ -41,6 +45,7 @@ impl PythonBootstrap {
     pub fn new(config: RuntimePythonConfig) -> Self {
         Self {
             config,
+            client: Client::new(),
             cached: Arc::new(Mutex::new(None)),
         }
     }
@@ -70,20 +75,18 @@ impl PythonBootstrap {
         }
 
         if self.config.prefer_system {
-            if let Some(system) = detect_system_python(
-                &self.config.minimum_version,
-                empty_to_none(&self.config.preferred_command),
-            ) {
+            if let Some(system) =
+                detect_system_python(&self.config.minimum_version, empty_to_none(&self.config.preferred_command))
+            {
                 let resolved = resolve_from_system(system);
                 *guard = Some(resolved.clone());
                 return Ok(resolved);
             }
         }
 
-        bail!(
-            "no compatible Python interpreter found (need Python >= {}); managed runtime installation is not implemented yet",
-            self.config.minimum_version
-        );
+        let managed = self.install_managed().await?;
+        *guard = Some(managed.clone());
+        Ok(managed)
     }
 
     /// Build a preconfigured child-process launcher for stdio-oriented Python
@@ -94,6 +97,67 @@ impl PythonBootstrap {
     ) -> Result<tokio::process::Child> {
         let resolved = self.resolve().await?;
         crate::openhuman::runtime_python::process::spawn_stdio_process(&resolved, spec)
+    }
+}
+
+impl PythonBootstrap {
+    async fn install_managed(&self) -> Result<ResolvedPython> {
+        let cache_root = self.cache_root();
+        tokio::fs::create_dir_all(&cache_root)
+            .await
+            .with_context(|| format!("creating python runtime cache {}", cache_root.display()))?;
+
+        let release = fetch_release_metadata(
+            &self.client,
+            empty_to_none(&self.config.managed_release_tag),
+        )
+        .await?;
+        let dist = select_distribution(&release, &self.config.minimum_version)?;
+        let install_dir = cache_root.join(dist.install_dir_name());
+
+        if let Some(existing) = probe_managed_install(&install_dir) {
+            tracing::info!(
+                install_dir = %install_dir.display(),
+                version = %existing.version,
+                "[runtime_python::bootstrap] reusing existing managed python install"
+            );
+            return Ok(existing);
+        }
+
+        tracing::info!(
+            asset = %dist.asset_name,
+            release = %release.tag_name,
+            install_dir = %install_dir.display(),
+            "[runtime_python::bootstrap] installing managed python"
+        );
+
+        let archive_path = cache_root.join(&dist.asset_name);
+        download_distribution(&self.client, &dist, &archive_path).await?;
+
+        let scratch = cache_root.join(format!(".stage-{}", std::process::id()));
+        let _ = tokio::fs::remove_dir_all(&scratch).await;
+        let top_level = extract_distribution(&archive_path, &scratch).await?;
+        atomic_install(&top_level, &install_dir).await?;
+        let _ = tokio::fs::remove_dir_all(&scratch).await;
+        let _ = tokio::fs::remove_file(&archive_path).await;
+
+        probe_managed_install(&install_dir).with_context(|| {
+            format!(
+                "managed python install completed but no interpreter was found under {}",
+                install_dir.display()
+            )
+        })
+    }
+
+    fn cache_root(&self) -> PathBuf {
+        let configured = self.config.cache_dir.trim();
+        if !configured.is_empty() {
+            return PathBuf::from(configured);
+        }
+        if let Some(user_cache) = dirs::cache_dir() {
+            return user_cache.join("openhuman").join("runtime-python");
+        }
+        PathBuf::from(".openhuman").join("runtime-python")
     }
 }
 
@@ -117,4 +181,46 @@ fn empty_to_none(value: &str) -> Option<&str> {
     } else {
         Some(trimmed)
     }
+}
+
+fn probe_managed_install(install_dir: &Path) -> Option<ResolvedPython> {
+    let python_bin = find_python_binary(install_dir)?;
+    let version = super::resolver::probe_python_version_public(&python_bin)?;
+    let version_info = super::resolver::parse_python_version(&version)?;
+    Some(ResolvedPython {
+        python_bin,
+        version: version_info.display(),
+        source: PythonSource::Managed,
+    })
+}
+
+fn find_python_binary(install_dir: &Path) -> Option<PathBuf> {
+    let candidates = [
+        install_dir.join("bin").join("python3.12"),
+        install_dir.join("bin").join("python3"),
+        install_dir.join("bin").join("python"),
+        install_dir.join("python.exe"),
+        install_dir.join("python3.12.exe"),
+        install_dir.join("python3.exe"),
+    ];
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    for entry in walkdir::WalkDir::new(install_dir).into_iter().flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if matches!(name, "python" | "python3" | "python3.12" | "python.exe" | "python3.exe" | "python3.12.exe")
+        {
+            return Some(path.to_path_buf());
+        }
+    }
+    None
 }

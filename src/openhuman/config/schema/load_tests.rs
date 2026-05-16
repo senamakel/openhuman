@@ -622,11 +622,13 @@ fn env_overlay_runtime_python_flags_respect_bool_parser() {
             .with("OPENHUMAN_RUNTIME_PYTHON_ENABLED", "yes")
             .with("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM", "off")
             .with("OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR", "/tmp/oh-python")
+            .with("OPENHUMAN_RUNTIME_PYTHON_MANAGED_RELEASE_TAG", "20260510")
             .with("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND", "python3.12"),
     );
     assert!(cfg.runtime_python.enabled);
     assert!(!cfg.runtime_python.prefer_system);
     assert_eq!(cfg.runtime_python.cache_dir, "/tmp/oh-python");
+    assert_eq!(cfg.runtime_python.managed_release_tag, "20260510");
     assert_eq!(cfg.runtime_python.preferred_command, "python3.12");
     assert_eq!(
         cfg.runtime_python.minimum_version, original_version,

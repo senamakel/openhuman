@@ -15,6 +15,7 @@ pub mod downloader;
 pub mod extractor;
 pub mod ops;
 pub mod resolver;
+pub mod rpc;
 mod schemas;
 pub mod types;
 

@@ -150,10 +150,10 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 |  +--------+----------+  +--------+----------+                |
 |           |                      |                            |
 |  +--------v----------+  +--------v----------+  +----------+  |
-|  | QuickJS Instance  |  | QuickJS Instance  |  |  Bridge  |  |
-|  | Skill A           |  | Skill B           |  |   APIs   |  |
-|  | 64 MB memory cap  |  | 64 MB memory cap  |  +----+-----+  |
-|  | 512 KB stack      |  | 512 KB stack      |       |        |
+|  | JavaScript Layer  |  | runtime_node      |  |  Bridge  |  |
+|  | skill metadata    |  | managed Node.js   |  |   APIs   |  |
+|  | + prompt context  |  | system/bundled    |  +----+-----+  |
+|  | + tool discovery  |  | tool execution    |       |        |
 |  +-------------------+  +-------------------+       |        |
 |                                                      |        |
 |  +---------------------------------------------------v-----+ |
@@ -165,17 +165,17 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 
 **Node.js Runtime**: the core resolves a compatible system `node` when possible and otherwise installs a managed distribution into the OpenHuman cache. Skills primarily expose tool metadata and use the runtime bridge to list and execute tools rather than running isolated QuickJS VMs inside the core.
 
-| Parameter                      | Value       |
-| ------------------------------ | ----------- |
-| Default memory limit per skill | 64 MB       |
-| Stack size                     | 512 KB      |
-| Initialization timeout         | 10 seconds  |
-| Graceful stop timeout          | 5 seconds   |
-| Message channel buffer         | 64 messages |
+| Parameter              | Value |
+| ---------------------- | ----- |
+| Public language slot   | `javascript` |
+| Current JS backend     | `runtime_node` |
+| Managed Node version   | `v22.11.0` by default |
+| Runtime source         | system `node` or managed install |
+| Integrity verification | SHA-256 against `SHASUMS256.txt` |
 
-**Message-passing architecture**: Skills communicate with the core engine through async MPSC channels, no shared mutable state. The registry routes tool calls, server events, cron triggers, and lifecycle commands to the correct skill instance via its channel sender.
+**Tool bridge architecture**: `SKILL.md` packages provide metadata, instructions, and optional bundled JS helpers. The Rust core owns the authoritative tool registry, and the JavaScript runtime bridge lists tools and dispatches named tool calls into the core or into Node-backed helpers.
 
-**Bridge APIs** expose platform capabilities to skill JavaScript code:
+**Bridge APIs** expose platform capabilities to the runtime bridge and Node-backed helpers:
 
 | Bridge    | Capability                                                  |
 | --------- | ----------------------------------------------------------- |
@@ -186,20 +186,17 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 | **log**   | Structured logging routed through Rust `log` crate          |
 | **tauri** | Platform detection, notifications, whitelisted env vars     |
 
-**Skill discovery** uses a manifest system. Each skill declares its metadata in a JSON manifest:
+**Skill discovery** uses `SKILL.md` plus optional bundled resources:
 
-| Field             | Purpose                                   |
-| ----------------- | ----------------------------------------- |
-| `id`              | Unique identifier                         |
-| `name`            | Human-readable display name               |
-| `runtime`         | Execution engine (`nodejs`)               |
-| `entry`           | Entry point file (default: `index.js`)    |
-| `memory_limit_mb` | Per-skill memory cap (default: 64)        |
-| `platforms`       | Supported platforms (default: all)        |
-| `setup`           | OAuth and configuration wizard definition |
-| `auto_start`      | Start on app launch                       |
+| Field              | Purpose |
+| ------------------ | ------- |
+| `name`             | Human-readable display name |
+| `description`      | Trigger/selection summary |
+| `metadata.id`      | Stable skill slug when present |
+| `allowed-tools`    | Tool allowlist guidance |
+| bundled resources  | scripts, references, assets |
 
-Skills are synced from a GitHub repository and discovered at runtime. Platform filtering ensures skills only run where they're supported.
+Skills are synced from a GitHub repository and discovered at runtime. Execution is no longer modeled as one embedded QuickJS VM per skill; JavaScript behavior flows through the shared runtime bridge instead.
 
 **Cron scheduler**: A 5-second tick loop checks all registered schedules against UTC time, using the `cron` crate for expression parsing. When a schedule fires, the scheduler sends a `CronTrigger` message to the skill's channel, invoking the skill's `onCronTrigger()` handler.
 

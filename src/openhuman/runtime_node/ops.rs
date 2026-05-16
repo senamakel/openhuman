@@ -8,6 +8,7 @@ use crate::openhuman::memory::Memory;
 use crate::openhuman::runtime_node::types::{ExecuteToolOutcome, RuntimeToolSummary};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool, ToolCallOptions, ToolScope};
+use tracing::{debug, trace};
 
 fn tool_scope_label(scope: ToolScope) -> &'static str {
     match scope {
@@ -30,12 +31,17 @@ fn summarize_tool(tool: &dyn Tool) -> RuntimeToolSummary {
 }
 
 fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
+    debug!(
+        workspace = %config.workspace_dir.display(),
+        "[runtime_node::ops] build_runtime_tools: start"
+    );
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
     ));
     let runtime: Arc<dyn RuntimeAdapter> = Arc::new(NativeRuntime::new());
     let local_embedding = config.workload_local_model("embeddings");
+    trace!("[runtime_node::ops] build_runtime_tools: create_memory_with_local_ai");
     let memory: Arc<dyn Memory> = Arc::from(
         crate::openhuman::memory::create_memory_with_local_ai(
             &config.memory,
@@ -44,10 +50,16 @@ fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
             Some(&config.storage.provider.config),
             &config.workspace_dir,
         )
-        .map_err(|error| error.to_string())?,
+        .map_err(|error| {
+            debug!(
+                error = %error,
+                "[runtime_node::ops] build_runtime_tools: create_memory_with_local_ai failed"
+            );
+            error.to_string()
+        })?,
     );
-
-    Ok(tools::all_tools_with_runtime(
+    trace!("[runtime_node::ops] build_runtime_tools: tools::all_tools_with_runtime");
+    let built = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,
@@ -57,15 +69,25 @@ fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
         &config.workspace_dir,
         &config.agents,
         config,
-    ))
+    );
+    debug!(
+        tool_count = built.len(),
+        "[runtime_node::ops] build_runtime_tools: done"
+    );
+    Ok(built)
 }
 
 pub fn list_tools(config: &Config) -> Result<Vec<RuntimeToolSummary>, String> {
+    debug!("[runtime_node::ops] list_tools: start");
     let mut summaries: Vec<RuntimeToolSummary> = build_runtime_tools(config)?
         .into_iter()
         .map(|tool| summarize_tool(tool.as_ref()))
         .collect();
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
+    debug!(
+        count = summaries.len(),
+        "[runtime_node::ops] list_tools: done"
+    );
     Ok(summaries)
 }
 
@@ -75,28 +97,62 @@ pub async fn execute_tool(
     args: serde_json::Value,
     prefer_markdown: bool,
 ) -> Result<ExecuteToolOutcome, String> {
+    debug!(
+        tool_name,
+        prefer_markdown, "[runtime_node::ops] execute_tool: start"
+    );
     let tools = build_runtime_tools(config)?;
+    trace!(
+        tool_count = tools.len(),
+        tool_name,
+        "[runtime_node::ops] execute_tool: runtime tools built"
+    );
     let tool = tools
         .into_iter()
         .find(|tool| tool.name() == tool_name)
-        .ok_or_else(|| format!("unknown tool `{tool_name}`"))?;
+        .ok_or_else(|| {
+            debug!(
+                tool_name,
+                "[runtime_node::ops] execute_tool: tool not found"
+            );
+            format!("unknown tool `{tool_name}`")
+        })?;
 
     let started = Instant::now();
+    debug!(
+        tool_name,
+        "[runtime_node::ops] execute_tool: publish ToolExecutionStarted"
+    );
     publish_global(DomainEvent::ToolExecutionStarted {
         tool_name: tool_name.to_string(),
         session_id: "javascript".to_string(),
     });
 
+    trace!(
+        tool_name,
+        "[runtime_node::ops] execute_tool: dispatch execute_with_options"
+    );
     let execution = tool
         .execute_with_options(args, ToolCallOptions { prefer_markdown })
         .await
-        .map_err(|error| format!("tool `{tool_name}` failed: {error:#}"));
+        .map_err(|error| {
+            debug!(
+                tool_name,
+                error = %error,
+                "[runtime_node::ops] execute_tool: tool execution failed"
+            );
+            format!("tool `{tool_name}` failed: {error:#}")
+        });
 
     let elapsed_ms = started.elapsed().as_millis() as u64;
     let success = execution
         .as_ref()
         .map(|result| !result.is_error)
         .unwrap_or(false);
+    debug!(
+        tool_name,
+        success, elapsed_ms, "[runtime_node::ops] execute_tool: publish ToolExecutionCompleted"
+    );
     publish_global(DomainEvent::ToolExecutionCompleted {
         tool_name: tool_name.to_string(),
         session_id: "javascript".to_string(),
@@ -105,6 +161,12 @@ pub async fn execute_tool(
     });
 
     let result = execution?;
+    trace!(
+        tool_name,
+        success = !result.is_error,
+        elapsed_ms,
+        "[runtime_node::ops] execute_tool: returning outcome"
+    );
     Ok(ExecuteToolOutcome {
         tool_name: tool_name.to_string(),
         elapsed_ms,

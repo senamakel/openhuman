@@ -110,6 +110,7 @@ const RuntimeChoiceStep = ({ onNext }: RuntimeChoiceStepProps) => {
     t('onboarding.runtimeChoice.custom.f2'),
     t('onboarding.runtimeChoice.custom.f3'),
     t('onboarding.runtimeChoice.custom.f4'),
+    t('onboarding.runtimeChoice.custom.f5'),
   ];
 
   return (

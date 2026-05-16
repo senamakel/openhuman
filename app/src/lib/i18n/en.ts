@@ -244,8 +244,9 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.custom.tagline': "Bring your own keys. Full control of what you're using.",
   'onboarding.runtimeChoice.custom.f1': "You'll need API keys for almost everything",
   'onboarding.runtimeChoice.custom.f2': 'Reuses services you already pay for',
-  'onboarding.runtimeChoice.custom.f3': 'More setup, more knobs',
-  'onboarding.runtimeChoice.custom.f4': 'Best for power users and developers',
+  'onboarding.runtimeChoice.custom.f3': 'Can be free if you run everything locally',
+  'onboarding.runtimeChoice.custom.f4': 'More setup, more knobs',
+  'onboarding.runtimeChoice.custom.f5': 'Best for power users and developers',
   'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
   'onboarding.runtimeChoice.continueCloud': 'Continue with Simple',
   'onboarding.runtimeChoice.continueCustom': 'Continue with Custom',
@@ -263,6 +264,62 @@ const en: TranslationMap = {
   'onboarding.apiKeys.skipForNow': 'Skip for now',
   'onboarding.apiKeys.continue': 'Save and continue',
   'onboarding.apiKeys.saving': 'Saving…',
+
+  // Onboarding: Custom wizard (Inference / Voice / OAuth / Search / Memory)
+  'onboarding.custom.stepCounter': 'Step {n} of {total}',
+  'onboarding.custom.defaultTitle': 'Default',
+  'onboarding.custom.defaultSubtitle': 'Let OpenHuman manage it for you.',
+  'onboarding.custom.configureTitle': 'Configure',
+  'onboarding.custom.configureSubtitle': "I'll pick what to use.",
+  'onboarding.custom.continue': 'Continue',
+  'onboarding.custom.back': 'Back',
+  'onboarding.custom.finish': 'Finish setup',
+  'onboarding.custom.configureLater':
+    "You can finish wiring this up after onboarding. We'll drop you on the matching Settings page once you're done.",
+  'onboarding.custom.openSettings': 'Open in Settings',
+
+  // Onboarding: Custom > Inference (text)
+  'onboarding.custom.inference.title': 'Inference (text)',
+  'onboarding.custom.inference.subtitle':
+    'Which language model should answer your questions and run your agents?',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman routes every workload to a sensible default model. No keys, no setup.',
+  'onboarding.custom.inference.configureDesc':
+    'Bring your own OpenAI or Anthropic key. We use it for every text-based workload.',
+
+  // Onboarding: Custom > Voice
+  'onboarding.custom.voice.title': 'Voice',
+  'onboarding.custom.voice.subtitle': 'Speech-to-text and text-to-speech for voice mode.',
+  'onboarding.custom.voice.defaultDesc':
+    "OpenHuman ships with managed STT/TTS that just works. Nothing to wire up.",
+  'onboarding.custom.voice.configureDesc':
+    'Use your own ElevenLabs / OpenAI Whisper / etc. Configure in Settings › Voice.',
+
+  // Onboarding: Custom > OAuth (Composio)
+  'onboarding.custom.oauth.title': 'Connections (OAuth)',
+  'onboarding.custom.oauth.subtitle':
+    'Gmail, Slack, Notion, and other connected services that need OAuth.',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman runs a managed Composio workspace. One click to connect each service later.',
+  'onboarding.custom.oauth.configureDesc':
+    'Bring your own Composio account / API key. Configure in Settings › Connections.',
+
+  // Onboarding: Custom > Search
+  'onboarding.custom.search.title': 'Web search',
+  'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
+  'onboarding.custom.search.defaultDesc':
+    'OpenHuman uses a managed search backend. No keys needed.',
+  'onboarding.custom.search.configureDesc':
+    "Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.",
+
+  // Onboarding: Custom > Memory
+  'onboarding.custom.memory.title': 'Memory',
+  'onboarding.custom.memory.subtitle':
+    'How OpenHuman remembers your context, preferences, and prior conversations.',
+  'onboarding.custom.memory.defaultDesc':
+    "OpenHuman manages memory storage and retrieval automatically. Nothing to set up.",
+  'onboarding.custom.memory.configureDesc':
+    "Inspect, export, or wipe memory yourself. Configure in Settings › Memory.",
 
   // Accounts
   'accounts.addAccount': 'Add Account',

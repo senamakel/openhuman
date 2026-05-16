@@ -15,7 +15,7 @@ const RuntimeChoicePage = () => {
         trackEvent('onboarding_step_complete', { step_name: 'runtime_choice', ai_mode: mode });
 
         if (mode === 'custom') {
-          navigate('/onboarding/api-keys');
+          navigate('/onboarding/custom/inference');
           return;
         }
         // Cloud path: nothing else to configure, finish onboarding.

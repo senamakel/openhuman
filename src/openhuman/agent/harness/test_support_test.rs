@@ -462,6 +462,134 @@ async fn keyword_provider_chains_multiple_tools_across_iterations() {
     assert_eq!(send_calls.lock().len(), 1);
 }
 
+#[tokio::test]
+async fn keyword_provider_uses_latest_tool_result_to_drive_the_next_tool_call() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule::tool_call(
+            "start lookup",
+            ScriptedToolCall::new("lookup_tool", json!({"symbol": "BTC"})),
+        ),
+        KeywordRule::tool_call(
+            "lookup_tool-ok",
+            ScriptedToolCall::new("enrich_tool", json!({"source": "lookup"})),
+        ),
+        KeywordRule::final_reply("enrich_tool-ok", "Finished after the second tool."),
+    ])
+    .with_native_tools(true);
+
+    let (lookup_tool, lookup_calls) = RecordingTool::echo("lookup_tool");
+    let (enrich_tool, enrich_calls) = RecordingTool::echo("enrich_tool");
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(lookup_tool), Box::new(enrich_tool)];
+
+    let mut history = vec![ChatMessage::user("please start lookup for BTC")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        10,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("loop should complete");
+
+    assert_eq!(out, "Finished after the second tool.");
+    assert_eq!(lookup_calls.lock().as_slice(), &[json!({"symbol": "BTC"})]);
+    assert_eq!(
+        enrich_calls.lock().as_slice(),
+        &[json!({"source": "lookup"})]
+    );
+
+    let turns = provider.turns();
+    assert_eq!(
+        turns.len(),
+        3,
+        "expected two tool turns and one final reply"
+    );
+    assert_eq!(turns[0].rule_keyword.as_deref(), Some("start lookup"));
+    assert_eq!(turns[1].rule_keyword.as_deref(), Some("lookup_tool-ok"));
+    assert_eq!(turns[2].rule_keyword.as_deref(), Some("enrich_tool-ok"));
+
+    let second_turn_probe = turns[1]
+        .messages
+        .iter()
+        .rev()
+        .find(|msg| msg.role == "tool")
+        .map(|msg| msg.content.clone())
+        .unwrap_or_default();
+    assert!(
+        second_turn_probe.contains("lookup_tool-ok"),
+        "second turn should be driven by the first tool result, got: {second_turn_probe}"
+    );
+}
+
+#[tokio::test]
+async fn keyword_provider_executes_multiple_native_tool_calls_from_one_turn() {
+    let provider = KeywordScriptedProvider::new(vec![
+        KeywordRule {
+            keyword: "do both".to_string(),
+            tool_calls: vec![
+                ScriptedToolCall::new("lookup_tool", json!({"symbol": "BTC"})),
+                ScriptedToolCall::new("enrich_tool", json!({"source": "coinbase"})),
+            ],
+            final_text: Some("Running both tools.".to_string()),
+            max_fires: Some(1),
+        },
+        KeywordRule::final_reply("enrich_tool-ok", "Both tools completed."),
+    ])
+    .with_native_tools(true);
+
+    let (lookup_tool, lookup_calls) = RecordingTool::echo("lookup_tool");
+    let (enrich_tool, enrich_calls) = RecordingTool::echo("enrich_tool");
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(lookup_tool), Box::new(enrich_tool)];
+
+    let mut history = vec![ChatMessage::user("please do both actions now")];
+
+    let out = run_tool_call_loop(
+        &provider,
+        &mut history,
+        &tools,
+        "mock-native",
+        "test-model",
+        0.0,
+        true,
+        None,
+        "channel",
+        &mm(),
+        10,
+        None,
+        None,
+        &[],
+        None,
+        None,
+    )
+    .await
+    .expect("loop should complete");
+
+    assert_eq!(out, "Both tools completed.");
+    assert_eq!(lookup_calls.lock().as_slice(), &[json!({"symbol": "BTC"})]);
+    assert_eq!(
+        enrich_calls.lock().as_slice(),
+        &[json!({"source": "coinbase"})]
+    );
+
+    let turns = provider.turns();
+    assert_eq!(turns[0].emitted_tool_calls.len(), 2);
+    assert_eq!(turns[0].emitted_tool_calls[0].name, "lookup_tool");
+    assert_eq!(turns[0].emitted_tool_calls[1].name, "enrich_tool");
+}
+
 // ── 4. Unknown tool name handled gracefully ───────────────────────
 
 #[tokio::test]

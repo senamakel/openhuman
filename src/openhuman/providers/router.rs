@@ -417,6 +417,30 @@ mod tests {
     }
 
     #[test]
+    fn resolve_translates_openhuman_tier_aliases_via_route_table() {
+        let (router, _) = make_router(
+            vec![("default", "ok"), ("smart", "ok")],
+            vec![
+                ("reasoning", "smart", "gpt-5.5"),
+                ("chat", "smart", "gpt-5.5-mini"),
+                ("summarization", "smart", "gpt-4.1-nano"),
+            ],
+        );
+
+        let (reasoning_idx, reasoning_model) = router.resolve("reasoning-v1");
+        assert_eq!(reasoning_idx, 1);
+        assert_eq!(reasoning_model, "gpt-5.5");
+
+        let (chat_idx, chat_model) = router.resolve("reasoning-quick-v1");
+        assert_eq!(chat_idx, 1);
+        assert_eq!(chat_model, "gpt-5.5-mini");
+
+        let (summary_idx, summary_model) = router.resolve("summarization-v1");
+        assert_eq!(summary_idx, 1);
+        assert_eq!(summary_model, "gpt-4.1-nano");
+    }
+
+    #[test]
     fn skips_routes_with_unknown_provider() {
         let (router, _) = make_router(
             vec![("default", "ok")],

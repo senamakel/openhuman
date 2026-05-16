@@ -213,7 +213,7 @@ fn make_ollama_provider(
         model,
         redact_endpoint(&endpoint)
     );
-    let p = make_openai_compatible_provider(&endpoint, "", CompatAuthStyle::Bearer)?;
+    let p = make_openai_compatible_provider(&endpoint, "", CompatAuthStyle::None)?;
     Ok((p, model.to_string()))
 }
 
@@ -276,7 +276,7 @@ fn make_cloud_provider_by_slug(
             make_openhuman_backend(config)
         }
         AuthStyle::None => {
-            let p = make_openai_compatible_provider(&entry.endpoint, "", CompatAuthStyle::Bearer)?;
+            let p = make_openai_compatible_provider(&entry.endpoint, "", CompatAuthStyle::None)?;
             Ok((p, effective_model))
         }
         AuthStyle::Bearer => {
@@ -362,10 +362,22 @@ mod tests {
     use super::*;
     use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::openhuman::config::Config;
+    use crate::openhuman::credentials::AuthService;
+    use tempfile::TempDir;
 
     fn config_with_providers(providers: Vec<CloudProviderCreds>) -> Config {
         let mut c = Config::default();
         c.cloud_providers = providers;
+        c
+    }
+
+    fn config_with_providers_in_tempdir(
+        tmp: &TempDir,
+        providers: Vec<CloudProviderCreds>,
+    ) -> Config {
+        let mut c = config_with_providers(providers);
+        c.workspace_dir = tmp.path().join("workspace");
+        c.config_path = tmp.path().join("config.toml");
         c
     }
 
@@ -481,6 +493,25 @@ mod tests {
         assert_eq!(model, "llama3.1:8b");
     }
 
+    #[tokio::test]
+    async fn ollama_provider_does_not_require_api_key() {
+        let mut config = Config::default();
+        config.local_ai.base_url = Some("http://127.0.0.1:9".to_string());
+        let (provider, model) =
+            create_chat_provider_from_string("heartbeat", "ollama:llama3.1:8b", &config)
+                .expect("ollama:<model> must build");
+
+        let err = provider
+            .chat_with_system(None, "hello", &model, 0.0)
+            .await
+            .expect_err("unreachable local Ollama should still attempt a transport call");
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("API key not set"),
+            "ollama path must not fail on missing key: {msg}"
+        );
+    }
+
     // ── Workload routing ──────────────────────────────────────────────────────
 
     #[test]
@@ -572,6 +603,80 @@ mod tests {
         assert!(
             msg.contains("no cloud provider configured for slug 'openai'"),
             "{msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn cloud_provider_without_stored_key_fails_with_actionable_error() {
+        let tmp = TempDir::new().expect("tempdir");
+        let config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+        let (provider, model) =
+            create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
+                .expect("provider should build without eagerly requiring credentials");
+
+        let err = provider
+            .chat_with_system(None, "hello", &model, 0.0)
+            .await
+            .expect_err("missing key should fail at call time");
+        assert!(
+            err.to_string().contains("cloud API key not set"),
+            "expected missing-key guidance, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn cloud_provider_with_auth_none_does_not_require_api_key() {
+        let tmp = TempDir::new().expect("tempdir");
+        let mut entry = openai_entry("p_proxy", "proxy");
+        entry.auth_style = AuthStyle::None;
+        entry.endpoint = "http://127.0.0.1:9".to_string();
+        let config = config_with_providers_in_tempdir(&tmp, vec![entry]);
+        let (provider, model) =
+            create_chat_provider_from_string("reasoning", "proxy:gpt-oss", &config)
+                .expect("auth:none provider must build");
+
+        let err = provider
+            .chat_with_system(None, "hello", &model, 0.0)
+            .await
+            .expect_err("unreachable auth:none endpoint should attempt transport");
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("API key not set"),
+            "auth:none provider must not fail on missing key: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn cloud_provider_with_malformed_endpoint_surfaces_url_error() {
+        let tmp = TempDir::new().expect("tempdir");
+        let mut entry = openai_entry("p_bad", "openai");
+        entry.endpoint = "://not a url".to_string();
+        let config = config_with_providers_in_tempdir(&tmp, vec![entry]);
+        let auth = AuthService::from_config(&config);
+        auth.store_provider_token(
+            "provider:openai",
+            "default",
+            "sk-test",
+            Default::default(),
+            true,
+        )
+        .expect("store provider token");
+
+        let (provider, model) =
+            create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
+                .expect("provider should still build");
+
+        let err = provider
+            .chat_with_system(None, "hello", &model, 0.0)
+            .await
+            .expect_err("malformed endpoint should fail at request build/send time");
+        let msg = err.to_string().to_ascii_lowercase();
+        assert!(
+            msg.contains("builder error")
+                || msg.contains("relative url without a base")
+                || msg.contains("empty host")
+                || msg.contains("invalid port"),
+            "expected malformed-url style error, got: {msg}"
         );
     }
 

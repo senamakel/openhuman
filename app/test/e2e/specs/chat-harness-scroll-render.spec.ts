@@ -61,9 +61,9 @@ async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(`button[title=${JSON.stringify(t)}]`) as
-        | HTMLButtonElement
-        | null;
+      const el = document.querySelector(
+        `button[title=${JSON.stringify(t)}]`
+      ) as HTMLButtonElement | null;
       if (!el) return false;
       el.click();
       return true;
@@ -91,9 +91,9 @@ async function typeIntoComposer(text: string): Promise<void> {
 
 async function clickSend(): Promise<boolean> {
   return (await browser.execute(() => {
-    const btn = document.querySelector('button[aria-label="Send message"]') as
-      | HTMLButtonElement
-      | null;
+    const btn = document.querySelector(
+      'button[aria-label="Send message"]'
+    ) as HTMLButtonElement | null;
     if (!btn || btn.disabled) return false;
     btn.click();
     return true;
@@ -148,7 +148,7 @@ describe('Chat harness — scroll + markdown render', () => {
 
   it('streams a long markdown reply', async () => {
     await navigateViaHash('/chat');
-    await browser.waitUntil(async () => (await textExists('Threads')), {
+    await browser.waitUntil(async () => await textExists('Threads'), {
       timeout: 15_000,
       timeoutMsg: 'Conversations did not mount',
     });

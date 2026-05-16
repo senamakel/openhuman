@@ -27,10 +27,7 @@ const LIST_MAX_DEPTH: u32 = 6;
 
 /// Reject any relative path containing a `..` component or that resolves
 /// outside the workspace root. Returns the joined absolute path on success.
-fn resolve_workspace_relative(
-    workspace: &Path,
-    rel: &str,
-) -> Result<PathBuf, String> {
+fn resolve_workspace_relative(workspace: &Path, rel: &str) -> Result<PathBuf, String> {
     let trimmed = rel.trim_start_matches('/');
     let candidate = workspace.join(trimmed);
     let canonical_root = workspace
@@ -200,7 +197,9 @@ pub async fn read_workspace_file(
     if meta.is_dir() {
         return Err(format!("read_workspace_file: {rel_path} is a directory"));
     }
-    let cap = max_bytes.unwrap_or(READ_FILE_MAX_BYTES).min(READ_FILE_MAX_BYTES);
+    let cap = max_bytes
+        .unwrap_or(READ_FILE_MAX_BYTES)
+        .min(READ_FILE_MAX_BYTES);
     let raw = fs::read(&abs)
         .await
         .map_err(|e| format!("read {}: {e}", abs.display()))?;

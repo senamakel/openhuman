@@ -57,9 +57,7 @@ const FORCED_RESPONSES = [
       {
         id: 'call_delegate_researcher_1',
         name: 'delegate_researcher',
-        arguments: JSON.stringify({
-          prompt: 'Tell me a marker phrase',
-        }),
+        arguments: JSON.stringify({ prompt: 'Tell me a marker phrase' }),
       },
     ],
   },
@@ -73,9 +71,9 @@ async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(`button[title=${JSON.stringify(t)}]`) as
-        | HTMLButtonElement
-        | null;
+      const el = document.querySelector(
+        `button[title=${JSON.stringify(t)}]`
+      ) as HTMLButtonElement | null;
       if (!el) return false;
       el.click();
       return true;
@@ -103,9 +101,9 @@ async function typeIntoComposer(text: string): Promise<void> {
 
 async function clickSend(): Promise<boolean> {
   return (await browser.execute(() => {
-    const btn = document.querySelector('button[aria-label="Send message"]') as
-      | HTMLButtonElement
-      | null;
+    const btn = document.querySelector(
+      'button[aria-label="Send message"]'
+    ) as HTMLButtonElement | null;
     if (!btn || btn.disabled) return false;
     btn.click();
     return true;
@@ -135,14 +133,8 @@ async function snapshotRuntime(threadId: string): Promise<RuntimeSnapshot> {
     const state = winAny.__OPENHUMAN_STORE__?.getState() as
       | {
           chatRuntime?: {
-            inferenceStatusByThread?: Record<
-              string,
-              { phase?: string; activeSubagent?: string }
-            >;
-            toolTimelineByThread?: Record<
-              string,
-              Array<{ id?: string; name?: string }>
-            >;
+            inferenceStatusByThread?: Record<string, { phase?: string; activeSubagent?: string }>;
+            toolTimelineByThread?: Record<string, Array<{ id?: string; name?: string }>>;
           };
         }
       | undefined;
@@ -183,7 +175,7 @@ describe('Chat harness — orchestrator → subagent flow', () => {
 
   it('orchestrator delegates to researcher and produces the final canary', async () => {
     await navigateViaHash('/chat');
-    await browser.waitUntil(async () => (await textExists('Threads')), {
+    await browser.waitUntil(async () => await textExists('Threads'), {
       timeout: 15_000,
       timeoutMsg: 'Conversations did not mount',
     });
@@ -237,15 +229,13 @@ describe('Chat harness — orchestrator → subagent flow', () => {
     // IN_FLIGHT must drain after chat_done.
     await browser.waitUntil(
       async () => {
-        const snap = await callOpenhumanRpc<{
-          result: { entries: Array<unknown> };
-        }>('openhuman.test_support_in_flight_chats', {});
+        const snap = await callOpenhumanRpc<{ result: { entries: Array<unknown> } }>(
+          'openhuman.test_support_in_flight_chats',
+          {}
+        );
         return snap.ok && (snap.result?.result?.entries?.length ?? 0) === 0;
       },
-      {
-        timeout: 10_000,
-        timeoutMsg: 'IN_FLIGHT never cleared after orchestrator finished',
-      }
+      { timeout: 10_000, timeoutMsg: 'IN_FLIGHT never cleared after orchestrator finished' }
     );
   });
 

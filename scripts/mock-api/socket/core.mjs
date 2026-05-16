@@ -94,6 +94,22 @@ function sendSocketPacket(session, packet) {
   return queueSocketPacket(target.sid, packet);
 }
 
+function cleanupRejectedSession(session) {
+  const live = getSocketSession(session.sid);
+  if (!live) return;
+  if (live.webSocket && !live.webSocket.destroyed) {
+    try {
+      live.webSocket.end?.();
+      live.webSocket.destroy?.();
+    } catch {
+      // noop
+    }
+    dropSocketSession(live.sid);
+    return;
+  }
+  touchSocketSession(live.sid, { disconnectAfterDrain: true });
+}
+
 function scheduleMockSocketActions(session, actions = []) {
   for (const action of actions) {
     const delayMs = Math.max(0, Number(action?.delayMs || 0));
@@ -202,6 +218,7 @@ function handleSocketPacket(session, packet) {
         sid: session.sid,
         message: result.message,
       });
+      cleanupRejectedSession(session);
       return;
     }
     touchSocketSession(session.sid, {
@@ -280,6 +297,9 @@ export function handleSocketRequest(ctx) {
     }
 
     const packets = drainSocketPackets(existing.sid);
+    if (existing.disconnectAfterDrain === true) {
+      dropSocketSession(existing.sid);
+    }
     writePollingResponse(res, packets.length > 0 ? packets : ["6"]);
     return true;
   }

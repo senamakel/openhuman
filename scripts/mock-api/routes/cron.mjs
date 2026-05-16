@@ -8,7 +8,14 @@ import {
   getMockWebhookTriggers,
 } from "../state.mjs";
 
+let fixturesSeeded = false;
+
+export function resetCronFixturesState() {
+  fixturesSeeded = false;
+}
+
 function ensureCronFixtures() {
+  if (fixturesSeeded) return;
   const cronJobs = getMockCronJobs();
   const webhookTriggers = getMockWebhookTriggers();
   if (cronJobs.length === 0) {
@@ -46,6 +53,7 @@ function ensureCronFixtures() {
       });
     }
   }
+  fixturesSeeded = true;
 }
 
 export function handleCron(ctx) {
@@ -60,8 +68,8 @@ export function handleCron(ctx) {
   }
   if (method === "POST" && /^\/settings\/cron-jobs\/?$/.test(url)) {
     const created = {
-      id: createMockId("cron"),
       ...(parsedBody || {}),
+      id: createMockId("cron"),
       createdAt: new Date().toISOString(),
     };
     cronJobs.unshift(created);
@@ -75,9 +83,10 @@ export function handleCron(ctx) {
   if (cronItem && (method === "PATCH" || method === "DELETE")) {
     const index = cronJobs.findIndex((entry) => entry.id === cronItem[1]);
     if (index >= 0 && method === "PATCH") {
+      const { id: _ignoredId, ...patch } = parsedBody || {};
       cronJobs[index] = {
         ...cronJobs[index],
-        ...(parsedBody || {}),
+        ...patch,
       };
     }
     if (index >= 0 && method === "DELETE") {
@@ -99,8 +108,8 @@ export function handleCron(ctx) {
   }
   if (method === "POST" && /^\/settings\/webhooks-triggers\/?$/.test(url)) {
     const created = {
-      id: createMockId("trg"),
       ...(parsedBody || {}),
+      id: createMockId("trg"),
       createdAt: new Date().toISOString(),
     };
     webhookTriggers.unshift(created);
@@ -116,9 +125,10 @@ export function handleCron(ctx) {
   if (trgItem && (method === "PATCH" || method === "DELETE")) {
     const index = webhookTriggers.findIndex((entry) => entry.id === trgItem[1]);
     if (index >= 0 && method === "PATCH") {
+      const { id: _ignoredId, ...patch } = parsedBody || {};
       webhookTriggers[index] = {
         ...webhookTriggers[index],
-        ...(parsedBody || {}),
+        ...patch,
       };
     }
     if (index >= 0 && method === "DELETE") {

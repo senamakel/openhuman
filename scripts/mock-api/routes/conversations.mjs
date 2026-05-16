@@ -9,10 +9,20 @@ import {
   getMockMessages,
 } from "../state.mjs";
 
+let fixturesSeeded = false;
+
+export function resetConversationFixturesState() {
+  fixturesSeeded = false;
+}
+
 function ensureConversationFixtures() {
+  if (fixturesSeeded) return;
   const conversations = getMockConversations();
   const messages = getMockMessages();
-  if (conversations.length > 0) return;
+  if (conversations.length > 0 || messages.length > 0) {
+    fixturesSeeded = true;
+    return;
+  }
 
   const mockBehavior = behavior();
   const count = Math.max(
@@ -58,6 +68,8 @@ function ensureConversationFixtures() {
       });
     }
   }
+
+  fixturesSeeded = true;
 }
 
 export function handleConversations(ctx) {
@@ -73,6 +85,7 @@ export function handleConversations(ctx) {
   }
   if (method === "POST" && /^\/conversations\/?$/.test(url)) {
     const created = {
+      ...(parsedBody || {}),
       id: createMockId("conv"),
       title:
         typeof parsedBody?.title === "string" && parsedBody.title.trim()
@@ -81,7 +94,6 @@ export function handleConversations(ctx) {
       channel: parsedBody?.channel || "web",
       unreadCount: 0,
       archived: false,
-      ...(parsedBody || {}),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -145,6 +157,7 @@ export function handleConversations(ctx) {
   }
   if (method === "POST" && /^\/messages\/?$/.test(url)) {
     const created = {
+      ...(parsedBody || {}),
       id: createMockId("msg"),
       conversationId: parsedBody?.conversationId || null,
       role: parsedBody?.role || "user",
@@ -152,7 +165,6 @@ export function handleConversations(ctx) {
         parsedBody?.text ||
         parsedBody?.content ||
         "Synthetic mock message created by the test harness",
-      ...(parsedBody || {}),
       createdAt: new Date().toISOString(),
     };
     messages.push(created);

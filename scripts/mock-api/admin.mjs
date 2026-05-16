@@ -1,4 +1,6 @@
 import { json } from "./http.mjs";
+import { resetConversationFixturesState } from "./routes/conversations.mjs";
+import { resetCronFixturesState } from "./routes/cron.mjs";
 import {
   clearSocketEventLog,
   clearRequestLog,
@@ -70,6 +72,8 @@ export function handleAdmin(ctx) {
     resetMockMessages();
     resetMockCronJobs();
     resetMockWebhookTriggers();
+    resetConversationFixturesState();
+    resetCronFixturesState();
     resetSocketSessions();
     json(res, 200, {
       success: true,

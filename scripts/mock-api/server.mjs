@@ -88,13 +88,13 @@ async function handleRequest(req, res) {
 
   if (handleAdmin(ctx)) return;
 
+  const maybeShortCircuit = await maybeApplyGlobalBehavior(ctx);
+  if (maybeShortCircuit) return;
+
   if (url.startsWith("/socket.io/")) {
     handleSocketRequest(ctx);
     return;
   }
-
-  const maybeShortCircuit = await maybeApplyGlobalBehavior(ctx);
-  if (maybeShortCircuit) return;
 
   for (const handler of ROUTE_HANDLERS) {
     if (await handler(ctx)) return;

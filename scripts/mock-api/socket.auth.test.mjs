@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   clearSocketEventLog,
   disconnectMockSockets,
+  listSocketSessions,
   resetMockBehavior,
   setMockBehaviors,
   startMockServer,
@@ -36,6 +37,7 @@ test("rejects connections that omit a required token", async () => {
   try {
     const error = await onceSocket(rejectedSocket, "connect_error");
     assert.match(String(error?.message || error), /No token provided/);
+    assert.equal(listSocketSessions().length, 0);
   } finally {
     rejectedSocket.disconnect();
   }

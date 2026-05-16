@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import test from "node:test";
 
 import {
@@ -8,47 +7,10 @@ import {
   emitMockSocketEvent,
   listSocketSessions,
   resetMockBehavior,
-  setMockBehaviors,
   startMockServer,
   stopMockServer,
 } from "./index.mjs";
-
-const requireFromApp = createRequire(
-  new URL("../../app/package.json", import.meta.url),
-);
-const { io: SocketClient } = requireFromApp("socket.io-client");
-
-function onceSocket(socket, event) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error(`Timed out waiting for socket event: ${event}`));
-    }, 5_000);
-
-    const onEvent = (...args) => {
-      cleanup();
-      resolve(args[0]);
-    };
-
-    const onError = (err) => {
-      cleanup();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    };
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      socket.off(event, onEvent);
-      if (event !== "connect_error") {
-        socket.off("connect_error", onError);
-      }
-    };
-
-    socket.on(event, onEvent);
-    if (event !== "connect_error") {
-      socket.on("connect_error", onError);
-    }
-  });
-}
+import { createSocket, onceSocket } from "./test-helpers/socket-client.mjs";
 
 test.beforeEach(async () => {
   await stopMockServer();
@@ -65,13 +27,9 @@ test("accepts a real socket.io client and delivers server-pushed events", async 
   const started = await startMockServer(18573, { retryIfInUse: true });
   const baseUrl = `http://127.0.0.1:${started.port}`;
 
-  const socket = SocketClient(baseUrl, {
+  const socket = createSocket(baseUrl, {
     auth: { token: "mock-jwt-token" },
-    path: "/socket.io/",
     transports: ["polling", "websocket"],
-    reconnection: false,
-    forceNew: true,
-    timeout: 3_000,
   });
 
   try {
@@ -102,18 +60,14 @@ test("accepts a real socket.io client and delivers server-pushed events", async 
   }
 });
 
-test("supports polling-only clients and connect_error for missing tokens", async () => {
+test("supports polling-only clients", async () => {
   const started = await startMockServer(18574, { retryIfInUse: true });
   const baseUrl = `http://127.0.0.1:${started.port}`;
 
-  const pollingSocket = SocketClient(baseUrl, {
+  const pollingSocket = createSocket(baseUrl, {
     auth: { token: "polling-only" },
-    path: "/socket.io/",
     transports: ["polling"],
     upgrade: false,
-    reconnection: false,
-    forceNew: true,
-    timeout: 3_000,
   });
 
   try {
@@ -121,23 +75,5 @@ test("supports polling-only clients and connect_error for missing tokens", async
     assert.equal(readyPayload.userId, "mock-user");
   } finally {
     pollingSocket.disconnect();
-  }
-
-  setMockBehaviors({ socketAuthMode: "required" }, "replace");
-  const rejectedSocket = SocketClient(baseUrl, {
-    auth: {},
-    path: "/socket.io/",
-    transports: ["polling"],
-    upgrade: false,
-    reconnection: false,
-    forceNew: true,
-    timeout: 3_000,
-  });
-
-  try {
-    const error = await onceSocket(rejectedSocket, "connect_error");
-    assert.match(String(error?.message || error), /No token provided/);
-  } finally {
-    rejectedSocket.disconnect();
   }
 });

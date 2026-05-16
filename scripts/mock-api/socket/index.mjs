@@ -3,4 +3,4 @@ export {
   emitMockSocketEvent,
   handleSocketRequest,
   handleWebSocketUpgrade,
-} from "./socket/index.mjs";
+} from "./core.mjs";

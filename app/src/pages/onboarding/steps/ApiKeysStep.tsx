@@ -37,6 +37,7 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
     } catch (err) {
       console.warn('[onboarding:api-keys] save failed', err);
       setError(t('onboarding.apiKeys.saveError'));
+    } finally {
       setSaving(false);
     }
   };

@@ -80,7 +80,7 @@ const SettingsHome = () => {
         {
           id: 'alerts',
           title: t('nav.alerts'),
-          description: 'View recent alerts and activity in your inbox',
+          description: t('settings.alertsDesc'),
           icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

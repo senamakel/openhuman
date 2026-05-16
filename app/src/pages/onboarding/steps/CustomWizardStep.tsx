@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
@@ -48,7 +48,7 @@ interface CustomWizardStepProps {
   choice: CustomStepChoice | null;
   onChoiceChange: (choice: CustomStepChoice) => void;
   onBack: () => void;
-  onContinue: () => void;
+  onContinue: () => void | Promise<void>;
   /** Continue label override (used for the final "Finish setup" step). */
   continueLabel?: string;
   /** Disable the continue button (e.g. while an inline save is in flight). */
@@ -78,6 +78,17 @@ const CustomWizardStep = ({
   testId,
 }: CustomWizardStepProps) => {
   const { t } = useT();
+  const [isContinuing, setIsContinuing] = useState(false);
+
+  const handleContinue = async () => {
+    if (isContinuing || choice === null || continueDisabled) return;
+    try {
+      setIsContinuing(true);
+      await onContinue();
+    } finally {
+      setIsContinuing(false);
+    }
+  };
 
   const stepperLabels = [
     t('onboarding.custom.stepperInference'),
@@ -131,9 +142,9 @@ const CustomWizardStep = ({
         <div className="flex-1">
           <OnboardingNextButton
             label={continueLabel ?? t('onboarding.custom.continue')}
-            onClick={onContinue}
-            disabled={choice === null || continueDisabled}
-            loading={continueLoading}
+            onClick={() => void handleContinue()}
+            disabled={choice === null || continueDisabled || isContinuing}
+            loading={continueLoading || isContinuing}
             loadingLabel={continueLoadingLabel}
           />
         </div>

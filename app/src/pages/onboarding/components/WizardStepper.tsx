@@ -1,3 +1,5 @@
+import { useT } from '../../../lib/i18n/I18nContext';
+
 interface WizardStepperProps {
   /** Ordered labels for each step in the wizard. */
   labels: string[];
@@ -12,10 +14,11 @@ interface WizardStepperProps {
  * and upcoming (outlined stone).
  */
 const WizardStepper = ({ labels, activeIndex }: WizardStepperProps) => {
+  const { t } = useT();
   return (
     <ol
       role="list"
-      aria-label="Onboarding progress"
+      aria-label={t('onboarding.custom.progressAriaLabel')}
       className="flex w-full items-start justify-between"
       data-testid="onboarding-wizard-stepper">
       {labels.map((label, idx) => {

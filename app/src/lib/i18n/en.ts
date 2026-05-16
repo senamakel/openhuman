@@ -87,6 +87,8 @@ const en: TranslationMap = {
   'settings.logOutDesc': 'Sign out of your account',
   'settings.language': 'Language',
   'settings.languageDesc': 'Display language for the app interface',
+  'settings.alerts': 'Alerts',
+  'settings.alertsDesc': 'View recent alerts and activity in your inbox',
 
   // Settings: Account
   'settings.account.recoveryPhrase': 'Recovery Phrase',
@@ -278,6 +280,7 @@ const en: TranslationMap = {
   'onboarding.custom.defaultSubtitle': 'Let OpenHuman manage it for you.',
   'onboarding.custom.configureTitle': 'Configure',
   'onboarding.custom.configureSubtitle': "I'll pick what to use.",
+  'onboarding.custom.progressAriaLabel': 'Onboarding progress',
   'onboarding.custom.continue': 'Continue',
   'onboarding.custom.back': 'Back',
   'onboarding.custom.finish': 'Finish Setup',

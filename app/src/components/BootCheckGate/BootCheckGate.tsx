@@ -66,9 +66,10 @@ function Panel({ children }: PanelProps) {
 }
 
 function BootCheckLanguageSelect() {
+  const { t } = useT();
   return (
     <div className="absolute right-5 top-5">
-      <LanguageSelect id="boot-check-language" ariaLabel="Language" />
+      <LanguageSelect id="boot-check-language" ariaLabel={t('settings.language')} />
     </div>
   );
 }

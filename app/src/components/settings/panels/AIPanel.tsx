@@ -628,11 +628,11 @@ const WorkloadRow = ({
   if (ref_.kind === 'primary') {
     if (!primary) resolved = 'no primary set';
     else if (primary.type === 'openhuman') resolved = 'OpenHuman';
-    else resolved = `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`;
+    else resolved = `${primary.label} · ${primary.defaultModel}`;
   } else if (ref_.kind === 'cloud') {
     if (!selectedCloud) resolved = ref_.model;
     else if (selectedCloud.type === 'openhuman') resolved = 'OpenHuman';
-    else resolved = `${PROVIDER_META[selectedCloud.type].label} · ${ref_.model}`;
+    else resolved = `${selectedCloud.label} · ${ref_.model}`;
   } else {
     resolved = `Ollama · ${ref_.model}`;
   }
@@ -800,7 +800,7 @@ const CustomRoutingDialog = ({
                 className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                 {customCloud.map(p => (
                   <option key={p.id} value={`cloud:${p.id}`}>
-                    {PROVIDER_META[p.type].label}
+                    {p.label}
                   </option>
                 ))}
                 {localAvailable && <option value="local:">Local (Ollama)</option>}
@@ -1000,7 +1000,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
     }
     if (saved.primaryCloudId !== draft.primaryCloudId) {
       const p = draft.cloudProviders.find(cp => cp.id === draft.primaryCloudId);
-      out.push(`primary → ${p ? PROVIDER_META[p.type].label : '—'}`);
+      out.push(`primary → ${p ? p.label : '—'}`);
     }
     return out;
   }, [saved, draft]);
@@ -1209,7 +1209,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 <span className="font-mono text-stone-700">
                   {primary.type === 'openhuman'
                     ? 'OpenHuman'
-                    : `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`}
+                    : `${primary.label} · ${primary.defaultModel}`}
                 </span>
               </div>
             )}
@@ -1318,16 +1318,20 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               `toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : type}`
             );
             try {
+              // For LM Studio / Ollama the dialog's "API key" field is
+              // actually the local endpoint URL, so persist it as endpoint
+              // and skip the credential save (no remote key to store).
+              const isLocalRuntime = Boolean(localLabel);
               const upserted: CloudProvider = {
                 id: `p_${type}_${Math.random().toString(36).slice(2, 7)}`,
                 type,
                 label: localLabel ?? PROVIDER_META[type].label,
-                endpoint: defaultEndpointFor(type),
+                endpoint: isLocalRuntime ? apiKey.trim() : defaultEndpointFor(type),
                 defaultModel: '',
                 maskedKey: maskKeyLabel(true),
               };
               setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
-              if (type !== 'openhuman') {
+              if (!isLocalRuntime && type !== 'openhuman') {
                 await setCloudProviderKey(type as ApiCloudProviderType, apiKey);
               }
               // Persist the model IDs so the custom-routing dropdown is

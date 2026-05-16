@@ -362,8 +362,11 @@ fn handle_encode_erc20_transfer(params: Map<String, Value>) -> ControllerFuture 
         if parsed.chain != WalletChain::Evm {
             return Err("encode_erc20_transfer only supports the evm chain".to_string());
         }
-        serde_json::to_value(encode_erc20_transfer(&parsed.to_address, &parsed.amount_raw)?)
-            .map_err(|e| format!("failed to encode ERC20 transfer output: {e}"))
+        serde_json::to_value(encode_erc20_transfer(
+            &parsed.to_address,
+            &parsed.amount_raw,
+        )?)
+        .map_err(|e| format!("failed to encode ERC20 transfer output: {e}"))
     })
 }
 

@@ -185,13 +185,13 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
         }
     };
 
-        let validation_params = WalletSetupParams {
-            consent_granted: state.consent_granted,
-            source: state.source,
-            mnemonic_word_count: state.mnemonic_word_count,
-            encrypted_mnemonic: state.encrypted_mnemonic.clone(),
-            accounts: state.accounts.clone(),
-        };
+    let validation_params = WalletSetupParams {
+        consent_granted: state.consent_granted,
+        source: state.source,
+        mnemonic_word_count: state.mnemonic_word_count,
+        encrypted_mnemonic: state.encrypted_mnemonic.clone(),
+        accounts: state.accounts.clone(),
+    };
     if let Err(validation_error) = validate_setup(&validation_params) {
         warn!(
             "{LOG_PREFIX} stored wallet state at {} failed validation: {validation_error}",

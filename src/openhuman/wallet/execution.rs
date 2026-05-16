@@ -354,7 +354,12 @@ async fn evm_balance(address: &str) -> Result<U256, String> {
     hex_to_u256(&raw)
 }
 
-async fn evm_tx_context(from_address: &str, to_address: &str, value: U256, data: Option<String>) -> Result<(u64, U256, U256), String> {
+async fn evm_tx_context(
+    from_address: &str,
+    to_address: &str,
+    value: U256,
+    data: Option<String>,
+) -> Result<(u64, U256, U256), String> {
     let chain_id_hex: String = rpc_call(WalletChain::Evm, "eth_chainId", json!([])).await?;
     let nonce_hex: String = rpc_call(
         WalletChain::Evm,
@@ -382,26 +387,35 @@ async fn evm_tx_context(from_address: &str, to_address: &str, value: U256, data:
 async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<ExecutionResult, String> {
     let secret = secret_material(WalletChain::Evm).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic = crate::openhuman::encryption::rpc::decrypt_secret(
-        &config,
-        &secret.encrypted_mnemonic,
-    )
-    .await?
-    .value;
+    let mnemonic =
+        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
+            .await?
+            .value;
     let signer = MnemonicBuilder::<English>::default()
         .phrase(mnemonic.as_str())
         .derivation_path(&secret.derivation_path)
-        .map_err(|e| format!("invalid EVM derivation path '{}': {e}", secret.derivation_path))?
+        .map_err(|e| {
+            format!(
+                "invalid EVM derivation path '{}': {e}",
+                secret.derivation_path
+            )
+        })?
         .build()
         .map_err(|e| format!("failed to derive EVM signer from wallet secret: {e}"))?;
-    let from = Address::from_str(&quote.from_address)
-        .map_err(|e| format!("invalid stored EVM sender address '{}': {e}", quote.from_address))?;
+    let from = Address::from_str(&quote.from_address).map_err(|e| {
+        format!(
+            "invalid stored EVM sender address '{}': {e}",
+            quote.from_address
+        )
+    })?;
     let (tx_to, tx_value, tx_data) = match quote.kind {
         PreparedKind::NativeTransfer => (
-            Address::from_str(&quote.to_address)
-                .map_err(|e| format!("invalid EVM recipient address '{}': {e}", quote.to_address))?,
-            U256::from_dec_str(&quote.amount_raw)
-                .map_err(|e| format!("invalid prepared native value '{}': {e}", quote.amount_raw))?,
+            Address::from_str(&quote.to_address).map_err(|e| {
+                format!("invalid EVM recipient address '{}': {e}", quote.to_address)
+            })?,
+            U256::from_dec_str(&quote.amount_raw).map_err(|e| {
+                format!("invalid prepared native value '{}': {e}", quote.amount_raw)
+            })?,
             None,
         ),
         PreparedKind::TokenTransfer => {
@@ -420,12 +434,18 @@ async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<ExecutionRe
         PreparedKind::ContractCall => (
             Address::from_str(&quote.to_address)
                 .map_err(|e| format!("invalid contract target '{}': {e}", quote.to_address))?,
-            U256::from_dec_str(&quote.amount_raw)
-                .map_err(|e| format!("invalid prepared contract value '{}': {e}", quote.amount_raw))?,
+            U256::from_dec_str(&quote.amount_raw).map_err(|e| {
+                format!(
+                    "invalid prepared contract value '{}': {e}",
+                    quote.amount_raw
+                )
+            })?,
             quote.calldata.clone(),
         ),
         PreparedKind::Swap => {
-            return Err("swap broadcast is not implemented yet; keep it in quote-only mode".to_string());
+            return Err(
+                "swap broadcast is not implemented yet; keep it in quote-only mode".to_string(),
+            );
         }
     };
 
@@ -445,7 +465,8 @@ async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<ExecutionRe
     if let Some(data_hex) = tx_data.as_deref() {
         estimate_tx["data"] = json!(data_hex);
     }
-    let gas_hex: String = rpc_call(WalletChain::Evm, "eth_estimateGas", json!([estimate_tx])).await?;
+    let gas_hex: String =
+        rpc_call(WalletChain::Evm, "eth_estimateGas", json!([estimate_tx])).await?;
     let chain_id = hex_to_u256(&chain_id_hex)?.as_u64();
     let nonce = hex_to_u256(&nonce_hex)?;
     let gas_price = hex_to_u256(&gas_price_hex)?;
@@ -474,12 +495,8 @@ async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<ExecutionRe
         .map_err(|e| format!("failed to sign EVM transaction: {e}"))?;
     let raw_bytes = tx.rlp_signed(&signature);
     let raw_tx = format!("0x{}", hex::encode(raw_bytes));
-    let tx_hash: String = rpc_call(
-        WalletChain::Evm,
-        "eth_sendRawTransaction",
-        json!([raw_tx]),
-    )
-    .await?;
+    let tx_hash: String =
+        rpc_call(WalletChain::Evm, "eth_sendRawTransaction", json!([raw_tx])).await?;
     quote.estimated_fee_raw = gas_price.checked_mul(gas).unwrap_or_default().to_string();
     quote.status = PreparedStatus::Broadcasted;
     debug!(
@@ -508,11 +525,16 @@ pub async fn network_defaults() -> Result<RpcOutcome<Vec<WalletNetworkDefaults>>
 }
 
 pub async fn supported_assets() -> Result<RpcOutcome<Vec<SupportedAsset>>, String> {
-    let assets = [WalletChain::Evm, WalletChain::Btc, WalletChain::Solana, WalletChain::Tron]
-        .into_iter()
-        .flat_map(super::defaults::asset_catalog)
-        .map(asset_to_supported)
-        .collect::<Vec<_>>();
+    let assets = [
+        WalletChain::Evm,
+        WalletChain::Btc,
+        WalletChain::Solana,
+        WalletChain::Tron,
+    ]
+    .into_iter()
+    .flat_map(super::defaults::asset_catalog)
+    .map(asset_to_supported)
+    .collect::<Vec<_>>();
     debug!("{LOG_PREFIX} supported_assets count={}", assets.len());
     Ok(RpcOutcome::new(
         assets,
@@ -522,22 +544,27 @@ pub async fn supported_assets() -> Result<RpcOutcome<Vec<SupportedAsset>>, Strin
 
 pub async fn chain_status() -> Result<RpcOutcome<Vec<ChainStatus>>, String> {
     let status = wallet_status().await?.value;
-    let rows = [WalletChain::Evm, WalletChain::Btc, WalletChain::Solana, WalletChain::Tron]
-        .into_iter()
-        .map(|chain| {
-            let has_account = status.accounts.iter().any(|account| account.chain == chain);
-            ChainStatus {
-                chain,
-                configured: has_account,
-                provider_status: if has_account {
-                    ProviderStatus::Ready
-                } else {
-                    ProviderStatus::Missing
-                },
-                rpc_url: rpc_url_for_chain(chain),
-            }
-        })
-        .collect::<Vec<_>>();
+    let rows = [
+        WalletChain::Evm,
+        WalletChain::Btc,
+        WalletChain::Solana,
+        WalletChain::Tron,
+    ]
+    .into_iter()
+    .map(|chain| {
+        let has_account = status.accounts.iter().any(|account| account.chain == chain);
+        ChainStatus {
+            chain,
+            configured: has_account,
+            provider_status: if has_account {
+                ProviderStatus::Ready
+            } else {
+                ProviderStatus::Missing
+            },
+            rpc_url: rpc_url_for_chain(chain),
+        }
+    })
+    .collect::<Vec<_>>();
     debug!("{LOG_PREFIX} chain_status reported chains={}", rows.len());
     Ok(RpcOutcome::new(
         rows,
@@ -555,7 +582,12 @@ pub async fn balances() -> Result<RpcOutcome<Vec<BalanceInfo>>, String> {
         let asset = super::defaults::asset_catalog(account.chain)
             .into_iter()
             .find(|value| value.native)
-            .ok_or_else(|| format!("native asset metadata missing for '{}'", chain_str(account.chain)))?;
+            .ok_or_else(|| {
+                format!(
+                    "native asset metadata missing for '{}'",
+                    chain_str(account.chain)
+                )
+            })?;
         let (raw, provider_status) = if account.chain == WalletChain::Evm {
             match evm_balance(&account.address).await {
                 Ok(balance) => (balance.to_string(), ProviderStatus::Ready),
@@ -605,9 +637,18 @@ pub async fn prepare_transfer(
         None | Some("") => super::defaults::asset_catalog(params.chain)
             .into_iter()
             .find(|value| value.native)
-            .ok_or_else(|| format!("native asset metadata missing for '{}'", chain_str(params.chain)))?,
-        Some(symbol) => find_asset(params.chain, symbol)
-            .ok_or_else(|| format!("unsupported asset_symbol '{symbol}' for chain '{}'", chain_str(params.chain)))?,
+            .ok_or_else(|| {
+                format!(
+                    "native asset metadata missing for '{}'",
+                    chain_str(params.chain)
+                )
+            })?,
+        Some(symbol) => find_asset(params.chain, symbol).ok_or_else(|| {
+            format!(
+                "unsupported asset_symbol '{symbol}' for chain '{}'",
+                chain_str(params.chain)
+            )
+        })?,
     };
     if !asset.native && params.chain != WalletChain::Evm {
         return Err(format!(
@@ -834,7 +875,10 @@ mod tests {
         State(state): State<MockRpcState>,
         Json(payload): Json<Value>,
     ) -> Json<Value> {
-        let method = payload.get("method").and_then(Value::as_str).unwrap_or_default();
+        let method = payload
+            .get("method")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         let params = payload
             .get("params")
             .and_then(Value::as_array)
@@ -856,7 +900,8 @@ mod tests {
                     state.raw_txs.lock().push(raw.to_string());
                 }
                 Value::String(
-                    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_string(),
                 )
             }
             "eth_getBalance" => Value::String("0xde0b6b3a7640000".to_string()),
@@ -865,7 +910,8 @@ mod tests {
         Json(json!({"jsonrpc":"2.0","id":1,"result":result}))
     }
 
-    async fn start_mock_rpc() -> Result<(SocketAddr, Arc<Mutex<Vec<Value>>>, Arc<Mutex<Vec<String>>>), String> {
+    async fn start_mock_rpc(
+    ) -> Result<(SocketAddr, Arc<Mutex<Vec<Value>>>, Arc<Mutex<Vec<String>>>), String> {
         let estimate_calls = Arc::new(Mutex::new(Vec::new()));
         let raw_txs = Arc::new(Mutex::new(Vec::new()));
         let state = MockRpcState {
@@ -899,10 +945,15 @@ mod tests {
             source: WalletSetupSource::Imported,
             mnemonic_word_count: 12,
             encrypted_mnemonic: Some(encrypted),
-            accounts: [WalletChain::Evm, WalletChain::Btc, WalletChain::Solana, WalletChain::Tron]
-                .into_iter()
-                .map(sample_account)
-                .collect(),
+            accounts: [
+                WalletChain::Evm,
+                WalletChain::Btc,
+                WalletChain::Solana,
+                WalletChain::Tron,
+            ]
+            .into_iter()
+            .map(sample_account)
+            .collect(),
         })
         .await?;
         Ok(())
@@ -989,7 +1040,10 @@ mod tests {
     async fn supported_assets_lists_default_erc20s() {
         let out = supported_assets().await.unwrap();
         assert!(out.value.iter().any(|asset| asset.symbol == "USDC"));
-        assert!(out.value.iter().any(|asset| asset.symbol == "ETH" && asset.native));
+        assert!(out
+            .value
+            .iter()
+            .any(|asset| asset.symbol == "ETH" && asset.native));
     }
 
     #[tokio::test]

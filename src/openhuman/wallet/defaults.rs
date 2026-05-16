@@ -164,35 +164,40 @@ pub fn asset_catalog(chain: WalletChain) -> Vec<WalletAssetDefinition> {
 }
 
 pub fn network_defaults() -> Vec<WalletNetworkDefaults> {
-    [WalletChain::Evm, WalletChain::Btc, WalletChain::Solana, WalletChain::Tron]
-        .into_iter()
-        .map(|chain| WalletNetworkDefaults {
-            chain,
-            network: match chain {
-                WalletChain::Evm => "ethereum-mainnet".to_string(),
-                WalletChain::Btc => "bitcoin-mainnet".to_string(),
-                WalletChain::Solana => "solana-mainnet-beta".to_string(),
-                WalletChain::Tron => "tron-mainnet".to_string(),
-            },
-            chain_id: match chain {
-                WalletChain::Evm => Some(1),
-                _ => None,
-            },
-            rpc_url: rpc_url_for_chain(chain),
-            rpc_source: rpc_source_for_chain(chain),
-            explorer_tx_url_base: match chain {
-                WalletChain::Evm => ETHERSCAN_TX_BASE,
-                WalletChain::Btc => BLOCKSTREAM_TX_BASE,
-                WalletChain::Solana => SOLSCAN_TX_BASE,
-                WalletChain::Tron => TRONSCAN_TX_BASE,
-            }
-            .to_string(),
-            supports_broadcast: matches!(chain, WalletChain::Evm),
-            supports_token_transfers: matches!(chain, WalletChain::Evm),
-            supports_contract_calls: matches!(chain, WalletChain::Evm),
-            assets: asset_catalog(chain),
-        })
-        .collect()
+    [
+        WalletChain::Evm,
+        WalletChain::Btc,
+        WalletChain::Solana,
+        WalletChain::Tron,
+    ]
+    .into_iter()
+    .map(|chain| WalletNetworkDefaults {
+        chain,
+        network: match chain {
+            WalletChain::Evm => "ethereum-mainnet".to_string(),
+            WalletChain::Btc => "bitcoin-mainnet".to_string(),
+            WalletChain::Solana => "solana-mainnet-beta".to_string(),
+            WalletChain::Tron => "tron-mainnet".to_string(),
+        },
+        chain_id: match chain {
+            WalletChain::Evm => Some(1),
+            _ => None,
+        },
+        rpc_url: rpc_url_for_chain(chain),
+        rpc_source: rpc_source_for_chain(chain),
+        explorer_tx_url_base: match chain {
+            WalletChain::Evm => ETHERSCAN_TX_BASE,
+            WalletChain::Btc => BLOCKSTREAM_TX_BASE,
+            WalletChain::Solana => SOLSCAN_TX_BASE,
+            WalletChain::Tron => TRONSCAN_TX_BASE,
+        }
+        .to_string(),
+        supports_broadcast: matches!(chain, WalletChain::Evm),
+        supports_token_transfers: matches!(chain, WalletChain::Evm),
+        supports_contract_calls: matches!(chain, WalletChain::Evm),
+        assets: asset_catalog(chain),
+    })
+    .collect()
 }
 
 pub fn find_asset(chain: WalletChain, symbol: &str) -> Option<WalletAssetDefinition> {
@@ -210,6 +215,8 @@ mod tests {
     fn asset_catalog_includes_default_erc20s() {
         let evm = asset_catalog(WalletChain::Evm);
         assert!(evm.iter().any(|asset| asset.symbol == "USDC"));
-        assert!(evm.iter().any(|asset| asset.symbol == "ETH" && asset.native));
+        assert!(evm
+            .iter()
+            .any(|asset| asset.symbol == "ETH" && asset.native));
     }
 }

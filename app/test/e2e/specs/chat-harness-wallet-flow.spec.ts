@@ -80,12 +80,8 @@ const FORCED_RESPONSES = [
       },
     ],
   },
-  {
-    content: `Prepared a wallet quote for John. ${CANARY}`,
-  },
-  {
-    content: `Done. ${CANARY}`,
-  },
+  { content: `Prepared a wallet quote for John. ${CANARY}` },
+  { content: `Done. ${CANARY}` },
 ];
 
 async function clickRecoveryConsentCheckbox(): Promise<void> {
@@ -189,12 +185,7 @@ describe('Chat harness — wallet flow', () => {
         const quotes = await callOpenhumanRpc<{
           result: {
             count: number;
-            quotes: Array<{
-              toAddress: string;
-              amountRaw: string;
-              status: string;
-              kind: string;
-            }>;
+            quotes: Array<{ toAddress: string; amountRaw: string; status: string; kind: string }>;
           };
         }>('openhuman.test_support_wallet_prepared_quotes', {});
         if (!quotes.ok) return false;

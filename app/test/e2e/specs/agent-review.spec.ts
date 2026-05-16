@@ -19,13 +19,13 @@
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { captureCheckpoint, getArtifactDir, saveMockRequestLog } from '../helpers/artifacts';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
-import { resetApp } from '../helpers/reset-app';
 import {
   clickText,
   textExists,
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   clearRequestLog,
   getRequestLog,

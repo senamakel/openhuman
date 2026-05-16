@@ -23,7 +23,6 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
-import { resetApp } from '../helpers/reset-app';
 import {
   clickButton,
   clickNativeButton,
@@ -32,6 +31,7 @@ import {
   textExists,
   waitForText,
 } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   navigateToHome,
   navigateToIntelligence,

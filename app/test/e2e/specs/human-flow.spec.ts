@@ -37,9 +37,9 @@ async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(`button[title=${JSON.stringify(t)}]`) as
-        | HTMLButtonElement
-        | null;
+      const el = document.querySelector(
+        `button[title=${JSON.stringify(t)}]`
+      ) as HTMLButtonElement | null;
       if (!el) return false;
       el.click();
       return true;

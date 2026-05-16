@@ -32,9 +32,9 @@ async function clickByTitle(title: string, timeoutMs = 5_000): Promise<boolean> 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(`button[title=${JSON.stringify(t)}]`) as
-        | HTMLButtonElement
-        | null;
+      const el = document.querySelector(
+        `button[title=${JSON.stringify(t)}]`
+      ) as HTMLButtonElement | null;
       if (!el) return false;
       el.click();
       return true;
@@ -81,9 +81,9 @@ async function typeIntoComposer(text: string): Promise<void> {
 
 async function clickSendButton(): Promise<boolean> {
   return (await browser.execute(() => {
-    const btn = document.querySelector('button[aria-label="Send message"]') as
-      | HTMLButtonElement
-      | null;
+    const btn = document.querySelector(
+      'button[aria-label="Send message"]'
+    ) as HTMLButtonElement | null;
     if (!btn || btn.disabled) return false;
     btn.click();
     return true;

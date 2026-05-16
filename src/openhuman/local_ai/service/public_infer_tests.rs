@@ -97,6 +97,26 @@ async fn inference_errors_on_non_success_status() {
 }
 
 #[tokio::test]
+async fn inference_connection_failure_mentions_external_ollama_runtime() {
+    let _guard = crate::openhuman::local_ai::local_ai_test_guard();
+
+    unsafe {
+        std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", "http://127.0.0.1:1");
+    }
+
+    let config = enabled_config();
+    let service = ready_service(&config);
+    let err = service.prompt(&config, "hi", None, true).await.unwrap_err();
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
+    }
+
+    assert!(err.contains("external Ollama endpoint"), "unexpected error: {err}");
+    assert!(err.contains("already running"), "unexpected error: {err}");
+}
+
+#[tokio::test]
 async fn inference_errors_on_empty_response_when_allow_empty_false() {
     let _guard = crate::openhuman::local_ai::local_ai_test_guard();
 

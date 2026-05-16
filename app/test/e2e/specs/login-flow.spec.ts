@@ -31,6 +31,7 @@
  */
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { buildBypassJwt, triggerAuthDeepLink, triggerDeepLink } from '../helpers/deep-link-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   clickText,
   dumpAccessibilityTree,
@@ -122,6 +123,11 @@ describe('Login flow — complete with mock data (Linux)', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Wipe any state from prior specs in this single-session run, but
+    // stop BEFORE the auth deep-link / onboarding walk — this spec
+    // exercises that login flow itself, so it has to start from the
+    // Welcome screen.
+    await resetApp('e2e-login-flow', { skipAuth: true });
     clearRequestLog();
     hadOnboardingWalkthrough = false;
   });

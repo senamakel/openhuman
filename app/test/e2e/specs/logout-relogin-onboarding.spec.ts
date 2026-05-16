@@ -12,6 +12,7 @@
  */
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   dumpAccessibilityTree,
   hasAppChrome,
@@ -109,6 +110,8 @@ describe('Logout -> re-login onboarding overlay', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Reach Welcome screen first (this spec drives login itself).
+    await resetApp('e2e-logout-relogin-reset', { skipAuth: true });
     clearRequestLog();
     resetMockBehavior();
   });

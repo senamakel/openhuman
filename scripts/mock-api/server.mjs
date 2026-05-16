@@ -20,12 +20,16 @@ import { handlePayments } from "./routes/payments.mjs";
 import { handleUser } from "./routes/user.mjs";
 import { handleVersion } from "./routes/version.mjs";
 import { handleWebhooks } from "./routes/webhooks.mjs";
-import { handleEnginePollingOpen, handleWebSocketUpgrade } from "./socket.mjs";
+import { handleSocketRequest, handleWebSocketUpgrade } from "./socket.mjs";
 import {
   appendRequest,
+  behavior,
   DEFAULT_PORT,
+  hashString,
   MAX_PORT_RETRY_ATTEMPTS,
   openSockets,
+  parseBehaviorJson,
+  sleep,
 } from "./state.mjs";
 
 let server = null;
@@ -85,9 +89,12 @@ async function handleRequest(req, res) {
   if (handleAdmin(ctx)) return;
 
   if (url.startsWith("/socket.io/")) {
-    handleEnginePollingOpen(req, res);
+    handleSocketRequest(ctx);
     return;
   }
+
+  const maybeShortCircuit = await maybeApplyGlobalBehavior(ctx);
+  if (maybeShortCircuit) return;
 
   for (const handler of ROUTE_HANDLERS) {
     if (await handler(ctx)) return;
@@ -99,6 +106,65 @@ async function handleRequest(req, res) {
     success: false,
     error: `Mock server: no handler for ${method} ${url}`,
   });
+}
+
+function requestHash(ctx) {
+  return hashString(`${ctx.method}:${ctx.url}:${ctx.body || ""}`);
+}
+
+function ruleMatches(rule, ctx) {
+  if (!rule || typeof rule !== "object") return false;
+  if (rule.method && String(rule.method).toUpperCase() !== ctx.method)
+    return false;
+  if (typeof rule.path === "string" && rule.path !== ctx.url) return false;
+  if (typeof rule.pathRegex === "string") {
+    try {
+      const regex = new RegExp(rule.pathRegex);
+      if (!regex.test(ctx.url)) return false;
+    } catch {
+      return false;
+    }
+  }
+  if (typeof rule.contains === "string" && !ctx.url.includes(rule.contains)) {
+    return false;
+  }
+  return true;
+}
+
+async function maybeApplyGlobalBehavior(ctx) {
+  const mockBehavior = behavior();
+  const baseDelay = Number(mockBehavior.globalDelayMs || 0);
+  const jitterMax = Number(mockBehavior.globalJitterMs || 0);
+  const jitter =
+    Number.isFinite(jitterMax) && jitterMax > 0
+      ? requestHash(ctx) % Math.min(jitterMax, 5000)
+      : 0;
+  const totalDelay = Math.max(0, baseDelay) + jitter;
+  if (totalDelay > 0) {
+    await sleep(Math.min(totalDelay, 30_000));
+  }
+
+  const rules = parseBehaviorJson("httpFaultRules", []);
+  if (!Array.isArray(rules)) return false;
+
+  for (const rule of rules) {
+    if (!ruleMatches(rule, ctx)) continue;
+    const status = Number(rule.status || 500);
+    const body =
+      rule.body && typeof rule.body === "object"
+        ? rule.body
+        : {
+            success: false,
+            error: rule.error || "Injected mock fault",
+          };
+    console.warn(
+      `[MockServer] Injected fault ${ctx.method} ${ctx.url} -> ${status}`,
+    );
+    json(ctx.res, status, body);
+    return true;
+  }
+
+  return false;
 }
 
 export function getMockServerPort() {
@@ -117,7 +183,9 @@ function createServerInstance() {
     openSockets.add(socket);
     socket.on("close", () => openSockets.delete(socket));
   });
-  nextServer.on("upgrade", (req, socket) => handleWebSocketUpgrade(req, socket));
+  nextServer.on("upgrade", (req, socket) =>
+    handleWebSocketUpgrade(req, socket),
+  );
   return nextServer;
 }
 

@@ -1,28 +1,88 @@
 import { json } from "../http.mjs";
+import {
+  createMockId,
+  fuzzyNumber,
+  fuzzyPick,
+  fuzzyTimestamp,
+  getMockCronJobs,
+  getMockWebhookTriggers,
+} from "../state.mjs";
 
-// Gap fill: cron-job and webhook-trigger configuration endpoints stored on
-// the user's settings document. The real backend persists arrays; mock just
-// returns empty lists and accepts writes as no-ops.
+function ensureCronFixtures() {
+  const cronJobs = getMockCronJobs();
+  const webhookTriggers = getMockWebhookTriggers();
+  if (cronJobs.length === 0) {
+    const count = fuzzyNumber("cron:count", 0, 2);
+    for (let i = 0; i < count; i += 1) {
+      cronJobs.push({
+        id: createMockId("cron"),
+        name: fuzzyPick(
+          `cron:name:${i}`,
+          ["Morning digest", "Support sweep", "Usage snapshot"],
+          "Mock cron job",
+        ),
+        schedule: fuzzyPick(
+          `cron:schedule:${i}`,
+          ["0 8 * * *", "*/30 * * * *", "15 17 * * 1-5"],
+          "0 8 * * *",
+        ),
+        enabled: i % 2 === 0,
+        createdAt: fuzzyTimestamp(`cron:created:${i}`),
+      });
+    }
+  }
+  if (webhookTriggers.length === 0) {
+    const count = fuzzyNumber("trg:count", 0, 2);
+    for (let i = 0; i < count; i += 1) {
+      webhookTriggers.push({
+        id: createMockId("trg"),
+        name: fuzzyPick(
+          `trg:name:${i}`,
+          ["Github push", "Stripe paid", "CRM sync"],
+          "Mock trigger",
+        ),
+        enabled: true,
+        createdAt: fuzzyTimestamp(`trg:created:${i}`),
+      });
+    }
+  }
+}
+
 export function handleCron(ctx) {
   const { method, url, parsedBody, res } = ctx;
+  ensureCronFixtures();
+  const cronJobs = getMockCronJobs();
+  const webhookTriggers = getMockWebhookTriggers();
 
   if (method === "GET" && /^\/settings\/cron-jobs\/?(\?.*)?$/.test(url)) {
-    json(res, 200, { success: true, data: [] });
+    json(res, 200, { success: true, data: cronJobs });
     return true;
   }
   if (method === "POST" && /^\/settings\/cron-jobs\/?$/.test(url)) {
+    const created = {
+      id: createMockId("cron"),
+      ...(parsedBody || {}),
+      createdAt: new Date().toISOString(),
+    };
+    cronJobs.unshift(created);
     json(res, 200, {
       success: true,
-      data: {
-        id: "cron_mock_" + Date.now(),
-        ...(parsedBody || {}),
-        createdAt: new Date().toISOString(),
-      },
+      data: created,
     });
     return true;
   }
   const cronItem = url.match(/^\/settings\/cron-jobs\/([^/?]+)\/?(\?.*)?$/);
   if (cronItem && (method === "PATCH" || method === "DELETE")) {
+    const index = cronJobs.findIndex((entry) => entry.id === cronItem[1]);
+    if (index >= 0 && method === "PATCH") {
+      cronJobs[index] = {
+        ...cronJobs[index],
+        ...(parsedBody || {}),
+      };
+    }
+    if (index >= 0 && method === "DELETE") {
+      cronJobs.splice(index, 1);
+    }
     json(res, 200, {
       success: true,
       data: { id: cronItem[1], deleted: method === "DELETE" },
@@ -34,17 +94,19 @@ export function handleCron(ctx) {
     method === "GET" &&
     /^\/settings\/webhooks-triggers\/?(\?.*)?$/.test(url)
   ) {
-    json(res, 200, { success: true, data: [] });
+    json(res, 200, { success: true, data: webhookTriggers });
     return true;
   }
   if (method === "POST" && /^\/settings\/webhooks-triggers\/?$/.test(url)) {
+    const created = {
+      id: createMockId("trg"),
+      ...(parsedBody || {}),
+      createdAt: new Date().toISOString(),
+    };
+    webhookTriggers.unshift(created);
     json(res, 200, {
       success: true,
-      data: {
-        id: "trg_mock_" + Date.now(),
-        ...(parsedBody || {}),
-        createdAt: new Date().toISOString(),
-      },
+      data: created,
     });
     return true;
   }
@@ -52,6 +114,16 @@ export function handleCron(ctx) {
     /^\/settings\/webhooks-triggers\/([^/?]+)\/?(\?.*)?$/,
   );
   if (trgItem && (method === "PATCH" || method === "DELETE")) {
+    const index = webhookTriggers.findIndex((entry) => entry.id === trgItem[1]);
+    if (index >= 0 && method === "PATCH") {
+      webhookTriggers[index] = {
+        ...webhookTriggers[index],
+        ...(parsedBody || {}),
+      };
+    }
+    if (index >= 0 && method === "DELETE") {
+      webhookTriggers.splice(index, 1);
+    }
     json(res, 200, {
       success: true,
       data: { id: trgItem[1], deleted: method === "DELETE" },

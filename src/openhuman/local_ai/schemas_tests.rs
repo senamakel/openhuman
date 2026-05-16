@@ -30,8 +30,6 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
         "agent_chat",
         "agent_chat_simple",
         "local_ai_status",
-        "local_ai_download",
-        "local_ai_download_all_assets",
         "local_ai_summarize",
         "local_ai_prompt",
         "local_ai_vision_prompt",
@@ -45,7 +43,6 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
         "local_ai_device_profile",
         "local_ai_presets",
         "local_ai_apply_preset",
-        "local_ai_set_ollama_path",
         "local_ai_diagnostics",
         "local_ai_chat",
         "local_ai_should_react",
@@ -235,39 +232,6 @@ async fn handle_apply_preset_accepts_valid_tier_and_persists() {
     }
     assert!(result.get("applied_tier").is_some());
     assert!(result.get("chat_model_id").is_some());
-}
-
-#[tokio::test]
-async fn handle_set_ollama_path_reports_external_runtime_contract() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([(
-        "path".to_string(),
-        serde_json::json!("/this/path/should/not/exist/ollama"),
-    )]);
-    let err = handle_local_ai_set_ollama_path(params).await.unwrap_err();
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(err.contains("no longer manages an Ollama binary path"));
-}
-
-#[tokio::test]
-async fn handle_set_ollama_path_rejects_empty_string_too() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([("path".to_string(), serde_json::json!(""))]);
-    let err = handle_local_ai_set_ollama_path(params).await.unwrap_err();
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(err.contains("no longer manages an Ollama binary path"));
 }
 
 /// Regression test for the CodeRabbit #7 race on PR #1755: when two

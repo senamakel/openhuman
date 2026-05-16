@@ -15,11 +15,6 @@ struct AgentChatParams {
 }
 
 #[derive(Debug, Deserialize)]
-struct LocalAiDownloadParams {
-    force: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
 struct LocalAiSummarizeParams {
     text: String,
     max_tokens: Option<u32>,
@@ -69,11 +64,6 @@ struct LocalAiDownloadAssetParams {
 #[derive(Debug, Deserialize)]
 struct LocalAiApplyPresetParams {
     tier: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiSetOllamaPathParams {
-    path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,9 +128,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("agent_chat"),
         schemas("agent_chat_simple"),
         schemas("local_ai_status"),
-        schemas("local_ai_shutdown_owned"),
-        schemas("local_ai_download"),
-        schemas("local_ai_download_all_assets"),
         schemas("local_ai_summarize"),
         schemas("local_ai_prompt"),
         schemas("local_ai_vision_prompt"),
@@ -154,7 +141,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("local_ai_device_profile"),
         schemas("local_ai_presets"),
         schemas("local_ai_apply_preset"),
-        schemas("local_ai_set_ollama_path"),
         schemas("local_ai_diagnostics"),
         schemas("local_ai_chat"),
         schemas("local_ai_should_react"),
@@ -181,18 +167,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("local_ai_status"),
             handler: handle_local_ai_status,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_shutdown_owned"),
-            handler: handle_local_ai_shutdown_owned,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_download"),
-            handler: handle_local_ai_download,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_download_all_assets"),
-            handler: handle_local_ai_download_all_assets,
         },
         RegisteredController {
             schema: schemas("local_ai_summarize"),
@@ -245,10 +219,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("local_ai_apply_preset"),
             handler: handle_local_ai_apply_preset,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_set_ollama_path"),
-            handler: handle_local_ai_set_ollama_path,
         },
         RegisteredController {
             schema: schemas("local_ai_diagnostics"),
@@ -323,30 +293,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             description: "Read local AI service status.",
             inputs: vec![],
             outputs: vec![json_output("status", "Local AI status payload.")],
-        },
-        "local_ai_shutdown_owned" => ControllerSchema {
-            namespace: "local_ai",
-            function: "shutdown_owned",
-            description:
-                "Gate off the local AI runtime. Kills the Ollama daemon only \
-                 if OpenHuman spawned it (external daemons are left running). \
-                 Forces status to \"disabled\" so the UI flips immediately.",
-            inputs: vec![],
-            outputs: vec![json_output("status", "Local AI status after shutdown.")],
-        },
-        "local_ai_download" => ControllerSchema {
-            namespace: "local_ai",
-            function: "download",
-            description: "Trigger local AI model download bootstrap.",
-            inputs: vec![optional_bool("force", "Reset state before download.")],
-            outputs: vec![json_output("status", "Local AI status payload.")],
-        },
-        "local_ai_download_all_assets" => ControllerSchema {
-            namespace: "local_ai",
-            function: "download_all_assets",
-            description: "Trigger full local AI asset download.",
-            inputs: vec![optional_bool("force", "Reset state before download.")],
-            outputs: vec![json_output("progress", "Download progress payload.")],
         },
         "local_ai_summarize" => ControllerSchema {
             namespace: "local_ai",
@@ -487,13 +433,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             description: "Run Ollama diagnostics: check server health, list installed models, verify expected models.",
             inputs: vec![],
             outputs: vec![json_output("diagnostics", "Diagnostic report.")],
-        },
-        "local_ai_set_ollama_path" => ControllerSchema {
-            namespace: "local_ai",
-            function: "set_ollama_path",
-            description: "Set a custom Ollama binary path, persist to config, and trigger re-bootstrap.",
-            inputs: vec![required_string("path", "Absolute path to Ollama binary. Empty string to clear.")],
-            outputs: vec![json_output("result", "Updated status.")],
         },
         "local_ai_chat" => ControllerSchema {
             namespace: "local_ai",
@@ -646,38 +585,6 @@ fn handle_local_ai_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(crate::openhuman::local_ai::rpc::local_ai_status(&config).await?)
-    })
-}
-
-fn handle_local_ai_shutdown_owned(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let mut config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::local_ai::rpc::local_ai_shutdown_owned(&mut config).await?)
-    })
-}
-
-fn handle_local_ai_download(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiDownloadParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_download(&config, p.force.unwrap_or(false))
-                .await?,
-        )
-    })
-}
-
-fn handle_local_ai_download_all_assets(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiDownloadParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_download_all_assets(
-                &config,
-                p.force.unwrap_or(false),
-            )
-            .await?,
-        )
     })
 }
 
@@ -920,13 +827,6 @@ fn handle_local_ai_diagnostics(_params: Map<String, Value>) -> ControllerFuture 
         let config = config_rpc::load_config_with_timeout().await?;
         let service = crate::openhuman::local_ai::global(&config);
         service.diagnostics(&config).await
-    })
-}
-
-fn handle_local_ai_set_ollama_path(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let _ = deserialize_params::<LocalAiSetOllamaPathParams>(params)?;
-        Err("OpenHuman no longer manages an Ollama binary path. Point your inference setup at an already-running Ollama-compatible endpoint instead.".to_string())
     })
 }
 

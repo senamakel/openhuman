@@ -153,85 +153,6 @@ pub async fn local_ai_status(
     ))
 }
 
-/// Stop the local-AI runtime, killing the Ollama daemon ONLY if OpenHuman
-/// spawned it, and shift any workload routed to `ollama:<model>` back to
-/// `"cloud"` (= primary).
-///
-/// Three coordinated effects:
-///
-/// 1. **Daemon shutdown** — `shutdown_owned_ollama` kills the child process
-///    only when the spawn marker matches. External daemons (system service,
-///    user-launched `ollama serve`, daemons from another OpenHuman workspace)
-///    are left untouched, per the same friendly-fire-avoidance rule
-///    `ensure_ollama_server` follows at startup.
-///
-/// 2. **Routing shift** — every `*_provider` field starting with `ollama:`
-///    is cleared (set to `None`, which resolves to `"cloud"` at the factory).
-///    Without this, the next chat call routed to `reasoning` (or any other
-///    workload the user had set to `ollama:<m>`) would fail at factory
-///    build time. The shift is one-way: re-enabling local AI does NOT
-///    restore the previous Ollama routes — the user re-picks.
-///
-/// 3. **Status forced to disabled** so the UI reflects the gate immediately.
-pub async fn local_ai_shutdown_owned(
-    config: &mut Config,
-) -> Result<RpcOutcome<local_ai::LocalAiStatus>, String> {
-    let _ = config;
-    Err("OpenHuman does not manage the Ollama process anymore. Stop or restart your external Ollama runtime directly.".to_string())
-}
-
-/// Clear every per-workload `*_provider` field whose stored value starts
-/// with `"ollama:"`. Returns the count of fields actually changed so the
-/// caller can decide whether to persist.
-fn clear_ollama_workload_routes(config: &mut Config) -> usize {
-    fn clear_if_ollama(field: &mut Option<String>) -> bool {
-        let is_ollama = field
-            .as_deref()
-            .map(|s| s.trim().starts_with("ollama:"))
-            .unwrap_or(false);
-        if is_ollama {
-            *field = None;
-            true
-        } else {
-            false
-        }
-    }
-    let mut changed = 0;
-    for field in [
-        &mut config.reasoning_provider,
-        &mut config.agentic_provider,
-        &mut config.coding_provider,
-        &mut config.memory_provider,
-        &mut config.embeddings_provider,
-        &mut config.heartbeat_provider,
-        &mut config.learning_provider,
-        &mut config.subconscious_provider,
-    ] {
-        if clear_if_ollama(field) {
-            changed += 1;
-        }
-    }
-    changed
-}
-
-/// Triggers a full download of all required local AI models.
-pub async fn local_ai_download(
-    config: &Config,
-    force: bool,
-) -> Result<RpcOutcome<local_ai::LocalAiStatus>, String> {
-    let _ = (config, force);
-    Err("OpenHuman no longer downloads or starts Ollama for you. Start your external Ollama runtime and pull models yourself.".to_string())
-}
-
-/// Triggers a download of all local AI assets and returns progress information.
-pub async fn local_ai_download_all_assets(
-    config: &Config,
-    force: bool,
-) -> Result<RpcOutcome<LocalAiDownloadsProgress>, String> {
-    let _ = (config, force);
-    Err("OpenHuman no longer downloads Ollama assets. Start your external Ollama runtime and manage model pulls yourself.".to_string())
-}
-
 /// Generates a summary of the provided text using local AI models.
 pub async fn local_ai_summarize(
     config: &Config,
@@ -422,21 +343,14 @@ pub async fn local_ai_download_asset(
     config: &Config,
     capability: &str,
 ) -> Result<RpcOutcome<LocalAiAssetsStatus>, String> {
-    let capability = capability.trim().to_ascii_lowercase();
-    if matches!(capability.as_str(), "stt" | "tts") {
-        let service = local_ai::global(config);
-        let output = service
-            .download_asset(config, capability.as_str())
-            .await
-            .map_err(|e| e.to_string())?;
-        return Ok(RpcOutcome::single_log(
-            output,
-            "local ai voice asset download triggered",
-        ));
-    }
-
-    Err(format!(
-        "OpenHuman no longer downloads `{capability}` via Ollama. Start your external Ollama runtime and pull that model yourself."
+    let service = local_ai::global(config);
+    let output = service
+        .download_asset(config, capability.trim())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(
+        output,
+        "local ai voice asset download triggered",
     ))
 }
 

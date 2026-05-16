@@ -38,10 +38,7 @@ import {
   type ModelPresetResult,
   openhumanLocalAiApplyPreset,
   openhumanLocalAiDiagnostics,
-  openhumanLocalAiDownload,
   openhumanLocalAiPresets,
-  openhumanLocalAiSetOllamaPath,
-  openhumanLocalAiShutdownOwned,
   openhumanLocalAiStatus,
   type PresetsResponse,
 } from '../../utils/tauriCommands/localAi';
@@ -319,28 +316,10 @@ export async function setLocalRuntimeEnabled(enabled: boolean): Promise<void> {
   await openhumanUpdateLocalAiSettings({ runtime_enabled: enabled, opt_in_confirmed: enabled });
 }
 
-/**
- * Set / clear the user-configured Ollama binary path.
- */
-export async function setLocalOllamaPath(path: string): Promise<void> {
-  await openhumanLocalAiSetOllamaPath(path);
-}
-
-/**
- * Gate off the local-AI runtime.
- */
-export async function shutdownLocalProvider(): Promise<void> {
-  await setLocalRuntimeEnabled(false);
-  await openhumanLocalAiShutdownOwned();
-}
-
 /** Convenience helpers re-exported so the panel imports from one place. */
 export const localProvider = {
   applyPreset: (tier: string) => openhumanLocalAiApplyPreset(tier),
-  download: (retry: boolean) => openhumanLocalAiDownload(retry),
   setEnabled: (enabled: boolean) => setLocalRuntimeEnabled(enabled),
-  setBinaryPath: (path: string) => setLocalOllamaPath(path),
-  shutdown: () => shutdownLocalProvider(),
 };
 
 export type { ModelPresetResult };

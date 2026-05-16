@@ -261,32 +261,6 @@ export async function openhumanLocalAiStatus(): Promise<CommandResponse<LocalAiS
   }
 }
 
-export async function openhumanLocalAiDownload(
-  force?: boolean
-): Promise<CommandResponse<LocalAiStatus>> {
-  try {
-    return await callCoreRpc<CommandResponse<LocalAiStatus>>({
-      method: 'openhuman.local_ai_download',
-      params: { force: force ?? false },
-    });
-  } catch (err) {
-    const message = tauriErrorMessage(err);
-    if (message.includes('unknown method: openhuman.local_ai_download')) {
-      return await openhumanLocalAiStatus();
-    }
-    throw new Error(message);
-  }
-}
-
-export async function openhumanLocalAiDownloadAllAssets(
-  force?: boolean
-): Promise<CommandResponse<LocalAiDownloadsProgress>> {
-  return await callCoreRpc<CommandResponse<LocalAiDownloadsProgress>>({
-    method: 'openhuman.local_ai_download_all_assets',
-    params: { force: force ?? false },
-  });
-}
-
 export async function openhumanLocalAiSummarize(
   text: string,
   maxTokens?: number
@@ -465,27 +439,6 @@ export async function openhumanLocalAiApplyPreset(tier: string): Promise<ApplyPr
 export async function openhumanLocalAiDiagnostics(): Promise<LocalAiDiagnostics> {
   return await callCoreRpc<LocalAiDiagnostics>({
     method: 'openhuman.local_ai_diagnostics',
-    params: {},
-  });
-}
-
-export async function openhumanLocalAiSetOllamaPath(
-  path: string
-): Promise<{ ollama_binary_path: string | null; status: LocalAiStatus }> {
-  return await callCoreRpc<{ ollama_binary_path: string | null; status: LocalAiStatus }>({
-    method: 'openhuman.local_ai_set_ollama_path',
-    params: { path },
-  });
-}
-
-/**
- * Gate off the local-AI runtime: kills the Ollama daemon only if OpenHuman
- * spawned it (external daemons are left running), and forces status to
- * `"disabled"` so the UI flips immediately.
- */
-export async function openhumanLocalAiShutdownOwned(): Promise<CommandResponse<LocalAiStatus>> {
-  return await callCoreRpc<CommandResponse<LocalAiStatus>>({
-    method: 'openhuman.local_ai_shutdown_owned',
     params: {},
   });
 }

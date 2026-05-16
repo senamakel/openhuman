@@ -566,6 +566,19 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
     }
 }
 
+/// Snapshot the IN_FLIGHT map for the test-support introspection RPC.
+///
+/// Returned as `(map_key, request_id)` pairs. Not intended for any
+/// production caller — release builds reach this via the bearer-gated
+/// `/rpc` endpoint only, and the per-launch token file is debug-only.
+pub async fn in_flight_entries_for_test() -> Vec<(String, String)> {
+    let guard = IN_FLIGHT.lock().await;
+    guard
+        .iter()
+        .map(|(k, v)| (k.clone(), v.request_id.clone()))
+        .collect()
+}
+
 pub async fn cancel_chat(client_id: &str, thread_id: &str) -> Result<Option<String>, String> {
     let client_id = client_id.trim();
     let thread_id = thread_id.trim();

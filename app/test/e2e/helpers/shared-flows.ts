@@ -199,13 +199,14 @@ export async function navigateToSettings() {
 export async function navigateToBilling() {
   await navigateViaHash('/settings/billing');
 
+  const billingMarkers = ['Billing moved to the web', 'Open billing dashboard', 'Open dashboard'];
   const deadline = Date.now() + 15_000;
   let hasBilling = false;
   while (Date.now() < deadline) {
-    hasBilling =
-      (await textExists('Current Plan')) ||
-      (await textExists('FREE')) ||
-      (await textExists('Upgrade'));
+    for (const marker of billingMarkers) {
+      hasBilling = await textExists(marker);
+      if (hasBilling) break;
+    }
     if (hasBilling) break;
     await browser.pause(500);
   }
@@ -247,10 +248,16 @@ export async function navigateToBilling() {
   await browser.pause(3_000);
 
   // Verify billing actually loaded after fallback
-  const finalCheck =
-    (await textExists('Current Plan')) ||
-    (await textExists('FREE')) ||
-    (await textExists('Upgrade'));
+  let finalCheck = false;
+  const finalDeadline = Date.now() + 15_000;
+  while (Date.now() < finalDeadline) {
+    for (const marker of billingMarkers) {
+      finalCheck = await textExists(marker);
+      if (finalCheck) break;
+    }
+    if (finalCheck) break;
+    await browser.pause(500);
+  }
   if (!finalCheck) {
     let finalHash = '';
     if (supportsExecuteScript()) {
@@ -284,13 +291,20 @@ export async function navigateToNotifications() {
 
 // ---------------------------------------------------------------------------
 // Onboarding walkthrough
-// Current flow: Welcome → Local AI → Screen & Accessibility → Tools → Skills (5 steps, indices 0–4).
+// Current flow: Welcome → Skills → optional Context gathering.
 // ---------------------------------------------------------------------------
 
 /** Labels used to detect the onboarding overlay (same strings as Onboarding copy). */
 export const ONBOARDING_OVERLAY_TEXTS = [
   'Skip',
   'Welcome',
+  "Hi. I'm OpenHuman.",
+  "Let's Start",
+  'Connect your Gmail',
+  'Skip for Now',
+  'Building your profile',
+  'Almost there',
+  'Continue to chat',
   'Run AI Models Locally',
   'Screen & Accessibility',
   'Enable Tools',

@@ -61,6 +61,10 @@ export const CORE_RPC_TIMEOUT_MS = parseCoreRpcTimeoutMs();
 
 export const IS_DEV = import.meta.env.DEV;
 export const IS_PROD = import.meta.env.PROD;
+export const E2E_RESTART_APP_AS_RELOAD =
+  import.meta.env.VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD === 'true';
+export const E2E_DEFAULT_CORE_MODE =
+  (import.meta.env.VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE as string | undefined) || '';
 
 /**
  * True when the build behaves like a dev build for runtime purposes — either

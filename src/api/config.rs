@@ -479,6 +479,10 @@ mod tests {
         }
     }
 
+    fn backend_base_with_runtime_env_cleared() -> String {
+        effective_api_url(&None)
+    }
+
     #[test]
     fn api_url_empty_path_returns_normalized_base() {
         assert_eq!(
@@ -901,7 +905,7 @@ mod tests {
     }
 
     #[test]
-    fn integrations_url_falls_back_to_default_when_override_is_local_ai() {
+    fn integrations_url_falls_back_to_backend_when_override_is_local_ai() {
         let _guard = env_lock();
         let _env = EnvSnapshot::clear_backend_env();
         let expected = fallback_backend_base_for_current_build();
@@ -914,17 +918,12 @@ mod tests {
     #[test]
     fn integrations_url_falls_back_to_env_when_override_is_local_ai() {
         let _guard = env_lock();
-        let prev_backend = std::env::var("BACKEND_URL").ok();
+        let _env = EnvSnapshot::clear_backend_env();
         std::env::set_var("BACKEND_URL", "https://staging-api.tinyhumans.ai/");
 
         let result = effective_backend_api_url(&Some(
             "http://127.0.0.1:8080/v1/chat/completions".to_string(),
         ));
-
-        match prev_backend {
-            Some(v) => std::env::set_var("BACKEND_URL", v),
-            None => std::env::remove_var("BACKEND_URL"),
-        }
 
         assert_eq!(result, "https://staging-api.tinyhumans.ai");
     }

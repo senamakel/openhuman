@@ -156,6 +156,8 @@ vi.mock('../utils/config', () => ({
   IS_DEV: true,
   IS_DEV_LIKE: true,
   IS_PROD: false,
+  E2E_DEFAULT_CORE_MODE: '',
+  E2E_RESTART_APP_AS_RELOAD: false,
   DEV_FORCE_ONBOARDING: false,
   SKILLS_GITHUB_REPO: 'test/skills',
   SENTRY_DSN: undefined,

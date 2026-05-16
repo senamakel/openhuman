@@ -154,9 +154,45 @@ impl ComposioClient {
 
     // ── Execute ─────────────────────────────────────────────────────
 
+    /// `POST /agent-integrations/composio/execute` — run a Composio
+    /// action and return the provider result + cost.
+    pub async fn execute_tool(
+        &self,
+        tool: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> Result<ComposioExecuteResponse> {
+        let tool = tool.trim();
+        if tool.is_empty() {
+            anyhow::bail!("composio.execute_tool: tool slug must not be empty");
+        }
+        // PR #1827 routes all execute-side argument normalization
+        // (including the bare-date → RFC 3339 fix #1802 brought to
+        // `normalize_calendar_query_args` on `main`) through the
+        // centralized `prepare_execute_arguments` helper. The helper
+        // covers the same calendar query case and is the shared entry
+        // point for `composio_execute`, per-action tools, and direct-
+        // mode dispatch.
+        let arguments = super::execute_prepare::prepare_execute_arguments(tool, arguments)
+            .map_err(anyhow::Error::msg)?;
+        tracing::debug!(tool = %tool, "[composio] execute_tool");
+        let body = json!({ "tool": tool, "arguments": arguments });
+        let mut resp = self
+            .execute_tool_with_post_oauth_retry(tool, &body, POST_OAUTH_ACTION_RETRY_DELAY)
+            .await?;
+        if !resp.successful {
+            if let Some(ref err) = resp.error {
+                resp.error = Some(super::error_mapping::format_provider_error(tool, err));
+            }
+        }
+        Ok(resp)
+    }
+
     /// `POST /agent-integrations/composio/execute` — single, non-retrying
     /// HTTP round-trip. Use this when the caller owns the retry loop
-    /// (e.g. `auth_retry`) to avoid double-retry.
+    /// (e.g. `auth_retry`) to avoid double-retry. In particular,
+    /// [`super::auth_retry::execute_with_auth_retry`] uses this entry
+    /// point so its `must retry exactly once` contract still holds
+    /// after PR #1707 introduced the inner retry.
     pub(crate) async fn execute_tool_once(
         &self,
         tool: &str,
@@ -190,39 +226,6 @@ impl ComposioClient {
                 &e.to_string(),
             ))
         })
-    }
-
-    /// `POST /agent-integrations/composio/execute` — run a Composio
-    /// action and return the provider result + cost.
-    pub async fn execute_tool(
-        &self,
-        tool: &str,
-        arguments: Option<serde_json::Value>,
-    ) -> Result<ComposioExecuteResponse> {
-        let tool = tool.trim();
-        if tool.is_empty() {
-            anyhow::bail!("composio.execute_tool: tool slug must not be empty");
-        }
-        // PR #1827 routes all execute-side argument normalization
-        // (including the bare-date → RFC 3339 fix #1802 brought to
-        // `normalize_calendar_query_args` on `main`) through the
-        // centralized `prepare_execute_arguments` helper. The helper
-        // covers the same calendar query case and is the shared entry
-        // point for `composio_execute`, per-action tools, and direct-
-        // mode dispatch.
-        let arguments = super::execute_prepare::prepare_execute_arguments(tool, arguments)
-            .map_err(anyhow::Error::msg)?;
-        tracing::debug!(tool = %tool, "[composio] execute_tool");
-        let body = json!({ "tool": tool, "arguments": arguments });
-        let mut resp = self
-            .execute_tool_with_post_oauth_retry(tool, &body, POST_OAUTH_ACTION_RETRY_DELAY)
-            .await?;
-        if !resp.successful {
-            if let Some(ref err) = resp.error {
-                resp.error = Some(super::error_mapping::format_provider_error(tool, err));
-            }
-        }
-        Ok(resp)
     }
 
     pub(super) async fn execute_tool_with_post_oauth_retry(

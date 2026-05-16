@@ -1151,7 +1151,6 @@ async fn load_or_init_for_workspace(root: &std::path::Path) -> Config {
 
 #[tokio::test]
 async fn load_or_init_recovers_from_backup_when_config_corrupted() {
-    let _g = env_lock();
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path();
 
@@ -1193,7 +1192,6 @@ default_temperature = 0.7
 
 #[tokio::test]
 async fn load_or_init_falls_back_to_defaults_when_backup_also_corrupted() {
-    let _g = env_lock();
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path();
 
@@ -1230,7 +1228,6 @@ async fn load_or_init_falls_back_to_defaults_when_backup_also_corrupted() {
 
 #[tokio::test]
 async fn load_or_init_falls_back_to_defaults_when_no_backup() {
-    let _g = env_lock();
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path();
 
@@ -1257,7 +1254,6 @@ async fn load_or_init_falls_back_to_defaults_when_no_backup() {
 
 #[tokio::test]
 async fn load_or_init_does_not_trigger_recovery_on_valid_config() {
-    let _g = env_lock();
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path();
 

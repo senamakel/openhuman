@@ -1,4 +1,5 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
+import debugFactory from 'debug';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -17,6 +18,7 @@ import { useStickToBottom } from '../hooks/useStickToBottom';
 import { useUsageState } from '../hooks/useUsageState';
 import { useT } from '../lib/i18n/I18nContext';
 import { trackEvent } from '../services/analytics';
+import { threadApi } from '../services/api/threadApi';
 // [#1123] getCoreStateSnapshot and isWelcomeLocked commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // import { getCoreStateSnapshot, isWelcomeLocked } from '../lib/coreState/store';
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
@@ -24,9 +26,17 @@ import { trackEvent } from '../services/analytics';
 import { chatCancel, chatSend, useRustChat } from '../services/chatService';
 import { store } from '../store';
 import {
+  loadAgentProfiles,
+  selectActiveAgentProfileId,
+  selectAgentProfile,
+  selectAgentProfiles,
+  upsertAgentProfile,
+} from '../store/agentProfileSlice';
+import {
   beginInferenceTurn,
   clearRuntimeForThread,
   fetchAndHydrateTurnState,
+  setTaskBoardForThread,
   setToolTimelineForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -42,8 +52,10 @@ import {
   setSelectedThread,
   THREAD_NOT_FOUND_MESSAGE,
 } from '../store/threadSlice';
+import type { AgentProfile } from '../types/agentProfile';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
+import type { TaskBoardCard, TaskBoardCardStatus } from '../types/turnState';
 import { splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
 import { BILLING_DASHBOARD_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
@@ -60,6 +72,7 @@ import { formatTimelineEntry } from '../utils/toolTimelineFormatting';
 import { AgentMessageBubble, BubbleMarkdown } from './conversations/components/AgentMessageBubble';
 import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
 import { LimitPill } from './conversations/components/LimitPill';
+import { TaskKanbanBoard } from './conversations/components/TaskKanbanBoard';
 import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
 import {
   evaluateComposerSend,
@@ -73,6 +86,7 @@ import {
   formatResetTime,
   getInlineCompletionSuffix,
 } from './conversations/utils/format';
+import { isThreadVisibleInTab, WORKERS_TAB_VALUE } from './conversations/utils/threadFilter';
 
 // Chat uses the reasoning model; `agentic-v1` is reserved for sub-agents
 // that execute tool calls, not the primary user-facing conversation.
@@ -86,6 +100,13 @@ type InputMode = 'text' | 'voice';
 type ReplyMode = 'text' | 'voice';
 const AUTOCOMPLETE_POLL_DEBOUNCE_MS = 320;
 const AUTOCOMPLETE_MIN_CONTEXT_CHARS = 3;
+const debug = debugFactory('conversations');
+const DEFAULT_PROFILE_DRAFT = {
+  name: '',
+  agentId: 'orchestrator',
+  systemPromptSuffix: '',
+  allowedTools: '',
+};
 
 interface ConversationsProps {
   /**
@@ -147,6 +168,14 @@ export function formatThreadLoadError(err: unknown): string {
     if (typeof message === 'string') return message;
   }
   return String(err);
+}
+
+function formatAgentProfileAgentLabel(agentId: string): string {
+  return agentId
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
@@ -222,8 +251,13 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const [inlineSuggestionValue, setInlineSuggestionValue] = useState('');
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [sendAdvisory, setSendAdvisory] = useState<string | null>(null);
+  const [profileDraftOpen, setProfileDraftOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState(DEFAULT_PROFILE_DRAFT);
   const socketStatus = useAppSelector(selectSocketStatus);
+  const agentProfiles = useAppSelector(selectAgentProfiles);
+  const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
+  const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
   );
@@ -257,6 +291,29 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     onConfirm: () => {},
     onCancel: () => {},
   });
+  const agentProfileAgentOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: Array<{ id: string; label: string }> = [];
+    for (const profile of agentProfiles) {
+      const id = profile.agentId.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      options.push({
+        id,
+        label: profile.builtIn ? profile.name : formatAgentProfileAgentLabel(id),
+      });
+    }
+    if (profileDraft.agentId && !seen.has(profileDraft.agentId)) {
+      options.push({
+        id: profileDraft.agentId,
+        label: formatAgentProfileAgentLabel(profileDraft.agentId),
+      });
+    }
+    if (options.length === 0) {
+      options.push({ id: 'orchestrator', label: 'Orchestrator' });
+    }
+    return options;
+  }, [agentProfiles, profileDraft.agentId]);
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const isComposingTextRef = useRef(false);
@@ -290,6 +347,50 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     const thread = await dispatch(createNewThread()).unwrap();
     dispatch(setSelectedThread(thread.id));
     void dispatch(loadThreadMessages(thread.id));
+  };
+
+  const handleSelectAgentProfile = async (profileId: string) => {
+    try {
+      await dispatch(selectAgentProfile(profileId)).unwrap();
+    } catch (error) {
+      debug('agent profile select failed: %o', error);
+    }
+  };
+
+  const handleCreateAgentProfile = async () => {
+    const name = profileDraft.name.trim();
+    if (!name) return;
+    const duplicate = agentProfiles.some(
+      profile => profile.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (duplicate) {
+      setSendAdvisory(`Agent profile "${name}" already exists.`);
+      return;
+    }
+    const id = `profile-${globalThis.crypto.randomUUID().slice(0, 8)}`;
+    const allowedTools = profileDraft.allowedTools
+      .split(',')
+      .map(tool => tool.trim())
+      .filter(Boolean);
+    const profile: AgentProfile = {
+      id,
+      name,
+      description: 'Custom agent profile',
+      agentId: profileDraft.agentId,
+      systemPromptSuffix: profileDraft.systemPromptSuffix.trim() || null,
+      allowedTools: allowedTools.length > 0 ? allowedTools : null,
+      builtIn: false,
+    };
+    try {
+      await dispatch(upsertAgentProfile(profile)).unwrap();
+      await dispatch(selectAgentProfile(id)).unwrap();
+      setProfileDraftOpen(false);
+      setProfileDraft(DEFAULT_PROFILE_DRAFT);
+      setSendAdvisory(null);
+    } catch (error) {
+      debug('agent profile create failed: %o', error);
+      setSendAdvisory('Could not create agent profile.');
+    }
   };
 
   useEffect(() => {
@@ -338,7 +439,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
       })
       .catch(err => {
         if (cancelled) return;
-        console.warn('[conversations] loadThreads failed on mount:', formatThreadLoadError(err));
+        debug('loadThreads failed on mount: %s', formatThreadLoadError(err));
       });
 
     return () => {
@@ -351,8 +452,26 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     if (selectedThreadId) {
       void dispatch(loadThreadMessages(selectedThreadId));
       void dispatch(fetchAndHydrateTurnState(selectedThreadId));
+      void threadApi
+        .getTaskBoard(selectedThreadId)
+        .then(board => {
+          if (board) {
+            dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board }));
+          }
+        })
+        .catch(error => {
+          debug('getTaskBoard failed: %o', error);
+        });
     }
   }, [selectedThreadId, dispatch]);
+
+  useEffect(() => {
+    void dispatch(loadAgentProfiles())
+      .unwrap()
+      .catch(error => {
+        debug('agent profiles load failed: %o', error);
+      });
+  }, [dispatch]);
 
   // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
   // Welcome lockdown unlock (#883) — when `chatOnboardingCompleted`
@@ -421,7 +540,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
     sendingThreadIdRef.current = threadId;
     sendingTimeoutRef.current = setTimeout(() => {
-      console.warn('[chat] silence timeout: no inference signal for 120s');
+      debug('armSilenceTimer: no inference signal for 120s — clearing runtime');
       setSendError(chatSendError('safety_timeout', t('chat.safetyTimeout')));
       dispatch(clearRuntimeForThread({ threadId }));
       dispatch(setActiveThread(null));
@@ -634,7 +753,12 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     // Local model (Ollama) is used only for supplementary features
     // (auto-react, autocomplete, etc.) — never as a primary chat path.
     try {
-      await chatSend({ threadId: sendingThreadId, message: trimmed, model: CHAT_MODEL_ID });
+      await chatSend({
+        threadId: sendingThreadId,
+        message: trimmed,
+        model: CHAT_MODEL_ID,
+        profileId: selectedAgentProfileId,
+      });
       trackEvent('chat_message_sent');
 
       // Active-thread reset happens in the global ChatRuntimeProvider events.
@@ -891,6 +1015,8 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? [])
     : [];
+  const selectedTaskBoard = selectedThreadId ? (taskBoardByThread[selectedThreadId] ?? null) : null;
+  const hasTaskBoard = Boolean(selectedTaskBoard?.cards.length);
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
   const hasVisibleMessages = visibleMessages.length > 0;
   const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
@@ -962,15 +1088,48 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const shouldRenderTimelineBeforeLatestAgentMessage =
     selectedThreadToolTimeline.length > 0 && !isSending && Boolean(latestVisibleAgentMessage);
 
+  const handleMoveTaskCard = async (
+    card: TaskBoardCard,
+    nextStatus: TaskBoardCardStatus
+  ): Promise<void> => {
+    if (!selectedThreadId || !selectedTaskBoard) return;
+    const now = new Date().toISOString();
+    const nextBoard = {
+      ...selectedTaskBoard,
+      cards: selectedTaskBoard.cards.map(existing =>
+        existing.id === card.id ? { ...existing, status: nextStatus, updatedAt: now } : existing
+      ),
+      updatedAt: now,
+    };
+    dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: nextBoard }));
+    try {
+      const saved = await threadApi.putTaskBoard(selectedThreadId, nextBoard.cards);
+      if (!saved) {
+        throw new Error('Task board update returned no board');
+      }
+      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: saved }));
+    } catch (error) {
+      debug('putTaskBoard failed: %o', error);
+      setSendAdvisory('Could not move task; changes were not saved.');
+      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: selectedTaskBoard }));
+    }
+  };
+
   const filteredThreads = useMemo(() => {
-    const base = threads.filter(t => {
-      // Hide worker/subagent threads from the conversation list. They are
-      // currently surfaced inline inside the parent thread via WorkerThreadRefCard.
-      // A dedicated showcase is tracked in tinyhumansai/openhuman#1624.
-      if (t.parentThreadId) return false;
-      if (selectedLabel === 'all') return true;
-      return t.labels?.includes(selectedLabel);
-    });
+    // Worker/subagent threads (any thread with `parentThreadId`) are
+    // surfaced through two intentional paths (issue #1624):
+    //   1. The dedicated `Workers` tab in the sidebar — pick that tab to
+    //      see only background work and jump into a worker transcript.
+    //   2. Inline inside the parent thread via `WorkerThreadRefCard`,
+    //      which now also renders a live running/completed/failed badge
+    //      derived from the parent timeline entry's status.
+    // The default ("All") and label-scoped tabs hide them so the main
+    // sidebar is dominated by user-initiated conversations rather than
+    // background reasoning threads. The actual rule lives in
+    // `isThreadVisibleInTab` so it is pure, unit-testable, and stays
+    // in lockstep with the sidebar tab definition (`labelTabs` below)
+    // via the shared `WORKERS_TAB_VALUE` sentinel.
+    const base = threads.filter(t => isThreadVisibleInTab(t, selectedLabel));
     // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
     // if (!welcomeLocked) return base;
     // // During welcome lockdown only the onboarding welcome thread should
@@ -993,11 +1152,17 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
 
   // Fixed tab set so categories don't disappear when empty and the active
   // filter state remains unambiguous regardless of what threads exist.
+  // The `workers` tab (issue #1624) is the deliberate UI surface for
+  // background sub-agent / worker threads — selecting it inverts the
+  // default `parentThreadId` filter in `filteredThreads` above so only
+  // worker threads show. Without this tab the only way into a worker
+  // transcript is the inline `WorkerThreadRefCard` inside the parent.
   const labelTabs = [
     { label: t('chat.filter.all'), value: 'all' },
     { label: t('chat.filter.work'), value: 'work' },
     { label: t('chat.filter.briefing'), value: 'briefing' },
     { label: t('chat.filter.notification'), value: 'notification' },
+    { label: t('chat.filter.workers'), value: WORKERS_TAB_VALUE },
   ];
 
   const isSidebar = variant === 'sidebar';
@@ -1023,6 +1188,25 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     // }
     return thr?.title ?? t('chat.selectThread');
   };
+
+  // Resolve the parent of the currently-selected thread, if any. Used to
+  // render the back-to-parent breadcrumb in the chat header so a user who
+  // dropped into a worker thread (via `WorkerThreadRefCard` or the
+  // `Workers` sidebar tab) can return to the conversation that spawned it
+  // — issue #1624 acceptance criterion "Parent ↔ worker navigation is
+  // bidirectional". Returns `null` when the active thread is a top-level
+  // conversation (no parent), so the header stays unchanged in the
+  // non-worker case.
+  const selectedThreadParent = useMemo(() => {
+    if (!selectedThreadId) return null;
+    const current = threads.find(thr => thr.id === selectedThreadId);
+    const parentId = current?.parentThreadId;
+    if (!parentId) return null;
+    const parent = threads.find(thr => thr.id === parentId);
+    return parent
+      ? { id: parent.id, title: parent.title || 'parent thread' }
+      : { id: parentId, title: 'parent thread' };
+  }, [threads, selectedThreadId]);
 
   return (
     <div
@@ -1068,7 +1252,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
               <p className="px-4 py-6 text-xs text-stone-400 text-center">
                 {selectedLabel === 'all'
                   ? t('chat.noThreads')
-                  : t('chat.noLabelThreads').replace('{label}', selectedLabel)}
+                  : selectedLabel === WORKERS_TAB_VALUE
+                    ? t('chat.noWorkerThreads')
+                    : t('chat.noLabelThreads').replace('{label}', selectedLabel)}
               </p>
             ) : (
               sortedThreads.map(thread => (
@@ -1183,11 +1369,49 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 />
               </svg>
             </button>
-            <h3 className="text-sm font-medium text-stone-700 truncate flex-1">
-              {resolveThreadDisplayTitle(selectedThreadId)}
-            </h3>
+            <div className="flex flex-col min-w-0 flex-1">
+              {selectedThreadParent ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(setSelectedThread(selectedThreadParent.id));
+                    void dispatch(loadThreadMessages(selectedThreadParent.id));
+                  }}
+                  className="self-start flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 rounded -mx-1 px-1"
+                  data-testid="worker-thread-back-to-parent">
+                  <span aria-hidden="true">←</span>
+                  <span className="truncate max-w-[16rem]">
+                    back to {selectedThreadParent.title}
+                  </span>
+                </button>
+              ) : null}
+              <h3 className="text-sm font-medium text-stone-700 truncate">
+                {resolveThreadDisplayTitle(selectedThreadId)}
+              </h3>
+            </div>
             {/* [#1123] welcomeLocked guard removed — always show token usage + new thread button */}
             <>
+              <div className="flex items-center gap-1">
+                <select
+                  aria-label="Agent profile"
+                  value={selectedAgentProfileId}
+                  onChange={event => void handleSelectAgentProfile(event.target.value)}
+                  className="h-7 max-w-[120px] rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-700 outline-none transition-colors focus:border-primary-400">
+                  {agentProfiles.map(profile => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setProfileDraftOpen(prev => !prev)}
+                  className="h-7 w-7 rounded-lg text-xs font-medium text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700"
+                  title="Create agent profile"
+                  aria-label="Create agent profile">
+                  +
+                </button>
+              </div>
               <TokenUsagePill />
               <button
                 onClick={() => void handleCreateNewThread()}
@@ -1196,6 +1420,65 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 {t('chat.new')}
               </button>
             </>
+          </div>
+        )}
+        {!isSidebar && profileDraftOpen && (
+          <div className="border-b border-stone-100 bg-white px-4 py-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
+              <input
+                value={profileDraft.name}
+                onChange={event => setProfileDraft(prev => ({ ...prev, name: event.target.value }))}
+                placeholder="Profile name"
+                className="h-8 rounded-lg border border-stone-200 px-3 text-xs outline-none focus:border-primary-400"
+              />
+              <select
+                value={profileDraft.agentId}
+                onChange={event =>
+                  setProfileDraft(prev => ({ ...prev, agentId: event.target.value }))
+                }
+                className="h-8 rounded-lg border border-stone-200 px-2 text-xs outline-none focus:border-primary-400">
+                {agentProfileAgentOptions.map(agent => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <textarea
+              value={profileDraft.systemPromptSuffix}
+              onChange={event =>
+                setProfileDraft(prev => ({ ...prev, systemPromptSuffix: event.target.value }))
+              }
+              placeholder="Prompt style"
+              rows={2}
+              className="mt-2 w-full resize-none rounded-lg border border-stone-200 px-3 py-2 text-xs outline-none focus:border-primary-400"
+            />
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={profileDraft.allowedTools}
+                onChange={event =>
+                  setProfileDraft(prev => ({ ...prev, allowedTools: event.target.value }))
+                }
+                placeholder="Allowed tools"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-stone-200 px-3 text-xs outline-none focus:border-primary-400"
+              />
+              <button
+                type="button"
+                onClick={() => void handleCreateAgentProfile()}
+                disabled={!profileDraft.name.trim()}
+                className="h-8 rounded-lg bg-primary-500 px-3 text-xs font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40">
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileDraft(DEFAULT_PROFILE_DRAFT);
+                  setProfileDraftOpen(false);
+                }}
+                className="h-8 rounded-lg border border-stone-200 px-3 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-50">
+                Cancel
+              </button>
+            </div>
           </div>
         )}
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6]">
@@ -1233,8 +1516,17 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 {t('common.reload')}
               </button>
             </div>
-          ) : hasVisibleMessages ? (
+          ) : hasVisibleMessages || hasTaskBoard ? (
             <div className="space-y-3">
+              {selectedTaskBoard && hasTaskBoard && (
+                <TaskKanbanBoard
+                  board={selectedTaskBoard}
+                  disabled={!selectedThreadId}
+                  onMove={(card, status) => {
+                    void handleMoveTaskCard(card, status);
+                  }}
+                />
+              )}
               {visibleMessages.map(msg => (
                 <div key={msg.id}>
                   {shouldRenderTimelineBeforeLatestAgentMessage &&

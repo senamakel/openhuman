@@ -78,4 +78,23 @@ describe('persistLocalWalletFromMnemonic', () => {
     expect(mockEncryptSecret).not.toHaveBeenCalled();
     expect(mockSetupLocalWallet).not.toHaveBeenCalled();
   });
+
+  it('rejects empty encrypted mnemonic output before persisting wallet state', async () => {
+    const setEncryptionKey = vi.fn(async () => undefined);
+    mockSetupLocalWallet.mockReset();
+    mockEncryptSecret.mockReset();
+    mockEncryptSecret.mockResolvedValueOnce({ result: '   ' });
+
+    await expect(
+      persistLocalWalletFromMnemonic({
+        mnemonic:
+          'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+        source: 'imported',
+        setEncryptionKey,
+      })
+    ).rejects.toThrow(/failed to secure recovery phrase/i);
+
+    expect(setEncryptionKey).not.toHaveBeenCalled();
+    expect(mockSetupLocalWallet).not.toHaveBeenCalled();
+  });
 });

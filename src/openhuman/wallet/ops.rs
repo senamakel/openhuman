@@ -399,16 +399,36 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
 }
 
 pub(crate) async fn secret_material(chain: WalletChain) -> Result<WalletSecretMaterial, String> {
+    debug!(
+        "{LOG_PREFIX} secret_material loading config chain={}",
+        chain.as_str()
+    );
     let config = config_rpc::load_config_with_timeout().await?;
+    debug!(
+        "{LOG_PREFIX} secret_material acquiring state lock chain={}",
+        chain.as_str()
+    );
     let _guard = WALLET_STATE_FILE_LOCK.lock();
-    let state = load_stored_wallet_state_unlocked(&config)?
-        .ok_or_else(|| "wallet is not configured; run wallet setup first".to_string())?;
+    let state = match load_stored_wallet_state_unlocked(&config)? {
+        Some(state) => state,
+        None => {
+            debug!(
+                "{LOG_PREFIX} secret_material missing wallet state chain={}",
+                chain.as_str()
+            );
+            return Err("wallet is not configured; run wallet setup first".to_string());
+        }
+    };
     let encrypted_mnemonic = state
         .encrypted_mnemonic
         .as_ref()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
+            debug!(
+                "{LOG_PREFIX} secret_material missing encrypted mnemonic chain={}",
+                chain.as_str()
+            );
             "wallet secret material is missing; re-import the recovery phrase to enable signing"
                 .to_string()
         })?;
@@ -417,7 +437,18 @@ pub(crate) async fn secret_material(chain: WalletChain) -> Result<WalletSecretMa
         .iter()
         .find(|account| account.chain == chain)
         .map(|account| account.derivation_path.clone())
-        .ok_or_else(|| format!("no wallet account derived for chain '{}'", chain.as_str()))?;
+        .ok_or_else(|| {
+            debug!(
+                "{LOG_PREFIX} secret_material missing account chain={}",
+                chain.as_str()
+            );
+            format!("no wallet account derived for chain '{}'", chain.as_str())
+        })?;
+    debug!(
+        "{LOG_PREFIX} secret_material loaded chain={} derivation_path={}",
+        chain.as_str(),
+        derivation_path
+    );
     Ok(WalletSecretMaterial {
         encrypted_mnemonic,
         derivation_path,

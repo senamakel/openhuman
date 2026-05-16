@@ -295,6 +295,23 @@ fn store_quote(quote: PreparedTransaction) -> PreparedTransaction {
     quote
 }
 
+fn get_quote(quote_id: &str) -> Result<PreparedTransaction, String> {
+    let store = QUOTE_STORE.lock();
+    let now = now_ms();
+    let quote = store
+        .iter()
+        .find(|q| q.quote_id == quote_id)
+        .cloned()
+        .ok_or_else(|| format!("quote '{quote_id}' not found"))?;
+    if quote.status == PreparedStatus::Consumed {
+        return Err(format!("quote '{quote_id}' already executed"));
+    }
+    if quote.expires_at_ms <= now {
+        return Err(format!("quote '{quote_id}' expired"));
+    }
+    Ok(quote)
+}
+
 fn take_quote(quote_id: &str) -> Result<PreparedTransaction, String> {
     let mut store = QUOTE_STORE.lock();
     let now = now_ms();
@@ -596,7 +613,7 @@ pub async fn balances() -> Result<RpcOutcome<Vec<BalanceInfo>>, String> {
                         "{LOG_PREFIX} balances chain=evm address={} falling back to zero placeholder: {}",
                         account.address, error
                     );
-                    ("0".to_string(), ProviderStatus::Ready)
+                    ("0".to_string(), ProviderStatus::Missing)
                 }
             }
         } else {
@@ -815,7 +832,7 @@ pub async fn execute_prepared(
     if !params.confirmed {
         return Err("execute_prepared requires `confirmed: true`".to_string());
     }
-    let quote = take_quote(&params.quote_id)?;
+    let quote = get_quote(&params.quote_id)?;
     let result = match quote.chain {
         WalletChain::Evm => execute_evm_quote(quote).await?,
         other => {
@@ -825,6 +842,7 @@ pub async fn execute_prepared(
             ));
         }
     };
+    let _ = take_quote(&params.quote_id)?;
     Ok(RpcOutcome::new(
         result,
         vec!["wallet transaction broadcast".to_string()],
@@ -1034,6 +1052,46 @@ mod tests {
         .await
         .unwrap_err();
         assert!(err.contains("confirmed: true"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn execute_prepared_keeps_quote_when_chain_is_not_supported_for_broadcast() {
+        let _guard = TEST_LOCK.lock();
+        reset_quote_store_for_tests();
+        let now = now_ms();
+        let quote = PreparedTransaction {
+            quote_id: "q_retry".to_string(),
+            kind: PreparedKind::NativeTransfer,
+            chain: WalletChain::Btc,
+            from_address: "btc-from".to_string(),
+            to_address: "btc-to".to_string(),
+            asset_symbol: "BTC".to_string(),
+            amount_raw: "1".to_string(),
+            amount_formatted: "0.00000001".to_string(),
+            receive_symbol: None,
+            min_receive_raw: None,
+            calldata: None,
+            token_address: None,
+            estimated_fee_raw: "5000".to_string(),
+            status: PreparedStatus::AwaitingConfirmation,
+            created_at_ms: now,
+            expires_at_ms: now + 60_000,
+            notes: vec![],
+        };
+        store_quote(quote);
+
+        let err = execute_prepared(ExecutePreparedParams {
+            quote_id: "q_retry".to_string(),
+            confirmed: true,
+        })
+        .await
+        .unwrap_err();
+
+        assert!(err.contains("not implemented yet"), "got: {err}");
+        assert!(
+            get_quote("q_retry").is_ok(),
+            "quote should remain retryable"
+        );
     }
 
     #[tokio::test]

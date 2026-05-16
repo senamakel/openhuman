@@ -1883,6 +1883,47 @@ async fn json_rpc_web_chat_custom_reasoning_provider_uses_stored_key_and_rebuild
         Some("Bearer sk-custom-openai-key")
     );
 
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+    let sse_task =
+        tokio::spawn(async move { read_sse_event_by_type(&events_url, "chat_done").await });
+
+    let accepted = post_json_rpc(
+        &rpc_base,
+        6007,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "This turn should stay on the backend agentic route",
+            "model_override": "hint:agentic"
+        }),
+    )
+    .await;
+    let accepted_result =
+        assert_no_jsonrpc_error(&accepted, "channel_web_chat unaffected agentic route");
+    assert_eq!(
+        accepted_result
+            .get("result")
+            .and_then(|v| v.get("accepted")),
+        Some(&json!(true))
+    );
+    let _ = tokio::time::timeout(Duration::from_secs(12), sse_task)
+        .await
+        .expect("timed out waiting for unaffected agentic chat_done")
+        .expect("unaffected agentic sse join");
+
+    let requests = wait_for_chat_completion_requests_len(3).await;
+    assert_eq!(requests.len(), 3, "expected three outbound provider calls");
+    assert_eq!(
+        requests[2].get("path").and_then(Value::as_str),
+        Some("/openai/v1/chat/completions"),
+        "custom reasoning provider must not hijack unrelated backend routes"
+    );
+    assert_eq!(
+        requests[2].get("model").and_then(Value::as_str),
+        Some("agentic-v1")
+    );
+
     mock_join.abort();
     rpc_join.abort();
 }

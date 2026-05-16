@@ -110,7 +110,7 @@ const MascotPanel = () => {
   return (
     <div>
       <SettingsHeader
-        title="Mascot"
+        title="OpenHuman"
         showBackButton={true}
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}
@@ -124,13 +124,13 @@ const MascotPanel = () => {
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {available.length === 0 ? (
               <p className="p-4 text-sm text-stone-500">
-                No mascot color variants are available in this build.
+                No OpenHuman color variants are available in this build.
               </p>
             ) : (
               <div
                 className="grid grid-cols-5 gap-3 p-4"
                 role="radiogroup"
-                aria-label="Mascot color">
+                aria-label="OpenHuman color">
                 {available.map(opt => {
                   const palette = getMascotPalette(opt.id);
                   const selected = opt.id === activeColor;
@@ -160,27 +160,28 @@ const MascotPanel = () => {
             )}
           </div>
           <p className="text-xs text-stone-500 leading-relaxed px-1 mt-2">
-            The selected color is applied everywhere the mascot appears and is remembered across
+            The selected color is applied everywhere OpenHuman appears and is remembered across
             restarts.
           </p>
         </div>
 
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2 px-1">
-            Backend mascots
+            Character
           </h3>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {backendListError && (
               <p className="p-4 text-sm text-coral-700">
-                Backend mascot library unavailable: {backendListError}
+                OpenHuman library unavailable: {backendListError}
               </p>
             )}
             {!backendListError && backendList === null && (
-              <p className="p-4 text-sm text-stone-500">Loading mascot library…</p>
+              <p className="p-4 text-sm text-stone-500">Loading OpenHuman library…</p>
             )}
             {backendList && backendList.length === 0 && !backendListError && (
               <p className="p-4 text-sm text-stone-500">
-                No backend mascots are available yet. Local color variants above are still active.
+                No OpenHuman characters are available yet. Local color variants above are still
+                active.
               </p>
             )}
             {backendList && backendList.length > 0 && (
@@ -193,7 +194,7 @@ const MascotPanel = () => {
                     className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 ${
                       selectedMascotId == null ? 'bg-stone-50 font-medium' : ''
                     }`}>
-                    <span>Local mascot (default)</span>
+                    <span>Local OpenHuman (default)</span>
                     {selectedMascotId == null && (
                       <span className="text-[10px] uppercase text-primary-600">Active</span>
                     )}
@@ -243,8 +244,8 @@ const MascotPanel = () => {
           )}
           {detailError && <p className="mt-2 text-xs text-coral-700 px-1">{detailError}</p>}
           <p className="text-xs text-stone-500 leading-relaxed px-1 mt-2">
-            Backend mascots come from the server-side library and animate via the same tween and
-            viseme pipeline as the meeting bot's video stream.
+            Characters come from the server-side library and animate via the same tween and viseme
+            pipeline as the meeting bot video stream.
           </p>
         </div>
       </div>

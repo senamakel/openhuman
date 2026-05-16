@@ -41,7 +41,7 @@ describe('MascotPanel', () => {
 
   it('renders a radio swatch for each supported color', () => {
     renderPanel();
-    expect(screen.getByRole('radiogroup', { name: 'Mascot color' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'OpenHuman color' })).toBeInTheDocument();
     for (const label of ['Yellow', 'Burgundy', 'Black', 'Navy', 'Green']) {
       expect(screen.getByRole('radio', { name: label })).toBeInTheDocument();
     }

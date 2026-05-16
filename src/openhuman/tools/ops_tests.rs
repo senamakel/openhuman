@@ -3,6 +3,9 @@ use crate::openhuman::config::{BrowserConfig, Config, MemoryConfig};
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use tempfile::TempDir;
 
+#[path = "../integrations/test_support.rs"]
+mod integration_test_support;
+
 fn test_config(tmp: &TempDir) -> Config {
     Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -929,8 +932,7 @@ fn all_tools_registers_seltz_lsp_and_tool_stats_when_enabled() {
 
 #[tokio::test]
 async fn all_tools_executes_apify_family_against_fake_backend() {
-    let backend =
-        crate::openhuman::integrations::test_support::spawn_fake_integration_backend().await;
+    let backend = integration_test_support::spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);
@@ -987,8 +989,7 @@ async fn all_tools_executes_apify_family_against_fake_backend() {
 
 #[tokio::test]
 async fn all_tools_executes_google_places_family_against_fake_backend() {
-    let backend =
-        crate::openhuman::integrations::test_support::spawn_fake_integration_backend().await;
+    let backend = integration_test_support::spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);
@@ -1022,8 +1023,7 @@ async fn all_tools_executes_google_places_family_against_fake_backend() {
 
 #[tokio::test]
 async fn all_tools_executes_parallel_and_web_search_family_against_fake_backend() {
-    let backend =
-        crate::openhuman::integrations::test_support::spawn_fake_integration_backend().await;
+    let backend = integration_test_support::spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);
@@ -1135,8 +1135,7 @@ async fn all_tools_executes_parallel_and_web_search_family_against_fake_backend(
 
 #[tokio::test]
 async fn all_tools_executes_stock_and_twilio_family_against_fake_backend() {
-    let backend =
-        crate::openhuman::integrations::test_support::spawn_fake_integration_backend().await;
+    let backend = integration_test_support::spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
     store_test_session_token(&cfg);

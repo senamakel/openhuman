@@ -63,9 +63,7 @@ describe('Skills page — Composio catalog fallback', () => {
       .getByRole('heading', { name: 'Integrations' })
       .closest('.rounded-2xl');
     expect(integrationsSection).not.toBeNull();
-    expect(
-      within(integrationsSection as HTMLElement).getByText('Zoom')
-    ).toBeInTheDocument();
+    expect(within(integrationsSection as HTMLElement).getByText('Zoom')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Other' })).not.toBeInTheDocument();
   });
 

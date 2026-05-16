@@ -1,16 +1,20 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import OnboardingLayout from './OnboardingLayout';
-// import ChatProviderPage from './pages/ChatProviderPage';
-import ContextPage from './pages/ContextPage';
-import SkillsPage from './pages/SkillsPage';
+import ApiKeysPage from './pages/ApiKeysPage';
+import RuntimeChoicePage from './pages/RuntimeChoicePage';
 import WelcomePage from './pages/WelcomePage';
 
 /**
- * Routed onboarding flow. Each step is a real page under `/onboarding/*`
- * sharing chrome + draft state through {@link OnboardingLayout}. The flow
- * runs while `onboarding_completed` is false and ends by calling
- * `completeAndExit()` (persists the flag, navigates to /home).
+ * Routed onboarding flow.
+ *
+ *   welcome → runtime-choice → (api-keys if Custom) → /home
+ *
+ * Gmail / Composio (`/onboarding/skills`) and the Composio-driven context
+ * gathering (`/onboarding/context`) used to live here but were removed from
+ * the default flow: requiring a Gmail connect on first launch scared users
+ * off, and the context step depended on it. The step + page files are kept
+ * on disk so we can reintroduce them as optional steps later.
  */
 const Onboarding = () => {
   return (
@@ -18,12 +22,8 @@ const Onboarding = () => {
       <Route element={<OnboardingLayout />}>
         <Route index element={<Navigate to="welcome" replace />} />
         <Route path="welcome" element={<WelcomePage />} />
-        <Route path="skills" element={<SkillsPage />} />
-        <Route path="context" element={<ContextPage />} />
-        {/* Chat-provider step disabled for now — finalisation happens at
-            the end of SkillsPage / ContextPage instead. Uncomment when
-            the provider picker is ready to ship. */}
-        {/* <Route path="chat-provider" element={<ChatProviderPage />} /> */}
+        <Route path="runtime-choice" element={<RuntimeChoicePage />} />
+        <Route path="api-keys" element={<ApiKeysPage />} />
         <Route path="*" element={<Navigate to="welcome" replace />} />
       </Route>
     </Routes>

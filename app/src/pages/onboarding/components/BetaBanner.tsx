@@ -35,11 +35,9 @@ const BetaBanner = () => {
           href={DISCORD_INVITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={t('common.learnMore')}
           className="font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900">
-          {t('common.learnMore')}
-        </a>{' '}
-        {t('onboarding.welcomeDesc')}
+          {t('misc.betaFeedback')}
+        </a>
       </p>
 
       {/* Dismiss */}

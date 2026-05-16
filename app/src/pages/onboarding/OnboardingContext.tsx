@@ -1,7 +1,11 @@
 import { createContext, useContext } from 'react';
 
+export type AiMode = 'cloud' | 'custom';
+
 export interface OnboardingDraft {
   connectedSources: string[];
+  /** Which AI provisioning path the user chose on the runtime-choice step. */
+  aiMode?: AiMode;
 }
 
 export interface OnboardingContextValue {

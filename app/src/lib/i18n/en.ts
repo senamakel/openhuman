@@ -229,6 +229,41 @@ const en: TranslationMap = {
   'onboarding.skip': 'Skip',
   'onboarding.getStarted': 'Get Started',
 
+  // Onboarding: runtime-choice step (Cloud vs Custom)
+  'onboarding.runtimeChoice.title': 'How would you like to run OpenHuman?',
+  'onboarding.runtimeChoice.subtitle':
+    'Pick the setup that fits you best. You can change this later in Settings.',
+  'onboarding.runtimeChoice.cloud.title': 'Simple',
+  'onboarding.runtimeChoice.cloud.tagline': 'Let OpenHuman manage everything for you.',
+  'onboarding.runtimeChoice.cloud.f1': 'Built-in security',
+  'onboarding.runtimeChoice.cloud.f2': 'Token compression to stretch your usage further',
+  'onboarding.runtimeChoice.cloud.f3': 'One subscription, every model included',
+  'onboarding.runtimeChoice.cloud.f4': 'No API keys to manage',
+  'onboarding.runtimeChoice.cloud.f5': 'Simple to set up',
+  'onboarding.runtimeChoice.custom.title': 'Run Custom',
+  'onboarding.runtimeChoice.custom.tagline': "Bring your own keys. Full control of what you're using.",
+  'onboarding.runtimeChoice.custom.f1': "You'll need API keys for almost everything",
+  'onboarding.runtimeChoice.custom.f2': 'Reuses services you already pay for',
+  'onboarding.runtimeChoice.custom.f3': 'More setup, more knobs',
+  'onboarding.runtimeChoice.custom.f4': 'Best for power users and developers',
+  'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
+  'onboarding.runtimeChoice.continueCloud': 'Continue with Simple',
+  'onboarding.runtimeChoice.continueCustom': 'Continue with Custom',
+  'onboarding.runtimeChoice.recommended': 'Recommended',
+
+  // Onboarding: API keys step (only when Custom is picked)
+  'onboarding.apiKeys.title': "Let's add your API keys",
+  'onboarding.apiKeys.subtitle':
+    "You can paste them now or skip and add them later in Settings › AI. Keys are stored on this device, encrypted at rest.",
+  'onboarding.apiKeys.openaiLabel': 'OpenAI API key',
+  'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
+  'onboarding.apiKeys.anthropicLabel': 'Anthropic API key',
+  'onboarding.apiKeys.anthropicPlaceholder': 'sk-ant-...',
+  'onboarding.apiKeys.saveError': "Couldn't save that key. Please double-check it and try again.",
+  'onboarding.apiKeys.skipForNow': 'Skip for now',
+  'onboarding.apiKeys.continue': 'Save and continue',
+  'onboarding.apiKeys.saving': 'Saving…',
+
   // Accounts
   'accounts.addAccount': 'Add Account',
   'accounts.manageAccounts': 'Manage Accounts',
@@ -298,7 +333,9 @@ const en: TranslationMap = {
   'misc.updateLater': 'Later',
   'misc.downloading': 'Downloading...',
   'misc.installing': 'Installing...',
-  'misc.beta': 'Beta',
+  'misc.beta':
+    "OpenHuman is in early beta. Feel free to share feedback or report any bugs you run into — every report helps us ship faster.",
+  'misc.betaFeedback': 'Send feedback',
 
   // Mnemonic / Recovery
   'mnemonic.title': 'Recovery Phrase',

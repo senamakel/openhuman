@@ -159,7 +159,7 @@ const OnboardingLayout = () => {
       <div
         data-testid="onboarding-layout"
         className="min-h-full relative flex items-center justify-center py-10">
-        <div className="relative z-10 w-full max-w-lg mx-4">
+        <div className="relative z-10 w-full max-w-2xl mx-4">
           <BetaBanner />
           <Outlet />
         </div>

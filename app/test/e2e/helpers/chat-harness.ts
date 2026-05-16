@@ -26,9 +26,9 @@ export async function clickByTitle(title: string, timeoutMs = 6_000): Promise<bo
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(`button[title=${JSON.stringify(t)}]`) as
-        | HTMLButtonElement
-        | null;
+      const el = document.querySelector(
+        `button[title=${JSON.stringify(t)}]`
+      ) as HTMLButtonElement | null;
       if (!el) return false;
       el.click();
       return true;
@@ -60,9 +60,9 @@ export async function typeIntoComposer(text: string): Promise<void> {
  *  button isn't there yet or is `disabled` (so the caller can poll). */
 export async function clickSend(): Promise<boolean> {
   return (await browser.execute(() => {
-    const btn = document.querySelector('button[aria-label="Send message"]') as
-      | HTMLButtonElement
-      | null;
+    const btn = document.querySelector(
+      'button[aria-label="Send message"]'
+    ) as HTMLButtonElement | null;
     if (!btn || btn.disabled) return false;
     btn.click();
     return true;

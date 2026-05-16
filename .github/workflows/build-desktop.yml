@@ -84,6 +84,15 @@ on:
           the Tauri shell since #1061).
         type: boolean
         default: false
+      skip_e2e_pretest:
+        description:
+          Metadata-only flag propagated by caller workflows when they
+          intentionally bypass the upstream E2E pretest gate. This reusable
+          build workflow does not execute E2E itself, but it logs the policy so
+          the build run captures whether the normal release pretest contract was
+          relaxed for this invocation.
+        type: boolean
+        default: false
       with_updater:
         description:
           When true, set `WITH_UPDATER=true` so the Tauri bundler emits the
@@ -131,6 +140,10 @@ jobs:
           ref: ${{ inputs.build_ref }}
           fetch-depth: 1
           submodules: recursive
+      - name: Log build policy
+        shell: bash
+        run: |
+          echo "[build-desktop] tag=${{ inputs.tag }} build_ref=${{ inputs.build_ref }} skip_e2e_pretest=${{ inputs.skip_e2e_pretest }}"
       - name: Set Xcode version
         if: matrix.settings.platform == 'macos-latest'
         uses: maxim-lobanov/setup-xcode@v1

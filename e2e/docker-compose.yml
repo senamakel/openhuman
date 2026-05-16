@@ -49,6 +49,15 @@ services:
       - e2e-tauri-target:/workspace/app/src-tauri/target
       - e2e-pnpm-store:/root/.local/share/pnpm/store
       - e2e-npm-global:/usr/lib/node_modules
+      # Isolate node_modules per-platform: the host (macOS arm64) and the
+      # container (Linux x64) install different native binaries (rolldown,
+      # esbuild, sharp, …). Sharing node_modules over the bind mount means
+      # one platform's binaries clobber the other and the build fails with
+      # `Cannot find module '@rolldown/binding-linux-x64-gnu'` (or the
+      # darwin equivalent when running on the host). Named volumes keep
+      # each platform's tree separate.
+      - e2e-node-modules:/workspace/node_modules
+      - e2e-app-node-modules:/workspace/app/node_modules
     environment:
       - DISPLAY=:99
       - CI=true
@@ -67,3 +76,5 @@ volumes:
   e2e-tauri-target:
   e2e-pnpm-store:
   e2e-npm-global:
+  e2e-node-modules:
+  e2e-app-node-modules:

@@ -113,8 +113,14 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
             crate::openhuman::providers::factory::lookup_key_for_slug(&entry.slug, &config)
                 .unwrap_or_default();
 
-        // Build the HTTP client (reuse the runtime proxy config).
-        let client = crate::openhuman::config::build_runtime_proxy_client("providers.list_models");
+        // Build the HTTP client (reuse the runtime proxy config). Explicit
+        // timeouts mirror the other external integrations (composio,
+        // multimodal) so a slow/unresponsive provider can't hang the panel.
+        let client = crate::openhuman::config::build_runtime_proxy_client_with_timeouts(
+            "providers.list_models",
+            30,
+            10,
+        );
 
         let mut request = client.get(&models_url);
 

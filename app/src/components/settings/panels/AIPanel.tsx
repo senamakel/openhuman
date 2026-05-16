@@ -22,6 +22,7 @@ import {
   saveAISettings,
   setCloudProviderKey,
 } from '../../../services/api/aiSettingsApi';
+import type { AuthStyle } from '../../../utils/tauriCommands/config';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
@@ -34,6 +35,7 @@ type CloudProvider = {
   slug: string;
   label: string;
   endpoint: string;
+  authStyle: AuthStyle;
   maskedKey: string;
 };
 
@@ -156,12 +158,25 @@ function maskKeyLabel(hasKey: boolean): string {
   return hasKey ? '•••• configured' : 'Not configured';
 }
 
+/**
+ * Default auth style for a slug. Built-in slugs map to their known styles;
+ * everything else (custom + third-party slugs the user types in) defaults
+ * to bearer, matching the OpenAI-compatible majority.
+ */
+function authStyleForSlug(slug: string): AuthStyle {
+  if (slug === 'openhuman') return 'openhuman_jwt';
+  if (slug === 'anthropic') return 'anthropic';
+  if (slug === 'lmstudio' || slug === 'ollama') return 'none';
+  return 'bearer';
+}
+
 function toPanelProvider(p: CloudProviderView): CloudProvider {
   return {
     id: p.id,
     slug: p.slug,
     label: p.label,
     endpoint: p.endpoint,
+    authStyle: p.auth_style,
     maskedKey: maskKeyLabel(p.has_api_key),
   };
 }
@@ -190,7 +205,7 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       slug: p.slug,
       label: p.label,
       endpoint: p.endpoint,
-      auth_style: 'bearer' as const,
+      auth_style: p.authStyle,
       has_api_key: p.maskedKey.startsWith('••••'),
     })),
     routing: {
@@ -892,12 +907,16 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                         const nextRouting = Object.fromEntries(
                           Object.entries(draft.routing).map(([wid, ref]) => [
                             wid,
-                            ref.kind === 'cloud' && ref.providerSlug === slug
+                            ref.kind === 'cloud' && ref.providerSlug === existing.slug
                               ? ({ kind: 'openhuman' } as const)
                               : ref,
                           ])
                         ) as typeof draft.routing;
                         setDraft({ ...draft, cloudProviders: remaining, routing: nextRouting });
+                      } else if (slug === 'custom') {
+                        // Custom providers need slug + endpoint + label, not
+                        // just an API key — defer to the full editor modal.
+                        setEditing('new');
                       } else {
                         // Toggle ON: open the API-key popup. The chip
                         // only flips after the dialog saves.
@@ -1053,19 +1072,23 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 id,
                 maskedKey: maskKeyLabel(apiKey ? true : next.maskedKey.startsWith('••••')),
               };
-              const list =
-                editing === 'new'
-                  ? [...draft.cloudProviders, upserted]
-                  : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
-              setDraft({ ...draft, cloudProviders: list });
+              // Persist the credential BEFORE mutating draft, so a key-write
+              // failure doesn't leave the config referencing a provider with
+              // no stored key.
               if (apiKey && upserted.slug !== 'openhuman') {
                 try {
                   await setCloudProviderKey(upserted.slug, apiKey);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
+                  return;
                 }
               }
+              const list =
+                editing === 'new'
+                  ? [...draft.cloudProviders, upserted]
+                  : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
+              setDraft({ ...draft, cloudProviders: list });
               setEditing(null);
             } finally {
               setBusyAction(null);
@@ -1127,12 +1150,21 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 slug,
                 label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
                 endpoint: isLocalRuntime ? apiKey.trim() : defaultEndpointFor(slug),
+                authStyle: authStyleForSlug(slug),
                 maskedKey: maskKeyLabel(true),
               };
-              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
+              // Persist the credential BEFORE mutating draft, so a key-write
+              // failure can't leave config + secrets out of sync.
               if (!isLocalRuntime && slug !== 'openhuman') {
-                await setCloudProviderKey(slug, apiKey);
+                try {
+                  await setCloudProviderKey(slug, apiKey);
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  console.warn('[ai-settings] setCloudProviderKey failed', msg);
+                  return;
+                }
               }
+              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
               setKeyDialogFor(null);
               setPendingLocalLabel(null);
             } finally {
@@ -1277,6 +1309,7 @@ const CloudProviderEditor = ({
                     slug,
                     label: label.trim() || slug,
                     endpoint: endpoint.trim(),
+                    authStyle: initial?.authStyle ?? authStyleForSlug(slug),
                     maskedKey: maskKeyLabel(hasExistingKey || apiKey.length > 0),
                   },
                   apiKey.trim()

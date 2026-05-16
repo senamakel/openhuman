@@ -127,6 +127,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::security::all_security_registered_controllers());
     // Background heartbeat loop controls
     controllers.extend(crate::openhuman::heartbeat::all_heartbeat_registered_controllers());
+    // Ad-hoc static directory HTTP hosting for local file sharing / previews
+    controllers.extend(crate::openhuman::http_host::all_http_host_registered_controllers());
     // Token usage and billing cost tracking
     controllers.extend(crate::openhuman::cost::all_cost_registered_controllers());
     // Inline autocomplete settings

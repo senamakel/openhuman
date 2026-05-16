@@ -157,8 +157,10 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_registered_controllers(),
     );
-    // Bridge to external skill runtimes
+    // Backend Socket.IO bridge + related runtime plumbing
     controllers.extend(crate::openhuman::socket::all_socket_registered_controllers());
+    // Managed Node.js runtime bridge (tool listing + dispatch)
+    controllers.extend(crate::openhuman::javascript::all_javascript_registered_controllers());
     // Discovered SKILL.md skills and their bundled resources
     controllers.extend(crate::openhuman::skills::all_skills_registered_controllers());
     // User workspace and file management
@@ -277,6 +279,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
         crate::openhuman::screen_intelligence::all_screen_intelligence_controller_schemas(),
     );
     schemas.extend(crate::openhuman::socket::all_socket_controller_schemas());
+    schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
     schemas.extend(crate::openhuman::skills::all_skills_controller_schemas());
     schemas.extend(crate::openhuman::workspace::all_workspace_controller_schemas());
     schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());
@@ -359,11 +362,12 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "health" => Some("Process and component health snapshots."),
         "local_ai" => Some("Local AI chat, inference, downloads, and media operations."),
         "migrate" => Some("Data migration utilities."),
+        "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),
         "screen_intelligence" => Some("Screen capture, permissions, and accessibility automation."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),
         "skills" => Some("Discovered SKILL.md skills and their bundled resources."),
-        "socket" => Some("Skills runtime socket bridge controls."),
+        "socket" => Some("Backend Socket.IO bridge controls."),
         "memory" => Some("Document storage, vector search, key-value store, and knowledge graph."),
         "memory_tree" => Some(
             "Canonical chunk ingestion, provenance capture, and chunk retrieval for source-grounded memory.",

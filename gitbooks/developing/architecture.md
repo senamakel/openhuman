@@ -7,7 +7,7 @@ icon: code-branch
 
 **AI-powered super assistant for crypto communities, built on Rust.**
 
-OpenHuman is a cross-platform communication and automation platform purpose-built for the cryptocurrency ecosystem. A single React + Rust (Tauri) codebase can target multiple platforms; **what we document and ship for users today is desktop only** - **Windows, macOS, and Linux**. Android, iOS, and web are **not** supported in current docs or releases. The stack includes a sandboxed JavaScript skills engine, persistent Rust-native WebSocket infrastructure, and an AI tool protocol that lets language models invoke any connected service in real time.
+OpenHuman is a cross-platform communication and automation platform purpose-built for the cryptocurrency ecosystem. A single React + Rust (Tauri) codebase can target multiple platforms; **what we document and ship for users today is desktop only** - **Windows, macOS, and Linux**. Android, iOS, and web are **not** supported in current docs or releases. The stack includes a managed Node.js runtime for tool-capable skills, persistent Rust-native WebSocket infrastructure, and an AI tool protocol that lets language models invoke any connected service in real time.
 
 ---
 
@@ -16,7 +16,7 @@ OpenHuman is a cross-platform communication and automation platform purpose-buil
 | Path                    | Contents                                                                                                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`app/`**              | Yarn workspace **`openhuman-app`**: Vite/React UI (`app/src/`), Tauri shell (`app/src-tauri/`), Vitest tests                                                       |
-| **Repo root `src/`**    | Rust **`openhuman_core`** library + **`openhuman-core`** CLI binary - `core_server`, JSON-RPC, QuickJS skills runtime (`src/openhuman/skills/`), channels, memory, etc. |
+| **Repo root `src/`**    | Rust **`openhuman_core`** library + **`openhuman-core`** CLI binary - core server, JSON-RPC, first-class JavaScript runtime (`src/openhuman/javascript/`) backed by a managed Node.js implementation, channels, memory, etc. |
 | **`Cargo.toml`** (root) | Builds the `openhuman-core` binary (`cargo build --bin openhuman-core`) staged into `app/src-tauri/binaries/` for the desktop bundle                                 |
 | **`skills/`**           | Skill packages consumed by the runtime                                                                                                                             |
 | **`docs/`**             | This book + per-tree guides (`docs/src/`, `docs/src-tauri/`)                                                                                                       |
@@ -163,7 +163,7 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 +---------------------------------------------------------------+
 ```
 
-**QuickJS Runtime** (`rquickjs`): Each skill gets its own QuickJS `AsyncRuntime` and `AsyncContext`, fully isolated memory spaces with no cross-skill access.
+**Node.js Runtime**: the core resolves a compatible system `node` when possible and otherwise installs a managed distribution into the OpenHuman cache. Skills primarily expose tool metadata and use the runtime bridge to list and execute tools rather than running isolated QuickJS VMs inside the core.
 
 | Parameter                      | Value       |
 | ------------------------------ | ----------- |
@@ -192,7 +192,7 @@ OpenHuman's defining capability is its **sandboxed JavaScript execution engine**
 | ----------------- | ----------------------------------------- |
 | `id`              | Unique identifier                         |
 | `name`            | Human-readable display name               |
-| `runtime`         | Execution engine (`quickjs`)              |
+| `runtime`         | Execution engine (`nodejs`)               |
 | `entry`           | Entry point file (default: `index.js`)    |
 | `memory_limit_mb` | Per-skill memory cap (default: 64)        |
 | `platforms`       | Supported platforms (default: all)        |
@@ -341,7 +341,7 @@ Every layer is async and non-blocking. The Rust core processes thousands of conc
 | **Framework**  | Tauri v2                        | Native cross-platform with minimal overhead              |
 | **Language**   | Rust (2021 edition)             | Memory safety, zero-cost abstractions                    |
 | **Async**      | Tokio                           | High-performance async I/O runtime                       |
-| **JS Engine**  | QuickJS (rquickjs)              | Lightweight sandboxed JS execution (~1-2 MB per context) |
+| **JS Runtime** | Node.js                         | Managed V8 runtime for tool helpers and skill-adjacent JS |
 | **Database**   | SQLite (rusqlite)               | Embedded, zero-config, per-skill isolation               |
 | **WebSocket**  | tokio-tungstenite + rustls      | Persistent connections with native TLS                   |
 | **HTTP**       | reqwest                         | Async HTTP with rustls + native-tLS dual support         |

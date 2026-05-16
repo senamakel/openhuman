@@ -13,17 +13,8 @@ import {
   LuCheck,
   LuCircleAlert,
   LuCloud,
-  LuCpu,
-  LuDownload,
-  LuKey,
-  LuLoader,
-  LuPencilLine,
-  LuPlus,
-  LuPower,
-  LuRefreshCw,
   LuServer,
   LuShield,
-  LuTrash2,
   LuWand,
   LuZap,
 } from 'react-icons/lu';
@@ -35,12 +26,10 @@ import {
   type CloudProviderView,
   loadAISettings,
   loadLocalProviderSnapshot,
-  localProvider,
   type LocalProviderSnapshot,
   saveAISettings,
   setCloudProviderKey,
 } from '../../../services/api/aiSettingsApi';
-import { openUrl } from '../../../utils/openUrl';
 import type { CloudProviderType as ApiCloudProviderType } from '../../../utils/tauriCommands/config';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -176,11 +165,7 @@ const PROVIDER_META: Record<
   },
 };
 
-const TIER_PRESETS = [
-  { id: 'lite', label: '2–4 GB RAM', model: 'llama3.2:1b', blurb: 'Tiny + responsive' },
-  { id: 'standard', label: '4–8 GB RAM', model: 'llama3.1:8b', blurb: 'Balanced default' },
-  { id: 'studio', label: '8 GB+ RAM', model: 'qwen2.5:14b', blurb: 'Headroom for nuance' },
-];
+// TIER_PRESETS removed alongside the Local provider section.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API-adapter hooks
@@ -395,133 +380,195 @@ function useInstalledModels(snapshot: LocalProviderSnapshot | null): OllamaModel
 // Primitives
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500">{children}</h3>
-);
+// SectionLabel removed alongside its only call site (the old
+// "Cloud providers" / "Local provider" headings).
 
-const formatBytes = (n: number): string => {
-  if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`;
-  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(0)} MB`;
-  return `${(n / 1024 ** 3).toFixed(1)} GB`;
-};
-
-const StatusDot = ({ state }: { state: OllamaState }) => {
-  const tone =
-    state === 'running'
-      ? 'bg-sage-500'
-      : state === 'starting'
-        ? 'bg-amber-500'
-        : state === 'error'
-          ? 'bg-coral-500'
-          : 'bg-stone-300';
-  return (
-    <span className="relative inline-flex h-2 w-2 items-center justify-center">
-      <span
-        className={`absolute inset-0 rounded-full ${tone} ${state === 'running' ? 'animate-glow-pulse' : ''}`}
-      />
-    </span>
-  );
-};
-
-const ProviderChip = ({ type }: { type: CloudProviderType }) => {
-  const meta = PROVIDER_META[type];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ${meta.pill}`}>
-      {meta.icon}
-      {meta.label}
-    </span>
-  );
-};
+// formatBytes / StatusDot / ProviderChip helpers removed alongside the
+// Local provider section + CloudProviderCard — no callers left.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cloud provider card
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CloudProviderCard = ({
-  provider,
-  isPrimary,
-  onMakePrimary,
-  onEdit,
-  onRemove,
+// Provider "type" id used by the chip UI. Extends CloudProviderType with two
+// local-runtime brands (LM Studio + Ollama) so they get the same chip
+// affordance. Backend storage still uses CloudProviderType; the two extras
+// are persisted as `type: 'custom'` with a distinguishing label.
+type ProviderChipType = CloudProviderType | 'lmstudio' | 'ollama';
+
+// Faint brand-tinted background per provider. Compact (no icon) chip that
+// holds the provider name + a small toggle switch. The brand tint is shown
+// at all times (enabled and disabled) — the toggle is the only enabled-state
+// signal — so the row reads as a row of branded options at a glance.
+//
+// Tints are rough approximations of each vendor's brand:
+//   - OpenAI     → emerald (their classic green logo accent)
+//   - Anthropic  → orange  (Claude / Anthropic warm orange branding)
+//   - OpenRouter → slate   (dark / monochrome logo)
+//   - LM Studio  → cyan    (their teal/cyan icon)
+//   - Ollama     → violet  (their llama-themed purple tone)
+//   - Custom     → stone   (neutral)
+const PROVIDER_CHIP_TONE: Record<ProviderChipType, string> = {
+  openhuman: 'bg-primary-50 ring-primary-200 text-primary-900',
+  openai: 'bg-emerald-50 ring-emerald-200 text-emerald-900',
+  anthropic: 'bg-orange-50 ring-orange-200 text-orange-900',
+  openrouter: 'bg-slate-100 ring-slate-300 text-slate-900',
+  lmstudio: 'bg-cyan-50 ring-cyan-200 text-cyan-900',
+  ollama: 'bg-violet-50 ring-violet-200 text-violet-900',
+  custom: 'bg-stone-100 ring-stone-300 text-stone-900',
+};
+
+const PROVIDER_CHIP_LABEL: Record<ProviderChipType, string> = {
+  openhuman: 'OpenHuman',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  openrouter: 'OpenRouter',
+  lmstudio: 'LM Studio',
+  ollama: 'Ollama',
+  custom: 'Custom',
+};
+
+const ProviderToggleChip = ({
+  type,
+  label,
+  enabled,
+  busy,
+  onToggle,
 }: {
-  provider: CloudProvider;
-  isPrimary: boolean;
-  onMakePrimary: () => void;
-  onEdit: () => void;
-  onRemove: () => void;
+  type: ProviderChipType;
+  label: string;
+  enabled: boolean;
+  busy?: boolean;
+  onToggle: () => void;
 }) => {
-  const meta = PROVIDER_META[provider.type];
+  const tone = PROVIDER_CHIP_TONE[type];
   return (
     <div
-      className={`group relative flex overflow-hidden rounded-lg border ${
-        isPrimary
-          ? 'border-primary-300 bg-primary-50/30 ring-1 ring-primary-100'
-          : 'border-stone-200 bg-stone-50'
-      }`}>
-      <div className={`w-0.5 shrink-0 ${meta.rail}`} aria-hidden />
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold text-stone-900">{provider.label}</span>
-            {isPrimary && (
-              <span className="rounded bg-primary-500 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-white">
-                Primary
-              </span>
-            )}
-            <ProviderChip type={provider.type} />
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5">
-            {!isPrimary && (
-              <button
-                onClick={onMakePrimary}
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-primary-600 hover:bg-primary-100/60">
-                Set primary
-              </button>
-            )}
-            {/* OpenHuman is the signed-in default: its endpoint comes from
-                the user's account, its key is the session JWT (managed
-                separately), and its type can't be changed. So edit + delete
-                are both meaningless here — hide them to avoid confusion.
-                "Set primary" stays, so the user can still re-mark OpenHuman
-                as primary if they've switched to another provider. */}
-            {provider.type !== 'openhuman' && (
-              <>
-                <button
-                  onClick={onEdit}
-                  className="rounded p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-                  aria-label="Edit">
-                  <LuPencilLine className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={onRemove}
-                  className="rounded p-1 text-stone-400 hover:bg-coral-50 hover:text-coral-600"
-                  aria-label="Remove">
-                  <LuTrash2 className="h-3 w-3" />
-                </button>
-              </>
-            )}
-          </div>
+      className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${tone}`}>
+      <span>{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={`${enabled ? 'Disconnect' : 'Connect'} ${label}`}
+        disabled={busy}
+        onClick={onToggle}
+        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${
+          enabled ? 'bg-primary-500' : 'bg-stone-300'
+        }`}>
+        <span
+          aria-hidden
+          className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+            enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
+// Minimal API-key dialog — shown when the user flips a provider toggle ON.
+// No endpoint / model fields; default endpoint is derived from the type and
+// the model is left empty (the routing dialog picks the model per workload).
+const ProviderKeyDialog = ({
+  type,
+  label,
+  onCancel,
+  onSubmit,
+}: {
+  type: CloudProviderType;
+  label: string;
+  onCancel: () => void;
+  onSubmit: (apiKey: string) => Promise<void> | void;
+}) => {
+  const [apiKey, setApiKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const placeholder =
+    type === 'openai'
+      ? 'sk-...'
+      : type === 'anthropic'
+        ? 'sk-ant-...'
+        : type === 'openrouter'
+          ? 'sk-or-...'
+          : 'your-api-key';
+
+  const handleSave = async () => {
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+      setError('Please paste your API key to continue.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(trimmed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Connect ${label}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft">
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-stone-900">Connect {label}</h3>
+          <p className="mt-0.5 text-xs text-stone-500">
+            Paste your API key. It's stored encrypted on this device only.
+          </p>
         </div>
-        {provider.type === 'openhuman' ? (
-          <div className="text-xs text-stone-500">Signed-in default · no configuration needed</div>
-        ) : (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
-            <dt className="text-stone-400">Endpoint</dt>
-            <dd className="truncate font-mono text-stone-700">{provider.endpoint}</dd>
-            <dt className="text-stone-400">Key</dt>
-            <dd className="flex items-center gap-1 truncate font-mono text-stone-700">
-              <LuKey className="h-2.5 w-2.5 text-stone-400" />
-              <span className="truncate">{provider.maskedKey}</span>
-            </dd>
-            <dt className="text-stone-400">Model</dt>
-            <dd className="truncate font-mono text-stone-700">{provider.defaultModel}</dd>
-          </dl>
-        )}
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="provider-key-input" className="text-xs font-medium text-stone-700">
+            API key
+          </label>
+          <input
+            id="provider-key-input"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={apiKey}
+            placeholder={placeholder}
+            onChange={e => {
+              setApiKey(e.target.value);
+              setError(null);
+            }}
+            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          {error ? <p className="text-xs font-medium text-red-600">{error}</p> : null}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+// CloudProviderCard was removed alongside the list-based auth UI. The new
+// chip layout (ProviderToggleChip) covers the same affordances with less
+// chrome. CloudProviderEditor still exists for the advanced add/edit flow,
+// although nothing currently mounts it.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workload row (stacked, narrow-friendly)
@@ -841,24 +888,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   // Which workload's "Custom" dialog is currently open (null = closed).
   const [customDialogFor, setCustomDialogFor] = useState<WorkloadId | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
-  const [customPathInput, setCustomPathInput] = useState<string>('');
-  // Seed the custom-path input from the resolved binary path the FIRST time
-  // diagnostics arrives, so the field shows what's currently in use.
-  const resolvedBinaryPath = ollama.snapshot?.diagnostics?.ollama_binary_path ?? '';
-  useEffect(() => {
-    if (customPathInput === '' && resolvedBinaryPath) {
-      setCustomPathInput(resolvedBinaryPath);
-    }
-    // We deliberately do NOT re-sync on every diagnostics tick — that would
-    // clobber in-flight edits while the user is typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedBinaryPath]);
-
-  const daemonWarning = ollama.snapshot?.status?.warning ?? '';
-  const isDaemonConflict =
-    daemonWarning.toLowerCase().includes('external ollama daemon') ||
-    daemonWarning.toLowerCase().includes('broken runner');
+  // Which provider type's API-key dialog is currently open (null = closed).
+  const [keyDialogFor, setKeyDialogFor] = useState<CloudProviderType | null>(null);
+  // When the user toggles LM Studio / Ollama (both stored as `custom`), we
+  // need to remember which label to attach to the upserted provider so the
+  // chip can find it again. Cleared when the dialog closes.
+  const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
 
   const primary = useMemo(
     () => draft.cloudProviders.find(p => p.id === draft.primaryCloudId),
@@ -914,23 +949,15 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
           <div className="border-b border-stone-200 pb-2">
-            <h2 className="text-base font-semibold text-stone-900">Auth</h2>
+            <h2 className="text-base font-semibold text-stone-900">LLM Providers</h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Keys, endpoints, and local runtime setup for the providers OpenHuman can talk to.
+              Connect the language-model backends you want OpenHuman to use. Toggle a provider on
+              to add its key; toggle off to disconnect.
             </p>
           </div>
 
-        {/* ─── Cloud providers ─────────────────────────────────────────── */}
+        {/* ─── Provider chip-toggle list ────────────────────────────────── */}
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <SectionLabel>Cloud providers</SectionLabel>
-            <button
-              onClick={() => setEditing('new')}
-              className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-700 hover:border-primary-300 hover:bg-primary-50/40 hover:text-primary-700">
-              <LuPlus className="h-3 w-3" />
-              Add
-            </button>
-          </div>
 
           {loading && <div className="text-xs text-stone-500">Loading…</div>}
           {error && (
@@ -939,394 +966,103 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             </div>
           )}
 
-          <div className="space-y-2">
-            {draft.cloudProviders.map(p => (
-              <CloudProviderCard
-                key={p.id}
-                provider={p}
-                isPrimary={p.id === draft.primaryCloudId}
-                onMakePrimary={() => setDraft({ ...draft, primaryCloudId: p.id })}
-                onEdit={() => setEditing(p)}
-                onRemove={() => {
-                  const remaining = draft.cloudProviders.filter(cp => cp.id !== p.id);
-                  // If the removed provider was primary, clear or reassign.
-                  const nextPrimaryId =
-                    draft.primaryCloudId === p.id
-                      ? (remaining[0]?.id ?? null)
-                      : draft.primaryCloudId;
-                  // Scrub pinned workload routes that reference the removed provider.
-                  const nextRouting = Object.fromEntries(
-                    Object.entries(draft.routing).map(([wid, ref]) => [
-                      wid,
-                      ref.kind === 'cloud' && ref.providerId === p.id
-                        ? { kind: 'primary' as const }
-                        : ref,
-                    ])
-                  ) as typeof draft.routing;
-                  setDraft({
-                    ...draft,
-                    cloudProviders: remaining,
-                    primaryCloudId: nextPrimaryId,
-                    routing: nextRouting,
-                  });
-                }}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* ─── Local provider ──────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <SectionLabel>Local provider</SectionLabel>
-
-          {/* Master enable / disable for the Ollama runtime.
-              The `state` field is the source of truth: when
-              `runtime_enabled = false` in config, bootstrap forces
-              status.state = "disabled". Flipping ON also has to kick
-              `local_ai_download` because bootstrap only auto-fires from
-              "idle"/"degraded" — "disabled" → "ready" is NOT an automatic
-              transition. */}
-          <label
-            className={`flex items-start gap-3 rounded-lg border border-stone-200 bg-white px-3 py-2.5 transition-opacity ${
-              busyAction === 'toggle-local' ? 'cursor-wait opacity-80' : 'cursor-pointer'
-            }`}>
-            {busyAction === 'toggle-local' ? (
-              <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center">
-                <LuLoader className="h-3.5 w-3.5 animate-spin text-primary-500" />
-              </span>
-            ) : (
-              <input
-                type="checkbox"
-                checked={ollama.state !== 'disabled'}
-                onChange={async e => {
-                  const next = e.target.checked;
-                  setBusyAction('toggle-local');
-                  try {
-                    if (next) {
-                      // Enable: write config, then kick reset_to_idle +
-                      // bootstrap. Bootstrap brings the daemon up (or sees
-                      // an external one and leaves it alone).
-                      await localProvider.setEnabled(true);
-                      await localProvider.download(true);
-                    } else {
-                      // Disable as a GATE, not a process murder. The
-                      // backend writes runtime_enabled=false, kills the
-                      // daemon ONLY if OpenHuman spawned it (external
-                      // installations stay running, per the same
-                      // friendly-fire-avoidance principle used at startup),
-                      // and forces status to "disabled" so the UI reflects
-                      // the gated state immediately. From the factory's
-                      // perspective the result is identical: any workload
-                      // routed to `ollama:<model>` fails at build time.
-                      await localProvider.shutdown();
-                    }
-                    // Poll every 500ms (up to 10s) until status settles.
-                    // Disable usually finishes in <1s (the RPC marks
-                    // status directly); enable can take 2-8s for daemon
-                    // boot + initial model probe.
-                    const startedAt = Date.now();
-                    const targetReached = (s: string) =>
-                      next ? Boolean(s) && s !== 'disabled' : s === 'disabled';
-                    while (Date.now() - startedAt < 10_000) {
-                      await new Promise(r => setTimeout(r, 500));
-                      const fresh = await ollama.refresh();
-                      const freshState = fresh?.status?.state ?? '';
-                      if (targetReached(freshState)) break;
-                    }
-                  } catch (err) {
-                    const msg = err instanceof Error ? err.message : String(err);
-                    // eslint-disable-next-line no-console
-                    console.warn('[ai-settings] toggle local AI failed', msg);
-                  } finally {
-                    setBusyAction(null);
-                    await ollama.refresh();
-                    await reload();
-                  }
-                }}
-                className="mt-0.5"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-stone-900">Enable local AI (Ollama)</span>
-                {busyAction === 'toggle-local' && (
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-primary-500">
-                    {ollama.state === 'disabled' ? 'Starting…' : 'Stopping…'}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-stone-500">
-                Manages the on-device Ollama daemon used by any workload routed to
-                <span className="font-mono"> ollama:&lt;model&gt;</span>. Turn off if you only use
-                cloud providers — saves CPU + RAM.
-              </div>
-            </div>
-          </label>
-
-          <div
-            className={`overflow-hidden rounded-lg border border-stone-200 bg-stone-50 ${
-              ollama.state === 'disabled' ? 'opacity-60' : ''
-            }`}>
-            <div className="flex items-center gap-2 border-b border-stone-200 px-3 py-2.5">
-              <StatusDot state={ollama.state} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium capitalize text-stone-900">{ollama.state}</div>
-                <div className="font-mono text-[10px] text-stone-400">
-                  ollama{ollama.version ? ` · ${ollama.version}` : ''}
-                </div>
-                {ollama.snapshot?.status?.warning && (
-                  <div className="mt-0.5 text-[10px] text-amber-700">
-                    {ollama.snapshot.status.warning}
-                  </div>
-                )}
-                {typeof ollama.snapshot?.status?.download_progress === 'number' && (
-                  <div className="mt-0.5 text-[10px] text-stone-500">
-                    Download {(ollama.snapshot.status.download_progress * 100).toFixed(0)}%
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={async () => {
-                  setBusyAction('download');
-                  try {
-                    await localProvider.download(true);
-                  } finally {
-                    setBusyAction(null);
-                    await ollama.refresh();
-                  }
-                }}
-                disabled={busyAction === 'download' || ollama.state === 'disabled'}
-                className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
-                title={ollama.state === 'disabled' ? 'Enable local AI above first' : undefined}>
-                {busyAction === 'download' ? (
-                  <LuLoader className="h-3 w-3 animate-spin" />
-                ) : (
-                  <LuPower className="h-3 w-3" />
-                )}
-                {busyAction === 'download'
-                  ? 'Working…'
-                  : ollama.state === 'missing'
-                    ? 'Install'
-                    : 'Retry'}
-              </button>
-              <button
-                onClick={() => void ollama.refresh()}
-                className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50">
-                <LuRefreshCw className="h-3 w-3" />
-                Refresh
-              </button>
-            </div>
-
-            {installed.length === 0 ? (
-              <div className="p-3">
-                <p className="text-xs text-stone-600">
-                  {ollama.snapshot?.presets?.recommended_tier
-                    ? `Recommended for this device: ${ollama.snapshot.presets.recommended_tier}.`
-                    : 'Pick a tier preset to install a default model.'}
-                </p>
-                <div className="mt-2 space-y-1.5">
-                  {(ollama.snapshot?.presets?.presets ?? []).map(t => (
-                    <button
-                      key={t.tier}
-                      onClick={async () => {
-                        setBusyAction(`preset:${t.tier}`);
-                        try {
-                          await localProvider.applyPreset(t.tier);
-                          await reload();
-                        } finally {
-                          setBusyAction(null);
-                          await ollama.refresh();
-                        }
-                      }}
-                      disabled={!!busyAction}
-                      className="flex w-full items-center justify-between rounded-md border border-stone-200 bg-white px-2.5 py-2 text-left hover:border-primary-300 hover:bg-primary-50/30 disabled:opacity-50">
-                      <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                          {t.label}
-                        </div>
-                        <div className="font-mono text-xs text-stone-900">{t.chat_model_id}</div>
-                      </div>
-                      <span className="text-[10px] text-stone-400">{t.description}</span>
-                    </button>
-                  ))}
-                  {(ollama.snapshot?.presets?.presets ?? []).length === 0 &&
-                    TIER_PRESETS.map(t => (
-                      <div
-                        key={t.id}
-                        className="flex w-full items-center justify-between rounded-md border border-dashed border-stone-200 bg-white/60 px-2.5 py-2 text-left opacity-70">
-                        <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                            {t.label}
-                          </div>
-                          <div className="font-mono text-xs text-stone-900">{t.model}</div>
-                        </div>
-                        <span className="text-[10px] text-stone-400">{t.blurb}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            ) : (
-              <>
-                <ul className="divide-y divide-stone-200">
-                  {installed.map(m => (
-                    <li key={m.id} className="flex items-center gap-2 px-3 py-2">
-                      <LuCpu className="h-3 w-3 text-stone-400" />
-                      <span className="flex-1 truncate font-mono text-xs text-stone-800">
-                        {m.id}
-                      </span>
-                      <span className="font-mono text-[10px] text-stone-400">
-                        {formatBytes(m.sizeBytes)}
-                      </span>
-                      <button
-                        className="rounded p-1 text-stone-400 hover:bg-coral-50 hover:text-coral-600"
-                        aria-label="Remove model">
-                        <LuTrash2 className="h-3 w-3" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="space-y-2 border-t border-stone-200 px-3 py-2">
-                  {/* There's no "pull arbitrary model by name" RPC today
-                      — the existing local_ai_download_asset only pulls
-                      whatever model is configured per capability slot.
-                      So instead of a fake button, surface the real
-                      workflow: browse Ollama's library, run `ollama pull`
-                      from a terminal, and the installed-model list above
-                      picks it up automatically on the next poll. */}
-                  <button
-                    onClick={() => {
-                      void openUrl('https://ollama.com/library');
-                    }}
-                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-600 hover:border-primary-400 hover:text-primary-700">
-                    <LuDownload className="h-3 w-3" />
-                    Browse Ollama library
-                  </button>
-                  <div className="text-[10px] text-stone-500">
-                    To add a model, run{' '}
-                    <span className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-700">
-                      ollama pull &lt;model&gt;
-                    </span>{' '}
-                    in your terminal. Installed models appear here within ~5s.
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Daemon-conflict callout — surfaces the "external Ollama with
-              broken runner" state in plain English so the user knows the
-              recovery (kill external, retry) without having to read logs. */}
-          {isDaemonConflict && ollama.state !== 'disabled' && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
-              <div className="font-medium">Conflicting Ollama daemon detected</div>
-              <div>
-                Another Ollama process is bound to <span className="font-mono">:11434</span> but
-                OpenHuman didn&apos;t start it, so it can&apos;t safely restart it on your behalf.
-                To recover:
-              </div>
-              <ol className="list-decimal pl-5 space-y-0.5">
-                <li>
-                  Stop the running Ollama (Windows Task Manager → end{' '}
-                  <span className="font-mono">ollama.exe</span> /{' '}
-                  <span className="font-mono">ollama app.exe</span>, or{' '}
-                  <span className="font-mono">taskkill /F /IM ollama.exe</span>).
-                </li>
-                <li>
-                  Click <span className="font-medium">Retry</span> above — OpenHuman will spawn its
-                  own managed daemon.
-                </li>
-                <li>
-                  Or, if you want to keep your install, set its binary path below — OpenHuman will
-                  use yours.
-                </li>
-              </ol>
-              {daemonWarning && (
-                <div className="rounded border border-amber-200 bg-white/60 px-2 py-1 font-mono text-[10px] text-amber-800">
-                  {daemonWarning}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Advanced: show the resolved binary path + let the user
-              override it. The Rust resolver already supports a chain
-              (user path → OLLAMA_BIN env → workspace bin → system PATH →
-              auto-install); this surfaces it and provides one-field
-              override. */}
-          <details
-            open={advancedOpen}
-            onToggle={e => setAdvancedOpen((e.target as HTMLDetailsElement).open)}
-            className="rounded-lg border border-stone-200 bg-white">
-            <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stone-500 hover:text-stone-700">
-              Advanced
-            </summary>
-            <div className="space-y-3 border-t border-stone-200 px-3 py-3">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                  Resolved Ollama binary
-                </div>
-                <div className="mt-0.5 truncate font-mono text-[11px] text-stone-700">
-                  {resolvedBinaryPath ||
-                    '— not detected; OpenHuman will auto-install on next start'}
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                  Custom Ollama path
-                </label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="text"
-                    value={customPathInput}
-                    onChange={e => setCustomPathInput(e.target.value)}
-                    placeholder="e.g. C:\Program Files\Ollama\ollama.exe"
-                    className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-2 py-1 font-mono text-[11px] text-stone-800 placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                  />
-                  <button
-                    onClick={async () => {
-                      setBusyAction('set-ollama-path');
-                      try {
-                        await localProvider.setBinaryPath(customPathInput.trim());
-                      } catch (err) {
-                        const msg = err instanceof Error ? err.message : String(err);
-                        // eslint-disable-next-line no-console
-                        console.warn('[ai-settings] set Ollama path failed', msg);
-                      } finally {
-                        setBusyAction(null);
-                        await ollama.refresh();
+          <div className="flex flex-wrap gap-2">
+            {(['openai', 'anthropic', 'openrouter', 'custom'] as CloudProviderType[]).map(
+              type => {
+                const meta = PROVIDER_META[type];
+                const existing = draft.cloudProviders.find(cp => cp.type === type);
+                const enabled = !!existing;
+                return (
+                  <ProviderToggleChip
+                    key={type}
+                    type={type}
+                    label={meta.label}
+                    enabled={enabled}
+                    busy={busyAction === `toggle-${type}`}
+                    onToggle={() => {
+                      if (enabled && existing) {
+                        // Toggle OFF: remove the provider + scrub any
+                        // routing entries that pin to it.
+                        const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
+                        const nextPrimaryId =
+                          draft.primaryCloudId === existing.id
+                            ? (remaining[0]?.id ?? null)
+                            : draft.primaryCloudId;
+                        const nextRouting = Object.fromEntries(
+                          Object.entries(draft.routing).map(([wid, ref]) => [
+                            wid,
+                            ref.kind === 'cloud' && ref.providerId === existing.id
+                              ? { kind: 'primary' as const }
+                              : ref,
+                          ])
+                        ) as typeof draft.routing;
+                        setDraft({
+                          ...draft,
+                          cloudProviders: remaining,
+                          primaryCloudId: nextPrimaryId,
+                          routing: nextRouting,
+                        });
+                      } else {
+                        // Toggle ON: open the API-key popup. The chip
+                        // only flips after the dialog saves.
+                        setKeyDialogFor(type);
                       }
                     }}
-                    disabled={busyAction === 'set-ollama-path'}
-                    className="rounded-md border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
-                    Save
-                  </button>
-                  {customPathInput && (
-                    <button
-                      onClick={async () => {
-                        setCustomPathInput('');
-                        setBusyAction('set-ollama-path');
-                        try {
-                          await localProvider.setBinaryPath('');
-                        } finally {
-                          setBusyAction(null);
-                          await ollama.refresh();
-                        }
-                      }}
-                      disabled={busyAction === 'set-ollama-path'}
-                      className="rounded-md border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="mt-1 text-[10px] text-stone-500">
-                  Empty = auto-detect (workspace install →{' '}
-                  <span className="font-mono">OLLAMA_BIN</span> env → system{' '}
-                  <span className="font-mono">PATH</span> → managed install).
-                </div>
-              </div>
-            </div>
-          </details>
+                  />
+                );
+              }
+            )}
+
+            {/* LM Studio + Ollama — local runtimes. Stored as `type: 'custom'`
+                with a distinguishing label so the existing CloudProvider
+                machinery doesn't need a new variant. Toggle ON prompts for
+                the local endpoint URL via the same API-key dialog (the
+                "key" field doubles as the endpoint here). */}
+            {(['lmstudio', 'ollama'] as const).map(localKind => {
+              const label = PROVIDER_CHIP_LABEL[localKind];
+              const existing = draft.cloudProviders.find(
+                cp => cp.type === 'custom' && cp.label === label
+              );
+              const enabled = !!existing;
+              return (
+                <ProviderToggleChip
+                  key={localKind}
+                  type={localKind}
+                  label={label}
+                  enabled={enabled}
+                  busy={busyAction === `toggle-${localKind}`}
+                  onToggle={() => {
+                    if (enabled && existing) {
+                      const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
+                      const nextPrimaryId =
+                        draft.primaryCloudId === existing.id
+                          ? (remaining[0]?.id ?? null)
+                          : draft.primaryCloudId;
+                      const nextRouting = Object.fromEntries(
+                        Object.entries(draft.routing).map(([wid, ref]) => [
+                          wid,
+                          ref.kind === 'cloud' && ref.providerId === existing.id
+                            ? { kind: 'primary' as const }
+                            : ref,
+                        ])
+                      ) as typeof draft.routing;
+                      setDraft({
+                        ...draft,
+                        cloudProviders: remaining,
+                        primaryCloudId: nextPrimaryId,
+                        routing: nextRouting,
+                      });
+                    } else {
+                      setKeyDialogFor('custom');
+                      setPendingLocalLabel(label);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
         </section>
+
 
         </div>
         {/* end of Auth section */}
@@ -1488,6 +1224,43 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             />
           );
         })()}
+
+      {keyDialogFor && (
+        <ProviderKeyDialog
+          type={keyDialogFor}
+          label={pendingLocalLabel ?? PROVIDER_META[keyDialogFor].label}
+          onCancel={() => {
+            setKeyDialogFor(null);
+            setPendingLocalLabel(null);
+          }}
+          onSubmit={async apiKey => {
+            const type = keyDialogFor;
+            const localLabel = pendingLocalLabel;
+            setBusyAction(`toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : type}`);
+            try {
+              const upserted: CloudProvider = {
+                id: `p_${type}_${Math.random().toString(36).slice(2, 7)}`,
+                type,
+                label: localLabel ?? PROVIDER_META[type].label,
+                endpoint: defaultEndpointFor(type),
+                defaultModel: '',
+                maskedKey: maskKeyLabel(true),
+              };
+              setDraft({
+                ...draft,
+                cloudProviders: [...draft.cloudProviders, upserted],
+              });
+              if (type !== 'openhuman') {
+                await setCloudProviderKey(type as ApiCloudProviderType, apiKey);
+              }
+              setKeyDialogFor(null);
+              setPendingLocalLabel(null);
+            } finally {
+              setBusyAction(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

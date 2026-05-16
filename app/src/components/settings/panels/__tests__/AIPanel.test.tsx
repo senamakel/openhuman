@@ -70,18 +70,17 @@ describe('AIPanel', () => {
     });
   });
 
-  it('renders the three section labels', async () => {
+  it('renders the LLM Providers + Routing top-level section headers', async () => {
     renderWithProviders(<AIPanel />);
-    // Section labels are SectionLabel components — pick the one that
-    // matches each header exactly. Loose regex matches body copy too
-    // ("only use cloud providers" appears in the local-provider
-    // explanation, "Primary" appears on the provider card badge AND in
-    // workload routing rows).
-    await waitFor(() => expect(screen.getAllByText(/Cloud providers/i).length).toBeGreaterThan(0));
-    expect(screen.getAllByText(/Local provider/i).length).toBeGreaterThan(0);
-    // Routing section now uses a top-level "Routing" header (the old
-    // "Workload routing" SectionLabel was removed when the section was
-    // promoted to its own Auth/Routing split).
+    await waitFor(() =>
+      expect(screen.getAllByText(/^LLM Providers$/).length).toBeGreaterThan(0)
+    );
+    // The Local provider sub-section was removed entirely.
+    expect(screen.queryByText(/Local provider/i)).not.toBeInTheDocument();
+    // The old "Auth" header was renamed to "LLM Providers"; "Cloud providers"
+    // sub-label is gone in favour of the chip toggles.
+    expect(screen.queryByText(/^Auth$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Cloud providers$/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/^Routing$/).length).toBeGreaterThan(0);
   });
 

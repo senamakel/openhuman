@@ -227,7 +227,11 @@ fn make_cloud_provider_by_slug(
     let entry = config.cloud_providers.iter().find(|e| e.slug == slug);
 
     let entry = entry.ok_or_else(|| {
-        let known: Vec<&str> = config.cloud_providers.iter().map(|e| e.slug.as_str()).collect();
+        let known: Vec<&str> = config
+            .cloud_providers
+            .iter()
+            .map(|e| e.slug.as_str())
+            .collect();
         anyhow::anyhow!(
             "[chat-factory] no cloud provider configured for slug '{}' (role '{}') — \
              add an entry with that slug to cloud_providers in config.toml. \
@@ -258,11 +262,8 @@ fn make_cloud_provider_by_slug(
 
     match entry.auth_style {
         AuthStyle::Anthropic => {
-            let p = make_openai_compatible_provider(
-                &entry.endpoint,
-                &key,
-                CompatAuthStyle::Anthropic,
-            )?;
+            let p =
+                make_openai_compatible_provider(&entry.endpoint, &key, CompatAuthStyle::Anthropic)?;
             Ok((p, effective_model))
         }
         AuthStyle::OpenhumanJwt => {
@@ -275,19 +276,12 @@ fn make_cloud_provider_by_slug(
             make_openhuman_backend(config)
         }
         AuthStyle::None => {
-            let p = make_openai_compatible_provider(
-                &entry.endpoint,
-                "",
-                CompatAuthStyle::Bearer,
-            )?;
+            let p = make_openai_compatible_provider(&entry.endpoint, "", CompatAuthStyle::Bearer)?;
             Ok((p, effective_model))
         }
         AuthStyle::Bearer => {
-            let p = make_openai_compatible_provider(
-                &entry.endpoint,
-                &key,
-                CompatAuthStyle::Bearer,
-            )?;
+            let p =
+                make_openai_compatible_provider(&entry.endpoint, &key, CompatAuthStyle::Bearer)?;
             Ok((p, effective_model))
         }
     }
@@ -344,10 +338,7 @@ fn make_openai_compatible_provider(
         Some(api_key)
     };
     Ok(Box::new(OpenAiCompatibleProvider::new(
-        "cloud",
-        endpoint,
-        key,
-        auth_style,
+        "cloud", endpoint, key, auth_style,
     )))
 }
 
@@ -446,9 +437,8 @@ mod tests {
     #[test]
     fn openai_slug_model() {
         let config = config_with_providers(vec![openai_entry("p_oai", "openai")]);
-        let (_, model) =
-            create_chat_provider_from_string("agentic", "openai:gpt-4o-mini", &config)
-                .expect("openai:<model> must build");
+        let (_, model) = create_chat_provider_from_string("agentic", "openai:gpt-4o-mini", &config)
+            .expect("openai:<model> must build");
         assert_eq!(model, "gpt-4o-mini");
     }
 
@@ -528,9 +518,7 @@ mod tests {
     #[test]
     fn create_chat_provider_uses_role() {
         let mut config = Config::default();
-        config
-            .cloud_providers
-            .push(openai_entry("p_oai", "openai"));
+        config.cloud_providers.push(openai_entry("p_oai", "openai"));
         config.reasoning_provider = Some("openai:gpt-4o-mini".to_string());
         let (_, model) =
             create_chat_provider("reasoning", &config).expect("create_chat_provider must succeed");
@@ -546,7 +534,8 @@ mod tests {
             .err()
             .expect("unknown slug must fail");
         assert!(
-            err.to_string().contains("no cloud provider configured for slug"),
+            err.to_string()
+                .contains("no cloud provider configured for slug"),
             "{err}"
         );
     }
@@ -616,7 +605,10 @@ mod tests {
     #[test]
     fn unknown_workload_falls_back_to_openhuman() {
         let config = Config::default();
-        assert_eq!(provider_for_role("nope-not-a-workload", &config), "openhuman");
+        assert_eq!(
+            provider_for_role("nope-not-a-workload", &config),
+            "openhuman"
+        );
         assert_eq!(provider_for_role("", &config), "openhuman");
     }
 

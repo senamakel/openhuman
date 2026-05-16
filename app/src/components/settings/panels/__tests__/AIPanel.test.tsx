@@ -21,13 +21,12 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
   loadLocalProviderSnapshot: vi.fn(),
   setCloudProviderKey: vi.fn(),
   clearCloudProviderKey: vi.fn(),
-  serializeProviderRef: vi.fn(
-    (r: { kind: string; providerSlug?: string; model?: string }) =>
-      r.kind === 'openhuman'
-        ? 'openhuman'
-        : r.kind === 'local'
-          ? `ollama:${r.model}`
-          : `${r.providerSlug}:${r.model}`
+  serializeProviderRef: vi.fn((r: { kind: string; providerSlug?: string; model?: string }) =>
+    r.kind === 'openhuman'
+      ? 'openhuman'
+      : r.kind === 'local'
+        ? `ollama:${r.model}`
+        : `${r.providerSlug}:${r.model}`
   ),
   localProvider: { download: vi.fn(), applyPreset: vi.fn() },
 }));

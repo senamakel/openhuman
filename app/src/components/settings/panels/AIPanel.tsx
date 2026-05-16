@@ -69,26 +69,11 @@ type RoutingMap = Record<WorkloadId, ProviderRef>;
 // Slug-keyed display metadata for built-in provider slugs. Used only for
 // chip rendering (label, tone). Custom providers use `provider.label` directly.
 const BUILTIN_PROVIDER_META: Record<string, { tone: string; label: string }> = {
-  openhuman: {
-    label: 'OpenHuman',
-    tone: 'bg-primary-50 ring-primary-200 text-primary-900',
-  },
-  openai: {
-    label: 'OpenAI',
-    tone: 'bg-emerald-50 ring-emerald-200 text-emerald-900',
-  },
-  anthropic: {
-    label: 'Anthropic',
-    tone: 'bg-orange-50 ring-orange-200 text-orange-900',
-  },
-  openrouter: {
-    label: 'OpenRouter',
-    tone: 'bg-slate-100 ring-slate-300 text-slate-900',
-  },
-  custom: {
-    label: 'Custom',
-    tone: 'bg-stone-100 ring-stone-300 text-stone-900',
-  },
+  openhuman: { label: 'OpenHuman', tone: 'bg-primary-50 ring-primary-200 text-primary-900' },
+  openai: { label: 'OpenAI', tone: 'bg-emerald-50 ring-emerald-200 text-emerald-900' },
+  anthropic: { label: 'Anthropic', tone: 'bg-orange-50 ring-orange-200 text-orange-900' },
+  openrouter: { label: 'OpenRouter', tone: 'bg-slate-100 ring-slate-300 text-slate-900' },
+  custom: { label: 'Custom', tone: 'bg-stone-100 ring-stone-300 text-stone-900' },
 };
 
 const WORKLOADS: Workload[] = [
@@ -165,10 +150,7 @@ const EMPTY_ROUTING: RoutingMap = {
   subconscious: { kind: 'openhuman' },
 };
 
-const EMPTY_SETTINGS: AISettings = {
-  cloudProviders: [],
-  routing: EMPTY_ROUTING,
-};
+const EMPTY_SETTINGS: AISettings = { cloudProviders: [], routing: EMPTY_ROUTING };
 
 function maskKeyLabel(hasKey: boolean): string {
   return hasKey ? '•••• configured' : 'Not configured';
@@ -352,10 +334,7 @@ const LOCAL_CHIP_TONE: Record<LocalChipSlug, string> = {
   ollama: 'bg-violet-50 ring-violet-200 text-violet-900',
 };
 
-const LOCAL_CHIP_LABEL: Record<LocalChipSlug, string> = {
-  lmstudio: 'LM Studio',
-  ollama: 'Ollama',
-};
+const LOCAL_CHIP_LABEL: Record<LocalChipSlug, string> = { lmstudio: 'LM Studio', ollama: 'Ollama' };
 
 function slugTone(slug: string): string {
   return BUILTIN_PROVIDER_META[slug]?.tone ?? 'bg-stone-100 ring-stone-300 text-stone-900';
@@ -530,9 +509,7 @@ const WorkloadRow = ({
   onCustomClick,
 }: WorkloadRowProps & { onCustomClick: () => void }) => {
   const selectedCloud =
-    ref_.kind === 'cloud'
-      ? cloudProviders.find(c => c.slug === ref_.providerSlug)
-      : undefined;
+    ref_.kind === 'cloud' ? cloudProviders.find(c => c.slug === ref_.providerSlug) : undefined;
 
   const isDefault = ref_.kind === 'openhuman';
 
@@ -634,9 +611,7 @@ const CustomRoutingDialog = ({
   });
 
   const selectedCloud =
-    source?.kind === 'cloud'
-      ? customCloud.find(c => c.slug === source.providerSlug)
-      : undefined;
+    source?.kind === 'cloud' ? customCloud.find(c => c.slug === source.providerSlug) : undefined;
 
   const canSave = source !== null && model.trim().length > 0;
 
@@ -913,9 +888,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                       if (enabled && existing) {
                         // Toggle OFF: remove the provider + scrub any
                         // routing entries that pin to it.
-                        const remaining = draft.cloudProviders.filter(
-                          cp => cp.id !== existing.id
-                        );
+                        const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
                         const nextRouting = Object.fromEntries(
                           Object.entries(draft.routing).map(([wid, ref]) => [
                             wid,
@@ -1133,10 +1106,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
       {keyDialogFor && (
         <ProviderKeyDialog
           slug={keyDialogFor}
-          label={
-            pendingLocalLabel ??
-            (BUILTIN_PROVIDER_META[keyDialogFor]?.label ?? keyDialogFor)
-          }
+          label={pendingLocalLabel ?? BUILTIN_PROVIDER_META[keyDialogFor]?.label ?? keyDialogFor}
           onCancel={() => {
             setKeyDialogFor(null);
             setPendingLocalLabel(null);
@@ -1155,7 +1125,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               const upserted: CloudProvider = {
                 id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
                 slug,
-                label: localLabel ?? (BUILTIN_PROVIDER_META[slug]?.label ?? slug),
+                label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
                 endpoint: isLocalRuntime ? apiKey.trim() : defaultEndpointFor(slug),
                 maskedKey: maskKeyLabel(true),
               };
@@ -1200,7 +1170,7 @@ const CloudProviderEditor = ({
     'custom';
   const [slug, setSlug] = useState<string>(defaultSlug);
   const [label, setLabel] = useState<string>(
-    initial?.label ?? (BUILTIN_PROVIDER_META[defaultSlug]?.label ?? defaultSlug)
+    initial?.label ?? BUILTIN_PROVIDER_META[defaultSlug]?.label ?? defaultSlug
   );
   const [endpoint, setEndpoint] = useState(initial?.endpoint ?? defaultEndpointFor(defaultSlug));
   const [apiKey, setApiKey] = useState('');

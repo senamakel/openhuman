@@ -23,6 +23,7 @@ import {
   authRemoveProviderCredentials,
   authStoreProviderCredentials,
 } from '../../utils/tauriCommands/auth';
+import { isTauri } from '../../utils/tauriCommands/common';
 import {
   type ClientConfig,
   type CloudProviderCreds,
@@ -44,7 +45,6 @@ import {
   openhumanLocalAiStatus,
   type PresetsResponse,
 } from '../../utils/tauriCommands/localAi';
-import { isTauri } from '../../utils/tauriCommands/common';
 
 // ─── Domain types — what the AIPanel consumes ──────────────────────────────
 
@@ -216,13 +216,7 @@ export async function saveAISettings(prev: AISettings, next: AISettings): Promis
     })
   ) {
     patch.cloud_providers = next.cloudProviders.map(
-      ({ id, slug, label, endpoint, auth_style }) => ({
-        id,
-        slug,
-        label,
-        endpoint,
-        auth_style,
-      })
+      ({ id, slug, label, endpoint, auth_style }) => ({ id, slug, label, endpoint, auth_style })
     );
   }
 
@@ -267,10 +261,7 @@ export async function clearCloudProviderKey(slug: string): Promise<void> {
   }
   // Clear the new-style key. Legacy bare-slug entries are left as-is
   // since we can't be sure they aren't used by other things.
-  await authRemoveProviderCredentials({
-    provider: authKeyForSlug(slug),
-    profile: 'default',
-  });
+  await authRemoveProviderCredentials({ provider: authKeyForSlug(slug), profile: 'default' });
 }
 
 /**

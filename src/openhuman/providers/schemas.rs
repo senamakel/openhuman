@@ -15,7 +15,9 @@ fn to_json<T: Serialize>(outcome: RpcOutcome<T>) -> Result<Value, String> {
     outcome.into_cli_compatible_json()
 }
 
-fn deserialize_params<T: for<'de> Deserialize<'de>>(params: Map<String, Value>) -> Result<T, String> {
+fn deserialize_params<T: for<'de> Deserialize<'de>>(
+    params: Map<String, Value>,
+) -> Result<T, String> {
     serde_json::from_value(Value::Object(params)).map_err(|e| e.to_string())
 }
 
@@ -83,10 +85,7 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
             return Err("provider_id must not be empty".to_string());
         }
 
-        log::debug!(
-            "[providers][list_models] provider_id={}",
-            provider_id
-        );
+        log::debug!("[providers][list_models] provider_id={}", provider_id);
 
         let config = crate::openhuman::config::Config::load_or_init()
             .await
@@ -97,9 +96,7 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
             .iter()
             .find(|e| e.id == provider_id)
             .cloned()
-            .ok_or_else(|| {
-                format!("no cloud provider with id '{}' found", provider_id)
-            })?;
+            .ok_or_else(|| format!("no cloud provider with id '{}' found", provider_id))?;
 
         // Build the /models URL from the provider's endpoint.
         let base = entry.endpoint.trim_end_matches('/');
@@ -112,8 +109,9 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
         );
 
         // Fetch the API key for this provider.
-        let api_key = crate::openhuman::providers::factory::lookup_key_for_slug(&entry.slug, &config)
-            .unwrap_or_default();
+        let api_key =
+            crate::openhuman::providers::factory::lookup_key_for_slug(&entry.slug, &config)
+                .unwrap_or_default();
 
         // Build the HTTP client (reuse the runtime proxy config).
         let client = crate::openhuman::config::build_runtime_proxy_client("providers.list_models");
@@ -140,9 +138,10 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
             AuthStyle::OpenhumanJwt | AuthStyle::None => request,
         };
 
-        let response = request.send().await.map_err(|e| {
-            format!("[providers][list_models] HTTP request failed: {}", e)
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|e| format!("[providers][list_models] HTTP request failed: {}", e))?;
 
         let status = response.status();
         if !status.is_success() {
@@ -155,9 +154,10 @@ fn handle_list_models(params: Map<String, Value>) -> ControllerFuture {
             ));
         }
 
-        let body: Value = response.json().await.map_err(|e| {
-            format!("[providers][list_models] failed to parse JSON: {}", e)
-        })?;
+        let body: Value = response
+            .json()
+            .await
+            .map_err(|e| format!("[providers][list_models] failed to parse JSON: {}", e))?;
 
         // Parse OpenAI-compatible `{ data: [{ id, owned_by? }] }` or
         // Anthropic `{ data: [{ id, display_name }] }`.

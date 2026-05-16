@@ -123,8 +123,12 @@ pub fn migrate_legacy_fields(entry: &mut CloudProviderCreds) {
 
     // Label from static map when missing.
     if entry.label.is_empty() {
-        entry.label = legacy_label_for(if entry.slug.is_empty() { lt } else { &entry.slug })
-            .to_string();
+        entry.label = legacy_label_for(if entry.slug.is_empty() {
+            lt
+        } else {
+            &entry.slug
+        })
+        .to_string();
         log::debug!(
             "[config][cloud_providers] migrated label='{}' for slug='{}' id={}",
             entry.label,
@@ -204,7 +208,13 @@ pub fn generate_provider_id(slug: &str) -> String {
     // Sanitise slug to only alphanumeric + '-' for the id prefix.
     let safe_slug: String = slug
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .take(20)
         .collect();
     format!("p_{}_{}", safe_slug, suffix)

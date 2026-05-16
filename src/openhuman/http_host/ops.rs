@@ -88,7 +88,11 @@ pub async fn start_hosted_dir_server(
         }
     };
 
-    let bind_target = format!("{bind_host}:{}", params.port);
+    let bind_target = if bind_host.contains(':') && !bind_host.starts_with('[') {
+        format!("[{bind_host}]:{}", params.port)
+    } else {
+        format!("{bind_host}:{}", params.port)
+    };
     log::info!(
         "{LOG_PREFIX} start requested dir={} bind_target={} auth_enabled={} server_name={:?}",
         redact_path_for_log(&root_dir),
@@ -254,10 +258,18 @@ pub async fn stop_all_hosted_dir_servers() {
             .expect("hosted-dir registry poisoned");
         std::mem::take(&mut *servers)
     };
+    for runtime in runtimes.values() {
+        runtime.shutdown.cancel();
+    }
     for (server_id, runtime) in runtimes {
         log::info!("{LOG_PREFIX} shutdown hook stopping hosted server id={server_id}");
-        runtime.shutdown.cancel();
-        let _ = runtime.join_handle.await;
+        if let Err(error) = runtime.join_handle.await {
+            log::warn!(
+                "{LOG_PREFIX} hosted directory server join failed during shutdown server_id={}: {}",
+                server_id,
+                error
+            );
+        }
     }
 }
 

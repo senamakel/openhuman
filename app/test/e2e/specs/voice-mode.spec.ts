@@ -21,6 +21,7 @@ import {
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import { completeOnboardingIfVisible } from '../helpers/shared-flows';
 import { clearRequestLog, getRequestLog, startMockServer, stopMockServer } from '../mock-server';
 
@@ -59,6 +60,9 @@ describe('Voice mode integration', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
+    // Spec drives triggerAuthDeepLink (the real consume path) inside `it`s,
+    // so wipe prior-spec state but don't auth here.
+    await resetApp('e2e-voice-mode-reset', { skipAuth: true });
     clearRequestLog();
   });
 

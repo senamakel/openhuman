@@ -1,5 +1,6 @@
 import { waitForApp } from '../helpers/app-helpers';
 import { waitForWebView } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 
 // Dispatch a keydown on window (capture-phase hotkey listener lives there).
 // `browser.keys()` is unreliable on tauri-driver, so we synthesize the event
@@ -31,6 +32,9 @@ describe('Command palette', () => {
   before(async () => {
     await waitForApp();
     await waitForWebView();
+    // The mod+K hotkey listener and navigation actions assume a
+    // logged-in shell. Ensure that's true regardless of suite order.
+    await resetApp('e2e-command-palette');
   });
 
   it('opens via mod+K, runs an action, closes and navigates', async () => {

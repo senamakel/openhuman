@@ -1,17 +1,11 @@
 // @ts-nocheck
 import { browser, expect } from '@wdio/globals';
 
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  dumpAccessibilityTree,
-  waitForText,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
-import { supportsExecuteScript } from '../helpers/platform';
-import { completeOnboardingIfVisible, navigateViaHash } from '../helpers/shared-flows';
+import { dumpAccessibilityTree, waitForText } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
+import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
 
 function stepLog(message: string, context?: unknown): void {
@@ -74,12 +68,7 @@ describe('Notifications', () => {
   before(async () => {
     await startMockServer();
     await waitForApp();
-
-    await triggerAuthDeepLinkBypass('e2e-notifications-user');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[NotificationsE2E]');
+    await resetApp('e2e-notifications');
 
     // Fail fast if core sidecar is not up.
     await waitForCoreSidecar(30_000);

@@ -49,6 +49,13 @@ services:
       - e2e-tauri-target:/workspace/app/src-tauri/target
       - e2e-pnpm-store:/root/.local/share/pnpm/store
       - e2e-npm-global:/usr/lib/node_modules
+      # pnpm falls back to a project-local store (./.pnpm-store) when the
+      # global store and the destination node_modules sit on different
+      # devices — which is exactly our case (named volume vs bind mount).
+      # The bind-mount filesystem is slow + flaky for the millions of
+      # tiny copies pnpm performs (ENOENT mid-copy), so park the
+      # project-local store on its own named volume too.
+      - e2e-pnpm-project-store:/workspace/.pnpm-store
       # Isolate node_modules per-platform: the host (macOS arm64) and the
       # container (Linux x64) install different native binaries (rolldown,
       # esbuild, sharp, …). Sharing node_modules over the bind mount means
@@ -78,3 +85,4 @@ volumes:
   e2e-npm-global:
   e2e-node-modules:
   e2e-app-node-modules:
+  e2e-pnpm-project-store:

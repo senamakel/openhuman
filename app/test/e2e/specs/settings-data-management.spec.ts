@@ -38,9 +38,9 @@ describe('Settings - Data Management', () => {
     await waitForText('This will sign you out and permanently delete local app data', 5_000);
 
     await clickText('Cancel');
-    expect(
-      await textExists('This will sign you out and permanently delete local app data')
-    ).toBe(false);
+    expect(await textExists('This will sign you out and permanently delete local app data')).toBe(
+      false
+    );
     expect(await textExists('Clear App Data')).toBe(true);
   });
 

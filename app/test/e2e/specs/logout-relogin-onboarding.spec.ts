@@ -12,7 +12,6 @@
  */
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
-import { resetApp } from '../helpers/reset-app';
 import {
   dumpAccessibilityTree,
   hasAppChrome,
@@ -20,6 +19,7 @@ import {
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   isOnboardingOverlayVisible,
   logoutViaSettings,

@@ -23,7 +23,6 @@
  */
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
-import { resetApp } from '../helpers/reset-app';
 import {
   clickButton,
   clickText,
@@ -34,6 +33,7 @@ import {
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
 import {
   navigateToBilling,
   navigateToHome,

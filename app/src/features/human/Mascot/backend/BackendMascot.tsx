@@ -11,7 +11,6 @@
 // This is the browser-side counterpart of the backend's ffmpeg renderer:
 // same render-core math, same per-state SVG, same viseme map — so the
 // in-app mascot animates in lockstep with the WebRTC video.
-
 import { useEffect, useMemo, useRef } from 'react';
 
 import { injectViseme, tweenTransform } from './renderCore';
@@ -45,7 +44,6 @@ export function BackendMascot({
   paused = false,
 }: BackendMascotProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const startRef = useRef<number>(performance.now());
   const rafRef = useRef<number | null>(null);
 
   const state = useMemo(() => pickState(mascot, stateId), [mascot, stateId]);
@@ -113,20 +111,19 @@ export function BackendMascot({
 
     if (targets.length === 0) return;
 
-    const start = performance.now();
-    startRef.current = start;
+    const start = window.performance.now();
 
     const tick = (now: number) => {
       const t = (now - start) / 1000;
       for (const { tw, node } of targets) {
         node.setAttribute('transform', tweenTransform(t, tw));
       }
-      rafRef.current = requestAnimationFrame(tick);
+      rafRef.current = window.requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+    rafRef.current = window.requestAnimationFrame(tick);
 
     return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
   }, [state, paused]);
@@ -135,8 +132,8 @@ export function BackendMascot({
     <div
       ref={containerRef}
       style={{ width: size, height: size, display: 'inline-block' }}
-      // eslint-disable-next-line react/no-danger -- backend-controlled SVG,
-      // same source the WebRTC ffmpeg pipeline rasterizes from.
+      // Backend-controlled SVG, same source the WebRTC ffmpeg pipeline
+      // rasterizes from. Treated as trusted.
       dangerouslySetInnerHTML={{ __html: initialMarkup }}
     />
   );

@@ -241,9 +241,7 @@ const MascotPanel = () => {
               </div>
             </div>
           )}
-          {detailError && (
-            <p className="mt-2 text-xs text-coral-700 px-1">{detailError}</p>
-          )}
+          {detailError && <p className="mt-2 text-xs text-coral-700 px-1">{detailError}</p>}
           <p className="text-xs text-stone-500 leading-relaxed px-1 mt-2">
             Backend mascots come from the server-side library and animate via the same tween and
             viseme pipeline as the meeting bot's video stream.

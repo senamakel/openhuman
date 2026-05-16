@@ -1,7 +1,6 @@
 // Behavior parity with backend `src/services/mascots/__tests__/render-core.test.ts`.
 // If this test diverges from the upstream JS file, the WebRTC stream and
 // the in-app render will fall out of lockstep.
-
 import { describe, expect, it } from 'vitest';
 
 import {

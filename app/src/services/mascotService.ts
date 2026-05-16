@@ -3,7 +3,6 @@
 //
 // Backend: tinyhumansai/backend PR #770. Both endpoints are public
 // (manifests only, no compute) so we skip auth.
-
 import type {
   GetMascotResponse,
   ListMascotsResponse,

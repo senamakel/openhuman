@@ -6,7 +6,6 @@
 //
 // MUST stay behavior-equivalent to the backend's JS file — covered by
 // `renderCore.test.ts`, which mirrors the backend's `render-core.test.ts`.
-
 import type { MascotDetail, MascotState, MascotTween } from './types';
 
 type VisemeCarrier = Pick<MascotDetail, 'visemeSlot' | 'visemes'>;
@@ -55,11 +54,7 @@ function setOpeningTagAttr(tag: string, name: string, value: string): string {
  * When label is null/empty, restores opacity="0" and clears the slot so
  * the resting mouth (smile/hmm) shows through.
  */
-export function injectViseme(
-  svg: string,
-  mascot: VisemeCarrier,
-  label: string | null
-): string {
+export function injectViseme(svg: string, mascot: VisemeCarrier, label: string | null): string {
   if (!mascot.visemeSlot) return svg;
   const slotId = String(mascot.visemeSlot).replace(/^#/, '');
   const openRe = new RegExp(`<g\\s[^>]*\\bid="${slotId}"[^>]*>`);

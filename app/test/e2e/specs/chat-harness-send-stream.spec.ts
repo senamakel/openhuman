@@ -28,6 +28,13 @@
  * pipeline established here is healthy.
  */
 import { waitForApp } from '../helpers/app-helpers';
+import {
+  clickByTitle,
+  clickSend,
+  getSelectedThreadId,
+  hexEncodeThreadId,
+  typeIntoComposer,
+} from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
@@ -40,67 +47,6 @@ const PROMPT = `Echo the marker ${CANARY} back.`;
 
 // The mock LLM will stream this back, split into 4 chunks.
 const ASSISTANT_REPLY_PIECES = ['Sure — ', 'here is the marker ', `${CANARY}`, '. End of reply.'];
-
-async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(
-        `button[title=${JSON.stringify(t)}]`
-      ) as HTMLButtonElement | null;
-      if (!el) return false;
-      el.click();
-      return true;
-    }, title);
-    if (clicked) return true;
-    await browser.pause(200);
-  }
-  return false;
-}
-
-async function typeIntoComposer(text: string): Promise<void> {
-  await browser.execute((t: string) => {
-    const ta = document.querySelector(
-      'textarea[placeholder="Type a message..."]'
-    ) as HTMLTextAreaElement | null;
-    if (!ta) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set;
-    setter?.call(ta, t);
-    ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }, text);
-}
-
-async function clickSend(): Promise<boolean> {
-  return (await browser.execute(() => {
-    const btn = document.querySelector(
-      'button[aria-label="Send message"]'
-    ) as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return false;
-    btn.click();
-    return true;
-  })) as boolean;
-}
-
-async function getSelectedThreadId(): Promise<string | null> {
-  return (await browser.execute(() => {
-    const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
-    const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { thread?: { selectedThreadId?: string | null } }
-      | undefined;
-    return state?.thread?.selectedThreadId ?? null;
-  })) as string | null;
-}
-
-// Hex-encode a thread id the same way the Rust store does. JSONL files
-// live at `<workspace>/memory/conversations/threads/<hex>.jsonl`.
-function hexEncode(s: string): string {
-  return Array.from(new TextEncoder().encode(s))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 describe('Chat harness — send + stream', () => {
   before(async () => {
@@ -184,13 +130,23 @@ describe('Chat harness — send + stream', () => {
       timeoutMsg: `assistant reply "${finalText}" never finished streaming`,
     });
 
-    // After completion the IN_FLIGHT map must be empty for this thread.
+    // After completion the IN_FLIGHT map must have no entry for this
+    // thread. Scoping the check to the current thread (rather than
+    // asserting the whole map is empty) keeps the assertion robust to
+    // unrelated background work that might happen to be in flight —
+    // e.g. a stray morning_briefing trigger from the seed cron job.
+    const currentThreadId = await getSelectedThreadId();
+    expect(typeof currentThreadId).toBe('string');
     const after = await callOpenhumanRpc<{ result: { entries: Array<{ key: string }> } }>(
       'openhuman.test_support_in_flight_chats',
       {}
     );
     expect(after.ok).toBe(true);
-    expect(after.result?.result?.entries ?? []).toEqual([]);
+    const entries = after.result?.result?.entries ?? [];
+    const stillRunningForThisThread = entries.some(e =>
+      e.key.endsWith(`::${currentThreadId as string}`)
+    );
+    expect(stillRunningForThisThread).toBe(false);
   });
 
   it('the mock LLM received a streaming chat completions request', async () => {
@@ -208,7 +164,7 @@ describe('Chat harness — send + stream', () => {
   it('conversation persists to the workspace JSONL on disk', async () => {
     const threadId = await getSelectedThreadId();
     expect(typeof threadId).toBe('string');
-    const relPath = `memory/conversations/threads/${hexEncode(threadId as string)}.jsonl`;
+    const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId as string)}.jsonl`;
 
     // Poll briefly — the store flushes after chat_done emits, which
     // races with the UI seeing the final text.

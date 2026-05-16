@@ -26,6 +26,13 @@
  * leak indefinitely.
  */
 import { waitForApp } from '../helpers/app-helpers';
+import {
+  clickByTitle,
+  clickSend,
+  getSelectedThreadId,
+  hexEncodeThreadId,
+  typeIntoComposer,
+} from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
@@ -50,54 +57,12 @@ const SLOW_SCRIPT = [
 const EARLY_PIECES = ['one ', 'two '];
 const LATE_PIECES = ['five ', 'six.'];
 
-async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(
-        `button[title=${JSON.stringify(t)}]`
-      ) as HTMLButtonElement | null;
-      if (!el) return false;
-      el.click();
-      return true;
-    }, title);
-    if (clicked) return true;
-    await browser.pause(200);
-  }
-  return false;
-}
-
-async function typeIntoComposer(text: string): Promise<void> {
-  await browser.execute((t: string) => {
-    const ta = document.querySelector(
-      'textarea[placeholder="Type a message..."]'
-    ) as HTMLTextAreaElement | null;
-    if (!ta) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set;
-    setter?.call(ta, t);
-    ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }, text);
-}
-
-async function clickSend(): Promise<boolean> {
-  return (await browser.execute(() => {
-    const btn = document.querySelector(
-      'button[aria-label="Send message"]'
-    ) as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return false;
-    btn.click();
-    return true;
-  })) as boolean;
-}
-
 /**
  * The composer's mid-stream cancel button is a plain `<button>` with the
  * localized text "Cancel" rendered inside the chat scroll region. We
  * disambiguate from any "Cancel" inside a modal by requiring the button
- * to live OUTSIDE a `[role="dialog"]`/`[aria-modal]` ancestor.
+ * to live OUTSIDE a `[role="dialog"]`/`[aria-modal]` ancestor. This is
+ * cancel-spec-specific so it doesn't move into `helpers/chat-harness.ts`.
  */
 async function clickComposerCancel(): Promise<boolean> {
   return (await browser.execute(() => {
@@ -118,22 +83,6 @@ async function inFlightCount(): Promise<number> {
     {}
   );
   return snap.ok ? (snap.result?.result?.entries?.length ?? 0) : 0;
-}
-
-function hexEncode(s: string): string {
-  return Array.from(new TextEncoder().encode(s))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function getSelectedThreadId(): Promise<string | null> {
-  return (await browser.execute(() => {
-    const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
-    const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { thread?: { selectedThreadId?: string | null } }
-      | undefined;
-    return state?.thread?.selectedThreadId ?? null;
-  })) as string | null;
 }
 
 describe('Chat harness — mid-stream cancel', () => {
@@ -191,31 +140,47 @@ describe('Chat harness — mid-stream cancel', () => {
       timeoutMsg: 'IN_FLIGHT did not clear after cancel',
     });
 
-    // 5) Give the stream 1.5s of additional wall time — at 500ms/chunk
-    //    that would naturally produce both LATE_PIECES if cancel didn't
-    //    take. If cancel worked, those chunks were aborted before being
-    //    forwarded to the UI.
-    await browser.pause(1_500);
+    // 5) Give the stream enough wall time to ALL its remaining chunks
+    //    (6 chunks × 500 ms = 3 s; we cancelled around chunk 1, so up
+    //    to ~3 s of stream remains). If cancel didn't take, late
+    //    pieces would land within this window — and the assertion
+    //    that follows is what catches that regression.
+    await browser.pause(3_500);
     for (const piece of LATE_PIECES) {
       const present = await textExists(piece);
       expect(present).toBe(false);
     }
   });
 
-  it('after cancel, send button is interactive again (composer not stuck)', async () => {
-    const enabled = await browser.execute(() => {
+  it('after cancel, the composer (textarea + send button) is interactive again', async () => {
+    // The textarea must be re-enabled.
+    const composerEnabled = await browser.execute(() => {
       const ta = document.querySelector(
         'textarea[placeholder="Type a message..."]'
       ) as HTMLTextAreaElement | null;
       return !!ta && !ta.disabled;
     });
-    expect(enabled).toBe(true);
+    expect(composerEnabled).toBe(true);
+
+    // And typing a fresh prompt must enable the send button — the
+    // failure mode here is the button getting stuck `disabled` because
+    // some `isSending` flag never reset after cancel, which would let
+    // the textarea-only check above pass while still leaving the user
+    // unable to actually send a follow-up.
+    await typeIntoComposer('post-cancel probe message');
+    const sendEnabled = await browser.execute(() => {
+      const btn = document.querySelector(
+        'button[aria-label="Send message"]'
+      ) as HTMLButtonElement | null;
+      return !!btn && !btn.disabled;
+    });
+    expect(sendEnabled).toBe(true);
   });
 
   it('the persisted thread file does NOT contain the late chunks', async () => {
     const threadId = await getSelectedThreadId();
     expect(typeof threadId).toBe('string');
-    const relPath = `memory/conversations/threads/${hexEncode(threadId as string)}.jsonl`;
+    const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId as string)}.jsonl`;
 
     // The store may or may not record the partial assistant turn — both
     // are acceptable. What we lock down is the contract that the

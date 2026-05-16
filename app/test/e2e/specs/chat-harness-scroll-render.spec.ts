@@ -22,6 +22,7 @@
  * thread for the scroll asserts.
  */
 import { waitForApp } from '../helpers/app-helpers';
+import { clickByTitle, clickSend, typeIntoComposer } from '../helpers/chat-harness';
 import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
@@ -56,49 +57,6 @@ const STREAM_SCRIPT = [
   { text: REPLY_MARKDOWN, delayMs: 10 },
   { finish: 'stop' },
 ];
-
-async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(
-        `button[title=${JSON.stringify(t)}]`
-      ) as HTMLButtonElement | null;
-      if (!el) return false;
-      el.click();
-      return true;
-    }, title);
-    if (clicked) return true;
-    await browser.pause(200);
-  }
-  return false;
-}
-
-async function typeIntoComposer(text: string): Promise<void> {
-  await browser.execute((t: string) => {
-    const ta = document.querySelector(
-      'textarea[placeholder="Type a message..."]'
-    ) as HTMLTextAreaElement | null;
-    if (!ta) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set;
-    setter?.call(ta, t);
-    ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }, text);
-}
-
-async function clickSend(): Promise<boolean> {
-  return (await browser.execute(() => {
-    const btn = document.querySelector(
-      'button[aria-label="Send message"]'
-    ) as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return false;
-    btn.click();
-    return true;
-  })) as boolean;
-}
 
 // The message column is the `<div ref={messagesContainerRef} className="flex-1 overflow-y-auto ...">`
 // in Conversations.tsx. There's only one in /chat so a CSS predicate
@@ -146,7 +104,13 @@ describe('Chat harness — scroll + markdown render', () => {
     await stopMockServer();
   });
 
-  it('streams a long markdown reply', async () => {
+  // One `it` covers stream → markdown render → scroll-anchor → scroll-up
+  // release because all four assertions are facts about the SAME chat
+  // exchange. Splitting them into separate Mocha tests would make each
+  // case rely on state produced by the previous one — a fragile shape
+  // CodeRabbit flagged. Keeping the asserts together also keeps the
+  // failure-mode obvious: if streaming dies, no later check executes.
+  it('streams long markdown, renders it, auto-anchors to bottom, releases on scroll-up', async () => {
     await navigateViaHash('/chat');
     await browser.waitUntil(async () => await textExists('Threads'), {
       timeout: 15_000,
@@ -162,7 +126,7 @@ describe('Chat harness — scroll + markdown render', () => {
       })
     ).toBe(true);
 
-    // Both canaries must arrive — bold + code block.
+    // ── 1. Stream completes: both canaries arrive ──────────────────
     await browser.waitUntil(async () => await textExists(CANARY_BOLD), {
       timeout: 40_000,
       timeoutMsg: 'bold canary never landed',
@@ -171,9 +135,8 @@ describe('Chat harness — scroll + markdown render', () => {
       timeout: 20_000,
       timeoutMsg: 'code canary never landed',
     });
-  });
 
-  it('renders bold as <strong>, fenced code as <pre><code>, links as <a>', async () => {
+    // ── 2. Markdown renders to the expected DOM tags ───────────────
     const tags = await browser.execute(
       (boldCanary: string, codeCanary: string, linkUrl: string) => {
         const strongs = Array.from(document.querySelectorAll('strong')).map(
@@ -199,28 +162,21 @@ describe('Chat harness — scroll + markdown render', () => {
     expect(tags.hasBold).toBe(true);
     expect(tags.hasCode).toBe(true);
     expect(tags.hasLink).toBe(true);
-  });
 
-  it('auto-scrolls to the bottom while messages arrive', async () => {
-    // After all the filler + markdown lands, the column should sit
-    // near the bottom (within 16px to absorb sub-pixel layout drift).
-    const m = await scrollMetrics();
-    expect(m.scrollHeight).toBeGreaterThan(m.clientHeight);
-    expect(m.scrollHeight - (m.scrollTop + m.clientHeight)).toBeLessThan(40);
-  });
+    // ── 3. Auto-scroll anchored to the bottom after the stream ─────
+    // (within 40 px to absorb sub-pixel layout drift)
+    const atBottom = await scrollMetrics();
+    expect(atBottom.scrollHeight).toBeGreaterThan(atBottom.clientHeight);
+    expect(atBottom.scrollHeight - (atBottom.scrollTop + atBottom.clientHeight)).toBeLessThan(40);
 
-  it('releases the auto-stick when the user scrolls up', async () => {
-    // Scroll up by half the column height and prove the auto-stick
-    // doesn't yank us back to the bottom.
-    const before = await scrollMetrics();
-    const targetTop = Math.max(0, before.scrollTop - Math.floor(before.clientHeight / 2));
+    // ── 4. Manual scroll-up releases the auto-stick ────────────────
+    const targetTop = Math.max(0, atBottom.scrollTop - Math.floor(atBottom.clientHeight / 2));
     await scrollMessageColumn(targetTop);
-
-    // Give the stick hook a few frames to react.
-    await browser.pause(500);
-    const after = await scrollMetrics();
-    expect(Math.abs(after.scrollTop - targetTop)).toBeLessThan(40);
-    // And we're now NOT at the bottom.
-    expect(after.scrollHeight - (after.scrollTop + after.clientHeight)).toBeGreaterThan(50);
+    await browser.pause(500); // let the stick hook react
+    const afterScrollUp = await scrollMetrics();
+    expect(Math.abs(afterScrollUp.scrollTop - targetTop)).toBeLessThan(40);
+    expect(
+      afterScrollUp.scrollHeight - (afterScrollUp.scrollTop + afterScrollUp.clientHeight)
+    ).toBeGreaterThan(50);
   });
 });

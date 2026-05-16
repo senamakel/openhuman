@@ -118,10 +118,18 @@ async fn walk_dir(
                 .strip_prefix(root)
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| path.display().to_string());
-            let meta = match entry.metadata().await {
+            // `symlink_metadata` does NOT follow links — a symlink
+            // inside the workspace that points outside (or anywhere
+            // else) would otherwise be reported, and if it resolved to
+            // a directory we'd recurse into it. That would break the
+            // workspace-only guarantee the RPC promises.
+            let meta = match fs::symlink_metadata(&path).await {
                 Ok(m) => m,
                 Err(_) => continue,
             };
+            if meta.file_type().is_symlink() {
+                continue;
+            }
             let is_dir = meta.is_dir();
             out.push(ListEntry {
                 rel_path: rel,
@@ -210,12 +218,17 @@ pub async fn read_workspace_file(
     } else {
         raw
     };
+    // `returned_bytes` is the raw byte count read from disk before
+    // lossy UTF-8 conversion — `from_utf8_lossy` substitutes U+FFFD
+    // for invalid sequences, which can change the byte length. Specs
+    // assert against this value to verify byte-accurate truncation.
+    let returned_bytes = returned.len() as u64;
     let content_utf8 = String::from_utf8_lossy(&returned).into_owned();
     Ok(RpcOutcome::single_log(
         ReadFileResult {
             rel_path: rel_path.clone(),
             size_on_disk,
-            returned_bytes: content_utf8.len() as u64,
+            returned_bytes,
             truncated,
             content_utf8,
         },

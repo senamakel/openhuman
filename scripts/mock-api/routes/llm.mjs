@@ -101,11 +101,29 @@ function chunkString(s, windowSize) {
 
 function defaultStreamScript({ content, toolCalls }) {
   const script = [];
+  // Real OpenAI streams a text preamble (when present) BEFORE tool-call
+  // deltas; collapsing that to nothing the moment tool_calls show up
+  // would diverge from the non-streaming `{ content, toolCalls }`
+  // contract and silently drop assistant-visible reasoning.
+  const text =
+    typeof content === "string" && content.length > 0 ? content : null;
+
   if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+    if (text) {
+      for (const piece of chunkString(text, 12)) {
+        script.push({ text: piece });
+      }
+    }
     for (let i = 0; i < toolCalls.length; i += 1) {
       const tc = toolCalls[i];
       script.push({
         toolCall: {
+          // `index` is what the OpenAI streaming protocol uses to
+          // demux multiple parallel tool calls. Preserve it here so a
+          // single-script entry with N tool calls becomes N distinct
+          // calls on the client side instead of being reassembled
+          // into one.
+          index: i,
           id: tc.id ?? `call_stream_${i}`,
           name: String(tc.name ?? ""),
           arguments:
@@ -118,12 +136,10 @@ function defaultStreamScript({ content, toolCalls }) {
     script.push({ finish: "tool_calls" });
     return script;
   }
-  const text = typeof content === "string" && content.length > 0
-    ? content
-    : "Hello from e2e mock agent";
+  const fallbackText = text ?? "Hello from e2e mock agent";
   // Split into ~12-char windows so a UI-side delta watcher sees several
   // arrival events even for short responses.
-  for (const piece of chunkString(text, 12)) {
+  for (const piece of chunkString(fallbackText, 12)) {
     script.push({ text: piece });
   }
   script.push({ finish: "stop" });
@@ -242,6 +258,11 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
 
     if (entry.toolCall) {
       const tc = entry.toolCall;
+      // Preserve the caller-supplied index when present. Real OpenAI
+      // streams use `index` to demux multiple parallel tool calls in
+      // the same message — collapsing every delta to `index: 0`
+      // breaks the multi-tool reassembly contract on the client.
+      const index = Number.isInteger(tc.index) ? tc.index : 0;
       const id = tc.id ?? `call_stream_${i}`;
       const name = String(tc.name ?? "");
       const argsRaw =
@@ -257,7 +278,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
         sseChunkEnvelope({
           model,
           toolCallDelta: {
-            index: 0,
+            index,
             id,
             type: "function",
             function: { name, arguments: first },
@@ -271,7 +292,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
           sseChunkEnvelope({
             model,
             toolCallDelta: {
-              index: 0,
+              index,
               function: { arguments: piece },
             },
           }),

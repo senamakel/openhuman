@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Chat harness — orchestrator → subagent flow.
  *
@@ -37,6 +36,13 @@
  *          - The persisted thread JSONL contains the final canary text.
  */
 import { waitForApp } from '../helpers/app-helpers';
+import {
+  clickByTitle,
+  clickSend,
+  getSelectedThreadId,
+  hexEncodeThreadId,
+  typeIntoComposer,
+} from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
@@ -67,59 +73,6 @@ const FORCED_RESPONSES = [
   { content: `Done. The result is: ${CANARY_FINAL}` },
 ];
 
-async function clickByTitle(title: string, timeoutMs = 6_000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const clicked = await browser.execute((t: string) => {
-      const el = document.querySelector(
-        `button[title=${JSON.stringify(t)}]`
-      ) as HTMLButtonElement | null;
-      if (!el) return false;
-      el.click();
-      return true;
-    }, title);
-    if (clicked) return true;
-    await browser.pause(200);
-  }
-  return false;
-}
-
-async function typeIntoComposer(text: string): Promise<void> {
-  await browser.execute((t: string) => {
-    const ta = document.querySelector(
-      'textarea[placeholder="Type a message..."]'
-    ) as HTMLTextAreaElement | null;
-    if (!ta) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set;
-    setter?.call(ta, t);
-    ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }, text);
-}
-
-async function clickSend(): Promise<boolean> {
-  return (await browser.execute(() => {
-    const btn = document.querySelector(
-      'button[aria-label="Send message"]'
-    ) as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return false;
-    btn.click();
-    return true;
-  })) as boolean;
-}
-
-async function getSelectedThreadId(): Promise<string | null> {
-  return (await browser.execute(() => {
-    const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
-    const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { thread?: { selectedThreadId?: string | null } }
-      | undefined;
-    return state?.thread?.selectedThreadId ?? null;
-  })) as string | null;
-}
-
 interface RuntimeSnapshot {
   phase?: string;
   activeSubagent?: string;
@@ -147,12 +100,6 @@ async function snapshotRuntime(threadId: string): Promise<RuntimeSnapshot> {
       timelineNames: timeline.map(e => e?.name ?? ''),
     };
   }, threadId)) as RuntimeSnapshot;
-}
-
-function hexEncode(s: string): string {
-  return Array.from(new TextEncoder().encode(s))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 describe('Chat harness — orchestrator → subagent flow', () => {
@@ -253,7 +200,7 @@ describe('Chat harness — orchestrator → subagent flow', () => {
   it('persisted thread file records the final orchestrator text', async () => {
     const threadId = await getSelectedThreadId();
     expect(typeof threadId).toBe('string');
-    const relPath = `memory/conversations/threads/${hexEncode(threadId as string)}.jsonl`;
+    const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId as string)}.jsonl`;
 
     let content = '';
     const deadline = Date.now() + 10_000;

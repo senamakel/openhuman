@@ -50,6 +50,13 @@ EXTRA_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --suite)
+      # Guard against `set -u` blowing up on `--suite` with no argument
+      # — turning that into a clear usage error is friendlier than
+      # the cryptic "$2: unbound variable" from bash.
+      if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+        echo "[rust-e2e] ERROR: --suite requires a test name (e.g. --suite json_rpc_e2e)" >&2
+        exit 2
+      fi
       SUITES+=("$2")
       shift 2
       ;;

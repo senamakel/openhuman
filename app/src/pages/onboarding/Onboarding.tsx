@@ -2,9 +2,11 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import OnboardingLayout from './OnboardingLayout';
 import CustomInferencePage from './pages/CustomInferencePage';
-import CustomMemoryPage from './pages/CustomMemoryPage';
+// Search + Memory steps are hidden from the flow for now (files kept on
+// disk; uncomment alongside customWizardSteps.ts to re-enable):
+// import CustomMemoryPage from './pages/CustomMemoryPage';
 import CustomOAuthPage from './pages/CustomOAuthPage';
-import CustomSearchPage from './pages/CustomSearchPage';
+// import CustomSearchPage from './pages/CustomSearchPage';
 import CustomVoicePage from './pages/CustomVoicePage';
 import RuntimeChoicePage from './pages/RuntimeChoicePage';
 import WelcomePage from './pages/WelcomePage';
@@ -34,8 +36,8 @@ const Onboarding = () => {
         <Route path="custom/inference" element={<CustomInferencePage />} />
         <Route path="custom/voice" element={<CustomVoicePage />} />
         <Route path="custom/oauth" element={<CustomOAuthPage />} />
-        <Route path="custom/search" element={<CustomSearchPage />} />
-        <Route path="custom/memory" element={<CustomMemoryPage />} />
+        {/* <Route path="custom/search" element={<CustomSearchPage />} /> */}
+        {/* <Route path="custom/memory" element={<CustomMemoryPage />} /> */}
         <Route path="*" element={<Navigate to="welcome" replace />} />
       </Route>
     </Routes>

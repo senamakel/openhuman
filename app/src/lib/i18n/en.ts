@@ -6,7 +6,7 @@ const en: TranslationMap = {
   'nav.human': 'Human',
   'nav.chat': 'Chat',
   'nav.connections': 'Connections',
-  'nav.memory': 'Memory',
+  'nav.memory': 'Intelligence',
   'nav.alerts': 'Alerts',
   'nav.rewards': 'Rewards',
   'nav.settings': 'Settings',
@@ -253,7 +253,7 @@ const en: TranslationMap = {
   'onboarding.runtimeChoice.recommended': 'Recommended',
 
   // Onboarding: API keys step (only when Custom is picked)
-  'onboarding.apiKeys.title': "Let's add your API keys",
+  'onboarding.apiKeys.title': "Let's Add Your API Keys",
   'onboarding.apiKeys.subtitle':
     "You can paste them now or skip and add them later in Settings › AI. Keys are stored on this device, encrypted at rest.",
   'onboarding.apiKeys.openaiLabel': 'OpenAI API key',
@@ -266,6 +266,11 @@ const en: TranslationMap = {
   'onboarding.apiKeys.saving': 'Saving…',
 
   // Onboarding: Custom wizard (Inference / Voice / OAuth / Search / Memory)
+  'onboarding.custom.stepperInference': 'Inference',
+  'onboarding.custom.stepperVoice': 'Voice',
+  'onboarding.custom.stepperOAuth': 'OAuth',
+  'onboarding.custom.stepperSearch': 'Search',
+  'onboarding.custom.stepperMemory': 'Memory',
   'onboarding.custom.stepCounter': 'Step {n} of {total}',
   'onboarding.custom.defaultTitle': 'Default',
   'onboarding.custom.defaultSubtitle': 'Let OpenHuman manage it for you.',
@@ -273,13 +278,13 @@ const en: TranslationMap = {
   'onboarding.custom.configureSubtitle': "I'll pick what to use.",
   'onboarding.custom.continue': 'Continue',
   'onboarding.custom.back': 'Back',
-  'onboarding.custom.finish': 'Finish setup',
+  'onboarding.custom.finish': 'Finish Setup',
   'onboarding.custom.configureLater':
     "You can finish wiring this up after onboarding. We'll drop you on the matching Settings page once you're done.",
   'onboarding.custom.openSettings': 'Open in Settings',
 
   // Onboarding: Custom > Inference (text)
-  'onboarding.custom.inference.title': 'Inference (text)',
+  'onboarding.custom.inference.title': 'Inference (Text)',
   'onboarding.custom.inference.subtitle':
     'Which language model should answer your questions and run your agents?',
   'onboarding.custom.inference.defaultDesc':
@@ -305,7 +310,7 @@ const en: TranslationMap = {
     'Bring your own Composio account / API key. Configure in Settings › Connections.',
 
   // Onboarding: Custom > Search
-  'onboarding.custom.search.title': 'Web search',
+  'onboarding.custom.search.title': 'Web Search',
   'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
   'onboarding.custom.search.defaultDesc':
     'OpenHuman uses a managed search backend. No keys needed.',

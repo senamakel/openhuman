@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
+import WizardStepper from '../components/WizardStepper';
 import type { CustomStepChoice } from '../OnboardingContext';
 
 interface ChoiceCardProps {
@@ -78,16 +79,21 @@ const CustomWizardStep = ({
 }: CustomWizardStepProps) => {
   const { t } = useT();
 
+  const stepperLabels = [
+    t('onboarding.custom.stepperInference'),
+    t('onboarding.custom.stepperVoice'),
+    t('onboarding.custom.stepperOAuth'),
+    t('onboarding.custom.stepperSearch'),
+    t('onboarding.custom.stepperMemory'),
+  ].slice(0, stepCount);
+
   return (
     <div
       data-testid={testId ?? 'onboarding-custom-wizard-step'}
       className="rounded-2xl bg-white p-10 shadow-soft animate-fade-up">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-400">
-        {t('onboarding.custom.stepCounter')
-          .replace('{n}', String(stepIndex + 1))
-          .replace('{total}', String(stepCount))}
-      </p>
-      <h1 className="mt-2 text-2xl font-display text-stone-900 leading-tight">{title}</h1>
+      <WizardStepper labels={stepperLabels} activeIndex={stepIndex} />
+
+      <h1 className="mt-8 text-2xl font-display text-stone-900 leading-tight">{title}</h1>
       <p className="mt-2 text-sm text-stone-500 leading-relaxed">{subtitle}</p>
 
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">

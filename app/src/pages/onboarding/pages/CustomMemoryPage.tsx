@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import MemoryDataPanel from '../../../components/settings/panels/MemoryDataPanel';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
-import ConfigureLaterCallout from '../components/ConfigureLaterCallout';
 import {
   CUSTOM_WIZARD_ROUTES,
-  CUSTOM_WIZARD_SETTINGS_ROUTES,
   CUSTOM_WIZARD_STEPS,
 } from '../customWizardSteps';
 import type { CustomStepChoice } from '../OnboardingContext';
@@ -54,7 +53,7 @@ const CustomMemoryPage = () => {
       subtitle={t('onboarding.custom.memory.subtitle')}
       defaultDescription={t('onboarding.custom.memory.defaultDesc')}
       configureDescription={t('onboarding.custom.memory.configureDesc')}
-      configureContent={<ConfigureLaterCallout settingsHref={CUSTOM_WIZARD_SETTINGS_ROUTES[STEP_KEY]} />}
+      configureContent={<MemoryDataPanel embedded />}
       choice={choice}
       onChoiceChange={persistChoice}
       onBack={() => navigate(CUSTOM_WIZARD_ROUTES[CUSTOM_WIZARD_STEPS[STEP_INDEX - 1]])}

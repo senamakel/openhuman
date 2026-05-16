@@ -25,7 +25,13 @@ import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 type Mode = 'backend' | 'direct';
 
-const ComposioPanel = () => {
+interface ComposioPanelProps {
+  /** When true, render without the SettingsHeader chrome (used when embedded
+   *  inside the onboarding custom wizard). */
+  embedded?: boolean;
+}
+
+const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
   const [mode, setMode] = useState<Mode>('backend');
@@ -187,13 +193,15 @@ const ComposioPanel = () => {
   if (loading) {
     return (
       <div>
-        <SettingsHeader
-          title="Composio"
-          showBackButton
-          onBack={navigateBack}
-          breadcrumbs={breadcrumbs}
-        />
-        <div className="p-4">
+        {!embedded && (
+          <SettingsHeader
+            title="Composio"
+            showBackButton
+            onBack={navigateBack}
+            breadcrumbs={breadcrumbs}
+          />
+        )}
+        <div className={embedded ? '' : 'p-4'}>
           <p className="text-sm text-stone-500">Loading…</p>
         </div>
       </div>
@@ -202,19 +210,21 @@ const ComposioPanel = () => {
 
   return (
     <div>
-      <SettingsHeader
-        title="Composio"
-        showBackButton
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
+      {!embedded && (
+        <SettingsHeader
+          title="Composio"
+          showBackButton
+          onBack={navigateBack}
+          breadcrumbs={breadcrumbs}
+        />
+      )}
 
-      <div className="p-4 space-y-5">
+      <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
         <p className="text-sm text-stone-500">
           Composio powers integrations with Gmail, Notion, Slack, GitHub, and 1000+ other apps. By
-          default OpenHuman proxies these calls through the TinyHumans backend so you don&apos;t
-          need to manage an API key. If you prefer to use your own Composio account directly, switch
-          to <span className="font-medium">Direct</span> mode and paste your key below.
+          default OpenHuman manages it for you, so you don&apos;t need to bring an API key. If you
+          prefer to use your own Composio account directly, switch to{' '}
+          <span className="font-medium">Direct</span> mode and paste your key below.
         </p>
 
         {/* Mode toggle */}
@@ -229,16 +239,16 @@ const ComposioPanel = () => {
                   value="backend"
                   checked={mode === 'backend'}
                   onChange={() => setMode('backend')}
-                  aria-label="Backend (proxied through TinyHumans)"
+                  aria-label="Managed (OpenHuman handles it for you)"
                   className="mt-1"
                 />
                 <div className="text-left">
                   <span className="text-sm font-medium text-stone-900">
-                    Backend (proxied through TinyHumans)
+                    Managed (OpenHuman handles it for you)
                   </span>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    Default. Calls go through <span className="font-mono">api.tinyhumans.ai</span>.
-                    Trigger webhooks (real-time Gmail / Slack events) work out of the box.
+                    Default. OpenHuman manages the Composio connection for you. Trigger webhooks
+                    (real-time Gmail / Slack events) work out of the box.
                   </p>
                 </div>
               </label>
@@ -276,7 +286,7 @@ const ComposioPanel = () => {
             </label>
             <p className="text-xs text-stone-500">
               Find your key at <span className="font-mono">app.composio.dev/api-keys</span>. The key
-              is stored encrypted on this device and is never sent to TinyHumans servers.
+              is stored encrypted on this device and is never sent to OpenHuman.
             </p>
             <input
               id="composio-api-key"
@@ -316,8 +326,8 @@ const ComposioPanel = () => {
             <div className="text-xs text-amber-900 space-y-2">
               <p>
                 Your existing integrations (Gmail, Slack, GitHub, etc. linked through OpenHuman){' '}
-                <span className="font-semibold">won&apos;t be visible</span> — they live in
-                TinyHumans&apos; Composio tenant.
+                <span className="font-semibold">won&apos;t be visible</span> — they live in the
+                OpenHuman-managed Composio tenant.
               </p>
               <p>You&apos;ll need:</p>
               <ol className="list-decimal list-inside space-y-0.5 ml-2">

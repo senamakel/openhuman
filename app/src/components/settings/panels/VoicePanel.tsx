@@ -47,7 +47,13 @@ const PIPER_VOICE_PRESETS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'en_GB-northern_english_male-medium', label: 'GB · Northern English (male)' },
 ];
 
-const VoicePanel = () => {
+interface VoicePanelProps {
+  /** When true, render without the SettingsHeader chrome (used when embedded
+   *  inside the onboarding custom wizard). */
+  embedded?: boolean;
+}
+
+const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, navigateToSettings, breadcrumbs } = useSettingsNavigation();
   const dispatch = useDispatch();
@@ -494,14 +500,16 @@ const VoicePanel = () => {
 
   return (
     <div>
-      <SettingsHeader
-        title={t('voice.title')}
-        showBackButton={true}
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
+      {!embedded && (
+        <SettingsHeader
+          title={t('voice.title')}
+          showBackButton={true}
+          onBack={navigateBack}
+          breadcrumbs={breadcrumbs}
+        />
+      )}
 
-      <div className="p-4 space-y-4">
+      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
         <section className="space-y-3">
           <div
             className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-4"

@@ -710,7 +710,14 @@ const SaveBar = ({
 // Main panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AIPanel = () => {
+interface AIPanelProps {
+  /** When true, the panel is rendered embedded inside another flow (e.g. the
+   *  onboarding custom wizard) and skips its own SettingsHeader chrome so the
+   *  host frame's title/back controls aren't duplicated. */
+  embedded?: boolean;
+}
+
+const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const { saved, draft, setDraft, isDirty, save, discard, loading, error, reload } =
     useAISettings();
@@ -790,9 +797,16 @@ const AIPanel = () => {
 
   return (
     <div className="relative">
-      <SettingsHeader title="LLM" showBackButton onBack={navigateBack} breadcrumbs={breadcrumbs} />
+      {!embedded && (
+        <SettingsHeader
+          title="LLM"
+          showBackButton
+          onBack={navigateBack}
+          breadcrumbs={breadcrumbs}
+        />
+      )}
 
-      <div className="space-y-4 p-4">
+      <div className={embedded ? 'space-y-4' : 'space-y-4 p-4'}>
         {/* ─── Cloud providers ─────────────────────────────────────────── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">

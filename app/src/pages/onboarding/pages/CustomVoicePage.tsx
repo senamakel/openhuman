@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import VoicePanel from '../../../components/settings/panels/VoicePanel';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
-import ConfigureLaterCallout from '../components/ConfigureLaterCallout';
 import {
   CUSTOM_WIZARD_ROUTES,
-  CUSTOM_WIZARD_SETTINGS_ROUTES,
   CUSTOM_WIZARD_STEPS,
 } from '../customWizardSteps';
 import type { CustomStepChoice } from '../OnboardingContext';
@@ -19,7 +18,7 @@ const STEP_INDEX = CUSTOM_WIZARD_STEPS.indexOf(STEP_KEY);
 const CustomVoicePage = () => {
   const { t } = useT();
   const navigate = useNavigate();
-  const { draft, setDraft } = useOnboardingContext();
+  const { draft, setDraft, completeAndExit } = useOnboardingContext();
 
   const [choice, setChoice] = useState<CustomStepChoice | null>(
     draft.customChoices?.[STEP_KEY] ?? null
@@ -33,6 +32,8 @@ const CustomVoicePage = () => {
     }));
   };
 
+  const isLast = STEP_INDEX === CUSTOM_WIZARD_STEPS.length - 1;
+
   return (
     <CustomWizardStep
       testId="onboarding-custom-voice-step"
@@ -42,17 +43,26 @@ const CustomVoicePage = () => {
       subtitle={t('onboarding.custom.voice.subtitle')}
       defaultDescription={t('onboarding.custom.voice.defaultDesc')}
       configureDescription={t('onboarding.custom.voice.configureDesc')}
-      configureContent={<ConfigureLaterCallout settingsHref={CUSTOM_WIZARD_SETTINGS_ROUTES[STEP_KEY]} />}
+      configureContent={<VoicePanel embedded />}
       choice={choice}
       onChoiceChange={persistChoice}
       onBack={() => navigate(CUSTOM_WIZARD_ROUTES[CUSTOM_WIZARD_STEPS[STEP_INDEX - 1]])}
-      onContinue={() => {
+      onContinue={async () => {
         trackEvent('onboarding_step_complete', {
           step_name: 'custom_voice',
           choice: choice ?? 'default',
         });
+        if (isLast) {
+          try {
+            await completeAndExit();
+          } catch (err) {
+            console.error('[onboarding:custom-voice] completeAndExit failed', err);
+          }
+          return;
+        }
         navigate(CUSTOM_WIZARD_ROUTES[CUSTOM_WIZARD_STEPS[STEP_INDEX + 1]]);
       }}
+      continueLabel={isLast ? t('onboarding.custom.finish') : undefined}
     />
   );
 };

@@ -133,7 +133,7 @@ export default function Intelligence() {
     { id: 'memory', label: t('memory.tab.memory') },
     { id: 'subconscious', label: t('memory.tab.subconscious') },
     { id: 'calls', label: t('memory.tab.calls') },
-    { id: 'dreams', label: t('memory.tab.dreams'), comingSoon: true },
+    { id: 'dreams', label: t('memory.tab.dreams') },
   ];
 
   return (

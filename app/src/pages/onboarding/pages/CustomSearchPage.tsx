@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import ToolsPanel from '../../../components/settings/panels/ToolsPanel';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
-import ConfigureLaterCallout from '../components/ConfigureLaterCallout';
 import {
   CUSTOM_WIZARD_ROUTES,
-  CUSTOM_WIZARD_SETTINGS_ROUTES,
   CUSTOM_WIZARD_STEPS,
 } from '../customWizardSteps';
 import type { CustomStepChoice } from '../OnboardingContext';
@@ -42,7 +41,7 @@ const CustomSearchPage = () => {
       subtitle={t('onboarding.custom.search.subtitle')}
       defaultDescription={t('onboarding.custom.search.defaultDesc')}
       configureDescription={t('onboarding.custom.search.configureDesc')}
-      configureContent={<ConfigureLaterCallout settingsHref={CUSTOM_WIZARD_SETTINGS_ROUTES[STEP_KEY]} />}
+      configureContent={<ToolsPanel embedded />}
       choice={choice}
       onChoiceChange={persistChoice}
       onBack={() => navigate(CUSTOM_WIZARD_ROUTES[CUSTOM_WIZARD_STEPS[STEP_INDEX - 1]])}

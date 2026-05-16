@@ -75,126 +75,35 @@ describe('SettingsHome', () => {
     vi.clearAllMocks();
   });
 
-  describe('section headers', () => {
-    it('renders the General section header', () => {
+  describe('flat menu', () => {
+    // Section headers ("General", "Features & AI", "Billing & Rewards",
+    // "Support", "Advanced", "Danger Zone") were intentionally removed —
+    // the menu is now a single flat list to reduce visual noise.
+    it.each(['General', 'Features & AI', 'Billing & Rewards', 'Support', 'Advanced', 'Danger Zone'])(
+      'does not render section header: %s',
+      label => {
+        renderSettingsHome();
+        expect(screen.queryByText(label)).not.toBeInTheDocument();
+      }
+    );
+
+    it('renders the core menu items in a single list', () => {
       renderSettingsHome();
-      expect(screen.getByText('General')).toBeInTheDocument();
+      expect(screen.getByText('Account')).toBeInTheDocument();
+      expect(screen.getByText('Notifications')).toBeInTheDocument();
+      expect(screen.getByText('Features')).toBeInTheDocument();
+      expect(screen.getByText('AI')).toBeInTheDocument();
+      expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
+      expect(screen.getByText('Developer Options')).toBeInTheDocument();
+      expect(screen.getByText('Clear App Data')).toBeInTheDocument();
+      expect(screen.getByText('Log out')).toBeInTheDocument();
     });
 
-    it('renders the Features & AI section header', () => {
+    it('no longer renders Rewards / Restart Tour / About on the home screen', () => {
       renderSettingsHome();
-      expect(screen.getByText('Features & AI')).toBeInTheDocument();
-    });
-
-    it('renders the Billing & Rewards section header', () => {
-      renderSettingsHome();
-      expect(screen.getByText('Billing & Rewards')).toBeInTheDocument();
-    });
-
-    it('renders the Support section header', () => {
-      renderSettingsHome();
-      expect(screen.getByText('Support')).toBeInTheDocument();
-    });
-
-    it('renders the Advanced section header', () => {
-      renderSettingsHome();
-      expect(screen.getByText('Advanced')).toBeInTheDocument();
-    });
-
-    it('renders the Danger Zone section header', () => {
-      renderSettingsHome();
-      expect(screen.getByText('Danger Zone')).toBeInTheDocument();
-    });
-  });
-
-  describe('item grouping order', () => {
-    it('places Account and Notifications under General', () => {
-      renderSettingsHome();
-      const generalHeader = screen.getByText('General');
-      const accountItem = screen.getByText('Account');
-      const notificationsItem = screen.getByText('Notifications');
-
-      // All should appear after the General header in DOM order
-      expect(generalHeader.compareDocumentPosition(accountItem)).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-      expect(generalHeader.compareDocumentPosition(notificationsItem)).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-
-    it('places Features and AI under Features & AI', () => {
-      // After #1710: the catch-all "AI & Models" row collapsed into a
-      // nested "AI" section page (with LLM + Voice as children), so
-      // the home tile label changed from "AI & Models" to just "AI".
-      renderSettingsHome();
-      const header = screen.getByText('Features & AI');
-      expect(header.compareDocumentPosition(screen.getByText('Features'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-      expect(header.compareDocumentPosition(screen.getByText('AI'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-
-    it('places Billing & Usage and Rewards under Billing & Rewards', () => {
-      renderSettingsHome();
-      const header = screen.getByText('Billing & Rewards');
-      expect(header.compareDocumentPosition(screen.getByText('Billing & Usage'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-      expect(header.compareDocumentPosition(screen.getByText('Rewards'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-
-    it('places Restart Tour and About under Support', () => {
-      renderSettingsHome();
-      const header = screen.getByText('Support');
-      expect(header.compareDocumentPosition(screen.getByText('Restart Tour'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-      expect(header.compareDocumentPosition(screen.getByText('About'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-
-    it('places Developer Options under Advanced', () => {
-      renderSettingsHome();
-      const header = screen.getByText('Advanced');
-      expect(header.compareDocumentPosition(screen.getByText('Developer Options'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-
-    it('places Clear App Data and Log out under Danger Zone', () => {
-      renderSettingsHome();
-      const header = screen.getByText('Danger Zone');
-      expect(header.compareDocumentPosition(screen.getByText('Clear App Data'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-      expect(header.compareDocumentPosition(screen.getByText('Log out'))).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    });
-  });
-
-  describe('Rewards menu item', () => {
-    it('renders the Rewards item', () => {
-      renderSettingsHome();
-      expect(screen.getByText('Rewards')).toBeInTheDocument();
-    });
-
-    it('navigates to /rewards when clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      // The Rewards item description is used to find the right button
-      const rewardsButton = screen.getByText('Rewards').closest('button');
-      expect(rewardsButton).toBeTruthy();
-      await user.click(rewardsButton!);
-
-      expect(mockNavigate).toHaveBeenCalledWith('/rewards');
+      expect(screen.queryByText('Rewards')).not.toBeInTheDocument();
+      expect(screen.queryByText('Restart Tour')).not.toBeInTheDocument();
+      expect(screen.queryByText('About')).not.toBeInTheDocument();
     });
   });
 
@@ -213,14 +122,6 @@ describe('SettingsHome', () => {
 
       await user.click(screen.getByText('Notifications').closest('button')!);
       expect(mockNavigateToSettings).toHaveBeenCalledWith('notifications');
-    });
-
-    it('navigates to /home when Restart Tour is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByText('Restart Tour').closest('button')!);
-      expect(mockNavigate).toHaveBeenCalledWith('/home');
     });
 
     it('navigates to features settings when Features is clicked', async () => {
@@ -246,14 +147,6 @@ describe('SettingsHome', () => {
 
       await user.click(screen.getByText('Billing & Usage').closest('button')!);
       expect(openUrl).toHaveBeenCalledWith('https://billing.example.com');
-    });
-
-    it('navigates to about settings when About is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByText('About').closest('button')!);
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('about');
     });
 
     it('navigates to developer-options settings when Developer Options is clicked', async () => {

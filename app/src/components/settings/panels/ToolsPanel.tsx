@@ -12,7 +12,13 @@ import {
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
-const ToolsPanel = () => {
+interface ToolsPanelProps {
+  /** When true, render without the SettingsHeader chrome (used when embedded
+   *  inside the onboarding custom wizard). */
+  embedded?: boolean;
+}
+
+const ToolsPanel = ({ embedded = false }: ToolsPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const { snapshot, setOnboardingTasks } = useCoreState();
@@ -82,14 +88,16 @@ const ToolsPanel = () => {
 
   return (
     <div>
-      <SettingsHeader
-        title={t('settings.features.tools')}
-        showBackButton
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
+      {!embedded && (
+        <SettingsHeader
+          title={t('settings.features.tools')}
+          showBackButton
+          onBack={navigateBack}
+          breadcrumbs={breadcrumbs}
+        />
+      )}
 
-      <div className="p-4 space-y-4">
+      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
         <p className="text-stone-500 text-sm">{t('settings.tools.chooseCapabilities')}</p>
 
         <div className="max-h-[420px] overflow-y-auto pr-1 space-y-4">

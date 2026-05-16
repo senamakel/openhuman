@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { type BootCheckResult, runBootCheck } from '../../lib/bootCheck';
 import { useT } from '../../lib/i18n/I18nContext';
-import type { Locale } from '../../lib/i18n/types';
 import { bootCheckTransport } from '../../services/bootCheckService';
 import {
   clearCoreRpcTokenCache,
@@ -23,7 +22,6 @@ import {
 } from '../../services/coreRpcClient';
 import { type CoreMode, resetCoreMode, setCoreMode } from '../../store/coreModeSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { setLocale } from '../../store/localeSlice';
 import {
   clearStoredCoreMode,
   clearStoredCoreToken,
@@ -34,6 +32,7 @@ import {
 } from '../../utils/configPersistence';
 import { isTauri } from '../../utils/tauriCommands/common';
 import AppBackground from '../AppBackground';
+import LanguageSelect from '../LanguageSelect';
 
 const log = debug('boot-check');
 const logError = debug('boot-check:error');
@@ -66,30 +65,10 @@ function Panel({ children }: PanelProps) {
   );
 }
 
-const LOCALE_OPTIONS: Array<{ value: Locale; flag: string; label: string }> = [
-  { value: 'en', flag: '🇬🇧', label: 'English' },
-  { value: 'zh-CN', flag: '🇨🇳', label: '中文' },
-];
-
-function LanguageSelect() {
-  const dispatch = useAppDispatch();
-  const current = useAppSelector(state => state.locale.current);
+function BootCheckLanguageSelect() {
   return (
     <div className="absolute right-5 top-5">
-      <label className="sr-only" htmlFor="boot-check-language">
-        Language
-      </label>
-      <select
-        id="boot-check-language"
-        value={current}
-        onChange={e => dispatch(setLocale(e.target.value as Locale))}
-        className="appearance-none rounded-lg border border-stone-200 bg-white bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2020%2020%22%20fill=%22%2378716c%22><path%20d=%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22/></svg>')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem_1rem] py-2 pl-3 pr-8 text-xs font-medium text-stone-700 hover:border-stone-300 hover:bg-stone-50 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-        {LOCALE_OPTIONS.map(opt => (
-          <option key={opt.value} value={opt.value}>
-            {opt.flag} {opt.label}
-          </option>
-        ))}
-      </select>
+      <LanguageSelect id="boot-check-language" ariaLabel="Language" />
     </div>
   );
 }
@@ -231,7 +210,7 @@ function ModePicker({ onConfirm }: PickerProps) {
 
   return (
     <Panel>
-      <LanguageSelect />
+      <BootCheckLanguageSelect />
       <h2 className="text-xl font-semibold text-stone-900">
         {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}
       </h2>

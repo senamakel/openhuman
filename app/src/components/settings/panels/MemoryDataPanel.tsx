@@ -8,7 +8,13 @@ import MemoryWindowControl from '../components/MemoryWindowControl';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
-const MemoryDataPanel = () => {
+interface MemoryDataPanelProps {
+  /** When true, render without the SettingsHeader chrome (used when embedded
+   *  inside the onboarding custom wizard). */
+  embedded?: boolean;
+}
+
+const MemoryDataPanel = ({ embedded = false }: MemoryDataPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -38,13 +44,15 @@ const MemoryDataPanel = () => {
 
   return (
     <div className="z-10 relative">
-      <SettingsHeader
-        title={t('memory.title')}
-        showBackButton={true}
-        onBack={navigateBack}
-        breadcrumbs={breadcrumbs}
-      />
-      <div className="p-4 space-y-4">
+      {!embedded && (
+        <SettingsHeader
+          title={t('memory.title')}
+          showBackButton={true}
+          onBack={navigateBack}
+          breadcrumbs={breadcrumbs}
+        />
+      )}
+      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
         <MemoryWindowControl onError={handleWindowError} onSaved={handleWindowSaved} />
         <MemoryWorkspace onToast={addToast} />
       </div>

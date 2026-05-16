@@ -1,11 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { triggerSentryTestEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { APP_ENVIRONMENT } from '../../../utils/config';
 import { isTauri } from '../../../utils/tauriCommands/common';
+import { resetWalkthrough } from '../../walkthrough/AppWalkthrough';
 import SettingsHeader from '../components/SettingsHeader';
 import SettingsMenuItem from '../components/SettingsMenuItem';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -343,8 +345,50 @@ const LogsFolderRow = () => {
 
 const DeveloperOptionsPanel = () => {
   const { t } = useT();
+  const navigate = useNavigate();
   const { navigateToSettings, navigateBack, breadcrumbs } = useSettingsNavigation();
   const showSentryTest = APP_ENVIRONMENT === 'staging';
+
+  // Trailing items moved here from SettingsHome: About + Restart Tour. They
+  // don't fit cleanly in the trimmed-down top-level menu but still need a
+  // home, so they live here under Advanced.
+  const trailingItems = [
+    {
+      id: 'restart-tour',
+      title: t('settings.restartTour'),
+      description: t('settings.restartTourDesc'),
+      onClick: () => {
+        resetWalkthrough();
+        navigate('/home');
+      },
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'about',
+      title: t('settings.about'),
+      description: t('settings.aboutDesc'),
+      onClick: () => navigateToSettings('about'),
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="z-10 relative">
@@ -367,7 +411,18 @@ const DeveloperOptionsPanel = () => {
             description={item.description}
             onClick={() => navigateToSettings(item.route)}
             isFirst={index === 0}
-            isLast={index === developerItems.length - 1}
+            isLast={false}
+          />
+        ))}
+        {trailingItems.map((item, index) => (
+          <SettingsMenuItem
+            key={item.id}
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
+            onClick={item.onClick}
+            isFirst={false}
+            isLast={index === trailingItems.length - 1}
           />
         ))}
       </div>

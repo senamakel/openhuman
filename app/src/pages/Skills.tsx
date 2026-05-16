@@ -10,6 +10,7 @@ import {
 } from '../components/composio/toolkitMeta';
 import { ToastContainer } from '../components/intelligence/Toast';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
+import MeetingBotsCard from '../components/skills/MeetingBotsCard';
 import CreateSkillModal from '../components/skills/CreateSkillModal';
 import InstallSkillDialog from '../components/skills/InstallSkillDialog';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
@@ -823,6 +824,8 @@ export default function Skills() {
                     </div>
                   </div>
                 )}
+
+                <MeetingBotsCard onToast={addToast} />
 
                 <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-soft animate-fade-up">
                   <div className="px-1 pb-3 pt-1">

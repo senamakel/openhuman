@@ -240,6 +240,30 @@ fn all_tools_registers_gitbooks_when_enabled() {
 }
 
 #[test]
+fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
+    let tmp = TempDir::new().unwrap();
+    let mut cfg = test_config(&tmp);
+    cfg.gitbooks.enabled = false;
+    cfg.mcp_client
+        .servers
+        .push(crate::openhuman::config::McpServerConfig {
+            name: "docs".into(),
+            endpoint: "https://example.com/mcp".into(),
+            description: Some("Example docs MCP".into()),
+            enabled: true,
+            timeout_secs: 30,
+            auth: crate::openhuman::config::McpAuthConfig::None,
+        });
+
+    let tools = integration_tools_for_config(&tmp, &cfg);
+    let names = tool_names(&tools);
+    assert_contains_all(
+        &names,
+        &["mcp_list_servers", "mcp_list_tools", "mcp_call_tool"],
+    );
+}
+
+#[test]
 fn all_tools_skips_gitbooks_when_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());

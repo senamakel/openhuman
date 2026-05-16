@@ -233,6 +233,26 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[gitbooks] registered gitbooks_search + gitbooks_get_page");
     }
 
+    // Generic remote MCP bridge tools. These let the agent enumerate
+    // named MCP servers and forward `tools/call` through the core
+    // instead of hardcoding one bespoke MCP integration per server.
+    let mcp_registry =
+        Arc::new(crate::openhuman::mcp_client::McpServerRegistry::from_config(root_config));
+    if !mcp_registry.is_empty() {
+        tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
+        tools.push(Box::new(McpListToolsTool::new(Arc::clone(&mcp_registry))));
+        tools.push(Box::new(McpCallTool::new(
+            Arc::clone(&mcp_registry),
+            security.clone(),
+        )));
+        tracing::debug!(
+            count = mcp_registry.list().len(),
+            "[mcp_client] registered generic MCP bridge tools"
+        );
+    } else {
+        tracing::debug!("[mcp_client] no MCP servers registered — bridge tools skipped");
+    }
+
     // Web search — always registered. Result/timeout budget
     // knobs still come from `config.web_search`, but there is no
     // enable flag: every session needs research as a baseline

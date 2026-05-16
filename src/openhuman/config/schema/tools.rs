@@ -225,6 +225,128 @@ impl Default for GitbooksConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
+pub struct McpServerConfig {
+    /// Stable server slug used by the agent-facing bridge tools.
+    #[serde(default)]
+    pub name: String,
+    /// MCP endpoint URL. Current implementation supports stateless
+    /// Streamable HTTP / JSON responses.
+    #[serde(default)]
+    pub endpoint: String,
+    /// Optional human-readable description shown in bridge tool output.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Whether this server should be exposed to the MCP bridge tools.
+    #[serde(default = "defaults::default_true")]
+    pub enabled: bool,
+    /// Per-request timeout in seconds.
+    #[serde(default = "default_mcp_timeout_secs")]
+    pub timeout_secs: u64,
+    /// Optional auth strategy applied to outbound requests for this
+    /// server. Useful for API-key and pre-provisioned bearer-token
+    /// flows; interactive OAuth discovery is handled by the client
+    /// transport separately when a server returns an auth challenge.
+    #[serde(default)]
+    pub auth: McpAuthConfig,
+}
+
+fn default_mcp_timeout_secs() -> u64 {
+    30
+}
+
+impl Default for McpServerConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            endpoint: String::new(),
+            description: None,
+            enabled: defaults::default_true(),
+            timeout_secs: default_mcp_timeout_secs(),
+            auth: McpAuthConfig::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum McpAuthConfig {
+    None,
+    BearerToken { token: String },
+    Basic { username: String, password: String },
+    Header { name: String, value: String },
+    QueryParam { name: String, value: String },
+}
+
+impl Default for McpAuthConfig {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct McpClientIdentityConfig {
+    /// Client name sent during `initialize.clientInfo.name`.
+    #[serde(default = "default_mcp_client_name")]
+    pub name: String,
+    /// Client title sent during `initialize.clientInfo.title`.
+    #[serde(default = "default_mcp_client_title")]
+    pub title: String,
+    /// Client version sent during `initialize.clientInfo.version`.
+    #[serde(default = "default_mcp_client_version")]
+    pub version: String,
+}
+
+fn default_mcp_client_name() -> String {
+    "openhuman-core".into()
+}
+
+fn default_mcp_client_title() -> String {
+    "OpenHuman Core MCP Client".into()
+}
+
+fn default_mcp_client_version() -> String {
+    env!("CARGO_PKG_VERSION").into()
+}
+
+impl Default for McpClientIdentityConfig {
+    fn default() -> Self {
+        Self {
+            name: default_mcp_client_name(),
+            title: default_mcp_client_title(),
+            version: default_mcp_client_version(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct McpClientConfig {
+    /// When `true`, register the generic MCP bridge tools and expose
+    /// configured remote MCP servers to the agent runtime.
+    #[serde(default = "defaults::default_true")]
+    pub enabled: bool,
+    /// Named remote MCP servers accessible via `mcp_list_*` /
+    /// `mcp_call_tool`.
+    #[serde(default)]
+    pub servers: Vec<McpServerConfig>,
+    /// Identity block sent during initialize.
+    #[serde(default)]
+    pub client_identity: McpClientIdentityConfig,
+}
+
+impl Default for McpClientConfig {
+    fn default() -> Self {
+        Self {
+            enabled: defaults::default_true(),
+            servers: Vec::new(),
+            client_identity: McpClientIdentityConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct SeltzConfig {
     /// When `true`, register `seltz_search` as an agent tool.
     #[serde(default)]

@@ -38,6 +38,7 @@ pub mod heartbeat;
 pub mod integrations;
 pub mod learning;
 pub mod local_ai;
+pub mod mcp_client;
 pub mod mcp_server;
 pub mod meet;
 pub mod meet_agent;

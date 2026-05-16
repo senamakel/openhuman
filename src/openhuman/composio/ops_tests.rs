@@ -342,6 +342,72 @@ async fn composio_delete_connection_via_mock() {
 }
 
 #[tokio::test]
+async fn composio_get_user_profile_via_mock_returns_provider_profile() {
+    use crate::openhuman::config::TEST_ENV_LOCK;
+    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+    crate::openhuman::composio::providers::init_default_providers();
+
+    let app = Router::new()
+        .route(
+            "/agent-integrations/composio/connections",
+            get(|| async {
+                Json(json!({
+                    "success": true,
+                    "data": {"connections": [
+                        {"id":"c1","toolkit":"gmail","status":"ACTIVE"}
+                    ]}
+                }))
+            }),
+        )
+        .route(
+            "/agent-integrations/composio/execute",
+            post(|Json(body): Json<Value>| async move {
+                let action = body
+                    .get("tool")
+                    .and_then(Value::as_str)
+                    .or_else(|| body.get("action").and_then(Value::as_str))
+                    .unwrap_or("");
+                let data = match action {
+                    "GMAIL_GET_PROFILE" => json!({
+                        "emailAddress": "pilot@example.com",
+                        "displayName": "Phoenix Pilot",
+                        "profileUrl": "https://mail.google.com/mail/u/0/#inbox"
+                    }),
+                    other => panic!("unexpected action: {other}"),
+                };
+                Json(json!({
+                    "success": true,
+                    "data": {
+                        "successful": true,
+                        "data": data,
+                        "error": null
+                    }
+                }))
+            }),
+        );
+    let base = start_mock_backend(app).await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_with_backend(&tmp, base);
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+    }
+    config.save().await.unwrap();
+
+    let outcome = composio_get_user_profile(&config, "c1").await.unwrap();
+
+    assert_eq!(outcome.value.toolkit, "gmail");
+    assert_eq!(outcome.value.connection_id.as_deref(), Some("c1"));
+    assert_eq!(outcome.value.email.as_deref(), Some("pilot@example.com"));
+    assert_eq!(outcome.value.display_name.as_deref(), Some("Phoenix Pilot"));
+    assert!(outcome.logs.iter().any(|l| l.contains("gmail")));
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
+}
+
+#[tokio::test]
 async fn composio_list_tools_via_mock_with_filter() {
     let app = Router::new().route(
         "/agent-integrations/composio/tools",
@@ -414,6 +480,111 @@ async fn composio_execute_via_mock_propagates_backend_error() {
         err.starts_with("[composio:error:") && err.contains("rate limited"),
         "got: {err}"
     );
+}
+
+#[tokio::test]
+async fn composio_sync_gmail_via_mock_persists_memory_tree_chunks() {
+    use crate::openhuman::config::TEST_ENV_LOCK;
+    use crate::openhuman::memory::tree::rpc::{list_chunks_rpc, ListChunksRequest};
+    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+    crate::openhuman::composio::providers::init_default_providers();
+
+    let app = Router::new()
+        .route(
+            "/agent-integrations/composio/connections",
+            get(|| async {
+                Json(json!({
+                    "success": true,
+                    "data": {"connections": [
+                        {"id":"c1","toolkit":"gmail","status":"ACTIVE"}
+                    ]}
+                }))
+            }),
+        )
+        .route(
+            "/agent-integrations/composio/execute",
+            post(|Json(body): Json<Value>| async move {
+                let action = body
+                    .get("tool")
+                    .and_then(Value::as_str)
+                    .or_else(|| body.get("action").and_then(Value::as_str))
+                    .unwrap_or("");
+                let data = match action {
+                    "GMAIL_GET_PROFILE" => json!({
+                        "emailAddress": "pilot@example.com",
+                        "displayName": "Phoenix Pilot"
+                    }),
+                    "GMAIL_FETCH_EMAILS" => json!({
+                        "messages": [{
+                            "id": "gmail-msg-1",
+                            "from": "captain@example.com",
+                            "to": ["pilot@example.com"],
+                            "subject": "Phoenix launch canary",
+                            "internalDate": "1717243200000",
+                            "markdown": "Phoenix launch canary body for mock sync coverage."
+                        }]
+                    }),
+                    other => panic!("unexpected action: {other}"),
+                };
+                Json(json!({
+                    "success": true,
+                    "data": {
+                        "successful": true,
+                        "data": data,
+                        "error": null
+                    }
+                }))
+            }),
+        );
+    let base = start_mock_backend(app).await;
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_with_backend(&tmp, base);
+    config.memory_tree.embedding_strict = false;
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+    }
+    config.save().await.unwrap();
+    let _ = crate::openhuman::memory::global::init(config.workspace_dir.clone()).unwrap();
+
+    let outcome = composio_sync(&config, "c1", Some("manual".to_string()))
+        .await
+        .unwrap();
+
+    assert_eq!(outcome.value.toolkit, "gmail");
+    assert_eq!(outcome.value.connection_id.as_deref(), Some("c1"));
+    assert_eq!(outcome.value.items_ingested, 1);
+    assert!(outcome.value.summary.contains("persisted 1 new"));
+
+    let chunks = list_chunks_rpc(
+        &config,
+        ListChunksRequest {
+            source_kind: Some("email".to_string()),
+            source_id: Some("gmail:pilot-example-com".to_string()),
+            limit: Some(10),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap()
+    .value
+    .chunks;
+
+    assert_eq!(chunks.len(), 1, "expected one ingested Gmail chunk");
+    assert!(
+        chunks[0].content.contains("Phoenix launch canary"),
+        "chunk content missing mock email subject: {}",
+        chunks[0].content
+    );
+    assert!(
+        chunks[0].content.contains("mock sync coverage"),
+        "chunk content missing mock email body: {}",
+        chunks[0].content
+    );
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
 }
 
 #[tokio::test]

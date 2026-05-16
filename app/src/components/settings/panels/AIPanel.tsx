@@ -545,119 +545,233 @@ const WorkloadRow = ({
   localModels,
   ollamaState,
   onChange,
-}: WorkloadRowProps) => {
-  const localAvailable = ollamaState === 'running' && localModels.length > 0;
+  onCustomClick,
+}: WorkloadRowProps & { onCustomClick: () => void }) => {
   const selectedCloud =
     ref_.kind === 'cloud' ? cloudProviders.find(c => c.id === ref_.providerId) : undefined;
 
-  const tabBase = 'flex-1 px-2 py-1 text-[11px] font-medium transition-colors';
-  const tab = (active: boolean, disabled = false) =>
-    `${tabBase} first:rounded-l last:rounded-r ${
-      active
-        ? 'bg-white text-stone-900 shadow-subtle ring-1 ring-stone-200'
-        : disabled
-          ? 'text-stone-300'
-          : 'text-stone-500 hover:text-stone-800'
-    } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`;
+  const isDefault = ref_.kind === 'primary';
 
   let resolved: string;
   if (ref_.kind === 'primary') {
     if (!primary) resolved = 'no primary set';
-    else if (primary.type === 'openhuman') resolved = 'openhuman';
-    else resolved = `${PROVIDER_META[primary.type].label.toLowerCase()} · ${primary.defaultModel}`;
+    else if (primary.type === 'openhuman') resolved = 'OpenHuman';
+    else resolved = `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`;
   } else if (ref_.kind === 'cloud') {
     if (!selectedCloud) resolved = ref_.model;
-    else if (selectedCloud.type === 'openhuman') resolved = 'openhuman';
-    else resolved = `${PROVIDER_META[selectedCloud.type].label.toLowerCase()} · ${ref_.model}`;
+    else if (selectedCloud.type === 'openhuman') resolved = 'OpenHuman';
+    else resolved = `${PROVIDER_META[selectedCloud.type].label} · ${ref_.model}`;
   } else {
-    resolved = `ollama · ${ref_.model}`;
+    resolved = `Ollama · ${ref_.model}`;
   }
 
+  // Quiet `ollamaState` / `localModels` unused-prop warnings — they're still
+  // consumed by the parent's onChange wiring through `onCustomClick`.
+  void ollamaState;
+  void localModels;
+
+  const segmentBase =
+    'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer';
+  const activeSegment = 'bg-white text-stone-900 shadow-subtle ring-1 ring-stone-200';
+  const inactiveSegment = 'text-stone-500 hover:text-stone-800';
+
   return (
-    <div className="space-y-2 py-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-stone-900">{workload.label}</div>
-          <div className="truncate text-xs text-stone-500">{workload.description}</div>
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-stone-900">{workload.label}</div>
+        <div className="truncate text-xs text-stone-500">{workload.description}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-stone-400 truncate">↳ {resolved}</div>
+      </div>
+      <div className="inline-flex shrink-0 items-center rounded-lg bg-stone-100 p-0.5">
+        <button
+          type="button"
+          onClick={() => onChange({ kind: 'primary' })}
+          className={`${segmentBase} ${isDefault ? activeSegment : inactiveSegment}`}>
+          Default
+        </button>
+        <button
+          type="button"
+          onClick={onCustomClick}
+          className={`${segmentBase} ${!isDefault ? activeSegment : inactiveSegment}`}>
+          Custom
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom-routing dialog — opened when the user clicks "Custom" on a workload.
+// Lets them pick a provider (cloud or local) and the specific model id.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CustomRoutingDialogProps {
+  workload: Workload;
+  initial: ProviderRef;
+  cloudProviders: CloudProvider[];
+  localModels: OllamaModel[];
+  ollamaRunning: boolean;
+  onClose: () => void;
+  onSubmit: (next: ProviderRef) => void;
+}
+
+type CustomDialogSource =
+  | { kind: 'cloud'; providerId: string }
+  | { kind: 'local' };
+
+const CustomRoutingDialog = ({
+  workload,
+  initial,
+  cloudProviders,
+  localModels,
+  ollamaRunning,
+  onClose,
+  onSubmit,
+}: CustomRoutingDialogProps) => {
+  // Non-openhuman cloud providers + local-ollama (if available) are the
+  // "Custom" options. OpenHuman is excluded — it's the Default path.
+  const customCloud = cloudProviders.filter(p => p.type !== 'openhuman');
+  const localAvailable = ollamaRunning && localModels.length > 0;
+
+  const initialSource: CustomDialogSource | null =
+    initial.kind === 'cloud'
+      ? { kind: 'cloud', providerId: initial.providerId }
+      : initial.kind === 'local'
+        ? { kind: 'local' }
+        : customCloud[0]
+          ? { kind: 'cloud', providerId: customCloud[0].id }
+          : localAvailable
+            ? { kind: 'local' }
+            : null;
+
+  const [source, setSource] = useState<CustomDialogSource | null>(initialSource);
+  const [model, setModel] = useState<string>(() => {
+    if (initial.kind === 'cloud' || initial.kind === 'local') return initial.model;
+    if (initialSource?.kind === 'cloud') {
+      const p = customCloud.find(c => c.id === initialSource.providerId);
+      return p?.defaultModel ?? '';
+    }
+    return localModels[0]?.id ?? '';
+  });
+
+  const selectedCloud =
+    source?.kind === 'cloud' ? customCloud.find(c => c.id === source.providerId) : undefined;
+
+  const canSave = source !== null && model.trim().length > 0;
+
+  const handleSave = () => {
+    if (!source || !canSave) return;
+    if (source.kind === 'cloud') {
+      onSubmit({ kind: 'cloud', providerId: source.providerId, model: model.trim() });
+    } else {
+      onSubmit({ kind: 'local', model: model.trim() });
+    }
+  };
+
+  const noProviders = customCloud.length === 0 && !localAvailable;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Custom routing for ${workload.label}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-stone-900">Custom routing</h3>
+            <p className="mt-0.5 text-xs text-stone-500">{workload.label}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700">
+            <span className="sr-only">Close</span>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
-        <div className="inline-flex shrink-0 items-center rounded bg-stone-100 p-0.5">
+
+        {noProviders ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            No custom providers are set up yet. Add a cloud provider key above, or enable the local
+            Ollama runtime, then come back to pick one.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-stone-700">Provider</label>
+              <select
+                value={source ? `${source.kind}:${source.kind === 'cloud' ? source.providerId : ''}` : ''}
+                onChange={e => {
+                  const [kind, providerId] = e.target.value.split(':');
+                  if (kind === 'local') {
+                    setSource({ kind: 'local' });
+                    setModel(localModels[0]?.id ?? '');
+                  } else if (kind === 'cloud') {
+                    const p = customCloud.find(c => c.id === providerId);
+                    setSource({ kind: 'cloud', providerId });
+                    setModel(p?.defaultModel ?? '');
+                  }
+                }}
+                className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                {customCloud.map(p => (
+                  <option key={p.id} value={`cloud:${p.id}`}>
+                    {PROVIDER_META[p.type].label}
+                  </option>
+                ))}
+                {localAvailable && <option value="local:">Local (Ollama)</option>}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-stone-700">Model</label>
+              {source?.kind === 'local' ? (
+                <select
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                  {localModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.id}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  placeholder={selectedCloud?.defaultModel ?? 'model-id'}
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
           <button
-            onClick={() => onChange({ kind: 'primary' })}
-            className={tab(ref_.kind === 'primary')}>
-            Primary
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+            Cancel
           </button>
           <button
-            onClick={() => {
-              const p = cloudProviders.find(c => c.id !== primary?.id) ?? cloudProviders[0];
-              if (!p) return;
-              onChange({
-                kind: 'cloud',
-                providerId: p.id,
-                model: p.type === 'openhuman' ? '' : p.defaultModel,
-              });
-            }}
-            className={tab(ref_.kind === 'cloud')}>
-            Cloud
-          </button>
-          <button
-            onClick={() => {
-              if (!localAvailable) return;
-              onChange({ kind: 'local', model: localModels[0]?.id ?? '' });
-            }}
-            className={tab(ref_.kind === 'local', !localAvailable)}
-            title={!localAvailable ? 'Ollama not running' : undefined}>
-            Local
+            type="button"
+            onClick={handleSave}
+            disabled={!canSave}
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+            Save
           </button>
         </div>
       </div>
-
-      {ref_.kind === 'primary' && (
-        <div className="text-right font-mono text-[11px] text-stone-400">↳ {resolved}</div>
-      )}
-      {ref_.kind === 'cloud' && (
-        <div className="flex items-center justify-end gap-1.5">
-          <select
-            value={ref_.providerId}
-            onChange={e => {
-              const p = cloudProviders.find(c => c.id === e.target.value)!;
-              onChange({
-                kind: 'cloud',
-                providerId: p.id,
-                model: p.type === 'openhuman' ? '' : p.defaultModel,
-              });
-            }}
-            className="rounded-md border border-stone-300 bg-white px-2 py-1 font-mono text-[11px] text-stone-800 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200">
-            {cloudProviders.map(p => (
-              <option key={p.id} value={p.id}>
-                {PROVIDER_META[p.type].label}
-              </option>
-            ))}
-          </select>
-          {selectedCloud?.type !== 'openhuman' && (
-            <input
-              value={ref_.model}
-              onChange={e =>
-                onChange({ kind: 'cloud', providerId: ref_.providerId, model: e.target.value })
-              }
-              className="w-28 rounded-md border border-stone-300 bg-white px-2 py-1 font-mono text-[11px] text-stone-800 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-            />
-          )}
-        </div>
-      )}
-      {ref_.kind === 'local' && (
-        <div className="flex justify-end">
-          <select
-            value={ref_.model}
-            onChange={e => onChange({ kind: 'local', model: e.target.value })}
-            className="rounded-md border border-stone-300 bg-white px-2 py-1 font-mono text-[11px] text-stone-800 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200">
-            {localModels.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.id}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
     </div>
   );
 };
@@ -725,6 +839,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const installed = useInstalledModels(ollama.snapshot);
   const [editing, setEditing] = useState<CloudProvider | 'new' | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  // Which workload's "Custom" dialog is currently open (null = closed).
+  const [customDialogFor, setCustomDialogFor] = useState<WorkloadId | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   const [customPathInput, setCustomPathInput] = useState<string>('');
   // Seed the custom-path input from the resolved binary path the FIRST time
@@ -752,23 +868,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const updateRouting = (id: WorkloadId, next: ProviderRef) =>
     setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
 
-  const applyPreset = (kind: 'cloud' | 'local' | 'mixed') => {
-    const next: RoutingMap = { ...draft.routing };
-    for (const w of WORKLOADS) {
-      if (kind === 'cloud') next[w.id] = { kind: 'primary' };
-      else if (kind === 'local') {
-        const m = installed[0]?.id;
-        next[w.id] = m ? { kind: 'local', model: m } : { kind: 'primary' };
-      } else {
-        const firstModel = installed[0]?.id;
-        next[w.id] =
-          w.group === 'chat' || !firstModel
-            ? { kind: 'primary' }
-            : { kind: 'local', model: firstModel };
-      }
-    }
-    setDraft({ ...draft, routing: next });
-  };
+  // applyPreset removed alongside the Cloud / Local / Mixed preset pills —
+  // the new Default/Custom binary toggle handles routing per workload.
 
   const diffSummary = useMemo(() => {
     const out: string[] = [];
@@ -806,7 +907,19 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
         />
       )}
 
-      <div className={embedded ? 'space-y-4' : 'space-y-4 p-4'}>
+      <div className={embedded ? 'space-y-6' : 'space-y-6 p-4'}>
+        {/* ═══════════════════════════════════════════════════════════════
+            AUTH — provider authentication (cloud providers + local Ollama
+            setup). Everything the user needs to wire a model up.
+            ═══════════════════════════════════════════════════════════════ */}
+        <div className="space-y-4">
+          <div className="border-b border-stone-200 pb-2">
+            <h2 className="text-base font-semibold text-stone-900">Auth</h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Keys, endpoints, and local runtime setup for the providers OpenHuman can talk to.
+            </p>
+          </div>
+
         {/* ─── Cloud providers ─────────────────────────────────────────── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -1215,28 +1328,24 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           </details>
         </section>
 
-        {/* ─── Workload routing ────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>Workload routing</SectionLabel>
-            <div className="inline-flex items-center rounded-full bg-stone-100 p-0.5">
-              <button
-                onClick={() => applyPreset('cloud')}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-stone-600 hover:text-stone-900">
-                Cloud
-              </button>
-              <button
-                onClick={() => applyPreset('local')}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-stone-600 hover:text-stone-900">
-                Local
-              </button>
-              <button
-                onClick={() => applyPreset('mixed')}
-                className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-stone-900 shadow-subtle ring-1 ring-stone-200">
-                Mixed
-              </button>
-            </div>
+        </div>
+        {/* end of Auth section */}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            ROUTING — which workload uses which model. Each row is a
+            binary toggle: Default (let OpenHuman pick) or Custom (opens
+            a popup to choose provider + model).
+            ═══════════════════════════════════════════════════════════════ */}
+        <div className="space-y-4">
+          <div className="border-b border-stone-200 pb-2">
+            <h2 className="text-base font-semibold text-stone-900">Routing</h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Pick how each workload is served. Default uses OpenHuman; Custom lets you point a
+              workload at a specific provider and model.
+            </p>
           </div>
+
+        <section className="space-y-3">
 
           <div className="overflow-hidden rounded-lg border border-stone-200 bg-stone-50 px-3">
             <div className="pt-3">
@@ -1254,6 +1363,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     localModels={installed}
                     ollamaState={ollama.state}
                     onChange={next => updateRouting(w.id, next)}
+                    onCustomClick={() => setCustomDialogFor(w.id)}
                   />
                 ))}
               </div>
@@ -1273,6 +1383,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     localModels={installed}
                     ollamaState={ollama.state}
                     onChange={next => updateRouting(w.id, next)}
+                    onCustomClick={() => setCustomDialogFor(w.id)}
                   />
                 ))}
               </div>
@@ -1281,15 +1392,17 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
 
           {primary && (
             <div className="text-[11px] text-stone-500">
-              Primary resolves to{' '}
+              Default resolves to{' '}
               <span className="font-mono text-stone-700">
                 {primary.type === 'openhuman'
-                  ? 'openhuman'
-                  : `${PROVIDER_META[primary.type].label.toLowerCase()} · ${primary.defaultModel}`}
+                  ? 'OpenHuman'
+                  : `${PROVIDER_META[primary.type].label} · ${primary.defaultModel}`}
               </span>
             </div>
           )}
         </section>
+        </div>
+        {/* end of Routing section */}
       </div>
 
       {isDirty && (
@@ -1355,6 +1468,26 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           }}
         />
       )}
+
+      {customDialogFor &&
+        (() => {
+          const w = WORKLOADS.find(x => x.id === customDialogFor);
+          if (!w) return null;
+          return (
+            <CustomRoutingDialog
+              workload={w}
+              initial={draft.routing[customDialogFor]}
+              cloudProviders={draft.cloudProviders}
+              localModels={installed}
+              ollamaRunning={ollama.state === 'running'}
+              onClose={() => setCustomDialogFor(null)}
+              onSubmit={next => {
+                updateRouting(customDialogFor, next);
+                setCustomDialogFor(null);
+              }}
+            />
+          );
+        })()}
     </div>
   );
 };

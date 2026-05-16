@@ -78,8 +78,8 @@ const en: TranslationMap = {
   'settings.restartTourDesc': 'Replay the product walkthrough from the beginning',
   'settings.about': 'About',
   'settings.aboutDesc': 'App version and software updates',
-  'settings.developerOptions': 'Developer Options',
-  'settings.developerOptionsDesc': 'Diagnostics, debug panels, webhooks, and memory inspection',
+  'settings.developerOptions': 'Advanced',
+  'settings.developerOptionsDesc': 'AI configuration, messaging channels, tools, diagnostics, and debug panels',
   'settings.clearAppData': 'Clear App Data',
   'settings.clearAppDataDesc': 'Sign out and permanently clear all local app data',
   'settings.logOut': 'Log out',
@@ -367,7 +367,7 @@ const en: TranslationMap = {
   'invites.copyLink': 'Copy Link',
 
   // Developer Options
-  'devOptions.title': 'Developer Options',
+  'devOptions.title': 'Advanced',
   'devOptions.diagnostics': 'Diagnostics',
   'devOptions.diagnosticsDesc': 'System health, logs, and performance metrics',
   'devOptions.debugPanels': 'Debug Panels',

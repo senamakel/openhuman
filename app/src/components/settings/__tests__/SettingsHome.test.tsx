@@ -77,9 +77,9 @@ describe('SettingsHome', () => {
 
   describe('flat menu', () => {
     // Section headers ("General", "Features & AI", "Billing & Rewards",
-    // "Support", "Advanced", "Danger Zone") were intentionally removed —
-    // the menu is now a single flat list to reduce visual noise.
-    it.each(['General', 'Features & AI', 'Billing & Rewards', 'Support', 'Advanced', 'Danger Zone'])(
+    // "Support", "Danger Zone") were intentionally removed — the menu is
+    // now a single flat list to reduce visual noise.
+    it.each(['General', 'Features & AI', 'Billing & Rewards', 'Support', 'Danger Zone'])(
       'does not render section header: %s',
       label => {
         renderSettingsHome();
@@ -90,17 +90,18 @@ describe('SettingsHome', () => {
     it('renders the core menu items in a single list', () => {
       renderSettingsHome();
       expect(screen.getByText('Account')).toBeInTheDocument();
+      expect(screen.getByText('Alerts')).toBeInTheDocument();
       expect(screen.getByText('Notifications')).toBeInTheDocument();
-      expect(screen.getByText('Features')).toBeInTheDocument();
-      expect(screen.getByText('AI Configuration')).toBeInTheDocument();
       expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
-      expect(screen.getByText('Developer Options')).toBeInTheDocument();
+      expect(screen.getByText('Advanced')).toBeInTheDocument();
       expect(screen.getByText('Clear App Data')).toBeInTheDocument();
       expect(screen.getByText('Log out')).toBeInTheDocument();
     });
 
-    it('no longer renders Rewards / Restart Tour / About on the home screen', () => {
+    it('no longer renders Features / AI / Rewards / Restart Tour / About on the home screen', () => {
       renderSettingsHome();
+      expect(screen.queryByText('Features')).not.toBeInTheDocument();
+      expect(screen.queryByText('AI Configuration')).not.toBeInTheDocument();
       expect(screen.queryByText('Rewards')).not.toBeInTheDocument();
       expect(screen.queryByText('Restart Tour')).not.toBeInTheDocument();
       expect(screen.queryByText('About')).not.toBeInTheDocument();
@@ -124,20 +125,12 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('notifications');
     });
 
-    it('navigates to features settings when Features is clicked', async () => {
+    it('navigates to /notifications inbox when Alerts is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByText('Features').closest('button')!);
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('features');
-    });
-
-    it('navigates to ai settings when AI is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByText('AI Configuration').closest('button')!);
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('ai');
+      await user.click(screen.getByText('Alerts').closest('button')!);
+      expect(mockNavigate).toHaveBeenCalledWith('/notifications');
     });
 
     it('opens billing URL when Billing & Usage is clicked', async () => {
@@ -149,11 +142,11 @@ describe('SettingsHome', () => {
       expect(openUrl).toHaveBeenCalledWith('https://billing.example.com');
     });
 
-    it('navigates to developer-options settings when Developer Options is clicked', async () => {
+    it('navigates to developer-options when Advanced is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByText('Developer Options').closest('button')!);
+      await user.click(screen.getByText('Advanced').closest('button')!);
       expect(mockNavigateToSettings).toHaveBeenCalledWith('developer-options');
     });
   });

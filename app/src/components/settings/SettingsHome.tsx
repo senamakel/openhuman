@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
@@ -26,6 +27,7 @@ interface SettingsItem {
 }
 
 const SettingsHome = () => {
+  const navigate = useNavigate();
   const { navigateToSettings } = useSettingsNavigation();
   const { clearSession, snapshot } = useCoreState();
   const { t } = useT();
@@ -74,6 +76,22 @@ const SettingsHome = () => {
             </svg>
           ),
           onClick: () => navigateToSettings('account'),
+        },
+        {
+          id: 'alerts',
+          title: t('nav.alerts'),
+          description: 'View recent alerts and activity in your inbox',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+          ),
+          onClick: () => navigate('/notifications'),
         },
         {
           id: 'notifications',
@@ -125,43 +143,9 @@ const SettingsHome = () => {
         },
       ],
     },
-    {
-      label: t('settings.featuresAndAI'),
-      items: [
-        {
-          id: 'features',
-          title: t('settings.features'),
-          description: t('settings.featuresDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('features'),
-        },
-        {
-          id: 'ai',
-          title: t('settings.ai'),
-          description: t('settings.aiDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('ai'),
-        },
-      ],
-    },
+    // Features tile (Screen Awareness / Messaging Channels / Notifications /
+    // Tools) used to live here. Everything under it moved into Advanced
+    // (DeveloperOptionsPanel), so the section is gone from the home menu.
     {
       label: t('settings.billingAndRewards'),
       items: [

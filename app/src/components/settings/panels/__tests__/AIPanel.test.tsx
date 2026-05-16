@@ -79,16 +79,20 @@ describe('AIPanel', () => {
     // workload routing rows).
     await waitFor(() => expect(screen.getAllByText(/Cloud providers/i).length).toBeGreaterThan(0));
     expect(screen.getAllByText(/Local provider/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Workload routing/i).length).toBeGreaterThan(0);
+    // Routing section now uses a top-level "Routing" header (the old
+    // "Workload routing" SectionLabel was removed when the section was
+    // promoted to its own Auth/Routing split).
+    expect(screen.getAllByText(/^Routing$/).length).toBeGreaterThan(0);
   });
 
   it('renders the OpenHuman primary card after load', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getByText(/OpenHuman/i)).toBeInTheDocument());
-    // "Primary" shows up on the provider card badge AND in workload
-    // routing rows that read "Primary resolves to …", so multiple
-    // matches are expected.
-    expect(screen.getAllByText(/Primary/).length).toBeGreaterThan(0);
+    // The OpenHuman label now appears in multiple places (provider card,
+    // each workload routing row's "↳ OpenHuman" resolution hint), so we
+    // assert at-least-one match rather than getByText.
+    await waitFor(() =>
+      expect(screen.getAllByText(/OpenHuman/i).length).toBeGreaterThan(0)
+    );
   });
 
   it('renders all eight workload labels', async () => {

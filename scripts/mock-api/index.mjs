@@ -19,9 +19,11 @@ export {
   clearRequestLog,
   getSocketEventLog,
   getMockBehavior,
+  listMockLlmThreads,
   getRequestLog,
   listSocketSessions,
   resetMockBehavior,
+  resetMockLlmThreads,
   setMockBehavior,
   setMockBehaviors,
 } from "./state.mjs";

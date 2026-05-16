@@ -13,6 +13,7 @@ let mockMessages = [];
 let mockCronJobs = [];
 let mockWebhookTriggers = [];
 let socketEventLog = [];
+let mockLlmThreads = new Map();
 let nextSequence = 1;
 
 const socketSessions = new Map();
@@ -187,6 +188,86 @@ export function setMockWebhookTriggers(next) {
 
 export function resetMockWebhookTriggers() {
   mockWebhookTriggers = [];
+}
+
+export function listMockLlmThreads() {
+  return Array.from(mockLlmThreads.values()).map((thread) => ({
+    key: thread.key,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    turnCount: thread.turnCount || 0,
+    lastModel: thread.lastModel || null,
+    lastFamily: thread.lastFamily || null,
+    lastUserMessage: thread.lastUserMessage || null,
+    lastAssistantContent: thread.lastAssistantContent || null,
+    lastToolCallCount: Array.isArray(thread.lastToolCalls)
+      ? thread.lastToolCalls.length
+      : 0,
+  }));
+}
+
+export function getMockLlmThread(key) {
+  return mockLlmThreads.get(String(key)) || null;
+}
+
+export function touchMockLlmThread(key, patch = {}) {
+  if (!key) return null;
+  const threadKey = String(key);
+  const current = getMockLlmThread(threadKey) || {
+    key: threadKey,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    turnCount: 0,
+    history: [],
+    lastModel: null,
+    lastFamily: null,
+    lastUserMessage: null,
+    lastAssistantContent: null,
+    lastToolCalls: [],
+    lastToolResult: null,
+    lastCodeLanguage: null,
+  };
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  mockLlmThreads.set(threadKey, next);
+  return next;
+}
+
+export function recordMockLlmTurn(key, turn = {}) {
+  if (!key) return null;
+  const thread = touchMockLlmThread(key);
+  const history = Array.isArray(thread.history) ? [...thread.history] : [];
+  history.push({
+    timestamp: new Date().toISOString(),
+    requestText: turn.requestText || null,
+    responseText: turn.responseText || null,
+    toolCalls: Array.isArray(turn.toolCalls) ? turn.toolCalls : [],
+    toolResultText: turn.toolResultText || null,
+    model: turn.model || null,
+    family: turn.family || null,
+  });
+  const next = touchMockLlmThread(key, {
+    history: history.slice(-12),
+    turnCount: (thread.turnCount || 0) + 1,
+    lastModel: turn.model || thread.lastModel || null,
+    lastFamily: turn.family || thread.lastFamily || null,
+    lastUserMessage: turn.requestText || thread.lastUserMessage || null,
+    lastAssistantContent:
+      turn.responseText ?? thread.lastAssistantContent ?? null,
+    lastToolCalls: Array.isArray(turn.toolCalls)
+      ? turn.toolCalls
+      : (thread.lastToolCalls ?? []),
+    lastToolResult: turn.toolResultText ?? thread.lastToolResult ?? null,
+    lastCodeLanguage: turn.codeLanguage ?? thread.lastCodeLanguage ?? null,
+  });
+  return next;
+}
+
+export function resetMockLlmThreads() {
+  mockLlmThreads = new Map();
 }
 
 export function listSocketSessions() {

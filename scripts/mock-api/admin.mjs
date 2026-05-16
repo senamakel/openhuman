@@ -10,12 +10,14 @@ import {
   getMockConversations,
   getMockCronJobs,
   getMockMessages,
+  listMockLlmThreads,
   getMockWebhookTriggers,
   getRequestLog,
   resetMockBehavior,
   resetMockConversations,
   resetMockCronJobs,
   resetMockMessages,
+  resetMockLlmThreads,
   resetSocketSessions,
   resetMockTunnels,
   resetMockWebhookTriggers,
@@ -48,6 +50,7 @@ export function handleAdmin(ctx) {
         messages: getMockMessages(),
         cronJobs: getMockCronJobs(),
         webhookTriggers: getMockWebhookTriggers(),
+        llmThreads: listMockLlmThreads(),
         socketSessions: listSocketSessions(),
         socketEventCount: getSocketEventLog().length,
       },
@@ -72,6 +75,7 @@ export function handleAdmin(ctx) {
     resetMockMessages();
     resetMockCronJobs();
     resetMockWebhookTriggers();
+    resetMockLlmThreads();
     resetConversationFixturesState();
     resetCronFixturesState();
     resetSocketSessions();

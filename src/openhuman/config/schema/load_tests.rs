@@ -613,6 +613,38 @@ fn env_overlay_node_flags_respect_bool_parser() {
 }
 
 #[test]
+fn env_overlay_runtime_python_flags_respect_bool_parser() {
+    let mut cfg = Config::default();
+    let original_version = cfg.runtime_python.minimum_version.clone();
+
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new()
+            .with("OPENHUMAN_RUNTIME_PYTHON_ENABLED", "yes")
+            .with("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM", "off")
+            .with("OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR", "/tmp/oh-python")
+            .with("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND", "python3.12"),
+    );
+    assert!(cfg.runtime_python.enabled);
+    assert!(!cfg.runtime_python.prefer_system);
+    assert_eq!(cfg.runtime_python.cache_dir, "/tmp/oh-python");
+    assert_eq!(cfg.runtime_python.preferred_command, "python3.12");
+    assert_eq!(
+        cfg.runtime_python.minimum_version, original_version,
+        "untouched keys stay at defaults"
+    );
+
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_RUNTIME_PYTHON_ENABLED", "perhaps"),
+    );
+    assert!(cfg.runtime_python.enabled);
+
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_RUNTIME_PYTHON_MINIMUM_VERSION", "   "),
+    );
+    assert_eq!(cfg.runtime_python.minimum_version, original_version);
+}
+
+#[test]
 fn env_overlay_sentry_dsn_trims_and_ignores_blank() {
     let mut cfg = Config::default();
     cfg.observability.sentry_dsn = None;

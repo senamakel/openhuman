@@ -1148,6 +1148,38 @@ impl Config {
             }
         }
 
+        // Python runtime overrides
+        if let Some(flag) = env.get("OPENHUMAN_RUNTIME_PYTHON_ENABLED") {
+            if let Some(enabled) = parse_env_bool("OPENHUMAN_RUNTIME_PYTHON_ENABLED", &flag) {
+                self.runtime_python.enabled = enabled;
+            }
+        }
+        if let Some(version) = env.get("OPENHUMAN_RUNTIME_PYTHON_MINIMUM_VERSION") {
+            let trimmed = version.trim();
+            if !trimmed.is_empty() {
+                self.runtime_python.minimum_version = trimmed.to_string();
+            }
+        }
+        if let Some(dir) = env.get("OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR") {
+            let trimmed = dir.trim();
+            if !trimmed.is_empty() {
+                self.runtime_python.cache_dir = trimmed.to_string();
+            }
+        }
+        if let Some(flag) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM") {
+            if let Some(prefer_system) =
+                parse_env_bool("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM", &flag)
+            {
+                self.runtime_python.prefer_system = prefer_system;
+            }
+        }
+        if let Some(command) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND") {
+            let trimmed = command.trim();
+            if !trimmed.is_empty() {
+                self.runtime_python.preferred_command = trimmed.to_string();
+            }
+        }
+
         // Prefer the namespaced name. `OPENHUMAN_SENTRY_DSN` is the legacy
         // unprefixed name kept as a fallback so existing CI vars and local
         // `.env` files keep working until the GH org-level variable can be

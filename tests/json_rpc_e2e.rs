@@ -3511,8 +3511,12 @@ async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreach
     )
     .await;
     let prompt_err = assert_jsonrpc_error(&prompt, "inference_prompt unreachable ollama");
+    let prompt_err_message = prompt_err
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     assert!(
-        prompt_err.contains("no longer starts or installs Ollama automatically"),
+        prompt_err_message.contains("routes inference through an external Ollama endpoint"),
         "unexpected error: {prompt_err}"
     );
 

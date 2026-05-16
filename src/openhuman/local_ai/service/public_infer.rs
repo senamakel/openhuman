@@ -8,6 +8,14 @@ use crate::openhuman::local_ai::provider::{provider_from_config, LocalAiProvider
 
 use super::LocalAiService;
 
+fn external_ollama_request_error(prefix: &str, error: &reqwest::Error) -> String {
+    let base_url = ollama_base_url();
+    format!(
+        "{prefix}: OpenHuman routes inference through an external Ollama endpoint. \
+         Make sure Ollama is already running and reachable at {base_url} ({error})"
+    )
+}
+
 impl LocalAiService {
     pub async fn summarize(
         &self,
@@ -259,7 +267,7 @@ impl LocalAiService {
             .json(&body)
             .send()
             .await
-            .map_err(|e| format!("ollama chat request failed: {e}"))?;
+            .map_err(|e| external_ollama_request_error("ollama chat request failed", &e))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -509,7 +517,7 @@ impl LocalAiService {
             .json(&body)
             .send()
             .await
-            .map_err(|e| format!("ollama request failed: {e}"))?;
+            .map_err(|e| external_ollama_request_error("ollama request failed", &e))?;
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();

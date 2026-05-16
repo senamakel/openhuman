@@ -34,7 +34,7 @@ pub struct StartHostedDirParams {
 }
 
 fn default_bind_host() -> String {
-    "0.0.0.0".to_string()
+    "127.0.0.1".to_string()
 }
 
 #[derive(Debug, Deserialize)]

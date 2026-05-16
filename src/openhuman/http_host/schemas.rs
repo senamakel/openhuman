@@ -61,7 +61,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "bind_host",
                     ty: TypeSchema::String,
-                    comment: "Interface / host to bind. Defaults to 0.0.0.0 for LAN reachability.",
+                    comment: "Interface / host to bind. Defaults to 127.0.0.1; use an explicit non-loopback host for LAN reachability.",
                     required: false,
                 },
                 FieldSchema {
@@ -100,12 +100,20 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 comment: "Opaque server id returned by http_host.start.",
                 required: true,
             }],
-            outputs: vec![FieldSchema {
-                name: "server",
-                ty: TypeSchema::Json,
-                comment: "The stopped server's final configuration snapshot.",
-                required: true,
-            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "stopped",
+                    ty: TypeSchema::Bool,
+                    comment: "Whether the server was successfully stopped.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "server",
+                    ty: TypeSchema::Json,
+                    comment: "The stopped server's final configuration snapshot.",
+                    required: true,
+                },
+            ],
         },
         "get" => ControllerSchema {
             namespace: "http_host",

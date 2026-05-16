@@ -262,6 +262,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::encryption::all_encryption_controller_schemas());
     schemas.extend(crate::openhuman::security::all_security_controller_schemas());
     schemas.extend(crate::openhuman::heartbeat::all_heartbeat_controller_schemas());
+    schemas.extend(crate::openhuman::http_host::all_http_host_controller_schemas());
     schemas.extend(crate::openhuman::cost::all_cost_controller_schemas());
     schemas.extend(crate::openhuman::autocomplete::all_autocomplete_controller_schemas());
     schemas

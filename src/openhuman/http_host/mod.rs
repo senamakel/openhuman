@@ -6,12 +6,19 @@
 //! Basic authentication using the active user's identity plus a generated
 //! password.
 
+mod auth;
+mod handlers;
 pub mod ops;
+mod path_utils;
 pub mod rpc;
 mod schemas;
+#[cfg(test)]
+mod tests;
 mod types;
 
 pub use schemas::{
     all_controller_schemas as all_http_host_controller_schemas,
     all_registered_controllers as all_http_host_registered_controllers,
 };
+
+pub(crate) const LOG_PREFIX: &str = "[http_host]";

@@ -352,7 +352,15 @@ export function handleWebSocketUpgrade(req, socket) {
   );
 
   socket.on("close", () => {
-    dropSocketSession(session.sid);
+    const live = getSocketSession(session.sid);
+    if (live?.upgradedToWebSocket === true) {
+      dropSocketSession(session.sid);
+    } else if (live) {
+      touchSocketSession(session.sid, {
+        webSocket: null,
+        transport: "polling",
+      });
+    }
     logSocketCheckpoint("websocket_closed", { sid: session.sid });
   });
   socket.on("error", () => {});

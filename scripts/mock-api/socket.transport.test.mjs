@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import {
@@ -10,7 +11,29 @@ import {
   startMockServer,
   stopMockServer,
 } from "./index.mjs";
+import { handleWebSocketUpgrade } from "./socket.mjs";
+import { getSocketSession, registerSocketSession } from "./state.mjs";
 import { createSocket, onceSocket } from "./test-helpers/socket-client.mjs";
+
+class FakeWebSocket extends EventEmitter {
+  constructor() {
+    super();
+    this.destroyed = false;
+    this.writes = [];
+  }
+
+  write(chunk) {
+    this.writes.push(String(chunk));
+  }
+
+  end() {
+    this.destroyed = true;
+  }
+
+  destroy() {
+    this.destroyed = true;
+  }
+}
 
 test.beforeEach(async () => {
   await stopMockServer();
@@ -76,4 +99,30 @@ test("supports polling-only clients", async () => {
   } finally {
     pollingSocket.disconnect();
   }
+});
+
+test("keeps polling session alive when websocket probe closes before upgrade", () => {
+  const session = registerSocketSession({
+    sid: "probe-fallback-sid",
+    socketId: "probe-fallback-sid",
+    transport: "polling",
+    createdAt: new Date().toISOString(),
+  });
+  const socket = new FakeWebSocket();
+
+  handleWebSocketUpgrade(
+    {
+      url: `/socket.io/?transport=websocket&sid=${session.sid}`,
+      headers: { "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==" },
+    },
+    socket,
+  );
+
+  socket.emit("close");
+
+  const live = getSocketSession(session.sid);
+  assert.ok(live);
+  assert.equal(live.transport, "polling");
+  assert.equal(live.upgradedToWebSocket, false);
+  assert.equal(live.webSocket, null);
 });

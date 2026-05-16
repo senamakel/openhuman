@@ -412,9 +412,7 @@ describe('AIPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     // Dialog closes and chip flips to "Disconnect LM Studio".
     await waitFor(() =>
-      expect(
-        screen.queryByRole('dialog', { name: /Connect LM Studio/i })
-      ).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: /Connect LM Studio/i })).not.toBeInTheDocument()
     );
     expect(screen.getByRole('switch', { name: /Disconnect LM Studio/i })).toBeInTheDocument();
     // setCloudProviderKey must NOT have been called (local runtime skips key store).
@@ -721,9 +719,7 @@ describe('AIPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Add provider/i }));
 
-    await waitFor(() =>
-      expect(screen.queryByText(/Add cloud provider/i)).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText(/Add cloud provider/i)).not.toBeInTheDocument());
     // SaveBar must appear.
     expect(screen.getByText(/unsaved change/i)).toBeInTheDocument();
     // setCloudProviderKey should have been called with the slug and key.
@@ -739,9 +735,7 @@ describe('AIPanel', () => {
     fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
-    await waitFor(() =>
-      expect(screen.queryByText(/Add cloud provider/i)).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText(/Add cloud provider/i)).not.toBeInTheDocument());
     expect(screen.queryByText(/unsaved change/i)).not.toBeInTheDocument();
   });
 
@@ -825,9 +819,7 @@ describe('AIPanel', () => {
     await waitFor(() => expect(screen.getByText(/unsaved change/i)).toBeInTheDocument());
     // Discard.
     fireEvent.click(screen.getByRole('button', { name: /Discard/i }));
-    await waitFor(() =>
-      expect(screen.queryByText(/unsaved change/i)).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText(/unsaved change/i)).not.toBeInTheDocument());
     // Chip should be back to ON.
     expect(screen.getByRole('switch', { name: /Disconnect OpenAI/i })).toBeInTheDocument();
   });

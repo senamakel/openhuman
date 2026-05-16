@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use axum::http::{header::AUTHORIZATION, HeaderMap, StatusCode};
+use axum::http::{header::AUTHORIZATION, HeaderMap, StatusCode, Uri};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::StreamExt;
@@ -61,6 +61,7 @@ impl Drop for EnvVarGuard {
 /// inherited `VITE_BACKEND_URL`.
 static JSON_RPC_E2E_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static CHAT_COMPLETION_MODELS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+static CHAT_COMPLETION_REQUESTS: OnceLock<Mutex<Vec<Value>>> = OnceLock::new();
 
 fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
     let mutex = JSON_RPC_E2E_ENV_LOCK.get_or_init(|| Mutex::new(()));
@@ -73,6 +74,17 @@ fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
 
 fn with_chat_completion_models<T>(f: impl FnOnce(&mut Vec<String>) -> T) -> T {
     let mutex = CHAT_COMPLETION_MODELS.get_or_init(|| Mutex::new(Vec::new()));
+    match mutex.lock() {
+        Ok(mut guard) => f(&mut guard),
+        Err(poisoned) => {
+            let mut guard = poisoned.into_inner();
+            f(&mut guard)
+        }
+    }
+}
+
+fn with_chat_completion_requests<T>(f: impl FnOnce(&mut Vec<Value>) -> T) -> T {
+    let mutex = CHAT_COMPLETION_REQUESTS.get_or_init(|| Mutex::new(Vec::new()));
     match mutex.lock() {
         Ok(mut guard) => f(&mut guard),
         Err(poisoned) => {
@@ -175,10 +187,33 @@ fn mock_upstream_router() -> Router {
         })))
     }
 
-    async fn chat_completions(Json(body): Json<Value>) -> Json<Value> {
+    async fn chat_completions(
+        uri: Uri,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
         if let Some(model) = body.get("model").and_then(Value::as_str) {
             with_chat_completion_models(|models| models.push(model.to_string()));
         }
+        let auth_header = headers
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        let x_api_key = headers
+            .get("x-api-key")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        with_chat_completion_requests(|requests| {
+            requests.push(json!({
+                "path": uri.path(),
+                "model": body.get("model").and_then(Value::as_str),
+                "stream": body.get("stream").and_then(Value::as_bool),
+                "thread_id": body.get("thread_id").and_then(Value::as_str),
+                "authorization": auth_header,
+                "x_api_key": x_api_key,
+                "body": body.clone(),
+            }))
+        });
         let is_triage_turn = body
             .get("messages")
             .and_then(Value::as_array)
@@ -203,7 +238,47 @@ fn mock_upstream_router() -> Router {
             "choices": [{
                 "message": {
                     "role": "assistant",
-                    "content": content
+                    "content": format!("{content} via /openai/v1/chat/completions")
+                }
+            }]
+        }))
+    }
+
+    async fn generic_chat_completions(
+        uri: Uri,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
+        if let Some(model) = body.get("model").and_then(Value::as_str) {
+            with_chat_completion_models(|models| models.push(model.to_string()));
+        }
+        let auth_header = headers
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        let x_api_key = headers
+            .get("x-api-key")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        with_chat_completion_requests(|requests| {
+            requests.push(json!({
+                "path": uri.path(),
+                "model": body.get("model").and_then(Value::as_str),
+                "stream": body.get("stream").and_then(Value::as_bool),
+                "thread_id": body.get("thread_id").and_then(Value::as_str),
+                "authorization": auth_header,
+                "x_api_key": x_api_key,
+                "body": body.clone(),
+            }))
+        });
+        Json(json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": format!(
+                        "Hello from custom provider {}",
+                        body.get("model").and_then(Value::as_str).unwrap_or("unknown-model")
+                    )
                 }
             }]
         }))
@@ -418,6 +493,8 @@ fn mock_upstream_router() -> Router {
         .route("/settings", get(current_user))
         .route("/auth/me", get(current_user))
         .route("/openai/v1/chat/completions", post(chat_completions))
+        .route("/v1/chat/completions", post(generic_chat_completions))
+        .route("/chat/completions", post(generic_chat_completions))
         // billing
         .route("/payments/stripe/currentPlan", get(stripe_current_plan))
         .route("/payments/stripe/purchasePlan", post(stripe_purchase_plan))
@@ -581,6 +658,68 @@ async fn read_sse_event_by_type(events_url: &str, target_event: &str) -> Value {
         }
     }
     panic!("SSE stream ended before receiving '{target_event}' event");
+}
+
+/// Read SSE events until a terminal web-chat event arrives.
+///
+/// This prevents tests from timing out blindly when the turn actually
+/// completed with `chat_error` rather than `chat_done`.
+async fn read_terminal_web_chat_event(events_url: &str) -> Value {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .expect("client");
+    let resp = client
+        .get(events_url)
+        .header(AUTHORIZATION, format!("Bearer {TEST_RPC_TOKEN}"))
+        .send()
+        .await
+        .unwrap_or_else(|e| panic!("GET {events_url}: {e}"));
+    assert!(
+        resp.status().is_success(),
+        "SSE HTTP error {} for {}",
+        resp.status(),
+        events_url
+    );
+
+    let mut stream = resp.bytes_stream();
+    let mut buffer = String::new();
+    while let Some(item) = stream.next().await {
+        let chunk = item.unwrap_or_else(|e| panic!("sse stream read failed: {e}"));
+        let text = std::str::from_utf8(&chunk).unwrap_or("");
+        buffer.push_str(text);
+        while let Some(idx) = buffer.find("\n\n") {
+            let block = buffer[..idx].to_string();
+            buffer = buffer[idx + 2..].to_string();
+            let mut data_lines = Vec::new();
+            for line in block.lines() {
+                if let Some(data) = line.strip_prefix("data:") {
+                    data_lines.push(data.trim_start());
+                }
+            }
+            if !data_lines.is_empty() {
+                let payload = data_lines.join("\n");
+                let value: Value = serde_json::from_str(&payload)
+                    .unwrap_or_else(|e| panic!("invalid sse data json: {e}"));
+                match value.get("event").and_then(Value::as_str) {
+                    Some("chat_done") | Some("chat_error") => return value,
+                    _ => {}
+                }
+            }
+        }
+    }
+    panic!("SSE stream ended before receiving terminal web-chat event");
+}
+
+async fn wait_for_chat_completion_requests_len(expected_len: usize) -> Vec<Value> {
+    for _ in 0..100 {
+        let snapshot = with_chat_completion_requests(|requests| requests.clone());
+        if snapshot.len() >= expected_len {
+            return snapshot;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    with_chat_completion_requests(|requests| requests.clone())
 }
 
 fn assert_no_jsonrpc_error<'a>(v: &'a Value, context: &str) -> &'a Value {
@@ -775,8 +914,7 @@ async fn json_rpc_protocol_auth_and_agent_hello() {
     let client_id = "e2e-client-1";
     let thread_id = "thread-1";
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
-    let sse_task =
-        tokio::spawn(async move { read_sse_event_by_type(&events_url, "chat_done").await });
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
 
     let web_chat = post_json_rpc(
         &rpc_base,
@@ -1634,6 +1772,378 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
             );
         }
     }
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_web_chat_custom_reasoning_provider_uses_stored_key_and_rebuilds_on_route_change()
+{
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+
+    write_min_config_with_local_ai_disabled(&openhuman_home, &mock_origin);
+    let user_scoped_dir = openhuman_home.join("users").join("e2e-user");
+    write_min_config_with_local_ai_disabled(&user_scoped_dir, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let store = post_json_rpc(
+        &rpc_base,
+        6001,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "e2e-test-jwt",
+            "user_id": "e2e-user"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    let update = post_json_rpc(
+        &rpc_base,
+        6002,
+        "openhuman.update_model_settings",
+        json!({
+            "cloud_providers": [{
+                "id": "p_openai_1",
+                "slug": "openai",
+                "label": "OpenAI",
+                "endpoint": mock_origin,
+                "auth_style": "bearer"
+            }],
+            "reasoning_provider": "openai:gpt-4.1-mini"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_model_settings");
+
+    let store_provider = post_json_rpc(
+        &rpc_base,
+        6003,
+        "openhuman.auth_store_provider_credentials",
+        json!({
+            "provider": "provider:openai",
+            "profile": "default",
+            "token": "sk-custom-openai-key",
+            "setActive": true
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store_provider, "auth_store_provider_credentials");
+
+    with_chat_completion_models(|models| models.clear());
+    with_chat_completion_requests(|requests| requests.clear());
+
+    let client_id = "custom-provider-client";
+    let thread_id = "custom-provider-thread";
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+    let sse_task =
+        tokio::spawn(async move { read_sse_event_by_type(&events_url, "chat_done").await });
+
+    let accepted = post_json_rpc(
+        &rpc_base,
+        6004,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "Use the custom reasoning provider"
+        }),
+    )
+    .await;
+    let accepted_result = assert_no_jsonrpc_error(&accepted, "channel_web_chat first");
+    assert_eq!(
+        accepted_result
+            .get("result")
+            .and_then(|v| v.get("accepted")),
+        Some(&json!(true))
+    );
+    let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
+        .await
+        .expect("timed out waiting for first custom-provider chat_done")
+        .expect("first custom-provider sse join");
+    assert_eq!(
+        sse_event.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "unexpected first custom-provider terminal event: {sse_event}; requests={:?}",
+        with_chat_completion_requests(|requests| requests.clone())
+    );
+
+    let requests = wait_for_chat_completion_requests_len(1).await;
+    assert_eq!(requests.len(), 1, "expected one outbound provider call");
+    assert_eq!(
+        requests[0].get("path").and_then(Value::as_str),
+        Some("/chat/completions")
+    );
+    assert_eq!(
+        requests[0].get("model").and_then(Value::as_str),
+        Some("gpt-4.1-mini")
+    );
+    assert_eq!(
+        requests[0].get("authorization").and_then(Value::as_str),
+        Some("Bearer sk-custom-openai-key")
+    );
+
+    let update_again = post_json_rpc(
+        &rpc_base,
+        6005,
+        "openhuman.update_model_settings",
+        json!({
+            "reasoning_provider": "openai:gpt-4.1-nano"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update_again, "update_model_settings second");
+
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+
+    let accepted = post_json_rpc(
+        &rpc_base,
+        6006,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "Route the next turn with the updated model"
+        }),
+    )
+    .await;
+    let accepted_result = assert_no_jsonrpc_error(&accepted, "channel_web_chat second");
+    assert_eq!(
+        accepted_result
+            .get("result")
+            .and_then(|v| v.get("accepted")),
+        Some(&json!(true))
+    );
+    let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
+        .await
+        .expect("timed out waiting for second custom-provider chat_done")
+        .expect("second custom-provider sse join");
+    assert_eq!(
+        sse_event.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "unexpected second custom-provider terminal event: {sse_event}; requests={:?}",
+        with_chat_completion_requests(|requests| requests.clone())
+    );
+
+    let requests = wait_for_chat_completion_requests_len(2).await;
+    assert_eq!(requests.len(), 2, "expected two outbound provider calls");
+    assert_eq!(
+        requests[1].get("model").and_then(Value::as_str),
+        Some("gpt-4.1-nano"),
+        "cached web-chat session should rebuild when reasoning_provider changes"
+    );
+    assert_eq!(
+        requests[1].get("authorization").and_then(Value::as_str),
+        Some("Bearer sk-custom-openai-key")
+    );
+
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+
+    let accepted = post_json_rpc(
+        &rpc_base,
+        6007,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "This turn should stay on the backend agentic route",
+            "model_override": "hint:agentic"
+        }),
+    )
+    .await;
+    let accepted_result =
+        assert_no_jsonrpc_error(&accepted, "channel_web_chat unaffected agentic route");
+    assert_eq!(
+        accepted_result
+            .get("result")
+            .and_then(|v| v.get("accepted")),
+        Some(&json!(true))
+    );
+    let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
+        .await
+        .expect("timed out waiting for unaffected agentic chat_done")
+        .expect("unaffected agentic sse join");
+    assert_eq!(
+        sse_event.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "unexpected unaffected-agentic terminal event: {sse_event}; requests={:?}",
+        with_chat_completion_requests(|requests| requests.clone())
+    );
+
+    let requests = wait_for_chat_completion_requests_len(3).await;
+    assert_eq!(requests.len(), 3, "expected three outbound provider calls");
+    assert_eq!(
+        requests[2].get("path").and_then(Value::as_str),
+        Some("/openai/v1/chat/completions"),
+        "custom reasoning provider must not hijack unrelated backend routes"
+    );
+    assert_eq!(
+        requests[2].get("model").and_then(Value::as_str),
+        Some("agentic-v1")
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_web_chat_custom_reasoning_provider_with_auth_none_omits_auth_header() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+
+    write_min_config_with_local_ai_disabled(&openhuman_home, &mock_origin);
+    let user_scoped_dir = openhuman_home.join("users").join("e2e-user");
+    write_min_config_with_local_ai_disabled(&user_scoped_dir, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let store = post_json_rpc(
+        &rpc_base,
+        6101,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "e2e-test-jwt",
+            "user_id": "e2e-user"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    let update = post_json_rpc(
+        &rpc_base,
+        6102,
+        "openhuman.update_model_settings",
+        json!({
+            "cloud_providers": [{
+                "id": "p_proxy_1",
+                "slug": "proxy",
+                "label": "Proxy",
+                "endpoint": mock_origin,
+                "auth_style": "none"
+            }],
+            "reasoning_provider": "proxy:gpt-oss"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_model_settings");
+    let cfg = post_json_rpc(&rpc_base, 6102_1, "openhuman.config_get", json!({})).await;
+    let cfg_outer = assert_no_jsonrpc_error(&cfg, "config_get auth-none");
+    let cfg_payload = cfg_outer.get("result").unwrap_or(&cfg_outer);
+    let config = cfg_payload.get("config").unwrap_or(cfg_payload);
+    assert_eq!(
+        config.get("reasoning_provider").and_then(Value::as_str),
+        Some("proxy:gpt-oss")
+    );
+    assert_eq!(
+        config
+            .get("cloud_providers")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1)
+    );
+    let loaded_config = openhuman_core::openhuman::config::load_config_with_timeout()
+        .await
+        .expect("load_config after auth-none update");
+    let (provider, model) =
+        openhuman_core::openhuman::providers::create_chat_provider("reasoning", &loaded_config)
+            .expect("custom auth-none provider should build");
+    let direct = provider
+        .simple_chat("direct custom-provider smoke test", &model, 0.0)
+        .await
+        .expect("direct custom auth-none provider call should succeed");
+    assert!(
+        direct.contains("Hello from custom provider"),
+        "unexpected direct custom-provider response: {direct}"
+    );
+
+    with_chat_completion_models(|models| models.clear());
+    with_chat_completion_requests(|requests| requests.clear());
+
+    let client_id = "auth-none-client";
+    let thread_id = "auth-none-thread";
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+
+    let accepted = post_json_rpc(
+        &rpc_base,
+        6103,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "Use the auth-none provider"
+        }),
+    )
+    .await;
+    let accepted_result = assert_no_jsonrpc_error(&accepted, "channel_web_chat auth-none");
+    assert_eq!(
+        accepted_result
+            .get("result")
+            .and_then(|v| v.get("accepted")),
+        Some(&json!(true))
+    );
+    let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
+        .await
+        .expect("timed out waiting for auth-none chat_done")
+        .expect("auth-none sse join");
+    assert_eq!(
+        sse_event.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "unexpected auth-none terminal event: {sse_event}; requests={:?}",
+        with_chat_completion_requests(|requests| requests.clone())
+    );
+
+    let requests = wait_for_chat_completion_requests_len(1).await;
+    assert_eq!(requests.len(), 1, "expected one auth-none provider call");
+    assert_eq!(
+        requests[0].get("path").and_then(Value::as_str),
+        Some("/chat/completions")
+    );
+    assert_eq!(
+        requests[0].get("model").and_then(Value::as_str),
+        Some("gpt-oss")
+    );
+    assert!(
+        requests[0].get("authorization").is_none()
+            || requests[0].get("authorization").is_some_and(Value::is_null),
+        "auth_style=none must not emit Authorization: {:?}",
+        requests[0].get("authorization")
+    );
+    assert!(
+        requests[0].get("x_api_key").is_none()
+            || requests[0].get("x_api_key").is_some_and(Value::is_null),
+        "auth_style=none must not emit x-api-key: {:?}",
+        requests[0].get("x_api_key")
+    );
 
     mock_join.abort();
     rpc_join.abort();

@@ -56,10 +56,16 @@ describe('Skills page — Composio catalog fallback', () => {
     expect(screen.getByText('Reddit')).toBeInTheDocument();
     expect(screen.getByText('Slack')).toBeInTheDocument();
     expect(screen.getByText('Supabase')).toBeInTheDocument();
-    // The Skills page also renders a "Zoom" entry in the Meeting bots card
-    // (mascot-meets integration). Use *AllBy* and assert at least one match
-    // — the toolkit grid still contains the Composio Zoom tile.
-    expect(screen.getAllByText('Zoom').length).toBeGreaterThan(0);
+    // Scope to the Integrations section so the assertion still catches a
+    // missing Composio Zoom tile even though the Meeting bots card also
+    // renders a "Zoom" entry on the same page.
+    const integrationsSection = screen
+      .getByRole('heading', { name: 'Integrations' })
+      .closest('.rounded-2xl');
+    expect(integrationsSection).not.toBeNull();
+    expect(
+      within(integrationsSection as HTMLElement).getByText('Zoom')
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Other' })).not.toBeInTheDocument();
   });
 

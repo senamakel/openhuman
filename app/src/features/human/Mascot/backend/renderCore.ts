@@ -12,6 +12,15 @@ type VisemeCarrier = Pick<MascotDetail, 'visemeSlot' | 'visemes'>;
 type HiderCarrier = Pick<MascotDetail, 'hidesOnViseme'>;
 
 /**
+ * Escape regex metacharacters in interpolated id / attribute names so a
+ * malformed backend manifest (or a future schema that allows broader id
+ * characters) can't inject pattern fragments or throw at RegExp construction.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Compute the SVG `transform` value for a tween entry at time t (seconds).
  */
 export function tweenTransform(t: number, tw: MascotTween): string {
@@ -44,7 +53,8 @@ export function tweenTransform(t: number, tw: MascotTween): string {
 
 /** Strip `name="..."` from an opening tag string and re-append it with `value`. */
 function setOpeningTagAttr(tag: string, name: string, value: string): string {
-  const stripped = tag.replace(new RegExp(`\\s*\\b${name}="[^"]*"`, 'g'), '');
+  const nameEsc = escapeRegExp(name);
+  const stripped = tag.replace(new RegExp(`\\s*\\b${nameEsc}="[^"]*"`, 'g'), '');
   return stripped.replace(/(\/?>)$/, ` ${name}="${value}"$1`);
 }
 
@@ -57,7 +67,8 @@ function setOpeningTagAttr(tag: string, name: string, value: string): string {
 export function injectViseme(svg: string, mascot: VisemeCarrier, label: string | null): string {
   if (!mascot.visemeSlot) return svg;
   const slotId = String(mascot.visemeSlot).replace(/^#/, '');
-  const openRe = new RegExp(`<g\\s[^>]*\\bid="${slotId}"[^>]*>`);
+  const slotIdEsc = escapeRegExp(slotId);
+  const openRe = new RegExp(`<g\\s[^>]*\\bid="${slotIdEsc}"[^>]*>`);
   const openMatch = svg.match(openRe);
   if (!openMatch) return svg;
   let inner = '';
@@ -76,7 +87,7 @@ export function injectViseme(svg: string, mascot: VisemeCarrier, label: string |
     }
   }
   const newOpening = setOpeningTagAttr(openMatch[0], 'opacity', visible ? '1' : '0');
-  const blockRe = new RegExp(`<g\\s[^>]*\\bid="${slotId}"[^>]*>[\\s\\S]*?</g>`);
+  const blockRe = new RegExp(`<g\\s[^>]*\\bid="${slotIdEsc}"[^>]*>[\\s\\S]*?</g>`);
   return svg.replace(blockRe, newOpening + inner + '</g>');
 }
 
@@ -85,9 +96,11 @@ export function setAttrOnId(svg: string, id: string, name: string, value: string
   // Lazy `[^>]*?` + greedy `\/?>` ordering avoids swallowing the `/` of
   // self-closing tags (`<path .../>`) and emitting malformed
   // `attr"/ transform="...">` output.
-  const re = new RegExp(`(<\\w+\\b[^>]*\\bid="${id}")([^>]*?)(\\s*/?>)`);
+  const idEsc = escapeRegExp(id);
+  const nameEsc = escapeRegExp(name);
+  const re = new RegExp(`(<\\w+\\b[^>]*\\bid="${idEsc}")([^>]*?)(\\s*/?>)`);
   return svg.replace(re, (_full, head: string, rest: string, close: string) => {
-    const stripped = rest.replace(new RegExp(`\\s*\\b${name}="[^"]*"`, 'g'), '');
+    const stripped = rest.replace(new RegExp(`\\s*\\b${nameEsc}="[^"]*"`, 'g'), '');
     return `${head}${stripped} ${name}="${value}"${close}`;
   });
 }

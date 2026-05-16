@@ -30,7 +30,8 @@ export interface BackendMascotProps {
   paused?: boolean;
 }
 
-function pickState(mascot: MascotDetail, stateId?: string): MascotState {
+function pickState(mascot: MascotDetail, stateId?: string): MascotState | null {
+  if (mascot.states.length === 0) return null;
   const id = stateId ?? mascot.defaultState;
   return mascot.states.find(s => s.id === id) ?? mascot.states[0];
 }
@@ -53,6 +54,7 @@ export function BackendMascot({
   // viseme changes are handled in a separate effect that doesn't tear
   // down the SVG.
   const initialMarkup = useMemo(() => {
+    if (!state) return '';
     const active = viseme && viseme !== 'sil' ? viseme : null;
     return injectViseme(state.svg, mascot, active);
     // We intentionally only re-inject on state change here; viseme effect
@@ -91,11 +93,14 @@ export function BackendMascot({
       if (!target) continue;
       target.setAttribute('opacity', visible ? '0' : '1');
     }
-  }, [mascot, viseme]);
+    // `state` is included so the effect re-runs when the SVG remounts
+    // with a different state's structure (slot + hidesOnViseme nodes are
+    // queried by id directly on the live DOM, so they're per-state).
+  }, [mascot, state, viseme]);
 
   // rAF tween loop. Mutates `transform` attrs in place — no React re-render.
   useEffect(() => {
-    if (paused) return;
+    if (paused || !state) return;
     const root = containerRef.current?.querySelector('svg');
     if (!root) return;
     const tweens = state.tween ?? [];
@@ -127,6 +132,8 @@ export function BackendMascot({
       rafRef.current = null;
     };
   }, [state, paused]);
+
+  if (!state) return null;
 
   return (
     <div

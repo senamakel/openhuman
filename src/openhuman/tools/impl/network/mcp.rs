@@ -284,6 +284,10 @@ mod tests {
         config.mcp_client.servers.push(McpServerConfig {
             name: "docs".into(),
             endpoint: "https://example.com/mcp".into(),
+            command: String::new(),
+            args: Vec::new(),
+            env: std::collections::HashMap::new(),
+            cwd: None,
             description: Some("Docs MCP".into()),
             enabled: true,
             timeout_secs: 30,

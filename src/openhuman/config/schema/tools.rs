@@ -3,6 +3,7 @@
 use super::defaults;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -233,6 +234,21 @@ pub struct McpServerConfig {
     /// Streamable HTTP / JSON responses.
     #[serde(default)]
     pub endpoint: String,
+    /// Optional stdio command for local MCP servers. When set, the
+    /// client launches this command as a subprocess and speaks newline-
+    /// delimited JSON-RPC over stdin/stdout per the MCP stdio transport.
+    #[serde(default)]
+    pub command: String,
+    /// Command-line arguments for stdio MCP servers.
+    #[serde(default)]
+    pub args: Vec<String>,
+    /// Extra environment variables for stdio MCP servers. MCP stdio auth
+    /// is typically passed this way.
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    /// Optional working directory for stdio MCP servers.
+    #[serde(default)]
+    pub cwd: Option<String>,
     /// Optional human-readable description shown in bridge tool output.
     #[serde(default)]
     pub description: Option<String>,
@@ -259,6 +275,10 @@ impl Default for McpServerConfig {
         Self {
             name: String::new(),
             endpoint: String::new(),
+            command: String::new(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            cwd: None,
             description: None,
             enabled: defaults::default_true(),
             timeout_secs: default_mcp_timeout_secs(),

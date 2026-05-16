@@ -1,15 +1,17 @@
 //! Shared MCP client + registry for remote MCP servers exposed to agents.
 //!
-//! This module is the client-side counterpart to `openhuman::mcp_server`.
-//! It keeps track of named remote MCP servers, lists their tool surfaces,
-//! and forwards `tools/call` requests through a small stateless HTTP client.
+//! Supports Streamable HTTP and stdio transports. HTTP transport carries
+//! session + auth lifecycle; stdio launches a subprocess and exchanges
+//! newline-delimited JSON-RPC messages over stdin/stdout per the MCP spec.
 
 mod client;
 mod registry;
+mod stdio;
 
 pub use client::{
     redact_endpoint, AuthorizationServerMetadata, McpAuthChallenge, McpAuthorizationContext,
     McpHttpClient, McpInitializeResult, McpRemoteTool, McpServerToolResult, McpSseEvent,
     ProtectedResourceMetadata,
 };
-pub use registry::{McpRegistrySource, McpServerDefinition, McpServerRegistry};
+pub use registry::{McpRegistrySource, McpServerDefinition, McpServerRegistry, McpTransportClient};
+pub use stdio::McpStdioClient;

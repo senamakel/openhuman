@@ -1,10 +1,12 @@
 use super::client::{
     McpAuthorizationContext, McpHttpClient, McpInitializeResult, McpRemoteTool, McpServerToolResult,
 };
+use super::stdio::McpStdioClient;
 use crate::openhuman::config::{Config, McpAuthConfig, McpClientIdentityConfig, McpServerConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -18,11 +20,18 @@ pub enum McpRegistrySource {
 pub struct McpServerDefinition {
     pub name: String,
     pub endpoint: String,
+    pub command: Option<String>,
     pub description: Option<String>,
     pub timeout_secs: u64,
     pub auth: McpAuthConfig,
     pub source: McpRegistrySource,
-    client: Arc<McpHttpClient>,
+    client: Arc<McpTransportClient>,
+}
+
+#[derive(Debug)]
+pub enum McpTransportClient {
+    Http(McpHttpClient),
+    Stdio(McpStdioClient),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -50,16 +59,17 @@ impl McpServerRegistry {
             registry.insert(McpServerDefinition {
                 name: "gitbooks".into(),
                 endpoint: config.gitbooks.endpoint.clone(),
+                command: None,
                 description: Some("OpenHuman GitBook documentation MCP server.".into()),
                 timeout_secs: config.gitbooks.timeout_secs,
                 auth: McpAuthConfig::None,
                 source: McpRegistrySource::LegacyGitbooks,
-                client: Arc::new(McpHttpClient::with_options(
+                client: Arc::new(McpTransportClient::Http(McpHttpClient::with_options(
                     config.gitbooks.endpoint.clone(),
                     config.gitbooks.timeout_secs,
                     McpAuthConfig::None,
                     config.mcp_client.client_identity.clone(),
-                )),
+                ))),
             });
         }
 
@@ -128,10 +138,12 @@ impl McpServerRegistry {
         }
         let name = server.name.trim();
         let endpoint = server.endpoint.trim();
-        if name.is_empty() || endpoint.is_empty() {
+        let command = server.command.trim();
+        if name.is_empty() || (endpoint.is_empty() && command.is_empty()) {
             tracing::warn!(
                 name = server.name,
                 endpoint = server.endpoint,
+                command = server.command,
                 "[mcp_client] skipping malformed MCP server config entry"
             );
             return;
@@ -139,16 +151,12 @@ impl McpServerRegistry {
         self.insert(McpServerDefinition {
             name: name.to_string(),
             endpoint: endpoint.to_string(),
+            command: transport_command(server),
             description: server.description.clone(),
             timeout_secs: server.timeout_secs,
             auth: server.auth.clone(),
             source,
-            client: Arc::new(McpHttpClient::with_options(
-                endpoint.to_string(),
-                server.timeout_secs,
-                server.auth.clone(),
-                identity.clone(),
-            )),
+            client: Arc::new(build_transport_client(server, identity)),
         });
     }
 
@@ -157,6 +165,76 @@ impl McpServerRegistry {
         if self.by_name.insert(name.clone(), def).is_none() {
             self.order.push(name);
         }
+    }
+}
+
+impl McpTransportClient {
+    pub async fn initialize(&self) -> anyhow::Result<McpInitializeResult> {
+        match self {
+            Self::Http(client) => client.initialize().await,
+            Self::Stdio(client) => client.initialize().await,
+        }
+    }
+
+    pub async fn list_tools(&self) -> anyhow::Result<Vec<McpRemoteTool>> {
+        match self {
+            Self::Http(client) => client.list_tools().await,
+            Self::Stdio(client) => client.list_tools().await,
+        }
+    }
+
+    pub async fn call_tool(
+        &self,
+        tool: &str,
+        arguments: Value,
+    ) -> anyhow::Result<McpServerToolResult> {
+        match self {
+            Self::Http(client) => client.call_tool(tool, arguments).await,
+            Self::Stdio(client) => client.call_tool(tool, arguments).await,
+        }
+    }
+
+    pub async fn discover_authorization(&self) -> anyhow::Result<Option<McpAuthorizationContext>> {
+        match self {
+            Self::Http(client) => client.discover_authorization().await,
+            Self::Stdio(_) => Ok(None),
+        }
+    }
+}
+
+fn build_transport_client(
+    server: &McpServerConfig,
+    identity: &McpClientIdentityConfig,
+) -> McpTransportClient {
+    if !server.command.trim().is_empty() {
+        let env = server
+            .env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<Vec<_>>();
+        McpTransportClient::Stdio(McpStdioClient::new(
+            server.command.trim().to_string(),
+            server.args.clone(),
+            env,
+            server.cwd.as_ref().map(PathBuf::from),
+            identity.clone(),
+        ))
+    } else {
+        McpTransportClient::Http(McpHttpClient::with_options(
+            server.endpoint.trim().to_string(),
+            server.timeout_secs,
+            server.auth.clone(),
+            identity.clone(),
+        ))
+    }
+}
+
+fn transport_command(server: &McpServerConfig) -> Option<String> {
+    let command = server.command.trim();
+    if command.is_empty() {
+        None
+    } else {
+        Some(command.to_string())
     }
 }
 
@@ -178,6 +256,10 @@ mod tests {
         config.mcp_client.servers.push(McpServerConfig {
             name: "gitbooks".into(),
             endpoint: "https://example.com/mcp".into(),
+            command: String::new(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            cwd: None,
             description: Some("Custom docs".into()),
             enabled: true,
             timeout_secs: 9,

@@ -249,6 +249,10 @@ fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
         .push(crate::openhuman::config::McpServerConfig {
             name: "docs".into(),
             endpoint: "https://example.com/mcp".into(),
+            command: String::new(),
+            args: Vec::new(),
+            env: std::collections::HashMap::new(),
+            cwd: None,
             description: Some("Example docs MCP".into()),
             enabled: true,
             timeout_secs: 30,

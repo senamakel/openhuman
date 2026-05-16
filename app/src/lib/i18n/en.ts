@@ -68,7 +68,7 @@ const en: TranslationMap = {
   'settings.featuresDesc': 'Screen awareness, messaging, and tools',
   'settings.aiModels': 'AI & Models',
   'settings.aiModelsDesc': 'Local AI model setup, downloads, and LLM provider',
-  'settings.ai': 'AI',
+  'settings.ai': 'AI Configuration',
   'settings.aiDesc': 'Cloud providers, local Ollama models, and per-workload routing',
   'settings.billingUsage': 'Billing & Usage',
   'settings.billingUsageDesc': 'Subscription plan, credits, and payment methods',

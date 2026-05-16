@@ -13,22 +13,9 @@ import SettingsMenuItem from '../components/SettingsMenuItem';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const developerItems = [
-  {
-    id: 'ai',
-    title: 'AI Configuration',
-    description: 'Configure SOUL persona and AI behavior',
-    route: 'ai',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 3l1.9 3.85 4.25.62-3.08 3 .73 4.23L12 12.77 8.2 14.7l.73-4.23-3.08-3 4.25-.62L12 3z"
-        />
-      </svg>
-    ),
-  },
+  // "AI Configuration" used to live here pointing at /settings/ai, but it's
+  // a duplicate of the top-level "AI" tile in SettingsHome — removed to
+  // avoid two entry points into the same panel.
   {
     id: 'agent-chat',
     title: 'Agent Chat',

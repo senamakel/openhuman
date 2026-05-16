@@ -92,7 +92,7 @@ describe('SettingsHome', () => {
       expect(screen.getByText('Account')).toBeInTheDocument();
       expect(screen.getByText('Notifications')).toBeInTheDocument();
       expect(screen.getByText('Features')).toBeInTheDocument();
-      expect(screen.getByText('AI')).toBeInTheDocument();
+      expect(screen.getByText('AI Configuration')).toBeInTheDocument();
       expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
       expect(screen.getByText('Developer Options')).toBeInTheDocument();
       expect(screen.getByText('Clear App Data')).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('SettingsHome', () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByText('AI').closest('button')!);
+      await user.click(screen.getByText('AI Configuration').closest('button')!);
       expect(mockNavigateToSettings).toHaveBeenCalledWith('ai');
     });
 

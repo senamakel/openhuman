@@ -619,9 +619,7 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
 
     let snapshot = TurnState::started(thread_id, "req-1", 4, "2026-01-01T00:00:00Z");
     turn_state::store::put(dir.clone(), &snapshot).expect("put snapshot");
-    assert!(turn_state::store::get(dir, thread_id)
-        .unwrap()
-        .is_some());
+    assert!(turn_state::store::get(dir, thread_id).unwrap().is_some());
 
     thread_delete(DeleteConversationThreadRequest {
         thread_id: thread_id.to_string(),
@@ -655,12 +653,13 @@ async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
     let snapshot = TurnState::started("thread-a", "req-1", 4, "2026-01-01T00:00:00Z");
     turn_state::store::put(dir.clone(), &snapshot).expect("put snapshot");
 
-    let turn_state_dir = dir
-        .join("memory")
-        .join("conversations")
-        .join("turn_states");
+    let turn_state_dir = dir.join("memory").join("conversations").join("turn_states");
     std::fs::create_dir_all(&turn_state_dir).unwrap();
-    std::fs::write(turn_state_dir.join("corrupted.json"), "{ definitely not json").unwrap();
+    std::fs::write(
+        turn_state_dir.join("corrupted.json"),
+        "{ definitely not json",
+    )
+    .unwrap();
 
     threads_purge(EmptyRequest {})
         .await

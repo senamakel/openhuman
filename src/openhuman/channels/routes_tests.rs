@@ -123,10 +123,7 @@ impl Channel for RecordingChannel {
         Ok(())
     }
 
-    async fn listen(
-        &self,
-        _tx: tokio::sync::mpsc::Sender<ChannelMessage>,
-    ) -> anyhow::Result<()> {
+    async fn listen(&self, _tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -284,7 +281,11 @@ fn load_cached_model_preview_returns_empty_when_cache_json_is_invalid() {
     let tempdir = tempfile::tempdir().unwrap();
     let state_dir = tempdir.path().join("state");
     std::fs::create_dir_all(&state_dir).unwrap();
-    std::fs::write(state_dir.join(MODEL_CACHE_FILE), "{ definitely invalid json").unwrap();
+    std::fs::write(
+        state_dir.join(MODEL_CACHE_FILE),
+        "{ definitely invalid json",
+    )
+    .unwrap();
 
     assert!(load_cached_model_preview(tempdir.path(), "openai").is_empty());
 }
@@ -354,7 +355,5 @@ async fn handle_runtime_command_set_model_clears_sender_history_and_persists_rou
 
     let sent = channel_impl.sent.lock().unwrap();
     assert_eq!(sent.len(), 1);
-    assert!(sent[0]
-        .content
-        .contains("Model switched to `gpt-5-mini`"));
+    assert!(sent[0].content.contains("Model switched to `gpt-5-mini`"));
 }

@@ -839,10 +839,18 @@ async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
         subconscious_provider: Some(" provider-sub ".into()),
         ..Default::default()
     };
-    apply_model_settings(&mut cfg, set).await.expect("set providers");
-    assert_eq!(cfg.inference_url.as_deref(), Some("https://llm.example.test/v1"));
+    apply_model_settings(&mut cfg, set)
+        .await
+        .expect("set providers");
+    assert_eq!(
+        cfg.inference_url.as_deref(),
+        Some("https://llm.example.test/v1")
+    );
     assert_eq!(cfg.primary_cloud.as_deref(), Some("provider-a"));
-    assert_eq!(cfg.reasoning_provider.as_deref(), Some("provider-reasoning"));
+    assert_eq!(
+        cfg.reasoning_provider.as_deref(),
+        Some("provider-reasoning")
+    );
     assert_eq!(cfg.subconscious_provider.as_deref(), Some("provider-sub"));
 
     let clear = ModelSettingsPatch {

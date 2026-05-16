@@ -360,7 +360,10 @@ async fn new_honors_summarizer_model_override() {
     });
 
     let mut history = vec![user("one"), user("two"), user("three")];
-    let _ = manager.reduce_before_call(&mut history).await.expect("reduce");
+    let _ = manager
+        .reduce_before_call(&mut history)
+        .await
+        .expect("reduce");
 
     assert_eq!(
         summarizer.model.lock().unwrap().as_deref(),

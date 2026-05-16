@@ -2596,9 +2596,7 @@ async fn json_rpc_app_state_update_local_state_round_trips_into_snapshot() {
     let update_result = assert_no_jsonrpc_error(&update, "app_state_update_local_state");
     let updated_state = update_result.get("result").unwrap_or(&update_result);
     assert_eq!(
-        updated_state
-            .get("encryptionKey")
-            .and_then(Value::as_str),
+        updated_state.get("encryptionKey").and_then(Value::as_str),
         Some("secret-key")
     );
 

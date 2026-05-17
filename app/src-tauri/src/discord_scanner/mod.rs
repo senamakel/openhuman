@@ -23,7 +23,7 @@
 //! port and never gets compiled in.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -31,6 +31,7 @@ use futures_util::{SinkExt, StreamExt};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Runtime};
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::task::AbortHandle;
 use tokio::time::sleep;
@@ -79,9 +80,16 @@ struct DiscordChannelState {
 }
 
 #[derive(Default)]
+struct MemoryUpsertRegistry {
+    workers: Mutex<HashMap<String, mpsc::UnboundedSender<Value>>>,
+}
+
+#[derive(Default)]
 struct DiscordIngestState {
     channels: HashMap<String, DiscordChannelState>,
 }
+
+static MEMORY_UPSERT_REGISTRY: OnceLock<MemoryUpsertRegistry> = OnceLock::new();
 
 impl DiscordIngestState {
     fn apply_gateway_payload(&mut self, payload: &str) -> Vec<DiscordChannelSnapshot> {
@@ -129,9 +137,8 @@ impl DiscordIngestState {
                 );
                 Vec::new()
             }
-            "MESSAGE_CREATE" | "MESSAGE_UPDATE" => {
-                self.apply_message_event(&data).into_iter().collect()
-            }
+            "MESSAGE_CREATE" => self.apply_message_event(&data, false).into_iter().collect(),
+            "MESSAGE_UPDATE" => self.apply_message_event(&data, true).into_iter().collect(),
             _ => Vec::new(),
         }
     }
@@ -153,23 +160,21 @@ impl DiscordIngestState {
         }
     }
 
-    fn apply_message_event(&mut self, value: &Value) -> Option<DiscordChannelSnapshot> {
+    fn apply_message_event(
+        &mut self,
+        value: &Value,
+        is_update: bool,
+    ) -> Option<DiscordChannelSnapshot> {
         let channel_id = value
             .get("channel_id")
             .and_then(|v| v.as_str())?
             .to_string();
         let message_id = value.get("id").and_then(|v| v.as_str())?.to_string();
-        let body = discord_message_body(value)?;
+        let body = discord_message_body(value);
         let timestamp_ms = value
             .get("timestamp")
             .and_then(|v| v.as_str())
             .and_then(parse_discord_timestamp_ms)
-            .or_else(|| {
-                value
-                    .get("edited_timestamp")
-                    .and_then(|v| v.as_str())
-                    .and_then(parse_discord_timestamp_ms)
-            })
             .unwrap_or_else(chrono_now_millis);
         let guild_id = value
             .get("guild_id")
@@ -179,8 +184,7 @@ impl DiscordIngestState {
             .get("author")
             .and_then(|v| v.get("id"))
             .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
+            .map(ToOwned::to_owned);
         let author = discord_author_label(value);
         let source_ref = discord_message_permalink(value, &channel_id, &message_id);
 
@@ -192,17 +196,41 @@ impl DiscordIngestState {
             state.guild_id = guild_id;
         }
 
-        let next = DiscordPersistMessage {
-            id: message_id.clone(),
-            author,
-            author_id,
-            body,
-            timestamp_ms,
-            source_ref,
-        };
         if let Some(existing) = state.messages.iter_mut().find(|m| m.id == message_id) {
-            *existing = next;
+            if let Some(next_body) = body {
+                existing.body = next_body;
+            } else if !is_update {
+                return None;
+            } else if discord_message_body_fields_present(value) {
+                log::warn!(
+                    "[discord][{}] message update omitted transcript body fields for id={}",
+                    channel_id,
+                    message_id
+                );
+            }
+            if let Some(next_author_id) = author_id {
+                existing.author_id = next_author_id;
+                if !author.is_empty() && author != "?" {
+                    existing.author = author;
+                }
+            }
+            if value.get("timestamp").is_some() {
+                existing.timestamp_ms = timestamp_ms;
+            }
+            existing.source_ref = source_ref;
         } else {
+            let next = DiscordPersistMessage {
+                id: message_id.clone(),
+                author: if author.is_empty() {
+                    "?".to_string()
+                } else {
+                    author
+                },
+                author_id: author_id.unwrap_or_default(),
+                body: body?,
+                timestamp_ms,
+                source_ref,
+            };
             state.messages.push(next);
         }
         state
@@ -816,6 +844,12 @@ fn discord_message_body(value: &Value) -> Option<String> {
     None
 }
 
+fn discord_message_body_fields_present(value: &Value) -> bool {
+    value.get("content").is_some()
+        || value.get("attachments").is_some()
+        || value.get("embeds").is_some()
+}
+
 fn channel_label(value: &Value) -> Option<String> {
     let direct = value
         .get("name")
@@ -989,9 +1023,10 @@ async fn post_memory_doc_ingest(account_id: &str, ingest: &Value) -> Result<(), 
         first_day = first_day,
         last_day = last_day,
     );
+    let doc_key = discord_channel_doc_key(guild_id, channel_id);
     let params = json!({
         "namespace": format!("discord-web:{account_id}"),
-        "key": if channel_key_looks_clean(channel_name) { channel_name } else { channel_id },
+        "key": doc_key,
         "title": format!("Discord · {channel_name}"),
         "content": format!("{header}{transcript}"),
         "source_type": "discord-web",
@@ -1037,9 +1072,10 @@ async fn post_memory_doc_ingest(account_id: &str, ingest: &Value) -> Result<(), 
         return Err(format!("rpc error: {err}"));
     }
     log::info!(
-        "[discord][{}] memory upsert ok channel={} msgs={} range={}→{}",
+        "[discord][{}] memory upsert ok channel={} key={} msgs={} range={}→{}",
         account_id,
         channel_id,
+        discord_channel_doc_key(guild_id, channel_id),
         sorted.len(),
         first_day,
         last_day,
@@ -1047,12 +1083,69 @@ async fn post_memory_doc_ingest(account_id: &str, ingest: &Value) -> Result<(), 
     Ok(())
 }
 
-fn channel_key_looks_clean(name: &str) -> bool {
-    if name.is_empty() {
-        return false;
+fn discord_channel_doc_key(guild_id: &str, channel_id: &str) -> String {
+    if guild_id.is_empty() {
+        format!("@me:{channel_id}")
+    } else {
+        format!("{guild_id}:{channel_id}")
     }
-    name.chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+}
+
+fn queue_memory_doc_ingest(account_id: String, payload: Value) {
+    let worker_key = memory_worker_key(&account_id, &payload);
+    let registry = MEMORY_UPSERT_REGISTRY.get_or_init(MemoryUpsertRegistry::default);
+    let sender = {
+        let mut workers = registry.workers.lock();
+        if let Some(existing) = workers.get(&worker_key) {
+            existing.clone()
+        } else {
+            let (tx, mut rx) = mpsc::unbounded_channel::<Value>();
+            let worker_key_for_task = worker_key.clone();
+            let account_id_for_task = account_id.clone();
+            tokio::spawn(async move {
+                while let Some(mut next_payload) = rx.recv().await {
+                    while let Ok(newer_payload) = rx.try_recv() {
+                        next_payload = newer_payload;
+                    }
+                    if let Err(e) =
+                        post_memory_doc_ingest(&account_id_for_task, &next_payload).await
+                    {
+                        log::warn!(
+                            "[discord][{}] memory write failed worker={} err={}",
+                            account_id_for_task,
+                            worker_key_for_task,
+                            e
+                        );
+                    }
+                }
+            });
+            workers.insert(worker_key.clone(), tx.clone());
+            tx
+        }
+    };
+    if let Err(e) = sender.send(payload) {
+        log::warn!(
+            "[discord][{}] memory ingest queue send failed worker={} err={}",
+            account_id,
+            worker_key,
+            e
+        );
+    }
+}
+
+fn memory_worker_key(account_id: &str, payload: &Value) -> String {
+    let channel_id = payload
+        .get("channelId")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    let guild_id = payload
+        .get("guildId")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    format!(
+        "{account_id}:{}",
+        discord_channel_doc_key(guild_id, channel_id)
+    )
 }
 
 fn emit_channel_transcript<R: Runtime>(
@@ -1071,12 +1164,7 @@ fn emit_channel_transcript<R: Runtime>(
     if let Err(e) = app.emit("webview:event", &envelope) {
         log::warn!("[discord][{}] memory ingest emit failed: {}", account_id, e);
     }
-    let acct = account_id.to_string();
-    tokio::spawn(async move {
-        if let Err(e) = post_memory_doc_ingest(&acct, &payload).await {
-            log::warn!("[discord][{}] memory write failed: {}", acct, e);
-        }
-    });
+    queue_memory_doc_ingest(account_id.to_string(), payload);
 }
 
 // ---------- DOM chat-list poll ----------------------------------------------
@@ -1307,6 +1395,61 @@ mod tests {
         assert_eq!(snapshots.len(), 1);
         assert_eq!(snapshots[0].messages.len(), 1);
         assert_eq!(snapshots[0].messages[0].body, "after");
+    }
+
+    #[test]
+    fn message_update_preserves_missing_fields_from_cached_message() {
+        let mut state = DiscordIngestState::default();
+        let _ = state.apply_gateway_payload(
+            r#"{
+                "op":0,
+                "t":"MESSAGE_CREATE",
+                "d":{
+                    "id":"msg-1",
+                    "channel_id":"chan-1",
+                    "guild_id":"guild-1",
+                    "content":"before",
+                    "timestamp":"2026-05-17T12:34:56.000Z",
+                    "author":{"id":"user-1","username":"alice"}
+                }
+            }"#,
+        );
+
+        let snapshots = state.apply_gateway_payload(
+            r#"{
+                "op":0,
+                "t":"MESSAGE_UPDATE",
+                "d":{
+                    "id":"msg-1",
+                    "channel_id":"chan-1",
+                    "guild_id":"guild-1",
+                    "edited_timestamp":"2026-05-17T12:35:56.000Z"
+                }
+            }"#,
+        );
+
+        assert_eq!(snapshots.len(), 1);
+        let message = &snapshots[0].messages[0];
+        assert_eq!(message.body, "before");
+        assert_eq!(message.author, "alice");
+        assert_eq!(message.author_id, "user-1");
+        assert_eq!(
+            message.timestamp_ms,
+            parse_discord_timestamp_ms("2026-05-17T12:34:56.000Z").unwrap()
+        );
+    }
+
+    #[test]
+    fn discord_channel_doc_key_scopes_same_channel_name_by_guild() {
+        assert_eq!(
+            discord_channel_doc_key("guild-1", "chan-1"),
+            "guild-1:chan-1"
+        );
+        assert_eq!(
+            discord_channel_doc_key("guild-2", "chan-1"),
+            "guild-2:chan-1"
+        );
+        assert_eq!(discord_channel_doc_key("", "chan-1"), "@me:chan-1");
     }
 
     fn insert_pending_tasks(

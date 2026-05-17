@@ -12,15 +12,15 @@ import {
   type AISettings,
   clearCloudProviderKey,
   listProviderModels,
+  loadAISettings,
   loadLocalProviderSnapshot,
   localProvider,
-  loadAISettings,
   parseProviderString,
   type ProviderRef,
   saveAISettings,
   serializeProviderRef,
-  setLocalRuntimeEnabled,
   setCloudProviderKey,
+  setLocalRuntimeEnabled,
 } from '../aiSettingsApi';
 
 // ─── Mock declarations (must be hoisted before imports) ───────────────────────

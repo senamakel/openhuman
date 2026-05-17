@@ -176,10 +176,10 @@ const DeviceCapabilitySection = ({
           ) : (
             <>
               <div className="text-xs text-amber-800">
-                <span className="font-semibold text-amber-900">Run Ollama first.</span> Local
-                tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the
-                models you want, and keep using &ldquo;Disabled (cloud fallback)&rdquo; until the
-                runtime is reachable.
+                <span className="font-semibold text-amber-900">Run Ollama first.</span> Local tiers
+                depend on an externally managed Ollama endpoint. Start it yourself, pull the models
+                you want, and keep using &ldquo;Disabled (cloud fallback)&rdquo; until the runtime
+                is reachable.
               </div>
               <div className="flex items-center gap-2">
                 <a

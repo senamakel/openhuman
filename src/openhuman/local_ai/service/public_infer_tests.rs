@@ -112,7 +112,10 @@ async fn inference_connection_failure_mentions_external_ollama_runtime() {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
     }
 
-    assert!(err.contains("external Ollama endpoint"), "unexpected error: {err}");
+    assert!(
+        err.contains("external Ollama endpoint"),
+        "unexpected error: {err}"
+    );
     assert!(err.contains("already running"), "unexpected error: {err}");
 }
 

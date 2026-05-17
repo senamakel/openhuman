@@ -79,13 +79,7 @@ describe('ModelDownloadSection runtime gate', () => {
             path: 'ollama://gemma3:1b-it-qat',
             warning: null,
           },
-          vision: {
-            id: '',
-            provider: 'ollama',
-            state: 'disabled',
-            path: null,
-            warning: null,
-          },
+          vision: { id: '', provider: 'ollama', state: 'disabled', path: null, warning: null },
           embedding: {
             id: 'bge-m3',
             provider: 'ollama',
@@ -93,20 +87,8 @@ describe('ModelDownloadSection runtime gate', () => {
             path: 'ollama://bge-m3',
             warning: null,
           },
-          stt: {
-            id: 'whisper',
-            provider: 'whisper',
-            state: 'ondemand',
-            path: null,
-            warning: null,
-          },
-          tts: {
-            id: 'piper',
-            provider: 'piper',
-            state: 'ondemand',
-            path: null,
-            warning: null,
-          },
+          stt: { id: 'whisper', provider: 'whisper', state: 'ondemand', path: null, warning: null },
+          tts: { id: 'piper', provider: 'piper', state: 'ondemand', path: null, warning: null },
           ollama_available: true,
         }}
       />

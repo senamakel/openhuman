@@ -387,8 +387,7 @@ const ModelStatusSection = ({
               )}
 
               <div className="text-xs text-stone-500">
-                Manage the Ollama process and model pulls outside OpenHuman, then rerun
-                diagnostics.
+                Manage the Ollama process and model pulls outside OpenHuman, then rerun diagnostics.
               </div>
             </>
           )}

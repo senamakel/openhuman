@@ -126,10 +126,7 @@ describe('ModelStatusSection diagnostics', () => {
     render(
       <ModelStatusSection
         {...defaultProps}
-        diagnostics={makeDiagnostics({
-          ok: false,
-          issues: ['Ollama server is not running'],
-        })}
+        diagnostics={makeDiagnostics({ ok: false, issues: ['Ollama server is not running'] })}
       />
     );
     expect(

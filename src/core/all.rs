@@ -169,6 +169,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::skills::all_skills_registered_controllers());
     // User workspace and file management
     controllers.extend(crate::openhuman::workspace::all_workspace_registered_controllers());
+    // Knowledge vaults — folder-of-files mirrored into memory
+    controllers.extend(crate::openhuman::vault::all_vault_registered_controllers());
     // Skill tool registry
     controllers.extend(crate::openhuman::tools::all_tools_registered_controllers());
     // Document and knowledge graph storage

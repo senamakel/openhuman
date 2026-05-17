@@ -313,10 +313,14 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
 pub async fn inference_diagnostics(config: &Config) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} diagnostics:start");
     let service = local_runtime::global(config);
+    // Return the diagnostics payload directly (no `{result, logs}` wrap) so
+    // callers (UI + json_rpc_e2e tests) can read `provider`, `lm_studio_running`,
+    // etc. straight off the response — mirrors the legacy
+    // `local_ai_diagnostics` shape that the test asserts against.
     let result = service
         .diagnostics(config)
         .await
-        .map(|value| RpcOutcome::single_log(value, "inference diagnostics fetched"));
+        .map(|value| RpcOutcome::new(value, Vec::new()));
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} diagnostics:ok"),
         Err(err) => error!(error = %err, "{LOG_PREFIX} diagnostics:error"),

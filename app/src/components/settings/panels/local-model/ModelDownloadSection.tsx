@@ -130,14 +130,20 @@ const ModelDownloadSection = ({
                 {item?.path && (
                   <div className="text-[10px] text-stone-500 mt-1 break-all">{item.path}</div>
                 )}
-                <button
-                  onClick={() => onTriggerAssetDownload(key)}
-                  disabled={!runtimeEnabled || assetDownloadBusy[key]}
-                  className="mt-2 px-2 py-1 text-[10px] rounded border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
-                  {assetDownloadBusy[key]
-                    ? t('settings.localModel.download.downloading')
-                    : t('common.download')}
-                </button>
+                {item?.provider === 'ollama' || item?.provider === 'lm_studio' ? (
+                  <div className="mt-2 text-[10px] text-stone-500">
+                    {t('settings.localModel.download.manageExternal')}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onTriggerAssetDownload(key)}
+                    disabled={!runtimeEnabled || assetDownloadBusy[key]}
+                    className="mt-2 px-2 py-1 text-[10px] rounded border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
+                    {assetDownloadBusy[key]
+                      ? t('settings.localModel.download.downloading')
+                      : t('common.download')}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -157,7 +163,7 @@ const ModelDownloadSection = ({
           />
           <div className="flex items-center justify-between">
             <div className="text-xs text-stone-500">
-              Calls `openhuman.local_ai_summarize` via Rust core
+              Calls `openhuman.inference_summarize` via Rust core
             </div>
             <button
               onClick={onRunSummaryTest}

@@ -15,30 +15,15 @@ interface DeviceCapabilitySectionProps {
   formatRamGb: (bytes: number) => string;
   onPresetApplied?: (result: ApplyPresetResult) => void;
   /**
-   * When `false`, the Ollama runtime isn't installed yet. Local tiers
-   * require Ollama, so they're rendered disabled with a notice that
-   * lets the user install Ollama in place. The "Disabled (cloud
-   * fallback)" option stays enabled since it doesn't need Ollama.
+   * When `false`, the external Ollama runtime isn't reachable yet. Local tiers
+   * stay disabled until the user runs Ollama themselves. The "Disabled (cloud
+   * fallback)" option stays enabled since it doesn't depend on Ollama.
    */
   ollamaAvailable?: boolean;
-  /**
-   * Triggers the same install pipeline the Runtime Status section uses.
-   * Wired only when `ollamaAvailable === false` to surface an inline
-   * Install Ollama button next to the locked tiers.
-   */
   onTriggerOllamaInstall?: () => void;
-  /** True while an install pipeline is already running. */
   isTriggeringInstall?: boolean;
-  /**
-   * Live state from `local_ai_status` so the notice can show real install
-   * progress: `installing`, `downloading`, `degraded`, etc. The button's
-   * own `isTriggeringInstall` only covers the RPC round-trip (~ms);
-   * `installState` covers the entire backend pipeline (~60s).
-   */
   installState?: string;
-  /** Latest `status.warning` text — shown under the progress label. */
   installWarning?: string | null;
-  /** Latest `status.error_detail` — shown when state is `degraded`. */
   installError?: string | null;
 }
 
@@ -59,9 +44,13 @@ const DeviceCapabilitySection = ({
   installError,
 }: DeviceCapabilitySectionProps) => {
   const { t } = useT();
-  const installInProgress =
-    installState === 'installing' || installState === 'downloading' || installState === 'loading';
-  const installFailed = installState === 'degraded';
+  void onTriggerOllamaInstall;
+  void isTriggeringInstall;
+  void installState;
+  void installWarning;
+  void installError;
+  const installInProgress = false;
+  const installFailed = false;
   const [applying, setApplying] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string>('');
   const [applySuccess, setApplySuccess] = useState<ApplyPresetResult | null>(null);
@@ -214,23 +203,12 @@ const DeviceCapabilitySection = ({
                 {t('settings.localModel.deviceCapability.installFirstDesc')}
               </div>
               <div className="flex items-center gap-2">
-                {onTriggerOllamaInstall && (
-                  <button
-                    type="button"
-                    onClick={onTriggerOllamaInstall}
-                    disabled={isTriggeringInstall}
-                    className="px-3 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium">
-                    {isTriggeringInstall
-                      ? t('settings.localModel.deviceCapability.starting')
-                      : t('settings.localModel.status.installOllama')}
-                  </button>
-                )}
                 <a
                   href="https://ollama.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 text-xs rounded-md border border-amber-300 hover:border-amber-400 text-amber-800">
-                  {t('settings.localModel.status.installManually')}
+                  {t('settings.localModel.status.ollamaDocs')}
                 </a>
               </div>
             </>

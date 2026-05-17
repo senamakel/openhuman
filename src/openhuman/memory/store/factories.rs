@@ -85,12 +85,12 @@ fn reset_health_gate_for_test() {
 
 /// Effective Ollama base URL.
 ///
-/// Delegates to [`crate::openhuman::local_ai::ollama_base_url`] so the probe
+/// Delegates to [`crate::openhuman::inference::local::ollama_base_url`] so the probe
 /// always agrees with the rest of the Ollama machinery on the daemon address.
 /// If a future change adds another env-var override or shifts precedence, the
 /// memory health-gate picks it up automatically.
 fn ollama_base_url_for_probe() -> String {
-    crate::openhuman::local_ai::ollama_base_url()
+    crate::openhuman::inference::local::ollama_base_url()
 }
 
 /// Canonical `(provider, model, dimensions)` tuple used everywhere the
@@ -465,7 +465,7 @@ mod tests {
 
     impl EnvGuard {
         fn set(value: &str) -> Self {
-            let lock = crate::openhuman::local_ai::local_ai_test_guard();
+            let lock = crate::openhuman::inference::local::inference_test_guard();
             let prev = std::env::var_os("OPENHUMAN_OLLAMA_BASE_URL");
             // SAFETY: env mutation is wrapped because Rust 2024 marks it
             // unsafe; the call is gated by the local-AI domain mutex so no
@@ -709,7 +709,7 @@ mod tests {
     /// fresh "first", flaking the suppression assertion.
     #[test]
     fn ollama_health_gate_reports_at_most_once_per_process() {
-        let _lock = crate::openhuman::local_ai::local_ai_test_guard();
+        let _lock = crate::openhuman::inference::local::inference_test_guard();
         reset_health_gate_for_test();
 
         assert!(

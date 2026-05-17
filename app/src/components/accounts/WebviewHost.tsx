@@ -23,6 +23,7 @@ const LOADING_STATUSES: ReadonlySet<AccountStatus> = new Set(['pending', 'loadin
 
 const PROVIDER_COPY: Record<AccountProvider, string> = {
   whatsapp: 'WhatsApp',
+  wechat: 'WeChat',
   telegram: 'Telegram',
   linkedin: 'LinkedIn',
   slack: 'Slack',

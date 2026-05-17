@@ -134,7 +134,9 @@ fn append_subagent_role_contract_is_idempotent() {
 // ── End-to-end runner tests with mock provider ────────────────────────
 
 use crate::openhuman::agent::harness::fork_context::with_parent_context;
-use crate::openhuman::providers::{ChatRequest as PChatRequest, ChatResponse, Provider, ToolCall};
+use crate::openhuman::inference::provider::{
+    ChatRequest as PChatRequest, ChatResponse, Provider, ToolCall,
+};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -142,7 +144,7 @@ use std::sync::Arc;
 /// to verify the bytes that arrive at the model.
 #[derive(Clone)]
 struct CapturedRequest {
-    messages: Vec<crate::openhuman::providers::ChatMessage>,
+    messages: Vec<crate::openhuman::inference::provider::ChatMessage>,
     tool_count: usize,
     model: String,
 }

@@ -143,8 +143,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
         .extend(crate::openhuman::channels::controllers::all_channels_registered_controllers());
     // Persistent configuration management
     controllers.extend(crate::openhuman::config::all_config_registered_controllers());
-    // Cloud provider model catalog queries
-    controllers.extend(crate::openhuman::providers::all_providers_registered_controllers());
     // Local sidecar reachability + backend Socket.IO state diagnostics (#1527)
     controllers.extend(crate::openhuman::connectivity::all_connectivity_registered_controllers());
     // User credentials and session management
@@ -153,8 +151,10 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::service::all_service_registered_controllers());
     // Data migration utilities
     controllers.extend(crate::openhuman::migration::all_migration_registered_controllers());
-    // Local AI model management and inference
-    controllers.extend(crate::openhuman::local_ai::all_local_ai_registered_controllers());
+    // Unified inference domain: text / vision / embedding / local runtime / cloud providers.
+    // (Formerly split across inference, local_ai, and providers namespaces.)
+    controllers.extend(crate::openhuman::inference::all_inference_registered_controllers());
+    controllers.extend(crate::openhuman::inference::all_local_ai_registered_controllers());
     // People resolution and interaction scoring
     controllers.extend(crate::openhuman::people::all_people_registered_controllers());
     // Screen capture and UI analysis
@@ -276,12 +276,12 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
         .extend(crate::openhuman::channels::providers::web::all_web_channel_controller_schemas());
     schemas.extend(crate::openhuman::channels::controllers::all_channels_controller_schemas());
     schemas.extend(crate::openhuman::config::all_config_controller_schemas());
-    schemas.extend(crate::openhuman::providers::all_providers_controller_schemas());
     schemas.extend(crate::openhuman::connectivity::all_connectivity_controller_schemas());
     schemas.extend(crate::openhuman::credentials::all_credentials_controller_schemas());
     schemas.extend(crate::openhuman::service::all_service_controller_schemas());
     schemas.extend(crate::openhuman::migration::all_migration_controller_schemas());
-    schemas.extend(crate::openhuman::local_ai::all_local_ai_controller_schemas());
+    schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
+    schemas.extend(crate::openhuman::inference::all_local_ai_controller_schemas());
     schemas.extend(crate::openhuman::people::all_people_controller_schemas());
     schemas.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_controller_schemas(),
@@ -370,6 +370,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "doctor" => Some("Run diagnostics for workspace and runtime health."),
         "encrypt" => Some("Encrypt secure values managed by secret storage."),
         "health" => Some("Process and component health snapshots."),
+        "inference" => Some("Connect to configured text, vision, and embedding inference runtimes."),
         "local_ai" => Some("Local AI chat, inference, downloads, and media operations."),
         "migrate" => Some("Data migration utilities."),
         "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),

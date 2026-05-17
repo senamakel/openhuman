@@ -15,7 +15,7 @@
 //!
 //! ## Why a memory-tree-local trait
 //!
-//! The existing top-level [`crate::openhuman::providers::Provider`] trait
+//! The existing top-level [`crate::openhuman::inference::provider::Provider`] trait
 //! is rich (streaming, native tool calling, vision, …) and depends on the
 //! agent's full conversation surface. The extractor and summariser only
 //! need:

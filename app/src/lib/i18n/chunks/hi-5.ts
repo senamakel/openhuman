@@ -390,6 +390,10 @@ const hi5: TranslationMap = {
   'conversations.taskKanban.inProgress': 'In progress',
   'intelligence.memoryChunk.detail.copiedHint': 'copied',
   'settings.composio.notYetRouted': 'not yet routed',
+  'settings.localModel.download.manageExternal': 'Manage this model in your external runtime.',
+  'settings.localModel.status.manageOllamaExternal': 'Manage the Ollama process and model pulls outside OpenHuman, then rerun diagnostics.',
+  'settings.localModel.status.ollamaDocs': 'Ollama docs',
+  'settings.localModel.status.thenRetry': 'for setup instructions, then retry after your runtime is reachable.',
 };
 
 export default hi5;

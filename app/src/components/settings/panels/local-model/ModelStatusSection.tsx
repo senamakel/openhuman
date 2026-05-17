@@ -1,3 +1,4 @@
+import { useT } from '../../../../lib/i18n/I18nContext';
 import { formatBytes, statusLabel } from '../../../../utils/localAiHelpers';
 import type {
   LocalAiDiagnostics,
@@ -78,19 +79,10 @@ const ModelStatusSection = ({
   onRunDiagnostics,
   onRepairAction,
 }: ModelStatusSectionProps) => {
-  // Core reports `ollama_available: false` when no Ollama binary is
-  // discoverable on disk. The backend short-circuits all `has_model` HTTP
-  // probes in that state, so model rows below will all read "missing". Surface
-  // a clear install CTA up front so users don't have to interpret the empty
-  // model state on their own.
+  const { t } = useT();
   const showInstallOllamaCta = downloads?.ollama_available === false;
 
   if (showInstallOllamaCta) {
-    // No Ollama on disk — the runtime-status card and diagnostics panels
-    // below would just read "n/a" / "missing" everywhere, which is more
-    // confusing than helpful. Render only the install CTA, with the binary
-    // path setter inline for users who installed Ollama in a non-standard
-    // location that auto-discovery can't find.
     return (
       <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
         <div className="flex items-start gap-3">
@@ -107,11 +99,9 @@ const ModelStatusSection = ({
             />
           </svg>
           <div className="flex-1 space-y-1">
-            <div className="text-sm font-semibold text-amber-900">Ollama is not installed</div>
+            <div className="text-sm font-semibold text-amber-900">{t('settings.localModel.status.ollamaNotInstalled')}</div>
             <div className="text-xs text-amber-800">
-              Local AI features (chat, vision, embedding) need the Ollama runtime. Install it below
-              — the installer runs silently and lands in your workspace; no console window will
-              appear.
+              {t('settings.localModel.status.ollamaNotInstalledDesc')}
             </div>
           </div>
         </div>
@@ -121,14 +111,14 @@ const ModelStatusSection = ({
             onClick={() => onTriggerDownload(true)}
             disabled={isTriggeringDownload}
             className="px-3 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium">
-            {isTriggeringDownload ? 'Installing...' : 'Install Ollama'}
+            {isTriggeringDownload ? t('settings.localModel.status.installing') : t('settings.localModel.status.installOllama')}
           </button>
           <a
             href="https://ollama.com"
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 text-xs rounded-md border border-amber-300 hover:border-amber-400 text-amber-800">
-            Install manually
+            {t('settings.localModel.status.installManually')}
           </a>
         </div>
 
@@ -138,7 +128,7 @@ const ModelStatusSection = ({
               type="button"
               onClick={onToggleErrorDetail}
               className="text-xs text-red-700 hover:text-red-600 underline">
-              {showErrorDetail ? 'Hide error details' : 'Show install error details'}
+              {showErrorDetail ? t('settings.localModel.status.hideErrorDetails') : t('settings.localModel.status.showInstallErrorDetails')}
             </button>
             {showErrorDetail && (
               <pre className="max-h-40 overflow-auto rounded bg-red-50 border border-red-200 p-2 text-[10px] text-red-700 leading-tight whitespace-pre-wrap break-words">
@@ -150,10 +140,10 @@ const ModelStatusSection = ({
 
         <div className="pt-2 border-t border-amber-200 space-y-1">
           <div className="text-amber-900 text-xs font-medium">
-            Already installed in a custom location?
+            {t('settings.localModel.status.customLocation')}
           </div>
           <div className="text-[11px] text-amber-800">
-            Point us at the binary and we&apos;ll use it instead of running the installer.
+            {t('settings.localModel.status.customLocationDesc')}
           </div>
           <div className="flex items-center gap-2 pt-1">
             <input
@@ -168,7 +158,7 @@ const ModelStatusSection = ({
               onClick={onSetOllamaPath}
               disabled={isSettingPath || !ollamaPathInput.trim()}
               className="px-2 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white whitespace-nowrap">
-              {isSettingPath ? 'Setting...' : 'Set Path'}
+              {isSettingPath ? t('settings.localModel.status.setting') : t('settings.localModel.status.setPath')}
             </button>
             {ollamaPathInput && (
               <button
@@ -176,7 +166,7 @@ const ModelStatusSection = ({
                 onClick={onClearOllamaPath}
                 disabled={isSettingPath}
                 className="px-2 py-1.5 text-xs rounded-md border border-amber-300 hover:border-amber-400 disabled:opacity-60 text-amber-800 whitespace-nowrap">
-                Clear
+                {t('common.clear')}
               </button>
             )}
           </div>
@@ -189,19 +179,19 @@ const ModelStatusSection = ({
     <>
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">Runtime Status</h3>
+          <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.status.runtimeStatus')}</h3>
           <button
             onClick={onRefreshStatus}
             className="text-sm text-primary-500 hover:text-primary-600 transition-colors">
-            Refresh
+            {t('common.refresh')}
           </button>
         </div>
 
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-stone-500">State</span>
+            <span className="text-stone-500">{t('settings.ai.state')}</span>
             <span className={`font-medium ${statusTone(status?.state ?? 'idle')}`}>
-              {status ? statusLabel(downloads?.state ?? status.state) : 'Unavailable'}
+              {status ? statusLabel(downloads?.state ?? status.state) : t('settings.localModel.status.unavailable')}
             </span>
           </div>
 
@@ -216,36 +206,36 @@ const ModelStatusSection = ({
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
             <span>
-              Progress:{' '}
+              {t('settings.localModel.status.progress')}{' '}
               {isInstalling
-                ? 'Installing Ollama runtime...'
+                ? t('settings.localModel.status.installingOllama')
                 : isIndeterminateDownload
-                  ? 'Downloading (size unknown)'
+                  ? t('settings.localModel.status.downloadingUnknown')
                   : `${Math.round(progress * 100)}%`}
             </span>
             {downloadedText && <span className="text-stone-600">{downloadedText}</span>}
             {speedText && <span className="text-primary-600">{speedText}</span>}
-            {etaText && <span className="text-primary-500">ETA {etaText}</span>}
+            {etaText && <span className="text-primary-500">{t('settings.localModel.status.eta')} {etaText}</span>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">Provider</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.provider')}</div>
               <div className="text-stone-800 mt-1">{status?.provider ?? 'n/a'}</div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">Model</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.model')}</div>
               <div className="text-stone-800 mt-1">{status?.model_id ?? 'n/a'}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">Backend</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.backend')}</div>
               <div className="text-stone-800 mt-1">{status?.active_backend ?? 'cpu'}</div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">Last Latency</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.lastLatency')}</div>
               <div className="text-stone-800 mt-1">
                 {typeof status?.last_latency_ms === 'number'
                   ? `${status.last_latency_ms} ms`
@@ -253,7 +243,7 @@ const ModelStatusSection = ({
               </div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">Generation TPS</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.generationTps')}</div>
               <div className="text-stone-800 mt-1">
                 {typeof status?.gen_toks_per_sec === 'number'
                   ? `${status.gen_toks_per_sec.toFixed(1)} tok/s`
@@ -263,7 +253,7 @@ const ModelStatusSection = ({
           </div>
 
           {status?.model_path && (
-            <div className="text-xs text-stone-500 break-all">Artifact: {status.model_path}</div>
+            <div className="text-xs text-stone-500 break-all">{t('settings.localModel.status.artifact')} {status.model_path}</div>
           )}
 
           {status?.backend_reason && (
@@ -277,7 +267,7 @@ const ModelStatusSection = ({
               <button
                 onClick={onToggleErrorDetail}
                 className="text-xs text-red-600 hover:text-red-500 underline">
-                {showErrorDetail ? 'Hide error details' : 'Show error details'}
+                {showErrorDetail ? t('settings.localModel.status.hideErrorDetails') : t('settings.localModel.status.showErrorDetails')}
               </button>
               {showErrorDetail && (
                 <pre className="max-h-40 overflow-auto rounded bg-red-50 border border-red-200 p-2 text-[10px] text-red-600 leading-tight whitespace-pre-wrap break-words">
@@ -285,7 +275,7 @@ const ModelStatusSection = ({
                 </pre>
               )}
               <p className="text-xs text-stone-500">
-                Install Ollama manually from{' '}
+                {t('settings.localModel.status.installManuallyFrom')}{' '}
                 <a
                   href="https://ollama.com"
                   target="_blank"
@@ -293,14 +283,14 @@ const ModelStatusSection = ({
                   className="text-primary-500 hover:text-primary-600 underline">
                   ollama.com
                 </a>{' '}
-                then set its path below.
+                {t('settings.localModel.status.thenSetPath')}
               </p>
             </div>
           )}
 
           <div className="space-y-1">
             <div className="text-stone-500 text-xs uppercase tracking-wide">
-              Ollama Binary Path (optional)
+              {t('settings.localModel.status.ollamaBinaryPath')}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -314,14 +304,14 @@ const ModelStatusSection = ({
                 onClick={onSetOllamaPath}
                 disabled={isSettingPath || !ollamaPathInput.trim()}
                 className="px-2 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white whitespace-nowrap">
-                {isSettingPath ? 'Setting...' : 'Set Path'}
+                {isSettingPath ? t('settings.localModel.status.setting') : t('settings.localModel.status.setPath')}
               </button>
               {ollamaPathInput && (
                 <button
                   onClick={onClearOllamaPath}
                   disabled={isSettingPath}
                   className="px-2 py-1.5 text-xs rounded-md border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600 whitespace-nowrap">
-                  Clear
+                  {t('common.clear')}
                 </button>
               )}
             </div>
@@ -338,7 +328,7 @@ const ModelStatusSection = ({
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Running
+                {t('settings.localModel.status.running')}
               </span>
             ) : (
               <button
@@ -346,17 +336,17 @@ const ModelStatusSection = ({
                 disabled={!runtimeEnabled || isTriggeringDownload}
                 className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
                 {isTriggeringDownload
-                  ? 'Triggering...'
+                  ? t('settings.localModel.status.triggering')
                   : status?.state === 'degraded'
-                    ? 'Retry Bootstrap'
-                    : 'Bootstrap / Resume'}
+                    ? t('settings.localModel.status.retryBootstrap')
+                    : t('settings.localModel.status.bootstrapResume')}
               </button>
             )}
             <button
               onClick={() => onTriggerDownload(true)}
               disabled={!runtimeEnabled || isTriggeringDownload}
               className="px-3 py-1.5 text-xs rounded-md border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
-              {isTriggeringDownload ? 'Working...' : 'Force Re-bootstrap'}
+              {isTriggeringDownload ? t('settings.localModel.status.working') : t('settings.localModel.status.forceRebootstrap')}
             </button>
             {bootstrapMessage && <span className="text-xs text-green-600">{bootstrapMessage}</span>}
           </div>
@@ -365,25 +355,24 @@ const ModelStatusSection = ({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">Ollama Diagnostics</h3>
+          <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.status.ollamaDiagnostics')}</h3>
           <button
             onClick={onRunDiagnostics}
             disabled={isDiagnosticsLoading}
             className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
-            {isDiagnosticsLoading ? 'Checking...' : 'Run Diagnostics'}
+            {isDiagnosticsLoading ? t('settings.localModel.status.checking') : t('settings.localModel.status.runDiagnostics')}
           </button>
         </div>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           {!diagnostics && !diagnosticsError && (
             <p className="text-xs text-stone-500">
-              Click &ldquo;Run Diagnostics&rdquo; to verify Ollama is running and models are
-              installed.
+              {t('settings.localModel.status.diagnosticsHint')}
             </p>
           )}
           {isDiagnosticsLoading && (
             <div className="flex items-center gap-2 text-xs text-primary-600">
               <div className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-              Checking Ollama server and models...
+              {t('settings.localModel.status.checkingOllama')}
             </div>
           )}
           {diagnosticsError && (
@@ -399,17 +388,17 @@ const ModelStatusSection = ({
                 />
                 <span className={diagnostics.ok ? 'text-green-600' : 'text-red-600'}>
                   {diagnostics.ok
-                    ? 'All checks passed'
-                    : `${diagnostics.issues.length} issue(s) found`}
+                    ? t('settings.localModel.status.allChecksPassed')
+                    : t('settings.localModel.status.issuesFound').replace('{count}', String(diagnostics.issues.length))}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-md border border-stone-200 p-2">
-                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">Server</div>
+                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">{t('settings.localModel.status.server')}</div>
                   <div
                     className={`mt-1 font-medium ${diagnostics.ollama_running ? 'text-green-600' : 'text-red-600'}`}>
-                    {diagnostics.ollama_running ? 'Running' : 'Not running'}
+                    {diagnostics.ollama_running ? t('settings.localModel.status.running') : t('settings.localModel.status.notRunning')}
                   </div>
                   {diagnostics.ollama_base_url && (
                     <div
@@ -420,7 +409,7 @@ const ModelStatusSection = ({
                   )}
                 </div>
                 <div className="rounded-md border border-stone-200 p-2">
-                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">Binary</div>
+                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">{t('settings.localModel.status.binary')}</div>
                   <div
                     className="mt-1 text-stone-600 truncate"
                     title={
@@ -429,8 +418,8 @@ const ModelStatusSection = ({
                     }>
                     {diagnostics.ollama_binary_path === null
                       ? diagnostics.ollama_running
-                        ? 'Running via external process'
-                        : 'Not found'
+                        ? t('settings.localModel.status.runningExternalProcess')
+                        : t('settings.localModel.status.notFound')
                       : diagnostics.ollama_binary_path}
                   </div>
                 </div>
@@ -439,7 +428,7 @@ const ModelStatusSection = ({
               {diagnostics.installed_models.length > 0 && (
                 <div>
                   <div className="text-stone-400 uppercase tracking-wide text-[10px] mb-1">
-                    Installed Models ({diagnostics.installed_models.length})
+                    {t('settings.localModel.status.installedModels')} ({diagnostics.installed_models.length})
                   </div>
                   <div className="space-y-1">
                     {diagnostics.installed_models.map(m => (
@@ -458,7 +447,7 @@ const ModelStatusSection = ({
 
               <div>
                 <div className="text-stone-400 uppercase tracking-wide text-[10px] mb-1">
-                  Expected Models
+                  {t('settings.localModel.status.expectedModels')}
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
@@ -466,7 +455,7 @@ const ModelStatusSection = ({
                       className={
                         diagnostics.expected.chat_found ? 'text-green-600' : 'text-red-600'
                       }>
-                      {diagnostics.expected.chat_found ? '\u2713' : '\u2717'}
+                      {diagnostics.expected.chat_found ? '✓' : '✗'}
                     </span>
                     <span className="text-stone-700">Chat: {diagnostics.expected.chat_model}</span>
                   </div>
@@ -475,7 +464,7 @@ const ModelStatusSection = ({
                       className={
                         diagnostics.expected.embedding_found ? 'text-green-600' : 'text-red-600'
                       }>
-                      {diagnostics.expected.embedding_found ? '\u2713' : '\u2717'}
+                      {diagnostics.expected.embedding_found ? '✓' : '✗'}
                     </span>
                     <span className="text-stone-700">
                       Embedding: {diagnostics.expected.embedding_model}
@@ -486,7 +475,7 @@ const ModelStatusSection = ({
                       className={
                         diagnostics.expected.vision_found ? 'text-green-600' : 'text-amber-700'
                       }>
-                      {diagnostics.expected.vision_found ? '\u2713' : '\u2013'}
+                      {diagnostics.expected.vision_found ? '✓' : '–'}
                     </span>
                     <span className="text-stone-700">
                       Vision: {diagnostics.expected.vision_model}
@@ -498,7 +487,7 @@ const ModelStatusSection = ({
               {diagnostics.issues.length > 0 && (
                 <div>
                   <div className="text-red-600 uppercase tracking-wide text-[10px] mb-1">
-                    Issues
+                    {t('settings.localModel.status.issues')}
                   </div>
                   <ul className="space-y-1 text-xs text-red-600">
                     {diagnostics.issues.map((issue, i) => (
@@ -514,7 +503,7 @@ const ModelStatusSection = ({
               {diagnostics.repair_actions && diagnostics.repair_actions.length > 0 && (
                 <div>
                   <div className="text-amber-700 uppercase tracking-wide text-[10px] mb-1">
-                    Suggested Fixes
+                    {t('settings.localModel.status.suggestedFixes')}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {diagnostics.repair_actions.map((action, i) => (

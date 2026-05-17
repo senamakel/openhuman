@@ -365,23 +365,23 @@ export async function openhumanLocalAiDownloadAsset(
 }
 
 export async function openhumanLocalAiDeviceProfile(): Promise<DeviceProfileResult> {
-  return await callCoreRpc<DeviceProfileResult>({ method: 'openhuman.local_ai_device_profile' });
+  return await callCoreRpc<DeviceProfileResult>({ method: 'openhuman.inference_device_profile' });
 }
 
 export async function openhumanLocalAiPresets(): Promise<PresetsResponse> {
-  return await callCoreRpc<PresetsResponse>({ method: 'openhuman.local_ai_presets' });
+  return await callCoreRpc<PresetsResponse>({ method: 'openhuman.inference_presets' });
 }
 
 export async function openhumanLocalAiApplyPreset(tier: string): Promise<ApplyPresetResult> {
   return await callCoreRpc<ApplyPresetResult>({
-    method: 'openhuman.local_ai_apply_preset',
+    method: 'openhuman.inference_apply_preset',
     params: { tier },
   });
 }
 
 export async function openhumanLocalAiDiagnostics(): Promise<LocalAiDiagnostics> {
   return await callCoreRpc<LocalAiDiagnostics>({
-    method: 'openhuman.local_ai_diagnostics',
+    method: 'openhuman.inference_diagnostics',
     params: {},
   });
 }

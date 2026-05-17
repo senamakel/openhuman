@@ -76,3 +76,36 @@ async fn inference_analyze_sentiment_handles_empty_message() {
         .expect("sentiment");
     assert_eq!(outcome.value.valence, "neutral");
 }
+
+#[tokio::test]
+async fn inference_get_client_config_returns_safe_snapshot() {
+    let (config, _tmp) = disabled_config();
+    config.save().await.expect("save config");
+
+    let outcome = inference_get_client_config()
+        .await
+        .expect("client config snapshot");
+    assert!(outcome.value.get("cloud_providers").is_some());
+    assert!(outcome.value.get("api_key_set").is_some());
+}
+
+#[tokio::test]
+async fn inference_apply_preset_rejects_invalid_tier() {
+    let (config, _tmp) = disabled_config();
+    config.save().await.expect("save config");
+
+    let err = inference_apply_preset("ram_bogus")
+        .await
+        .expect_err("invalid tier should fail");
+    assert!(err.contains("invalid tier"));
+}
+
+#[tokio::test]
+async fn inference_presets_returns_recommended_tier() {
+    let (config, _tmp) = disabled_config();
+    config.save().await.expect("save config");
+
+    let outcome = inference_presets().await.expect("presets");
+    assert!(outcome.value.get("recommended_tier").is_some());
+    assert!(outcome.value.get("presets").is_some());
+}

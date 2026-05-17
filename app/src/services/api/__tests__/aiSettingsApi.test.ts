@@ -612,7 +612,7 @@ describe('listProviderModels', () => {
     mockIsTauri.mockReturnValue(true);
   });
 
-  it('dispatches openhuman.providers_list_models with provider_id and returns models', async () => {
+  it('dispatches openhuman.inference_list_models with provider_id and returns models', async () => {
     mockCallCoreRpc.mockResolvedValue({
       result: {
         models: [
@@ -625,7 +625,7 @@ describe('listProviderModels', () => {
     const models = await listProviderModels('p_openai_1');
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.providers_list_models',
+      method: 'openhuman.inference_list_models',
       params: { provider_id: 'p_openai_1' },
     });
     expect(models).toHaveLength(2);

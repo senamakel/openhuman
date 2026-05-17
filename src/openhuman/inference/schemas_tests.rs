@@ -5,7 +5,7 @@ fn inference_catalog_counts_match_and_nonempty() {
     let declared = all_controller_schemas();
     let registered = all_registered_controllers();
     assert_eq!(declared.len(), registered.len());
-    assert!(declared.len() >= 8);
+    assert!(declared.len() >= 16);
 }
 
 #[test]
@@ -28,6 +28,14 @@ fn inference_schema_function_names_are_stable() {
         .map(|schema| schema.function)
         .collect();
     assert!(functions.contains(&"status"));
+    assert!(functions.contains(&"get_client_config"));
+    assert!(functions.contains(&"update_model_settings"));
+    assert!(functions.contains(&"update_local_settings"));
+    assert!(functions.contains(&"list_models"));
+    assert!(functions.contains(&"device_profile"));
+    assert!(functions.contains(&"presets"));
+    assert!(functions.contains(&"apply_preset"));
+    assert!(functions.contains(&"diagnostics"));
     assert!(functions.contains(&"prompt"));
     assert!(functions.contains(&"vision_prompt"));
     assert!(functions.contains(&"embed"));

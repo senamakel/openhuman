@@ -3353,13 +3353,14 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     let profile = post_json_rpc(
         &rpc_base,
         30,
-        "openhuman.local_ai_device_profile",
+        "openhuman.inference_device_profile",
         json!({}),
     )
     .await;
     let profile_result = assert_no_jsonrpc_error(&profile, "device_profile");
+    let profile_payload = profile_result.get("result").unwrap_or(profile_result);
     assert!(
-        profile_result
+        profile_payload
             .get("total_ram_bytes")
             .and_then(Value::as_u64)
             .unwrap_or(0)
@@ -3367,7 +3368,7 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
         "expected positive RAM: {profile_result}"
     );
     assert!(
-        profile_result
+        profile_payload
             .get("cpu_count")
             .and_then(Value::as_u64)
             .unwrap_or(0)
@@ -3376,9 +3377,10 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     );
 
     // --- presets ---
-    let presets = post_json_rpc(&rpc_base, 31, "openhuman.local_ai_presets", json!({})).await;
+    let presets = post_json_rpc(&rpc_base, 31, "openhuman.inference_presets", json!({})).await;
     let presets_result = assert_no_jsonrpc_error(&presets, "presets");
-    let presets_arr = presets_result
+    let presets_payload = presets_result.get("result").unwrap_or(presets_result);
+    let presets_arr = presets_payload
         .get("presets")
         .and_then(Value::as_array)
         .expect("presets should be an array");
@@ -3393,7 +3395,7 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
         "only the ram_2_4gb (1B) preset should be exposed: {presets_result}"
     );
 
-    let recommended = presets_result
+    let recommended = presets_payload
         .get("recommended_tier")
         .and_then(Value::as_str)
         .expect("should have recommended_tier");
@@ -3402,7 +3404,7 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
         "MVP recommends the only allowed tier: {recommended}"
     );
 
-    let current = presets_result
+    let current = presets_payload
         .get("current_tier")
         .and_then(Value::as_str)
         .expect("should have current_tier");
@@ -3416,29 +3418,34 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     let apply = post_json_rpc(
         &rpc_base,
         32,
-        "openhuman.local_ai_apply_preset",
+        "openhuman.inference_apply_preset",
         json!({"tier": "ram_2_4gb"}),
     )
     .await;
     let apply_result = assert_no_jsonrpc_error(&apply, "apply_preset");
+    let apply_payload = apply_result.get("result").unwrap_or(apply_result);
     assert_eq!(
-        apply_result.get("applied_tier").and_then(Value::as_str),
+        apply_payload.get("applied_tier").and_then(Value::as_str),
         Some("ram_2_4gb")
     );
     assert_eq!(
-        apply_result.get("chat_model_id").and_then(Value::as_str),
+        apply_payload.get("chat_model_id").and_then(Value::as_str),
         Some("gemma3:1b-it-qat")
     );
     assert_eq!(
-        apply_result.get("vision_mode").and_then(Value::as_str),
+        apply_payload.get("vision_mode").and_then(Value::as_str),
         Some("disabled")
     );
 
     // --- verify presets reflects the change ---
-    let presets_after = post_json_rpc(&rpc_base, 33, "openhuman.local_ai_presets", json!({})).await;
+    let presets_after =
+        post_json_rpc(&rpc_base, 33, "openhuman.inference_presets", json!({})).await;
     let presets_after_result = assert_no_jsonrpc_error(&presets_after, "presets_after");
+    let presets_after_payload = presets_after_result
+        .get("result")
+        .unwrap_or(presets_after_result);
     assert_eq!(
-        presets_after_result
+        presets_after_payload
             .get("current_tier")
             .and_then(Value::as_str),
         Some("ram_2_4gb"),
@@ -3449,7 +3456,7 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     let bad_apply = post_json_rpc(
         &rpc_base,
         34,
-        "openhuman.local_ai_apply_preset",
+        "openhuman.inference_apply_preset",
         json!({"tier": "ultra"}),
     )
     .await;
@@ -3540,7 +3547,7 @@ async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     let update = post_json_rpc(
         &rpc_base,
         36,
-        "openhuman.config_update_local_ai_settings",
+        "openhuman.inference_update_local_settings",
         json!({
             "runtime_enabled": true,
             "opt_in_confirmed": true,
@@ -3572,7 +3579,7 @@ async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     );
 
     let diagnostics =
-        post_json_rpc(&rpc_base, 37, "openhuman.local_ai_diagnostics", json!({})).await;
+        post_json_rpc(&rpc_base, 37, "openhuman.inference_diagnostics", json!({})).await;
     let diagnostics_result = assert_no_jsonrpc_error(&diagnostics, "lm_studio_diagnostics");
     assert_eq!(
         diagnostics_result.get("provider").and_then(Value::as_str),
@@ -3677,7 +3684,7 @@ async fn json_rpc_inference_namespace_lm_studio_prompt_and_status() {
     let update = post_json_rpc(
         &rpc_base,
         360,
-        "openhuman.config_update_local_ai_settings",
+        "openhuman.inference_update_local_settings",
         json!({
             "runtime_enabled": true,
             "opt_in_confirmed": true,
@@ -3761,7 +3768,7 @@ async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreach
     let update = post_json_rpc(
         &rpc_base,
         364,
-        "openhuman.config_update_local_ai_settings",
+        "openhuman.inference_update_local_settings",
         json!({
             "runtime_enabled": true,
             "opt_in_confirmed": true,

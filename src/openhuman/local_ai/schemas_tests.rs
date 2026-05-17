@@ -5,7 +5,7 @@ fn catalog_counts_match_and_nonempty() {
     let s = all_controller_schemas();
     let h = all_registered_controllers();
     assert_eq!(s.len(), h.len());
-    assert!(s.len() >= 16, "local_ai should expose >=16 controller fns");
+    assert!(s.len() >= 12, "local_ai should expose >=12 controller fns");
 }
 
 #[test]
@@ -35,10 +35,6 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
         "local_ai_assets_status",
         "local_ai_downloads_progress",
         "local_ai_download_asset",
-        "local_ai_device_profile",
-        "local_ai_presets",
-        "local_ai_apply_preset",
-        "local_ai_diagnostics",
         "local_ai_install_whisper",
         "local_ai_install_piper",
         "local_ai_whisper_install_status",
@@ -99,115 +95,10 @@ fn deserialize_params_errors_on_invalid_shape() {
     assert!(err.contains("invalid params"));
 }
 
-#[test]
-fn apply_preset_schema_has_inputs() {
-    let s = schemas("local_ai_apply_preset");
-    assert!(!s.inputs.is_empty());
-}
-
 // ── Handler-level tests that don't need Ollama ────────────────
 
 use crate::openhuman::config::TEST_ENV_LOCK as ENV_LOCK;
 use tempfile::TempDir;
-
-#[tokio::test]
-async fn handle_device_profile_returns_device_shape() {
-    let v = handle_local_ai_device_profile(Map::new())
-        .await
-        .expect("ok");
-    // device profile exposes at least a few expected fields.
-    assert!(v.is_object());
-}
-
-#[tokio::test]
-async fn handle_presets_returns_presets_list_and_recommended_tier() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let v = handle_local_ai_presets(Map::new()).await.expect("ok");
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(v.get("presets").is_some());
-    assert!(v.get("recommended_tier").is_some());
-    assert!(v.get("device").is_some());
-    let presets = v
-        .get("presets")
-        .and_then(|value| value.as_array())
-        .expect("presets array");
-    assert_eq!(presets.len(), 1, "only the 1B preset should be exposed");
-    assert_eq!(
-        presets[0]
-            .get("chat_model_id")
-            .and_then(|value| value.as_str()),
-        Some("gemma3:1b-it-qat")
-    );
-}
-
-#[tokio::test]
-async fn handle_apply_preset_rejects_invalid_tier() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([("tier".to_string(), serde_json::json!("ram_bogus"))]);
-    let err = handle_local_ai_apply_preset(params).await.unwrap_err();
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(err.contains("invalid tier"));
-}
-
-#[tokio::test]
-async fn handle_apply_preset_rejects_custom_tier() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([("tier".to_string(), serde_json::json!("custom"))]);
-    let err = handle_local_ai_apply_preset(params).await.unwrap_err();
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(err.contains("cannot apply 'custom'"));
-}
-
-#[tokio::test]
-async fn handle_apply_preset_rejects_unsupported_large_tier() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([("tier".to_string(), serde_json::json!("ram_8_16gb"))]);
-    let err = handle_local_ai_apply_preset(params).await.unwrap_err();
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(err.contains("only the 1B local model preset is supported"));
-}
-
-#[tokio::test]
-async fn handle_apply_preset_accepts_valid_tier_and_persists() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-    let params = Map::from_iter([("tier".to_string(), serde_json::json!("ram_2_4gb"))]);
-    let result = handle_local_ai_apply_preset(params)
-        .await
-        .expect("apply ok");
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    assert!(result.get("applied_tier").is_some());
-    assert!(result.get("chat_model_id").is_some());
-}
 
 /// Regression test for the CodeRabbit #7 race on PR #1755: when two
 /// concurrent RPC calls (e.g. a double-click, or the auto-install firing

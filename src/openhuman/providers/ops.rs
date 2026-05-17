@@ -1,5 +1,6 @@
 use super::*;
 
+use serde::Serialize;
 use std::path::PathBuf;
 
 const MAX_API_ERROR_CHARS: usize = 200;
@@ -13,6 +14,134 @@ pub struct ProviderRuntimeOptions {
     pub openhuman_dir: Option<PathBuf>,
     pub secrets_encrypt: bool,
     pub reasoning_enabled: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelInfo {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owned_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u64>,
+}
+
+pub async fn list_configured_models(
+    provider_id: &str,
+) -> Result<crate::rpc::RpcOutcome<serde_json::Value>, String> {
+    let provider_id = provider_id.trim().to_string();
+    if provider_id.is_empty() {
+        return Err("provider_id must not be empty".to_string());
+    }
+
+    log::debug!("[providers][list_models] provider_id={}", provider_id);
+
+    let config = crate::openhuman::config::Config::load_or_init()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let entry = config
+        .cloud_providers
+        .iter()
+        .find(|e| e.id == provider_id)
+        .cloned()
+        .ok_or_else(|| format!("no cloud provider with id '{}' found", provider_id))?;
+
+    let base = entry.endpoint.trim_end_matches('/');
+    let models_url = format!("{}/models", base);
+
+    log::debug!(
+        "[providers][list_models] fetching url={} slug={}",
+        models_url,
+        entry.slug
+    );
+
+    let api_key = crate::openhuman::providers::factory::lookup_key_for_slug(&entry.slug, &config)
+        .unwrap_or_default();
+
+    let client = crate::openhuman::config::build_runtime_proxy_client_with_timeouts(
+        "providers.list_models",
+        30,
+        10,
+    );
+
+    let mut request = client.get(&models_url);
+
+    use crate::openhuman::config::schema::cloud_providers::AuthStyle;
+    request = match entry.auth_style {
+        AuthStyle::Bearer => {
+            if !api_key.is_empty() {
+                request.header("Authorization", format!("Bearer {}", api_key))
+            } else {
+                request
+            }
+        }
+        AuthStyle::Anthropic => {
+            let mut r = request.header("anthropic-version", "2023-06-01");
+            if !api_key.is_empty() {
+                r = r.header("x-api-key", &api_key);
+            }
+            r
+        }
+        AuthStyle::OpenhumanJwt | AuthStyle::None => request,
+    };
+
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("[providers][list_models] HTTP request failed: {}", e))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        let truncated = crate::openhuman::util::truncate_with_ellipsis(&body, 300);
+        return Err(format!(
+            "provider returned {}: {}",
+            status.as_u16(),
+            truncated
+        ));
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("[providers][list_models] failed to parse JSON: {}", e))?;
+
+    let data = body
+        .get("data")
+        .and_then(|d| d.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let models: Vec<ModelInfo> = data
+        .iter()
+        .filter_map(|item| {
+            let id = item.get("id")?.as_str()?.to_string();
+            let owned_by = item
+                .get("owned_by")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let context_window = item
+                .get("context_length")
+                .or_else(|| item.get("context_window"))
+                .and_then(|v| v.as_u64());
+            Some(ModelInfo {
+                id,
+                owned_by,
+                context_window,
+            })
+        })
+        .collect();
+
+    log::info!(
+        "[providers][list_models] slug={} fetched {} models",
+        entry.slug,
+        models.len()
+    );
+
+    Ok(crate::rpc::RpcOutcome::new(
+        serde_json::json!({ "models": models }),
+        vec![format!("fetched {} models", models.len())],
+    ))
 }
 
 impl Default for ProviderRuntimeOptions {

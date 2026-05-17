@@ -37,11 +37,6 @@ struct LocalAiDownloadAssetParams {
 }
 
 #[derive(Debug, Deserialize)]
-struct LocalAiApplyPresetParams {
-    tier: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct LocalAiInstallWhisperParams {
     /// Optional model size (`tiny`, `base`, `small`, `medium`,
     /// `large-v3-turbo`). Defaults to `large-v3-turbo`.
@@ -73,10 +68,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("local_ai_assets_status"),
         schemas("local_ai_downloads_progress"),
         schemas("local_ai_download_asset"),
-        schemas("local_ai_device_profile"),
-        schemas("local_ai_presets"),
-        schemas("local_ai_apply_preset"),
-        schemas("local_ai_diagnostics"),
         schemas("local_ai_install_whisper"),
         schemas("local_ai_install_piper"),
         schemas("local_ai_whisper_install_status"),
@@ -117,22 +108,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("local_ai_download_asset"),
             handler: handle_local_ai_download_asset,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_device_profile"),
-            handler: handle_local_ai_device_profile,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_presets"),
-            handler: handle_local_ai_presets,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_apply_preset"),
-            handler: handle_local_ai_apply_preset,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_diagnostics"),
-            handler: handle_local_ai_diagnostics,
         },
         RegisteredController {
             schema: schemas("local_ai_install_whisper"),
@@ -229,44 +204,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             description: "Trigger download for one local AI asset capability.",
             inputs: vec![required_string("capability", "Asset capability id.")],
             outputs: vec![json_output("status", "Assets status payload.")],
-        },
-        "local_ai_device_profile" => ControllerSchema {
-            namespace: "local_ai",
-            function: "device_profile",
-            description: "Detect local device hardware profile (RAM, CPU, GPU).",
-            inputs: vec![],
-            outputs: vec![json_output("profile", "Device hardware profile.")],
-        },
-        "local_ai_presets" => ControllerSchema {
-            namespace: "local_ai",
-            function: "presets",
-            description: "List model tier presets with recommendation and current selection.",
-            inputs: vec![],
-            outputs: vec![json_output(
-                "presets",
-                "Object containing: presets (array of ModelPreset), recommended_tier (string), \
-                 current_tier (string), selected_tier (string | null), device (DeviceProfile), \
-                 recommend_disabled (boolean — true when the device is below the RAM floor and \
-                 cloud fallback is the recommended default), local_ai_enabled (boolean — mirrors \
-                 config.local_ai.runtime_enabled so the UI can render the active state when disabled).",
-            )],
-        },
-        "local_ai_apply_preset" => ControllerSchema {
-            namespace: "local_ai",
-            function: "apply_preset",
-            description: "Apply a model tier preset to local AI config and persist.",
-            inputs: vec![required_string(
-                "tier",
-                "Tier to apply: ram_2_4gb, or disabled to use cloud fallback.",
-            )],
-            outputs: vec![json_output("result", "Applied tier status.")],
-        },
-        "local_ai_diagnostics" => ControllerSchema {
-            namespace: "local_ai",
-            function: "diagnostics",
-            description: "Run Ollama diagnostics: check server health, list installed models, verify expected models.",
-            inputs: vec![],
-            outputs: vec![json_output("diagnostics", "Diagnostic report.")],
         },
         "local_ai_install_whisper" => ControllerSchema {
             namespace: "local_ai",
@@ -424,131 +361,6 @@ fn handle_local_ai_download_asset(params: Map<String, Value>) -> ControllerFutur
             crate::openhuman::local_ai::rpc::local_ai_download_asset(&config, p.capability.trim())
                 .await?,
         )
-    })
-}
-
-fn handle_local_ai_device_profile(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        tracing::debug!("[local_ai] device_profile: detecting hardware");
-        let profile = crate::openhuman::local_ai::device::detect_device_profile();
-        tracing::debug!("[local_ai] device_profile: done");
-        let value = serde_json::to_value(&profile).map_err(|e| format!("serialize: {e}"))?;
-        Ok(value)
-    })
-}
-
-fn handle_local_ai_presets(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        tracing::debug!("[local_ai] presets: loading config and computing tiers");
-        let config = config_rpc::load_config_with_timeout().await?;
-        let device = crate::openhuman::local_ai::device::detect_device_profile();
-        let recommended = crate::openhuman::local_ai::presets::recommend_tier(&device);
-        let current =
-            crate::openhuman::local_ai::presets::current_tier_from_config(&config.local_ai);
-        let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
-            let normalized = value.trim().to_ascii_lowercase();
-            crate::openhuman::local_ai::presets::ModelTier::from_str_opt(&normalized)
-                .map(|tier| tier.as_str().to_string())
-                .or_else(|| (!normalized.is_empty()).then_some(normalized))
-        });
-        let presets = crate::openhuman::local_ai::presets::mvp_presets();
-        tracing::debug!(
-            ?recommended,
-            ?current,
-            selected_tier = ?selected_tier,
-            preset_count = presets.len(),
-            "[local_ai] presets: returning"
-        );
-        let recommend_disabled =
-            crate::openhuman::local_ai::presets::should_default_to_cloud_fallback(&device);
-        let value = serde_json::json!({
-            "presets": presets,
-            "recommended_tier": recommended,
-            "current_tier": current,
-            "selected_tier": selected_tier,
-            "device": device,
-            "recommend_disabled": recommend_disabled,
-            "local_ai_enabled": config.local_ai.runtime_enabled,
-        });
-        Ok(value)
-    })
-}
-
-fn handle_local_ai_apply_preset(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiApplyPresetParams>(params)?;
-        let tier_str = p.tier.trim().to_ascii_lowercase();
-        tracing::debug!(tier = %tier_str, "[local_ai] apply_preset: parsing tier");
-
-        // Special "disabled" tier: turn local_ai off and route AI to cloud.
-        if tier_str == "disabled" {
-            let mut config = config_rpc::load_config_with_timeout().await?;
-            config.local_ai.runtime_enabled = false;
-            config.local_ai.selected_tier = Some("disabled".to_string());
-            // Explicit opt-out also clears the MVP opt-in marker so bootstrap
-            // keeps local AI off across restarts.
-            config.local_ai.opt_in_confirmed = false;
-            config
-                .save()
-                .await
-                .map_err(|e| format!("save config: {e}"))?;
-            tracing::debug!("[local_ai] apply_preset: local_ai disabled (cloud fallback)");
-            return Ok(serde_json::json!({
-                "applied_tier": "disabled",
-                "local_ai_enabled": false,
-            }));
-        }
-
-        let tier = crate::openhuman::local_ai::presets::ModelTier::from_str_opt(&tier_str)
-            .ok_or_else(|| {
-                format!(
-                    "invalid tier '{}': expected one of disabled or ram_2_4gb",
-                    tier_str
-                )
-            })?;
-
-        if tier == crate::openhuman::local_ai::presets::ModelTier::Custom {
-            return Err("cannot apply 'custom' tier; set model IDs directly".to_string());
-        }
-        if !tier.is_mvp_allowed() {
-            return Err(format!(
-                "tier '{}' is not available in this build; only the 1B local model preset is supported",
-                tier_str
-            ));
-        }
-
-        let mut config = config_rpc::load_config_with_timeout().await?;
-        // Re-enable local AI in case it was previously disabled via the
-        // "disabled" tier, so the user can switch back to local inference.
-        config.local_ai.runtime_enabled = true;
-        // Explicit tier selection is the MVP opt-in — flip the marker so
-        // `config_with_recommended_tier_if_unselected` stops hard-overriding
-        // to disabled on subsequent boots.
-        config.local_ai.opt_in_confirmed = true;
-        crate::openhuman::local_ai::presets::apply_preset_to_config(&mut config.local_ai, tier);
-        config
-            .save()
-            .await
-            .map_err(|e| format!("save config: {e}"))?;
-        tracing::debug!(tier = %tier_str, "[local_ai] apply_preset: config saved");
-
-        Ok(serde_json::json!({
-            "applied_tier": tier,
-            "chat_model_id": config.local_ai.chat_model_id,
-            "vision_model_id": config.local_ai.vision_model_id,
-            "embedding_model_id": config.local_ai.embedding_model_id,
-            "quantization": config.local_ai.quantization,
-            "vision_mode": crate::openhuman::local_ai::presets::vision_mode_for_config(&config.local_ai),
-            "local_ai_enabled": true,
-        }))
-    })
-}
-
-fn handle_local_ai_diagnostics(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let service = crate::openhuman::local_ai::global(&config);
-        service.diagnostics(&config).await
     })
 }
 

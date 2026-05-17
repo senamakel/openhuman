@@ -11,8 +11,8 @@ Local asset/runtime support for speech models and localhost-style integrations. 
 - `pub struct ModelPreset` / `pub enum ModelTier` / `pub enum VisionMode` — `presets.rs` — bundled preset matrix.
 - `pub struct SentimentResult` — `sentiment.rs` — internal sentiment result type used by inference delegates.
 - Status / progress / result types: `pub struct LocalAiStatus`, `LocalAiAssetStatus`, `LocalAiAssetsStatus`, `LocalAiDownloadProgressItem`, `LocalAiDownloadsProgress`, `LocalAiEmbeddingResult`, `LocalAiSpeechResult`, `LocalAiTtsResult` — `types.rs`.
-- `pub mod ops` (re-exported as `rpc`) — `ops.rs` — typed Rust wrappers. Public `local_ai.*` RPCs are limited to local speech/assets/device-profile flows; prompt/chat/embed/status helpers remain available for internal delegation from `inference`.
-- RPC `local_ai.{agent_chat, agent_chat_simple, local_ai_transcribe, local_ai_transcribe_bytes, local_ai_tts, local_ai_assets_status, local_ai_downloads_progress, local_ai_download_asset, local_ai_device_profile, local_ai_presets, local_ai_apply_preset, local_ai_diagnostics, local_ai_install_whisper, local_ai_install_piper, local_ai_whisper_install_status, local_ai_piper_install_status}` — `schemas.rs`.
+- `pub mod ops` (re-exported as `rpc`) — `ops.rs` — typed Rust wrappers. Public `local_ai.*` RPCs are limited to local speech/assets flows; prompt/chat/embed/status helpers remain available for internal delegation from `inference`.
+- RPC `local_ai.{agent_chat, agent_chat_simple, local_ai_transcribe, local_ai_transcribe_bytes, local_ai_tts, local_ai_assets_status, local_ai_downloads_progress, local_ai_download_asset, local_ai_install_whisper, local_ai_install_piper, local_ai_whisper_install_status, local_ai_piper_install_status}` — `schemas.rs`.
 
 ## Calls into
 

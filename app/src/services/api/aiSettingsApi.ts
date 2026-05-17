@@ -4,7 +4,7 @@
  * Sits between the panel's React state and the Rust JSON-RPC core. Three
  * orthogonal surfaces in one place:
  *
- *  1. Cloud providers + per-workload routing → `openhuman.update_model_settings`
+ *  1. Cloud providers + per-workload routing → `openhuman.inference_update_model_settings`
  *  2. API keys for cloud providers           → `openhuman.auth_*_provider_credentials`
  *                                              (encrypted at rest in
  *                                              `auth-profiles.json`)
@@ -16,7 +16,6 @@
  * presentation.
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
-import { CORE_RPC_METHODS } from '../../services/rpcMethods';
 import {
   authListProviderCredentials,
   type AuthProfileSummary,
@@ -271,7 +270,7 @@ export async function listProviderModels(providerId: string): Promise<ModelInfo[
   }
   try {
     const res = await callCoreRpc<{ result: { models: ModelInfo[] } }>({
-      method: CORE_RPC_METHODS.providersListModels,
+      method: 'openhuman.inference_list_models',
       params: { provider_id: providerId },
     });
     return res?.result?.models ?? [];

@@ -1,11 +1,14 @@
 //! JSON-RPC controller surface for inference operations.
 
+use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
 use crate::openhuman::local_ai;
 use crate::openhuman::local_ai::ops::{LocalAiChatMessage, ReactionDecision};
 use crate::openhuman::local_ai::sentiment::SentimentResult;
 use crate::openhuman::local_ai::{LocalAiEmbeddingResult, LocalAiStatus};
+use crate::openhuman::providers;
 use crate::rpc::RpcOutcome;
+use serde_json::{json, Value};
 use tracing::{debug, error};
 
 const LOG_PREFIX: &str = "[inference::ops]";
@@ -154,6 +157,169 @@ pub async fn inference_analyze_sentiment(
             debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok")
         }
         Err(err) => error!(error = %err, "{LOG_PREFIX} analyze_sentiment:error"),
+    }
+    result
+}
+
+pub async fn inference_get_client_config() -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} get_client_config:start");
+    let result = config_rpc::load_and_get_client_config_snapshot().await;
+    match &result {
+        Ok(_) => debug!("{LOG_PREFIX} get_client_config:ok"),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} get_client_config:error"),
+    }
+    result
+}
+
+pub async fn inference_update_model_settings(
+    update: config_rpc::ModelSettingsPatch,
+) -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} update_model_settings:start");
+    let result = config_rpc::load_and_apply_model_settings(update).await;
+    match &result {
+        Ok(_) => debug!("{LOG_PREFIX} update_model_settings:ok"),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} update_model_settings:error"),
+    }
+    result
+}
+
+pub async fn inference_update_local_settings(
+    update: config_rpc::LocalAiSettingsPatch,
+) -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} update_local_settings:start");
+    let result = config_rpc::load_and_apply_local_ai_settings(update).await;
+    match &result {
+        Ok(_) => debug!("{LOG_PREFIX} update_local_settings:ok"),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} update_local_settings:error"),
+    }
+    result
+}
+
+pub async fn inference_list_models(provider_id: &str) -> Result<RpcOutcome<Value>, String> {
+    debug!(provider_id, "{LOG_PREFIX} list_models:start");
+    let result = providers::ops::list_configured_models(provider_id).await;
+    match &result {
+        Ok(_) => debug!("{LOG_PREFIX} list_models:ok"),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} list_models:error"),
+    }
+    result
+}
+
+pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} device_profile:start");
+    let profile = local_ai::device::detect_device_profile();
+    let result = Ok(RpcOutcome::single_log(
+        serde_json::to_value(profile).map_err(|e| format!("serialize: {e}"))?,
+        "inference device profile fetched",
+    ));
+    debug!("{LOG_PREFIX} device_profile:ok");
+    result
+}
+
+pub async fn inference_presets() -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} presets:start");
+    let config = config_rpc::load_config_with_timeout().await?;
+    let device = local_ai::device::detect_device_profile();
+    let recommended = local_ai::presets::recommend_tier(&device);
+    let current = local_ai::presets::current_tier_from_config(&config.local_ai);
+    let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
+        let normalized = value.trim().to_ascii_lowercase();
+        local_ai::presets::ModelTier::from_str_opt(&normalized)
+            .map(|tier| tier.as_str().to_string())
+            .or_else(|| (!normalized.is_empty()).then_some(normalized))
+    });
+    let presets = local_ai::presets::mvp_presets();
+    let recommend_disabled = local_ai::presets::should_default_to_cloud_fallback(&device);
+    let result = Ok(RpcOutcome::single_log(
+        json!({
+            "presets": presets,
+            "recommended_tier": recommended,
+            "current_tier": current,
+            "selected_tier": selected_tier,
+            "device": device,
+            "recommend_disabled": recommend_disabled,
+            "local_ai_enabled": config.local_ai.runtime_enabled,
+        }),
+        "inference presets fetched",
+    ));
+    debug!("{LOG_PREFIX} presets:ok");
+    result
+}
+
+pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, String> {
+    let tier_str = tier.trim().to_ascii_lowercase();
+    debug!(tier = %tier_str, "{LOG_PREFIX} apply_preset:start");
+
+    if tier_str == "disabled" {
+        let mut config = config_rpc::load_config_with_timeout().await?;
+        config.local_ai.runtime_enabled = false;
+        config.local_ai.selected_tier = Some("disabled".to_string());
+        config.local_ai.opt_in_confirmed = false;
+        config
+            .save()
+            .await
+            .map_err(|e| format!("save config: {e}"))?;
+        debug!("{LOG_PREFIX} apply_preset:disabled");
+        return Ok(RpcOutcome::single_log(
+            json!({
+                "applied_tier": "disabled",
+                "local_ai_enabled": false,
+            }),
+            "inference preset applied",
+        ));
+    }
+
+    let tier = local_ai::presets::ModelTier::from_str_opt(&tier_str).ok_or_else(|| {
+        format!(
+            "invalid tier '{}': expected one of disabled or ram_2_4gb",
+            tier_str
+        )
+    })?;
+
+    if tier == local_ai::presets::ModelTier::Custom {
+        return Err("cannot apply 'custom' tier; set model IDs directly".to_string());
+    }
+    if !tier.is_mvp_allowed() {
+        return Err(format!(
+            "tier '{}' is not available in this build; only the 1B local model preset is supported",
+            tier_str
+        ));
+    }
+
+    let mut config = config_rpc::load_config_with_timeout().await?;
+    config.local_ai.runtime_enabled = true;
+    config.local_ai.opt_in_confirmed = true;
+    local_ai::presets::apply_preset_to_config(&mut config.local_ai, tier);
+    config
+        .save()
+        .await
+        .map_err(|e| format!("save config: {e}"))?;
+
+    debug!(tier = %tier_str, "{LOG_PREFIX} apply_preset:ok");
+    Ok(RpcOutcome::single_log(
+        json!({
+            "applied_tier": tier,
+            "chat_model_id": config.local_ai.chat_model_id,
+            "vision_model_id": config.local_ai.vision_model_id,
+            "embedding_model_id": config.local_ai.embedding_model_id,
+            "quantization": config.local_ai.quantization,
+            "vision_mode": local_ai::presets::vision_mode_for_config(&config.local_ai),
+            "local_ai_enabled": true,
+        }),
+        "inference preset applied",
+    ))
+}
+
+pub async fn inference_diagnostics(config: &Config) -> Result<RpcOutcome<Value>, String> {
+    debug!("{LOG_PREFIX} diagnostics:start");
+    let service = local_ai::global(config);
+    let result = service
+        .diagnostics(config)
+        .await
+        .map(|value| RpcOutcome::single_log(value, "inference diagnostics fetched"));
+    match &result {
+        Ok(_) => debug!("{LOG_PREFIX} diagnostics:ok"),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} diagnostics:error"),
     }
     result
 }

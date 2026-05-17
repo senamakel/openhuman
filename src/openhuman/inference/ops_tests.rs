@@ -76,21 +76,3 @@ async fn inference_analyze_sentiment_handles_empty_message() {
         .expect("sentiment");
     assert_eq!(outcome.value.valence, "neutral");
 }
-
-#[tokio::test]
-async fn inference_should_send_gif_short_circuits_for_empty_message() {
-    let (config, _tmp) = disabled_config();
-    let outcome = inference_should_send_gif(&config, "   ", "web")
-        .await
-        .expect("gif decision");
-    assert!(!outcome.value.should_send_gif);
-}
-
-#[tokio::test]
-async fn inference_tenor_search_requires_query() {
-    let (config, _tmp) = disabled_config();
-    let err = inference_tenor_search(&config, "   ", Some(3))
-        .await
-        .expect_err("query validation should fail");
-    assert!(err.contains("query is required"));
-}

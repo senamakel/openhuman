@@ -2130,7 +2130,7 @@ mod tests {
             "local ai is disabled",
             "rpc",
             "invoke_method",
-            &[("method", "openhuman.local_ai_prompt")],
+            &[("method", "openhuman.inference_prompt")],
         );
         report_error_or_expected(
             "ollama API key not set",

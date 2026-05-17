@@ -3595,7 +3595,7 @@ async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     let prompt = post_json_rpc(
         &rpc_base,
         38,
-        "openhuman.local_ai_prompt",
+        "openhuman.inference_prompt",
         json!({
             "prompt": "hello",
             "max_tokens": 16,

@@ -2,10 +2,9 @@
 
 use crate::openhuman::config::Config;
 use crate::openhuman::local_ai;
-use crate::openhuman::local_ai::gif_decision::GifDecision;
 use crate::openhuman::local_ai::ops::{LocalAiChatMessage, ReactionDecision};
 use crate::openhuman::local_ai::sentiment::SentimentResult;
-use crate::openhuman::local_ai::{LocalAiEmbeddingResult, LocalAiStatus, TenorSearchResult};
+use crate::openhuman::local_ai::{LocalAiEmbeddingResult, LocalAiStatus};
 use crate::rpc::RpcOutcome;
 use tracing::{debug, error};
 
@@ -155,48 +154,6 @@ pub async fn inference_analyze_sentiment(
             debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok")
         }
         Err(err) => error!(error = %err, "{LOG_PREFIX} analyze_sentiment:error"),
-    }
-    result
-}
-
-pub async fn inference_should_send_gif(
-    config: &Config,
-    message: &str,
-    channel_type: &str,
-) -> Result<RpcOutcome<GifDecision>, String> {
-    debug!(
-        message_len = message.len(),
-        channel_type, "{LOG_PREFIX} should_send_gif:start"
-    );
-    let result =
-        local_ai::gif_decision::local_ai_should_send_gif(config, message, channel_type).await;
-    match &result {
-        Ok(outcome) => debug!(
-            should_send_gif = outcome.value.should_send_gif,
-            "{LOG_PREFIX} should_send_gif:ok"
-        ),
-        Err(err) => error!(error = %err, "{LOG_PREFIX} should_send_gif:error"),
-    }
-    result
-}
-
-pub async fn inference_tenor_search(
-    config: &Config,
-    query: &str,
-    limit: Option<u32>,
-) -> Result<RpcOutcome<TenorSearchResult>, String> {
-    debug!(
-        query_len = query.len(),
-        ?limit,
-        "{LOG_PREFIX} tenor_search:start"
-    );
-    let result = local_ai::gif_decision::tenor_search(config, query, limit).await;
-    match &result {
-        Ok(outcome) => debug!(
-            result_count = outcome.value.results.len(),
-            "{LOG_PREFIX} tenor_search:ok"
-        ),
-        Err(err) => error!(error = %err, "{LOG_PREFIX} tenor_search:error"),
     }
     result
 }

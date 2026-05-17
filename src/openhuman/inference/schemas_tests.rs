@@ -5,7 +5,7 @@ fn inference_catalog_counts_match_and_nonempty() {
     let declared = all_controller_schemas();
     let registered = all_registered_controllers();
     assert_eq!(declared.len(), registered.len());
-    assert!(declared.len() >= 10);
+    assert!(declared.len() >= 8);
 }
 
 #[test]
@@ -32,6 +32,8 @@ fn inference_schema_function_names_are_stable() {
     assert!(functions.contains(&"vision_prompt"));
     assert!(functions.contains(&"embed"));
     assert!(functions.contains(&"chat"));
+    assert!(!functions.contains(&"should_send_gif"));
+    assert!(!functions.contains(&"tenor_search"));
 }
 
 #[test]

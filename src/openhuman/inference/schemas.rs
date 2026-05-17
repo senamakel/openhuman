@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::core::all::{ControllerFuture, RegisteredController};
-use crate::core::ControllerSchema;
+use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::rpc as config_rpc;
 use crate::rpc::RpcOutcome;
 
@@ -55,18 +55,6 @@ struct InferenceAnalyzeSentimentParams {
     message: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct InferenceShouldSendGifParams {
-    message: String,
-    channel_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct InferenceTenorSearchParams {
-    query: String,
-    limit: Option<u32>,
-}
-
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("status"),
@@ -77,8 +65,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("chat"),
         schemas("should_react"),
         schemas("analyze_sentiment"),
-        schemas("should_send_gif"),
-        schemas("tenor_search"),
     ]
 }
 
@@ -116,68 +102,136 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             schema: schemas("analyze_sentiment"),
             handler: handle_inference_analyze_sentiment,
         },
-        RegisteredController {
-            schema: schemas("should_send_gif"),
-            handler: handle_inference_should_send_gif,
-        },
-        RegisteredController {
-            schema: schemas("tenor_search"),
-            handler: handle_inference_tenor_search,
-        },
     ]
 }
 
 pub fn schemas(function: &str) -> ControllerSchema {
-    let (source, target_function) = match function {
-        "status" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_status"),
-            "status",
-        ),
-        "summarize" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_summarize"),
-            "summarize",
-        ),
-        "prompt" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_prompt"),
-            "prompt",
-        ),
-        "vision_prompt" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_vision_prompt"),
-            "vision_prompt",
-        ),
-        "embed" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_embed"),
-            "embed",
-        ),
-        "chat" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_chat"),
-            "chat",
-        ),
-        "should_react" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_should_react"),
-            "should_react",
-        ),
-        "analyze_sentiment" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_analyze_sentiment"),
-            "analyze_sentiment",
-        ),
-        "should_send_gif" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_should_send_gif"),
-            "should_send_gif",
-        ),
-        "tenor_search" => (
-            crate::openhuman::local_ai::local_ai_controller_schema("local_ai_tenor_search"),
-            "tenor_search",
-        ),
+    match function {
+        "status" => ControllerSchema {
+            namespace: "inference",
+            function: "status",
+            description: "Read inference service status.",
+            inputs: vec![],
+            outputs: vec![json_output("status", "Inference status payload.")],
+        },
+        "summarize" => ControllerSchema {
+            namespace: "inference",
+            function: "summarize",
+            description: "Summarize text with the configured inference provider.",
+            inputs: vec![
+                required_string("text", "Input text."),
+                optional_u64("max_tokens", "Optional max output tokens."),
+            ],
+            outputs: vec![json_output("summary", "Summary text.")],
+        },
+        "prompt" => ControllerSchema {
+            namespace: "inference",
+            function: "prompt",
+            description: "Run a direct inference prompt.",
+            inputs: vec![
+                required_string("prompt", "Prompt text."),
+                optional_u64("max_tokens", "Optional max output tokens."),
+                optional_bool("no_think", "Disable thinking mode."),
+            ],
+            outputs: vec![json_output("output", "Prompt output text.")],
+        },
+        "vision_prompt" => ControllerSchema {
+            namespace: "inference",
+            function: "vision_prompt",
+            description: "Run a multimodal inference prompt with image refs.",
+            inputs: vec![
+                required_string("prompt", "Prompt text."),
+                FieldSchema {
+                    name: "image_refs",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Image references to include.",
+                    required: true,
+                },
+                optional_u64("max_tokens", "Optional max output tokens."),
+            ],
+            outputs: vec![json_output("output", "Prompt output text.")],
+        },
+        "embed" => ControllerSchema {
+            namespace: "inference",
+            function: "embed",
+            description: "Generate embeddings for text inputs.",
+            inputs: vec![FieldSchema {
+                name: "inputs",
+                ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                comment: "Texts to embed.",
+                required: true,
+            }],
+            outputs: vec![json_output("embedding", "Embedding result payload.")],
+        },
+        "chat" => ControllerSchema {
+            namespace: "inference",
+            function: "chat",
+            description: "Multi-turn chat completion via the configured inference provider.",
+            inputs: vec![
+                FieldSchema {
+                    name: "messages",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment: "Chat message history [{role, content}]. Last entry is the user turn.",
+                    required: true,
+                },
+                optional_u64("max_tokens", "Optional max output tokens."),
+            ],
+            outputs: vec![json_output("reply", "Assistant reply text.")],
+        },
+        "should_react" => ControllerSchema {
+            namespace: "inference",
+            function: "should_react",
+            description: "Ask the inference provider whether the assistant should add an emoji reaction to a user message, based on channel type.",
+            inputs: vec![
+                required_string("message", "User message content to evaluate."),
+                required_string("channel_type", "Channel type: web, telegram, discord, slack, etc."),
+            ],
+            outputs: vec![json_output("decision", "Reaction decision: {should_react, emoji}.")],
+        },
+        "analyze_sentiment" => ControllerSchema {
+            namespace: "inference",
+            function: "analyze_sentiment",
+            description: "Classify the emotion and valence of a user message with the inference provider.",
+            inputs: vec![required_string("message", "User message content to classify.")],
+            outputs: vec![json_output("sentiment", "Sentiment analysis payload.")],
+        },
         other => panic!("unknown inference schema: {other}"),
-    };
+    }
+}
 
-    ControllerSchema {
-        namespace: "inference",
-        function: target_function,
-        description: source.description,
-        inputs: source.inputs,
-        outputs: source.outputs,
+fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::String,
+        comment,
+        required: true,
+    }
+}
+
+fn optional_bool(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment,
+        required: false,
+    }
+}
+
+fn optional_u64(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+        comment,
+        required: false,
+    }
+}
+
+fn json_output(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Json,
+        comment,
+        required: true,
     }
 }
 
@@ -281,32 +335,6 @@ fn handle_inference_analyze_sentiment(params: Map<String, Value>) -> ControllerF
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(
             crate::openhuman::inference::rpc::inference_analyze_sentiment(&config, &p.message)
-                .await?,
-        )
-    })
-}
-
-fn handle_inference_should_send_gif(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<InferenceShouldSendGifParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::inference::rpc::inference_should_send_gif(
-                &config,
-                &p.message,
-                &p.channel_type,
-            )
-            .await?,
-        )
-    })
-}
-
-fn handle_inference_tenor_search(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<InferenceTenorSearchParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::inference::rpc::inference_tenor_search(&config, &p.query, p.limit)
                 .await?,
         )
     })

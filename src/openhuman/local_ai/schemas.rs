@@ -15,31 +15,6 @@ struct AgentChatParams {
 }
 
 #[derive(Debug, Deserialize)]
-struct LocalAiSummarizeParams {
-    text: String,
-    max_tokens: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiPromptParams {
-    prompt: String,
-    max_tokens: Option<u32>,
-    no_think: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiVisionPromptParams {
-    prompt: String,
-    image_refs: Vec<String>,
-    max_tokens: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiEmbedParams {
-    inputs: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
 struct LocalAiTranscribeParams {
     audio_path: String,
 }
@@ -64,41 +39,6 @@ struct LocalAiDownloadAssetParams {
 #[derive(Debug, Deserialize)]
 struct LocalAiApplyPresetParams {
     tier: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiChatMessageParam {
-    role: String,
-    content: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiChatParams {
-    messages: Vec<LocalAiChatMessageParam>,
-    max_tokens: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiShouldReactParams {
-    message: String,
-    channel_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiAnalyzeSentimentParams {
-    message: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiShouldSendGifParams {
-    message: String,
-    channel_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiTenorSearchParams {
-    query: String,
-    limit: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,11 +67,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("agent_chat"),
         schemas("agent_chat_simple"),
-        schemas("local_ai_status"),
-        schemas("local_ai_summarize"),
-        schemas("local_ai_prompt"),
-        schemas("local_ai_vision_prompt"),
-        schemas("local_ai_embed"),
         schemas("local_ai_transcribe"),
         schemas("local_ai_transcribe_bytes"),
         schemas("local_ai_tts"),
@@ -142,11 +77,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("local_ai_presets"),
         schemas("local_ai_apply_preset"),
         schemas("local_ai_diagnostics"),
-        schemas("local_ai_chat"),
-        schemas("local_ai_should_react"),
-        schemas("local_ai_analyze_sentiment"),
-        schemas("local_ai_should_send_gif"),
-        schemas("local_ai_tenor_search"),
         schemas("local_ai_install_whisper"),
         schemas("local_ai_install_piper"),
         schemas("local_ai_whisper_install_status"),
@@ -163,26 +93,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("agent_chat_simple"),
             handler: handle_agent_chat_simple,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_status"),
-            handler: handle_local_ai_status,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_summarize"),
-            handler: handle_local_ai_summarize,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_prompt"),
-            handler: handle_local_ai_prompt,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_vision_prompt"),
-            handler: handle_local_ai_vision_prompt,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_embed"),
-            handler: handle_local_ai_embed,
         },
         RegisteredController {
             schema: schemas("local_ai_transcribe"),
@@ -223,26 +133,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("local_ai_diagnostics"),
             handler: handle_local_ai_diagnostics,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_chat"),
-            handler: handle_local_ai_chat,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_should_react"),
-            handler: handle_local_ai_should_react,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_analyze_sentiment"),
-            handler: handle_local_ai_analyze_sentiment,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_should_send_gif"),
-            handler: handle_local_ai_should_send_gif,
-        },
-        RegisteredController {
-            schema: schemas("local_ai_tenor_search"),
-            handler: handle_local_ai_tenor_search,
         },
         RegisteredController {
             schema: schemas("local_ai_install_whisper"),
@@ -286,62 +176,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_f64("temperature", "Optional temperature override."),
             ],
             outputs: vec![json_output("response", "Agent response payload.")],
-        },
-        "local_ai_status" => ControllerSchema {
-            namespace: "local_ai",
-            function: "status",
-            description: "Read local AI service status.",
-            inputs: vec![],
-            outputs: vec![json_output("status", "Local AI status payload.")],
-        },
-        "local_ai_summarize" => ControllerSchema {
-            namespace: "local_ai",
-            function: "summarize",
-            description: "Summarize text with local AI model.",
-            inputs: vec![
-                required_string("text", "Input text."),
-                optional_u64("max_tokens", "Optional max output tokens."),
-            ],
-            outputs: vec![json_output("summary", "Summary text.")],
-        },
-        "local_ai_prompt" => ControllerSchema {
-            namespace: "local_ai",
-            function: "prompt",
-            description: "Run direct local AI prompt.",
-            inputs: vec![
-                required_string("prompt", "Prompt text."),
-                optional_u64("max_tokens", "Optional max output tokens."),
-                optional_bool("no_think", "Disable thinking mode."),
-            ],
-            outputs: vec![json_output("output", "Prompt output text.")],
-        },
-        "local_ai_vision_prompt" => ControllerSchema {
-            namespace: "local_ai",
-            function: "vision_prompt",
-            description: "Run multimodal local AI prompt with image refs.",
-            inputs: vec![
-                required_string("prompt", "Prompt text."),
-                FieldSchema {
-                    name: "image_refs",
-                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
-                    comment: "Image references to include.",
-                    required: true,
-                },
-                optional_u64("max_tokens", "Optional max output tokens."),
-            ],
-            outputs: vec![json_output("output", "Prompt output text.")],
-        },
-        "local_ai_embed" => ControllerSchema {
-            namespace: "local_ai",
-            function: "embed",
-            description: "Generate embeddings for text inputs.",
-            inputs: vec![FieldSchema {
-                name: "inputs",
-                ty: TypeSchema::Array(Box::new(TypeSchema::String)),
-                comment: "Texts to embed.",
-                required: true,
-            }],
-            outputs: vec![json_output("embedding", "Embedding result payload.")],
         },
         "local_ai_transcribe" => ControllerSchema {
             namespace: "local_ai",
@@ -434,60 +268,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output("diagnostics", "Diagnostic report.")],
         },
-        "local_ai_chat" => ControllerSchema {
-            namespace: "local_ai",
-            function: "chat",
-            description: "Multi-turn chat completion via local Ollama model. Does not call the cloud API.",
-            inputs: vec![
-                FieldSchema {
-                    name: "messages",
-                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
-                    comment: "Chat message history [{role, content}]. Last entry is the user turn.",
-                    required: true,
-                },
-                optional_u64("max_tokens", "Optional max output tokens."),
-            ],
-            outputs: vec![json_output("reply", "Assistant reply text.")],
-        },
-        "local_ai_should_react" => ControllerSchema {
-            namespace: "local_ai",
-            function: "should_react",
-            description: "Ask the local model whether the assistant should add an emoji reaction to a user message, based on channel type.",
-            inputs: vec![
-                required_string("message", "User message content to evaluate."),
-                required_string("channel_type", "Channel type: web, telegram, discord, slack, etc."),
-            ],
-            outputs: vec![json_output("decision", "Reaction decision: {should_react, emoji}.")],
-        },
-        "local_ai_analyze_sentiment" => ControllerSchema {
-            namespace: "local_ai",
-            function: "analyze_sentiment",
-            description: "Classify the emotion and sentiment of a user message. Returns emotion label, valence, and confidence.",
-            inputs: vec![
-                required_string("message", "User message content to analyze."),
-            ],
-            outputs: vec![json_output("sentiment", "Sentiment result: {emotion, valence, confidence}.")],
-        },
-        "local_ai_should_send_gif" => ControllerSchema {
-            namespace: "local_ai",
-            function: "should_send_gif",
-            description: "Ask the local model whether a GIF response is appropriate, and if so return a Tenor search query.",
-            inputs: vec![
-                required_string("message", "User message content to evaluate."),
-                required_string("channel_type", "Channel type: web, telegram, discord, slack, etc."),
-            ],
-            outputs: vec![json_output("decision", "GIF decision: {should_send_gif, search_query}.")],
-        },
-        "local_ai_tenor_search" => ControllerSchema {
-            namespace: "local_ai",
-            function: "tenor_search",
-            description: "Search for GIFs via the backend Tenor proxy. Requires a valid session.",
-            inputs: vec![
-                required_string("query", "Tenor search query."),
-                optional_u64("limit", "Max results to return (default 5, max 50)."),
-            ],
-            outputs: vec![json_output("result", "Tenor search result: {results, next}.")],
-        },
         "local_ai_install_whisper" => ControllerSchema {
             namespace: "local_ai",
             function: "install_whisper",
@@ -578,64 +358,6 @@ fn handle_agent_chat_simple(params: Map<String, Value>) -> ControllerFuture {
             )
             .await?,
         )
-    })
-}
-
-fn handle_local_ai_status(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::local_ai::rpc::local_ai_status(&config).await?)
-    })
-}
-
-fn handle_local_ai_summarize(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiSummarizeParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_summarize(&config, &p.text, p.max_tokens)
-                .await?,
-        )
-    })
-}
-
-fn handle_local_ai_prompt(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiPromptParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_prompt(
-                &config,
-                &p.prompt,
-                p.max_tokens,
-                p.no_think,
-            )
-            .await?,
-        )
-    })
-}
-
-fn handle_local_ai_vision_prompt(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiVisionPromptParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_vision_prompt(
-                &config,
-                &p.prompt,
-                &p.image_refs,
-                p.max_tokens,
-            )
-            .await?,
-        )
-    })
-}
-
-fn handle_local_ai_embed(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiEmbedParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::local_ai::rpc::local_ai_embed(&config, &p.inputs).await?)
     })
 }
 
@@ -827,76 +549,6 @@ fn handle_local_ai_diagnostics(_params: Map<String, Value>) -> ControllerFuture 
         let config = config_rpc::load_config_with_timeout().await?;
         let service = crate::openhuman::local_ai::global(&config);
         service.diagnostics(&config).await
-    })
-}
-
-fn handle_local_ai_should_react(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiShouldReactParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_should_react(
-                &config,
-                &p.message,
-                &p.channel_type,
-            )
-            .await?,
-        )
-    })
-}
-
-fn handle_local_ai_analyze_sentiment(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiAnalyzeSentimentParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::sentiment::local_ai_analyze_sentiment(&config, &p.message)
-                .await?,
-        )
-    })
-}
-
-fn handle_local_ai_should_send_gif(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiShouldSendGifParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::gif_decision::local_ai_should_send_gif(
-                &config,
-                &p.message,
-                &p.channel_type,
-            )
-            .await?,
-        )
-    })
-}
-
-fn handle_local_ai_tenor_search(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiTenorSearchParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::openhuman::local_ai::gif_decision::tenor_search(&config, &p.query, p.limit)
-                .await?,
-        )
-    })
-}
-
-fn handle_local_ai_chat(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiChatParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        let messages: Vec<crate::openhuman::local_ai::rpc::LocalAiChatMessage> = p
-            .messages
-            .into_iter()
-            .map(|m| crate::openhuman::local_ai::rpc::LocalAiChatMessage {
-                role: m.role,
-                content: m.content,
-            })
-            .collect();
-        to_json(
-            crate::openhuman::local_ai::rpc::local_ai_chat(&config, messages, p.max_tokens).await?,
-        )
     })
 }
 

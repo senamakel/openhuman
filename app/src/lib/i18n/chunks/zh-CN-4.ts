@@ -59,7 +59,7 @@ const zhCN4: TranslationMap = {
   'conversations.taskKanban.moveRight': '向右移动',
   'conversations.taskKanban.title': '任务',
   'conversations.toolTimeline.turn':
-    '第 {subagent.childIteration}/{subagent.childMaxIterations} 轮',
+    'turn',
   'conversations.toolTimeline.workerThread': '工作线程',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
   'daemon.serviceBlockingGate.downloadHint': '下载最新版本',

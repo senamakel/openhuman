@@ -59,7 +59,7 @@ const bn4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'বামে সরান',
   'conversations.taskKanban.moveRight': 'ডানে সরান',
   'conversations.taskKanban.title': 'টাস্ক',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'ওয়ার্কার থ্রেড',
   'daemon.serviceBlockingGate.body': 'বডি',
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',

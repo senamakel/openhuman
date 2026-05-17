@@ -60,7 +60,7 @@ const pt4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Mover para esquerda',
   'conversations.taskKanban.moveRight': 'Mover para direita',
   'conversations.taskKanban.title': 'Tarefas',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'thread de worker',
   'daemon.serviceBlockingGate.body': 'Corpo',
   'daemon.serviceBlockingGate.downloadHint': 'Dica de download',

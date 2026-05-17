@@ -59,7 +59,7 @@ const ru4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Переместить влево',
   'conversations.taskKanban.moveRight': 'Переместить вправо',
   'conversations.taskKanban.title': 'Задачи',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'чат воркера',
   'daemon.serviceBlockingGate.body': 'Body',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',

@@ -59,7 +59,7 @@ const fr4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Déplacer à gauche',
   'conversations.taskKanban.moveRight': 'Déplacer à droite',
   'conversations.taskKanban.title': 'Tâches',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'fil worker',
   'daemon.serviceBlockingGate.body': 'Corps',
   'daemon.serviceBlockingGate.downloadHint': 'Indice de téléchargement',

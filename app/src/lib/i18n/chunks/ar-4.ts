@@ -58,7 +58,7 @@ const ar4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'نقل لليسار',
   'conversations.taskKanban.moveRight': 'نقل لليمين',
   'conversations.taskKanban.title': 'المهام',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'محادثة عامل',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',

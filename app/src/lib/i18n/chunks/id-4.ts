@@ -59,7 +59,7 @@ const id4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Pindah ke kiri',
   'conversations.taskKanban.moveRight': 'Pindah ke kanan',
   'conversations.taskKanban.title': 'Tugas',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'thread worker',
   'daemon.serviceBlockingGate.body': 'Isi',
   'daemon.serviceBlockingGate.downloadHint': 'Petunjuk unduhan',

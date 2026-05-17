@@ -59,7 +59,7 @@ const hi4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'बाएं ले जाएं',
   'conversations.taskKanban.moveRight': 'दाएं ले जाएं',
   'conversations.taskKanban.title': 'टास्क',
-  'conversations.toolTimeline.turn': 'Turn',
+  'conversations.toolTimeline.turn': 'turn',
   'conversations.toolTimeline.workerThread': 'वर्कर थ्रेड',
   'daemon.serviceBlockingGate.body': 'Body',
   'daemon.serviceBlockingGate.downloadHint': 'Download hint',

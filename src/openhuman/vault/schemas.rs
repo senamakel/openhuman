@@ -169,6 +169,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                             comment: "True when the memory namespace was also cleared.",
                             required: true,
                         },
+                        FieldSchema {
+                            name: "purge_error",
+                            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                            comment: "Error detail when purge was requested but failed.",
+                            required: false,
+                        },
                     ],
                 },
                 comment: "Removal result payload.",

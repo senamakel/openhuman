@@ -105,31 +105,51 @@ pub async fn sync_vault(config: &Config, vault: &Vault) -> VaultSyncReport {
         .map(|f| (f.rel_path.clone(), f.clone()))
         .collect();
 
+    let user_includes: Vec<String> = vault
+        .include_globs
+        .iter()
+        .map(|s| s.to_ascii_lowercase())
+        .collect();
     let user_excludes: Vec<String> = vault
         .exclude_globs
         .iter()
         .map(|s| s.to_ascii_lowercase())
         .collect();
 
-    for entry in WalkDir::new(&root).follow_links(false) {
+    log::debug!(
+        "[vault] sync_vault: entry id={} root={:?} ledger_rows={} includes={} excludes={}",
+        vault.id,
+        vault.root_path,
+        existing.len(),
+        user_includes.len(),
+        user_excludes.len(),
+    );
+
+    // Prune builtin-excluded directory subtrees at traversal time so we never
+    // descend into node_modules / target / .git etc.
+    let walker = WalkDir::new(&root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            if !e.file_type().is_dir() {
+                return true;
+            }
+            e.file_name()
+                .to_str()
+                .map(|name| !BUILTIN_EXCLUDE_DIRS.contains(&name))
+                .unwrap_or(true)
+        });
+
+    for entry in walker {
         let entry = match entry {
             Ok(e) => e,
             Err(err) => {
+                log::debug!("[vault] sync_vault: walk error err={err}");
                 report.errors.push(format!("walk error: {err}"));
                 continue;
             }
         };
 
-        // Skip builtin-excluded directories at any depth.
-        if entry.file_type().is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                if BUILTIN_EXCLUDE_DIRS.contains(&name) {
-                    // skip the subtree by checking parent paths later
-                    continue;
-                }
-            }
-            continue;
-        }
         if !entry.file_type().is_file() {
             continue;
         }
@@ -139,14 +159,17 @@ pub async fn sync_vault(config: &Config, vault: &Vault) -> VaultSyncReport {
             Ok(p) => p.to_string_lossy().to_string(),
             Err(_) => continue,
         };
+        let rel_path_lc = rel_path.to_ascii_lowercase();
 
+        // Defence-in-depth: filter_entry above prunes subtrees, but a future
+        // refactor that drops it shouldn't silently let excluded files through.
         if path_is_inside_excluded_dir(path, &root) {
             continue;
         }
-        if user_excludes
-            .iter()
-            .any(|pat| rel_path.to_ascii_lowercase().contains(pat))
-        {
+        if !user_includes.is_empty() && !user_includes.iter().any(|pat| rel_path_lc.contains(pat)) {
+            continue;
+        }
+        if user_excludes.iter().any(|pat| rel_path_lc.contains(pat)) {
             continue;
         }
 
@@ -256,13 +279,18 @@ pub async fn sync_vault(config: &Config, vault: &Vault) -> VaultSyncReport {
                     status: VaultFileStatus::Ok,
                 };
                 if let Err(err) = store::upsert_file(config, &file) {
+                    log::debug!(
+                        "[vault] sync_vault: ledger write failed path={rel_path} err={err}"
+                    );
                     report
                         .errors
                         .push(format!("{rel_path}: ledger write failed: {err}"));
                 }
+                log::trace!("[vault] sync_vault: ingested path={rel_path}");
                 report.ingested += 1;
             }
             Err(err) => {
+                log::debug!("[vault] sync_vault: ingest failed path={rel_path} err={err}");
                 report.failed += 1;
                 report
                     .errors
@@ -276,17 +304,43 @@ pub async fn sync_vault(config: &Config, vault: &Vault) -> VaultSyncReport {
         if seen.contains(path) {
             continue;
         }
-        let _ = doc_delete(DeleteDocParams {
+        if let Err(err) = doc_delete(DeleteDocParams {
             namespace: vault.namespace.clone(),
             document_id: prev.document_id.clone(),
         })
-        .await;
-        let _ = store::delete_file(config, &vault.id, path);
+        .await
+        {
+            log::debug!("[vault] sync_vault: doc delete failed path={path} err={err}");
+            report
+                .errors
+                .push(format!("{path}: doc delete failed: {err}"));
+            continue;
+        }
+        if let Err(err) = store::delete_file(config, &vault.id, path) {
+            log::debug!("[vault] sync_vault: ledger delete failed path={path} err={err}");
+            report
+                .errors
+                .push(format!("{path}: ledger delete failed: {err}"));
+            continue;
+        }
         report.removed += 1;
     }
 
-    let _ = store::touch_last_synced(config, &vault.id, Utc::now());
+    if let Err(err) = store::touch_last_synced(config, &vault.id, Utc::now()) {
+        log::debug!("[vault] sync_vault: touch_last_synced failed err={err}");
+    }
     report.duration_ms = (Utc::now() - started).num_milliseconds();
+    log::debug!(
+        "[vault] sync_vault: exit id={} scanned={} ingested={} unchanged={} removed={} failed={} skipped={} duration_ms={}",
+        vault.id,
+        report.scanned,
+        report.ingested,
+        report.unchanged,
+        report.removed,
+        report.failed,
+        report.skipped_unsupported,
+        report.duration_ms,
+    );
     report
 }
 

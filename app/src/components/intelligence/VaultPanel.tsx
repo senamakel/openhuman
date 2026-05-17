@@ -288,7 +288,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
 function formatRelative(iso: string): string {
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return iso;
-  const diff = Date.now() - t;
+  const diff = Math.max(0, Date.now() - t);
   const sec = Math.floor(diff / 1000);
   if (sec < 60) return `${sec}s ago`;
   const min = Math.floor(sec / 60);

@@ -28,11 +28,20 @@ pub async fn vault_create(
         return Err("root_path must not be empty".to_string());
     }
     let root = std::path::Path::new(trimmed_root);
+    if !root.is_absolute() {
+        return Err(format!("root_path must be absolute: {trimmed_root}"));
+    }
     if !root.is_dir() {
         return Err(format!("root_path is not a directory: {trimmed_root}"));
     }
 
     let id = Uuid::new_v4().to_string();
+    log::debug!(
+        "[vault] create: name={trimmed_name:?} root={trimmed_root:?} id={id} \
+         include_globs={} exclude_globs={}",
+        include_globs.len(),
+        exclude_globs.len(),
+    );
     let namespace = format!("vault:{id}");
     let vault = Vault {
         id: id.clone(),
@@ -58,6 +67,7 @@ pub async fn vault_create(
 
 pub async fn vault_list(config: &Config) -> Result<RpcOutcome<Vec<Vault>>, String> {
     let vaults = store::list_vaults(config).map_err(|e| e.to_string())?;
+    log::debug!("[vault] list: count={}", vaults.len());
     Ok(RpcOutcome::single_log(vaults, "vaults listed"))
 }
 
@@ -69,6 +79,7 @@ pub async fn vault_get(config: &Config, id: &str) -> Result<RpcOutcome<Vault>, S
     let vault = store::get_vault(config, id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("vault not found: {id}"))?;
+    log::debug!("[vault] get: id={id} files={}", vault.file_count);
     Ok(RpcOutcome::single_log(vault, "vault loaded"))
 }
 
@@ -78,6 +89,7 @@ pub async fn vault_files(config: &Config, id: &str) -> Result<RpcOutcome<Vec<Vau
         return Err("vault_id must not be empty".to_string());
     }
     let files = store::list_files(config, id).map_err(|e| e.to_string())?;
+    log::debug!("[vault] files: id={id} count={}", files.len());
     Ok(RpcOutcome::single_log(files, "vault files listed"))
 }
 
@@ -92,6 +104,7 @@ pub async fn vault_remove(
     }
     let vault = store::get_vault(config, id).map_err(|e| e.to_string())?;
     let removed = store::remove_vault(config, id).map_err(|e| e.to_string())?;
+    log::debug!("[vault] remove: id={id} removed={removed} purge_memory={purge_memory}");
 
     let mut purged = false;
     if removed && purge_memory {
@@ -101,6 +114,7 @@ pub async fn vault_remove(
             })
             .await
             {
+                log::warn!("[vault] remove: id={id} purge_namespace_failed err={err}");
                 return Ok(RpcOutcome::single_log(
                     serde_json::json!({
                         "vault_id": id,
@@ -134,7 +148,18 @@ pub async fn vault_sync(config: &Config, id: &str) -> Result<RpcOutcome<VaultSyn
     let vault = store::get_vault(config, id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("vault not found: {id}"))?;
+    log::debug!("[vault] sync: entry id={id} root={:?}", vault.root_path);
     let report = sync::sync_vault(config, &vault).await;
+    log::debug!(
+        "[vault] sync: exit id={id} scanned={} ingested={} unchanged={} removed={} failed={} skipped={} duration_ms={}",
+        report.scanned,
+        report.ingested,
+        report.unchanged,
+        report.removed,
+        report.failed,
+        report.skipped_unsupported,
+        report.duration_ms,
+    );
     let msg = format!(
         "vault sync done — ingested {}, unchanged {}, removed {}, failed {}",
         report.ingested, report.unchanged, report.removed, report.failed

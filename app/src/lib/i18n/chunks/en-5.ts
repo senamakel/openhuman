@@ -12,13 +12,15 @@ const en5: TranslationMap = {
   'settings.composio.apiKeyStoredPlaceholder': '••••••••••••••••',
   'settings.composio.clearedToBackend': 'Switched to Backend mode',
   'settings.composio.confirmItem1': 'An account at app.composio.dev with an API key',
-  'settings.composio.confirmItem2': 'To re-link each integration through your personal Composio account',
-  'settings.composio.confirmItem3': 'Note: Composio triggers (real-time webhooks) don\'t fire in Direct mode yet — only synchronous tool calls',
-  'settings.composio.confirmNeedItems': 'You\'ll need:',
+  'settings.composio.confirmItem2':
+    'To re-link each integration through your personal Composio account',
+  'settings.composio.confirmItem3':
+    "Note: Composio triggers (real-time webhooks) don't fire in Direct mode yet — only synchronous tool calls",
+  'settings.composio.confirmNeedItems': "You'll need:",
   'settings.composio.confirmSwitch': 'I understand, switch to Direct',
   'settings.composio.confirmTitle': '⚠️ Switching to Direct mode',
   'settings.composio.confirmWarning':
-    'Your existing integrations (Gmail, Slack, GitHub, etc. linked through OpenHuman) won\'t be visible — they live in the OpenHuman-managed Composio tenant.',
+    "Your existing integrations (Gmail, Slack, GitHub, etc. linked through OpenHuman) won't be visible — they live in the OpenHuman-managed Composio tenant.",
   'settings.composio.intro':
     'Composio integrates 250+ external apps as tools your agent can call. Choose how those tool calls are routed.',
   'settings.composio.modeDirect': 'Direct (bring your own API key)',

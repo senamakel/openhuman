@@ -70,17 +70,25 @@ import {
 
 const LOG = '[RuntimePicker]';
 
-/** Click an in-DOM element by its trimmed text via synthetic MouseEvent. */
+/**
+ * Click the smallest clickable element whose textContent contains `text`.
+ *
+ * Picker option tiles have a title + description nested in a single button so
+ * the button's textContent is `<title><description>` — strict equality misses.
+ * We score by descendant count to prefer the most-specific match (e.g. the
+ * Continue button text "Continue" matches several ancestors; we want the
+ * <button> itself, not <body>).
+ */
 async function clickByTextDom(text: string): Promise<boolean> {
   if (!supportsExecuteScript()) return false;
   return browser.execute(t => {
     const all = Array.from(
-      document.querySelectorAll<HTMLElement>('button, [role="button"], a, h1, h2, p, span, div')
+      document.querySelectorAll<HTMLElement>('button, [role="button"], a')
     );
-    const target = all.find(el => (el.textContent ?? '').trim() === t);
-    if (!target) return false;
-    const clickable =
-      (target.closest('button, [role="button"], a') as HTMLElement | null) ?? target;
+    const matches = all.filter(el => (el.textContent ?? '').includes(t));
+    if (matches.length === 0) return false;
+    matches.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
+    const clickable = matches[0];
     ['mousedown', 'mouseup', 'click'].forEach(type => {
       clickable.dispatchEvent(
         new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
@@ -293,12 +301,30 @@ describe('Runtime picker → login → onboarding → home → logout', () => {
     // onboarding-next-button mounted.
     await walkOnboarding(LOG);
 
-    const home = await waitForHomePage(20_000);
-    if (!home) {
-      const tree = await dumpAccessibilityTree();
-      console.log(`${LOG} Home not reached. Tree:\n`, tree.slice(0, 4000));
+    // Confirm we're authenticated + post-onboarding. waitForHomePage's
+    // hardcoded greeting strings (Good morning / Test / etc.) can miss
+    // valid Home renders, so fall back to a route + welcome-gone check.
+    const home = await waitForHomePage(15_000);
+    if (home) {
+      console.log(`${LOG} Home reached: "${home}"`);
+    } else {
+      const deadline = Date.now() + 15_000;
+      let onHome = false;
+      while (Date.now() < deadline) {
+        const hash = (await browser.execute(() => window.location.hash)) as string;
+        const stillOnWelcome = await textExists('Welcome to OpenHuman');
+        if (!stillOnWelcome && (hash.startsWith('#/home') || hash.startsWith('#/chat'))) {
+          onHome = true;
+          break;
+        }
+        await browser.pause(500);
+      }
+      if (!onHome) {
+        const tree = await dumpAccessibilityTree();
+        console.log(`${LOG} Home not reached. Tree:\n`, tree.slice(0, 4000));
+      }
+      expect(onHome).toBe(true);
     }
-    expect(home).not.toBeNull();
   });
 
   // -------------------------------------------------------------------------

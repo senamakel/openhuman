@@ -57,11 +57,7 @@ export function topLevelValue(contents: string, key: string): string | null {
  * Extract a `key = value` line inside `[section]`. Works for any flat
  * `[a.b]`-style section name.
  */
-export function sectionValue(
-  contents: string,
-  section: string,
-  key: string
-): string | null {
+export function sectionValue(contents: string, section: string, key: string): string | null {
   const lines = contents.split(/\r?\n/);
   let inSection = false;
   const target = `[${section}]`;
@@ -88,11 +84,7 @@ export function readBool(raw: string | null): boolean | null {
 }
 
 /** Convenience: read a string-valued key from a section, stripping `"`. */
-export function readSectionString(
-  contents: string,
-  section: string,
-  key: string
-): string | null {
+export function readSectionString(contents: string, section: string, key: string): string | null {
   const raw = sectionValue(contents, section, key);
   if (raw === null) return null;
   const m = raw.match(/^"((?:[^"\\]|\\.)*)"$/);

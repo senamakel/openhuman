@@ -24,12 +24,7 @@
  * No real network is touched.
  */
 import { waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
-import {
-  readBool,
-  readConfigToml,
-  readSectionString,
-  topLevelValue,
-} from '../helpers/config-toml';
+import { readBool, readConfigToml, readSectionString, topLevelValue } from '../helpers/config-toml';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
 import { waitForWebView, waitForWindowVisible } from '../helpers/element-helpers';
@@ -304,9 +299,7 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     // attribute blocks click/keyboard selection in the UI, but doesn't stop a
     // synthetic change event from React's perspective once we set `.value`.
     const dispatched = await browser.execute(next => {
-      const el = document.querySelector<HTMLSelectElement>(
-        '[data-testid="stt-provider-select"]'
-      );
+      const el = document.querySelector<HTMLSelectElement>('[data-testid="stt-provider-select"]');
       if (!el) return false;
       const setter = Object.getOwnPropertyDescriptor(
         window.HTMLSelectElement.prototype,

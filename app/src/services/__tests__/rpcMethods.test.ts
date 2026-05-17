@@ -81,9 +81,9 @@ describe('rpcMethods catalog', () => {
         ? 'screen_intelligence'
         : methodRoot.startsWith('inference_')
           ? 'inference'
-        : methodRoot.startsWith('providers_')
-          ? 'providers'
-          : 'config';
+          : methodRoot.startsWith('providers_')
+            ? 'providers'
+            : 'config';
       const fnName = methodRoot.slice(`${namespace}_`.length);
       expect(schemaSources).toContain(`namespace: "${namespace}"`);
       expect(schemaSources).toContain(`function: "${fnName}"`);

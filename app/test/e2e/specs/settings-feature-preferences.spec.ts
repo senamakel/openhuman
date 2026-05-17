@@ -3,7 +3,7 @@ import { browser, expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, textExists, waitForText } from '../helpers/element-helpers';
+import { clickText, waitForText } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -17,19 +17,6 @@ async function setSelectValue(testId: string, value: string): Promise<boolean> {
       if (!el) return false;
       el.value = next;
       el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    },
-    { id: testId, next: value }
-  );
-}
-
-async function setInputValue(testId: string, value: string): Promise<boolean> {
-  return await browser.execute(
-    ({ id, next }) => {
-      const el = document.querySelector<HTMLInputElement>(`[data-testid="${id}"]`);
-      if (!el) return false;
-      el.value = next;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     },
     { id: testId, next: value }
@@ -52,14 +39,6 @@ async function reloadAndReturnTo(route: string, markerText: string): Promise<voi
   await waitForText(markerText, 15_000);
 }
 
-async function buttonHasSelectedStyle(label: string): Promise<boolean> {
-  return await browser.execute(text => {
-    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
-    const match = buttons.find(button => button.textContent?.includes(text));
-    return Boolean(match?.className.includes('bg-primary-50'));
-  }, label);
-}
-
 async function switchState(ariaLabel: string): Promise<string | null> {
   return await browser.execute(label => {
     const el = document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
@@ -72,13 +51,6 @@ async function mascotColorChecked(colorId: string): Promise<string | null> {
     const el = document.querySelector<HTMLElement>(`[data-testid="mascot-color-${id}"]`);
     return el?.getAttribute('aria-checked') ?? null;
   }, colorId);
-}
-
-async function mascotVoiceCurrentText(): Promise<string> {
-  return await browser.execute(() => {
-    const el = document.querySelector<HTMLElement>('[data-testid="mascot-voice-current"]');
-    return el?.textContent ?? '';
-  });
 }
 
 async function mascotVoiceIdFromStore(): Promise<string | null> {

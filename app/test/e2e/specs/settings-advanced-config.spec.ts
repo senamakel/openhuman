@@ -29,20 +29,6 @@ async function clickLabelContaining(text: string): Promise<boolean> {
   }, text);
 }
 
-async function setInput(selector: string, value: string): Promise<boolean> {
-  return await browser.execute(
-    ({ sel, next }) => {
-      const el = document.querySelector<HTMLInputElement>(sel);
-      if (!el) return false;
-      el.value = next;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    },
-    { sel: selector, next: value }
-  );
-}
-
 async function readLocalStorageJson<T = unknown>(key: string): Promise<T | null> {
   return await browser.execute(storageKey => {
     const raw = window.localStorage.getItem(storageKey);

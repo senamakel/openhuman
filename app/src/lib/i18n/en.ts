@@ -1725,9 +1725,9 @@ const en: TranslationMap = {
   'settings.localModel.deviceCapability.installFailedDesc':
     'The installer exited before Ollama was usable. Click retry to try again, or install manually from ollama.com.',
   'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
-  'settings.localModel.deviceCapability.installOllamaFirst':
-    'Run Ollama first to use this tier',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
+  'settings.localModel.deviceCapability.installOllamaFirst': 'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Installing ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Loading device info',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -1801,7 +1801,8 @@ const en: TranslationMap = {
   'settings.localModel.status.ollamaBinaryPath': 'Ollama binary path',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama Diagnostics',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progress',
   'settings.localModel.status.provider': 'Provider',
   'settings.localModel.status.retryBootstrap': 'Retry Bootstrap',

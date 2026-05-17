@@ -72,8 +72,7 @@ const fr5: TranslationMap = {
   'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
   'settings.localModel.deviceCapability.installFirstDesc':
     'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
-  'settings.localModel.deviceCapability.installOllamaFirst':
-    'Run Ollama first to use this tier',
+  'settings.localModel.deviceCapability.installOllamaFirst': 'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': "Installation d'Ollama",
   'settings.localModel.deviceCapability.loadingDeviceInfo':
     "Chargement des informations de l'appareil",
@@ -149,7 +148,8 @@ const fr5: TranslationMap = {
   'settings.localModel.status.ollamaBinaryPath': 'Chemin du binaire Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Diagnostics Ollama',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progression',
   'settings.localModel.status.provider': 'Fournisseur',
   'settings.localModel.status.retryBootstrap': 'Réessayer le bootstrap',

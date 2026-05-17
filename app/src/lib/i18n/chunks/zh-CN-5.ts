@@ -68,7 +68,8 @@ const zhCN5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailedDesc':
     '安装程序在 Ollama 可用之前退出。点击重试，或从 ollama.com 手动安装。',
   'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst': 'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': '正在安装 Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': '正在加载设备信息',
@@ -140,7 +141,8 @@ const zhCN5: TranslationMap = {
   'settings.localModel.status.ollamaBinaryPath': 'Ollama 二进制路径',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama 诊断',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': '进度',
   'settings.localModel.status.provider': '提供商',
   'settings.localModel.status.retryBootstrap': '重试引导',

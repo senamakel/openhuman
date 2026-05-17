@@ -68,9 +68,9 @@ const bn5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailedDesc':
     'Ollama ব্যবহারযোগ্য হওয়ার আগে ইনস্টলার বন্ধ হয়েছে। আবার চেষ্টা করতে ক্লিক করুন, বা ollama.com থেকে ম্যানুয়ালি ইনস্টল করুন।',
   'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
-  'settings.localModel.deviceCapability.installOllamaFirst':
-    'Run Ollama first to use this tier',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
+  'settings.localModel.deviceCapability.installOllamaFirst': 'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Ollama ইনস্টল হচ্ছে',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'ডিভাইস তথ্য লোড হচ্ছে',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -144,7 +144,8 @@ const bn5: TranslationMap = {
   'settings.localModel.status.ollamaBinaryPath': 'Ollama বাইনারি পথ',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama ডায়াগনস্টিক্স',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'অগ্রগতি',
   'settings.localModel.status.provider': 'প্রোভাইডার',
   'settings.localModel.status.retryBootstrap': 'বুটস্ট্র্যাপ আবার চেষ্টা করুন',

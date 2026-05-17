@@ -68,9 +68,9 @@ const id5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailedDesc':
     'Penginstal keluar sebelum Ollama dapat digunakan. Klik coba ulang, atau instal manual dari ollama.com.',
   'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
-  'settings.localModel.deviceCapability.installOllamaFirst':
-    'Run Ollama first to use this tier',
+  'settings.localModel.deviceCapability.installFirstDesc':
+    'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
+  'settings.localModel.deviceCapability.installOllamaFirst': 'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Menginstal Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Memuat info perangkat',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -144,7 +144,8 @@ const id5: TranslationMap = {
   'settings.localModel.status.ollamaBinaryPath': 'Path biner Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Diagnostik Ollama',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
+  'settings.localModel.status.ollamaNotInstalledDesc':
+    'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progres',
   'settings.localModel.status.provider': 'Penyedia',
   'settings.localModel.status.retryBootstrap': 'Coba Ulang Bootstrap',

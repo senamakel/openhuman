@@ -2247,9 +2247,11 @@ async fn json_rpc_web_chat_custom_reasoning_provider_with_auth_none_omits_auth_h
     let loaded_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load_config after auth-none update");
-    let (provider, model) =
-        openhuman_core::openhuman::providers::create_chat_provider("reasoning", &loaded_config)
-            .expect("custom auth-none provider should build");
+    let (provider, model) = openhuman_core::openhuman::inference::provider::create_chat_provider(
+        "reasoning",
+        &loaded_config,
+    )
+    .expect("custom auth-none provider should build");
     let direct = provider
         .simple_chat("direct custom-provider smoke test", &model, 0.0)
         .await

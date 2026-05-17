@@ -740,7 +740,7 @@ pub async fn apply_local_ai_settings(
     }
     if let Some(provider) = update.provider {
         config.local_ai.provider =
-            crate::openhuman::local_ai::provider::normalize_provider(&provider);
+            crate::openhuman::inference::local::provider::normalize_provider(&provider);
     }
     if let Some(base_url) = update.base_url {
         config.local_ai.base_url = if base_url.trim().is_empty() {

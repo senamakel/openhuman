@@ -2,11 +2,11 @@
 
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
-use crate::openhuman::local_ai;
-use crate::openhuman::local_ai::ops::{LocalAiChatMessage, ReactionDecision};
-use crate::openhuman::local_ai::sentiment::SentimentResult;
-use crate::openhuman::local_ai::{LocalAiEmbeddingResult, LocalAiStatus};
-use crate::openhuman::providers;
+use crate::openhuman::inference::local as local_runtime;
+use crate::openhuman::inference::local::ops::{LocalAiChatMessage, ReactionDecision};
+use crate::openhuman::inference::provider as providers;
+use crate::openhuman::inference::{device, presets, sentiment, SentimentResult};
+use crate::openhuman::inference::{LocalAiEmbeddingResult, LocalAiStatus};
 use crate::rpc::RpcOutcome;
 use serde_json::{json, Value};
 use tracing::{debug, error};
@@ -15,7 +15,7 @@ const LOG_PREFIX: &str = "[inference::ops]";
 
 pub async fn inference_status(config: &Config) -> Result<RpcOutcome<LocalAiStatus>, String> {
     debug!("{LOG_PREFIX} status:start");
-    let result = local_ai::rpc::local_ai_status(config).await;
+    let result = local_runtime::rpc::local_ai_status(config).await;
     match &result {
         Ok(outcome) => debug!(state = %outcome.value.state, "{LOG_PREFIX} status:ok"),
         Err(err) => error!(error = %err, "{LOG_PREFIX} status:error"),
@@ -33,7 +33,7 @@ pub async fn inference_summarize(
         ?max_tokens,
         "{LOG_PREFIX} summarize:start"
     );
-    let result = local_ai::rpc::local_ai_summarize(config, text, max_tokens).await;
+    let result = local_runtime::rpc::local_ai_summarize(config, text, max_tokens).await;
     match &result {
         Ok(outcome) => debug!(
             output_len = outcome.value.len(),
@@ -56,7 +56,7 @@ pub async fn inference_prompt(
         ?no_think,
         "{LOG_PREFIX} prompt:start"
     );
-    let result = local_ai::rpc::local_ai_prompt(config, prompt, max_tokens, no_think).await;
+    let result = local_runtime::rpc::local_ai_prompt(config, prompt, max_tokens, no_think).await;
     match &result {
         Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} prompt:ok"),
         Err(err) => error!(error = %err, "{LOG_PREFIX} prompt:error"),
@@ -77,7 +77,7 @@ pub async fn inference_vision_prompt(
         "{LOG_PREFIX} vision_prompt:start"
     );
     let result =
-        local_ai::rpc::local_ai_vision_prompt(config, prompt, image_refs, max_tokens).await;
+        local_runtime::rpc::local_ai_vision_prompt(config, prompt, image_refs, max_tokens).await;
     match &result {
         Ok(outcome) => debug!(
             output_len = outcome.value.len(),
@@ -93,7 +93,7 @@ pub async fn inference_embed(
     inputs: &[String],
 ) -> Result<RpcOutcome<LocalAiEmbeddingResult>, String> {
     debug!(input_count = inputs.len(), "{LOG_PREFIX} embed:start");
-    let result = local_ai::rpc::local_ai_embed(config, inputs).await;
+    let result = local_runtime::rpc::local_ai_embed(config, inputs).await;
     match &result {
         Ok(outcome) => debug!(
             vector_count = outcome.value.vectors.len(),
@@ -115,7 +115,7 @@ pub async fn inference_chat(
         ?max_tokens,
         "{LOG_PREFIX} chat:start"
     );
-    let result = local_ai::rpc::local_ai_chat(config, messages, max_tokens).await;
+    let result = local_runtime::rpc::local_ai_chat(config, messages, max_tokens).await;
     match &result {
         Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} chat:ok"),
         Err(err) => error!(error = %err, "{LOG_PREFIX} chat:error"),
@@ -132,7 +132,7 @@ pub async fn inference_should_react(
         message_len = message.len(),
         channel_type, "{LOG_PREFIX} should_react:start"
     );
-    let result = local_ai::rpc::local_ai_should_react(config, message, channel_type).await;
+    let result = local_runtime::rpc::local_ai_should_react(config, message, channel_type).await;
     match &result {
         Ok(outcome) => debug!(
             should_react = outcome.value.should_react,
@@ -151,7 +151,7 @@ pub async fn inference_analyze_sentiment(
         message_len = message.len(),
         "{LOG_PREFIX} analyze_sentiment:start"
     );
-    let result = local_ai::sentiment::local_ai_analyze_sentiment(config, message).await;
+    let result = sentiment::local_ai_analyze_sentiment(config, message).await;
     match &result {
         Ok(outcome) => {
             debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok")
@@ -207,7 +207,7 @@ pub async fn inference_list_models(provider_id: &str) -> Result<RpcOutcome<Value
 
 pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} device_profile:start");
-    let profile = local_ai::device::detect_device_profile();
+    let profile = device::detect_device_profile();
     let result = Ok(RpcOutcome::single_log(
         serde_json::to_value(profile).map_err(|e| format!("serialize: {e}"))?,
         "inference device profile fetched",
@@ -219,17 +219,17 @@ pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
 pub async fn inference_presets() -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} presets:start");
     let config = config_rpc::load_config_with_timeout().await?;
-    let device = local_ai::device::detect_device_profile();
-    let recommended = local_ai::presets::recommend_tier(&device);
-    let current = local_ai::presets::current_tier_from_config(&config.local_ai);
+    let device = device::detect_device_profile();
+    let recommended = presets::recommend_tier(&device);
+    let current = presets::current_tier_from_config(&config.local_ai);
     let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
         let normalized = value.trim().to_ascii_lowercase();
-        local_ai::presets::ModelTier::from_str_opt(&normalized)
+        presets::ModelTier::from_str_opt(&normalized)
             .map(|tier| tier.as_str().to_string())
             .or_else(|| (!normalized.is_empty()).then_some(normalized))
     });
-    let presets = local_ai::presets::mvp_presets();
-    let recommend_disabled = local_ai::presets::should_default_to_cloud_fallback(&device);
+    let presets = presets::mvp_presets();
+    let recommend_disabled = presets::should_default_to_cloud_fallback(&device);
     let result = Ok(RpcOutcome::single_log(
         json!({
             "presets": presets,
@@ -269,14 +269,14 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
         ));
     }
 
-    let tier = local_ai::presets::ModelTier::from_str_opt(&tier_str).ok_or_else(|| {
+    let tier = presets::ModelTier::from_str_opt(&tier_str).ok_or_else(|| {
         format!(
             "invalid tier '{}': expected one of disabled or ram_2_4gb",
             tier_str
         )
     })?;
 
-    if tier == local_ai::presets::ModelTier::Custom {
+    if tier == presets::ModelTier::Custom {
         return Err("cannot apply 'custom' tier; set model IDs directly".to_string());
     }
     if !tier.is_mvp_allowed() {
@@ -289,7 +289,7 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
     let mut config = config_rpc::load_config_with_timeout().await?;
     config.local_ai.runtime_enabled = true;
     config.local_ai.opt_in_confirmed = true;
-    local_ai::presets::apply_preset_to_config(&mut config.local_ai, tier);
+    presets::apply_preset_to_config(&mut config.local_ai, tier);
     config
         .save()
         .await
@@ -303,7 +303,7 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
             "vision_model_id": config.local_ai.vision_model_id,
             "embedding_model_id": config.local_ai.embedding_model_id,
             "quantization": config.local_ai.quantization,
-            "vision_mode": local_ai::presets::vision_mode_for_config(&config.local_ai),
+            "vision_mode": presets::vision_mode_for_config(&config.local_ai),
             "local_ai_enabled": true,
         }),
         "inference preset applied",
@@ -312,7 +312,7 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
 
 pub async fn inference_diagnostics(config: &Config) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} diagnostics:start");
-    let service = local_ai::global(config);
+    let service = local_runtime::global(config);
     let result = service
         .diagnostics(config)
         .await

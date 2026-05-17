@@ -668,7 +668,7 @@ fn handle_inference_chat(params: Map<String, Value>) -> ControllerFuture {
             .messages
             .into_iter()
             .map(
-                |message| crate::openhuman::local_ai::ops::LocalAiChatMessage {
+                |message| crate::openhuman::inference::local::ops::LocalAiChatMessage {
                     role: message.role,
                     content: message.content,
                 },

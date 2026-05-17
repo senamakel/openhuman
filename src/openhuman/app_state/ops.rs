@@ -19,7 +19,7 @@ use crate::openhuman::autocomplete::AutocompleteStatus;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::build_session_state;
-use crate::openhuman::local_ai::LocalAiStatus;
+use crate::openhuman::inference::LocalAiStatus;
 use crate::openhuman::screen_intelligence::AccessibilityStatus;
 use crate::openhuman::service::{ServiceState, ServiceStatus};
 use crate::rpc::RpcOutcome;
@@ -414,7 +414,7 @@ async fn build_runtime_snapshot(config: &Config) -> RuntimeSnapshot {
         Ok(outcome) => outcome.value,
         Err(error) => {
             warn!("{LOG_PREFIX} local_ai status failed during snapshot: {error}");
-            crate::openhuman::local_ai::LocalAiStatus::disabled(config)
+            crate::openhuman::inference::LocalAiStatus::disabled(config)
         }
     };
 

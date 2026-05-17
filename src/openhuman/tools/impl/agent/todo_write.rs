@@ -8,7 +8,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::task_board::{
     TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
-use crate::openhuman::providers::thread_context;
+use crate::openhuman::inference::provider::thread_context;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -288,11 +288,11 @@ mod tests {
         with_parent_context, ParentExecutionContext,
     };
     use crate::openhuman::context::prompt::ToolCallFormat;
+    use crate::openhuman::inference::provider::thread_context::with_thread_id;
+    use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider};
     use crate::openhuman::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
     };
-    use crate::openhuman::providers::thread_context::with_thread_id;
-    use crate::openhuman::providers::{ChatRequest, ChatResponse, Provider};
 
     #[tokio::test]
     async fn todowrite_basic() {

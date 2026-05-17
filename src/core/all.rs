@@ -151,10 +151,10 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::service::all_service_registered_controllers());
     // Data migration utilities
     controllers.extend(crate::openhuman::migration::all_migration_registered_controllers());
-    // External inference runtime access
+    // Unified inference domain: text / vision / embedding / local runtime / cloud providers.
+    // (Formerly split across inference, local_ai, and providers namespaces.)
     controllers.extend(crate::openhuman::inference::all_inference_registered_controllers());
-    // Local AI model management and inference
-    controllers.extend(crate::openhuman::local_ai::all_local_ai_registered_controllers());
+    controllers.extend(crate::openhuman::inference::all_local_ai_registered_controllers());
     // People resolution and interaction scoring
     controllers.extend(crate::openhuman::people::all_people_registered_controllers());
     // Screen capture and UI analysis
@@ -279,7 +279,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::service::all_service_controller_schemas());
     schemas.extend(crate::openhuman::migration::all_migration_controller_schemas());
     schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
-    schemas.extend(crate::openhuman::local_ai::all_local_ai_controller_schemas());
+    schemas.extend(crate::openhuman::inference::all_local_ai_controller_schemas());
     schemas.extend(crate::openhuman::people::all_people_controller_schemas());
     schemas.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_controller_schemas(),

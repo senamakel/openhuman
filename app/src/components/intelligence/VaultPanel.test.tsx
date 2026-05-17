@@ -66,12 +66,7 @@ describe('<VaultPanel />', () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-17T10:05:00Z').getTime());
     mockList.mockResolvedValueOnce({
       result: [
-        vault({
-          id: 'v-A',
-          name: 'A',
-          file_count: 42,
-          last_synced_at: '2026-05-17T10:04:30Z',
-        }),
+        vault({ id: 'v-A', name: 'A', file_count: 42, last_synced_at: '2026-05-17T10:04:30Z' }),
       ],
       logs: [],
     });
@@ -230,10 +225,7 @@ describe('<VaultPanel />', () => {
     fireEvent.click(screen.getByText('Remove'));
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('v-1', true));
     expect(onToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'success',
-        message: expect.stringContaining('purged'),
-      })
+      expect.objectContaining({ type: 'success', message: expect.stringContaining('purged') })
     );
     confirmSpy.mockRestore();
   });

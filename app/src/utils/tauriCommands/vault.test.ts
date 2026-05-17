@@ -58,9 +58,9 @@ describe('tauriCommands/vault', () => {
   describe('openhumanVaultCreate', () => {
     test('throws when not running in Tauri', async () => {
       mockIsTauri.mockReturnValue(false);
-      await expect(
-        openhumanVaultCreate({ name: 'n', rootPath: '/x' })
-      ).rejects.toThrow('Not running in Tauri');
+      await expect(openhumanVaultCreate({ name: 'n', rootPath: '/x' })).rejects.toThrow(
+        'Not running in Tauri'
+      );
       expect(mockCallCoreRpc).not.toHaveBeenCalled();
     });
 

@@ -11,14 +11,14 @@ const ru5: TranslationMap = {
   'settings.composio.apiKeyStored': 'API key stored',
   'settings.composio.apiKeyStoredPlaceholder': '••••••••••••••••',
   'settings.composio.clearedToBackend': 'Переключено в режим Backend',
-  'settings.composio.confirmItem1': 'Your API key will be sent directly to Composio',
-  'settings.composio.confirmItem2': 'Manage and rotate the key yourself at app.composio.dev',
-  'settings.composio.confirmItem3': "OpenHuman won't act as a proxy",
-  'settings.composio.confirmNeedItems': 'You will need to:',
+  'settings.composio.confirmItem1': 'An account at app.composio.dev with an API key',
+  'settings.composio.confirmItem2': 'To re-link each integration through your personal Composio account',
+  'settings.composio.confirmItem3': 'Note: Composio triggers (real-time webhooks) don\'t fire in Direct mode yet — only synchronous tool calls',
+  'settings.composio.confirmNeedItems': 'You\'ll need:',
   'settings.composio.confirmSwitch': 'I understand, switch to Direct',
-  'settings.composio.confirmTitle': 'Switching to Direct mode',
+  'settings.composio.confirmTitle': '⚠️ Switching to Direct mode',
   'settings.composio.confirmWarning':
-    'You are about to switch to Direct mode. Your Composio API key will be used directly for tool calls.',
+    'Your existing integrations (Gmail, Slack, GitHub, etc. linked through OpenHuman) won\'t be visible — they live in the OpenHuman-managed Composio tenant.',
   'settings.composio.intro':
     'Composio integrates 250+ external apps as tools your agent can call. Choose how those tool calls are routed.',
   'settings.composio.modeDirect': 'Прямой (собственный API-ключ)',
@@ -326,8 +326,8 @@ const ru5: TranslationMap = {
   'skills.uninstall.description':
     'This permanently deletes the skill directory and all its bundled resources. The agent will stop seeing it at the next turn.',
   'skills.uninstall.title': 'Uninstall',
-  'skills.uninstall.uninstallBtn': 'Удаление…',
-  'skills.uninstall.uninstalling': 'Удаление…',
+  'skills.uninstall.uninstallBtn': 'Uninstall',
+  'skills.uninstall.uninstalling': 'Uninstalling…',
   'upsell.global.limitMessage': 'Улучши план или пополни кредиты для продолжения',
   'upsell.global.limitTitle': 'Ты',
   'upsell.global.nearLimitMessage':

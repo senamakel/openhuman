@@ -57,7 +57,9 @@ const WalkthroughTooltip = ({
                 </h3>
               )}
               <span className="text-[11px] text-stone-400 tabular-nums">
-                {t('walkthrough.tooltip.stepCounter').replace('{n}', String(index + 1)).replace('{total}', String(size))}
+                {t('walkthrough.tooltip.stepCounter')
+                  .replace('{n}', String(index + 1))
+                  .replace('{total}', String(size))}
               </span>
             </div>
           </div>

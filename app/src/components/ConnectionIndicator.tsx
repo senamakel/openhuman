@@ -66,7 +66,10 @@ const ConnectionIndicator = ({
         return {
           color: 'bg-amber-500',
           textColor: 'text-amber-500',
-          text: legacyStatus === 'connecting' ? t('app.connectionIndicator.connecting') : t('app.connectionIndicator.reconnecting'),
+          text:
+            legacyStatus === 'connecting'
+              ? t('app.connectionIndicator.connecting')
+              : t('app.connectionIndicator.reconnecting'),
           pulse: false,
         };
     }
@@ -84,7 +87,9 @@ const ConnectionIndicator = ({
   );
 };
 
-const legacyMap = (t: (k: string) => string): Record<'connected' | 'disconnected' | 'connecting', StatusConfig> => ({
+const legacyMap = (
+  t: (k: string) => string
+): Record<'connected' | 'disconnected' | 'connecting', StatusConfig> => ({
   connected: {
     color: 'bg-sage-500',
     textColor: 'text-sage-500',

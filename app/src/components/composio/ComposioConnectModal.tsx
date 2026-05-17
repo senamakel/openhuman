@@ -22,8 +22,6 @@
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useT } from '../../lib/i18n/I18nContext';
-
 import {
   authorize,
   deleteConnection,
@@ -36,6 +34,7 @@ import {
   type ComposioUserScopePref,
   deriveComposioState,
 } from '../../lib/composio/types';
+import { useT } from '../../lib/i18n/I18nContext';
 import { openUrl } from '../../utils/openUrl';
 import type { ComposioToolkitMeta } from './toolkitMeta';
 import TriggerToggles from './TriggerToggles';
@@ -538,7 +537,8 @@ export default function ComposioConnectModal({
               <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                 <p className="mt-1 text-xs leading-relaxed text-stone-600">
                   {toolkit.name} {t('composio.connect.permissionsNote')}{' '}
-                  <span className="font-medium">{toolkit.permissionLabel}</span>. {t('composio.connect.permissionsNoteSuffix')}
+                  <span className="font-medium">{toolkit.permissionLabel}</span>.{' '}
+                  {t('composio.connect.permissionsNoteSuffix')}
                 </p>
               </div>
               {needsWabaId && (
@@ -640,9 +640,7 @@ export default function ComposioConnectModal({
                   {t('composio.connect.reopenBrowser')}
                 </button>
               )}
-              <p className="text-xs text-stone-400">
-                {t('composio.connect.waitingHint')}
-              </p>
+              <p className="text-xs text-stone-400">{t('composio.connect.waitingHint')}</p>
             </>
           )}
 
@@ -689,7 +687,9 @@ export default function ComposioConnectModal({
             </>
           )}
 
-          {phase === 'disconnecting' && <p className="text-sm text-stone-500">{t('composio.connect.disconnecting')}</p>}
+          {phase === 'disconnecting' && (
+            <p className="text-sm text-stone-500">{t('composio.connect.disconnecting')}</p>
+          )}
 
           {phase === 'error' && (
             <>

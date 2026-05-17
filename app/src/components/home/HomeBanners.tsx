@@ -148,9 +148,7 @@ export function DiscordBanner() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{t('home.banners.discordTitle')}</div>
-          <div className="mt-0.5 text-sm text-[#5E66BC]">
-            {t('home.banners.discordSubtitle')}
-          </div>
+          <div className="mt-0.5 text-sm text-[#5E66BC]">{t('home.banners.discordSubtitle')}</div>
         </div>
       </div>
     </button>

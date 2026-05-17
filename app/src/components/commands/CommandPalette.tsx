@@ -2,10 +2,10 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Command } from 'cmdk';
 import { useMemo, useSyncExternalStore } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
 import { hotkeyManager } from '../../lib/commands/hotkeyManager';
 import { registry } from '../../lib/commands/registry';
 import type { RegisteredAction } from '../../lib/commands/types';
+import { useT } from '../../lib/i18n/I18nContext';
 import Kbd from './Kbd';
 
 interface Props {

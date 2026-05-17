@@ -74,7 +74,8 @@ const hi3: TranslationMap = {
   'sync.syncing': 'सिंक हो रहा है…',
   'sync.sync': 'सिंक करें',
   'sync.failedToLoad': 'सिंक स्टेटस लोड नहीं हो पाई',
-  'sync.noContent': 'अभी कोई कॉन्टेंट मेमोरी में सिंक नहीं हुआ। शुरू करने के लिए कोई इंटीग्रेशन कनेक्ट करें।',
+  'sync.noContent':
+    'अभी कोई कॉन्टेंट मेमोरी में सिंक नहीं हुआ। शुरू करने के लिए कोई इंटीग्रेशन कनेक्ट करें।',
   'backend.aiBackend': 'AI बैकएंड',
   'backend.cloud': 'क्लाउड',
   'backend.recommended': 'सुझावित',
@@ -82,7 +83,8 @@ const hi3: TranslationMap = {
   'backend.privacyNote': 'कोई पर्सनल डेटा, मैसेज या keys हमारे सर्वर पर कभी नहीं जाते।',
   'backend.local': 'लोकल',
   'backend.advanced': 'एडवांस्ड',
-  'backend.localDescription': 'Ollama का इस्तेमाल करके अपनी मशीन पर मॉडल चलाएं। पूरी प्राइवेसी, सेटअप ज़रूरी।',
+  'backend.localDescription':
+    'Ollama का इस्तेमाल करके अपनी मशीन पर मॉडल चलाएं। पूरी प्राइवेसी, सेटअप ज़रूरी।',
   'backend.ramRecommended': '16GB+ RAM सुझावित',
   'subconscious.tasks': 'टास्क',
   'subconscious.ticks': 'टिक्स',
@@ -127,14 +129,18 @@ const hi3: TranslationMap = {
   'bootCheck.tokenRequired': 'कनेक्ट करने के लिए एक auth टोकन चाहिए।',
   'bootCheck.chooseCoreMode': 'रनटाइम चुनें',
   'bootCheck.connectToCore': 'अपने रनटाइम से कनेक्ट करें',
-  'bootCheck.desktopDescription': 'OpenHuman को सोचने के लिए एक रनटाइम चाहिए। चुनें कि यह कहाँ रहे।',
-  'bootCheck.webDescription': 'वेब पर, OpenHuman आपके कंट्रोल के रनटाइम से कनेक्ट होता है। नीचे URL और auth टोकन डालें, या अपनी मशीन पर चलाने के लिए डेस्कटॉप ऐप लें।',
+  'bootCheck.desktopDescription':
+    'OpenHuman को सोचने के लिए एक रनटाइम चाहिए। चुनें कि यह कहाँ रहे।',
+  'bootCheck.webDescription':
+    'वेब पर, OpenHuman आपके कंट्रोल के रनटाइम से कनेक्ट होता है। नीचे URL और auth टोकन डालें, या अपनी मशीन पर चलाने के लिए डेस्कटॉप ऐप लें।',
   'bootCheck.preferDesktop': 'सब अपने डिवाइस पर रखना चाहते हैं?',
   'bootCheck.downloadDesktop': 'डेस्कटॉप ऐप पाएं',
   'bootCheck.localRecommended': 'लोकल रन करें (सुझावित)',
-  'bootCheck.localDescription': 'आपके कंप्यूटर पर ही चलता है। सबसे तेज़, पूरी तरह प्राइवेट, कुछ सेट नहीं करना।',
+  'bootCheck.localDescription':
+    'आपके कंप्यूटर पर ही चलता है। सबसे तेज़, पूरी तरह प्राइवेट, कुछ सेट नहीं करना।',
   'bootCheck.cloudMode': 'क्लाउड पर चलाएं (जटिल)',
-  'bootCheck.cloudDescription': 'कहीं और होस्ट किए रनटाइम से कनेक्ट करें। 24×7 ऑनलाइन रहता है, डिवाइस चलाते रहने की ज़रूरत नहीं।',
+  'bootCheck.cloudDescription':
+    'कहीं और होस्ट किए रनटाइम से कनेक्ट करें। 24×7 ऑनलाइन रहता है, डिवाइस चलाते रहने की ज़रूरत नहीं।',
   'bootCheck.coreRpcUrl': 'रनटाइम URL',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Auth टोकन',
@@ -147,23 +153,28 @@ const hi3: TranslationMap = {
   'bootCheck.unreachablePrefix': 'नहीं पहुँच पाए:',
   'bootCheck.checkingCore': 'आपका रनटाइम जगा रहे हैं…',
   'bootCheck.cannotReach': 'रनटाइम तक नहीं पहुँच पाए',
-  'bootCheck.cannotReachDesc': 'आपके रनटाइम से कनेक्ट नहीं हो पाया। कोई और रनटाइम ट्राई करना चाहते हैं?',
+  'bootCheck.cannotReachDesc':
+    'आपके रनटाइम से कनेक्ट नहीं हो पाया। कोई और रनटाइम ट्राई करना चाहते हैं?',
   'bootCheck.switchMode': 'कोई और रनटाइम चुनें',
   'bootCheck.quit': 'बंद करें',
   'bootCheck.legacyDetected': 'पुराना बैकग्राउंड रनटाइम मिला',
-  'bootCheck.legacyDescription': 'इस डिवाइस पर अलग से इन्स्टॉल किया OpenHuman daemon पहले से चल रहा है। बिल्ट-इन रनटाइम शुरू होने से पहले इसे हटाना होगा।',
+  'bootCheck.legacyDescription':
+    'इस डिवाइस पर अलग से इन्स्टॉल किया OpenHuman daemon पहले से चल रहा है। बिल्ट-इन रनटाइम शुरू होने से पहले इसे हटाना होगा।',
   'bootCheck.removing': 'हटाया जा रहा है…',
   'bootCheck.removeContinue': 'हटाएं और जारी रखें',
   'bootCheck.localNeedsRestart': 'लोकल रनटाइम को रीस्टार्ट चाहिए',
-  'bootCheck.localNeedsRestartDesc': 'आपका लोकल रनटाइम इस ऐप से अलग वर्जन पर है। एक जल्दी रीस्टार्ट से दोनों सिंक हो जाएंगे।',
+  'bootCheck.localNeedsRestartDesc':
+    'आपका लोकल रनटाइम इस ऐप से अलग वर्जन पर है। एक जल्दी रीस्टार्ट से दोनों सिंक हो जाएंगे।',
   'bootCheck.restarting': 'रीस्टार्ट हो रहा है…',
   'bootCheck.restartCore': 'रनटाइम रीस्टार्ट करें',
   'bootCheck.cloudNeedsUpdate': 'क्लाउड रनटाइम को अपडेट चाहिए',
-  'bootCheck.cloudNeedsUpdateDesc': 'आपका क्लाउड रनटाइम इस ऐप से अलग वर्जन पर है। अपडेटर चलाएं ताकि दोनों सिंक हो जाएं।',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'आपका क्लाउड रनटाइम इस ऐप से अलग वर्जन पर है। अपडेटर चलाएं ताकि दोनों सिंक हो जाएं।',
   'bootCheck.updating': 'अपडेट हो रहा है…',
   'bootCheck.updateCloudCore': 'क्लाउड रनटाइम अपडेट करें',
   'bootCheck.versionCheckFailed': 'रनटाइम वर्जन चेक विफल',
-  'bootCheck.versionCheckFailedDesc': 'आपका रनटाइम चल रहा है लेकिन वर्जन रिपोर्ट नहीं कर रहा। शायद पुराना हो। जारी रखने के लिए रीस्टार्ट या अपडेट करें।',
+  'bootCheck.versionCheckFailedDesc':
+    'आपका रनटाइम चल रहा है लेकिन वर्जन रिपोर्ट नहीं कर रहा। शायद पुराना हो। जारी रखने के लिए रीस्टार्ट या अपडेट करें।',
   'bootCheck.working': 'काम हो रहा है…',
   'bootCheck.restartUpdateCore': 'रनटाइम रीस्टार्ट / अपडेट करें',
   'bootCheck.unexpectedError': 'अनपेक्षित बूट-चेक एरर',
@@ -184,7 +195,8 @@ const hi3: TranslationMap = {
   'about.update.status.availableNoVersion': 'अपडेट उपलब्ध है',
   'about.update.status.downloading': 'डाउनलोड हो रहा है...',
   'about.update.status.readyToInstall': 'v{version} इन्स्टॉल के लिए तैयार',
-  'about.update.status.readyToInstallNoVersion': 'नया वर्जन डाउनलोड हो गया और तैयार है। लागू करने के लिए रीस्टार्ट करें।',
+  'about.update.status.readyToInstallNoVersion':
+    'नया वर्जन डाउनलोड हो गया और तैयार है। लागू करने के लिए रीस्टार्ट करें।',
   'about.update.status.installing': 'इन्स्टॉल हो रहा है...',
   'about.update.status.restarting': 'रीस्टार्ट हो रहा है...',
   'about.update.status.upToDate': 'आप लेटेस्ट वर्जन चला रहे हैं।',
@@ -344,12 +356,14 @@ const hi3: TranslationMap = {
   'channels.discord.picker.selectServer': 'एक सर्वर चुनें',
   'channels.discord.picker.server': 'सर्वर',
   'channels.discord.picker.serverChannelSelection': 'सर्वर चैनल सिलेक्शन',
-  'channels.discord.savedRestartRequired': 'चैनल सेव हो गया। एक्टिवेट करने के लिए ऐप रीस्टार्ट करें।',
+  'channels.discord.savedRestartRequired':
+    'चैनल सेव हो गया। एक्टिवेट करने के लिए ऐप रीस्टार्ट करें।',
   'channels.telegram.connect': 'कनेक्ट करें',
   'channels.telegram.managedDmConnecting': 'मैनेज्ड DM कनेक्ट हो रहा है',
   'channels.telegram.managedDmTimeout': 'मैनेज्ड DM टाइमआउट',
   'channels.telegram.reconnect': 'फिर से कनेक्ट करें',
-  'channels.telegram.savedRestartRequired': 'चैनल सेव हो गया। एक्टिवेट करने के लिए ऐप रीस्टार्ट करें।',
+  'channels.telegram.savedRestartRequired':
+    'चैनल सेव हो गया। एक्टिवेट करने के लिए ऐप रीस्टार्ट करें।',
   'channels.web.alwaysAvailable': 'हमेशा उपलब्ध',
 };
 

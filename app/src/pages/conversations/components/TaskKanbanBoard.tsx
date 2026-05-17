@@ -47,14 +47,18 @@ export function TaskKanbanBoard({ board, disabled = false, onMove }: TaskKanbanB
   return (
     <div className="rounded-xl border border-stone-200 bg-white px-3 py-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">{t('conversations.taskKanban.title')}</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          {t('conversations.taskKanban.title')}
+        </h4>
         <span className="text-[10px] text-stone-400">{board.cards.length}</span>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
         {COLUMN_DEFS.map(column => (
           <section key={column.status} className="min-w-0 rounded-lg bg-stone-50 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h5 className="truncate text-[11px] font-medium text-stone-600">{t(column.labelKey)}</h5>
+              <h5 className="truncate text-[11px] font-medium text-stone-600">
+                {t(column.labelKey)}
+              </h5>
               <span className="text-[10px] text-stone-400">
                 {cardsByStatus[column.status].length}
               </span>

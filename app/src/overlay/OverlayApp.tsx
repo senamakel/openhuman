@@ -33,9 +33,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-import { useT } from '../lib/i18n/I18nContext';
-
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
+import { useT } from '../lib/i18n/I18nContext';
 import { callCoreRpc, getCoreHttpBaseUrl } from '../services/coreRpcClient';
 
 const OVERLAY_IDLE_WIDTH = 50;

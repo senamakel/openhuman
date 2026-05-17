@@ -32,18 +32,23 @@ const pt2: TranslationMap = {
   'settings.ai.refreshingAll': 'Atualizando Tudo...',
   'settings.ai.refreshAll': 'Atualizar Toda a Configuração de IA',
   'settings.notifications.suppressAll': 'Suprimir todas as notificações',
-  'settings.notifications.suppressAllDesc': 'Bloquear todos os avisos de notificação do SO de apps incorporados independentemente do estado de foco.',
+  'settings.notifications.suppressAllDesc':
+    'Bloquear todos os avisos de notificação do SO de apps incorporados independentemente do estado de foco.',
   'settings.notifications.toggleDnd': 'Ativar/Desativar Não Perturbe',
   'settings.notifications.categories': 'Categorias',
-  'settings.notifications.categoryFooter': 'Desativar uma categoria impede que novas notificações desse tipo apareçam na central de notificações. As notificações existentes permanecem até serem limpas.',
+  'settings.notifications.categoryFooter':
+    'Desativar uma categoria impede que novas notificações desse tipo apareçam na central de notificações. As notificações existentes permanecem até serem limpas.',
   'settings.billing.movedToWeb': 'Cobrança movida para a web',
   'settings.billing.openDashboard': 'Abrir painel de cobrança',
-  'settings.billing.movedToWebDesc': 'Alterações de assinatura, métodos de pagamento, créditos e faturas agora são gerenciados no TinyHumans na web.',
+  'settings.billing.movedToWebDesc':
+    'Alterações de assinatura, métodos de pagamento, créditos e faturas agora são gerenciados no TinyHumans na web.',
   'settings.billing.backToSettings': 'Voltar às configurações',
   'settings.billing.openingBrowser': 'Abrindo seu navegador...',
   'settings.billing.browserNotOpen': 'Se seu navegador não abriu, use o botão acima.',
-  'settings.billing.browserOpenFailed': 'O navegador não pôde ser aberto automaticamente. Use o botão acima.',
-  'settings.tools.chooseCapabilities': 'Escolha quais funcionalidades o OpenHuman pode usar em seu nome.',
+  'settings.billing.browserOpenFailed':
+    'O navegador não pôde ser aberto automaticamente. Use o botão acima.',
+  'settings.tools.chooseCapabilities':
+    'Escolha quais funcionalidades o OpenHuman pode usar em seu nome.',
   'settings.tools.saveChanges': 'Salvar Alterações',
   'settings.tools.preferencesSaved': 'Preferências salvas',
   'settings.tools.saveFailed': 'Falha ao salvar preferências. Tente novamente.',
@@ -60,20 +65,26 @@ const pt2: TranslationMap = {
   'settings.screenAwareness.startSession': 'Iniciar Sessão',
   'settings.screenAwareness.stopSession': 'Encerrar Sessão',
   'settings.screenAwareness.analyzeNow': 'Analisar Agora',
-  'settings.screenAwareness.macosOnly': 'A captura de tela e os controles de permissão do Reconhecimento de Tela são suportados atualmente apenas no macOS.',
+  'settings.screenAwareness.macosOnly':
+    'A captura de tela e os controles de permissão do Reconhecimento de Tela são suportados atualmente apenas no macOS.',
   'connections.comingSoon': 'Em breve',
   'connections.setUp': 'Configurar',
   'connections.configured': 'Configurado',
   'connections.unavailable': 'Indisponível',
   'connections.checking': 'Verificando…',
-  'connections.walletConfigured': 'Identidades locais de EVM, BTC, Solana e Tron estão configuradas a partir da sua frase de recuperação.',
-  'connections.walletReady': 'Configure identidades locais de EVM, BTC, Solana e Tron a partir de uma única frase de recuperação.',
-  'connections.walletError': 'Não foi possível verificar o status da carteira. Toque para tentar novamente no painel de Frase de Recuperação.',
+  'connections.walletConfigured':
+    'Identidades locais de EVM, BTC, Solana e Tron estão configuradas a partir da sua frase de recuperação.',
+  'connections.walletReady':
+    'Configure identidades locais de EVM, BTC, Solana e Tron a partir de uma única frase de recuperação.',
+  'connections.walletError':
+    'Não foi possível verificar o status da carteira. Toque para tentar novamente no painel de Frase de Recuperação.',
   'connections.walletChecking': 'Verificando status da carteira...',
   'connections.walletIdentities': 'Identidades de carteira',
-  'connections.walletDerived': 'Derivado localmente da sua frase de recuperação e armazenado apenas como metadados seguros.',
+  'connections.walletDerived':
+    'Derivado localmente da sua frase de recuperação e armazenado apenas como metadados seguros.',
   'connections.privacySecurity': 'Privacidade e Segurança',
-  'connections.privacySecurityDesc': 'Todos os dados e credenciais são armazenados localmente com política de retenção zero. Suas informações são criptografadas e nunca compartilhadas com terceiros.',
+  'connections.privacySecurityDesc':
+    'Todos os dados e credenciais são armazenados localmente com política de retenção zero. Suas informações são criptografadas e nunca compartilhadas com terceiros.',
   'channels.status.connecting': 'Conectando',
   'channels.status.notConfigured': 'Não configurado',
   'channels.noActiveRoute': 'Nenhuma rota ativa',
@@ -84,7 +95,8 @@ const pt2: TranslationMap = {
   'channels.configNotAvailable': 'Configuração para',
   'channels.channel': 'canal',
   'devOptions.coreModeNotSet': 'Modo do core: não definido',
-  'devOptions.coreModeNotSetDesc': 'O seletor de verificação de inicialização ainda não foi confirmado. Use Trocar modo no seletor para escolher Local ou Cloud.',
+  'devOptions.coreModeNotSetDesc':
+    'O seletor de verificação de inicialização ainda não foi confirmado. Use Trocar modo no seletor para escolher Local ou Cloud.',
   'devOptions.local': 'Local',
   'devOptions.embeddedCoreSidecar': 'Core sidecar incorporado',
   'devOptions.sidecarSpawned': 'Iniciado em processo pelo shell Tauri na abertura do app.',
@@ -93,30 +105,39 @@ const pt2: TranslationMap = {
   'devOptions.token': 'Token',
   'devOptions.tokenNotSet': 'não definido — RPC retornará 401',
   'devOptions.triggerSentryTest': 'Disparar Teste do Sentry (staging)',
-  'devOptions.triggerSentryTestDesc': 'Envia um erro marcado para verificar o pipeline do Sentry. Issue #1072 — remover após verificação.',
+  'devOptions.triggerSentryTestDesc':
+    'Envia um erro marcado para verificar o pipeline do Sentry. Issue #1072 — remover após verificação.',
   'devOptions.sendTestEvent': 'Enviar evento de teste',
   'devOptions.sending': 'Enviando…',
   'devOptions.eventSent': 'Evento enviado',
   'devOptions.failed': 'Falhou',
   'devOptions.appLogs': 'Logs do app',
-  'devOptions.appLogsDesc': 'Abrir a pasta com os arquivos de log diários rotativos. Anexe o arquivo mais recente ao reportar um problema.',
+  'devOptions.appLogsDesc':
+    'Abrir a pasta com os arquivos de log diários rotativos. Anexe o arquivo mais recente ao reportar um problema.',
   'devOptions.openLogsFolder': 'Abrir pasta de logs',
   'mnemonic.phraseSaved': 'Frase de recuperação salva',
-  'mnemonic.walletReady': 'Identidades de carteira multi-chain estão prontas. Retornando às configurações...',
+  'mnemonic.walletReady':
+    'Identidades de carteira multi-chain estão prontas. Retornando às configurações...',
   'mnemonic.writeDownWords': 'Anote estas',
-  'mnemonic.wordsInOrder': 'palavras em ordem e guarde-as em um lugar seguro. Esta frase protege sua chave de criptografia local e suas identidades de carteira EVM, BTC, Solana e Tron.',
-  'mnemonic.cannotRecover': 'Esta frase nunca poderá ser recuperada se perdida e deve permanecer totalmente local no seu dispositivo.',
+  'mnemonic.wordsInOrder':
+    'palavras em ordem e guarde-as em um lugar seguro. Esta frase protege sua chave de criptografia local e suas identidades de carteira EVM, BTC, Solana e Tron.',
+  'mnemonic.cannotRecover':
+    'Esta frase nunca poderá ser recuperada se perdida e deve permanecer totalmente local no seu dispositivo.',
   'mnemonic.copyToClipboard': 'Copiar para Área de Transferência',
   'mnemonic.alreadyHavePhrase': 'Já tenho uma frase de recuperação',
-  'mnemonic.consentSaved': 'Salvei esta frase e concordo em usá-la para configuração da carteira local',
-  'mnemonic.enterPhraseToRestore': 'Insira sua frase de recuperação abaixo para restaurar suas identidades de carteira local, ou cole a frase completa em qualquer campo (12 palavras para novos backups; frases de 24 palavras de versões mais antigas ainda funcionam).',
+  'mnemonic.consentSaved':
+    'Salvei esta frase e concordo em usá-la para configuração da carteira local',
+  'mnemonic.enterPhraseToRestore':
+    'Insira sua frase de recuperação abaixo para restaurar suas identidades de carteira local, ou cole a frase completa em qualquer campo (12 palavras para novos backups; frases de 24 palavras de versões mais antigas ainda funcionam).',
   'mnemonic.words': 'Palavras',
   'mnemonic.validPhrase': 'Frase de recuperação válida',
   'mnemonic.generateNewPhrase': 'Gerar uma nova frase de recuperação',
   'mnemonic.securingData': 'Protegendo Seus Dados...',
   'mnemonic.saveRecoveryPhrase': 'Salvar Frase de Recuperação',
-  'mnemonic.userNotLoaded': 'Usuário não carregado. Por favor, faça login novamente ou atualize a página.',
-  'mnemonic.invalidPhrase': 'Frase de recuperação inválida. Verifique as palavras e tente novamente.',
+  'mnemonic.userNotLoaded':
+    'Usuário não carregado. Por favor, faça login novamente ou atualize a página.',
+  'mnemonic.invalidPhrase':
+    'Frase de recuperação inválida. Verifique as palavras e tente novamente.',
   'mnemonic.somethingWentWrong': 'Algo deu errado. Por favor, tente novamente.',
   'team.failedToCreate': 'Falha ao criar equipe',
   'team.invalidInviteCode': 'Código de convite inválido ou expirado',
@@ -143,14 +164,16 @@ const pt2: TranslationMap = {
   'team.join': 'Entrar',
   'team.leaveTeam': 'Sair da Equipe',
   'team.confirmLeave': 'Tem certeza de que deseja sair de',
-  'team.leaveWarning': 'Você perderá o acesso à equipe e a todos os recursos da equipe. Você precisará de um novo convite para reingressar.',
+  'team.leaveWarning':
+    'Você perderá o acesso à equipe e a todos os recursos da equipe. Você precisará de um novo convite para reingressar.',
   'team.management': 'Gerenciamento de Equipe',
   'team.notFound': 'Equipe não encontrada',
   'team.accessDenied': 'Acesso negado',
   'team.members': 'Membros',
   'voice.title': 'Ditado por Voz',
   'voice.settings': 'Configurações de Voz',
-  'voice.settingsDesc': 'Mantenha a tecla de atalho pressionada para ditar e inserir texto no campo ativo.',
+  'voice.settingsDesc':
+    'Mantenha a tecla de atalho pressionada para ditar e inserir texto no campo ativo.',
   'voice.hotkey': 'Tecla de Atalho',
   'voice.activationMode': 'Modo de Ativação',
   'voice.tapToToggle': 'Toque para alternar',
@@ -159,9 +182,11 @@ const pt2: TranslationMap = {
   'voice.naturalCleanup': 'Limpeza natural',
   'voice.autoStart': 'Iniciar servidor de voz automaticamente com o core',
   'voice.customDictionary': 'Dicionário Personalizado',
-  'voice.customDictionaryDesc': 'Adicione nomes, termos técnicos e palavras do domínio para melhorar a precisão do reconhecimento.',
+  'voice.customDictionaryDesc':
+    'Adicione nomes, termos técnicos e palavras do domínio para melhorar a precisão do reconhecimento.',
   'voice.addWord': 'Adicionar uma palavra...',
-  'voice.sttDisabled': 'O ditado por voz está desativado até que o modelo STT local seja baixado e esteja pronto.',
+  'voice.sttDisabled':
+    'O ditado por voz está desativado até que o modelo STT local seja baixado e esteja pronto.',
   'voice.openLocalAiModel': 'Abrir Modelo de IA Local',
   'voice.serverRestarted': 'Servidor de voz reiniciado com as novas configurações.',
   'voice.settingsSaved': 'Configurações de voz salvas.',
@@ -204,9 +229,11 @@ const pt2: TranslationMap = {
   'chat.askAgent': 'Pergunte qualquer coisa ao agente...',
   'chat.sendMessage': 'Enviar Mensagem',
   'composio.triageTitle': 'Gatilhos de Integração',
-  'composio.triageDesc': 'Quando ativo, cada gatilho Composio recebido passa por uma etapa de triagem de IA que classifica o evento e pode iniciar ações automatizadas — um turno de LLM local por gatilho. Desative globalmente ou por integração se preferir revisão manual. Se a variável de ambiente',
+  'composio.triageDesc':
+    'Quando ativo, cada gatilho Composio recebido passa por uma etapa de triagem de IA que classifica o evento e pode iniciar ações automatizadas — um turno de LLM local por gatilho. Desative globalmente ou por integração se preferir revisão manual. Se a variável de ambiente',
   'composio.disableAllTriage': 'Desativar triagem de IA para todos os gatilhos',
-  'composio.triggersStillRecorded': 'Os gatilhos ainda são registrados no histórico — nenhum turno de LLM é executado.',
+  'composio.triggersStillRecorded':
+    'Os gatilhos ainda são registrados no histórico — nenhum turno de LLM é executado.',
   'composio.disableSpecificIntegrations': 'Desativar triagem de IA para integrações específicas',
   'composio.settingsSaved': 'Configurações salvas',
   'composio.saveFailed': 'Falha ao salvar. Tente novamente.',
@@ -217,9 +244,11 @@ const pt2: TranslationMap = {
   'localModel.modelStatus': 'Status do Modelo',
   'localModel.downloadModels': 'Baixar Modelos',
   'localModel.usage': 'Uso',
-  'localModel.usageDesc': 'Escolha quais subsistemas rodam no modelo local. O que estiver desligado usa a nuvem.',
+  'localModel.usageDesc':
+    'Escolha quais subsistemas rodam no modelo local. O que estiver desligado usa a nuvem.',
   'localModel.enableRuntime': 'Ativar runtime de IA local',
-  'localModel.enableRuntimeDesc': 'Chave mestre. Desligado por padrão — Ollama fica inativo. Quando ligado, o sumarizador de árvore, inteligência de tela e autocompletar sempre usam o modelo local.',
+  'localModel.enableRuntimeDesc':
+    'Chave mestre. Desligado por padrão — Ollama fica inativo. Quando ligado, o sumarizador de árvore, inteligência de tela e autocompletar sempre usam o modelo local.',
   'localModel.advancedSettings': 'Configurações avançadas',
   'localModel.debugTitle': 'Depuração de Modelo Local',
   'screenAwareness.debugTitle': 'Depuração de Reconhecimento de Tela',
@@ -230,7 +259,8 @@ const pt2: TranslationMap = {
   'common.skip': 'Pular',
   'common.disable': 'Desativar',
   'common.enable': 'Ativar',
-  'chat.safetyTimeout': 'Nenhuma resposta do agente após 2 minutos. Tente novamente ou verifique sua conexão.',
+  'chat.safetyTimeout':
+    'Nenhuma resposta do agente após 2 minutos. Tente novamente ou verifique sua conexão.',
   'chat.filter.all': 'Todos',
   'chat.filter.work': 'Trabalho',
   'chat.filter.briefing': 'Briefing',
@@ -257,7 +287,8 @@ const pt2: TranslationMap = {
   'chat.weeklyLimitHit': 'Você atingiu seu limite semanal.',
   'chat.resets': 'Reinicia',
   'chat.topUpToContinue': 'Adicione créditos para continuar.',
-  'chat.budgetComplete': 'Seu orçamento incluído foi esgotado. Adicione créditos ou faça upgrade para continuar.',
+  'chat.budgetComplete':
+    'Seu orçamento incluído foi esgotado. Adicione créditos ou faça upgrade para continuar.',
   'chat.rateLimitReached': 'Limite de taxa de 10 horas atingido.',
   'chat.topUp': 'Adicionar Créditos',
   'chat.fiveHourLimit': 'Limite de 5 horas',
@@ -338,7 +369,8 @@ const pt2: TranslationMap = {
   'navigator.documents': 'Documentos',
   'navigator.people': 'Pessoas',
   'navigator.topics': 'Tópicos',
-  'dreams.description': 'Sonhos são reflexões geradas por IA que sintetizam padrões das suas memórias.',
+  'dreams.description':
+    'Sonhos são reflexões geradas por IA que sintetizam padrões das suas memórias.',
   'dreams.comingSoon': 'Em breve',
   'assignment.memoryLlm': 'LLM de Memória',
   'assignment.memoryLlmAria': 'Seleção de LLM de memória',

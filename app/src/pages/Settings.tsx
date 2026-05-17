@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-import { useT } from '../lib/i18n/I18nContext';
-
 import AboutPanel from '../components/settings/panels/AboutPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
@@ -35,6 +33,7 @@ import VoicePanel from '../components/settings/panels/VoicePanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import SettingsHome from '../components/settings/SettingsHome';
 import SettingsSectionPage from '../components/settings/SettingsSectionPage';
+import { useT } from '../lib/i18n/I18nContext';
 import { APP_VERSION } from '../utils/config';
 import Intelligence from './Intelligence';
 import Webhooks from './Webhooks';

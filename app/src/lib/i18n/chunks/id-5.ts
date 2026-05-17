@@ -9,7 +9,8 @@ const id5: TranslationMap = {
   'settings.composio.apiKeyDesc': 'app.composio.dev/api-keys',
   'settings.composio.apiKeyLabel': 'Label API key',
   'settings.composio.apiKeyStored': 'API key tersimpan',
-  'settings.composio.apiKeyStoredPlaceholder': '••••••••••••  (key tersimpan — tempel key baru untuk mengganti)',
+  'settings.composio.apiKeyStoredPlaceholder':
+    '••••••••••••  (key tersimpan — tempel key baru untuk mengganti)',
   'settings.composio.clearedToBackend': 'Beralih ke mode Backend',
   'settings.composio.confirmItem1': 'Konfirmasi item 1',
   'settings.composio.confirmItem2': 'app.composio.dev',
@@ -54,17 +55,21 @@ const id5: TranslationMap = {
   'settings.localModel.deviceCapability.disabled': 'Dinonaktifkan',
   'settings.localModel.deviceCapability.disabledDesc': 'Deskripsi dinonaktifkan',
   'settings.localModel.deviceCapability.downloadingModels': '(mengunduh model)',
-  'settings.localModel.deviceCapability.downloadingSetupDesc': 'Mengunduh penginstal OllamaSetup (~2 GB) dan membongkarnya. Ini mungkin memerlukan beberapa waktu pada pemasangan pertama.',
+  'settings.localModel.deviceCapability.downloadingSetupDesc':
+    'Mengunduh penginstal OllamaSetup (~2 GB) dan membongkarnya. Ini mungkin memerlukan beberapa waktu pada pemasangan pertama.',
   'settings.localModel.deviceCapability.failedToApplyPreset': 'Gagal menerapkan preset',
   'settings.localModel.deviceCapability.gpu': 'GPU',
   'settings.localModel.deviceCapability.installFailed': 'Instalasi Ollama gagal',
-  'settings.localModel.deviceCapability.installFailedDesc': 'Penginstal keluar sebelum Ollama dapat digunakan. Klik coba ulang, atau instal manual dari ollama.com.',
+  'settings.localModel.deviceCapability.installFailedDesc':
+    'Penginstal keluar sebelum Ollama dapat digunakan. Klik coba ulang, atau instal manual dari ollama.com.',
   'settings.localModel.deviceCapability.installFirst': 'Instal Ollama terlebih dahulu.',
   'settings.localModel.deviceCapability.installFirstDesc': 'Deskripsi instal pertama',
-  'settings.localModel.deviceCapability.installOllamaFirst': 'Instal Ollama terlebih dahulu untuk menggunakan tingkat ini',
+  'settings.localModel.deviceCapability.installOllamaFirst':
+    'Instal Ollama terlebih dahulu untuk menggunakan tingkat ini',
   'settings.localModel.deviceCapability.installingOllama': 'Menginstal Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Memuat info perangkat',
-  'settings.localModel.deviceCapability.localAiDisabled': 'AI lokal dinonaktifkan — menggunakan fallback cloud.',
+  'settings.localModel.deviceCapability.localAiDisabled':
+    'AI lokal dinonaktifkan — menggunakan fallback cloud.',
   'settings.localModel.deviceCapability.modelTier': 'Tingkat Model',
   'settings.localModel.deviceCapability.needsOllama': 'Memerlukan Ollama',
   'settings.localModel.deviceCapability.notDetected': 'Tidak terdeteksi',
@@ -78,7 +83,8 @@ const id5: TranslationMap = {
   'settings.localModel.download.downloading': 'Mengunduh...',
   'settings.localModel.download.embeddingPlaceholder': 'Satu string input per baris...',
   'settings.localModel.download.noThinkMode': 'Mode tanpa berpikir',
-  'settings.localModel.download.promptPlaceholder': 'Ketik prompt apa saja dan jalankan terhadap model lokal...',
+  'settings.localModel.download.promptPlaceholder':
+    'Ketik prompt apa saja dan jalankan terhadap model lokal...',
   'settings.localModel.download.quantizationPref': 'Preferensi kuantisasi',
   'settings.localModel.download.runEmbeddingTest': 'Menjalankan...',
   'settings.localModel.download.runPromptTest': 'Menjalankan...',
@@ -88,7 +94,8 @@ const id5: TranslationMap = {
   'settings.localModel.download.runVisionTest': 'Menjalankan...',
   'settings.localModel.download.running': 'Menjalankan...',
   'settings.localModel.download.runningPrompt': 'Menjalankan prompt',
-  'settings.localModel.download.summarizePlaceholder': 'Tempel teks untuk diringkas dengan model lokal...',
+  'settings.localModel.download.summarizePlaceholder':
+    'Tempel teks untuk diringkas dengan model lokal...',
   'settings.localModel.download.testCustomPrompt': 'Tes Prompt Kustom',
   'settings.localModel.download.testEmbeddings': 'Tes Embedding',
   'settings.localModel.download.testSummarization': 'Tes Ringkasan',
@@ -97,7 +104,8 @@ const id5: TranslationMap = {
   'settings.localModel.download.testVoiceOutput': 'Tes Output Suara (TTS)',
   'settings.localModel.download.ttsOutputPlaceholder': 'Path WAV output opsional',
   'settings.localModel.download.ttsPlaceholder': 'Masukkan teks untuk disintesis...',
-  'settings.localModel.download.visionImagePlaceholder': 'Satu referensi gambar per baris (data URI, URL, atau penanda path lokal)',
+  'settings.localModel.download.visionImagePlaceholder':
+    'Satu referensi gambar per baris (data URI, URL, atau penanda path lokal)',
   'settings.localModel.download.visionPromptPlaceholder': 'Masukkan prompt untuk model visi...',
   'settings.localModel.status.allChecksPassed': 'Semua pemeriksaan berhasil',
   'settings.localModel.status.artifact': 'Artefak',
@@ -200,7 +208,8 @@ const id5: TranslationMap = {
   'skills.create.namePlaceholder': 'mis. Jurnal Trading',
   'skills.create.scope': 'Scope',
   'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint': 'Ditulis ke ~/.openhuman/skills/<slug>/SKILL.md — tersedia di semua workspace.',
+  'skills.create.scopeUserHint':
+    'Ditulis ke ~/.openhuman/skills/<slug>/SKILL.md — tersedia di semua workspace.',
   'skills.create.slugLabel': 'Label slug',
   'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': 'Tag',
@@ -265,9 +274,11 @@ const id5: TranslationMap = {
   'skills.setup.screenIntel.allGranted': 'Semua izin diberikan',
   'skills.setup.screenIntel.captureMode': 'Mode tangkap',
   'skills.setup.screenIntel.captureModeValue': 'Semua jendela (dapat dikonfigurasi nanti)',
-  'skills.setup.screenIntel.deniedHint': 'Setelah memberikan izin di Pengaturan Sistem, klik di bawah untuk memulai ulang dan mengambil perubahan.',
+  'skills.setup.screenIntel.deniedHint':
+    'Setelah memberikan izin di Pengaturan Sistem, klik di bawah untuk memulai ulang dan mengambil perubahan.',
   'skills.setup.screenIntel.enableBtn': 'Mengaktifkan...',
-  'skills.setup.screenIntel.enableDesc': 's di layar Anda dan memberikan konteks berguna ke agen Anda',
+  'skills.setup.screenIntel.enableDesc':
+    's di layar Anda dan memberikan konteks berguna ke agen Anda',
   'skills.setup.screenIntel.enableError': 'Gagal mengaktifkan Kecerdasan Layar',
   'skills.setup.screenIntel.enabling': 'Mengaktifkan...',
   'skills.setup.screenIntel.grant': 'Membuka...',
@@ -302,7 +313,8 @@ const id5: TranslationMap = {
   'skills.setup.voice.stepSetup': 'Unduhan model diperlukan',
   'skills.setup.voice.stepSuccess': 'Siap digunakan',
   'skills.setup.voice.sttNotReady': 'Model speech-to-text belum siap',
-  'skills.setup.voice.sttNotReadyDesc': 'Kecerdasan Suara memerlukan model Whisper lokal untuk transkripsi. Unduh dari pengaturan Model Lokal.',
+  'skills.setup.voice.sttNotReadyDesc':
+    'Kecerdasan Suara memerlukan model Whisper lokal untuk transkripsi. Unduh dari pengaturan Model Lokal.',
   'skills.setup.voice.sttReady': 'Model speech-to-text siap',
   'skills.setup.voice.sttReturnHint': 'Petunjuk kembali STT',
   'skills.setup.voice.title': 'Kecerdasan Suara',
@@ -313,7 +325,8 @@ const id5: TranslationMap = {
   'skills.uninstall.uninstalling': 'Menghapus...',
   'upsell.global.limitMessage': 'Upgrade paket atau isi ulang kredit untuk melanjutkan',
   'upsell.global.limitTitle': 'Anda',
-  'upsell.global.nearLimitMessage': 'Anda telah menggunakan {pct}% dari batas pemakaian. Upgrade untuk batas lebih tinggi.',
+  'upsell.global.nearLimitMessage':
+    'Anda telah menggunakan {pct}% dari batas pemakaian. Upgrade untuk batas lebih tinggi.',
   'upsell.global.nearLimitTitle': 'Mendekati batas pemakaian',
   'upsell.usageLimit.bodyBudget': 'Anda telah mencapai batas mingguan.${resetTime ?',
   'upsell.usageLimit.bodyRate': 'Anda telah mencapai batas laju inferensi 10 jam.${resetTime ?',
@@ -321,7 +334,7 @@ const id5: TranslationMap = {
   'upsell.usageLimit.notNow': 'Tidak sekarang',
   'upsell.usageLimit.perWindow': '{amount}',
   'upsell.usageLimit.planIncludes': '{plan}',
-  'upsell.usageLimit.resetsIn': '${.replace(\'{time}\', formatResetTime(resetTime))}',
+  'upsell.usageLimit.resetsIn': "${.replace('{time}', formatResetTime(resetTime))}",
   'upsell.usageLimit.upgradePlan': 'Upgrade paket',
   'upsell.usageLimit.weeklyInference': '{amount}',
   'walkthrough.tooltip.letsGo': 'Ayo',

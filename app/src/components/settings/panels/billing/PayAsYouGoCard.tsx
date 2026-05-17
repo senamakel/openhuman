@@ -41,19 +41,25 @@ const PayAsYouGoCard = ({
         {creditBalance ? (
           <div className="grid mt-4 gap-3 sm:grid-cols-3">
             <div>
-              <p className="text-sm font-semibold text-stone-400">{t('settings.billing.payAsYouGo.available')}</p>
+              <p className="text-sm font-semibold text-stone-400">
+                {t('settings.billing.payAsYouGo.available')}
+              </p>
               <p className="mt-2 text-2xl font-bold tracking-tight text-stone-600">
                 ${availableCredits.toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-stone-400">{t('settings.billing.payAsYouGo.promotionalCredits')}</p>
+              <p className="text-sm font-semibold text-stone-400">
+                {t('settings.billing.payAsYouGo.promotionalCredits')}
+              </p>
               <p className="mt-2 text-xl font-bold tracking-tight text-stone-600">
                 ${promoCredits.toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-stone-400">{t('settings.billing.payAsYouGo.topUpBalance')}</p>
+              <p className="text-sm font-semibold text-stone-400">
+                {t('settings.billing.payAsYouGo.topUpBalance')}
+              </p>
               <p className="mt-2 text-xl font-bold tracking-tight text-stone-600">
                 ${teamTopupCredits.toFixed(2)}
               </p>
@@ -66,7 +72,9 @@ const PayAsYouGoCard = ({
             ))}
           </div>
         ) : (
-          <p className="mt-5 text-sm text-stone-500">{t('settings.billing.payAsYouGo.unableToLoad')}</p>
+          <p className="mt-5 text-sm text-stone-500">
+            {t('settings.billing.payAsYouGo.unableToLoad')}
+          </p>
         )}
       </div>
       <div className="rounded-lg bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] ring-1 ring-stone-950/5">
@@ -87,7 +95,9 @@ const PayAsYouGoCard = ({
               <div className="text-2xl font-bold tracking-tight text-primary-600">
                 {isToppingUp ? t('settings.billing.payAsYouGo.opening') : `$${amount.toFixed(2)}`}
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-stone-400">{t('settings.billing.payAsYouGo.topUpCredits')}</div>
+              <div className="mt-1 text-[11px] font-semibold text-stone-400">
+                {t('settings.billing.payAsYouGo.topUpCredits')}
+              </div>
             </button>
           ))}
         </div>
@@ -125,7 +135,9 @@ const PayAsYouGoCard = ({
               onClick={handleCustomTopUp}
               disabled={!customTopUpAmountValid || isToppingUp}
               className="rounded-2xl bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 lg:self-end">
-              {isToppingUp ? t('settings.billing.payAsYouGo.opening') : t('settings.billing.payAsYouGo.chargeCustomAmount')}
+              {isToppingUp
+                ? t('settings.billing.payAsYouGo.opening')
+                : t('settings.billing.payAsYouGo.chargeCustomAmount')}
             </button>
           </div>
         </div>

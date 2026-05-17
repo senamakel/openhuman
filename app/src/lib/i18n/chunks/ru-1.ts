@@ -59,7 +59,8 @@ const ru1: TranslationMap = {
   'settings.account': 'Аккаунт',
   'settings.accountDesc': 'Фраза восстановления, команда, подключения и конфиденциальность',
   'settings.notifications': 'Уведомления',
-  'settings.notificationsDesc': 'Режим «Не беспокоить» и настройки уведомлений для каждого аккаунта',
+  'settings.notificationsDesc':
+    'Режим «Не беспокоить» и настройки уведомлений для каждого аккаунта',
   'settings.features': 'Функции',
   'settings.featuresDesc': 'Слежение за экраном, мессенджеры и инструменты',
   'settings.aiModels': 'AI и модели',
@@ -75,7 +76,8 @@ const ru1: TranslationMap = {
   'settings.about': 'О приложении',
   'settings.aboutDesc': 'Версия приложения и обновления',
   'settings.developerOptions': 'Дополнительно',
-  'settings.developerOptionsDesc': 'Настройки AI, каналы связи, инструменты, диагностика и панели отладки',
+  'settings.developerOptionsDesc':
+    'Настройки AI, каналы связи, инструменты, диагностика и панели отладки',
   'settings.clearAppData': 'Очистить данные приложения',
   'settings.clearAppDataDesc': 'Выйти из аккаунта и удалить все локальные данные приложения',
   'settings.logOut': 'Выйти',
@@ -129,10 +131,13 @@ const ru1: TranslationMap = {
   'home.greetingAfternoon': 'Добрый день',
   'home.greetingEvening': 'Добрый вечер',
   'home.askAssistant': 'Спроси ассистента о чём угодно...',
-  'home.statusOk': 'Устройство подключено. Не закрывай приложение, чтобы поддерживать соединение. Отправь сообщение агенту с помощью кнопки ниже.',
+  'home.statusOk':
+    'Устройство подключено. Не закрывай приложение, чтобы поддерживать соединение. Отправь сообщение агенту с помощью кнопки ниже.',
   'home.statusBackendOnly': 'Переподключение к серверу… агент скоро снова будет доступен.',
-  'home.statusCoreUnreachable': 'Локальный процесс OpenHuman не отвечает. Возможно, он завис или не запустился.',
-  'home.statusInternetOffline': 'Нет подключения к интернету. Проверь сеть или перезапусти приложение.',
+  'home.statusCoreUnreachable':
+    'Локальный процесс OpenHuman не отвечает. Возможно, он завис или не запустился.',
+  'home.statusInternetOffline':
+    'Нет подключения к интернету. Проверь сеть или перезапусти приложение.',
   'home.restartCore': 'Перезапустить ядро',
   'home.restartingCore': 'Перезапуск ядра…',
   'chat.newThread': 'Новый чат',
@@ -181,7 +186,8 @@ const ru1: TranslationMap = {
   'rewards.copyCode': 'Скопировать код',
   'rewards.share': 'Поделиться',
   'onboarding.welcome': 'Привет. Я OpenHuman.',
-  'onboarding.welcomeDesc': 'Твой суперинтеллектуальный AI-ассистент, работающий прямо на твоём компьютере. Приватный, простой и невероятно мощный.',
+  'onboarding.welcomeDesc':
+    'Твой суперинтеллектуальный AI-ассистент, работающий прямо на твоём компьютере. Приватный, простой и невероятно мощный.',
   'onboarding.context': 'Сбор контекста',
   'onboarding.contextDesc': 'Подключи инструменты и сервисы, которыми пользуешься каждый день.',
   'onboarding.localAI': 'Локальный AI',
@@ -195,7 +201,8 @@ const ru1: TranslationMap = {
   'onboarding.skip': 'Пропустить',
   'onboarding.getStarted': 'Начать',
   'onboarding.runtimeChoice.title': 'Как ты хочешь запустить OpenHuman?',
-  'onboarding.runtimeChoice.subtitle': 'Выбери подходящий вариант. Изменить можно позже в Настройках.',
+  'onboarding.runtimeChoice.subtitle':
+    'Выбери подходящий вариант. Изменить можно позже в Настройках.',
   'onboarding.runtimeChoice.cloud.title': 'Просто',
   'onboarding.runtimeChoice.cloud.tagline': 'Пусть OpenHuman сам обо всём позаботится.',
   'onboarding.runtimeChoice.cloud.f1': 'Встроенная безопасность',
@@ -204,18 +211,21 @@ const ru1: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f4': 'Никаких API-ключей',
   'onboarding.runtimeChoice.cloud.f5': 'Простая настройка',
   'onboarding.runtimeChoice.custom.title': 'Свои настройки',
-  'onboarding.runtimeChoice.custom.tagline': 'Используй свои ключи. Полный контроль над тем, что используется.',
+  'onboarding.runtimeChoice.custom.tagline':
+    'Используй свои ключи. Полный контроль над тем, что используется.',
   'onboarding.runtimeChoice.custom.f1': 'Для большинства функций потребуются API-ключи',
   'onboarding.runtimeChoice.custom.f2': 'Переиспользует сервисы, за которые ты уже платишь',
   'onboarding.runtimeChoice.custom.f3': 'Может быть бесплатным, если всё запускать локально',
   'onboarding.runtimeChoice.custom.f4': 'Больше настроек и параметров',
-  'onboarding.runtimeChoice.custom.f5': 'Лучший выбор для продвинутых пользователей и разработчиков',
+  'onboarding.runtimeChoice.custom.f5':
+    'Лучший выбор для продвинутых пользователей и разработчиков',
   'onboarding.runtimeChoice.cloud.creditHighlight': '$1 бесплатный кредит для знакомства',
   'onboarding.runtimeChoice.continueCloud': 'Продолжить с простым режимом',
   'onboarding.runtimeChoice.continueCustom': 'Продолжить со своими настройками',
   'onboarding.runtimeChoice.recommended': 'Рекомендуется',
   'onboarding.apiKeys.title': 'Добавь свои API-ключи',
-  'onboarding.apiKeys.subtitle': 'Вставь их сейчас или пропусти и добавь позже в Настройки › AI. Ключи хранятся на этом устройстве в зашифрованном виде.',
+  'onboarding.apiKeys.subtitle':
+    'Вставь их сейчас или пропусти и добавь позже в Настройки › AI. Ключи хранятся на этом устройстве в зашифрованном виде.',
   'onboarding.apiKeys.openaiLabel': 'API-ключ OpenAI',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'API-ключ Anthropic',
@@ -238,28 +248,41 @@ const ru1: TranslationMap = {
   'onboarding.custom.continue': 'Продолжить',
   'onboarding.custom.back': 'Назад',
   'onboarding.custom.finish': 'Завершить настройку',
-  'onboarding.custom.configureLater': 'Можно завершить настройку после онбординга. Мы откроем нужную страницу настроек.',
+  'onboarding.custom.configureLater':
+    'Можно завершить настройку после онбординга. Мы откроем нужную страницу настроек.',
   'onboarding.custom.openSettings': 'Открыть в настройках',
   'onboarding.custom.inference.title': 'Инференс (текст)',
-  'onboarding.custom.inference.subtitle': 'Какая языковая модель будет отвечать на вопросы и запускать агентов?',
-  'onboarding.custom.inference.defaultDesc': 'OpenHuman автоматически выбирает подходящую модель. Без ключей и настроек.',
-  'onboarding.custom.inference.configureDesc': 'Используй свой ключ OpenAI или Anthropic для всех текстовых задач.',
+  'onboarding.custom.inference.subtitle':
+    'Какая языковая модель будет отвечать на вопросы и запускать агентов?',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman автоматически выбирает подходящую модель. Без ключей и настроек.',
+  'onboarding.custom.inference.configureDesc':
+    'Используй свой ключ OpenAI или Anthropic для всех текстовых задач.',
   'onboarding.custom.voice.title': 'Голос',
   'onboarding.custom.voice.subtitle': 'Распознавание и синтез речи для голосового режима.',
-  'onboarding.custom.voice.defaultDesc': 'OpenHuman поставляется с управляемым STT/TTS, который работает сразу. Ничего настраивать не нужно.',
-  'onboarding.custom.voice.configureDesc': 'Используй свой ElevenLabs / OpenAI Whisper / другой сервис. Настрой в Настройки › Голос.',
+  'onboarding.custom.voice.defaultDesc':
+    'OpenHuman поставляется с управляемым STT/TTS, который работает сразу. Ничего настраивать не нужно.',
+  'onboarding.custom.voice.configureDesc':
+    'Используй свой ElevenLabs / OpenAI Whisper / другой сервис. Настрой в Настройки › Голос.',
   'onboarding.custom.oauth.title': 'Подключения (OAuth)',
   'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion и другие сервисы, требующие OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'OpenHuman использует управляемое рабочее пространство Composio. Один клик для подключения каждого сервиса.',
-  'onboarding.custom.oauth.configureDesc': 'Используй свой аккаунт Composio / API-ключ. Настрой в Настройки › Подключения.',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman использует управляемое рабочее пространство Composio. Один клик для подключения каждого сервиса.',
+  'onboarding.custom.oauth.configureDesc':
+    'Используй свой аккаунт Composio / API-ключ. Настрой в Настройки › Подключения.',
   'onboarding.custom.search.title': 'Поиск в интернете',
   'onboarding.custom.search.subtitle': 'Как OpenHuman ищет информацию в интернете.',
-  'onboarding.custom.search.defaultDesc': 'OpenHuman использует управляемый поисковый бэкенд. Ключи не нужны.',
-  'onboarding.custom.search.configureDesc': 'Используй свой ключ поискового провайдера (Tavily, Brave и др.). Настрой в Настройки › Инструменты.',
+  'onboarding.custom.search.defaultDesc':
+    'OpenHuman использует управляемый поисковый бэкенд. Ключи не нужны.',
+  'onboarding.custom.search.configureDesc':
+    'Используй свой ключ поискового провайдера (Tavily, Brave и др.). Настрой в Настройки › Инструменты.',
   'onboarding.custom.memory.title': 'Память',
-  'onboarding.custom.memory.subtitle': 'Как OpenHuman запоминает контекст, предпочтения и предыдущие разговоры.',
-  'onboarding.custom.memory.defaultDesc': 'OpenHuman автоматически управляет хранением и извлечением воспоминаний. Ничего настраивать не нужно.',
-  'onboarding.custom.memory.configureDesc': 'Просматривай, экспортируй или очищай память самостоятельно. Настрой в Настройки › Память.',
+  'onboarding.custom.memory.subtitle':
+    'Как OpenHuman запоминает контекст, предпочтения и предыдущие разговоры.',
+  'onboarding.custom.memory.defaultDesc':
+    'OpenHuman автоматически управляет хранением и извлечением воспоминаний. Ничего настраивать не нужно.',
+  'onboarding.custom.memory.configureDesc':
+    'Просматривай, экспортируй или очищай память самостоятельно. Настрой в Настройки › Память.',
   'accounts.addAccount': 'Добавить аккаунт',
   'accounts.manageAccounts': 'Управление аккаунтами',
   'accounts.noAccounts': 'Аккаунты не подключены',
@@ -316,11 +339,13 @@ const ru1: TranslationMap = {
   'misc.updateLater': 'Позже',
   'misc.downloading': 'Загрузка...',
   'misc.installing': 'Установка...',
-  'misc.beta': 'OpenHuman находится в стадии раннего бета-тестирования. Делись отзывами и сообщай об ошибках — каждый репорт помогает нам двигаться быстрее.',
+  'misc.beta':
+    'OpenHuman находится в стадии раннего бета-тестирования. Делись отзывами и сообщай об ошибках — каждый репорт помогает нам двигаться быстрее.',
   'misc.betaFeedback': 'Отправить отзыв',
   'mnemonic.title': 'Фраза восстановления',
   'mnemonic.warning': 'Запиши эти слова по порядку и храни в надёжном месте.',
-  'mnemonic.copyWarning': 'Никогда не делись фразой восстановления. Любой, кто её знает, получит доступ к твоему аккаунту.',
+  'mnemonic.copyWarning':
+    'Никогда не делись фразой восстановления. Любой, кто её знает, получит доступ к твоему аккаунту.',
   'mnemonic.copied': 'Фраза восстановления скопирована в буфер обмена',
   'mnemonic.reveal': 'Показать фразу',
   'mnemonic.hidden': 'Фраза восстановления скрыта',
@@ -329,18 +354,22 @@ const ru1: TranslationMap = {
   'privacy.empty': 'Передачи данных во внешние сервисы не обнаружены.',
   'privacy.whatLeavesComputer': 'Что покидает твой компьютер',
   'privacy.loading': 'Загрузка данных о конфиденциальности...',
-  'privacy.loadError': 'Не удалось загрузить список. Настройки аналитики ниже по-прежнему работают.',
+  'privacy.loadError':
+    'Не удалось загрузить список. Настройки аналитики ниже по-прежнему работают.',
   'privacy.noCapabilities': 'Ни одна функция не передаёт данные.',
   'privacy.sentTo': 'Отправляется в',
   'privacy.leavesDevice': 'Покидает устройство',
   'privacy.staysLocal': 'Остаётся локально',
   'privacy.anonymizedAnalytics': 'Анонимная аналитика',
   'privacy.shareAnonymizedData': 'Делиться анонимными данными об использовании',
-  'privacy.shareAnonymizedDataDesc': 'Помоги улучшить OpenHuman, отправляя анонимные отчёты об ошибках и данные об использовании. Все данные полностью анонимизированы — личные данные, сообщения, ключи кошелька и информация о сессии никогда не собираются.',
+  'privacy.shareAnonymizedDataDesc':
+    'Помоги улучшить OpenHuman, отправляя анонимные отчёты об ошибках и данные об использовании. Все данные полностью анонимизированы — личные данные, сообщения, ключи кошелька и информация о сессии никогда не собираются.',
   'privacy.meetingFollowUps': 'Действия после встреч',
   'privacy.autoHandoffMeet': 'Автоматически передавать транскрипты Google Meet оркестратору',
-  'privacy.autoHandoffMeetDesc': 'Когда звонок в Google Meet заканчивается, оркестратор OpenHuman может прочитать транскрипт и выполнить действия: составить сообщения, запланировать задачи или опубликовать итоги в Slack. По умолчанию выключено.',
-  'privacy.analyticsDisclaimer': 'Вся аналитика и отчёты об ошибках полностью анонимизированы. При включении мы собираем только информацию об ошибках, тип устройства и расположение файлов с ошибками. Мы никогда не получаем доступ к твоим сообщениям, данным сессии, ключам кошелька, API-ключам или любой личной информации. Ты можешь изменить этот параметр в любое время.',
+  'privacy.autoHandoffMeetDesc':
+    'Когда звонок в Google Meet заканчивается, оркестратор OpenHuman может прочитать транскрипт и выполнить действия: составить сообщения, запланировать задачи или опубликовать итоги в Slack. По умолчанию выключено.',
+  'privacy.analyticsDisclaimer':
+    'Вся аналитика и отчёты об ошибках полностью анонимизированы. При включении мы собираем только информацию об ошибках, тип устройства и расположение файлов с ошибками. Мы никогда не получаем доступ к твоим сообщениям, данным сессии, ключам кошелька, API-ключам или любой личной информации. Ты можешь изменить этот параметр в любое время.',
   'settings.about.version': 'Версия',
   'settings.about.updateAvailable': 'доступна',
   'settings.about.softwareUpdates': 'Обновления ПО',

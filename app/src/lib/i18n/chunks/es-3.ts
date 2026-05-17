@@ -22,7 +22,8 @@ const es3: TranslationMap = {
   'calls.joinCall': 'Unirse a la llamada',
   'calls.activeCalls': 'Llamadas activas',
   'calls.leave': 'Salir',
-  'workspace.wipeConfirm': '¿Seguro que quieres borrar toda la memoria? Esta acción no se puede deshacer.',
+  'workspace.wipeConfirm':
+    '¿Seguro que quieres borrar toda la memoria? Esta acción no se puede deshacer.',
   'workspace.resetTreeConfirm': '¿Seguro que quieres reconstruir el árbol de memoria?',
   'workspace.wipeTitle': 'Borrar memoria',
   'workspace.resetting': 'Restableciendo...',
@@ -74,15 +75,19 @@ const es3: TranslationMap = {
   'sync.syncing': 'Sincronizando…',
   'sync.sync': 'Sincronizar',
   'sync.failedToLoad': 'No se pudo cargar el estado de sincronización',
-  'sync.noContent': 'Aún no se ha sincronizado contenido en la memoria. Conecta una integración para empezar.',
+  'sync.noContent':
+    'Aún no se ha sincronizado contenido en la memoria. Conecta una integración para empezar.',
   'backend.aiBackend': 'Backend de IA',
   'backend.cloud': 'Cloud',
   'backend.recommended': 'Recomendado',
-  'backend.cloudDescription': 'Modelos rápidos y potentes alojados en nuestros servidores. Listos para usar de inmediato.',
-  'backend.privacyNote': 'Nunca enviamos datos personales, mensajes ni claves a nuestros servidores.',
+  'backend.cloudDescription':
+    'Modelos rápidos y potentes alojados en nuestros servidores. Listos para usar de inmediato.',
+  'backend.privacyNote':
+    'Nunca enviamos datos personales, mensajes ni claves a nuestros servidores.',
   'backend.local': 'Local',
   'backend.advanced': 'Avanzado',
-  'backend.localDescription': 'Ejecuta modelos en tu propia máquina usando Ollama. Privacidad total, requiere configuración.',
+  'backend.localDescription':
+    'Ejecuta modelos en tu propia máquina usando Ollama. Privacidad total, requiere configuración.',
   'backend.ramRecommended': 'Se recomienda 16 GB+ de RAM',
   'subconscious.tasks': 'tareas',
   'subconscious.ticks': 'ticks',
@@ -123,18 +128,23 @@ const es3: TranslationMap = {
   'stats.tokens': 'tokens',
   'bootCheck.invalidUrl': 'Ingresa una URL de runtime.',
   'bootCheck.urlMustStartWith': 'La URL debe comenzar con http:// o https://',
-  'bootCheck.validUrlRequired': 'Eso no parece una URL válida (prueba con https://core.example.com/rpc)',
+  'bootCheck.validUrlRequired':
+    'Eso no parece una URL válida (prueba con https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Necesitaremos un token de autenticación para conectarnos.',
   'bootCheck.chooseCoreMode': 'Seleccionar un runtime',
   'bootCheck.connectToCore': 'Conectar a tu runtime',
-  'bootCheck.desktopDescription': 'OpenHuman necesita un runtime para funcionar. Elige dónde debe vivir.',
-  'bootCheck.webDescription': 'En la web, OpenHuman se conecta a un runtime que tú controlas. Ingresa su URL y token de autenticación abajo, o descarga la app de escritorio para ejecutar uno en tu máquina.',
+  'bootCheck.desktopDescription':
+    'OpenHuman necesita un runtime para funcionar. Elige dónde debe vivir.',
+  'bootCheck.webDescription':
+    'En la web, OpenHuman se conecta a un runtime que tú controlas. Ingresa su URL y token de autenticación abajo, o descarga la app de escritorio para ejecutar uno en tu máquina.',
   'bootCheck.preferDesktop': '¿Prefieres tener todo en tu propio dispositivo?',
   'bootCheck.downloadDesktop': 'Obtener la app de escritorio',
   'bootCheck.localRecommended': 'Ejecutar localmente (Recomendado)',
-  'bootCheck.localDescription': 'Corre directamente en tu computadora. El más rápido, completamente privado, sin nada que configurar.',
+  'bootCheck.localDescription':
+    'Corre directamente en tu computadora. El más rápido, completamente privado, sin nada que configurar.',
   'bootCheck.cloudMode': 'Ejecutar en la nube (Complejo)',
-  'bootCheck.cloudDescription': 'Conéctate a un runtime que estás alojando en otro lugar. Permanece en línea 24×7 para que no necesites mantener este dispositivo encendido.',
+  'bootCheck.cloudDescription':
+    'Conéctate a un runtime que estás alojando en otro lugar. Permanece en línea 24×7 para que no necesites mantener este dispositivo encendido.',
   'bootCheck.coreRpcUrl': 'URL del runtime',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Token de autenticación',
@@ -147,23 +157,28 @@ const es3: TranslationMap = {
   'bootCheck.unreachablePrefix': 'No se pudo alcanzar:',
   'bootCheck.checkingCore': 'Activando tu runtime…',
   'bootCheck.cannotReach': 'No se puede alcanzar el runtime',
-  'bootCheck.cannotReachDesc': 'No pudimos conectarnos a tu runtime. ¿Quieres probar con uno diferente?',
+  'bootCheck.cannotReachDesc':
+    'No pudimos conectarnos a tu runtime. ¿Quieres probar con uno diferente?',
   'bootCheck.switchMode': 'Elegir un runtime diferente',
   'bootCheck.quit': 'Salir',
   'bootCheck.legacyDetected': 'Runtime en segundo plano legacy detectado',
-  'bootCheck.legacyDescription': 'Un daemon de OpenHuman instalado por separado ya está corriendo en este dispositivo. Necesitamos eliminarlo antes de que el runtime integrado pueda tomar el control.',
+  'bootCheck.legacyDescription':
+    'Un daemon de OpenHuman instalado por separado ya está corriendo en este dispositivo. Necesitamos eliminarlo antes de que el runtime integrado pueda tomar el control.',
   'bootCheck.removing': 'Eliminando…',
   'bootCheck.removeContinue': 'Eliminar y continuar',
   'bootCheck.localNeedsRestart': 'El runtime local necesita reiniciarse',
-  'bootCheck.localNeedsRestartDesc': 'Tu runtime local tiene una versión diferente a la de esta app. Un reinicio rápido los sincronizará.',
+  'bootCheck.localNeedsRestartDesc':
+    'Tu runtime local tiene una versión diferente a la de esta app. Un reinicio rápido los sincronizará.',
   'bootCheck.restarting': 'Reiniciando…',
   'bootCheck.restartCore': 'Reiniciar runtime',
   'bootCheck.cloudNeedsUpdate': 'El runtime en la nube necesita actualizarse',
-  'bootCheck.cloudNeedsUpdateDesc': 'Tu runtime en la nube tiene una versión diferente a la de esta app. Ejecuta el actualizador para sincronizarlos.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'Tu runtime en la nube tiene una versión diferente a la de esta app. Ejecuta el actualizador para sincronizarlos.',
   'bootCheck.updating': 'Actualizando…',
   'bootCheck.updateCloudCore': 'Actualizar runtime en la nube',
   'bootCheck.versionCheckFailed': 'Verificación de versión del runtime fallida',
-  'bootCheck.versionCheckFailedDesc': 'Tu runtime está activo pero no reporta su versión. Puede estar desactualizado. Reinícialo o actualízalo para continuar.',
+  'bootCheck.versionCheckFailedDesc':
+    'Tu runtime está activo pero no reporta su versión. Puede estar desactualizado. Reinícialo o actualízalo para continuar.',
   'bootCheck.working': 'Trabajando…',
   'bootCheck.restartUpdateCore': 'Reiniciar / Actualizar runtime',
   'bootCheck.unexpectedError': 'Error inesperado en verificación de arranque',
@@ -184,7 +199,8 @@ const es3: TranslationMap = {
   'about.update.status.availableNoVersion': 'Actualización disponible',
   'about.update.status.downloading': 'Descargando...',
   'about.update.status.readyToInstall': 'v{version} lista para instalar',
-  'about.update.status.readyToInstallNoVersion': 'Una nueva versión se descargó y está lista. Reinicia para aplicarla.',
+  'about.update.status.readyToInstallNoVersion':
+    'Una nueva versión se descargó y está lista. Reinicia para aplicarla.',
   'about.update.status.installing': 'Instalando...',
   'about.update.status.restarting': 'Reiniciando...',
   'about.update.status.upToDate': 'Estás usando la versión más reciente.',
@@ -330,7 +346,8 @@ const es3: TranslationMap = {
   'channels.discord.linkTokenInstruction': '{token}',
   'channels.discord.linkTokenLabel': 'Etiqueta de token de enlace',
   'channels.discord.linkTokenOnce': 'Token de enlace de un solo uso',
-  'channels.discord.picker.allPermissionsOk': 'El bot tiene todos los permisos requeridos en este canal.',
+  'channels.discord.picker.allPermissionsOk':
+    'El bot tiene todos los permisos requeridos en este canal.',
   'channels.discord.picker.botNotInServers': 'Bot no está en servidores',
   'channels.discord.picker.category': '${} {categoryId}',
   'channels.discord.picker.channel': 'Canal',

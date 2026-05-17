@@ -99,7 +99,9 @@ const ModelStatusSection = ({
             />
           </svg>
           <div className="flex-1 space-y-1">
-            <div className="text-sm font-semibold text-amber-900">{t('settings.localModel.status.ollamaNotInstalled')}</div>
+            <div className="text-sm font-semibold text-amber-900">
+              {t('settings.localModel.status.ollamaNotInstalled')}
+            </div>
             <div className="text-xs text-amber-800">
               {t('settings.localModel.status.ollamaNotInstalledDesc')}
             </div>
@@ -111,7 +113,9 @@ const ModelStatusSection = ({
             onClick={() => onTriggerDownload(true)}
             disabled={isTriggeringDownload}
             className="px-3 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium">
-            {isTriggeringDownload ? t('settings.localModel.status.installing') : t('settings.localModel.status.installOllama')}
+            {isTriggeringDownload
+              ? t('settings.localModel.status.installing')
+              : t('settings.localModel.status.installOllama')}
           </button>
           <a
             href="https://ollama.com"
@@ -128,7 +132,9 @@ const ModelStatusSection = ({
               type="button"
               onClick={onToggleErrorDetail}
               className="text-xs text-red-700 hover:text-red-600 underline">
-              {showErrorDetail ? t('settings.localModel.status.hideErrorDetails') : t('settings.localModel.status.showInstallErrorDetails')}
+              {showErrorDetail
+                ? t('settings.localModel.status.hideErrorDetails')
+                : t('settings.localModel.status.showInstallErrorDetails')}
             </button>
             {showErrorDetail && (
               <pre className="max-h-40 overflow-auto rounded bg-red-50 border border-red-200 p-2 text-[10px] text-red-700 leading-tight whitespace-pre-wrap break-words">
@@ -158,7 +164,9 @@ const ModelStatusSection = ({
               onClick={onSetOllamaPath}
               disabled={isSettingPath || !ollamaPathInput.trim()}
               className="px-2 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white whitespace-nowrap">
-              {isSettingPath ? t('settings.localModel.status.setting') : t('settings.localModel.status.setPath')}
+              {isSettingPath
+                ? t('settings.localModel.status.setting')
+                : t('settings.localModel.status.setPath')}
             </button>
             {ollamaPathInput && (
               <button
@@ -179,7 +187,9 @@ const ModelStatusSection = ({
     <>
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.status.runtimeStatus')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900">
+            {t('settings.localModel.status.runtimeStatus')}
+          </h3>
           <button
             onClick={onRefreshStatus}
             className="text-sm text-primary-500 hover:text-primary-600 transition-colors">
@@ -191,7 +201,9 @@ const ModelStatusSection = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-stone-500">{t('settings.ai.state')}</span>
             <span className={`font-medium ${statusTone(status?.state ?? 'idle')}`}>
-              {status ? statusLabel(downloads?.state ?? status.state) : t('settings.localModel.status.unavailable')}
+              {status
+                ? statusLabel(downloads?.state ?? status.state)
+                : t('settings.localModel.status.unavailable')}
             </span>
           </div>
 
@@ -215,27 +227,39 @@ const ModelStatusSection = ({
             </span>
             {downloadedText && <span className="text-stone-600">{downloadedText}</span>}
             {speedText && <span className="text-primary-600">{speedText}</span>}
-            {etaText && <span className="text-primary-500">{t('settings.localModel.status.eta')} {etaText}</span>}
+            {etaText && (
+              <span className="text-primary-500">
+                {t('settings.localModel.status.eta')} {etaText}
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.provider')}</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">
+                {t('settings.localModel.status.provider')}
+              </div>
               <div className="text-stone-800 mt-1">{status?.provider ?? 'n/a'}</div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.model')}</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">
+                {t('settings.localModel.status.model')}
+              </div>
               <div className="text-stone-800 mt-1">{status?.model_id ?? 'n/a'}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.backend')}</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">
+                {t('settings.localModel.status.backend')}
+              </div>
               <div className="text-stone-800 mt-1">{status?.active_backend ?? 'cpu'}</div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.lastLatency')}</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">
+                {t('settings.localModel.status.lastLatency')}
+              </div>
               <div className="text-stone-800 mt-1">
                 {typeof status?.last_latency_ms === 'number'
                   ? `${status.last_latency_ms} ms`
@@ -243,7 +267,9 @@ const ModelStatusSection = ({
               </div>
             </div>
             <div className="rounded-md border border-stone-200 p-2">
-              <div className="text-stone-500 text-xs uppercase tracking-wide">{t('settings.localModel.status.generationTps')}</div>
+              <div className="text-stone-500 text-xs uppercase tracking-wide">
+                {t('settings.localModel.status.generationTps')}
+              </div>
               <div className="text-stone-800 mt-1">
                 {typeof status?.gen_toks_per_sec === 'number'
                   ? `${status.gen_toks_per_sec.toFixed(1)} tok/s`
@@ -253,7 +279,9 @@ const ModelStatusSection = ({
           </div>
 
           {status?.model_path && (
-            <div className="text-xs text-stone-500 break-all">{t('settings.localModel.status.artifact')} {status.model_path}</div>
+            <div className="text-xs text-stone-500 break-all">
+              {t('settings.localModel.status.artifact')} {status.model_path}
+            </div>
           )}
 
           {status?.backend_reason && (
@@ -267,7 +295,9 @@ const ModelStatusSection = ({
               <button
                 onClick={onToggleErrorDetail}
                 className="text-xs text-red-600 hover:text-red-500 underline">
-                {showErrorDetail ? t('settings.localModel.status.hideErrorDetails') : t('settings.localModel.status.showErrorDetails')}
+                {showErrorDetail
+                  ? t('settings.localModel.status.hideErrorDetails')
+                  : t('settings.localModel.status.showErrorDetails')}
               </button>
               {showErrorDetail && (
                 <pre className="max-h-40 overflow-auto rounded bg-red-50 border border-red-200 p-2 text-[10px] text-red-600 leading-tight whitespace-pre-wrap break-words">
@@ -304,7 +334,9 @@ const ModelStatusSection = ({
                 onClick={onSetOllamaPath}
                 disabled={isSettingPath || !ollamaPathInput.trim()}
                 className="px-2 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white whitespace-nowrap">
-                {isSettingPath ? t('settings.localModel.status.setting') : t('settings.localModel.status.setPath')}
+                {isSettingPath
+                  ? t('settings.localModel.status.setting')
+                  : t('settings.localModel.status.setPath')}
               </button>
               {ollamaPathInput && (
                 <button
@@ -346,7 +378,9 @@ const ModelStatusSection = ({
               onClick={() => onTriggerDownload(true)}
               disabled={!runtimeEnabled || isTriggeringDownload}
               className="px-3 py-1.5 text-xs rounded-md border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
-              {isTriggeringDownload ? t('settings.localModel.status.working') : t('settings.localModel.status.forceRebootstrap')}
+              {isTriggeringDownload
+                ? t('settings.localModel.status.working')
+                : t('settings.localModel.status.forceRebootstrap')}
             </button>
             {bootstrapMessage && <span className="text-xs text-green-600">{bootstrapMessage}</span>}
           </div>
@@ -355,12 +389,16 @@ const ModelStatusSection = ({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.status.ollamaDiagnostics')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900">
+            {t('settings.localModel.status.ollamaDiagnostics')}
+          </h3>
           <button
             onClick={onRunDiagnostics}
             disabled={isDiagnosticsLoading}
             className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
-            {isDiagnosticsLoading ? t('settings.localModel.status.checking') : t('settings.localModel.status.runDiagnostics')}
+            {isDiagnosticsLoading
+              ? t('settings.localModel.status.checking')
+              : t('settings.localModel.status.runDiagnostics')}
           </button>
         </div>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
@@ -389,16 +427,23 @@ const ModelStatusSection = ({
                 <span className={diagnostics.ok ? 'text-green-600' : 'text-red-600'}>
                   {diagnostics.ok
                     ? t('settings.localModel.status.allChecksPassed')
-                    : t('settings.localModel.status.issuesFound').replace('{count}', String(diagnostics.issues.length))}
+                    : t('settings.localModel.status.issuesFound').replace(
+                        '{count}',
+                        String(diagnostics.issues.length)
+                      )}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-md border border-stone-200 p-2">
-                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">{t('settings.localModel.status.server')}</div>
+                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">
+                    {t('settings.localModel.status.server')}
+                  </div>
                   <div
                     className={`mt-1 font-medium ${diagnostics.ollama_running ? 'text-green-600' : 'text-red-600'}`}>
-                    {diagnostics.ollama_running ? t('settings.localModel.status.running') : t('settings.localModel.status.notRunning')}
+                    {diagnostics.ollama_running
+                      ? t('settings.localModel.status.running')
+                      : t('settings.localModel.status.notRunning')}
                   </div>
                   {diagnostics.ollama_base_url && (
                     <div
@@ -409,7 +454,9 @@ const ModelStatusSection = ({
                   )}
                 </div>
                 <div className="rounded-md border border-stone-200 p-2">
-                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">{t('settings.localModel.status.binary')}</div>
+                  <div className="text-stone-400 uppercase tracking-wide text-[10px]">
+                    {t('settings.localModel.status.binary')}
+                  </div>
                   <div
                     className="mt-1 text-stone-600 truncate"
                     title={
@@ -428,7 +475,8 @@ const ModelStatusSection = ({
               {diagnostics.installed_models.length > 0 && (
                 <div>
                   <div className="text-stone-400 uppercase tracking-wide text-[10px] mb-1">
-                    {t('settings.localModel.status.installedModels')} ({diagnostics.installed_models.length})
+                    {t('settings.localModel.status.installedModels')} (
+                    {diagnostics.installed_models.length})
                   </div>
                   <div className="space-y-1">
                     {diagnostics.installed_models.map(m => (

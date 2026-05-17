@@ -43,7 +43,8 @@ const bn4: TranslationMap = {
   'composio.connect.subdomainInvalid': 'সাবডোমেইন অবৈধ',
   'composio.connect.subdomainRequired': 'চালিয়ে যেতে আপনার Atlassian সাবডোমেইন দিন।',
   'composio.connect.wabaIdLabel': 'WABA ID লেবেল',
-  'composio.connect.wabaIdRequired': 'চালিয়ে যেতে আপনার WhatsApp Business Account ID (WABA ID) দিন।',
+  'composio.connect.wabaIdRequired':
+    'চালিয়ে যেতে আপনার WhatsApp Business Account ID (WABA ID) দিন।',
   'composio.connect.waitingFor': '${} ${toolkit.name} ${}',
   'composio.connect.waitingHint': 'অপেক্ষার হিন্ট',
   'composio.triggers.heading': 'ট্রিগার',
@@ -54,13 +55,15 @@ const bn4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'বামে সরান',
   'conversations.taskKanban.moveRight': 'ডানে সরান',
   'conversations.taskKanban.title': 'টাস্ক',
-  'conversations.toolTimeline.turn': 'টার্ন ${subagent.childIteration}/${subagent.childMaxIterations}',
+  'conversations.toolTimeline.turn':
+    'টার্ন ${subagent.childIteration}/${subagent.childMaxIterations}',
   'conversations.toolTimeline.workerThread': 'ওয়ার্কার থ্রেড',
   'daemon.serviceBlockingGate.body': 'বডি',
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',
   'daemon.serviceBlockingGate.downloadLatest': 'সর্বশেষ ডাউনলোড করুন',
   'daemon.serviceBlockingGate.retryCore': 'আবার চেষ্টা হচ্ছে...',
-  'daemon.serviceBlockingGate.retryFailed': 'আবার চেষ্টা ব্যর্থ। সর্বশেষ অ্যাপ বিল্ড ডাউনলোড করে আবার চেষ্টা করুন।',
+  'daemon.serviceBlockingGate.retryFailed':
+    'আবার চেষ্টা ব্যর্থ। সর্বশেষ অ্যাপ বিল্ড ডাউনলোড করে আবার চেষ্টা করুন।',
   'daemon.serviceBlockingGate.retrying': 'আবার চেষ্টা হচ্ছে...',
   'daemon.serviceBlockingGate.title': 'OpenHuman কোর পাওয়া যাচ্ছে না',
   'home.banners.discordSubtitle': 'Discord সাবটাইটেল',
@@ -83,7 +86,8 @@ const bn4: TranslationMap = {
   'intelligence.memoryChunk.mentioned.chunkOne': 'চাংক একটি',
   'intelligence.memoryChunk.mentioned.chunkOther': 'চাংক অন্যান্য',
   'intelligence.memoryChunk.mentioned.heading': 'm e n t i o n e d',
-  'intelligence.memoryChunk.scoreBars.ariaScore': '${sig.name} স্কোর ${(pct * 100).toFixed(0)} শতাংশ',
+  'intelligence.memoryChunk.scoreBars.ariaScore':
+    '${sig.name} স্কোর ${(pct * 100).toFixed(0)} শতাংশ',
   'intelligence.memoryChunk.scoreBars.atThreshold': 'থ্রেশহোল্ডে',
   'intelligence.memoryChunk.scoreBars.dropped': 'বাদ দেওয়া',
   'intelligence.memoryChunk.scoreBars.heading': 'w h y &nbsp; k e p t',
@@ -157,7 +161,8 @@ const bn4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'LLM বিবরণ',
   'pages.settings.ai.voice': 'ভয়েস',
   'pages.settings.ai.voiceDesc': 'ভয়েস বিবরণ',
-  'pages.settings.aiSection.description': 'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
+  'pages.settings.aiSection.description':
+    'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.features.messagingChannels': 'মেসেজিং চ্যানেল',
   'pages.settings.features.messagingChannelsDesc': 'মেসেজিং চ্যানেলের বিবরণ',
@@ -284,14 +289,17 @@ const bn4: TranslationMap = {
   'settings.autocomplete.appFilter.refreshing': 'রিফ্রেশ হচ্ছে…',
   'settings.autocomplete.appFilter.runtime': 'রানটাইম',
   'settings.autocomplete.appFilter.test': 'পরীক্ষা',
-  'settings.autocomplete.completionStyle.acceptedCompletion': '${String(historyEntries.length)} টি গৃহীত কমপ্লিশন সংরক্ষিত — ভবিষ্যতের পরামর্শ ব্যক্তিগতকৃত করতে ব্যবহৃত।',
-  'settings.autocomplete.completionStyle.acceptedCompletions': '${String(historyEntries.length)} টি গৃহীত কমপ্লিশন সংরক্ষিত — ভবিষ্যতের পরামর্শ ব্যক্তিগতকৃত করতে ব্যবহৃত।',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    '${String(historyEntries.length)} টি গৃহীত কমপ্লিশন সংরক্ষিত — ভবিষ্যতের পরামর্শ ব্যক্তিগতকৃত করতে ব্যবহৃত।',
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    '${String(historyEntries.length)} টি গৃহীত কমপ্লিশন সংরক্ষিত — ভবিষ্যতের পরামর্শ ব্যক্তিগতকৃত করতে ব্যবহৃত।',
   'settings.autocomplete.completionStyle.clearHistory': 'পরিষ্কার হচ্ছে…',
   'settings.autocomplete.completionStyle.clearing': 'পরিষ্কার হচ্ছে…',
   'settings.autocomplete.completionStyle.debounce': 'ডিবাউন্স (ms)',
   'settings.autocomplete.completionStyle.enabled': 'সক্রিয়',
   'settings.autocomplete.completionStyle.maxChars': 'সর্বোচ্চ অক্ষর',
-  'settings.autocomplete.completionStyle.noHistory': 'এখনো কোনো গৃহীত কমপ্লিশন নেই। ব্যক্তিগতকৃত করা শুরু করতে Tab দিয়ে পরামর্শ গ্রহণ করুন।',
+  'settings.autocomplete.completionStyle.noHistory':
+    'এখনো কোনো গৃহীত কমপ্লিশন নেই। ব্যক্তিগতকৃত করা শুরু করতে Tab দিয়ে পরামর্শ গ্রহণ করুন।',
   'settings.autocomplete.completionStyle.overlayTtl': 'ওভারলে TTL (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'ব্যক্তিগতকরণ ইতিহাস',
   'settings.autocomplete.completionStyle.styleExamples': 'স্টাইল উদাহরণ (প্রতি লাইনে একটি)',

@@ -32,10 +32,12 @@ const zhCN2: TranslationMap = {
   'settings.ai.refreshingAll': '刷新全部中...',
   'settings.ai.refreshAll': '刷新所有 AI 配置',
   'settings.notifications.suppressAll': '抑制所有通知',
-  'settings.notifications.suppressAllDesc': '阻止来自嵌入式应用的所有操作系统通知弹窗，不受焦点状态影响。',
+  'settings.notifications.suppressAllDesc':
+    '阻止来自嵌入式应用的所有操作系统通知弹窗，不受焦点状态影响。',
   'settings.notifications.toggleDnd': '切换免打扰',
   'settings.notifications.categories': '类别',
-  'settings.notifications.categoryFooter': '禁用一个类别后，该类新的通知将不再出现在通知中心。已有的通知在被清除前保持可见。',
+  'settings.notifications.categoryFooter':
+    '禁用一个类别后，该类新的通知将不再出现在通知中心。已有的通知在被清除前保持可见。',
   'settings.billing.movedToWeb': '账单已移至网页',
   'settings.billing.openDashboard': '打开账单面板',
   'settings.billing.movedToWebDesc': '订阅变更、支付方式、配额和发票现在在 TinyHumans 网页上管理。',
@@ -73,7 +75,8 @@ const zhCN2: TranslationMap = {
   'connections.walletIdentities': '钱包身份',
   'connections.walletDerived': '从你的恢复短语本地派生，仅作为安全元数据存储。',
   'connections.privacySecurity': '隐私与安全',
-  'connections.privacySecurityDesc': '所有数据和凭据均存储在本地，采用零数据保留政策。你的信息经过加密，绝不会与第三方共享。',
+  'connections.privacySecurityDesc':
+    '所有数据和凭据均存储在本地，采用零数据保留政策。你的信息经过加密，绝不会与第三方共享。',
   'channels.status.connecting': '连接中',
   'channels.status.notConfigured': '未配置',
   'channels.noActiveRoute': '无活跃路由',
@@ -93,7 +96,8 @@ const zhCN2: TranslationMap = {
   'devOptions.token': '令牌',
   'devOptions.tokenNotSet': '未设置 — RPC 将返回 401',
   'devOptions.triggerSentryTest': '触发 Sentry 测试 (staging)',
-  'devOptions.triggerSentryTestDesc': '发送一个带有标签的错误以验证 Sentry 管道。Issue #1072 — 验证后移除。',
+  'devOptions.triggerSentryTestDesc':
+    '发送一个带有标签的错误以验证 Sentry 管道。Issue #1072 — 验证后移除。',
   'devOptions.sendTestEvent': '发送测试事件',
   'devOptions.sending': '发送中…',
   'devOptions.eventSent': '事件已发送',
@@ -104,12 +108,14 @@ const zhCN2: TranslationMap = {
   'mnemonic.phraseSaved': '恢复短语已保存',
   'mnemonic.walletReady': '多链钱包身份已就绪。正在返回设置...',
   'mnemonic.writeDownWords': '按顺序记下这',
-  'mnemonic.wordsInOrder': '个单词，并将其保存在安全的地方。这个短语保护你的本地加密密钥以及你的 EVM、BTC、Solana 和 Tron 钱包身份。',
+  'mnemonic.wordsInOrder':
+    '个单词，并将其保存在安全的地方。这个短语保护你的本地加密密钥以及你的 EVM、BTC、Solana 和 Tron 钱包身份。',
   'mnemonic.cannotRecover': '这个短语一旦丢失将无法恢复，应该完全保留在你的本地设备上。',
   'mnemonic.copyToClipboard': '复制到剪贴板',
   'mnemonic.alreadyHavePhrase': '我已经有恢复短语',
   'mnemonic.consentSaved': '我已保存此短语并同意将其用于本地钱包设置',
-  'mnemonic.enterPhraseToRestore': '在下面输入你的恢复短语以恢复本地钱包身份，或将完整的短语粘贴到任意字段中（新备份为 12 个单词；旧版本的 24 个单词短语仍然有效）。',
+  'mnemonic.enterPhraseToRestore':
+    '在下面输入你的恢复短语以恢复本地钱包身份，或将完整的短语粘贴到任意字段中（新备份为 12 个单词；旧版本的 24 个单词短语仍然有效）。',
   'mnemonic.words': '单词数',
   'mnemonic.validPhrase': '有效的恢复短语',
   'mnemonic.generateNewPhrase': '改为生成新的恢复短语',
@@ -204,7 +210,8 @@ const zhCN2: TranslationMap = {
   'chat.askAgent': '向智能体提问...',
   'chat.sendMessage': '发送消息',
   'composio.triageTitle': '集成触发器',
-  'composio.triageDesc': '启用时，每个传入的 Composio 触发器都会经过 AI 分类步骤，对事件进行分类并可能启动自动化操作——每个触发器使用一个本地 LLM 轮次。如果你更喜欢手动审查，可以全局或按集成禁用。如果环境变量',
+  'composio.triageDesc':
+    '启用时，每个传入的 Composio 触发器都会经过 AI 分类步骤，对事件进行分类并可能启动自动化操作——每个触发器使用一个本地 LLM 轮次。如果你更喜欢手动审查，可以全局或按集成禁用。如果环境变量',
   'composio.disableAllTriage': '禁用所有触发器的 AI 分类',
   'composio.triggersStillRecorded': '触发器仍记录到历史记录中——不运行 LLM 轮次。',
   'composio.disableSpecificIntegrations': '禁用特定集成的 AI 分类',
@@ -219,7 +226,8 @@ const zhCN2: TranslationMap = {
   'localModel.usage': '使用',
   'localModel.usageDesc': '选择哪些子系统在本地模型上运行。未勾选的将使用云端。',
   'localModel.enableRuntime': '启用本地 AI 运行时',
-  'localModel.enableRuntimeDesc': '总开关。默认关闭——Ollama 保持空闲。启用后，树摘要器、屏幕智能和自动补全始终使用本地模型。',
+  'localModel.enableRuntimeDesc':
+    '总开关。默认关闭——Ollama 保持空闲。启用后，树摘要器、屏幕智能和自动补全始终使用本地模型。',
   'localModel.advancedSettings': '高级设置',
   'localModel.debugTitle': '本地模型调试',
   'screenAwareness.debugTitle': '屏幕感知调试',

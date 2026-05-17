@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuCheck, LuCircleAlert } from 'react-icons/lu';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-
 import {
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
@@ -447,9 +446,7 @@ const ProviderKeyDialog = ({
       <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-stone-900">{`${t('settings.ai.connectProvider')} ${label}`}</h3>
-          <p className="mt-0.5 text-xs text-stone-500">
-            {t('settings.ai.apiKeyStoredEncrypted')}
-          </p>
+          <p className="mt-0.5 text-xs text-stone-500">{t('settings.ai.apiKeyStoredEncrypted')}</p>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -655,7 +652,9 @@ const CustomRoutingDialog = ({
       <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-base font-semibold text-stone-900">{t('settings.ai.customRouting')}</h3>
+            <h3 className="text-base font-semibold text-stone-900">
+              {t('settings.ai.customRouting')}
+            </h3>
             <p className="mt-0.5 text-xs text-stone-500">{workload.label}</p>
           </div>
           <button
@@ -681,7 +680,9 @@ const CustomRoutingDialog = ({
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-stone-700">{t('settings.ai.providerLabel')}</label>
+              <label className="text-xs font-medium text-stone-700">
+                {t('settings.ai.providerLabel')}
+              </label>
               <select
                 value={
                   source
@@ -711,7 +712,9 @@ const CustomRoutingDialog = ({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-stone-700">{t('settings.ai.modelLabel')}</label>
+              <label className="text-xs font-medium text-stone-700">
+                {t('settings.ai.modelLabel')}
+              </label>
               {source?.kind === 'local' ? (
                 <select
                   value={model}
@@ -773,33 +776,35 @@ const SaveBar = ({
 }) => {
   const { t } = useT();
   return (
-  <div className="pointer-events-none sticky bottom-3 z-20 flex justify-center px-4">
-    <div className="pointer-events-auto flex w-full items-center gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-float backdrop-blur-md animate-fade-up">
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-amber-50 text-amber-600">
-        <LuCircleAlert className="h-3.5 w-3.5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-stone-900">
-          {changeCount === 1 ? t('settings.ai.unsavedChange') : `${String(changeCount)} ${t('settings.ai.unsavedChanges')}`}
+    <div className="pointer-events-none sticky bottom-3 z-20 flex justify-center px-4">
+      <div className="pointer-events-auto flex w-full items-center gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-float backdrop-blur-md animate-fade-up">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-amber-50 text-amber-600">
+          <LuCircleAlert className="h-3.5 w-3.5" />
         </div>
-        <div className="truncate font-mono text-[10px] text-stone-500">
-          {diffSummary.slice(0, 2).join(' · ')}
-          {diffSummary.length > 2 ? ` · +${diffSummary.length - 2}` : ''}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-stone-900">
+            {changeCount === 1
+              ? t('settings.ai.unsavedChange')
+              : `${String(changeCount)} ${t('settings.ai.unsavedChanges')}`}
+          </div>
+          <div className="truncate font-mono text-[10px] text-stone-500">
+            {diffSummary.slice(0, 2).join(' · ')}
+            {diffSummary.length > 2 ? ` · +${diffSummary.length - 2}` : ''}
+          </div>
         </div>
+        <button
+          onClick={onDiscard}
+          className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50">
+          {t('settings.ai.discard')}
+        </button>
+        <button
+          onClick={onSave}
+          className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-600">
+          <LuCheck className="h-3 w-3" />
+          {t('common.save')}
+        </button>
       </div>
-      <button
-        onClick={onDiscard}
-        className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50">
-        {t('settings.ai.discard')}
-      </button>
-      <button
-        onClick={onSave}
-        className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-600">
-        <LuCheck className="h-3 w-3" />
-        {t('common.save')}
-      </button>
     </div>
-  </div>
   );
 };
 
@@ -877,10 +882,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
           <div className="border-b border-stone-200 pb-2">
-            <h2 className="text-base font-semibold text-stone-900">{t('settings.ai.llmProviders')}</h2>
-            <p className="text-xs text-stone-500 mt-0.5">
-              {t('settings.ai.llmProvidersDesc')}
-            </p>
+            <h2 className="text-base font-semibold text-stone-900">
+              {t('settings.ai.llmProviders')}
+            </h2>
+            <p className="text-xs text-stone-500 mt-0.5">{t('settings.ai.llmProvidersDesc')}</p>
           </div>
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
@@ -995,9 +1000,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
         <div className="space-y-4">
           <div className="border-b border-stone-200 pb-2">
             <h2 className="text-base font-semibold text-stone-900">{t('settings.ai.routing')}</h2>
-            <p className="text-xs text-stone-500 mt-0.5">
-              {t('settings.ai.routingDesc')}
-            </p>
+            <p className="text-xs text-stone-500 mt-0.5">{t('settings.ai.routingDesc')}</p>
           </div>
 
           <section className="space-y-3">
@@ -1043,7 +1046,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             </div>
 
             <div className="text-[11px] text-stone-500">
-              {t('settings.ai.defaultResolvesTo')} <span className="font-mono text-stone-700">OpenHuman</span>.
+              {t('settings.ai.defaultResolvesTo')}{' '}
+              <span className="font-mono text-stone-700">OpenHuman</span>.
             </div>
           </section>
         </div>
@@ -1222,10 +1226,13 @@ const CloudProviderEditor = ({
       <div className="w-full max-w-md rounded-lg border border-stone-200 bg-white shadow-float">
         <div className="border-b border-stone-200 px-4 py-3">
           <div className="text-sm font-semibold text-stone-900">
-            {initial ? `${t('settings.ai.editProvider')} ${initial.label}` : t('settings.ai.addCloudProvider')}
+            {initial
+              ? `${t('settings.ai.editProvider')} ${initial.label}`
+              : t('settings.ai.addCloudProvider')}
           </div>
           <div className="mt-0.5 text-xs text-stone-500">
-            {t('settings.ai.apiKeysEncrypted')} <span className="font-mono">auth-profiles.json</span>.
+            {t('settings.ai.apiKeysEncrypted')}{' '}
+            <span className="font-mono">auth-profiles.json</span>.
           </div>
         </div>
         <div className="space-y-3 px-4 py-3">
@@ -1327,7 +1334,11 @@ const CloudProviderEditor = ({
             }}
             disabled={saving || !endpoint.trim()}
             className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
-            {saving ? t('settings.ai.saving') : initial ? t('settings.ai.saveChanges') : t('settings.ai.addProvider')}
+            {saving
+              ? t('settings.ai.saving')
+              : initial
+                ? t('settings.ai.saveChanges')
+                : t('settings.ai.addProvider')}
           </button>
         </div>
       </div>

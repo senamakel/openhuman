@@ -27,12 +27,12 @@ const CoreJobList = ({
     <section className="rounded-xl border border-stone-200 bg-white">
       <div className="p-4 border-b border-stone-200">
         <h3 className="text-sm font-semibold text-stone-900">{t('settings.cron.jobs.title')}</h3>
-        <p className="text-xs text-stone-500 mt-1">
-          {t('settings.cron.jobs.desc')}
-        </p>
+        <p className="text-xs text-stone-500 mt-1">{t('settings.cron.jobs.desc')}</p>
       </div>
 
-      {loading && <div className="p-4 text-sm text-stone-400">{t('settings.cron.jobs.loading')}</div>}
+      {loading && (
+        <div className="p-4 text-sm text-stone-400">{t('settings.cron.jobs.loading')}</div>
+      )}
 
       {!loading && coreJobs.length === 0 && (
         <div className="p-4 text-sm text-stone-400">{t('settings.cron.jobs.empty')}</div>
@@ -102,21 +102,27 @@ const CoreJobList = ({
                   className="btn btn-sm btn-outline"
                   disabled={coreBusyKey === `core-run:${job.id}`}
                   onClick={() => onRunCoreJob(job.id)}>
-                  {coreBusyKey === `core-run:${job.id}` ? t('settings.cron.jobs.runningNow') : t('subconscious.runNow')}
+                  {coreBusyKey === `core-run:${job.id}`
+                    ? t('settings.cron.jobs.runningNow')
+                    : t('subconscious.runNow')}
                 </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-outline"
                   disabled={coreBusyKey === `core-runs:${job.id}`}
                   onClick={() => onLoadCoreRuns(job.id)}>
-                  {coreBusyKey === `core-runs:${job.id}` ? t('settings.cron.jobs.loadingRuns') : t('settings.cron.jobs.viewRuns')}
+                  {coreBusyKey === `core-runs:${job.id}`
+                    ? t('settings.cron.jobs.loadingRuns')
+                    : t('settings.cron.jobs.viewRuns')}
                 </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-error"
                   disabled={coreBusyKey === `core-remove:${job.id}`}
                   onClick={() => onRemoveCoreJob(job.id)}>
-                  {coreBusyKey === `core-remove:${job.id}` ? t('settings.cron.jobs.removing') : t('common.remove')}
+                  {coreBusyKey === `core-remove:${job.id}`
+                    ? t('settings.cron.jobs.removing')
+                    : t('common.remove')}
                 </button>
               </div>
 

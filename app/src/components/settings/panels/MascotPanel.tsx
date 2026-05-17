@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { useT } from '../../../lib/i18n/I18nContext';
-
 import { BackendMascot } from '../../../features/human/Mascot/backend/BackendMascot';
 import type { MascotDetail, MascotSummary } from '../../../features/human/Mascot/backend/types';
 import { getMascotPalette, type MascotColor } from '../../../features/human/Mascot/mascotPalette';
+import { useT } from '../../../lib/i18n/I18nContext';
 import { fetchMascotList, getCachedMascotDetail } from '../../../services/mascotService';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
@@ -126,9 +125,7 @@ const MascotPanel = () => {
           </h3>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {available.length === 0 ? (
-              <p className="p-4 text-sm text-stone-500">
-                {t('settings.mascot.noColorVariants')}
-              </p>
+              <p className="p-4 text-sm text-stone-500">{t('settings.mascot.noColorVariants')}</p>
             ) : (
               <div
                 className="grid grid-cols-5 gap-3 p-4"
@@ -181,9 +178,7 @@ const MascotPanel = () => {
               <p className="p-4 text-sm text-stone-500">{t('settings.mascot.loadingLibrary')}</p>
             )}
             {backendList && backendList.length === 0 && !backendListError && (
-              <p className="p-4 text-sm text-stone-500">
-                {t('settings.mascot.noCharacters')}
-              </p>
+              <p className="p-4 text-sm text-stone-500">{t('settings.mascot.noCharacters')}</p>
             )}
             {backendList && backendList.length > 0 && (
               <ul className="divide-y divide-stone-100">
@@ -197,7 +192,9 @@ const MascotPanel = () => {
                     }`}>
                     <span>{t('settings.mascot.localDefault')}</span>
                     {selectedMascotId == null && (
-                      <span className="text-[10px] uppercase text-primary-600">{t('settings.mascot.active')}</span>
+                      <span className="text-[10px] uppercase text-primary-600">
+                        {t('settings.mascot.active')}
+                      </span>
                     )}
                   </button>
                 </li>
@@ -221,7 +218,9 @@ const MascotPanel = () => {
                           </span>
                         </span>
                         {active && (
-                          <span className="text-[10px] uppercase text-primary-600">{t('settings.mascot.active')}</span>
+                          <span className="text-[10px] uppercase text-primary-600">
+                            {t('settings.mascot.active')}
+                          </span>
                         )}
                       </button>
                     </li>

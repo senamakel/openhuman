@@ -1,15 +1,10 @@
 import createDebug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
-
 import { useUser } from '../../hooks/useUser';
+import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
-import {
-  type CreditBalance,
-  creditsApi,
-  type RedeemedCoupon,
-} from '../../services/api/creditsApi';
+import { type CreditBalance, creditsApi, type RedeemedCoupon } from '../../services/api/creditsApi';
 
 const log = createDebug('openhuman:rewards-coupons');
 
@@ -147,9 +142,7 @@ const RewardsCouponSection = () => {
       <section className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6 space-y-5">
         <div className="space-y-2">
           <h2 className="text-2xl font-semibold text-stone-900">{t('rewards.coupon.title')}</h2>
-          <p className="max-w-2xl text-sm text-stone-600">
-            {t('rewards.coupon.subtitle')}
-          </p>
+          <p className="max-w-2xl text-sm text-stone-600">{t('rewards.coupon.subtitle')}</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -224,7 +217,9 @@ const RewardsCouponSection = () => {
       <section className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6 space-y-5">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-stone-900">{t('rewards.coupon.recentRedemptions')}</h3>
+            <h3 className="text-sm font-semibold text-stone-900">
+              {t('rewards.coupon.recentRedemptions')}
+            </h3>
             <button
               type="button"
               onClick={() => void loadCouponState()}

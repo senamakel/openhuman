@@ -1,5 +1,5 @@
-import { useT } from '../../lib/i18n/I18nContext';
 import type { WebhookActivityEntry } from '../../features/webhooks/types';
+import { useT } from '../../lib/i18n/I18nContext';
 
 interface WebhookActivityProps {
   activity: WebhookActivityEntry[];
@@ -35,9 +35,7 @@ export default function WebhookActivity({ activity }: WebhookActivityProps) {
     return (
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-stone-900">{t('webhooks.activity.title')}</h3>
-        <p className="text-sm text-stone-500 text-center py-6">
-          {t('webhooks.activity.empty')}
-        </p>
+        <p className="text-sm text-stone-500 text-center py-6">{t('webhooks.activity.empty')}</p>
       </div>
     );
   }

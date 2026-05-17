@@ -40,7 +40,9 @@ const AppFilterSection = ({
   return (
     <>
       <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.autocomplete.appFilter.runtime')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.autocomplete.appFilter.runtime')}
+        </h3>
         <div className="text-sm text-stone-700 space-y-1">
           <div>Platform supported: {status?.platform_supported ? 'yes' : 'no'}</div>
           <div>Enabled: {status?.enabled ? 'yes' : 'no'}</div>
@@ -58,7 +60,9 @@ const AppFilterSection = ({
             onClick={onRefreshStatus}
             disabled={isLoading}
             className="rounded-lg border border-stone-300 bg-stone-100 px-3 py-2 text-sm text-stone-700 disabled:opacity-50">
-            {isLoading ? t('settings.autocomplete.appFilter.refreshing') : t('settings.autocomplete.appFilter.refreshStatus')}
+            {isLoading
+              ? t('settings.autocomplete.appFilter.refreshing')
+              : t('settings.autocomplete.appFilter.refreshStatus')}
           </button>
           <button
             type="button"
@@ -78,9 +82,13 @@ const AppFilterSection = ({
       </section>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.autocomplete.appFilter.test')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.autocomplete.appFilter.test')}
+        </h3>
         <div className="space-y-1">
-          <div className="text-xs text-stone-600">{t('settings.autocomplete.appFilter.contextOverride')}</div>
+          <div className="text-xs text-stone-600">
+            {t('settings.autocomplete.appFilter.contextOverride')}
+          </div>
           <textarea
             value={contextOverride}
             onChange={event => onSetContextOverride(event.target.value)}
@@ -117,7 +125,9 @@ const AppFilterSection = ({
 
       <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">{t('settings.autocomplete.appFilter.liveLogs')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900">
+            {t('settings.autocomplete.appFilter.liveLogs')}
+          </h3>
           <button
             type="button"
             onClick={onClearLogs}

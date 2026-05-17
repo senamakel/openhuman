@@ -13,9 +13,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useT } from '../lib/i18n/I18nContext';
-
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
+import { useT } from '../lib/i18n/I18nContext';
 import {
   ensureNotificationPermission,
   getNotificationPermissionState,
@@ -127,9 +126,7 @@ const MessagingSetupBridge = ({ onClose }: { onClose: () => void }) => {
         <div
           className="rounded-2xl bg-white p-6 text-sm text-stone-700 shadow-xl max-w-sm"
           onClick={e => e.stopPropagation()}>
-          <p>
-            {t('app.openhumanLink.telegramUnavailable')}
-          </p>
+          <p>{t('app.openhumanLink.telegramUnavailable')}</p>
           <div className="mt-3 flex justify-end">
             <button
               type="button"
@@ -182,9 +179,7 @@ function renderBody(path: string, close: () => void, t: (k: string) => string) {
     default:
       return (
         <div className="space-y-3 text-sm text-stone-700">
-          <p>
-            {t('app.openhumanLink.defaultBody')}
-          </p>
+          <p>{t('app.openhumanLink.defaultBody')}</p>
           <DoneFooter close={close} />
         </div>
       );
@@ -259,9 +254,7 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
 
   return (
     <div className="space-y-4 text-sm text-stone-700">
-      <p>
-        {t('app.openhumanLink.notifications.intro')}
-      </p>
+      <p>{t('app.openhumanLink.notifications.intro')}</p>
       {permissionState === 'denied' && (
         <div className="rounded-xl border border-coral-200 bg-coral-50 p-3 text-xs text-coral-700">
           {t('app.openhumanLink.notifications.blocked')}
@@ -290,11 +283,13 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
             : t('app.openhumanLink.notifications.send')}
       </button>
       {status === 'sent' && (
-        <p className="text-xs text-sage-700">
-          {t('app.openhumanLink.notifications.sent')}
+        <p className="text-xs text-sage-700">{t('app.openhumanLink.notifications.sent')}</p>
+      )}
+      {status === 'error' && (
+        <p className="text-xs text-coral-600">
+          {t('app.openhumanLink.notifications.sendFailed').replace('{error}', error ?? '')}
         </p>
       )}
-      {status === 'error' && <p className="text-xs text-coral-600">{t('app.openhumanLink.notifications.sendFailed').replace('{error}', error ?? '')}</p>}
       <DoneFooter close={close} />
     </div>
   );
@@ -307,11 +302,11 @@ const BillingBody = ({ close }: { close: () => void }) => {
   return (
     <div className="space-y-4 text-sm text-stone-700">
       <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-        <p className="text-xs uppercase tracking-wide text-stone-500">{t('app.openhumanLink.billing.trialCredit')}</p>
-        <p className="mt-1 text-2xl font-semibold text-stone-900">$1.00</p>
-        <p className="mt-1 text-xs text-stone-500">
-          {t('app.openhumanLink.billing.trialDesc')}
+        <p className="text-xs uppercase tracking-wide text-stone-500">
+          {t('app.openhumanLink.billing.trialCredit')}
         </p>
+        <p className="mt-1 text-2xl font-semibold text-stone-900">$1.00</p>
+        <p className="mt-1 text-xs text-stone-500">{t('app.openhumanLink.billing.trialDesc')}</p>
       </div>
       <button
         type="button"
@@ -334,9 +329,7 @@ const DiscordBody = ({ close }: { close: () => void }) => {
   const { t } = useT();
   return (
     <div className="space-y-4 text-sm text-stone-700">
-      <p>
-        {t('app.openhumanLink.discord.intro')}
-      </p>
+      <p>{t('app.openhumanLink.discord.intro')}</p>
       <ul className="space-y-1.5 text-xs text-stone-600 pl-1">
         <li className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
@@ -486,9 +479,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
 
   return (
     <div className="space-y-4 text-sm text-stone-700">
-      <p>
-        {t('app.openhumanLink.accounts.intro')}
-      </p>
+      <p>{t('app.openhumanLink.accounts.intro')}</p>
       <div className="space-y-2">
         {providerDescriptors.map(p => {
           const acct = accountByProvider.get(p.id);
@@ -531,9 +522,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
           );
         })}
       </div>
-      <p className="text-xs text-stone-400">
-        {t('app.openhumanLink.accounts.webviewNote')}
-      </p>
+      <p className="text-xs text-stone-400">{t('app.openhumanLink.accounts.webviewNote')}</p>
       <DoneFooter close={close} onDone={handleDone} doneLabel={doneLabel} />
     </div>
   );
@@ -556,20 +545,20 @@ const DoneFooter = ({
   const resolvedDone = doneLabel ?? t('app.openhumanLink.done');
   const resolvedSkip = skipLabel ?? t('app.openhumanLink.skipForNow');
   return (
-  <div className="flex items-center justify-between gap-3 pt-1">
-    <button
-      type="button"
-      onClick={close}
-      className="text-xs font-medium text-stone-500 hover:text-stone-800">
-      {resolvedSkip}
-    </button>
-    <button
-      type="button"
-      onClick={onDone ?? close}
-      className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
-      {resolvedDone}
-    </button>
-  </div>
+    <div className="flex items-center justify-between gap-3 pt-1">
+      <button
+        type="button"
+        onClick={close}
+        className="text-xs font-medium text-stone-500 hover:text-stone-800">
+        {resolvedSkip}
+      </button>
+      <button
+        type="button"
+        onClick={onDone ?? close}
+        className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
+        {resolvedDone}
+      </button>
+    </div>
   );
 };
 

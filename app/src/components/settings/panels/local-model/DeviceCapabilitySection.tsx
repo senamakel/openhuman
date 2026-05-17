@@ -76,7 +76,10 @@ const DeviceCapabilitySection = ({
       setApplySuccess(result);
       onPresetApplied?.(result);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('settings.localModel.deviceCapability.failedToApplyPreset');
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t('settings.localModel.deviceCapability.failedToApplyPreset');
       setApplyError(msg);
     } finally {
       setApplying(null);
@@ -85,7 +88,9 @@ const DeviceCapabilitySection = ({
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.deviceCapability.modelTier')}</h3>
+      <h3 className="text-sm font-semibold text-stone-900">
+        {t('settings.localModel.deviceCapability.modelTier')}
+      </h3>
 
       {presetsLoading && !presetsData && (
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 text-sm text-stone-500 animate-pulse">
@@ -102,26 +107,36 @@ const DeviceCapabilitySection = ({
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-3">
           <div className="grid grid-cols-3 gap-3 text-xs">
             <div>
-              <div className="text-stone-500 uppercase tracking-wide">{t('settings.localModel.deviceCapability.ram')}</div>
+              <div className="text-stone-500 uppercase tracking-wide">
+                {t('settings.localModel.deviceCapability.ram')}
+              </div>
               <div className="text-stone-800 mt-0.5 font-medium">
                 {formatRamGb(presetsData.device.total_ram_bytes)}
               </div>
             </div>
             <div>
-              <div className="text-stone-500 uppercase tracking-wide">{t('settings.localModel.deviceCapability.cpu')}</div>
+              <div className="text-stone-500 uppercase tracking-wide">
+                {t('settings.localModel.deviceCapability.cpu')}
+              </div>
               <div
                 className="text-stone-800 mt-0.5 font-medium truncate"
                 title={presetsData.device.cpu_brand}>
-                {t('settings.localModel.deviceCapability.cores').replace('{count}', String(presetsData.device.cpu_count))}
+                {t('settings.localModel.deviceCapability.cores').replace(
+                  '{count}',
+                  String(presetsData.device.cpu_count)
+                )}
               </div>
             </div>
             <div>
-              <div className="text-stone-500 uppercase tracking-wide">{t('settings.localModel.deviceCapability.gpu')}</div>
+              <div className="text-stone-500 uppercase tracking-wide">
+                {t('settings.localModel.deviceCapability.gpu')}
+              </div>
               <div
                 className="text-stone-800 mt-0.5 font-medium truncate"
                 title={presetsData.device.gpu_description ?? undefined}>
                 {presetsData.device.has_gpu
-                  ? (presetsData.device.gpu_description ?? t('settings.localModel.deviceCapability.detected'))
+                  ? (presetsData.device.gpu_description ??
+                    t('settings.localModel.deviceCapability.detected'))
                   : t('settings.localModel.deviceCapability.notDetected')}
               </div>
             </div>
@@ -144,12 +159,13 @@ const DeviceCapabilitySection = ({
                 <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
                 <div className="text-sm font-semibold text-blue-900">
                   {t('settings.localModel.deviceCapability.installingOllama')}
-                  {installState === 'downloading' ? ` (${t('settings.localModel.deviceCapability.downloadingModels')})` : '…'}
+                  {installState === 'downloading'
+                    ? ` (${t('settings.localModel.deviceCapability.downloadingModels')})`
+                    : '…'}
                 </div>
               </div>
               <div className="text-xs text-blue-800">
-                {installWarning ??
-                  t('settings.localModel.deviceCapability.downloadingSetupDesc')}
+                {installWarning ?? t('settings.localModel.deviceCapability.downloadingSetupDesc')}
               </div>
               <div className="h-1.5 rounded-full bg-blue-200 overflow-hidden">
                 <div className="h-full w-1/3 bg-blue-500 animate-pulse" />
@@ -157,10 +173,11 @@ const DeviceCapabilitySection = ({
             </>
           ) : installFailed ? (
             <>
-              <div className="text-sm font-semibold text-red-900">{t('settings.localModel.deviceCapability.installFailed')}</div>
+              <div className="text-sm font-semibold text-red-900">
+                {t('settings.localModel.deviceCapability.installFailed')}
+              </div>
               <div className="text-xs text-red-800">
-                {installWarning ??
-                  t('settings.localModel.deviceCapability.installFailedDesc')}
+                {installWarning ?? t('settings.localModel.deviceCapability.installFailedDesc')}
               </div>
               {installError && (
                 <pre className="max-h-40 overflow-auto rounded bg-red-100 border border-red-200 p-2 text-[10px] text-red-700 leading-tight whitespace-pre-wrap break-words">
@@ -174,7 +191,9 @@ const DeviceCapabilitySection = ({
                     onClick={onTriggerOllamaInstall}
                     disabled={isTriggeringInstall}
                     className="px-3 py-1.5 text-xs rounded-md bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-medium">
-                    {isTriggeringInstall ? t('settings.localModel.deviceCapability.retrying') : t('settings.localModel.deviceCapability.retryInstall')}
+                    {isTriggeringInstall
+                      ? t('settings.localModel.deviceCapability.retrying')
+                      : t('settings.localModel.deviceCapability.retryInstall')}
                   </button>
                 )}
                 <a
@@ -189,7 +208,9 @@ const DeviceCapabilitySection = ({
           ) : (
             <>
               <div className="text-xs text-amber-800">
-                <span className="font-semibold text-amber-900">{t('settings.localModel.deviceCapability.installFirst')}</span>{' '}
+                <span className="font-semibold text-amber-900">
+                  {t('settings.localModel.deviceCapability.installFirst')}
+                </span>{' '}
                 {t('settings.localModel.deviceCapability.installFirstDesc')}
               </div>
               <div className="flex items-center gap-2">
@@ -199,7 +220,9 @@ const DeviceCapabilitySection = ({
                     onClick={onTriggerOllamaInstall}
                     disabled={isTriggeringInstall}
                     className="px-3 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium">
-                    {isTriggeringInstall ? t('settings.localModel.deviceCapability.starting') : t('settings.localModel.status.installOllama')}
+                    {isTriggeringInstall
+                      ? t('settings.localModel.deviceCapability.starting')
+                      : t('settings.localModel.status.installOllama')}
                   </button>
                 )}
                 <a
@@ -229,7 +252,9 @@ const DeviceCapabilitySection = ({
             } ${applying !== null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-stone-900">{t('settings.localModel.deviceCapability.disabled')}</span>
+                <span className="text-sm font-semibold text-stone-900">
+                  {t('settings.localModel.deviceCapability.disabled')}
+                </span>
                 {isDisabledActive && (
                   <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary-50 text-primary-600 uppercase tracking-wide">
                     {t('settings.localModel.deviceCapability.active')}
@@ -258,7 +283,9 @@ const DeviceCapabilitySection = ({
                 key={preset.tier}
                 onClick={() => void handleApply(preset.tier)}
                 disabled={applying !== null || locked}
-                title={locked ? t('settings.localModel.deviceCapability.installOllamaFirst') : undefined}
+                title={
+                  locked ? t('settings.localModel.deviceCapability.installOllamaFirst') : undefined
+                }
                 className={`w-full text-left rounded-lg border p-3 transition-colors ${
                   isCurrent
                     ? 'border-primary-400 bg-primary-50'
@@ -323,9 +350,12 @@ const DeviceCapabilitySection = ({
             ? t('settings.localModel.deviceCapability.localAiDisabled')
             : t('settings.localModel.deviceCapability.appliedTier')
                 .replace('{tier}', (applySuccess ?? presetSuccess)?.applied_tier ?? '')
-                .replace('{model}', (applySuccess ?? presetSuccess)?.chat_model_id
-                  ? `: ${(applySuccess ?? presetSuccess)?.chat_model_id}`
-                  : '')}
+                .replace(
+                  '{model}',
+                  (applySuccess ?? presetSuccess)?.chat_model_id
+                    ? `: ${(applySuccess ?? presetSuccess)?.chat_model_id}`
+                    : ''
+                )}
         </div>
       )}
     </section>

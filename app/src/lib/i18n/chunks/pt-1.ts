@@ -65,7 +65,8 @@ const pt1: TranslationMap = {
   'settings.aiModels': 'IA e Modelos',
   'settings.aiModelsDesc': 'Configuração de modelos de IA local, downloads e provedor LLM',
   'settings.ai': 'Configuração de IA',
-  'settings.aiDesc': 'Provedores na nuvem, modelos Ollama locais e roteamento por carga de trabalho',
+  'settings.aiDesc':
+    'Provedores na nuvem, modelos Ollama locais e roteamento por carga de trabalho',
   'settings.billingUsage': 'Cobrança e Uso',
   'settings.billingUsageDesc': 'Plano de assinatura, créditos e métodos de pagamento',
   'settings.rewards': 'Recompensas',
@@ -75,7 +76,8 @@ const pt1: TranslationMap = {
   'settings.about': 'Sobre',
   'settings.aboutDesc': 'Versão do app e atualizações de software',
   'settings.developerOptions': 'Avançado',
-  'settings.developerOptionsDesc': 'Configuração de IA, canais de mensagens, ferramentas, diagnósticos e painéis de depuração',
+  'settings.developerOptionsDesc':
+    'Configuração de IA, canais de mensagens, ferramentas, diagnósticos e painéis de depuração',
   'settings.clearAppData': 'Limpar Dados do App',
   'settings.clearAppDataDesc': 'Sair e excluir permanentemente todos os dados locais do app',
   'settings.logOut': 'Sair',
@@ -95,7 +97,8 @@ const pt1: TranslationMap = {
   'settings.notifications.doNotDisturb': 'Não Perturbe',
   'settings.notifications.doNotDisturbDesc': 'Pausar todas as notificações por um período definido',
   'settings.notifications.channelControls': 'Controles por Canal',
-  'settings.notifications.channelControlsDesc': 'Configurar preferências de notificação para cada canal',
+  'settings.notifications.channelControlsDesc':
+    'Configurar preferências de notificação para cada canal',
   'settings.features.screenAwareness': 'Reconhecimento de Tela',
   'settings.features.screenAwarenessDesc': 'Deixar o assistente ver sua janela ativa',
   'settings.features.messaging': 'Mensagens',
@@ -107,7 +110,8 @@ const pt1: TranslationMap = {
   'settings.ai.llmProvider': 'Provedor LLM',
   'settings.ai.llmProviderDesc': 'Escolher e configurar seu provedor de IA',
   'clearData.title': 'Limpar Dados do App',
-  'clearData.warning': 'Isso vai desconectar você e excluir permanentemente os dados locais do app, incluindo:',
+  'clearData.warning':
+    'Isso vai desconectar você e excluir permanentemente os dados locais do app, incluindo:',
   'clearData.bulletSettings': 'Configurações do app e conversas',
   'clearData.bulletCache': 'Todos os dados de cache de integração local',
   'clearData.bulletWorkspace': 'Dados do espaço de trabalho',
@@ -116,9 +120,11 @@ const pt1: TranslationMap = {
   'clearData.clearing': 'Limpando dados do app...',
   'clearData.failed': 'Falha ao limpar dados e sair. Por favor, tente novamente.',
   'clearData.failedLogout': 'Falha ao sair. Por favor, tente novamente.',
-  'clearData.failedPersist': 'Falha ao limpar o estado persistido do app. Por favor, tente novamente.',
+  'clearData.failedPersist':
+    'Falha ao limpar o estado persistido do app. Por favor, tente novamente.',
   'welcome.title': 'Bem-vindo ao OpenHuman',
-  'welcome.subtitle': 'Sua super inteligência artificial pessoal. Privada, simples e extremamente poderosa.',
+  'welcome.subtitle':
+    'Sua super inteligência artificial pessoal. Privada, simples e extremamente poderosa.',
   'welcome.connectPrompt': 'Configurar URL de RPC (Avançado)',
   'welcome.selectRuntime': 'Selecionar um Runtime',
   'welcome.urlPlaceholder': 'http://localhost:8089',
@@ -129,10 +135,14 @@ const pt1: TranslationMap = {
   'home.greetingAfternoon': 'Boa tarde',
   'home.greetingEvening': 'Boa noite',
   'home.askAssistant': 'Pergunte qualquer coisa ao seu assistente...',
-  'home.statusOk': 'Seu dispositivo está conectado. Mantenha o app aberto para manter a conexão ativa. Envie uma mensagem ao seu agente com o botão abaixo.',
-  'home.statusBackendOnly': 'Reconectando ao backend… seu agente estará disponível novamente em breve.',
-  'home.statusCoreUnreachable': 'O processo em segundo plano do OpenHuman não está respondendo. Ele pode ter travado ou falhado ao iniciar.',
-  'home.statusInternetOffline': 'Seu dispositivo está offline agora. Verifique sua rede ou reinicie o app para reconectar.',
+  'home.statusOk':
+    'Seu dispositivo está conectado. Mantenha o app aberto para manter a conexão ativa. Envie uma mensagem ao seu agente com o botão abaixo.',
+  'home.statusBackendOnly':
+    'Reconectando ao backend… seu agente estará disponível novamente em breve.',
+  'home.statusCoreUnreachable':
+    'O processo em segundo plano do OpenHuman não está respondendo. Ele pode ter travado ou falhado ao iniciar.',
+  'home.statusInternetOffline':
+    'Seu dispositivo está offline agora. Verifique sua rede ou reinicie o app para reconectar.',
   'home.restartCore': 'Reiniciar Core',
   'home.restartingCore': 'Reiniciando o core…',
   'chat.newThread': 'Nova conversa',
@@ -162,7 +172,8 @@ const pt1: TranslationMap = {
   'memory.title': 'Memória',
   'memory.search': 'Pesquisar memórias...',
   'memory.noResults': 'Nenhuma memória encontrada',
-  'memory.empty': 'Nenhuma memória ainda. As memórias são criadas automaticamente conforme você interage.',
+  'memory.empty':
+    'Nenhuma memória ainda. As memórias são criadas automaticamente conforme você interage.',
   'memory.tab.memory': 'Memória',
   'memory.tab.subconscious': 'Subconsciente',
   'memory.tab.dreams': 'Sonhos',
@@ -181,7 +192,8 @@ const pt1: TranslationMap = {
   'rewards.copyCode': 'Copiar código',
   'rewards.share': 'Compartilhar',
   'onboarding.welcome': 'Olá. Eu sou o OpenHuman.',
-  'onboarding.welcomeDesc': 'Seu assistente de IA superinteligente que roda no seu computador. Privado, simples e extremamente poderoso.',
+  'onboarding.welcomeDesc':
+    'Seu assistente de IA superinteligente que roda no seu computador. Privado, simples e extremamente poderoso.',
   'onboarding.context': 'Coleta de Contexto',
   'onboarding.contextDesc': 'Conecte as ferramentas e serviços que você usa todos os dias.',
   'onboarding.localAI': 'IA Local',
@@ -195,7 +207,8 @@ const pt1: TranslationMap = {
   'onboarding.skip': 'Pular',
   'onboarding.getStarted': 'Começar',
   'onboarding.runtimeChoice.title': 'Como você gostaria de rodar o OpenHuman?',
-  'onboarding.runtimeChoice.subtitle': 'Escolha a configuração que melhor se encaixa para você. Você pode alterar isso depois nas Configurações.',
+  'onboarding.runtimeChoice.subtitle':
+    'Escolha a configuração que melhor se encaixa para você. Você pode alterar isso depois nas Configurações.',
   'onboarding.runtimeChoice.cloud.title': 'Simples',
   'onboarding.runtimeChoice.cloud.tagline': 'Deixe o OpenHuman gerenciar tudo para você.',
   'onboarding.runtimeChoice.cloud.f1': 'Segurança integrada',
@@ -204,7 +217,8 @@ const pt1: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f4': 'Sem chaves de API para gerenciar',
   'onboarding.runtimeChoice.cloud.f5': 'Simples de configurar',
   'onboarding.runtimeChoice.custom.title': 'Personalizado',
-  'onboarding.runtimeChoice.custom.tagline': 'Traga suas próprias chaves. Controle total do que está usando.',
+  'onboarding.runtimeChoice.custom.tagline':
+    'Traga suas próprias chaves. Controle total do que está usando.',
   'onboarding.runtimeChoice.custom.f1': 'Você precisará de chaves de API para quase tudo',
   'onboarding.runtimeChoice.custom.f2': 'Reutiliza serviços que você já paga',
   'onboarding.runtimeChoice.custom.f3': 'Pode ser gratuito se você rodar tudo localmente',
@@ -215,12 +229,14 @@ const pt1: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'Continuar com Personalizado',
   'onboarding.runtimeChoice.recommended': 'Recomendado',
   'onboarding.apiKeys.title': 'Vamos Adicionar Suas Chaves de API',
-  'onboarding.apiKeys.subtitle': 'Você pode colá-las agora ou pular e adicioná-las depois em Configurações › IA. As chaves são armazenadas neste dispositivo, criptografadas em repouso.',
+  'onboarding.apiKeys.subtitle':
+    'Você pode colá-las agora ou pular e adicioná-las depois em Configurações › IA. As chaves são armazenadas neste dispositivo, criptografadas em repouso.',
   'onboarding.apiKeys.openaiLabel': 'Chave de API OpenAI',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'Chave de API Anthropic',
   'onboarding.apiKeys.anthropicPlaceholder': 'sk-ant-...',
-  'onboarding.apiKeys.saveError': 'Não foi possível salvar essa chave. Verifique-a e tente novamente.',
+  'onboarding.apiKeys.saveError':
+    'Não foi possível salvar essa chave. Verifique-a e tente novamente.',
   'onboarding.apiKeys.skipForNow': 'Pular por enquanto',
   'onboarding.apiKeys.continue': 'Salvar e continuar',
   'onboarding.apiKeys.saving': 'Salvando…',
@@ -238,28 +254,42 @@ const pt1: TranslationMap = {
   'onboarding.custom.continue': 'Continuar',
   'onboarding.custom.back': 'Voltar',
   'onboarding.custom.finish': 'Concluir Configuração',
-  'onboarding.custom.configureLater': 'Você pode terminar de configurar isso após o onboarding. Vamos te levar à página de Configurações correspondente quando terminar.',
+  'onboarding.custom.configureLater':
+    'Você pode terminar de configurar isso após o onboarding. Vamos te levar à página de Configurações correspondente quando terminar.',
   'onboarding.custom.openSettings': 'Abrir nas Configurações',
   'onboarding.custom.inference.title': 'Inferência (Texto)',
-  'onboarding.custom.inference.subtitle': 'Qual modelo de linguagem deve responder suas perguntas e executar seus agentes?',
-  'onboarding.custom.inference.defaultDesc': 'O OpenHuman direciona cada carga de trabalho para um modelo padrão adequado. Sem chaves, sem configuração.',
-  'onboarding.custom.inference.configureDesc': 'Traga sua própria chave OpenAI ou Anthropic. Usamos para todas as cargas de trabalho baseadas em texto.',
+  'onboarding.custom.inference.subtitle':
+    'Qual modelo de linguagem deve responder suas perguntas e executar seus agentes?',
+  'onboarding.custom.inference.defaultDesc':
+    'O OpenHuman direciona cada carga de trabalho para um modelo padrão adequado. Sem chaves, sem configuração.',
+  'onboarding.custom.inference.configureDesc':
+    'Traga sua própria chave OpenAI ou Anthropic. Usamos para todas as cargas de trabalho baseadas em texto.',
   'onboarding.custom.voice.title': 'Voz',
   'onboarding.custom.voice.subtitle': 'Fala para texto e texto para fala no modo de voz.',
-  'onboarding.custom.voice.defaultDesc': 'O OpenHuman vem com STT/TTS gerenciado que funciona sem configuração.',
-  'onboarding.custom.voice.configureDesc': 'Use seu próprio ElevenLabs / OpenAI Whisper / etc. Configure em Configurações › Voz.',
+  'onboarding.custom.voice.defaultDesc':
+    'O OpenHuman vem com STT/TTS gerenciado que funciona sem configuração.',
+  'onboarding.custom.voice.configureDesc':
+    'Use seu próprio ElevenLabs / OpenAI Whisper / etc. Configure em Configurações › Voz.',
   'onboarding.custom.oauth.title': 'Conexões (OAuth)',
-  'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion e outros serviços conectados que precisam de OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'O OpenHuman usa um espaço de trabalho Composio gerenciado. Um clique para conectar cada serviço depois.',
-  'onboarding.custom.oauth.configureDesc': 'Traga sua própria conta Composio / chave de API. Configure em Configurações › Conexões.',
+  'onboarding.custom.oauth.subtitle':
+    'Gmail, Slack, Notion e outros serviços conectados que precisam de OAuth.',
+  'onboarding.custom.oauth.defaultDesc':
+    'O OpenHuman usa um espaço de trabalho Composio gerenciado. Um clique para conectar cada serviço depois.',
+  'onboarding.custom.oauth.configureDesc':
+    'Traga sua própria conta Composio / chave de API. Configure em Configurações › Conexões.',
   'onboarding.custom.search.title': 'Pesquisa na Web',
   'onboarding.custom.search.subtitle': 'Como o OpenHuman pesquisa na web em seu nome.',
-  'onboarding.custom.search.defaultDesc': 'O OpenHuman usa um backend de pesquisa gerenciado. Sem chaves necessárias.',
-  'onboarding.custom.search.configureDesc': 'Traga sua própria chave de provedor de pesquisa (Tavily, Brave, etc.). Configure em Configurações › Ferramentas.',
+  'onboarding.custom.search.defaultDesc':
+    'O OpenHuman usa um backend de pesquisa gerenciado. Sem chaves necessárias.',
+  'onboarding.custom.search.configureDesc':
+    'Traga sua própria chave de provedor de pesquisa (Tavily, Brave, etc.). Configure em Configurações › Ferramentas.',
   'onboarding.custom.memory.title': 'Memória',
-  'onboarding.custom.memory.subtitle': 'Como o OpenHuman se lembra do seu contexto, preferências e conversas anteriores.',
-  'onboarding.custom.memory.defaultDesc': 'O OpenHuman gerencia o armazenamento e a recuperação de memória automaticamente. Sem nada para configurar.',
-  'onboarding.custom.memory.configureDesc': 'Inspecione, exporte ou limpe a memória você mesmo. Configure em Configurações › Memória.',
+  'onboarding.custom.memory.subtitle':
+    'Como o OpenHuman se lembra do seu contexto, preferências e conversas anteriores.',
+  'onboarding.custom.memory.defaultDesc':
+    'O OpenHuman gerencia o armazenamento e a recuperação de memória automaticamente. Sem nada para configurar.',
+  'onboarding.custom.memory.configureDesc':
+    'Inspecione, exporte ou limpe a memória você mesmo. Configure em Configurações › Memória.',
   'accounts.addAccount': 'Adicionar Conta',
   'accounts.manageAccounts': 'Gerenciar Contas',
   'accounts.noAccounts': 'Nenhuma conta conectada',
@@ -296,7 +326,8 @@ const pt1: TranslationMap = {
   'devOptions.diagnostics': 'Diagnósticos',
   'devOptions.diagnosticsDesc': 'Saúde do sistema, logs e métricas de desempenho',
   'devOptions.debugPanels': 'Painéis de Depuração',
-  'devOptions.debugPanelsDesc': 'Flags de funcionalidades, inspeção de estado e ferramentas de depuração',
+  'devOptions.debugPanelsDesc':
+    'Flags de funcionalidades, inspeção de estado e ferramentas de depuração',
   'devOptions.webhooks': 'Webhooks',
   'devOptions.webhooksDesc': 'Configurar e testar integrações de webhook',
   'devOptions.memoryInspection': 'Inspeção de Memória',
@@ -316,11 +347,13 @@ const pt1: TranslationMap = {
   'misc.updateLater': 'Depois',
   'misc.downloading': 'Baixando...',
   'misc.installing': 'Instalando...',
-  'misc.beta': 'O OpenHuman está em beta inicial. Sinta-se à vontade para compartilhar feedback ou reportar bugs que encontrar — cada relato nos ajuda a melhorar mais rápido.',
+  'misc.beta':
+    'O OpenHuman está em beta inicial. Sinta-se à vontade para compartilhar feedback ou reportar bugs que encontrar — cada relato nos ajuda a melhorar mais rápido.',
   'misc.betaFeedback': 'Enviar feedback',
   'mnemonic.title': 'Frase de Recuperação',
   'mnemonic.warning': 'Anote estas palavras em ordem e guarde-as em um lugar seguro.',
-  'mnemonic.copyWarning': 'Nunca compartilhe sua frase de recuperação. Qualquer pessoa com essas palavras pode acessar sua conta.',
+  'mnemonic.copyWarning':
+    'Nunca compartilhe sua frase de recuperação. Qualquer pessoa com essas palavras pode acessar sua conta.',
   'mnemonic.copied': 'Frase de recuperação copiada para a área de transferência',
   'mnemonic.reveal': 'Revelar frase',
   'mnemonic.hidden': 'Frase de recuperação está oculta',
@@ -329,18 +362,23 @@ const pt1: TranslationMap = {
   'privacy.empty': 'Nenhuma transferência de dados externa detectada.',
   'privacy.whatLeavesComputer': 'O que sai do seu computador',
   'privacy.loading': 'Carregando detalhes de privacidade...',
-  'privacy.loadError': 'Não foi possível carregar a lista de privacidade em tempo real. Os controles de análise abaixo ainda funcionam.',
+  'privacy.loadError':
+    'Não foi possível carregar a lista de privacidade em tempo real. Os controles de análise abaixo ainda funcionam.',
   'privacy.noCapabilities': 'Nenhuma funcionalidade divulga atualmente movimentação de dados.',
   'privacy.sentTo': 'Enviado para',
   'privacy.leavesDevice': 'Sai do dispositivo',
   'privacy.staysLocal': 'Fica local',
   'privacy.anonymizedAnalytics': 'Análises Anonimizadas',
   'privacy.shareAnonymizedData': 'Compartilhar Dados de Uso Anonimizados',
-  'privacy.shareAnonymizedDataDesc': 'Ajude a melhorar o OpenHuman compartilhando relatórios de falhas e análises de uso anônimas. Todos os dados são totalmente anonimizados — nenhum dado pessoal, mensagem, chave de carteira ou informação de sessão é coletado.',
+  'privacy.shareAnonymizedDataDesc':
+    'Ajude a melhorar o OpenHuman compartilhando relatórios de falhas e análises de uso anônimas. Todos os dados são totalmente anonimizados — nenhum dado pessoal, mensagem, chave de carteira ou informação de sessão é coletado.',
   'privacy.meetingFollowUps': 'Acompanhamentos de reuniões',
-  'privacy.autoHandoffMeet': 'Transferência automática de transcrições do Google Meet para o orquestrador',
-  'privacy.autoHandoffMeetDesc': 'Quando uma chamada do Google Meet termina, o orquestrador do OpenHuman pode ler a transcrição e pode realizar ações como redigir mensagens, agendar acompanhamentos ou postar resumos no seu espaço de trabalho Slack conectado. Desativado por padrão.',
-  'privacy.analyticsDisclaimer': 'Todas as análises e relatórios de bugs são totalmente anonimizados. Quando ativado, coletamos apenas informações de falhas, tipo de dispositivo e localização do arquivo de erros. Nunca acessamos suas mensagens, dados de sessão, chaves de carteira, chaves de API ou qualquer informação de identificação pessoal. Você pode alterar essa configuração a qualquer momento.',
+  'privacy.autoHandoffMeet':
+    'Transferência automática de transcrições do Google Meet para o orquestrador',
+  'privacy.autoHandoffMeetDesc':
+    'Quando uma chamada do Google Meet termina, o orquestrador do OpenHuman pode ler a transcrição e pode realizar ações como redigir mensagens, agendar acompanhamentos ou postar resumos no seu espaço de trabalho Slack conectado. Desativado por padrão.',
+  'privacy.analyticsDisclaimer':
+    'Todas as análises e relatórios de bugs são totalmente anonimizados. Quando ativado, coletamos apenas informações de falhas, tipo de dispositivo e localização do arquivo de erros. Nunca acessamos suas mensagens, dados de sessão, chaves de carteira, chaves de API ou qualquer informação de identificação pessoal. Você pode alterar essa configuração a qualquer momento.',
   'settings.about.version': 'Versão',
   'settings.about.updateAvailable': 'está disponível',
   'settings.about.softwareUpdates': 'Atualizações de software',
@@ -348,7 +386,8 @@ const pt1: TranslationMap = {
   'settings.about.checking': 'Verificando...',
   'settings.about.checkForUpdates': 'Verificar atualizações',
   'settings.about.releases': 'Versões',
-  'settings.about.releasesDesc': 'Navegar pelas notas de versão e compilações anteriores no GitHub.',
+  'settings.about.releasesDesc':
+    'Navegar pelas notas de versão e compilações anteriores no GitHub.',
   'settings.about.openReleases': 'Abrir versões no GitHub',
   'settings.ai.overview': 'Visão Geral do Sistema de IA',
 };

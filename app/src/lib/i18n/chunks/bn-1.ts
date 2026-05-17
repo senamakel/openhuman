@@ -75,7 +75,8 @@ const bn1: TranslationMap = {
   'settings.about': 'সম্পর্কে',
   'settings.aboutDesc': 'অ্যাপ ভার্সন এবং সফটওয়্যার আপডেট',
   'settings.developerOptions': 'অ্যাডভান্সড',
-  'settings.developerOptionsDesc': 'AI কনফিগারেশন, মেসেজিং চ্যানেল, টুলস, ডায়াগনস্টিক্স এবং ডিবাগ প্যানেল',
+  'settings.developerOptionsDesc':
+    'AI কনফিগারেশন, মেসেজিং চ্যানেল, টুলস, ডায়াগনস্টিক্স এবং ডিবাগ প্যানেল',
   'settings.clearAppData': 'অ্যাপ ডেটা মুছুন',
   'settings.clearAppDataDesc': 'সাইন আউট করুন এবং সব লোকাল ডেটা স্থায়ীভাবে মুছুন',
   'settings.logOut': 'লগ আউট',
@@ -118,7 +119,8 @@ const bn1: TranslationMap = {
   'clearData.failedLogout': 'লগ আউট করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
   'clearData.failedPersist': 'অ্যাপ স্টেট মুছতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
   'welcome.title': 'OpenHuman-এ স্বাগতম',
-  'welcome.subtitle': 'আপনার ব্যক্তিগত AI সুপার ইন্টেলিজেন্স। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'welcome.subtitle':
+    'আপনার ব্যক্তিগত AI সুপার ইন্টেলিজেন্স। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
   'welcome.connectPrompt': 'RPC URL কনফিগার করুন (অ্যাডভান্সড)',
   'welcome.selectRuntime': 'একটি রানটাইম বেছে নিন',
   'welcome.urlPlaceholder': 'http://localhost:8089',
@@ -129,10 +131,13 @@ const bn1: TranslationMap = {
   'home.greetingAfternoon': 'শুভ বিকেল',
   'home.greetingEvening': 'শুভ সন্ধ্যা',
   'home.askAssistant': 'আপনার অ্যাসিস্ট্যান্টকে যেকোনো কিছু জিজ্ঞেস করুন...',
-  'home.statusOk': 'আপনার ডিভাইস সংযুক্ত। সংযোগ সক্রিয় রাখতে অ্যাপটি চালু রাখুন। নিচের বাটন দিয়ে এজেন্টকে মেসেজ করুন।',
+  'home.statusOk':
+    'আপনার ডিভাইস সংযুক্ত। সংযোগ সক্রিয় রাখতে অ্যাপটি চালু রাখুন। নিচের বাটন দিয়ে এজেন্টকে মেসেজ করুন।',
   'home.statusBackendOnly': 'ব্যাকএন্ডে পুনরায় সংযোগ হচ্ছে… আপনার এজেন্ট শীঘ্রই আবার পাওয়া যাবে।',
-  'home.statusCoreUnreachable': 'লোকাল কোর সাইডকার সাড়া দিচ্ছে না। OpenHuman ব্যাকগ্রাউন্ড প্রসেস ক্র্যাশ হয়েছে বা শুরু হয়নি।',
-  'home.statusInternetOffline': 'আপনার ডিভাইস এখন অফলাইনে। নেটওয়ার্ক পরীক্ষা করুন বা অ্যাপ রিস্টার্ট করুন।',
+  'home.statusCoreUnreachable':
+    'লোকাল কোর সাইডকার সাড়া দিচ্ছে না। OpenHuman ব্যাকগ্রাউন্ড প্রসেস ক্র্যাশ হয়েছে বা শুরু হয়নি।',
+  'home.statusInternetOffline':
+    'আপনার ডিভাইস এখন অফলাইনে। নেটওয়ার্ক পরীক্ষা করুন বা অ্যাপ রিস্টার্ট করুন।',
   'home.restartCore': 'কোর রিস্টার্ট',
   'home.restartingCore': 'কোর রিস্টার্ট হচ্ছে…',
   'chat.newThread': 'নতুন থ্রেড',
@@ -162,7 +167,8 @@ const bn1: TranslationMap = {
   'memory.title': 'মেমোরি',
   'memory.search': 'মেমোরি খুঁজুন...',
   'memory.noResults': 'কোনো মেমোরি পাওয়া যায়নি',
-  'memory.empty': 'এখনো কোনো মেমোরি নেই। আপনি যত ইন্টারঅ্যাক্ট করবেন, মেমোরি স্বয়ংক্রিয়ভাবে তৈরি হবে।',
+  'memory.empty':
+    'এখনো কোনো মেমোরি নেই। আপনি যত ইন্টারঅ্যাক্ট করবেন, মেমোরি স্বয়ংক্রিয়ভাবে তৈরি হবে।',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.subconscious': 'সাবকনশাস',
   'memory.tab.dreams': 'স্বপ্ন',
@@ -181,7 +187,8 @@ const bn1: TranslationMap = {
   'rewards.copyCode': 'কোড কপি করুন',
   'rewards.share': 'শেয়ার',
   'onboarding.welcome': 'হ্যালো। আমি OpenHuman।',
-  'onboarding.welcomeDesc': 'আপনার সুপার-ইন্টেলিজেন্ট AI অ্যাসিস্ট্যান্ট যা আপনার কম্পিউটারে চলে। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
+  'onboarding.welcomeDesc':
+    'আপনার সুপার-ইন্টেলিজেন্ট AI অ্যাসিস্ট্যান্ট যা আপনার কম্পিউটারে চলে। ব্যক্তিগত, সহজ এবং অত্যন্ত শক্তিশালী।',
   'onboarding.context': 'কন্টেক্সট সংগ্রহ',
   'onboarding.contextDesc': 'প্রতিদিন ব্যবহার করা টুলস ও সার্ভিস সংযুক্ত করুন।',
   'onboarding.localAI': 'লোকাল AI',
@@ -195,7 +202,8 @@ const bn1: TranslationMap = {
   'onboarding.skip': 'এড়িয়ে যান',
   'onboarding.getStarted': 'শুরু করুন',
   'onboarding.runtimeChoice.title': 'আপনি কীভাবে OpenHuman চালাতে চান?',
-  'onboarding.runtimeChoice.subtitle': 'আপনার জন্য উপযুক্ত সেটআপ বেছে নিন। পরে সেটিংসে পরিবর্তন করা যাবে।',
+  'onboarding.runtimeChoice.subtitle':
+    'আপনার জন্য উপযুক্ত সেটআপ বেছে নিন। পরে সেটিংসে পরিবর্তন করা যাবে।',
   'onboarding.runtimeChoice.cloud.title': 'সহজ',
   'onboarding.runtimeChoice.cloud.tagline': 'OpenHuman সব কিছু পরিচালনা করবে।',
   'onboarding.runtimeChoice.cloud.f1': 'বিল্ট-ইন নিরাপত্তা',
@@ -215,7 +223,8 @@ const bn1: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'কাস্টম দিয়ে চালিয়ে যান',
   'onboarding.runtimeChoice.recommended': 'প্রস্তাবিত',
   'onboarding.apiKeys.title': 'আপনার API কী যোগ করুন',
-  'onboarding.apiKeys.subtitle': 'এখনই পেস্ট করুন বা এড়িয়ে গিয়ে পরে Settings › AI-এ যোগ করুন। কীগুলো এই ডিভাইসে এনক্রিপ্ট করে সংরক্ষিত থাকে।',
+  'onboarding.apiKeys.subtitle':
+    'এখনই পেস্ট করুন বা এড়িয়ে গিয়ে পরে Settings › AI-এ যোগ করুন। কীগুলো এই ডিভাইসে এনক্রিপ্ট করে সংরক্ষিত থাকে।',
   'onboarding.apiKeys.openaiLabel': 'OpenAI API কী',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'Anthropic API কী',
@@ -238,28 +247,42 @@ const bn1: TranslationMap = {
   'onboarding.custom.continue': 'চালিয়ে যান',
   'onboarding.custom.back': 'পেছনে',
   'onboarding.custom.finish': 'সেটআপ সম্পন্ন',
-  'onboarding.custom.configureLater': 'অনবোর্ডিং শেষে এটি কনফিগার করতে পারবেন। সম্পন্ন হলে সংশ্লিষ্ট সেটিংস পেজে নিয়ে যাওয়া হবে।',
+  'onboarding.custom.configureLater':
+    'অনবোর্ডিং শেষে এটি কনফিগার করতে পারবেন। সম্পন্ন হলে সংশ্লিষ্ট সেটিংস পেজে নিয়ে যাওয়া হবে।',
   'onboarding.custom.openSettings': 'সেটিংসে খুলুন',
   'onboarding.custom.inference.title': 'ইনফারেন্স (টেক্সট)',
-  'onboarding.custom.inference.subtitle': 'কোন ল্যাঙ্গুয়েজ মডেল আপনার প্রশ্নের উত্তর দেবে এবং এজেন্ট চালাবে?',
-  'onboarding.custom.inference.defaultDesc': 'OpenHuman প্রতিটি ওয়ার্কলোড একটি সেন্সিবল ডিফল্ট মডেলে রুট করে। কোনো কী বা সেটআপ নেই।',
-  'onboarding.custom.inference.configureDesc': 'নিজের OpenAI বা Anthropic কী আনুন। আমরা সব টেক্সট-ভিত্তিক কাজে এটি ব্যবহার করি।',
+  'onboarding.custom.inference.subtitle':
+    'কোন ল্যাঙ্গুয়েজ মডেল আপনার প্রশ্নের উত্তর দেবে এবং এজেন্ট চালাবে?',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman প্রতিটি ওয়ার্কলোড একটি সেন্সিবল ডিফল্ট মডেলে রুট করে। কোনো কী বা সেটআপ নেই।',
+  'onboarding.custom.inference.configureDesc':
+    'নিজের OpenAI বা Anthropic কী আনুন। আমরা সব টেক্সট-ভিত্তিক কাজে এটি ব্যবহার করি।',
   'onboarding.custom.voice.title': 'ভয়েস',
   'onboarding.custom.voice.subtitle': 'ভয়েস মোডের জন্য স্পিচ-টু-টেক্সট এবং টেক্সট-টু-স্পিচ।',
-  'onboarding.custom.voice.defaultDesc': 'OpenHuman ম্যানেজড STT/TTS সহ আসে যা সরাসরি কাজ করে। কিছু সেটআপ করতে হবে না।',
-  'onboarding.custom.voice.configureDesc': 'নিজের ElevenLabs / OpenAI Whisper / ইত্যাদি ব্যবহার করুন। Settings › Voice-এ কনফিগার করুন।',
+  'onboarding.custom.voice.defaultDesc':
+    'OpenHuman ম্যানেজড STT/TTS সহ আসে যা সরাসরি কাজ করে। কিছু সেটআপ করতে হবে না।',
+  'onboarding.custom.voice.configureDesc':
+    'নিজের ElevenLabs / OpenAI Whisper / ইত্যাদি ব্যবহার করুন। Settings › Voice-এ কনফিগার করুন।',
   'onboarding.custom.oauth.title': 'সংযোগ (OAuth)',
-  'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion এবং OAuth প্রয়োজন এমন অন্যান্য সংযুক্ত সার্ভিস।',
-  'onboarding.custom.oauth.defaultDesc': 'OpenHuman একটি ম্যানেজড Composio ওয়ার্কস্পেস চালায়। পরে প্রতিটি সার্ভিস সংযুক্ত করতে এক ক্লিক।',
-  'onboarding.custom.oauth.configureDesc': 'নিজের Composio অ্যাকাউন্ট / API কী আনুন। Settings › Connections-এ কনফিগার করুন।',
+  'onboarding.custom.oauth.subtitle':
+    'Gmail, Slack, Notion এবং OAuth প্রয়োজন এমন অন্যান্য সংযুক্ত সার্ভিস।',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman একটি ম্যানেজড Composio ওয়ার্কস্পেস চালায়। পরে প্রতিটি সার্ভিস সংযুক্ত করতে এক ক্লিক।',
+  'onboarding.custom.oauth.configureDesc':
+    'নিজের Composio অ্যাকাউন্ট / API কী আনুন। Settings › Connections-এ কনফিগার করুন।',
   'onboarding.custom.search.title': 'ওয়েব সার্চ',
   'onboarding.custom.search.subtitle': 'OpenHuman আপনার হয়ে কীভাবে ওয়েব সার্চ করে।',
-  'onboarding.custom.search.defaultDesc': 'OpenHuman ম্যানেজড সার্চ ব্যাকএন্ড ব্যবহার করে। কোনো কী লাগে না।',
-  'onboarding.custom.search.configureDesc': 'নিজের সার্চ প্রোভাইডার কী আনুন (Tavily, Brave ইত্যাদি)। Settings › Tools-এ কনফিগার করুন।',
+  'onboarding.custom.search.defaultDesc':
+    'OpenHuman ম্যানেজড সার্চ ব্যাকএন্ড ব্যবহার করে। কোনো কী লাগে না।',
+  'onboarding.custom.search.configureDesc':
+    'নিজের সার্চ প্রোভাইডার কী আনুন (Tavily, Brave ইত্যাদি)। Settings › Tools-এ কনফিগার করুন।',
   'onboarding.custom.memory.title': 'মেমোরি',
-  'onboarding.custom.memory.subtitle': 'OpenHuman কীভাবে আপনার কন্টেক্সট, পছন্দ ও পূর্ববর্তী কথোপকথন মনে রাখে।',
-  'onboarding.custom.memory.defaultDesc': 'OpenHuman স্বয়ংক্রিয়ভাবে মেমোরি স্টোরেজ ও রিট্রিভাল পরিচালনা করে। কিছু সেটআপ করতে হবে না।',
-  'onboarding.custom.memory.configureDesc': 'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
+  'onboarding.custom.memory.subtitle':
+    'OpenHuman কীভাবে আপনার কন্টেক্সট, পছন্দ ও পূর্ববর্তী কথোপকথন মনে রাখে।',
+  'onboarding.custom.memory.defaultDesc':
+    'OpenHuman স্বয়ংক্রিয়ভাবে মেমোরি স্টোরেজ ও রিট্রিভাল পরিচালনা করে। কিছু সেটআপ করতে হবে না।',
+  'onboarding.custom.memory.configureDesc':
+    'মেমোরি নিজে পরীক্ষা, এক্সপোর্ট বা মুছুন। Settings › Memory-এ কনফিগার করুন।',
   'accounts.addAccount': 'অ্যাকাউন্ট যোগ করুন',
   'accounts.manageAccounts': 'অ্যাকাউন্ট পরিচালনা',
   'accounts.noAccounts': 'কোনো অ্যাকাউন্ট সংযুক্ত নেই',
@@ -316,11 +339,13 @@ const bn1: TranslationMap = {
   'misc.updateLater': 'পরে',
   'misc.downloading': 'ডাউনলোড হচ্ছে...',
   'misc.installing': 'ইনস্টল হচ্ছে...',
-  'misc.beta': 'OpenHuman এখন আর্লি বেটায় আছে। যেকোনো মতামত বা বাগ রিপোর্ট করুন — প্রতিটি রিপোর্ট আমাদের দ্রুত এগিয়ে যেতে সাহায্য করে।',
+  'misc.beta':
+    'OpenHuman এখন আর্লি বেটায় আছে। যেকোনো মতামত বা বাগ রিপোর্ট করুন — প্রতিটি রিপোর্ট আমাদের দ্রুত এগিয়ে যেতে সাহায্য করে।',
   'misc.betaFeedback': 'ফিডব্যাক পাঠান',
   'mnemonic.title': 'রিকভারি ফ্রেজ',
   'mnemonic.warning': 'এই শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন।',
-  'mnemonic.copyWarning': 'আপনার রিকভারি ফ্রেজ কখনো শেয়ার করবেন না। এই শব্দগুলো দিয়ে যে কেউ আপনার অ্যাকাউন্টে প্রবেশ করতে পারবে।',
+  'mnemonic.copyWarning':
+    'আপনার রিকভারি ফ্রেজ কখনো শেয়ার করবেন না। এই শব্দগুলো দিয়ে যে কেউ আপনার অ্যাকাউন্টে প্রবেশ করতে পারবে।',
   'mnemonic.copied': 'রিকভারি ফ্রেজ ক্লিপবোর্ডে কপি হয়েছে',
   'mnemonic.reveal': 'ফ্রেজ দেখুন',
   'mnemonic.hidden': 'রিকভারি ফ্রেজ লুকানো আছে',
@@ -329,18 +354,22 @@ const bn1: TranslationMap = {
   'privacy.empty': 'কোনো বাহ্যিক ডেটা স্থানান্তর শনাক্ত হয়নি।',
   'privacy.whatLeavesComputer': 'আপনার কম্পিউটার থেকে কী বাইরে যায়',
   'privacy.loading': 'গোপনীয়তার বিবরণ লোড হচ্ছে...',
-  'privacy.loadError': 'লাইভ গোপনীয়তা তালিকা লোড করা যায়নি। নিচের অ্যানালিটিক্স নিয়ন্ত্রণ এখনো কাজ করছে।',
+  'privacy.loadError':
+    'লাইভ গোপনীয়তা তালিকা লোড করা যায়নি। নিচের অ্যানালিটিক্স নিয়ন্ত্রণ এখনো কাজ করছে।',
   'privacy.noCapabilities': 'বর্তমানে কোনো ক্যাপাবিলিটি ডেটা মুভমেন্ট প্রকাশ করে না।',
   'privacy.sentTo': 'পাঠানো হয়েছে',
   'privacy.leavesDevice': 'ডিভাইস ছেড়ে যায়',
   'privacy.staysLocal': 'লোকালে থাকে',
   'privacy.anonymizedAnalytics': 'অ্যানোনিমাইজড অ্যানালিটিক্স',
   'privacy.shareAnonymizedData': 'অ্যানোনিমাইজড ব্যবহার ডেটা শেয়ার করুন',
-  'privacy.shareAnonymizedDataDesc': 'বেনামী ক্র্যাশ রিপোর্ট ও ব্যবহার অ্যানালিটিক্স শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন। সব ডেটা সম্পূর্ণ বেনামী — কোনো ব্যক্তিগত তথ্য, বার্তা, ওয়ালেট কী বা সেশন তথ্য কখনো সংগ্রহ করা হয় না।',
+  'privacy.shareAnonymizedDataDesc':
+    'বেনামী ক্র্যাশ রিপোর্ট ও ব্যবহার অ্যানালিটিক্স শেয়ার করে OpenHuman উন্নত করতে সাহায্য করুন। সব ডেটা সম্পূর্ণ বেনামী — কোনো ব্যক্তিগত তথ্য, বার্তা, ওয়ালেট কী বা সেশন তথ্য কখনো সংগ্রহ করা হয় না।',
   'privacy.meetingFollowUps': 'মিটিং ফলো-আপ',
   'privacy.autoHandoffMeet': 'Google Meet ট্রান্সক্রিপ্ট স্বয়ংক্রিয়ভাবে অর্কেস্ট্রেটরে পাঠান',
-  'privacy.autoHandoffMeetDesc': 'Google Meet কল শেষ হলে, OpenHuman-এর অর্কেস্ট্রেটর ট্রান্সক্রিপ্ট পড়তে এবং বার্তা ড্রাফট করা, ফলো-আপ নির্ধারণ করা বা সংযুক্ত Slack ওয়ার্কস্পেসে সারসংক্ষেপ পোস্ট করার মতো কাজ করতে পারে। ডিফল্টে বন্ধ।',
-  'privacy.analyticsDisclaimer': 'সব অ্যানালিটিক্স ও বাগ রিপোর্ট সম্পূর্ণ বেনামী। সক্রিয় থাকলে, আমরা শুধু ক্র্যাশ তথ্য, ডিভাইসের ধরন এবং ত্রুটির ফাইল লোকেশন সংগ্রহ করি। আমরা কখনো আপনার বার্তা, সেশন ডেটা, ওয়ালেট কী, API কী বা ব্যক্তিগত তথ্য অ্যাক্সেস করি না। যেকোনো সময় এই সেটিং পরিবর্তন করা যাবে।',
+  'privacy.autoHandoffMeetDesc':
+    'Google Meet কল শেষ হলে, OpenHuman-এর অর্কেস্ট্রেটর ট্রান্সক্রিপ্ট পড়তে এবং বার্তা ড্রাফট করা, ফলো-আপ নির্ধারণ করা বা সংযুক্ত Slack ওয়ার্কস্পেসে সারসংক্ষেপ পোস্ট করার মতো কাজ করতে পারে। ডিফল্টে বন্ধ।',
+  'privacy.analyticsDisclaimer':
+    'সব অ্যানালিটিক্স ও বাগ রিপোর্ট সম্পূর্ণ বেনামী। সক্রিয় থাকলে, আমরা শুধু ক্র্যাশ তথ্য, ডিভাইসের ধরন এবং ত্রুটির ফাইল লোকেশন সংগ্রহ করি। আমরা কখনো আপনার বার্তা, সেশন ডেটা, ওয়ালেট কী, API কী বা ব্যক্তিগত তথ্য অ্যাক্সেস করি না। যেকোনো সময় এই সেটিং পরিবর্তন করা যাবে।',
   'settings.about.version': 'ভার্সন',
   'settings.about.updateAvailable': 'পাওয়া গেছে',
   'settings.about.softwareUpdates': 'সফটওয়্যার আপডেট',

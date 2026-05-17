@@ -54,11 +54,13 @@ const zhCN5: TranslationMap = {
   'settings.localModel.deviceCapability.disabled': '已禁用',
   'settings.localModel.deviceCapability.disabledDesc': '本地 AI 已禁用',
   'settings.localModel.deviceCapability.downloadingModels': '（正在下载模型）',
-  'settings.localModel.deviceCapability.downloadingSetupDesc': '正在下载 OllamaSetup 安装程序（约 2 GB）并解压。首次安装可能需要一分钟。',
+  'settings.localModel.deviceCapability.downloadingSetupDesc':
+    '正在下载 OllamaSetup 安装程序（约 2 GB）并解压。首次安装可能需要一分钟。',
   'settings.localModel.deviceCapability.failedToApplyPreset': '应用预设失败',
   'settings.localModel.deviceCapability.gpu': 'GPU',
   'settings.localModel.deviceCapability.installFailed': 'Ollama 安装失败',
-  'settings.localModel.deviceCapability.installFailedDesc': '安装程序在 Ollama 可用之前退出。点击重试，或从 ollama.com 手动安装。',
+  'settings.localModel.deviceCapability.installFailedDesc':
+    '安装程序在 Ollama 可用之前退出。点击重试，或从 ollama.com 手动安装。',
   'settings.localModel.deviceCapability.installFirst': '请先安装 Ollama。',
   'settings.localModel.deviceCapability.installFirstDesc': '使用此档位前请先安装 Ollama',
   'settings.localModel.deviceCapability.installOllamaFirst': '请先安装 Ollama 以使用此档位',
@@ -97,7 +99,8 @@ const zhCN5: TranslationMap = {
   'settings.localModel.download.testVoiceOutput': '测试语音输出（TTS）',
   'settings.localModel.download.ttsOutputPlaceholder': '可选输出 WAV 路径',
   'settings.localModel.download.ttsPlaceholder': '输入要合成的文字...',
-  'settings.localModel.download.visionImagePlaceholder': '每行一个图像引用（data URI、URL 或本地路径标记）',
+  'settings.localModel.download.visionImagePlaceholder':
+    '每行一个图像引用（data URI、URL 或本地路径标记）',
   'settings.localModel.download.visionPromptPlaceholder': '输入视觉模型的提示词...',
   'settings.localModel.status.allChecksPassed': '所有检查已通过',
   'settings.localModel.status.artifact': '构件',
@@ -200,7 +203,8 @@ const zhCN5: TranslationMap = {
   'skills.create.namePlaceholder': '例如：交易日志',
   'skills.create.scope': '范围',
   'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint': '写入 ~/.openhuman/skills/<slug>/SKILL.md — 在所有工作空间中可用。',
+  'skills.create.scopeUserHint':
+    '写入 ~/.openhuman/skills/<slug>/SKILL.md — 在所有工作空间中可用。',
   'skills.create.slugLabel': '标识符',
   'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': '标签',
@@ -302,7 +306,8 @@ const zhCN5: TranslationMap = {
   'skills.setup.voice.stepSetup': '需要下载模型',
   'skills.setup.voice.stepSuccess': '准备就绪',
   'skills.setup.voice.sttNotReady': '语音转文本模型未就绪',
-  'skills.setup.voice.sttNotReadyDesc': '语音智能需要本地 Whisper 模型进行转录。请从本地模型设置中下载。',
+  'skills.setup.voice.sttNotReadyDesc':
+    '语音智能需要本地 Whisper 模型进行转录。请从本地模型设置中下载。',
   'skills.setup.voice.sttReady': '语音转文本模型已就绪',
   'skills.setup.voice.sttReturnHint': '完成后将返回此页面',
   'skills.setup.voice.title': '语音智能',

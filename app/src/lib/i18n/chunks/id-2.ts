@@ -32,18 +32,23 @@ const id2: TranslationMap = {
   'settings.ai.refreshingAll': 'Menyegarkan Semua...',
   'settings.ai.refreshAll': 'Segarkan Semua Konfigurasi AI',
   'settings.notifications.suppressAll': 'Tahan semua notifikasi',
-  'settings.notifications.suppressAllDesc': 'Blokir semua toast notifikasi OS dari aplikasi tertanam terlepas dari status fokus.',
+  'settings.notifications.suppressAllDesc':
+    'Blokir semua toast notifikasi OS dari aplikasi tertanam terlepas dari status fokus.',
   'settings.notifications.toggleDnd': 'Alihkan Jangan Ganggu',
   'settings.notifications.categories': 'Kategori',
-  'settings.notifications.categoryFooter': 'Menonaktifkan kategori menghentikan notifikasi baru jenis tersebut muncul di pusat notifikasi. Notifikasi yang sudah ada tetap tersimpan sampai dibersihkan.',
+  'settings.notifications.categoryFooter':
+    'Menonaktifkan kategori menghentikan notifikasi baru jenis tersebut muncul di pusat notifikasi. Notifikasi yang sudah ada tetap tersimpan sampai dibersihkan.',
   'settings.billing.movedToWeb': 'Tagihan dipindahkan ke web',
   'settings.billing.openDashboard': 'Buka dashboard tagihan',
-  'settings.billing.movedToWebDesc': 'Perubahan langganan, metode pembayaran, kredit, dan invoice kini dikelola di web TinyHumans.',
+  'settings.billing.movedToWebDesc':
+    'Perubahan langganan, metode pembayaran, kredit, dan invoice kini dikelola di web TinyHumans.',
   'settings.billing.backToSettings': 'Kembali ke pengaturan',
   'settings.billing.openingBrowser': 'Membuka browser Anda...',
   'settings.billing.browserNotOpen': 'Jika browser tidak terbuka, gunakan tombol di atas.',
-  'settings.billing.browserOpenFailed': 'Browser tidak dapat dibuka otomatis. Gunakan tombol di atas.',
-  'settings.tools.chooseCapabilities': 'Pilih kemampuan yang dapat digunakan OpenHuman atas nama Anda.',
+  'settings.billing.browserOpenFailed':
+    'Browser tidak dapat dibuka otomatis. Gunakan tombol di atas.',
+  'settings.tools.chooseCapabilities':
+    'Pilih kemampuan yang dapat digunakan OpenHuman atas nama Anda.',
   'settings.tools.saveChanges': 'Simpan Perubahan',
   'settings.tools.preferencesSaved': 'Preferensi tersimpan',
   'settings.tools.saveFailed': 'Gagal menyimpan preferensi. Coba lagi.',
@@ -60,20 +65,26 @@ const id2: TranslationMap = {
   'settings.screenAwareness.startSession': 'Mulai Sesi',
   'settings.screenAwareness.stopSession': 'Hentikan Sesi',
   'settings.screenAwareness.analyzeNow': 'Analisis Sekarang',
-  'settings.screenAwareness.macosOnly': 'Tangkapan layar desktop dan kontrol izin Screen Awareness saat ini hanya didukung di macOS.',
+  'settings.screenAwareness.macosOnly':
+    'Tangkapan layar desktop dan kontrol izin Screen Awareness saat ini hanya didukung di macOS.',
   'connections.comingSoon': 'Segera hadir',
   'connections.setUp': 'Atur',
   'connections.configured': 'Dikonfigurasi',
   'connections.unavailable': 'Tidak tersedia',
   'connections.checking': 'Memeriksa...',
-  'connections.walletConfigured': 'Identitas EVM, BTC, Solana, dan Tron lokal dikonfigurasi dari frasa pemulihan Anda.',
-  'connections.walletReady': 'Siapkan identitas EVM, BTC, Solana, dan Tron lokal dari satu frasa pemulihan.',
-  'connections.walletError': 'Tidak dapat memeriksa status dompet. Ketuk untuk mencoba lagi dari panel Frasa Pemulihan.',
+  'connections.walletConfigured':
+    'Identitas EVM, BTC, Solana, dan Tron lokal dikonfigurasi dari frasa pemulihan Anda.',
+  'connections.walletReady':
+    'Siapkan identitas EVM, BTC, Solana, dan Tron lokal dari satu frasa pemulihan.',
+  'connections.walletError':
+    'Tidak dapat memeriksa status dompet. Ketuk untuk mencoba lagi dari panel Frasa Pemulihan.',
   'connections.walletChecking': 'Memeriksa status dompet...',
   'connections.walletIdentities': 'Identitas dompet',
-  'connections.walletDerived': 'Diturunkan secara lokal dari frasa pemulihan Anda dan hanya disimpan sebagai metadata aman.',
+  'connections.walletDerived':
+    'Diturunkan secara lokal dari frasa pemulihan Anda dan hanya disimpan sebagai metadata aman.',
   'connections.privacySecurity': 'Privasi & Keamanan',
-  'connections.privacySecurityDesc': 'Semua data dan kredensial disimpan lokal dengan kebijakan zero-data retention. Informasi Anda dienkripsi dan tidak pernah dibagikan ke pihak ketiga.',
+  'connections.privacySecurityDesc':
+    'Semua data dan kredensial disimpan lokal dengan kebijakan zero-data retention. Informasi Anda dienkripsi dan tidak pernah dibagikan ke pihak ketiga.',
   'channels.status.connecting': 'Menghubungkan',
   'channels.status.notConfigured': 'Belum dikonfigurasi',
   'channels.noActiveRoute': 'Tidak ada rute aktif',
@@ -84,32 +95,40 @@ const id2: TranslationMap = {
   'channels.configNotAvailable': 'Konfigurasi untuk',
   'channels.channel': 'kanal',
   'devOptions.coreModeNotSet': 'Mode core: belum diatur',
-  'devOptions.coreModeNotSetDesc': 'Pemilih boot-check belum dikonfirmasi. Gunakan Ganti mode di pemilih untuk memilih Lokal atau Cloud.',
+  'devOptions.coreModeNotSetDesc':
+    'Pemilih boot-check belum dikonfirmasi. Gunakan Ganti mode di pemilih untuk memilih Lokal atau Cloud.',
   'devOptions.local': 'Lokal',
   'devOptions.embeddedCoreSidecar': 'Core sidecar tertanam',
-  'devOptions.sidecarSpawned': 'Dijalankan dalam proses oleh shell Tauri saat aplikasi diluncurkan.',
+  'devOptions.sidecarSpawned':
+    'Dijalankan dalam proses oleh shell Tauri saat aplikasi diluncurkan.',
   'devOptions.cloud': 'Cloud',
   'devOptions.remoteCoreRpc': 'RPC core jarak jauh',
   'devOptions.token': 'Token',
   'devOptions.tokenNotSet': 'belum diatur — RPC akan 401',
   'devOptions.triggerSentryTest': 'Picu Tes Sentry (staging)',
-  'devOptions.triggerSentryTestDesc': 'Mengirim error bertag untuk memverifikasi pipeline Sentry. Issue #1072 — hapus setelah verifikasi.',
+  'devOptions.triggerSentryTestDesc':
+    'Mengirim error bertag untuk memverifikasi pipeline Sentry. Issue #1072 — hapus setelah verifikasi.',
   'devOptions.sendTestEvent': 'Kirim event tes',
   'devOptions.sending': 'Mengirim...',
   'devOptions.eventSent': 'Event terkirim',
   'devOptions.failed': 'Gagal',
   'devOptions.appLogs': 'Log aplikasi',
-  'devOptions.appLogsDesc': 'Buka folder berisi file log harian bergulir. Lampirkan file terbaru saat melaporkan masalah.',
+  'devOptions.appLogsDesc':
+    'Buka folder berisi file log harian bergulir. Lampirkan file terbaru saat melaporkan masalah.',
   'devOptions.openLogsFolder': 'Buka folder log',
   'mnemonic.phraseSaved': 'Frasa pemulihan tersimpan',
   'mnemonic.walletReady': 'Identitas dompet multi-chain siap. Kembali ke pengaturan...',
   'mnemonic.writeDownWords': 'Tulis',
-  'mnemonic.wordsInOrder': 'kata ini secara berurutan dan simpan di tempat aman. Frasa ini mengamankan kunci enkripsi lokal dan identitas dompet EVM, BTC, Solana, dan Tron Anda.',
-  'mnemonic.cannotRecover': 'Frasa ini tidak dapat dipulihkan jika hilang dan harus tetap sepenuhnya lokal di perangkat Anda.',
+  'mnemonic.wordsInOrder':
+    'kata ini secara berurutan dan simpan di tempat aman. Frasa ini mengamankan kunci enkripsi lokal dan identitas dompet EVM, BTC, Solana, dan Tron Anda.',
+  'mnemonic.cannotRecover':
+    'Frasa ini tidak dapat dipulihkan jika hilang dan harus tetap sepenuhnya lokal di perangkat Anda.',
   'mnemonic.copyToClipboard': 'Salin ke Clipboard',
   'mnemonic.alreadyHavePhrase': 'Saya sudah memiliki frasa pemulihan',
-  'mnemonic.consentSaved': 'Saya menyimpan frasa ini dan menyetujui penggunaannya untuk pengaturan dompet lokal',
-  'mnemonic.enterPhraseToRestore': 'Masukkan frasa pemulihan Anda di bawah untuk memulihkan identitas dompet lokal, atau tempel frasa lengkap ke kolom mana saja (12 kata untuk cadangan baru; frasa 24 kata dari versi lama tetap berfungsi).',
+  'mnemonic.consentSaved':
+    'Saya menyimpan frasa ini dan menyetujui penggunaannya untuk pengaturan dompet lokal',
+  'mnemonic.enterPhraseToRestore':
+    'Masukkan frasa pemulihan Anda di bawah untuk memulihkan identitas dompet lokal, atau tempel frasa lengkap ke kolom mana saja (12 kata untuk cadangan baru; frasa 24 kata dari versi lama tetap berfungsi).',
   'mnemonic.words': 'Kata',
   'mnemonic.validPhrase': 'Frasa pemulihan valid',
   'mnemonic.generateNewPhrase': 'Buat frasa pemulihan baru',
@@ -143,7 +162,8 @@ const id2: TranslationMap = {
   'team.join': 'Bergabung',
   'team.leaveTeam': 'Tinggalkan Tim',
   'team.confirmLeave': 'Yakin ingin meninggalkan',
-  'team.leaveWarning': 'Anda akan kehilangan akses ke tim dan semua sumber daya tim. Anda memerlukan undangan baru untuk bergabung kembali.',
+  'team.leaveWarning':
+    'Anda akan kehilangan akses ke tim dan semua sumber daya tim. Anda memerlukan undangan baru untuk bergabung kembali.',
   'team.management': 'Manajemen Tim',
   'team.notFound': 'Tim tidak ditemukan',
   'team.accessDenied': 'Akses ditolak',
@@ -159,7 +179,8 @@ const id2: TranslationMap = {
   'voice.naturalCleanup': 'Pembersihan natural',
   'voice.autoStart': 'Mulai server suara otomatis dengan core',
   'voice.customDictionary': 'Kamus Kustom',
-  'voice.customDictionaryDesc': 'Tambahkan nama, istilah teknis, dan kata domain untuk meningkatkan akurasi pengenalan.',
+  'voice.customDictionaryDesc':
+    'Tambahkan nama, istilah teknis, dan kata domain untuk meningkatkan akurasi pengenalan.',
   'voice.addWord': 'Tambahkan kata...',
   'voice.sttDisabled': 'Dikte suara dinonaktifkan sampai model STT lokal diunduh dan siap.',
   'voice.openLocalAiModel': 'Buka Model AI Lokal',
@@ -204,9 +225,11 @@ const id2: TranslationMap = {
   'chat.askAgent': 'Tanyakan apa saja ke agen...',
   'chat.sendMessage': 'Kirim Pesan',
   'composio.triageTitle': 'Pemicu Integrasi',
-  'composio.triageDesc': 'Saat aktif, setiap pemicu Composio yang masuk menjalani langkah triase AI yang mengklasifikasikan event dan mungkin memulai tindakan otomatis — satu giliran LLM lokal per pemicu. Nonaktifkan secara global atau per integrasi jika Anda lebih suka tinjauan manual. Jika variabel lingkungan',
+  'composio.triageDesc':
+    'Saat aktif, setiap pemicu Composio yang masuk menjalani langkah triase AI yang mengklasifikasikan event dan mungkin memulai tindakan otomatis — satu giliran LLM lokal per pemicu. Nonaktifkan secara global atau per integrasi jika Anda lebih suka tinjauan manual. Jika variabel lingkungan',
   'composio.disableAllTriage': 'Nonaktifkan triase AI untuk semua pemicu',
-  'composio.triggersStillRecorded': 'Pemicu tetap dicatat ke riwayat — tidak ada giliran LLM yang dijalankan.',
+  'composio.triggersStillRecorded':
+    'Pemicu tetap dicatat ke riwayat — tidak ada giliran LLM yang dijalankan.',
   'composio.disableSpecificIntegrations': 'Nonaktifkan triase AI untuk integrasi tertentu',
   'composio.settingsSaved': 'Pengaturan tersimpan',
   'composio.saveFailed': 'Gagal menyimpan. Coba lagi.',
@@ -217,9 +240,11 @@ const id2: TranslationMap = {
   'localModel.modelStatus': 'Status Model',
   'localModel.downloadModels': 'Unduh Model',
   'localModel.usage': 'Pemakaian',
-  'localModel.usageDesc': 'Pilih subsistem mana yang berjalan di model lokal. Yang nonaktif memakai cloud.',
+  'localModel.usageDesc':
+    'Pilih subsistem mana yang berjalan di model lokal. Yang nonaktif memakai cloud.',
   'localModel.enableRuntime': 'Aktifkan runtime AI lokal',
-  'localModel.enableRuntimeDesc': 'Sakelar utama. Nonaktif secara default; Ollama tetap idle. Saat aktif, peringkas tree, kecerdasan layar, dan autocomplete selalu memakai model lokal.',
+  'localModel.enableRuntimeDesc':
+    'Sakelar utama. Nonaktif secara default; Ollama tetap idle. Saat aktif, peringkas tree, kecerdasan layar, dan autocomplete selalu memakai model lokal.',
   'localModel.advancedSettings': 'Pengaturan lanjutan',
   'localModel.debugTitle': 'Debug Model Lokal',
   'screenAwareness.debugTitle': 'Debug Kesadaran Layar',
@@ -338,7 +363,8 @@ const id2: TranslationMap = {
   'navigator.documents': 'Dokumen',
   'navigator.people': 'Orang',
   'navigator.topics': 'Topik',
-  'dreams.description': 'Mimpi adalah refleksi yang dibuat AI yang mensintesis pola dari memori Anda.',
+  'dreams.description':
+    'Mimpi adalah refleksi yang dibuat AI yang mensintesis pola dari memori Anda.',
   'dreams.comingSoon': 'Segera hadir',
   'assignment.memoryLlm': 'LLM Memori',
   'assignment.memoryLlmAria': 'Pemilihan LLM Memori',

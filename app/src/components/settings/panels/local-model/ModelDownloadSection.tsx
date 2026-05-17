@@ -106,7 +106,9 @@ const ModelDownloadSection = ({
   return (
     <>
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.capabilityAssets')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.capabilityAssets')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <div className="text-xs text-stone-500">
             {t('settings.localModel.download.quantizationPref')} {assets?.quantization ?? 'q4'}
@@ -132,7 +134,9 @@ const ModelDownloadSection = ({
                   onClick={() => onTriggerAssetDownload(key)}
                   disabled={!runtimeEnabled || assetDownloadBusy[key]}
                   className="mt-2 px-2 py-1 text-[10px] rounded border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
-                  {assetDownloadBusy[key] ? t('settings.localModel.download.downloading') : t('common.download')}
+                  {assetDownloadBusy[key]
+                    ? t('settings.localModel.download.downloading')
+                    : t('common.download')}
                 </button>
               </div>
             ))}
@@ -141,7 +145,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testSummarization')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testSummarization')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <textarea
             value={summaryInput}
@@ -157,7 +163,9 @@ const ModelDownloadSection = ({
               onClick={onRunSummaryTest}
               disabled={!runtimeEnabled || isSummaryLoading || !summaryInput.trim()}
               className="px-3 py-1.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white">
-              {isSummaryLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runSummaryTest')}
+              {isSummaryLoading
+                ? t('settings.localModel.download.running')
+                : t('settings.localModel.download.runSummaryTest')}
             </button>
           </div>
           {summaryOutput && (
@@ -169,7 +177,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testCustomPrompt')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testCustomPrompt')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <textarea
             value={promptInput}
@@ -191,7 +201,9 @@ const ModelDownloadSection = ({
               onClick={onRunPromptTest}
               disabled={!runtimeEnabled || isPromptLoading || !promptInput.trim()}
               className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
-              {isPromptLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runPromptTest')}
+              {isPromptLoading
+                ? t('settings.localModel.download.running')
+                : t('settings.localModel.download.runPromptTest')}
             </button>
           </div>
           {isPromptLoading && (
@@ -214,7 +226,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testVisionPrompt')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testVisionPrompt')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <textarea
             value={visionPromptInput}
@@ -237,7 +251,9 @@ const ModelDownloadSection = ({
               !visionImageInput.trim()
             }
             className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white">
-            {isVisionLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runVisionTest')}
+            {isVisionLoading
+              ? t('settings.localModel.download.running')
+              : t('settings.localModel.download.runVisionTest')}
           </button>
           {visionOutput && (
             <pre className="whitespace-pre-wrap rounded-md bg-stone-50 border border-stone-200 p-3 text-xs text-stone-700">
@@ -248,7 +264,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testEmbeddings')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testEmbeddings')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <textarea
             value={embeddingInput}
@@ -260,7 +278,9 @@ const ModelDownloadSection = ({
             onClick={onRunEmbeddingTest}
             disabled={!runtimeEnabled || isEmbeddingLoading || !embeddingInput.trim()}
             className="px-3 py-1.5 text-xs rounded-md bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white">
-            {isEmbeddingLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runEmbeddingTest')}
+            {isEmbeddingLoading
+              ? t('settings.localModel.download.running')
+              : t('settings.localModel.download.runEmbeddingTest')}
           </button>
           {embeddingOutput && (
             <div className="rounded-md bg-stone-50 border border-stone-200 p-3 text-xs text-stone-700 space-y-1">
@@ -273,7 +293,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testVoiceInput')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testVoiceInput')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <input
             value={audioPathInput}
@@ -285,7 +307,9 @@ const ModelDownloadSection = ({
             onClick={onRunTranscribeTest}
             disabled={!runtimeEnabled || isTranscribeLoading || !audioPathInput.trim()}
             className="px-3 py-1.5 text-xs rounded-md bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white">
-            {isTranscribeLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runTranscriptionTest')}
+            {isTranscribeLoading
+              ? t('settings.localModel.download.running')
+              : t('settings.localModel.download.runTranscriptionTest')}
           </button>
           {transcribeOutput && (
             <div className="rounded-md bg-stone-50 border border-stone-200 p-3 text-xs text-stone-700 space-y-2">
@@ -300,7 +324,9 @@ const ModelDownloadSection = ({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900">{t('settings.localModel.download.testVoiceOutput')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900">
+          {t('settings.localModel.download.testVoiceOutput')}
+        </h3>
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           <textarea
             value={ttsInput}
@@ -318,7 +344,9 @@ const ModelDownloadSection = ({
             onClick={onRunTtsTest}
             disabled={!runtimeEnabled || isTtsLoading || !ttsInput.trim()}
             className="px-3 py-1.5 text-xs rounded-md bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white">
-            {isTtsLoading ? t('settings.localModel.download.running') : t('settings.localModel.download.runTtsTest')}
+            {isTtsLoading
+              ? t('settings.localModel.download.running')
+              : t('settings.localModel.download.runTtsTest')}
           </button>
           {ttsOutput && (
             <div className="rounded-md bg-stone-50 border border-stone-200 p-3 text-xs text-stone-700 space-y-1">

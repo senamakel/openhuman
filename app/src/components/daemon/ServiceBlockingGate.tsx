@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
 import { useDaemonHealth } from '../../hooks/useDaemonHealth';
 import { useDaemonLifecycle } from '../../hooks/useDaemonLifecycle';
+import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { LATEST_APP_DOWNLOAD_URL } from '../../utils/config';
 import { openUrl } from '../../utils/openUrl';
@@ -52,10 +52,10 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
       {children}
       <div className="fixed inset-0 z-[10000] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-2xl border border-coral-500/30 bg-stone-900 p-6 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white">{t('daemon.serviceBlockingGate.title')}</h2>
-          <p className="mt-2 text-sm text-stone-300">
-            {t('daemon.serviceBlockingGate.body')}
-          </p>
+          <h2 className="text-xl font-semibold text-white">
+            {t('daemon.serviceBlockingGate.title')}
+          </h2>
+          <p className="mt-2 text-sm text-stone-300">{t('daemon.serviceBlockingGate.body')}</p>
           <p className="mt-2 text-sm text-stone-400">
             {t('daemon.serviceBlockingGate.downloadHint')}
           </p>
@@ -66,7 +66,9 @@ const ServiceBlockingGate = ({ children }: ServiceBlockingGateProps) => {
               onClick={handleRetry}
               disabled={isRestarting}
               className="rounded-lg border border-stone-600 px-4 py-2 text-sm text-stone-100 hover:bg-stone-800 disabled:opacity-60">
-              {isRestarting ? t('daemon.serviceBlockingGate.retrying') : t('daemon.serviceBlockingGate.retryCore')}
+              {isRestarting
+                ? t('daemon.serviceBlockingGate.retrying')
+                : t('daemon.serviceBlockingGate.retryCore')}
             </button>
             <button
               type="button"

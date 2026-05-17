@@ -82,7 +82,8 @@ const ar3: TranslationMap = {
   'backend.privacyNote': 'لا تُرسَل أي بيانات شخصية أو رسائل أو مفاتيح إلى خوادمنا.',
   'backend.local': 'محلي',
   'backend.advanced': 'متقدم',
-  'backend.localDescription': 'تشغيل النماذج على جهازك باستخدام Ollama. خصوصية كاملة، يتطلب إعدادًا.',
+  'backend.localDescription':
+    'تشغيل النماذج على جهازك باستخدام Ollama. خصوصية كاملة، يتطلب إعدادًا.',
   'backend.ramRecommended': '16 جيجابايت+ RAM موصى به',
   'subconscious.tasks': 'مهام',
   'subconscious.ticks': 'دورات',
@@ -128,13 +129,16 @@ const ar3: TranslationMap = {
   'bootCheck.chooseCoreMode': 'اختر بيئة التشغيل',
   'bootCheck.connectToCore': 'اتصل ببيئة تشغيلك',
   'bootCheck.desktopDescription': 'يحتاج OpenHuman إلى بيئة تشغيل للعمل. اختر مكانها.',
-  'bootCheck.webDescription': 'على الويب، يتصل OpenHuman ببيئة تشغيل تتحكم فيها. أدخل عنوان URL الخاص بها ورمز المصادقة أدناه، أو احصل على تطبيق سطح المكتب لتشغيلها مباشرة على جهازك.',
+  'bootCheck.webDescription':
+    'على الويب، يتصل OpenHuman ببيئة تشغيل تتحكم فيها. أدخل عنوان URL الخاص بها ورمز المصادقة أدناه، أو احصل على تطبيق سطح المكتب لتشغيلها مباشرة على جهازك.',
   'bootCheck.preferDesktop': 'تفضّل إبقاء كل شيء على جهازك؟',
   'bootCheck.downloadDesktop': 'احصل على تطبيق سطح المكتب',
   'bootCheck.localRecommended': 'التشغيل محليًا (موصى به)',
-  'bootCheck.localDescription': 'يعمل مباشرة على جهازك. الأسرع، خصوصي تمامًا، لا شيء يحتاج إلى إعداد.',
+  'bootCheck.localDescription':
+    'يعمل مباشرة على جهازك. الأسرع، خصوصي تمامًا، لا شيء يحتاج إلى إعداد.',
   'bootCheck.cloudMode': 'التشغيل على السحابة (معقد)',
-  'bootCheck.cloudDescription': 'الاتصال ببيئة تشغيل تستضيفها في مكان آخر. تبقى متصلة 24×7 حتى لا تحتاج إلى إبقاء هذا الجهاز يعمل.',
+  'bootCheck.cloudDescription':
+    'الاتصال ببيئة تشغيل تستضيفها في مكان آخر. تبقى متصلة 24×7 حتى لا تحتاج إلى إبقاء هذا الجهاز يعمل.',
   'bootCheck.coreRpcUrl': 'عنوان URL لبيئة التشغيل',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'رمز المصادقة',
@@ -151,19 +155,23 @@ const ar3: TranslationMap = {
   'bootCheck.switchMode': 'اختر بيئة تشغيل مختلفة',
   'bootCheck.quit': 'خروج',
   'bootCheck.legacyDetected': 'تم اكتشاف بيئة تشغيل خلفية قديمة',
-  'bootCheck.legacyDescription': 'خدمة OpenHuman مثبّتة بشكل منفصل تعمل بالفعل على هذا الجهاز. نحتاج إلى إزالتها قبل أن تتولى بيئة التشغيل المدمجة.',
+  'bootCheck.legacyDescription':
+    'خدمة OpenHuman مثبّتة بشكل منفصل تعمل بالفعل على هذا الجهاز. نحتاج إلى إزالتها قبل أن تتولى بيئة التشغيل المدمجة.',
   'bootCheck.removing': 'جارٍ الإزالة…',
   'bootCheck.removeContinue': 'إزالة ومتابعة',
   'bootCheck.localNeedsRestart': 'بيئة التشغيل المحلية تحتاج إلى إعادة تشغيل',
-  'bootCheck.localNeedsRestartDesc': 'بيئة تشغيلك المحلية على إصدار مختلف عن هذا التطبيق. ستعيد إعادة التشغيل السريعة مزامنتهما.',
+  'bootCheck.localNeedsRestartDesc':
+    'بيئة تشغيلك المحلية على إصدار مختلف عن هذا التطبيق. ستعيد إعادة التشغيل السريعة مزامنتهما.',
   'bootCheck.restarting': 'جارٍ إعادة التشغيل…',
   'bootCheck.restartCore': 'إعادة تشغيل بيئة التشغيل',
   'bootCheck.cloudNeedsUpdate': 'بيئة التشغيل السحابية تحتاج إلى تحديث',
-  'bootCheck.cloudNeedsUpdateDesc': 'بيئة تشغيلك السحابية على إصدار مختلف عن هذا التطبيق. شغّل المحدّث لإعادة مزامنتهما.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'بيئة تشغيلك السحابية على إصدار مختلف عن هذا التطبيق. شغّل المحدّث لإعادة مزامنتهما.',
   'bootCheck.updating': 'جارٍ التحديث…',
   'bootCheck.updateCloudCore': 'تحديث بيئة التشغيل السحابية',
   'bootCheck.versionCheckFailed': 'فشل التحقق من إصدار بيئة التشغيل',
-  'bootCheck.versionCheckFailedDesc': 'بيئة تشغيلك تعمل لكنها لا تُبلّغ عن إصدارها. قد تكون قديمة. أعد تشغيلها أو حدّثها للمتابعة.',
+  'bootCheck.versionCheckFailedDesc':
+    'بيئة تشغيلك تعمل لكنها لا تُبلّغ عن إصدارها. قد تكون قديمة. أعد تشغيلها أو حدّثها للمتابعة.',
   'bootCheck.working': 'جارٍ العمل…',
   'bootCheck.restartUpdateCore': 'إعادة تشغيل / تحديث بيئة التشغيل',
   'bootCheck.unexpectedError': 'خطأ غير متوقع في فحص بدء التشغيل',
@@ -184,7 +192,8 @@ const ar3: TranslationMap = {
   'about.update.status.availableNoVersion': 'تحديث متاح',
   'about.update.status.downloading': 'جارٍ التنزيل...',
   'about.update.status.readyToInstall': 'v{version} جاهز للتثبيت',
-  'about.update.status.readyToInstallNoVersion': 'تم تنزيل إصدار جديد وهو جاهز. أعد التشغيل للتطبيق.',
+  'about.update.status.readyToInstallNoVersion':
+    'تم تنزيل إصدار جديد وهو جاهز. أعد التشغيل للتطبيق.',
   'about.update.status.installing': 'جارٍ التثبيت...',
   'about.update.status.restarting': 'جارٍ إعادة التشغيل...',
   'about.update.status.upToDate': 'أنت تستخدم أحدث إصدار.',
@@ -275,7 +284,8 @@ const ar3: TranslationMap = {
   'app.openhumanLink.billing.stayOnTrial': 'البقاء في النسخة التجريبية',
   'app.openhumanLink.billing.trialCredit': 'رصيد تجريبي',
   'app.openhumanLink.billing.trialDesc': 'وصف تجريبي',
-  'app.openhumanLink.defaultBody': 'غير جاهز في النافذة المنبثقة بعد. افتح صفحة الإعدادات الكاملة عند الحاجة',
+  'app.openhumanLink.defaultBody':
+    'غير جاهز في النافذة المنبثقة بعد. افتح صفحة الإعدادات الكاملة عند الحاجة',
   'app.openhumanLink.discord.intro': 'مقدمة',
   'app.openhumanLink.discord.openInvite': 'فتح الدعوة',
   'app.openhumanLink.discord.perk1': 'ميزة 1',

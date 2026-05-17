@@ -128,7 +128,8 @@ const zhCN3: TranslationMap = {
   'bootCheck.chooseCoreMode': '选择核心模式',
   'bootCheck.connectToCore': '连接到你的核心',
   'bootCheck.desktopDescription': 'OpenHuman 需要一个运行中的核心才能工作。请选择连接方式。',
-  'bootCheck.webDescription': '网页版 OpenHuman 连接到由你控制的远程核心。请输入其 URL 和认证令牌，或安装桌面版在本地运行核心。',
+  'bootCheck.webDescription':
+    '网页版 OpenHuman 连接到由你控制的远程核心。请输入其 URL 和认证令牌，或安装桌面版在本地运行核心。',
   'bootCheck.preferDesktop': '更希望在自己的设备上运行一切？',
   'bootCheck.downloadDesktop': '下载桌面应用',
   'bootCheck.localRecommended': '本地（推荐）',
@@ -151,7 +152,8 @@ const zhCN3: TranslationMap = {
   'bootCheck.switchMode': '切换模式',
   'bootCheck.quit': '退出',
   'bootCheck.legacyDetected': '检测到旧版后台核心',
-  'bootCheck.legacyDescription': '此设备上正在运行一个单独安装的 OpenHuman 守护进程。必须先将其移除，嵌入式核心才能接管。',
+  'bootCheck.legacyDescription':
+    '此设备上正在运行一个单独安装的 OpenHuman 守护进程。必须先将其移除，嵌入式核心才能接管。',
   'bootCheck.removing': '正在移除…',
   'bootCheck.removeContinue': '移除并继续',
   'bootCheck.localNeedsRestart': '本地核心需要重启',
@@ -159,11 +161,13 @@ const zhCN3: TranslationMap = {
   'bootCheck.restarting': '正在重启…',
   'bootCheck.restartCore': '重启核心',
   'bootCheck.cloudNeedsUpdate': '云端核心需要更新',
-  'bootCheck.cloudNeedsUpdateDesc': '云端核心版本与此应用构建版本不匹配。请运行核心更新程序来解决此差异。',
+  'bootCheck.cloudNeedsUpdateDesc':
+    '云端核心版本与此应用构建版本不匹配。请运行核心更新程序来解决此差异。',
   'bootCheck.updating': '正在更新…',
   'bootCheck.updateCloudCore': '更新云端核心',
   'bootCheck.versionCheckFailed': '核心版本检查失败',
-  'bootCheck.versionCheckFailedDesc': '核心正在运行但未暴露版本接口。它可能已过时。请重启或更新核心以继续。',
+  'bootCheck.versionCheckFailedDesc':
+    '核心正在运行但未暴露版本接口。它可能已过时。请重启或更新核心以继续。',
   'bootCheck.working': '正在执行…',
   'bootCheck.restartUpdateCore': '重启 / 更新核心',
   'bootCheck.unexpectedError': '意外的启动检查错误',

@@ -160,7 +160,9 @@ const OAuthProviderButton = ({
         ) : (
           <IconComponent className="w-5 h-5" />
         )}
-        <span className={provider.textColor}>{isLoading ? t('oauth.button.connecting') : provider.name}</span>
+        <span className={provider.textColor}>
+          {isLoading ? t('oauth.button.connecting') : provider.name}
+        </span>
       </button>
       {startupError ? (
         <p role="alert" className="mt-2 text-xs leading-5 text-red-600">

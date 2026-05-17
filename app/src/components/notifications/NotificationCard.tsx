@@ -93,7 +93,10 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
             {n.importance_score !== undefined && (
               <span
                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${scoreBadgeClass(n.importance_score)}`}
-                title={t('notifications.card.importanceTitle').replace('{pct}', (n.importance_score * 100).toFixed(0))}>
+                title={t('notifications.card.importanceTitle').replace(
+                  '{pct}',
+                  (n.importance_score * 100).toFixed(0)
+                )}>
                 {(n.importance_score * 100).toFixed(0)}%
               </span>
             )}

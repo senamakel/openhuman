@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
 import type { TunnelRegistration } from '../../features/webhooks/types';
 import { useBackendUrl } from '../../hooks/useBackendUrl';
+import { useT } from '../../lib/i18n/I18nContext';
 import { type Tunnel, tunnelsApi } from '../../services/api/tunnelsApi';
 
 interface TunnelListProps {
@@ -126,9 +126,7 @@ export default function TunnelList({
 
       {/* Tunnel list */}
       {tunnels.length === 0 && !loading && (
-        <p className="text-sm text-stone-500 text-center py-8">
-          {t('webhooks.tunnels.empty')}
-        </p>
+        <p className="text-sm text-stone-500 text-center py-8">{t('webhooks.tunnels.empty')}</p>
       )}
 
       <div className="space-y-2">
@@ -266,7 +264,11 @@ function TunnelCard({
                   ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
                   : 'text-primary-600 hover:text-primary-700 hover:bg-primary-50'
               }`}>
-              {toggling ? '...' : isEchoRegistered ? t('webhooks.tunnels.removeEcho') : t('webhooks.tunnels.enableEcho')}
+              {toggling
+                ? '...'
+                : isEchoRegistered
+                  ? t('webhooks.tunnels.removeEcho')
+                  : t('webhooks.tunnels.enableEcho')}
             </button>
           )}
           <button

@@ -32,18 +32,23 @@ const en2: TranslationMap = {
   'settings.ai.refreshingAll': 'Refreshing All...',
   'settings.ai.refreshAll': 'Refresh All AI Configuration',
   'settings.notifications.suppressAll': 'Suppress all notifications',
-  'settings.notifications.suppressAllDesc': 'Block all OS notification toasts from embedded apps regardless of focus state.',
+  'settings.notifications.suppressAllDesc':
+    'Block all OS notification toasts from embedded apps regardless of focus state.',
   'settings.notifications.toggleDnd': 'Toggle Do Not Disturb',
   'settings.notifications.categories': 'Categories',
-  'settings.notifications.categoryFooter': 'Disabling a category stops new notifications of that type from appearing in the notification center. Existing notifications remain until cleared.',
+  'settings.notifications.categoryFooter':
+    'Disabling a category stops new notifications of that type from appearing in the notification center. Existing notifications remain until cleared.',
   'settings.billing.movedToWeb': 'Billing moved to the web',
   'settings.billing.openDashboard': 'Open billing dashboard',
-  'settings.billing.movedToWebDesc': 'Subscription changes, payment methods, credits, and invoices are now managed at TinyHumans on the web.',
+  'settings.billing.movedToWebDesc':
+    'Subscription changes, payment methods, credits, and invoices are now managed at TinyHumans on the web.',
   'settings.billing.backToSettings': 'Back to settings',
   'settings.billing.openingBrowser': 'Opening your browser...',
   'settings.billing.browserNotOpen': 'If your browser did not open, use the button above.',
-  'settings.billing.browserOpenFailed': 'The browser could not be opened automatically. Use the button above.',
-  'settings.tools.chooseCapabilities': 'Choose which capabilities OpenHuman can use on your behalf.',
+  'settings.billing.browserOpenFailed':
+    'The browser could not be opened automatically. Use the button above.',
+  'settings.tools.chooseCapabilities':
+    'Choose which capabilities OpenHuman can use on your behalf.',
   'settings.tools.saveChanges': 'Save Changes',
   'settings.tools.preferencesSaved': 'Preferences saved',
   'settings.tools.saveFailed': 'Failed to save preferences. Try again.',
@@ -60,20 +65,26 @@ const en2: TranslationMap = {
   'settings.screenAwareness.startSession': 'Start Session',
   'settings.screenAwareness.stopSession': 'Stop Session',
   'settings.screenAwareness.analyzeNow': 'Analyze Now',
-  'settings.screenAwareness.macosOnly': 'Screen Awareness desktop capture and permission controls are currently supported on macOS only.',
+  'settings.screenAwareness.macosOnly':
+    'Screen Awareness desktop capture and permission controls are currently supported on macOS only.',
   'connections.comingSoon': 'Coming soon',
   'connections.setUp': 'Set up',
   'connections.configured': 'Configured',
   'connections.unavailable': 'Unavailable',
   'connections.checking': 'Checking…',
-  'connections.walletConfigured': 'Local EVM, BTC, Solana, and Tron identities are configured from your recovery phrase.',
-  'connections.walletReady': 'Set up local EVM, BTC, Solana, and Tron identities from one recovery phrase.',
-  'connections.walletError': 'Could not check wallet status. Tap to retry from the Recovery Phrase panel.',
+  'connections.walletConfigured':
+    'Local EVM, BTC, Solana, and Tron identities are configured from your recovery phrase.',
+  'connections.walletReady':
+    'Set up local EVM, BTC, Solana, and Tron identities from one recovery phrase.',
+  'connections.walletError':
+    'Could not check wallet status. Tap to retry from the Recovery Phrase panel.',
   'connections.walletChecking': 'Checking wallet status...',
   'connections.walletIdentities': 'Wallet identities',
-  'connections.walletDerived': 'Derived locally from your recovery phrase and stored as safe metadata only.',
+  'connections.walletDerived':
+    'Derived locally from your recovery phrase and stored as safe metadata only.',
   'connections.privacySecurity': 'Privacy & Security',
-  'connections.privacySecurityDesc': 'All data and credentials are stored locally with zero-data retention policy. Your information is encrypted and never shared with third parties.',
+  'connections.privacySecurityDesc':
+    'All data and credentials are stored locally with zero-data retention policy. Your information is encrypted and never shared with third parties.',
   'channels.status.connecting': 'Connecting',
   'channels.status.notConfigured': 'Not configured',
   'channels.noActiveRoute': 'No active route',
@@ -84,7 +95,8 @@ const en2: TranslationMap = {
   'channels.configNotAvailable': 'Configuration for',
   'channels.channel': 'channel',
   'devOptions.coreModeNotSet': 'Core mode: not set',
-  'devOptions.coreModeNotSetDesc': 'The boot-check picker hasn\'t been confirmed yet. Use Switch mode on the picker to choose Local or Cloud.',
+  'devOptions.coreModeNotSetDesc':
+    "The boot-check picker hasn't been confirmed yet. Use Switch mode on the picker to choose Local or Cloud.",
   'devOptions.local': 'Local',
   'devOptions.embeddedCoreSidecar': 'Embedded core sidecar',
   'devOptions.sidecarSpawned': 'Spawned in-process by the Tauri shell on app launch.',
@@ -93,23 +105,28 @@ const en2: TranslationMap = {
   'devOptions.token': 'Token',
   'devOptions.tokenNotSet': 'not set — RPC will 401',
   'devOptions.triggerSentryTest': 'Trigger Sentry Test (staging)',
-  'devOptions.triggerSentryTestDesc': 'Fires a tagged error to verify the Sentry pipeline. Issue #1072 — remove after verification.',
+  'devOptions.triggerSentryTestDesc':
+    'Fires a tagged error to verify the Sentry pipeline. Issue #1072 — remove after verification.',
   'devOptions.sendTestEvent': 'Send test event',
   'devOptions.sending': 'Sending…',
   'devOptions.eventSent': 'Event sent',
   'devOptions.failed': 'Failed',
   'devOptions.appLogs': 'App logs',
-  'devOptions.appLogsDesc': 'Open the folder containing rolling daily log files. Attach the most recent file when reporting an issue.',
+  'devOptions.appLogsDesc':
+    'Open the folder containing rolling daily log files. Attach the most recent file when reporting an issue.',
   'devOptions.openLogsFolder': 'Open logs folder',
   'mnemonic.phraseSaved': 'Recovery phrase saved',
   'mnemonic.walletReady': 'Multi-chain wallet identities are ready. Returning to settings...',
   'mnemonic.writeDownWords': 'Write down these',
-  'mnemonic.wordsInOrder': 'words in order and store them somewhere safe. This phrase secures your local encryption key and your EVM, BTC, Solana, and Tron wallet identities.',
-  'mnemonic.cannotRecover': 'This phrase can never be recovered if lost and should stay fully local to your device.',
+  'mnemonic.wordsInOrder':
+    'words in order and store them somewhere safe. This phrase secures your local encryption key and your EVM, BTC, Solana, and Tron wallet identities.',
+  'mnemonic.cannotRecover':
+    'This phrase can never be recovered if lost and should stay fully local to your device.',
   'mnemonic.copyToClipboard': 'Copy to Clipboard',
   'mnemonic.alreadyHavePhrase': 'I already have a recovery phrase',
   'mnemonic.consentSaved': 'I saved this phrase and consent to using it for local wallet setup',
-  'mnemonic.enterPhraseToRestore': 'Enter your recovery phrase below to restore your local wallet identities, or paste the full phrase into any field (12 words for new backups; 24-word phrases from older versions still work).',
+  'mnemonic.enterPhraseToRestore':
+    'Enter your recovery phrase below to restore your local wallet identities, or paste the full phrase into any field (12 words for new backups; 24-word phrases from older versions still work).',
   'mnemonic.words': 'Words',
   'mnemonic.validPhrase': 'Valid recovery phrase',
   'mnemonic.generateNewPhrase': 'Generate a new recovery phrase instead',
@@ -143,7 +160,8 @@ const en2: TranslationMap = {
   'team.join': 'Join',
   'team.leaveTeam': 'Leave Team',
   'team.confirmLeave': 'Are you sure you want to leave',
-  'team.leaveWarning': 'You will lose access to the team and all team resources. You\'ll need a new invite to rejoin.',
+  'team.leaveWarning':
+    "You will lose access to the team and all team resources. You'll need a new invite to rejoin.",
   'team.management': 'Team Management',
   'team.notFound': 'Team not found',
   'team.accessDenied': 'Access denied',
@@ -159,9 +177,11 @@ const en2: TranslationMap = {
   'voice.naturalCleanup': 'Natural cleanup',
   'voice.autoStart': 'Start voice server automatically with the core',
   'voice.customDictionary': 'Custom Dictionary',
-  'voice.customDictionaryDesc': 'Add names, technical terms, and domain words to improve recognition accuracy.',
+  'voice.customDictionaryDesc':
+    'Add names, technical terms, and domain words to improve recognition accuracy.',
   'voice.addWord': 'Add a word...',
-  'voice.sttDisabled': 'Voice dictation is disabled until the local STT model is downloaded and ready.',
+  'voice.sttDisabled':
+    'Voice dictation is disabled until the local STT model is downloaded and ready.',
   'voice.openLocalAiModel': 'Open Local AI Model',
   'voice.serverRestarted': 'Voice server restarted with the new settings.',
   'voice.settingsSaved': 'Voice settings saved.',
@@ -204,7 +224,8 @@ const en2: TranslationMap = {
   'chat.askAgent': 'Ask the agent anything...',
   'chat.sendMessage': 'Send Message',
   'composio.triageTitle': 'Integration Triggers',
-  'composio.triageDesc': 'When active, each incoming Composio trigger runs through an AI triage step that classifies the event and may kick off automated actions — one local LLM turn per trigger. Disable globally or per integration if you prefer manual review. If the environment variable',
+  'composio.triageDesc':
+    'When active, each incoming Composio trigger runs through an AI triage step that classifies the event and may kick off automated actions — one local LLM turn per trigger. Disable globally or per integration if you prefer manual review. If the environment variable',
   'composio.disableAllTriage': 'Disable AI triage for all triggers',
   'composio.triggersStillRecorded': 'Triggers are still recorded to history — no LLM turn is run.',
   'composio.disableSpecificIntegrations': 'Disable AI triage for specific integrations',
@@ -217,9 +238,11 @@ const en2: TranslationMap = {
   'localModel.modelStatus': 'Model Status',
   'localModel.downloadModels': 'Download Models',
   'localModel.usage': 'Usage',
-  'localModel.usageDesc': 'Choose which subsystems run on the local model. Anything off uses the cloud.',
+  'localModel.usageDesc':
+    'Choose which subsystems run on the local model. Anything off uses the cloud.',
   'localModel.enableRuntime': 'Enable local AI runtime',
-  'localModel.enableRuntimeDesc': 'Master switch. Off by default — Ollama stays idle. When on, the tree summarizer, screen intelligence, and autocomplete always use the local model.',
+  'localModel.enableRuntimeDesc':
+    'Master switch. Off by default — Ollama stays idle. When on, the tree summarizer, screen intelligence, and autocomplete always use the local model.',
   'localModel.advancedSettings': 'Advanced settings',
   'localModel.debugTitle': 'Local Model Debug',
   'screenAwareness.debugTitle': 'Screen Awareness Debug',
@@ -230,7 +253,8 @@ const en2: TranslationMap = {
   'common.skip': 'Skip',
   'common.disable': 'Disable',
   'common.enable': 'Enable',
-  'chat.safetyTimeout': 'No response from the agent after 2 minutes. Try again or check your connection.',
+  'chat.safetyTimeout':
+    'No response from the agent after 2 minutes. Try again or check your connection.',
   'chat.filter.all': 'All',
   'chat.filter.work': 'Work',
   'chat.filter.briefing': 'Briefing',
@@ -254,7 +278,7 @@ const en2: TranslationMap = {
   'chat.approachingLimit': 'Approaching usage limit',
   'chat.approachingLimitMsg': 'You have used {pct}% of your available quota.',
   'chat.upgrade': 'Upgrade',
-  'chat.weeklyLimitHit': 'You\'ve hit your weekly limit.',
+  'chat.weeklyLimitHit': "You've hit your weekly limit.",
   'chat.resets': 'Resets',
   'chat.topUpToContinue': 'Top up to continue.',
   'chat.budgetComplete': 'Your included budget is complete. Add credits or upgrade to continue.',
@@ -338,7 +362,8 @@ const en2: TranslationMap = {
   'navigator.documents': 'Documents',
   'navigator.people': 'People',
   'navigator.topics': 'Topics',
-  'dreams.description': 'Dreams are AI-generated reflections that synthesize patterns from your memories.',
+  'dreams.description':
+    'Dreams are AI-generated reflections that synthesize patterns from your memories.',
   'dreams.comingSoon': 'Coming soon',
   'assignment.memoryLlm': 'Memory LLM',
   'assignment.memoryLlmAria': 'Memory LLM selection',

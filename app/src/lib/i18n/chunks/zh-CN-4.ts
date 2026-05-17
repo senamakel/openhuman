@@ -54,7 +54,8 @@ const zhCN4: TranslationMap = {
   'conversations.taskKanban.moveLeft': '向左移动',
   'conversations.taskKanban.moveRight': '向右移动',
   'conversations.taskKanban.title': '任务',
-  'conversations.toolTimeline.turn': '第 {subagent.childIteration}/{subagent.childMaxIterations} 轮',
+  'conversations.toolTimeline.turn':
+    '第 {subagent.childIteration}/{subagent.childMaxIterations} 轮',
   'conversations.toolTimeline.workerThread': '工作线程',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
   'daemon.serviceBlockingGate.downloadHint': '下载最新版本',
@@ -284,14 +285,17 @@ const zhCN4: TranslationMap = {
   'settings.autocomplete.appFilter.refreshing': '刷新中…',
   'settings.autocomplete.appFilter.runtime': '运行时',
   'settings.autocomplete.appFilter.test': '测试',
-  'settings.autocomplete.completionStyle.acceptedCompletion': '已存储接受的补全记录，用于个性化后续建议。',
-  'settings.autocomplete.completionStyle.acceptedCompletions': '已存储接受的补全记录，用于个性化后续建议。',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    '已存储接受的补全记录，用于个性化后续建议。',
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    '已存储接受的补全记录，用于个性化后续建议。',
   'settings.autocomplete.completionStyle.clearHistory': '清除中…',
   'settings.autocomplete.completionStyle.clearing': '清除中…',
   'settings.autocomplete.completionStyle.debounce': '防抖（ms）',
   'settings.autocomplete.completionStyle.enabled': '已启用',
   'settings.autocomplete.completionStyle.maxChars': '最大字符数',
-  'settings.autocomplete.completionStyle.noHistory': '暂无接受的补全记录。用 Tab 键接受建议以开始个性化。',
+  'settings.autocomplete.completionStyle.noHistory':
+    '暂无接受的补全记录。用 Tab 键接受建议以开始个性化。',
   'settings.autocomplete.completionStyle.overlayTtl': '浮层显示时长（ms）',
   'settings.autocomplete.completionStyle.personalizationHistory': '个性化历史',
   'settings.autocomplete.completionStyle.styleExamples': '风格示例（每行一条）',

@@ -61,9 +61,7 @@ export default function ErrorFallbackScreen({
           <p className="text-sm text-stone-400 text-center mb-6">
             {t('app.errorFallback.subheading')}
           </p>
-          <p className="text-xs text-stone-500 text-center mb-6">
-            {t('app.errorFallback.hint')}
-          </p>
+          <p className="text-xs text-stone-500 text-center mb-6">{t('app.errorFallback.hint')}</p>
 
           {/* Error details */}
           <div className="bg-stone-800/50 border border-stone-700/50 rounded-xl p-4 mb-6">

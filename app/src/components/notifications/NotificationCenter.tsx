@@ -123,7 +123,9 @@ const NotificationCenter = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold text-stone-900">{t('notifications.center.title')}</h2>
+          <h2 className="text-base font-semibold text-stone-900">
+            {t('notifications.center.title')}
+          </h2>
           {filteredUnreadCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary-500 text-white">
               {filteredUnreadCount}
@@ -197,9 +199,7 @@ const NotificationCenter = () => {
               />
             </svg>
             <p className="text-sm font-medium">{t('notifications.center.empty')}</p>
-            <p className="text-xs mt-1 opacity-70">
-              {t('notifications.center.emptyHint')}
-            </p>
+            <p className="text-xs mt-1 opacity-70">{t('notifications.center.emptyHint')}</p>
           </div>
         )}
 

@@ -12,11 +12,7 @@ interface ChannelSelectorProps {
   onSelectChannel: (channel: ChannelType) => void;
 }
 
-const CHANNEL_ICONS: Record<string, string> = {
-  telegram: '✈️',
-  discord: '🎮',
-  web: '🌐',
-};
+const CHANNEL_ICONS: Record<string, string> = { telegram: '✈️', discord: '🎮', web: '🌐' };
 
 const ChannelSelector = ({
   definitions,
@@ -39,8 +35,7 @@ const ChannelSelector = ({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-stone-900">{t('channels.title')}</h2>
         <p className="text-xs text-stone-400">
-          {t('channels.activeRoute')}:{' '}
-          <span className="text-primary-600">{activeRoute}</span>
+          {t('channels.activeRoute')}: <span className="text-primary-600">{activeRoute}</span>
         </p>
       </div>
 

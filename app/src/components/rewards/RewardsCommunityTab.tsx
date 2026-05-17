@@ -152,7 +152,9 @@ export default function RewardsCommunityTab({
         <section className="rounded-[1.25rem] bg-white p-6 shadow-[0_4px_20px_rgba(25,28,30,0.04)]">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-stone-900">{t('rewards.community.yourProgress')}</h2>
+              <h2 className="text-lg font-bold text-stone-900">
+                {t('rewards.community.yourProgress')}
+              </h2>
               <p className="text-xs text-stone-500">
                 {isLoading
                   ? t('rewards.community.loadingRewards')
@@ -207,7 +209,9 @@ export default function RewardsCommunityTab({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900">{t('rewards.community.rolesAndRewards')}</h2>
+            <h2 className="text-lg font-bold text-stone-900">
+              {t('rewards.community.rolesAndRewards')}
+            </h2>
           </div>
           {isLoading ? (
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-soft">
@@ -240,7 +244,9 @@ export default function RewardsCommunityTab({
                     </div>
                     <div className="flex items-center gap-1 text-primary-700">
                       <span className="text-[10px] font-bold uppercase tracking-[0.16em]">
-                        {role.unlocked ? t('rewards.community.unlocked') : t('rewards.community.locked')}
+                        {role.unlocked
+                          ? t('rewards.community.unlocked')
+                          : t('rewards.community.locked')}
                       </span>
                       <svg
                         className="h-4 w-4"
@@ -260,7 +266,9 @@ export default function RewardsCommunityTab({
             })
           ) : (
             <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-soft">
-              <h2 className="text-lg font-semibold text-stone-900">{t('rewards.community.syncPending')}</h2>
+              <h2 className="text-lg font-semibold text-stone-900">
+                {t('rewards.community.syncPending')}
+              </h2>
               <p className="mt-2 text-sm text-stone-600">
                 {t('rewards.community.syncPendingDesc')}
               </p>
@@ -287,14 +295,19 @@ export default function RewardsCommunityTab({
             <span>{t('rewards.community.currentStreak')}</span>
             <span className="font-semibold text-stone-900">
               {snapshot
-                ? t('rewards.community.streakDays').replace('{n}', String(snapshot.metrics.currentStreakDays))
+                ? t('rewards.community.streakDays').replace(
+                    '{n}',
+                    String(snapshot.metrics.currentStreakDays)
+                  )
                 : t('rewards.community.unknown')}
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <span>{t('rewards.community.cumulativeTokens')}</span>
             <span className="font-semibold text-stone-900">
-              {snapshot ? formatNumber(snapshot.metrics.cumulativeTokens) : t('rewards.community.unknown')}
+              {snapshot
+                ? formatNumber(snapshot.metrics.cumulativeTokens)
+                : t('rewards.community.unknown')}
             </span>
           </div>
         </section>

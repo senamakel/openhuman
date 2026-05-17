@@ -107,7 +107,8 @@ const id1: TranslationMap = {
   'settings.ai.llmProvider': 'Penyedia LLM',
   'settings.ai.llmProviderDesc': 'Pilih dan konfigurasikan penyedia AI Anda',
   'clearData.title': 'Bersihkan Data Aplikasi',
-  'clearData.warning': 'Ini akan mengeluarkan Anda dan menghapus permanen data aplikasi lokal termasuk:',
+  'clearData.warning':
+    'Ini akan mengeluarkan Anda dan menghapus permanen data aplikasi lokal termasuk:',
   'clearData.bulletSettings': 'Pengaturan aplikasi dan percakapan',
   'clearData.bulletCache': 'Semua data cache integrasi lokal',
   'clearData.bulletWorkspace': 'Data workspace',
@@ -129,10 +130,14 @@ const id1: TranslationMap = {
   'home.greetingAfternoon': 'Selamat siang',
   'home.greetingEvening': 'Selamat malam',
   'home.askAssistant': 'Tanyakan apa saja ke asisten Anda...',
-  'home.statusOk': 'Perangkat Anda terhubung. Biarkan aplikasi tetap berjalan agar koneksi tetap aktif. Kirim pesan ke agen Anda dengan tombol di bawah.',
-  'home.statusBackendOnly': 'Menghubungkan ulang ke backend... agen Anda akan segera tersedia lagi.',
-  'home.statusCoreUnreachable': 'Core sidecar lokal tidak merespons. Proses latar OpenHuman mungkin crash atau gagal dimulai.',
-  'home.statusInternetOffline': 'Perangkat Anda sedang offline. Periksa jaringan atau mulai ulang aplikasi untuk menyambung lagi.',
+  'home.statusOk':
+    'Perangkat Anda terhubung. Biarkan aplikasi tetap berjalan agar koneksi tetap aktif. Kirim pesan ke agen Anda dengan tombol di bawah.',
+  'home.statusBackendOnly':
+    'Menghubungkan ulang ke backend... agen Anda akan segera tersedia lagi.',
+  'home.statusCoreUnreachable':
+    'Core sidecar lokal tidak merespons. Proses latar OpenHuman mungkin crash atau gagal dimulai.',
+  'home.statusInternetOffline':
+    'Perangkat Anda sedang offline. Periksa jaringan atau mulai ulang aplikasi untuk menyambung lagi.',
   'home.restartCore': 'Mulai Ulang Core',
   'home.restartingCore': 'Memulai ulang core...',
   'chat.newThread': 'Thread baru',
@@ -181,7 +186,8 @@ const id1: TranslationMap = {
   'rewards.copyCode': 'Salin kode',
   'rewards.share': 'Bagikan',
   'onboarding.welcome': 'Hai. Saya OpenHuman.',
-  'onboarding.welcomeDesc': 'Asisten AI super cerdas yang berjalan di komputer Anda. Privat, sederhana, dan sangat kuat.',
+  'onboarding.welcomeDesc':
+    'Asisten AI super cerdas yang berjalan di komputer Anda. Privat, sederhana, dan sangat kuat.',
   'onboarding.context': 'Pengumpulan Konteks',
   'onboarding.contextDesc': 'Hubungkan alat dan layanan yang Anda gunakan setiap hari.',
   'onboarding.localAI': 'AI Lokal',
@@ -195,7 +201,8 @@ const id1: TranslationMap = {
   'onboarding.skip': 'Lewati',
   'onboarding.getStarted': 'Mulai',
   'onboarding.runtimeChoice.title': 'Bagaimana Anda ingin menjalankan OpenHuman?',
-  'onboarding.runtimeChoice.subtitle': 'Pilih pengaturan yang paling sesuai untuk Anda. Anda dapat mengubahnya nanti di Pengaturan.',
+  'onboarding.runtimeChoice.subtitle':
+    'Pilih pengaturan yang paling sesuai untuk Anda. Anda dapat mengubahnya nanti di Pengaturan.',
   'onboarding.runtimeChoice.cloud.title': 'Sederhana',
   'onboarding.runtimeChoice.cloud.tagline': 'Biarkan OpenHuman mengelola segalanya untuk Anda.',
   'onboarding.runtimeChoice.cloud.f1': 'Keamanan bawaan',
@@ -204,7 +211,8 @@ const id1: TranslationMap = {
   'onboarding.runtimeChoice.cloud.f4': 'Tidak perlu mengelola API key',
   'onboarding.runtimeChoice.cloud.f5': 'Mudah diatur',
   'onboarding.runtimeChoice.custom.title': 'Jalankan Kustom',
-  'onboarding.runtimeChoice.custom.tagline': 'Bawa key Anda sendiri. Kontrol penuh atas apa yang Anda gunakan.',
+  'onboarding.runtimeChoice.custom.tagline':
+    'Bawa key Anda sendiri. Kontrol penuh atas apa yang Anda gunakan.',
   'onboarding.runtimeChoice.custom.f1': 'Anda memerlukan API key untuk hampir semuanya',
   'onboarding.runtimeChoice.custom.f2': 'Memanfaatkan ulang layanan yang sudah Anda bayar',
   'onboarding.runtimeChoice.custom.f3': 'Bisa gratis jika Anda menjalankan semuanya secara lokal',
@@ -215,12 +223,14 @@ const id1: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'Lanjutkan dengan Kustom',
   'onboarding.runtimeChoice.recommended': 'Direkomendasikan',
   'onboarding.apiKeys.title': 'Mari Tambahkan API Key Anda',
-  'onboarding.apiKeys.subtitle': 'Anda dapat menempelkannya sekarang atau lewati dan tambahkan nanti di Pengaturan › AI. Key disimpan di perangkat ini, dienkripsi saat penyimpanan.',
+  'onboarding.apiKeys.subtitle':
+    'Anda dapat menempelkannya sekarang atau lewati dan tambahkan nanti di Pengaturan › AI. Key disimpan di perangkat ini, dienkripsi saat penyimpanan.',
   'onboarding.apiKeys.openaiLabel': 'API key OpenAI',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'API key Anthropic',
   'onboarding.apiKeys.anthropicPlaceholder': 'sk-ant-...',
-  'onboarding.apiKeys.saveError': 'Tidak dapat menyimpan key tersebut. Periksa kembali dan coba lagi.',
+  'onboarding.apiKeys.saveError':
+    'Tidak dapat menyimpan key tersebut. Periksa kembali dan coba lagi.',
   'onboarding.apiKeys.skipForNow': 'Lewati untuk sekarang',
   'onboarding.apiKeys.continue': 'Simpan dan lanjutkan',
   'onboarding.apiKeys.saving': 'Menyimpan...',
@@ -238,28 +248,42 @@ const id1: TranslationMap = {
   'onboarding.custom.continue': 'Lanjutkan',
   'onboarding.custom.back': 'Kembali',
   'onboarding.custom.finish': 'Selesaikan Pengaturan',
-  'onboarding.custom.configureLater': 'Anda dapat menyelesaikan pengaturan ini setelah orientasi. Kami akan mengarahkan Anda ke halaman Pengaturan yang sesuai setelah selesai.',
+  'onboarding.custom.configureLater':
+    'Anda dapat menyelesaikan pengaturan ini setelah orientasi. Kami akan mengarahkan Anda ke halaman Pengaturan yang sesuai setelah selesai.',
   'onboarding.custom.openSettings': 'Buka di Pengaturan',
   'onboarding.custom.inference.title': 'Inferensi (Teks)',
-  'onboarding.custom.inference.subtitle': 'Model bahasa mana yang harus menjawab pertanyaan dan menjalankan agen Anda?',
-  'onboarding.custom.inference.defaultDesc': 'OpenHuman mengarahkan setiap beban kerja ke model default yang masuk akal. Tidak perlu key, tidak perlu pengaturan.',
-  'onboarding.custom.inference.configureDesc': 'Bawa key OpenAI atau Anthropic Anda sendiri. Kami menggunakannya untuk setiap beban kerja berbasis teks.',
+  'onboarding.custom.inference.subtitle':
+    'Model bahasa mana yang harus menjawab pertanyaan dan menjalankan agen Anda?',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman mengarahkan setiap beban kerja ke model default yang masuk akal. Tidak perlu key, tidak perlu pengaturan.',
+  'onboarding.custom.inference.configureDesc':
+    'Bawa key OpenAI atau Anthropic Anda sendiri. Kami menggunakannya untuk setiap beban kerja berbasis teks.',
   'onboarding.custom.voice.title': 'Suara',
   'onboarding.custom.voice.subtitle': 'Speech-to-text dan text-to-speech untuk mode suara.',
-  'onboarding.custom.voice.defaultDesc': 'OpenHuman dilengkapi dengan STT/TTS terkelola yang langsung berfungsi. Tidak ada yang perlu dikonfigurasi.',
-  'onboarding.custom.voice.configureDesc': 'Gunakan ElevenLabs / OpenAI Whisper / dll. milik Anda sendiri. Konfigurasi di Pengaturan › Suara.',
+  'onboarding.custom.voice.defaultDesc':
+    'OpenHuman dilengkapi dengan STT/TTS terkelola yang langsung berfungsi. Tidak ada yang perlu dikonfigurasi.',
+  'onboarding.custom.voice.configureDesc':
+    'Gunakan ElevenLabs / OpenAI Whisper / dll. milik Anda sendiri. Konfigurasi di Pengaturan › Suara.',
   'onboarding.custom.oauth.title': 'Koneksi (OAuth)',
-  'onboarding.custom.oauth.subtitle': 'Gmail, Slack, Notion, dan layanan terhubung lainnya yang memerlukan OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'OpenHuman menjalankan workspace Composio terkelola. Satu klik untuk menghubungkan setiap layanan nanti.',
-  'onboarding.custom.oauth.configureDesc': 'Bawa akun Composio / API key Anda sendiri. Konfigurasi di Pengaturan › Koneksi.',
+  'onboarding.custom.oauth.subtitle':
+    'Gmail, Slack, Notion, dan layanan terhubung lainnya yang memerlukan OAuth.',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman menjalankan workspace Composio terkelola. Satu klik untuk menghubungkan setiap layanan nanti.',
+  'onboarding.custom.oauth.configureDesc':
+    'Bawa akun Composio / API key Anda sendiri. Konfigurasi di Pengaturan › Koneksi.',
   'onboarding.custom.search.title': 'Pencarian Web',
   'onboarding.custom.search.subtitle': 'Cara OpenHuman mencari web atas nama Anda.',
-  'onboarding.custom.search.defaultDesc': 'OpenHuman menggunakan backend pencarian terkelola. Tidak perlu key.',
-  'onboarding.custom.search.configureDesc': 'Bawa key penyedia pencarian Anda sendiri (Tavily, Brave, dll.). Konfigurasi di Pengaturan › Alat.',
+  'onboarding.custom.search.defaultDesc':
+    'OpenHuman menggunakan backend pencarian terkelola. Tidak perlu key.',
+  'onboarding.custom.search.configureDesc':
+    'Bawa key penyedia pencarian Anda sendiri (Tavily, Brave, dll.). Konfigurasi di Pengaturan › Alat.',
   'onboarding.custom.memory.title': 'Memori',
-  'onboarding.custom.memory.subtitle': 'Cara OpenHuman mengingat konteks, preferensi, dan percakapan sebelumnya.',
-  'onboarding.custom.memory.defaultDesc': 'OpenHuman mengelola penyimpanan dan pengambilan memori secara otomatis. Tidak ada yang perlu diatur.',
-  'onboarding.custom.memory.configureDesc': 'Periksa, ekspor, atau hapus memori sendiri. Konfigurasi di Pengaturan › Memori.',
+  'onboarding.custom.memory.subtitle':
+    'Cara OpenHuman mengingat konteks, preferensi, dan percakapan sebelumnya.',
+  'onboarding.custom.memory.defaultDesc':
+    'OpenHuman mengelola penyimpanan dan pengambilan memori secara otomatis. Tidak ada yang perlu diatur.',
+  'onboarding.custom.memory.configureDesc':
+    'Periksa, ekspor, atau hapus memori sendiri. Konfigurasi di Pengaturan › Memori.',
   'accounts.addAccount': 'Tambah Akun',
   'accounts.manageAccounts': 'Kelola Akun',
   'accounts.noAccounts': 'Belum ada akun terhubung',
@@ -320,7 +344,8 @@ const id1: TranslationMap = {
   'misc.betaFeedback': 'Kirim masukan',
   'mnemonic.title': 'Frasa Pemulihan',
   'mnemonic.warning': 'Tulis kata-kata ini berurutan dan simpan di tempat aman.',
-  'mnemonic.copyWarning': 'Jangan pernah membagikan frasa pemulihan. Siapa pun yang memiliki kata-kata ini dapat mengakses akun Anda.',
+  'mnemonic.copyWarning':
+    'Jangan pernah membagikan frasa pemulihan. Siapa pun yang memiliki kata-kata ini dapat mengakses akun Anda.',
   'mnemonic.copied': 'Frasa pemulihan disalin ke clipboard',
   'mnemonic.reveal': 'Tampilkan frasa',
   'mnemonic.hidden': 'Frasa pemulihan disembunyikan',
@@ -329,18 +354,22 @@ const id1: TranslationMap = {
   'privacy.empty': 'Tidak ada transfer data eksternal terdeteksi.',
   'privacy.whatLeavesComputer': 'Data yang keluar dari komputer Anda',
   'privacy.loading': 'Memuat detail privasi...',
-  'privacy.loadError': 'Tidak dapat memuat daftar privasi live. Kontrol analitik di bawah tetap berfungsi.',
+  'privacy.loadError':
+    'Tidak dapat memuat daftar privasi live. Kontrol analitik di bawah tetap berfungsi.',
   'privacy.noCapabilities': 'Belum ada kemampuan yang mengungkap pergerakan data.',
   'privacy.sentTo': 'Dikirim ke',
   'privacy.leavesDevice': 'Keluar dari perangkat',
   'privacy.staysLocal': 'Tetap lokal',
   'privacy.anonymizedAnalytics': 'Analitik Anonim',
   'privacy.shareAnonymizedData': 'Bagikan Data Penggunaan Anonim',
-  'privacy.shareAnonymizedDataDesc': 'Bantu meningkatkan OpenHuman dengan membagikan laporan crash dan analitik penggunaan anonim. Semua data sepenuhnya anonim; tidak ada data pribadi, pesan, kunci dompet, atau informasi sesi yang dikumpulkan.',
+  'privacy.shareAnonymizedDataDesc':
+    'Bantu meningkatkan OpenHuman dengan membagikan laporan crash dan analitik penggunaan anonim. Semua data sepenuhnya anonim; tidak ada data pribadi, pesan, kunci dompet, atau informasi sesi yang dikumpulkan.',
   'privacy.meetingFollowUps': 'Tindak lanjut rapat',
   'privacy.autoHandoffMeet': 'Serahkan transkrip Google Meet otomatis ke orchestrator',
-  'privacy.autoHandoffMeetDesc': 'Saat panggilan Google Meet berakhir, orchestrator OpenHuman dapat membaca transkrip dan mengambil tindakan seperti menyusun pesan, menjadwalkan tindak lanjut, atau memposting ringkasan ke workspace Slack yang terhubung. Nonaktif secara default.',
-  'privacy.analyticsDisclaimer': 'Semua analitik dan laporan bug sepenuhnya anonim. Saat aktif, kami hanya mengumpulkan informasi crash, jenis perangkat, dan lokasi file error. Kami tidak pernah mengakses pesan, data sesi, kunci dompet, API key, atau informasi pribadi Anda. Pengaturan ini bisa diubah kapan saja.',
+  'privacy.autoHandoffMeetDesc':
+    'Saat panggilan Google Meet berakhir, orchestrator OpenHuman dapat membaca transkrip dan mengambil tindakan seperti menyusun pesan, menjadwalkan tindak lanjut, atau memposting ringkasan ke workspace Slack yang terhubung. Nonaktif secara default.',
+  'privacy.analyticsDisclaimer':
+    'Semua analitik dan laporan bug sepenuhnya anonim. Saat aktif, kami hanya mengumpulkan informasi crash, jenis perangkat, dan lokasi file error. Kami tidak pernah mengakses pesan, data sesi, kunci dompet, API key, atau informasi pribadi Anda. Pengaturan ini bisa diubah kapan saja.',
   'settings.about.version': 'Versi',
   'settings.about.updateAvailable': 'tersedia',
   'settings.about.softwareUpdates': 'Pembaruan perangkat lunak',

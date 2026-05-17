@@ -215,7 +215,8 @@ const zhCN1: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': '以自定义模式继续',
   'onboarding.runtimeChoice.recommended': '推荐',
   'onboarding.apiKeys.title': '添加你的 API 密钥',
-  'onboarding.apiKeys.subtitle': '你可以现在粘贴，或跳过稍后在设置 › AI 中添加。密钥存储在此设备上，静态加密。',
+  'onboarding.apiKeys.subtitle':
+    '你可以现在粘贴，或跳过稍后在设置 › AI 中添加。密钥存储在此设备上，静态加密。',
   'onboarding.apiKeys.openaiLabel': 'OpenAI API 密钥',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'Anthropic API 密钥',
@@ -238,24 +239,30 @@ const zhCN1: TranslationMap = {
   'onboarding.custom.continue': '继续',
   'onboarding.custom.back': '返回',
   'onboarding.custom.finish': '完成设置',
-  'onboarding.custom.configureLater': '你可以在引导完成后继续配置。完成后我们会跳转到对应的设置页面。',
+  'onboarding.custom.configureLater':
+    '你可以在引导完成后继续配置。完成后我们会跳转到对应的设置页面。',
   'onboarding.custom.openSettings': '在设置中打开',
   'onboarding.custom.inference.title': '推理（文本）',
   'onboarding.custom.inference.subtitle': '哪个语言模型应该回答你的问题并运行你的智能体？',
-  'onboarding.custom.inference.defaultDesc': 'OpenHuman 将每个工作负载路由到合理的默认模型。无需密钥，无需设置。',
-  'onboarding.custom.inference.configureDesc': '自带 OpenAI 或 Anthropic 密钥。我们将其用于所有基于文本的工作负载。',
+  'onboarding.custom.inference.defaultDesc':
+    'OpenHuman 将每个工作负载路由到合理的默认模型。无需密钥，无需设置。',
+  'onboarding.custom.inference.configureDesc':
+    '自带 OpenAI 或 Anthropic 密钥。我们将其用于所有基于文本的工作负载。',
   'onboarding.custom.voice.title': '语音',
   'onboarding.custom.voice.subtitle': '语音模式的语音转文本和文本转语音。',
   'onboarding.custom.voice.defaultDesc': 'OpenHuman 内置托管 STT/TTS，开箱即用。无需任何配置。',
-  'onboarding.custom.voice.configureDesc': '使用你自己的 ElevenLabs / OpenAI Whisper 等。在设置 › 语音中配置。',
+  'onboarding.custom.voice.configureDesc':
+    '使用你自己的 ElevenLabs / OpenAI Whisper 等。在设置 › 语音中配置。',
   'onboarding.custom.oauth.title': '连接（OAuth）',
   'onboarding.custom.oauth.subtitle': 'Gmail、Slack、Notion 等需要 OAuth 的已连接服务。',
-  'onboarding.custom.oauth.defaultDesc': 'OpenHuman 运行托管 Composio 工作区。稍后一键连接每个服务。',
+  'onboarding.custom.oauth.defaultDesc':
+    'OpenHuman 运行托管 Composio 工作区。稍后一键连接每个服务。',
   'onboarding.custom.oauth.configureDesc': '自带 Composio 账户 / API 密钥。在设置 › 连接中配置。',
   'onboarding.custom.search.title': '网络搜索',
   'onboarding.custom.search.subtitle': 'OpenHuman 代表你搜索网络的方式。',
   'onboarding.custom.search.defaultDesc': 'OpenHuman 使用托管搜索后端。无需密钥。',
-  'onboarding.custom.search.configureDesc': '自带搜索提供商密钥（Tavily、Brave 等）。在设置 › 工具中配置。',
+  'onboarding.custom.search.configureDesc':
+    '自带搜索提供商密钥（Tavily、Brave 等）。在设置 › 工具中配置。',
   'onboarding.custom.memory.title': '记忆',
   'onboarding.custom.memory.subtitle': 'OpenHuman 记住你的上下文、偏好和过往对话的方式。',
   'onboarding.custom.memory.defaultDesc': 'OpenHuman 自动管理记忆存储和检索。无需任何设置。',
@@ -316,7 +323,8 @@ const zhCN1: TranslationMap = {
   'misc.updateLater': '稍后再说',
   'misc.downloading': '下载中...',
   'misc.installing': '安装中...',
-  'misc.beta': 'OpenHuman 正处于早期测试阶段。欢迎分享反馈或报告遇到的任何问题——每一条报告都有助于我们加快迭代。',
+  'misc.beta':
+    'OpenHuman 正处于早期测试阶段。欢迎分享反馈或报告遇到的任何问题——每一条报告都有助于我们加快迭代。',
   'misc.betaFeedback': '发送反馈',
   'mnemonic.title': '恢复短语',
   'mnemonic.warning': '按顺序记下这些单词，并将其保存在安全的地方。',
@@ -336,11 +344,14 @@ const zhCN1: TranslationMap = {
   'privacy.staysLocal': '留在本地',
   'privacy.anonymizedAnalytics': '匿名分析',
   'privacy.shareAnonymizedData': '分享匿名使用数据',
-  'privacy.shareAnonymizedDataDesc': '通过分享匿名崩溃报告和使用分析来帮助改进 OpenHuman。所有数据完全匿名——不会收集任何个人数据、消息、钱包密钥或会话信息。',
+  'privacy.shareAnonymizedDataDesc':
+    '通过分享匿名崩溃报告和使用分析来帮助改进 OpenHuman。所有数据完全匿名——不会收集任何个人数据、消息、钱包密钥或会话信息。',
   'privacy.meetingFollowUps': '会议跟进',
   'privacy.autoHandoffMeet': '自动将 Google Meet 转录交给编排器',
-  'privacy.autoHandoffMeetDesc': '当 Google Meet 通话结束时，OpenHuman 的编排器可以阅读转录内容，并可能执行起草消息、安排跟进、或将摘要发布到已连接的 Slack 工作区等操作。默认关闭。',
-  'privacy.analyticsDisclaimer': '所有分析和错误报告完全匿名。启用后，我们仅收集崩溃信息、设备类型和错误的文件位置。我们永远不会访问你的消息、会话数据、钱包密钥、API 密钥或任何个人可识别信息。你可以随时更改此设置。',
+  'privacy.autoHandoffMeetDesc':
+    '当 Google Meet 通话结束时，OpenHuman 的编排器可以阅读转录内容，并可能执行起草消息、安排跟进、或将摘要发布到已连接的 Slack 工作区等操作。默认关闭。',
+  'privacy.analyticsDisclaimer':
+    '所有分析和错误报告完全匿名。启用后，我们仅收集崩溃信息、设备类型和错误的文件位置。我们永远不会访问你的消息、会话数据、钱包密钥、API 密钥或任何个人可识别信息。你可以随时更改此设置。',
   'settings.about.version': '版本',
   'settings.about.updateAvailable': '可用',
   'settings.about.softwareUpdates': '软件更新',

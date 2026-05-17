@@ -32,18 +32,23 @@ const hi2: TranslationMap = {
   'settings.ai.refreshingAll': 'सभी रिफ्रेश हो रहे हैं...',
   'settings.ai.refreshAll': 'सभी AI कॉन्फिगरेशन रिफ्रेश करें',
   'settings.notifications.suppressAll': 'सभी नोटिफिकेशन बंद करें',
-  'settings.notifications.suppressAllDesc': 'फोकस स्टेट चाहे कुछ भी हो, एम्बेडेड ऐप्स के सभी OS नोटिफिकेशन टोस्ट ब्लॉक करें।',
+  'settings.notifications.suppressAllDesc':
+    'फोकस स्टेट चाहे कुछ भी हो, एम्बेडेड ऐप्स के सभी OS नोटिफिकेशन टोस्ट ब्लॉक करें।',
   'settings.notifications.toggleDnd': 'डू नॉट डिस्टर्ब टॉगल करें',
   'settings.notifications.categories': 'कैटेगरीज़',
-  'settings.notifications.categoryFooter': 'किसी कैटेगरी को डिसेबल करने से उस टाइप के नए नोटिफिकेशन नोटिफिकेशन सेंटर में नहीं आएंगे। पुराने नोटिफिकेशन तब तक रहेंगे जब तक क्लियर न हों।',
+  'settings.notifications.categoryFooter':
+    'किसी कैटेगरी को डिसेबल करने से उस टाइप के नए नोटिफिकेशन नोटिफिकेशन सेंटर में नहीं आएंगे। पुराने नोटिफिकेशन तब तक रहेंगे जब तक क्लियर न हों।',
   'settings.billing.movedToWeb': 'बिलिंग वेब पर चली गई है',
   'settings.billing.openDashboard': 'बिलिंग डैशबोर्ड खोलें',
-  'settings.billing.movedToWebDesc': 'सब्सक्रिप्शन बदलाव, पेमेंट तरीके, क्रेडिट और इनवॉयस अब वेब पर TinyHumans में मैनेज होते हैं।',
+  'settings.billing.movedToWebDesc':
+    'सब्सक्रिप्शन बदलाव, पेमेंट तरीके, क्रेडिट और इनवॉयस अब वेब पर TinyHumans में मैनेज होते हैं।',
   'settings.billing.backToSettings': 'Settings पर वापस',
   'settings.billing.openingBrowser': 'ब्राउज़र खुल रहा है...',
   'settings.billing.browserNotOpen': 'अगर ब्राउज़र नहीं खुला तो ऊपर वाला बटन इस्तेमाल करें।',
-  'settings.billing.browserOpenFailed': 'ब्राउज़र ऑटोमेटिकली नहीं खुल पाया। ऊपर वाला बटन इस्तेमाल करें।',
-  'settings.tools.chooseCapabilities': 'चुनें कि OpenHuman आपकी तरफ से कौन सी कैपेबिलिटीज़ इस्तेमाल कर सकता है।',
+  'settings.billing.browserOpenFailed':
+    'ब्राउज़र ऑटोमेटिकली नहीं खुल पाया। ऊपर वाला बटन इस्तेमाल करें।',
+  'settings.tools.chooseCapabilities':
+    'चुनें कि OpenHuman आपकी तरफ से कौन सी कैपेबिलिटीज़ इस्तेमाल कर सकता है।',
   'settings.tools.saveChanges': 'बदलाव सेव करें',
   'settings.tools.preferencesSaved': 'प्रेफरेंस सेव हो गई',
   'settings.tools.saveFailed': 'प्रेफरेंस सेव नहीं हो पाई। दोबारा कोशिश करें।',
@@ -60,20 +65,26 @@ const hi2: TranslationMap = {
   'settings.screenAwareness.startSession': 'सेशन शुरू करें',
   'settings.screenAwareness.stopSession': 'सेशन रोकें',
   'settings.screenAwareness.analyzeNow': 'अभी एनालाइज़ करें',
-  'settings.screenAwareness.macosOnly': 'स्क्रीन अवेयरनेस डेस्कटॉप कैप्चर और परमिशन कंट्रोल अभी केवल macOS पर सपोर्ट हैं।',
+  'settings.screenAwareness.macosOnly':
+    'स्क्रीन अवेयरनेस डेस्कटॉप कैप्चर और परमिशन कंट्रोल अभी केवल macOS पर सपोर्ट हैं।',
   'connections.comingSoon': 'जल्द आ रहा है',
   'connections.setUp': 'सेट अप करें',
   'connections.configured': 'कॉन्फिगर हो गया',
   'connections.unavailable': 'उपलब्ध नहीं',
   'connections.checking': 'चेक हो रहा है…',
-  'connections.walletConfigured': 'रिकवरी फ्रेज़ से लोकल EVM, BTC, Solana और Tron आइडेंटिटी कॉन्फिगर हो गई हैं।',
-  'connections.walletReady': 'एक रिकवरी फ्रेज़ से लोकल EVM, BTC, Solana और Tron आइडेंटिटी सेट करें।',
-  'connections.walletError': 'वॉलेट स्टेटस चेक नहीं हो पाई। रिकवरी फ्रेज़ पैनल से फिर से कोशिश करें।',
+  'connections.walletConfigured':
+    'रिकवरी फ्रेज़ से लोकल EVM, BTC, Solana और Tron आइडेंटिटी कॉन्फिगर हो गई हैं।',
+  'connections.walletReady':
+    'एक रिकवरी फ्रेज़ से लोकल EVM, BTC, Solana और Tron आइडेंटिटी सेट करें।',
+  'connections.walletError':
+    'वॉलेट स्टेटस चेक नहीं हो पाई। रिकवरी फ्रेज़ पैनल से फिर से कोशिश करें।',
   'connections.walletChecking': 'वॉलेट स्टेटस चेक हो रही है...',
   'connections.walletIdentities': 'वॉलेट आइडेंटिटी',
-  'connections.walletDerived': 'रिकवरी फ्रेज़ से लोकल रूप से डिराइव हुई और केवल सेफ मेटाडेटा के रूप में स्टोर।',
+  'connections.walletDerived':
+    'रिकवरी फ्रेज़ से लोकल रूप से डिराइव हुई और केवल सेफ मेटाडेटा के रूप में स्टोर।',
   'connections.privacySecurity': 'प्राइवेसी और सिक्योरिटी',
-  'connections.privacySecurityDesc': 'सभी डेटा और क्रेडेंशियल ज़ीरो-डेटा रिटेंशन पॉलिसी के साथ लोकल रूप से स्टोर हैं। आपकी जानकारी एन्क्रिप्टेड है और तीसरे पक्ष से कभी शेयर नहीं होती।',
+  'connections.privacySecurityDesc':
+    'सभी डेटा और क्रेडेंशियल ज़ीरो-डेटा रिटेंशन पॉलिसी के साथ लोकल रूप से स्टोर हैं। आपकी जानकारी एन्क्रिप्टेड है और तीसरे पक्ष से कभी शेयर नहीं होती।',
   'channels.status.connecting': 'कनेक्ट हो रहा है',
   'channels.status.notConfigured': 'कॉन्फिगर नहीं हुआ',
   'channels.noActiveRoute': 'कोई एक्टिव रूट नहीं',
@@ -84,7 +95,8 @@ const hi2: TranslationMap = {
   'channels.configNotAvailable': 'कॉन्फिगरेशन उपलब्ध नहीं है',
   'channels.channel': 'चैनल',
   'devOptions.coreModeNotSet': 'कोर मोड: सेट नहीं है',
-  'devOptions.coreModeNotSetDesc': 'बूट-चेक पिकर अभी कन्फर्म नहीं हुआ। Local या Cloud चुनने के लिए पिकर पर Switch mode इस्तेमाल करें।',
+  'devOptions.coreModeNotSetDesc':
+    'बूट-चेक पिकर अभी कन्फर्म नहीं हुआ। Local या Cloud चुनने के लिए पिकर पर Switch mode इस्तेमाल करें।',
   'devOptions.local': 'लोकल',
   'devOptions.embeddedCoreSidecar': 'एम्बेडेड कोर साइडकार',
   'devOptions.sidecarSpawned': 'ऐप लॉन्च पर Tauri shell द्वारा इन-प्रोसेस स्पॉन किया गया।',
@@ -93,23 +105,29 @@ const hi2: TranslationMap = {
   'devOptions.token': 'टोकन',
   'devOptions.tokenNotSet': 'सेट नहीं — RPC 401 देगा',
   'devOptions.triggerSentryTest': 'Sentry टेस्ट ट्रिगर करें (staging)',
-  'devOptions.triggerSentryTestDesc': 'Sentry पाइपलाइन वेरिफाई करने के लिए टैग्ड एरर फायर करता है। Issue #1072 — वेरिफिकेशन के बाद हटाएं।',
+  'devOptions.triggerSentryTestDesc':
+    'Sentry पाइपलाइन वेरिफाई करने के लिए टैग्ड एरर फायर करता है। Issue #1072 — वेरिफिकेशन के बाद हटाएं।',
   'devOptions.sendTestEvent': 'टेस्ट इवेंट भेजें',
   'devOptions.sending': 'भेज रहे हैं…',
   'devOptions.eventSent': 'इवेंट भेज दिया गया',
   'devOptions.failed': 'विफल',
   'devOptions.appLogs': 'ऐप लॉग्स',
-  'devOptions.appLogsDesc': 'रोज़ाना के रोलिंग लॉग फाइल्स वाला फोल्डर खोलें। इश्यू रिपोर्ट करते समय सबसे नई फाइल अटैच करें।',
+  'devOptions.appLogsDesc':
+    'रोज़ाना के रोलिंग लॉग फाइल्स वाला फोल्डर खोलें। इश्यू रिपोर्ट करते समय सबसे नई फाइल अटैच करें।',
   'devOptions.openLogsFolder': 'लॉग्स फोल्डर खोलें',
   'mnemonic.phraseSaved': 'रिकवरी फ्रेज़ सेव हो गया',
   'mnemonic.walletReady': 'मल्टी-चेन वॉलेट आइडेंटिटी तैयार हैं। Settings पर वापस जा रहे हैं...',
   'mnemonic.writeDownWords': 'ये',
-  'mnemonic.wordsInOrder': 'शब्द क्रम में लिखें और किसी सुरक्षित जगह रखें। यह फ्रेज़ आपकी लोकल एन्क्रिप्शन key और EVM, BTC, Solana तथा Tron वॉलेट आइडेंटिटी सुरक्षित रखता है।',
-  'mnemonic.cannotRecover': 'यह फ्रेज़ खो जाए तो कभी रिकवर नहीं हो सकता — इसे पूरी तरह अपने डिवाइस पर ही रखें।',
+  'mnemonic.wordsInOrder':
+    'शब्द क्रम में लिखें और किसी सुरक्षित जगह रखें। यह फ्रेज़ आपकी लोकल एन्क्रिप्शन key और EVM, BTC, Solana तथा Tron वॉलेट आइडेंटिटी सुरक्षित रखता है।',
+  'mnemonic.cannotRecover':
+    'यह फ्रेज़ खो जाए तो कभी रिकवर नहीं हो सकता — इसे पूरी तरह अपने डिवाइस पर ही रखें।',
   'mnemonic.copyToClipboard': 'क्लिपबोर्ड पर कॉपी करें',
   'mnemonic.alreadyHavePhrase': 'मेरे पास पहले से रिकवरी फ्रेज़ है',
-  'mnemonic.consentSaved': 'मैंने यह फ्रेज़ सेव कर लिया है और लोकल वॉलेट सेटअप के लिए इसे इस्तेमाल करने की अनुमति देता हूँ',
-  'mnemonic.enterPhraseToRestore': 'अपना लोकल वॉलेट रिस्टोर करने के लिए नीचे रिकवरी फ्रेज़ डालें, या पूरा फ्रेज़ किसी भी फील्ड में पेस्ट करें (नए बैकअप के लिए 12 शब्द; पुराने वर्जन के 24 शब्द भी काम करते हैं)।',
+  'mnemonic.consentSaved':
+    'मैंने यह फ्रेज़ सेव कर लिया है और लोकल वॉलेट सेटअप के लिए इसे इस्तेमाल करने की अनुमति देता हूँ',
+  'mnemonic.enterPhraseToRestore':
+    'अपना लोकल वॉलेट रिस्टोर करने के लिए नीचे रिकवरी फ्रेज़ डालें, या पूरा फ्रेज़ किसी भी फील्ड में पेस्ट करें (नए बैकअप के लिए 12 शब्द; पुराने वर्जन के 24 शब्द भी काम करते हैं)।',
   'mnemonic.words': 'शब्द',
   'mnemonic.validPhrase': 'सही रिकवरी फ्रेज़',
   'mnemonic.generateNewPhrase': 'नया रिकवरी फ्रेज़ जनरेट करें',
@@ -143,7 +161,8 @@ const hi2: TranslationMap = {
   'team.join': 'जॉइन करें',
   'team.leaveTeam': 'टीम छोड़ें',
   'team.confirmLeave': 'क्या आप वाकई छोड़ना चाहते हैं',
-  'team.leaveWarning': 'आप टीम और सभी टीम रिसोर्स का एक्सेस खो देंगे। दोबारा जॉइन करने के लिए नया इनवाइट चाहिए होगा।',
+  'team.leaveWarning':
+    'आप टीम और सभी टीम रिसोर्स का एक्सेस खो देंगे। दोबारा जॉइन करने के लिए नया इनवाइट चाहिए होगा।',
   'team.management': 'टीम मैनेजमेंट',
   'team.notFound': 'टीम नहीं मिली',
   'team.accessDenied': 'एक्सेस नहीं मिला',
@@ -159,7 +178,8 @@ const hi2: TranslationMap = {
   'voice.naturalCleanup': 'नैचुरल क्लीनअप',
   'voice.autoStart': 'कोर के साथ वॉइस सर्वर ऑटोमेटिकली शुरू करें',
   'voice.customDictionary': 'कस्टम डिक्शनरी',
-  'voice.customDictionaryDesc': 'रिकग्निशन एक्युरेसी बढ़ाने के लिए नाम, टेक्निकल टर्म और डोमेन शब्द जोड़ें।',
+  'voice.customDictionaryDesc':
+    'रिकग्निशन एक्युरेसी बढ़ाने के लिए नाम, टेक्निकल टर्म और डोमेन शब्द जोड़ें।',
   'voice.addWord': 'एक शब्द जोड़ें...',
   'voice.sttDisabled': 'लोकल STT मॉडल डाउनलोड और तैयार होने तक वॉइस डिक्टेशन बंद है।',
   'voice.openLocalAiModel': 'लोकल AI मॉडल खोलें',
@@ -204,9 +224,11 @@ const hi2: TranslationMap = {
   'chat.askAgent': 'एजेंट से कुछ भी पूछें...',
   'chat.sendMessage': 'मैसेज भेजें',
   'composio.triageTitle': 'इंटीग्रेशन ट्रिगर',
-  'composio.triageDesc': 'एक्टिव होने पर, हर आने वाला Composio ट्रिगर AI triage स्टेप से गुज़रता है जो इवेंट क्लासीफाई करता है और ऑटोमेटेड एक्शन शुरू कर सकता है — प्रति ट्रिगर एक लोकल LLM टर्न। मैन्युअल रिव्यू पसंद हो तो ग्लोबली या per-integration डिसेबल करें। अगर एनवायरनमेंट वेरिएबल',
+  'composio.triageDesc':
+    'एक्टिव होने पर, हर आने वाला Composio ट्रिगर AI triage स्टेप से गुज़रता है जो इवेंट क्लासीफाई करता है और ऑटोमेटेड एक्शन शुरू कर सकता है — प्रति ट्रिगर एक लोकल LLM टर्न। मैन्युअल रिव्यू पसंद हो तो ग्लोबली या per-integration डिसेबल करें। अगर एनवायरनमेंट वेरिएबल',
   'composio.disableAllTriage': 'सभी ट्रिगर के लिए AI triage बंद करें',
-  'composio.triggersStillRecorded': 'ट्रिगर हिस्ट्री में रिकॉर्ड होते रहते हैं — कोई LLM टर्न नहीं चलता।',
+  'composio.triggersStillRecorded':
+    'ट्रिगर हिस्ट्री में रिकॉर्ड होते रहते हैं — कोई LLM टर्न नहीं चलता।',
   'composio.disableSpecificIntegrations': 'खास इंटीग्रेशन के लिए AI triage बंद करें',
   'composio.settingsSaved': 'सेटिंग्स सेव हो गईं',
   'composio.saveFailed': 'सेव नहीं हो पाया। दोबारा कोशिश करें।',
@@ -217,9 +239,11 @@ const hi2: TranslationMap = {
   'localModel.modelStatus': 'मॉडल स्टेटस',
   'localModel.downloadModels': 'मॉडल डाउनलोड करें',
   'localModel.usage': 'उपयोग',
-  'localModel.usageDesc': 'चुनें कि कौन से सबसिस्टम लोकल मॉडल पर चलें। बंद होने पर क्लाउड इस्तेमाल होगा।',
+  'localModel.usageDesc':
+    'चुनें कि कौन से सबसिस्टम लोकल मॉडल पर चलें। बंद होने पर क्लाउड इस्तेमाल होगा।',
   'localModel.enableRuntime': 'लोकल AI रनटाइम चालू करें',
-  'localModel.enableRuntimeDesc': 'मास्टर स्विच। डिफ़ॉल्ट रूप से बंद — Ollama आइडल रहता है। चालू होने पर tree summarizer, screen intelligence और autocomplete हमेशा लोकल मॉडल इस्तेमाल करते हैं।',
+  'localModel.enableRuntimeDesc':
+    'मास्टर स्विच। डिफ़ॉल्ट रूप से बंद — Ollama आइडल रहता है। चालू होने पर tree summarizer, screen intelligence और autocomplete हमेशा लोकल मॉडल इस्तेमाल करते हैं।',
   'localModel.advancedSettings': 'एडवांस्ड सेटिंग्स',
   'localModel.debugTitle': 'लोकल मॉडल डिबग',
   'screenAwareness.debugTitle': 'स्क्रीन अवेयरनेस डिबग',
@@ -230,7 +254,8 @@ const hi2: TranslationMap = {
   'common.skip': 'स्किप करें',
   'common.disable': 'बंद करें',
   'common.enable': 'चालू करें',
-  'chat.safetyTimeout': '2 मिनट बाद भी एजेंट से कोई जवाब नहीं मिला। दोबारा कोशिश करें या अपना कनेक्शन चेक करें।',
+  'chat.safetyTimeout':
+    '2 मिनट बाद भी एजेंट से कोई जवाब नहीं मिला। दोबारा कोशिश करें या अपना कनेक्शन चेक करें।',
   'chat.filter.all': 'सभी',
   'chat.filter.work': 'वर्क',
   'chat.filter.briefing': 'ब्रीफिंग',
@@ -338,7 +363,8 @@ const hi2: TranslationMap = {
   'navigator.documents': 'दस्तावेज़',
   'navigator.people': 'लोग',
   'navigator.topics': 'विषय',
-  'dreams.description': 'ड्रीम्स AI-जेनरेटेड रिफ्लेक्शन हैं जो आपकी मेमोरी के पैटर्न को सिंथेसाइज़ करते हैं।',
+  'dreams.description':
+    'ड्रीम्स AI-जेनरेटेड रिफ्लेक्शन हैं जो आपकी मेमोरी के पैटर्न को सिंथेसाइज़ करते हैं।',
   'dreams.comingSoon': 'जल्द आ रहा है',
   'assignment.memoryLlm': 'मेमोरी LLM',
   'assignment.memoryLlmAria': 'मेमोरी LLM सिलेक्शन',

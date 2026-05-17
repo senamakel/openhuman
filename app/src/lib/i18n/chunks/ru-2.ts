@@ -32,18 +32,22 @@ const ru2: TranslationMap = {
   'settings.ai.refreshingAll': 'Обновление всего...',
   'settings.ai.refreshAll': 'Обновить всю конфигурацию AI',
   'settings.notifications.suppressAll': 'Отключить все уведомления',
-  'settings.notifications.suppressAllDesc': 'Блокировать все всплывающие уведомления ОС из встроенных приложений независимо от фокуса.',
+  'settings.notifications.suppressAllDesc':
+    'Блокировать все всплывающие уведомления ОС из встроенных приложений независимо от фокуса.',
   'settings.notifications.toggleDnd': 'Включить/выключить «Не беспокоить»',
   'settings.notifications.categories': 'Категории',
-  'settings.notifications.categoryFooter': 'Отключение категории останавливает появление новых уведомлений этого типа в центре уведомлений. Существующие уведомления остаются до их очистки.',
+  'settings.notifications.categoryFooter':
+    'Отключение категории останавливает появление новых уведомлений этого типа в центре уведомлений. Существующие уведомления остаются до их очистки.',
   'settings.billing.movedToWeb': 'Оплата перенесена на сайт',
   'settings.billing.openDashboard': 'Открыть панель оплаты',
-  'settings.billing.movedToWebDesc': 'Изменение подписки, способы оплаты, кредиты и счета теперь управляются в TinyHumans на сайте.',
+  'settings.billing.movedToWebDesc':
+    'Изменение подписки, способы оплаты, кредиты и счета теперь управляются в TinyHumans на сайте.',
   'settings.billing.backToSettings': 'Назад к настройкам',
   'settings.billing.openingBrowser': 'Открытие браузера...',
   'settings.billing.browserNotOpen': 'Если браузер не открылся, используй кнопку выше.',
   'settings.billing.browserOpenFailed': 'Браузер не открылся автоматически. Используй кнопку выше.',
-  'settings.tools.chooseCapabilities': 'Выбери, какие возможности OpenHuman может использовать от твоего имени.',
+  'settings.tools.chooseCapabilities':
+    'Выбери, какие возможности OpenHuman может использовать от твоего имени.',
   'settings.tools.saveChanges': 'Сохранить изменения',
   'settings.tools.preferencesSaved': 'Настройки сохранены',
   'settings.tools.saveFailed': 'Не удалось сохранить настройки. Попробуй ещё раз.',
@@ -60,20 +64,26 @@ const ru2: TranslationMap = {
   'settings.screenAwareness.startSession': 'Начать сессию',
   'settings.screenAwareness.stopSession': 'Завершить сессию',
   'settings.screenAwareness.analyzeNow': 'Анализировать сейчас',
-  'settings.screenAwareness.macosOnly': 'Захват экрана и управление разрешениями поддерживаются только на macOS.',
+  'settings.screenAwareness.macosOnly':
+    'Захват экрана и управление разрешениями поддерживаются только на macOS.',
   'connections.comingSoon': 'Скоро',
   'connections.setUp': 'Настроить',
   'connections.configured': 'Настроено',
   'connections.unavailable': 'Недоступно',
   'connections.checking': 'Проверка…',
-  'connections.walletConfigured': 'Локальные идентификаторы EVM, BTC, Solana и Tron настроены на основе твоей фразы восстановления.',
-  'connections.walletReady': 'Настрой локальные идентификаторы EVM, BTC, Solana и Tron из одной фразы восстановления.',
-  'connections.walletError': 'Не удалось проверить статус кошелька. Нажми, чтобы повторить в панели фразы восстановления.',
+  'connections.walletConfigured':
+    'Локальные идентификаторы EVM, BTC, Solana и Tron настроены на основе твоей фразы восстановления.',
+  'connections.walletReady':
+    'Настрой локальные идентификаторы EVM, BTC, Solana и Tron из одной фразы восстановления.',
+  'connections.walletError':
+    'Не удалось проверить статус кошелька. Нажми, чтобы повторить в панели фразы восстановления.',
   'connections.walletChecking': 'Проверка статуса кошелька...',
   'connections.walletIdentities': 'Идентификаторы кошелька',
-  'connections.walletDerived': 'Вычислено локально из фразы восстановления и хранится только как безопасные метаданные.',
+  'connections.walletDerived':
+    'Вычислено локально из фразы восстановления и хранится только как безопасные метаданные.',
   'connections.privacySecurity': 'Конфиденциальность и безопасность',
-  'connections.privacySecurityDesc': 'Все данные и учётные данные хранятся локально по политике нулевого хранения. Информация зашифрована и никогда не передаётся третьим лицам.',
+  'connections.privacySecurityDesc':
+    'Все данные и учётные данные хранятся локально по политике нулевого хранения. Информация зашифрована и никогда не передаётся третьим лицам.',
   'channels.status.connecting': 'Подключение',
   'channels.status.notConfigured': 'Не настроено',
   'channels.noActiveRoute': 'Нет активного маршрута',
@@ -84,7 +94,8 @@ const ru2: TranslationMap = {
   'channels.configNotAvailable': 'Конфигурация для',
   'channels.channel': 'канал',
   'devOptions.coreModeNotSet': 'Режим ядра: не задан',
-  'devOptions.coreModeNotSetDesc': 'Выбор в загрузочном экране ещё не подтверждён. Используй «Сменить режим» для выбора между «Локальный» и «Облако».',
+  'devOptions.coreModeNotSetDesc':
+    'Выбор в загрузочном экране ещё не подтверждён. Используй «Сменить режим» для выбора между «Локальный» и «Облако».',
   'devOptions.local': 'Локальный',
   'devOptions.embeddedCoreSidecar': 'Встроенный процесс ядра',
   'devOptions.sidecarSpawned': 'Запущен внутри процесса Tauri при старте приложения.',
@@ -93,23 +104,29 @@ const ru2: TranslationMap = {
   'devOptions.token': 'Токен',
   'devOptions.tokenNotSet': 'не задан — RPC вернёт 401',
   'devOptions.triggerSentryTest': 'Тест Sentry (staging)',
-  'devOptions.triggerSentryTestDesc': 'Отправляет тегированную ошибку для проверки пайплайна Sentry. Issue #1072 — удалить после проверки.',
+  'devOptions.triggerSentryTestDesc':
+    'Отправляет тегированную ошибку для проверки пайплайна Sentry. Issue #1072 — удалить после проверки.',
   'devOptions.sendTestEvent': 'Отправить тестовое событие',
   'devOptions.sending': 'Отправка…',
   'devOptions.eventSent': 'Событие отправлено',
   'devOptions.failed': 'Ошибка',
   'devOptions.appLogs': 'Логи приложения',
-  'devOptions.appLogsDesc': 'Открыть папку с ежедневными лог-файлами. Прикрепляй последний файл при сообщении об ошибке.',
+  'devOptions.appLogsDesc':
+    'Открыть папку с ежедневными лог-файлами. Прикрепляй последний файл при сообщении об ошибке.',
   'devOptions.openLogsFolder': 'Открыть папку с логами',
   'mnemonic.phraseSaved': 'Фраза восстановления сохранена',
   'mnemonic.walletReady': 'Мультичейн-идентификаторы готовы. Возврат к настройкам...',
   'mnemonic.writeDownWords': 'Запиши эти',
-  'mnemonic.wordsInOrder': 'слова по порядку и храни в надёжном месте. Эта фраза защищает твой локальный ключ шифрования и идентификаторы кошельков EVM, BTC, Solana и Tron.',
-  'mnemonic.cannotRecover': 'Эту фразу невозможно восстановить при потере — она должна оставаться только на твоём устройстве.',
+  'mnemonic.wordsInOrder':
+    'слова по порядку и храни в надёжном месте. Эта фраза защищает твой локальный ключ шифрования и идентификаторы кошельков EVM, BTC, Solana и Tron.',
+  'mnemonic.cannotRecover':
+    'Эту фразу невозможно восстановить при потере — она должна оставаться только на твоём устройстве.',
   'mnemonic.copyToClipboard': 'Скопировать в буфер обмена',
   'mnemonic.alreadyHavePhrase': 'У меня уже есть фраза восстановления',
-  'mnemonic.consentSaved': 'Я сохранил эту фразу и соглашаюсь использовать её для настройки локального кошелька',
-  'mnemonic.enterPhraseToRestore': 'Введи фразу восстановления ниже для восстановления идентификаторов кошелька, или вставь полную фразу в любое поле (12 слов для новых бэкапов; фразы из 24 слов от старых версий тоже работают).',
+  'mnemonic.consentSaved':
+    'Я сохранил эту фразу и соглашаюсь использовать её для настройки локального кошелька',
+  'mnemonic.enterPhraseToRestore':
+    'Введи фразу восстановления ниже для восстановления идентификаторов кошелька, или вставь полную фразу в любое поле (12 слов для новых бэкапов; фразы из 24 слов от старых версий тоже работают).',
   'mnemonic.words': 'Слова',
   'mnemonic.validPhrase': 'Верная фраза восстановления',
   'mnemonic.generateNewPhrase': 'Сгенерировать новую фразу восстановления',
@@ -143,7 +160,8 @@ const ru2: TranslationMap = {
   'team.join': 'Вступить',
   'team.leaveTeam': 'Покинуть команду',
   'team.confirmLeave': 'Ты уверен, что хочешь покинуть',
-  'team.leaveWarning': 'Ты потеряешь доступ к команде и всем её ресурсам. Для повторного входа потребуется новое приглашение.',
+  'team.leaveWarning':
+    'Ты потеряешь доступ к команде и всем её ресурсам. Для повторного входа потребуется новое приглашение.',
   'team.management': 'Управление командой',
   'team.notFound': 'Команда не найдена',
   'team.accessDenied': 'Доступ запрещён',
@@ -159,9 +177,11 @@ const ru2: TranslationMap = {
   'voice.naturalCleanup': 'Естественная обработка',
   'voice.autoStart': 'Запускать голосовой сервер автоматически вместе с ядром',
   'voice.customDictionary': 'Пользовательский словарь',
-  'voice.customDictionaryDesc': 'Добавляй имена, технические термины и специальные слова для улучшения точности распознавания.',
+  'voice.customDictionaryDesc':
+    'Добавляй имена, технические термины и специальные слова для улучшения точности распознавания.',
   'voice.addWord': 'Добавить слово...',
-  'voice.sttDisabled': 'Голосовой ввод отключён, пока локальная STT-модель не загружена и не готова.',
+  'voice.sttDisabled':
+    'Голосовой ввод отключён, пока локальная STT-модель не загружена и не готова.',
   'voice.openLocalAiModel': 'Открыть локальную AI-модель',
   'voice.serverRestarted': 'Голосовой сервер перезапущен с новыми настройками.',
   'voice.settingsSaved': 'Настройки голоса сохранены.',
@@ -204,9 +224,11 @@ const ru2: TranslationMap = {
   'chat.askAgent': 'Спроси агента о чём угодно...',
   'chat.sendMessage': 'Отправить сообщение',
   'composio.triageTitle': 'Триггеры интеграций',
-  'composio.triageDesc': 'Когда активно, каждый входящий триггер Composio проходит через шаг AI-сортировки, который классифицирует событие и может запустить автоматические действия — один локальный LLM-запрос на триггер. Отключи глобально или для конкретных интеграций, если предпочитаешь ручной просмотр. Если переменная окружения',
+  'composio.triageDesc':
+    'Когда активно, каждый входящий триггер Composio проходит через шаг AI-сортировки, который классифицирует событие и может запустить автоматические действия — один локальный LLM-запрос на триггер. Отключи глобально или для конкретных интеграций, если предпочитаешь ручной просмотр. Если переменная окружения',
   'composio.disableAllTriage': 'Отключить AI-сортировку для всех триггеров',
-  'composio.triggersStillRecorded': 'Триггеры по-прежнему записываются в историю — LLM-запросы не выполняются.',
+  'composio.triggersStillRecorded':
+    'Триггеры по-прежнему записываются в историю — LLM-запросы не выполняются.',
   'composio.disableSpecificIntegrations': 'Отключить AI-сортировку для конкретных интеграций',
   'composio.settingsSaved': 'Настройки сохранены',
   'composio.saveFailed': 'Не удалось сохранить. Попробуй ещё раз.',
@@ -217,9 +239,11 @@ const ru2: TranslationMap = {
   'localModel.modelStatus': 'Статус модели',
   'localModel.downloadModels': 'Скачать модели',
   'localModel.usage': 'Использование',
-  'localModel.usageDesc': 'Выбери, какие подсистемы используют локальную модель. Остальное использует облако.',
+  'localModel.usageDesc':
+    'Выбери, какие подсистемы используют локальную модель. Остальное использует облако.',
   'localModel.enableRuntime': 'Включить локальную AI-среду',
-  'localModel.enableRuntimeDesc': 'Главный переключатель. По умолчанию выключен — Ollama простаивает. При включении суммаризатор деревьев, интеллект экрана и автодополнение всегда используют локальную модель.',
+  'localModel.enableRuntimeDesc':
+    'Главный переключатель. По умолчанию выключен — Ollama простаивает. При включении суммаризатор деревьев, интеллект экрана и автодополнение всегда используют локальную модель.',
   'localModel.advancedSettings': 'Дополнительные настройки',
   'localModel.debugTitle': 'Отладка локальной модели',
   'screenAwareness.debugTitle': 'Отладка слежения за экраном',
@@ -230,7 +254,8 @@ const ru2: TranslationMap = {
   'common.skip': 'Пропустить',
   'common.disable': 'Отключить',
   'common.enable': 'Включить',
-  'chat.safetyTimeout': 'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
+  'chat.safetyTimeout':
+    'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
   'chat.filter.all': 'Все',
   'chat.filter.work': 'Работа',
   'chat.filter.briefing': 'Брифинг',
@@ -257,7 +282,8 @@ const ru2: TranslationMap = {
   'chat.weeklyLimitHit': 'Ты достиг еженедельного лимита.',
   'chat.resets': 'Сбросится',
   'chat.topUpToContinue': 'Пополни баланс для продолжения.',
-  'chat.budgetComplete': 'Включённый бюджет исчерпан. Добавь кредиты или улучши план для продолжения.',
+  'chat.budgetComplete':
+    'Включённый бюджет исчерпан. Добавь кредиты или улучши план для продолжения.',
   'chat.rateLimitReached': 'Достигнут лимит за 10 часов.',
   'chat.topUp': 'Пополнить',
   'chat.fiveHourLimit': 'Лимит 5 часов',
@@ -338,7 +364,8 @@ const ru2: TranslationMap = {
   'navigator.documents': 'Документы',
   'navigator.people': 'Люди',
   'navigator.topics': 'Темы',
-  'dreams.description': 'Сны — это AI-отражения, которые синтезируют закономерности из твоих воспоминаний.',
+  'dreams.description':
+    'Сны — это AI-отражения, которые синтезируют закономерности из твоих воспоминаний.',
   'dreams.comingSoon': 'Скоро',
   'assignment.memoryLlm': 'Memory LLM',
   'assignment.memoryLlmAria': 'Выбор Memory LLM',

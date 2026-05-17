@@ -43,7 +43,8 @@ const ru4: TranslationMap = {
   'composio.connect.subdomainInvalid': 'Недопустимый поддомен',
   'composio.connect.subdomainRequired': 'Введи свой поддомен Atlassian для продолжения.',
   'composio.connect.wabaIdLabel': 'ID аккаунта WhatsApp Business',
-  'composio.connect.wabaIdRequired': 'Введи ID аккаунта WhatsApp Business (WABA ID) для продолжения.',
+  'composio.connect.wabaIdRequired':
+    'Введи ID аккаунта WhatsApp Business (WABA ID) для продолжения.',
   'composio.connect.waitingFor': '${} ${toolkit.name} ${}',
   'composio.connect.waitingHint': 'Подсказка ожидания',
   'composio.triggers.heading': 'Триггеры',
@@ -54,13 +55,15 @@ const ru4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'Переместить влево',
   'conversations.taskKanban.moveRight': 'Переместить вправо',
   'conversations.taskKanban.title': 'Задачи',
-  'conversations.toolTimeline.turn': 'ход ${subagent.childIteration}/${subagent.childMaxIterations}',
+  'conversations.toolTimeline.turn':
+    'ход ${subagent.childIteration}/${subagent.childMaxIterations}',
   'conversations.toolTimeline.workerThread': 'чат воркера',
   'daemon.serviceBlockingGate.body': 'Body',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',
   'daemon.serviceBlockingGate.retryCore': 'Повтор...',
-  'daemon.serviceBlockingGate.retryFailed': 'Повтор не удался. Скачай последнюю версию и попробуй снова.',
+  'daemon.serviceBlockingGate.retryFailed':
+    'Повтор не удался. Скачай последнюю версию и попробуй снова.',
   'daemon.serviceBlockingGate.retrying': 'Повтор...',
   'daemon.serviceBlockingGate.title': 'Ядро OpenHuman недоступно',
   'home.banners.discordSubtitle': 'Discord subtitle',
@@ -83,7 +86,8 @@ const ru4: TranslationMap = {
   'intelligence.memoryChunk.mentioned.chunkOne': 'Блок',
   'intelligence.memoryChunk.mentioned.chunkOther': 'Блоки',
   'intelligence.memoryChunk.mentioned.heading': 'у п о м я н у т о',
-  'intelligence.memoryChunk.scoreBars.ariaScore': '${sig.name} оценка ${(pct * 100).toFixed(0)} процентов',
+  'intelligence.memoryChunk.scoreBars.ariaScore':
+    '${sig.name} оценка ${(pct * 100).toFixed(0)} процентов',
   'intelligence.memoryChunk.scoreBars.atThreshold': 'На пороге',
   'intelligence.memoryChunk.scoreBars.dropped': 'Отброшено',
   'intelligence.memoryChunk.scoreBars.heading': 'п о ч е м у &nbsp; с о х р а н е н о',
@@ -151,7 +155,8 @@ const ru4: TranslationMap = {
   'pages.settings.account.recoveryPhraseDesc': 'Recovery phrase desc',
   'pages.settings.account.team': 'Команда',
   'pages.settings.account.teamDesc': 'Team desc',
-  'pages.settings.accountSection.description': 'Фраза восстановления, команда, подключения и настройки конфиденциальности.',
+  'pages.settings.accountSection.description':
+    'Фраза восстановления, команда, подключения и настройки конфиденциальности.',
   'pages.settings.accountSection.title': 'Аккаунт',
   'pages.settings.ai.llm': 'LLM',
   'pages.settings.ai.llmDesc': 'Llm desc',
@@ -284,14 +289,17 @@ const ru4: TranslationMap = {
   'settings.autocomplete.appFilter.refreshing': 'Обновление…',
   'settings.autocomplete.appFilter.runtime': 'Среда выполнения',
   'settings.autocomplete.appFilter.test': 'Тест',
-  'settings.autocomplete.completionStyle.acceptedCompletion': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
-  'settings.autocomplete.completionStyle.acceptedCompletions': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
   'settings.autocomplete.completionStyle.clearHistory': 'Очистка…',
   'settings.autocomplete.completionStyle.clearing': 'Очистка…',
   'settings.autocomplete.completionStyle.debounce': 'Задержка (ms)',
   'settings.autocomplete.completionStyle.enabled': 'Включено',
   'settings.autocomplete.completionStyle.maxChars': 'Макс. символов',
-  'settings.autocomplete.completionStyle.noHistory': 'Принятых предложений пока нет. Принимай предложения с помощью Tab, чтобы начать персонализацию.',
+  'settings.autocomplete.completionStyle.noHistory':
+    'Принятых предложений пока нет. Принимай предложения с помощью Tab, чтобы начать персонализацию.',
   'settings.autocomplete.completionStyle.overlayTtl': 'Время отображения (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'История персонализации',
   'settings.autocomplete.completionStyle.styleExamples': 'Примеры стиля (по одному на строку)',

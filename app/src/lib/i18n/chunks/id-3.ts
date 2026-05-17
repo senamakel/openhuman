@@ -22,7 +22,8 @@ const id3: TranslationMap = {
   'calls.joinCall': 'Bergabung ke Panggilan',
   'calls.activeCalls': 'Panggilan Aktif',
   'calls.leave': 'Keluar',
-  'workspace.wipeConfirm': 'Yakin ingin menghapus semua memori? Tindakan ini tidak dapat dibatalkan.',
+  'workspace.wipeConfirm':
+    'Yakin ingin menghapus semua memori? Tindakan ini tidak dapat dibatalkan.',
   'workspace.resetTreeConfirm': 'Yakin ingin membangun ulang pohon memori?',
   'workspace.wipeTitle': 'Hapus Memori',
   'workspace.resetting': 'Mereset...',
@@ -74,7 +75,8 @@ const id3: TranslationMap = {
   'sync.syncing': 'Menyinkronkan...',
   'sync.sync': 'Sinkronkan',
   'sync.failedToLoad': 'Gagal memuat status sinkronisasi',
-  'sync.noContent': 'Belum ada konten yang disinkronkan ke memori. Hubungkan integrasi untuk memulai.',
+  'sync.noContent':
+    'Belum ada konten yang disinkronkan ke memori. Hubungkan integrasi untuk memulai.',
   'backend.aiBackend': 'Backend AI',
   'backend.cloud': 'Cloud',
   'backend.recommended': 'Direkomendasikan',
@@ -82,7 +84,8 @@ const id3: TranslationMap = {
   'backend.privacyNote': 'Data pribadi, pesan, atau kunci tidak pernah dikirim ke server kami.',
   'backend.local': 'Lokal',
   'backend.advanced': 'Lanjutan',
-  'backend.localDescription': 'Jalankan model di mesin Anda sendiri menggunakan Ollama. Privasi penuh, perlu pengaturan.',
+  'backend.localDescription':
+    'Jalankan model di mesin Anda sendiri menggunakan Ollama. Privasi penuh, perlu pengaturan.',
   'backend.ramRecommended': 'RAM 16GB+ direkomendasikan',
   'subconscious.tasks': 'tugas',
   'subconscious.ticks': 'tick',
@@ -127,14 +130,18 @@ const id3: TranslationMap = {
   'bootCheck.tokenRequired': 'Kami memerlukan token autentikasi untuk terhubung.',
   'bootCheck.chooseCoreMode': 'Pilih Runtime',
   'bootCheck.connectToCore': 'Hubungkan ke Runtime Anda',
-  'bootCheck.desktopDescription': 'OpenHuman memerlukan runtime untuk berpikir. Pilih di mana runtime harus berada.',
-  'bootCheck.webDescription': 'Di web, OpenHuman terhubung ke runtime yang Anda kendalikan. Masukkan URL dan token autentikasi di bawah, atau ambil aplikasi desktop untuk menjalankannya langsung di mesin Anda.',
+  'bootCheck.desktopDescription':
+    'OpenHuman memerlukan runtime untuk berpikir. Pilih di mana runtime harus berada.',
+  'bootCheck.webDescription':
+    'Di web, OpenHuman terhubung ke runtime yang Anda kendalikan. Masukkan URL dan token autentikasi di bawah, atau ambil aplikasi desktop untuk menjalankannya langsung di mesin Anda.',
   'bootCheck.preferDesktop': 'Lebih suka menyimpan semuanya di perangkat Anda sendiri?',
   'bootCheck.downloadDesktop': 'Dapatkan Aplikasi Desktop',
   'bootCheck.localRecommended': 'Jalankan Secara Lokal (Direkomendasikan)',
-  'bootCheck.localDescription': 'Berjalan langsung di komputer Anda. Tercepat, sepenuhnya privat, tidak perlu pengaturan.',
+  'bootCheck.localDescription':
+    'Berjalan langsung di komputer Anda. Tercepat, sepenuhnya privat, tidak perlu pengaturan.',
   'bootCheck.cloudMode': 'Jalankan di Cloud (Kompleks)',
-  'bootCheck.cloudDescription': 'Hubungkan ke runtime yang Anda hosting di tempat lain. Tetap online 24×7 sehingga Anda tidak perlu terus menjalankan perangkat ini.',
+  'bootCheck.cloudDescription':
+    'Hubungkan ke runtime yang Anda hosting di tempat lain. Tetap online 24×7 sehingga Anda tidak perlu terus menjalankan perangkat ini.',
   'bootCheck.coreRpcUrl': 'URL Runtime',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Token Autentikasi',
@@ -147,23 +154,28 @@ const id3: TranslationMap = {
   'bootCheck.unreachablePrefix': 'Tidak dapat mencapainya:',
   'bootCheck.checkingCore': 'Membangunkan runtime Anda...',
   'bootCheck.cannotReach': 'Tidak Dapat Menjangkau Runtime',
-  'bootCheck.cannotReachDesc': 'Kami tidak dapat terhubung ke runtime Anda. Ingin mencoba yang berbeda?',
+  'bootCheck.cannotReachDesc':
+    'Kami tidak dapat terhubung ke runtime Anda. Ingin mencoba yang berbeda?',
   'bootCheck.switchMode': 'Pilih Runtime Berbeda',
   'bootCheck.quit': 'Quit',
   'bootCheck.legacyDetected': 'Runtime Latar Belakang Lama Terdeteksi',
-  'bootCheck.legacyDescription': 'Daemon OpenHuman yang diinstal terpisah sudah berjalan di perangkat ini. Kami perlu membersihkannya sebelum runtime bawaan dapat mengambil alih.',
+  'bootCheck.legacyDescription':
+    'Daemon OpenHuman yang diinstal terpisah sudah berjalan di perangkat ini. Kami perlu membersihkannya sebelum runtime bawaan dapat mengambil alih.',
   'bootCheck.removing': 'Menghapus...',
   'bootCheck.removeContinue': 'Hapus dan Lanjutkan',
   'bootCheck.localNeedsRestart': 'Runtime Lokal Perlu Dimulai Ulang',
-  'bootCheck.localNeedsRestartDesc': 'Runtime lokal Anda menggunakan versi berbeda dari aplikasi ini. Mulai ulang cepat akan menyinkronkannya kembali.',
+  'bootCheck.localNeedsRestartDesc':
+    'Runtime lokal Anda menggunakan versi berbeda dari aplikasi ini. Mulai ulang cepat akan menyinkronkannya kembali.',
   'bootCheck.restarting': 'Memulai ulang...',
   'bootCheck.restartCore': 'Mulai Ulang Runtime',
   'bootCheck.cloudNeedsUpdate': 'Runtime Cloud Perlu Diperbarui',
-  'bootCheck.cloudNeedsUpdateDesc': 'Runtime cloud Anda menggunakan versi berbeda dari aplikasi ini. Jalankan pembaruan untuk menyinkronkannya kembali.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'Runtime cloud Anda menggunakan versi berbeda dari aplikasi ini. Jalankan pembaruan untuk menyinkronkannya kembali.',
   'bootCheck.updating': 'Memperbarui...',
   'bootCheck.updateCloudCore': 'Perbarui Runtime Cloud',
   'bootCheck.versionCheckFailed': 'Pemeriksaan Versi Runtime Gagal',
-  'bootCheck.versionCheckFailedDesc': 'Runtime Anda aktif tetapi tidak melaporkan versinya. Mungkin sudah usang. Mulai ulang atau perbarui untuk melanjutkan.',
+  'bootCheck.versionCheckFailedDesc':
+    'Runtime Anda aktif tetapi tidak melaporkan versinya. Mungkin sudah usang. Mulai ulang atau perbarui untuk melanjutkan.',
   'bootCheck.working': 'Memproses...',
   'bootCheck.restartUpdateCore': 'Mulai Ulang / Perbarui Runtime',
   'bootCheck.unexpectedError': 'Kesalahan Boot-Check Tak Terduga',
@@ -184,7 +196,8 @@ const id3: TranslationMap = {
   'about.update.status.availableNoVersion': 'Pembaruan tersedia',
   'about.update.status.downloading': 'Mengunduh...',
   'about.update.status.readyToInstall': 'v{version} siap diinstal',
-  'about.update.status.readyToInstallNoVersion': 'Versi baru sudah diunduh dan siap. Mulai ulang untuk menerapkan.',
+  'about.update.status.readyToInstallNoVersion':
+    'Versi baru sudah diunduh dan siap. Mulai ulang untuk menerapkan.',
   'about.update.status.installing': 'Menginstal...',
   'about.update.status.restarting': 'Memulai ulang...',
   'about.update.status.upToDate': 'Anda memakai versi terbaru.',
@@ -248,7 +261,8 @@ const id3: TranslationMap = {
   'accounts.webviewHost.loadingAccount': 'Memuat akun',
   'accounts.webviewHost.restoringSession': 'Memulihkan sesi...',
   'accounts.webviewHost.retryLoading': 'Coba muat ulang',
-  'accounts.webviewHost.takingLonger': '{providerName} memakan waktu lebih lama dari yang diharapkan.',
+  'accounts.webviewHost.takingLonger':
+    '{providerName} memakan waktu lebih lama dari yang diharapkan.',
   'accounts.webviewHost.timeoutHint': 'Petunjuk waktu habis',
   'app.connectionBadge.composio': 'Composio',
   'app.connectionBadge.messaging': 'Pesan',
@@ -275,7 +289,8 @@ const id3: TranslationMap = {
   'app.openhumanLink.billing.stayOnTrial': 'Tetap di trial',
   'app.openhumanLink.billing.trialCredit': 'Kredit trial',
   'app.openhumanLink.billing.trialDesc': 'Deskripsi trial',
-  'app.openhumanLink.defaultBody': 't siap di popup belum. Buka halaman pengaturan lengkap jika Anda',
+  'app.openhumanLink.defaultBody':
+    't siap di popup belum. Buka halaman pengaturan lengkap jika Anda',
   'app.openhumanLink.discord.intro': 'Intro',
   'app.openhumanLink.discord.openInvite': 'Buka undangan',
   'app.openhumanLink.discord.perk1': 'Keuntungan 1',
@@ -330,7 +345,8 @@ const id3: TranslationMap = {
   'channels.discord.linkTokenInstruction': '{token}',
   'channels.discord.linkTokenLabel': 'Label token tautan',
   'channels.discord.linkTokenOnce': 'Token tautan sekali pakai',
-  'channels.discord.picker.allPermissionsOk': 'Bot memiliki semua izin yang diperlukan di kanal ini.',
+  'channels.discord.picker.allPermissionsOk':
+    'Bot memiliki semua izin yang diperlukan di kanal ini.',
   'channels.discord.picker.botNotInServers': 'Bot tidak ada di server',
   'channels.discord.picker.category': '${} {categoryId}',
   'channels.discord.picker.channel': 'Kanal',
@@ -344,12 +360,14 @@ const id3: TranslationMap = {
   'channels.discord.picker.selectServer': 'Pilih server',
   'channels.discord.picker.server': 'Server',
   'channels.discord.picker.serverChannelSelection': 'Pemilihan kanal server',
-  'channels.discord.savedRestartRequired': 'Kanal tersimpan. Mulai ulang aplikasi untuk mengaktifkannya.',
+  'channels.discord.savedRestartRequired':
+    'Kanal tersimpan. Mulai ulang aplikasi untuk mengaktifkannya.',
   'channels.telegram.connect': 'Hubungkan',
   'channels.telegram.managedDmConnecting': 'DM terkelola menghubungkan',
   'channels.telegram.managedDmTimeout': 'Waktu DM terkelola habis',
   'channels.telegram.reconnect': 'Hubungkan ulang',
-  'channels.telegram.savedRestartRequired': 'Kanal tersimpan. Mulai ulang aplikasi untuk mengaktifkannya.',
+  'channels.telegram.savedRestartRequired':
+    'Kanal tersimpan. Mulai ulang aplikasi untuk mengaktifkannya.',
   'channels.web.alwaysAvailable': 'Selalu tersedia',
 };
 

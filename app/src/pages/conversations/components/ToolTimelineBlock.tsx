@@ -41,7 +41,9 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
   if (subagent.mode) headerBits.push(subagent.mode);
   if (subagent.dedicatedThread) headerBits.push(t('conversations.toolTimeline.workerThread'));
   if (subagent.childIteration != null && subagent.childMaxIterations != null) {
-    headerBits.push(`${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`);
+    headerBits.push(
+      `${t('conversations.toolTimeline.turn')} ${subagent.childIteration}/${subagent.childMaxIterations}`
+    );
   } else if (subagent.iterations != null) {
     headerBits.push(
       subagent.iterations === 1

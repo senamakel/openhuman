@@ -78,11 +78,14 @@ const ru3: TranslationMap = {
   'backend.aiBackend': 'AI-бэкенд',
   'backend.cloud': 'Облако',
   'backend.recommended': 'Рекомендуется',
-  'backend.cloudDescription': 'Быстрые и мощные модели на наших серверах. Готовы к использованию сразу.',
-  'backend.privacyNote': 'Личные данные, сообщения и ключи никогда не отправляются на наши серверы.',
+  'backend.cloudDescription':
+    'Быстрые и мощные модели на наших серверах. Готовы к использованию сразу.',
+  'backend.privacyNote':
+    'Личные данные, сообщения и ключи никогда не отправляются на наши серверы.',
   'backend.local': 'Локально',
   'backend.advanced': 'Дополнительно',
-  'backend.localDescription': 'Запускай модели на своём устройстве с помощью Ollama. Полная приватность, требует настройки.',
+  'backend.localDescription':
+    'Запускай модели на своём устройстве с помощью Ollama. Полная приватность, требует настройки.',
   'backend.ramRecommended': 'Рекомендуется 16 ГБ+ RAM',
   'subconscious.tasks': 'задач',
   'subconscious.ticks': 'тиков',
@@ -123,18 +126,23 @@ const ru3: TranslationMap = {
   'stats.tokens': 'токенов',
   'bootCheck.invalidUrl': 'Введи URL среды выполнения.',
   'bootCheck.urlMustStartWith': 'URL должен начинаться с http:// или https://',
-  'bootCheck.validUrlRequired': 'Похоже, это не корректный URL (попробуй https://core.example.com/rpc)',
+  'bootCheck.validUrlRequired':
+    'Похоже, это не корректный URL (попробуй https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Для подключения нужен токен авторизации.',
   'bootCheck.chooseCoreMode': 'Выбрать среду выполнения',
   'bootCheck.connectToCore': 'Подключиться к среде выполнения',
-  'bootCheck.desktopDescription': 'OpenHuman нужна среда выполнения для работы. Выбери, где она должна находиться.',
-  'bootCheck.webDescription': 'В браузере OpenHuman подключается к среде выполнения под твоим управлением. Введи URL и токен авторизации, или скачай настольное приложение для локального запуска.',
+  'bootCheck.desktopDescription':
+    'OpenHuman нужна среда выполнения для работы. Выбери, где она должна находиться.',
+  'bootCheck.webDescription':
+    'В браузере OpenHuman подключается к среде выполнения под твоим управлением. Введи URL и токен авторизации, или скачай настольное приложение для локального запуска.',
   'bootCheck.preferDesktop': 'Хочешь держать всё на своём устройстве?',
   'bootCheck.downloadDesktop': 'Скачать настольное приложение',
   'bootCheck.localRecommended': 'Запустить локально (рекомендуется)',
-  'bootCheck.localDescription': 'Работает прямо на твоём компьютере. Быстро, полностью приватно, ничего настраивать не нужно.',
+  'bootCheck.localDescription':
+    'Работает прямо на твоём компьютере. Быстро, полностью приватно, ничего настраивать не нужно.',
   'bootCheck.cloudMode': 'Запустить в облаке (сложно)',
-  'bootCheck.cloudDescription': 'Подключись к среде выполнения, которую ты размещаешь в другом месте. Работает 24×7, не нужно держать это устройство включённым.',
+  'bootCheck.cloudDescription':
+    'Подключись к среде выполнения, которую ты размещаешь в другом месте. Работает 24×7, не нужно держать это устройство включённым.',
   'bootCheck.coreRpcUrl': 'URL среды выполнения',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Токен авторизации',
@@ -151,19 +159,23 @@ const ru3: TranslationMap = {
   'bootCheck.switchMode': 'Выбрать другую среду',
   'bootCheck.quit': 'Выйти',
   'bootCheck.legacyDetected': 'Обнаружена устаревшая фоновая среда',
-  'bootCheck.legacyDescription': 'На этом устройстве уже запущен отдельно установленный демон OpenHuman. Нужно его убрать, прежде чем встроенная среда сможет взять управление.',
+  'bootCheck.legacyDescription':
+    'На этом устройстве уже запущен отдельно установленный демон OpenHuman. Нужно его убрать, прежде чем встроенная среда сможет взять управление.',
   'bootCheck.removing': 'Удаление…',
   'bootCheck.removeContinue': 'Удалить и продолжить',
   'bootCheck.localNeedsRestart': 'Требуется перезапуск локальной среды',
-  'bootCheck.localNeedsRestartDesc': 'Локальная среда выполнения и приложение используют разные версии. Быстрый перезапуск синхронизирует их.',
+  'bootCheck.localNeedsRestartDesc':
+    'Локальная среда выполнения и приложение используют разные версии. Быстрый перезапуск синхронизирует их.',
   'bootCheck.restarting': 'Перезапуск…',
   'bootCheck.restartCore': 'Перезапустить среду',
   'bootCheck.cloudNeedsUpdate': 'Требуется обновление облачной среды',
-  'bootCheck.cloudNeedsUpdateDesc': 'Облачная среда и приложение используют разные версии. Запусти обновление для синхронизации.',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'Облачная среда и приложение используют разные версии. Запусти обновление для синхронизации.',
   'bootCheck.updating': 'Обновление…',
   'bootCheck.updateCloudCore': 'Обновить облачную среду',
   'bootCheck.versionCheckFailed': 'Проверка версии среды не удалась',
-  'bootCheck.versionCheckFailedDesc': 'Среда работает, но не сообщает свою версию. Возможно, она устарела. Перезапусти или обнови её для продолжения.',
+  'bootCheck.versionCheckFailedDesc':
+    'Среда работает, но не сообщает свою версию. Возможно, она устарела. Перезапусти или обнови её для продолжения.',
   'bootCheck.working': 'Работаю…',
   'bootCheck.restartUpdateCore': 'Перезапустить / обновить среду',
   'bootCheck.unexpectedError': 'Неожиданная ошибка при загрузке',
@@ -184,7 +196,8 @@ const ru3: TranslationMap = {
   'about.update.status.availableNoVersion': 'Доступно обновление',
   'about.update.status.downloading': 'Загрузка...',
   'about.update.status.readyToInstall': 'v{version} готова к установке',
-  'about.update.status.readyToInstallNoVersion': 'Новая версия загружена и готова. Перезапусти для применения.',
+  'about.update.status.readyToInstallNoVersion':
+    'Новая версия загружена и готова. Перезапусти для применения.',
   'about.update.status.installing': 'Установка...',
   'about.update.status.restarting': 'Перезапуск...',
   'about.update.status.upToDate': 'У тебя установлена последняя версия.',

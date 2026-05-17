@@ -74,15 +74,18 @@ const bn3: TranslationMap = {
   'sync.syncing': 'সিঙ্ক হচ্ছে…',
   'sync.sync': 'সিঙ্ক',
   'sync.failedToLoad': 'সিঙ্ক স্ট্যাটাস লোড করতে ব্যর্থ',
-  'sync.noContent': 'এখনো কোনো কন্টেন্ট মেমোরিতে সিঙ্ক হয়নি। শুরু করতে একটি ইন্টিগ্রেশন সংযুক্ত করুন।',
+  'sync.noContent':
+    'এখনো কোনো কন্টেন্ট মেমোরিতে সিঙ্ক হয়নি। শুরু করতে একটি ইন্টিগ্রেশন সংযুক্ত করুন।',
   'backend.aiBackend': 'AI ব্যাকএন্ড',
   'backend.cloud': 'ক্লাউড',
   'backend.recommended': 'প্রস্তাবিত',
-  'backend.cloudDescription': 'আমাদের সার্ভারে হোস্ট করা দ্রুত, শক্তিশালী মডেল। সাথে সাথে ব্যবহারের জন্য প্রস্তুত।',
+  'backend.cloudDescription':
+    'আমাদের সার্ভারে হোস্ট করা দ্রুত, শক্তিশালী মডেল। সাথে সাথে ব্যবহারের জন্য প্রস্তুত।',
   'backend.privacyNote': 'কোনো ব্যক্তিগত ডেটা, বার্তা বা কী কখনো আমাদের সার্ভারে পাঠানো হয় না।',
   'backend.local': 'লোকাল',
   'backend.advanced': 'অ্যাডভান্সড',
-  'backend.localDescription': 'Ollama ব্যবহার করে নিজের মেশিনে মডেল চালান। সম্পূর্ণ গোপনীয়তা, সেটআপ প্রয়োজন।',
+  'backend.localDescription':
+    'Ollama ব্যবহার করে নিজের মেশিনে মডেল চালান। সম্পূর্ণ গোপনীয়তা, সেটআপ প্রয়োজন।',
   'backend.ramRecommended': '16GB+ RAM প্রস্তাবিত',
   'subconscious.tasks': 'টাস্ক',
   'subconscious.ticks': 'টিক',
@@ -123,18 +126,23 @@ const bn3: TranslationMap = {
   'stats.tokens': 'টোকেন',
   'bootCheck.invalidUrl': 'একটি রানটাইম URL দিন।',
   'bootCheck.urlMustStartWith': 'URL-টি http:// বা https:// দিয়ে শুরু হতে হবে',
-  'bootCheck.validUrlRequired': 'এটি বৈধ URL মনে হচ্ছে না (চেষ্টা করুন https://core.example.com/rpc)',
+  'bootCheck.validUrlRequired':
+    'এটি বৈধ URL মনে হচ্ছে না (চেষ্টা করুন https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'সংযোগ করতে একটি অথ টোকেন প্রয়োজন।',
   'bootCheck.chooseCoreMode': 'একটি রানটাইম বেছে নিন',
   'bootCheck.connectToCore': 'আপনার রানটাইমে সংযুক্ত হন',
-  'bootCheck.desktopDescription': 'OpenHuman চিন্তা করতে একটি রানটাইম প্রয়োজন। এটি কোথায় থাকবে তা বেছে নিন।',
-  'bootCheck.webDescription': 'ওয়েবে, OpenHuman আপনার নিয়ন্ত্রণে একটি রানটাইমে সংযুক্ত হয়। নিচে এর URL ও অথ টোকেন দিন, অথবা সরাসরি আপনার মেশিনে চালাতে ডেস্কটপ অ্যাপ নিন।',
+  'bootCheck.desktopDescription':
+    'OpenHuman চিন্তা করতে একটি রানটাইম প্রয়োজন। এটি কোথায় থাকবে তা বেছে নিন।',
+  'bootCheck.webDescription':
+    'ওয়েবে, OpenHuman আপনার নিয়ন্ত্রণে একটি রানটাইমে সংযুক্ত হয়। নিচে এর URL ও অথ টোকেন দিন, অথবা সরাসরি আপনার মেশিনে চালাতে ডেস্কটপ অ্যাপ নিন।',
   'bootCheck.preferDesktop': 'সব নিজের ডিভাইসে রাখতে চান?',
   'bootCheck.downloadDesktop': 'ডেস্কটপ অ্যাপ নিন',
   'bootCheck.localRecommended': 'লোকালি চালান (প্রস্তাবিত)',
-  'bootCheck.localDescription': 'সরাসরি আপনার কম্পিউটারে চলে। সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছু সেটআপ করতে হবে না।',
+  'bootCheck.localDescription':
+    'সরাসরি আপনার কম্পিউটারে চলে। সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছু সেটআপ করতে হবে না।',
   'bootCheck.cloudMode': 'ক্লাউডে চালান (জটিল)',
-  'bootCheck.cloudDescription': 'অন্য কোথাও হোস্ট করা রানটাইমে সংযুক্ত হন। ২৪×৭ অনলাইন থাকে, এই ডিভাইস চালু রাখতে হয় না।',
+  'bootCheck.cloudDescription':
+    'অন্য কোথাও হোস্ট করা রানটাইমে সংযুক্ত হন। ২৪×৭ অনলাইন থাকে, এই ডিভাইস চালু রাখতে হয় না।',
   'bootCheck.coreRpcUrl': 'রানটাইম URL',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'অথ টোকেন',
@@ -151,19 +159,23 @@ const bn3: TranslationMap = {
   'bootCheck.switchMode': 'ভিন্ন রানটাইম বেছে নিন',
   'bootCheck.quit': 'প্রস্থান',
   'bootCheck.legacyDetected': 'লেগ্যাসি ব্যাকগ্রাউন্ড রানটাইম শনাক্ত হয়েছে',
-  'bootCheck.legacyDescription': 'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন ইতিমধ্যে চলছে। বিল্ট-ইন রানটাইম নিয়ন্ত্রণ নেওয়ার আগে এটি সরাতে হবে।',
+  'bootCheck.legacyDescription':
+    'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন ইতিমধ্যে চলছে। বিল্ট-ইন রানটাইম নিয়ন্ত্রণ নেওয়ার আগে এটি সরাতে হবে।',
   'bootCheck.removing': 'সরানো হচ্ছে…',
   'bootCheck.removeContinue': 'সরান ও চালিয়ে যান',
   'bootCheck.localNeedsRestart': 'লোকাল রানটাইম রিস্টার্ট প্রয়োজন',
-  'bootCheck.localNeedsRestartDesc': 'আপনার লোকাল রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। দ্রুত রিস্টার্ট তাদের আবার সমন্বয় করবে।',
+  'bootCheck.localNeedsRestartDesc':
+    'আপনার লোকাল রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। দ্রুত রিস্টার্ট তাদের আবার সমন্বয় করবে।',
   'bootCheck.restarting': 'রিস্টার্ট হচ্ছে…',
   'bootCheck.restartCore': 'রানটাইম রিস্টার্ট করুন',
   'bootCheck.cloudNeedsUpdate': 'ক্লাউড রানটাইম আপডেট প্রয়োজন',
-  'bootCheck.cloudNeedsUpdateDesc': 'আপনার ক্লাউড রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। আপডেটার চালান।',
+  'bootCheck.cloudNeedsUpdateDesc':
+    'আপনার ক্লাউড রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। আপডেটার চালান।',
   'bootCheck.updating': 'আপডেট হচ্ছে…',
   'bootCheck.updateCloudCore': 'ক্লাউড রানটাইম আপডেট করুন',
   'bootCheck.versionCheckFailed': 'রানটাইম ভার্সন পরীক্ষা ব্যর্থ',
-  'bootCheck.versionCheckFailedDesc': 'আপনার রানটাইম চলছে কিন্তু ভার্সন জানাচ্ছে না। পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
+  'bootCheck.versionCheckFailedDesc':
+    'আপনার রানটাইম চলছে কিন্তু ভার্সন জানাচ্ছে না। পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
   'bootCheck.working': 'কাজ হচ্ছে…',
   'bootCheck.restartUpdateCore': 'রানটাইম রিস্টার্ট / আপডেট করুন',
   'bootCheck.unexpectedError': 'অপ্রত্যাশিত বুট-চেক ত্রুটি',
@@ -184,7 +196,8 @@ const bn3: TranslationMap = {
   'about.update.status.availableNoVersion': 'আপডেট পাওয়া গেছে',
   'about.update.status.downloading': 'ডাউনলোড হচ্ছে...',
   'about.update.status.readyToInstall': 'v{version} ইনস্টলের জন্য প্রস্তুত',
-  'about.update.status.readyToInstallNoVersion': 'নতুন ভার্সন ডাউনলোড হয়ে প্রস্তুত। প্রয়োগ করতে রিস্টার্ট করুন।',
+  'about.update.status.readyToInstallNoVersion':
+    'নতুন ভার্সন ডাউনলোড হয়ে প্রস্তুত। প্রয়োগ করতে রিস্টার্ট করুন।',
   'about.update.status.installing': 'ইনস্টল হচ্ছে...',
   'about.update.status.restarting': 'রিস্টার্ট হচ্ছে...',
   'about.update.status.upToDate': 'আপনি সর্বশেষ ভার্সন চালাচ্ছেন।',

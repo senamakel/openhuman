@@ -5,7 +5,6 @@
  *   - "Messaging"  — shown for iMessage, Telegram, WhatsApp channel cards
  *   - "Composio"   — shown for cards backed by the Composio toolkit (kind === 'composio')
  */
-
 import { useT } from '../lib/i18n/I18nContext';
 
 const MESSAGING_IDS = ['imessage', 'telegram', 'whatsapp'] as const;

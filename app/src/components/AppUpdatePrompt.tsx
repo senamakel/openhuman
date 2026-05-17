@@ -16,8 +16,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useT } from '../lib/i18n/I18nContext';
 import { useAppUpdate } from '../hooks/useAppUpdate';
+import { useT } from '../lib/i18n/I18nContext';
 import { formatBytes } from '../utils/localAiHelpers';
 
 interface AppUpdatePromptProps {
@@ -123,7 +123,10 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
                   ? t('app.update.versionReady').replace('{version}', newVersion)
                   : t('app.update.newVersionReady')}
                 {currentVersion && (
-                  <span className="text-stone-500"> {t('app.update.currentlyOn').replace('{version}', currentVersion)}</span>
+                  <span className="text-stone-500">
+                    {' '}
+                    {t('app.update.currentlyOn').replace('{version}', currentVersion)}
+                  </span>
                 )}
               </p>
               {info?.body && <ReleaseNotes body={info.body} />}
@@ -181,7 +184,10 @@ const AppUpdatePrompt = (props: AppUpdatePromptProps) => {
   );
 };
 
-function headerLabel(phase: ReturnType<typeof useAppUpdate>['phase'], t: (k: string) => string): string {
+function headerLabel(
+  phase: ReturnType<typeof useAppUpdate>['phase'],
+  t: (k: string) => string
+): string {
   switch (phase) {
     case 'ready_to_install':
       return t('app.update.header.readyToInstall');
@@ -208,7 +214,8 @@ function progressDetail(
   if (total != null && total > 0) {
     return `${formatBytes(downloaded)} / ${formatBytes(total)}`;
   }
-  if (downloaded > 0) return t('app.update.progress.downloaded').replace('{amount}', formatBytes(downloaded));
+  if (downloaded > 0)
+    return t('app.update.progress.downloaded').replace('{amount}', formatBytes(downloaded));
   return percent != null ? `${percent}%` : t('app.update.progress.working');
 }
 
@@ -248,7 +255,13 @@ const ReleaseNotes = ({ body }: { body: string }) => {
   );
 };
 
-const ReleaseNotesToggle = ({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) => {
+const ReleaseNotesToggle = ({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) => {
   const { t } = useT();
   return (
     <button

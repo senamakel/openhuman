@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
 import {
   type ScreenIntelligenceState,
   useScreenIntelligenceState,
 } from '../../features/screen-intelligence/useScreenIntelligenceState';
+import { useT } from '../../lib/i18n/I18nContext';
 
 const formatBytes = (bytes: number | null | undefined): string => {
   if (bytes == null) return '-';
@@ -73,7 +73,9 @@ const ScreenIntelligenceDebugPanelContent = ({
           {t('intelligence.screenDebug.permissions')}
         </h4>
         {status?.platform_supported === false ? (
-          <p className="text-xs text-stone-500">{t('intelligence.screenDebug.platformNotSupported')}</p>
+          <p className="text-xs text-stone-500">
+            {t('intelligence.screenDebug.platformNotSupported')}
+          </p>
         ) : (
           <div className="grid grid-cols-3 gap-2 text-xs">
             <PermissionDot

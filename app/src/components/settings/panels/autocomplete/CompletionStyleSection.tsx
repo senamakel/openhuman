@@ -60,7 +60,9 @@ const CompletionStyleSection = ({
       <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
         <h3 className="text-sm font-semibold text-stone-900">{t('autocomplete.settings')}</h3>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-          <span className="text-sm text-stone-700">{t('settings.autocomplete.completionStyle.enabled')}</span>
+          <span className="text-sm text-stone-700">
+            {t('settings.autocomplete.completionStyle.enabled')}
+          </span>
           <input
             type="checkbox"
             checked={enabled}
@@ -76,7 +78,9 @@ const CompletionStyleSection = ({
           />
         </label>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-          <span className="text-sm text-stone-700">{t('settings.autocomplete.completionStyle.debounce')}</span>
+          <span className="text-sm text-stone-700">
+            {t('settings.autocomplete.completionStyle.debounce')}
+          </span>
           <input
             type="number"
             min={50}
@@ -88,7 +92,9 @@ const CompletionStyleSection = ({
           />
         </label>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-          <span className="text-sm text-stone-700">{t('settings.autocomplete.completionStyle.maxChars')}</span>
+          <span className="text-sm text-stone-700">
+            {t('settings.autocomplete.completionStyle.maxChars')}
+          </span>
           <input
             type="number"
             min={32}
@@ -100,7 +106,9 @@ const CompletionStyleSection = ({
           />
         </label>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-          <span className="text-sm text-stone-700">{t('settings.autocomplete.completionStyle.overlayTtl')}</span>
+          <span className="text-sm text-stone-700">
+            {t('settings.autocomplete.completionStyle.overlayTtl')}
+          </span>
           <input
             type="number"
             min={300}
@@ -125,7 +133,9 @@ const CompletionStyleSection = ({
           </select>
         </label>
         <div className="space-y-1">
-          <div className="text-xs text-stone-600">{t('settings.autocomplete.completionStyle.styleInstructions')}</div>
+          <div className="text-xs text-stone-600">
+            {t('settings.autocomplete.completionStyle.styleInstructions')}
+          </div>
           <textarea
             value={styleInstructions}
             onChange={event => onSetStyleInstructions(event.target.value)}
@@ -134,7 +144,9 @@ const CompletionStyleSection = ({
           />
         </div>
         <div className="space-y-1">
-          <div className="text-xs text-stone-600">{t('settings.autocomplete.completionStyle.styleExamples')}</div>
+          <div className="text-xs text-stone-600">
+            {t('settings.autocomplete.completionStyle.styleExamples')}
+          </div>
           <textarea
             value={styleExamplesText}
             onChange={event => onSetStyleExamplesText(event.target.value)}
@@ -143,9 +155,7 @@ const CompletionStyleSection = ({
           />
         </div>
         <div className="space-y-1">
-          <div className="text-xs text-stone-600">
-            {t('autocomplete.disabledApps')}
-          </div>
+          <div className="text-xs text-stone-600">{t('autocomplete.disabledApps')}</div>
           <textarea
             value={disabledAppsText}
             onChange={event => onSetDisabledAppsText(event.target.value)}
@@ -164,13 +174,17 @@ const CompletionStyleSection = ({
 
       <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-stone-900">{t('settings.autocomplete.completionStyle.personalizationHistory')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900">
+            {t('settings.autocomplete.completionStyle.personalizationHistory')}
+          </h3>
           <button
             type="button"
             onClick={onClearHistory}
             disabled={isClearingHistory || historyEntries.length === 0}
             className="rounded-lg border border-red-500/60 bg-red-50 px-3 py-1.5 text-xs text-red-600 disabled:opacity-40">
-            {isClearingHistory ? t('settings.autocomplete.completionStyle.clearing') : t('settings.autocomplete.completionStyle.clearHistory')}
+            {isClearingHistory
+              ? t('settings.autocomplete.completionStyle.clearing')
+              : t('settings.autocomplete.completionStyle.clearHistory')}
           </button>
         </div>
         <p className="text-xs text-stone-500">

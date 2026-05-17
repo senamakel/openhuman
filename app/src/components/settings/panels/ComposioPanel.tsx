@@ -222,14 +222,14 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
       )}
 
       <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
-        <p className="text-sm text-stone-500">
-          {t('settings.composio.intro')}
-        </p>
+        <p className="text-sm text-stone-500">{t('settings.composio.intro')}</p>
 
         {/* Mode toggle */}
         <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4 space-y-3">
           <fieldset>
-            <legend className="text-sm font-medium text-stone-900 mb-2">{t('settings.composio.routingMode')}</legend>
+            <legend className="text-sm font-medium text-stone-900 mb-2">
+              {t('settings.composio.routingMode')}
+            </legend>
             <div className="space-y-2">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -279,9 +279,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
             <label className="block text-sm font-medium text-stone-800" htmlFor="composio-api-key">
               {t('settings.composio.apiKeyLabel')}
             </label>
-            <p className="text-xs text-stone-500">
-              {t('settings.composio.apiKeyDesc')}
-            </p>
+            <p className="text-xs text-stone-500">{t('settings.composio.apiKeyDesc')}</p>
             <input
               id="composio-api-key"
               type="password"
@@ -296,9 +294,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
               className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-mono text-stone-900 placeholder-stone-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
             />
             {apiKeyStored && (
-              <p className="text-xs text-green-600">
-                {t('settings.composio.apiKeyStored')}
-              </p>
+              <p className="text-xs text-green-600">{t('settings.composio.apiKeyStored')}</p>
             )}
           </div>
         )}
@@ -357,7 +353,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
           <p className="text-xs text-center text-green-600">{t('composio.settingsSaved')}</p>
         )}
         {saveStatus === 'cleared' && (
-          <p className="text-xs text-center text-green-600">{t('settings.composio.clearedToBackend')}</p>
+          <p className="text-xs text-center text-green-600">
+            {t('settings.composio.clearedToBackend')}
+          </p>
         )}
         {saveStatus === 'error' && (
           <p className="text-xs text-center text-red-500">

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-
 import { callCoreRpc } from '../../services/coreRpcClient';
 import Button from '../ui/Button';
 
@@ -80,7 +79,9 @@ export const UnsubscribeApprovalCard: React.FC<Props> = ({ payload }) => {
           {status === 'pending' && (
             <div className="flex gap-2 mt-4">
               <Button variant="primary" size="sm" onClick={handleApprove} disabled={isProcessing}>
-                {isProcessing ? t('chat.unsubscribeApproval.processing') : t('chat.unsubscribeApproval.approve')}
+                {isProcessing
+                  ? t('chat.unsubscribeApproval.processing')
+                  : t('chat.unsubscribeApproval.approve')}
               </Button>
               <Button variant="secondary" size="sm" onClick={handleDeny} disabled={isProcessing}>
                 {t('chat.unsubscribeApproval.deny')}
@@ -94,7 +95,9 @@ export const UnsubscribeApprovalCard: React.FC<Props> = ({ payload }) => {
             </div>
           )}
           {status === 'denied' && (
-            <div className="text-sm text-red-600 font-medium mt-3">{t('chat.unsubscribeApproval.denied')}</div>
+            <div className="text-sm text-red-600 font-medium mt-3">
+              {t('chat.unsubscribeApproval.denied')}
+            </div>
           )}
         </div>
       </div>

@@ -245,9 +245,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
           aria-label={t('accounts.webviewHost.loadTimeout')}>
           <div className="max-w-sm space-y-1">
             <p className="text-sm font-semibold text-stone-800">{`${providerName} ${t('accounts.webviewHost.takingLonger')}`}</p>
-            <p className="text-xs text-stone-600">
-              {t('accounts.webviewHost.timeoutHint')}
-            </p>
+            <p className="text-xs text-stone-600">{t('accounts.webviewHost.timeoutHint')}</p>
           </div>
           <button
             type="button"

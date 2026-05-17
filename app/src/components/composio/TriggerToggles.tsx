@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
 import {
   disableTrigger,
   enableTrigger,
@@ -9,6 +8,7 @@ import {
 } from '../../lib/composio/composioApi';
 import { formatTriggerLabel } from '../../lib/composio/formatters';
 import type { ComposioActiveTrigger, ComposioAvailableTrigger } from '../../lib/composio/types';
+import { useT } from '../../lib/i18n/I18nContext';
 
 /**
  * Stable signature for matching an `AvailableTrigger` to an
@@ -126,9 +126,7 @@ export default function TriggerToggles({
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const actionWord = existing ? t('common.disable') : t('common.enable');
-        setRowError(
-          `${actionWord} failed for ${formatTriggerLabel(entry.slug)}: ${msg}`
-        );
+        setRowError(`${actionWord} failed for ${formatTriggerLabel(entry.slug)}: ${msg}`);
       } finally {
         setPendingSignature(null);
       }
@@ -147,7 +145,9 @@ export default function TriggerToggles({
   if (available === null) {
     return (
       <div className="border-t border-stone-100 pt-3 mt-1">
-        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">{t('composio.triggers.heading')}</h3>
+        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">
+          {t('composio.triggers.heading')}
+        </h3>
         <p className="mt-1 text-[11px] text-stone-400">{t('common.loading')}</p>
       </div>
     );
@@ -156,7 +156,9 @@ export default function TriggerToggles({
   if (available.length === 0) {
     return (
       <div className="border-t border-stone-100 pt-3 mt-1">
-        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">{t('composio.triggers.heading')}</h3>
+        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">
+          {t('composio.triggers.heading')}
+        </h3>
         <p className="mt-1 text-[11px] text-stone-400">
           {`${t('composio.triggers.noneAvailable')} ${toolkitName}.`}
         </p>
@@ -167,7 +169,9 @@ export default function TriggerToggles({
   return (
     <div className="border-t border-stone-100 pt-3 mt-1 space-y-2" data-testid="trigger-toggles">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">{t('composio.triggers.heading')}</h3>
+        <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">
+          {t('composio.triggers.heading')}
+        </h3>
         <p className="text-[10px] text-stone-400">{`${t('composio.triggers.listenFrom')} ${toolkitName}`}</p>
       </div>
       <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">

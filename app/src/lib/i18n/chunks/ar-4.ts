@@ -54,13 +54,15 @@ const ar4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'نقل لليسار',
   'conversations.taskKanban.moveRight': 'نقل لليمين',
   'conversations.taskKanban.title': 'المهام',
-  'conversations.toolTimeline.turn': 'دورة ${subagent.childIteration}/${subagent.childMaxIterations}',
+  'conversations.toolTimeline.turn':
+    'دورة ${subagent.childIteration}/${subagent.childMaxIterations}',
   'conversations.toolTimeline.workerThread': 'محادثة عامل',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل الأحدث',
   'daemon.serviceBlockingGate.retryCore': 'جارٍ إعادة المحاولة...',
-  'daemon.serviceBlockingGate.retryFailed': 'فشلت إعادة المحاولة. نزّل أحدث إصدار للتطبيق وحاول مرة أخرى.',
+  'daemon.serviceBlockingGate.retryFailed':
+    'فشلت إعادة المحاولة. نزّل أحدث إصدار للتطبيق وحاول مرة أخرى.',
   'daemon.serviceBlockingGate.retrying': 'جارٍ إعادة المحاولة...',
   'daemon.serviceBlockingGate.title': 'نواة OpenHuman غير متاحة',
   'home.banners.discordSubtitle': 'وصف Discord',
@@ -83,7 +85,8 @@ const ar4: TranslationMap = {
   'intelligence.memoryChunk.mentioned.chunkOne': 'جزء واحد',
   'intelligence.memoryChunk.mentioned.chunkOther': 'أجزاء أخرى',
   'intelligence.memoryChunk.mentioned.heading': 'م ذ ك و ر',
-  'intelligence.memoryChunk.scoreBars.ariaScore': '${sig.name} score ${(pct * 100).toFixed(0)} percent',
+  'intelligence.memoryChunk.scoreBars.ariaScore':
+    '${sig.name} score ${(pct * 100).toFixed(0)} percent',
   'intelligence.memoryChunk.scoreBars.atThreshold': 'عند العتبة',
   'intelligence.memoryChunk.scoreBars.dropped': 'محذوف',
   'intelligence.memoryChunk.scoreBars.heading': 'س ب ب   ا ل ح ف ظ',
@@ -151,7 +154,8 @@ const ar4: TranslationMap = {
   'pages.settings.account.recoveryPhraseDesc': 'وصف عبارة الاسترداد',
   'pages.settings.account.team': 'الفريق',
   'pages.settings.account.teamDesc': 'وصف الفريق',
-  'pages.settings.accountSection.description': 'عبارة الاسترداد والفريق والاتصالات وإعدادات الخصوصية.',
+  'pages.settings.accountSection.description':
+    'عبارة الاسترداد والفريق والاتصالات وإعدادات الخصوصية.',
   'pages.settings.accountSection.title': 'الحساب',
   'pages.settings.ai.llm': 'LLM',
   'pages.settings.ai.llmDesc': 'وصف LLM',
@@ -284,14 +288,17 @@ const ar4: TranslationMap = {
   'settings.autocomplete.appFilter.refreshing': 'جارٍ التحديث…',
   'settings.autocomplete.appFilter.runtime': 'بيئة التشغيل',
   'settings.autocomplete.appFilter.test': 'اختبار',
-  'settings.autocomplete.completionStyle.acceptedCompletion': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
-  'settings.autocomplete.completionStyle.acceptedCompletions': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
   'settings.autocomplete.completionStyle.clearHistory': 'جارٍ المسح…',
   'settings.autocomplete.completionStyle.clearing': 'جارٍ المسح…',
   'settings.autocomplete.completionStyle.debounce': 'تأخير (ms)',
   'settings.autocomplete.completionStyle.enabled': 'مفعّل',
   'settings.autocomplete.completionStyle.maxChars': 'الحد الأقصى للأحرف',
-  'settings.autocomplete.completionStyle.noHistory': 'لا توجد إكمالات مقبولة بعد. اقبل الاقتراحات بـ Tab للبدء بالتخصيص.',
+  'settings.autocomplete.completionStyle.noHistory':
+    'لا توجد إكمالات مقبولة بعد. اقبل الاقتراحات بـ Tab للبدء بالتخصيص.',
   'settings.autocomplete.completionStyle.overlayTtl': 'مدة ظهور التراكب (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'سجل التخصيص',
   'settings.autocomplete.completionStyle.styleExamples': 'أمثلة الأسلوب (مثال لكل سطر)',

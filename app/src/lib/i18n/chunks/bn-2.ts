@@ -32,18 +32,23 @@ const bn2: TranslationMap = {
   'settings.ai.refreshingAll': 'সব রিফ্রেশ হচ্ছে...',
   'settings.ai.refreshAll': 'সব AI কনফিগারেশন রিফ্রেশ করুন',
   'settings.notifications.suppressAll': 'সব বিজ্ঞপ্তি দমন করুন',
-  'settings.notifications.suppressAllDesc': 'ফোকাস স্টেট নির্বিশেষে এম্বেডেড অ্যাপ থেকে সব OS বিজ্ঞপ্তি টোস্ট ব্লক করুন।',
+  'settings.notifications.suppressAllDesc':
+    'ফোকাস স্টেট নির্বিশেষে এম্বেডেড অ্যাপ থেকে সব OS বিজ্ঞপ্তি টোস্ট ব্লক করুন।',
   'settings.notifications.toggleDnd': 'ডু নট ডিস্টার্ব টগল করুন',
   'settings.notifications.categories': 'ক্যাটাগরি',
-  'settings.notifications.categoryFooter': 'একটি ক্যাটাগরি নিষ্ক্রিয় করলে সেই ধরনের নতুন বিজ্ঞপ্তি বিজ্ঞপ্তি কেন্দ্রে আর দেখাবে না। বিদ্যমান বিজ্ঞপ্তিগুলো পরিষ্কার না করা পর্যন্ত থাকবে।',
+  'settings.notifications.categoryFooter':
+    'একটি ক্যাটাগরি নিষ্ক্রিয় করলে সেই ধরনের নতুন বিজ্ঞপ্তি বিজ্ঞপ্তি কেন্দ্রে আর দেখাবে না। বিদ্যমান বিজ্ঞপ্তিগুলো পরিষ্কার না করা পর্যন্ত থাকবে।',
   'settings.billing.movedToWeb': 'বিলিং ওয়েবে সরানো হয়েছে',
   'settings.billing.openDashboard': 'বিলিং ড্যাশবোর্ড খুলুন',
-  'settings.billing.movedToWebDesc': 'সাবস্ক্রিপশন পরিবর্তন, পেমেন্ট পদ্ধতি, ক্রেডিট এবং ইনভয়েস এখন ওয়েবে TinyHumans-এ পরিচালনা করা হয়।',
+  'settings.billing.movedToWebDesc':
+    'সাবস্ক্রিপশন পরিবর্তন, পেমেন্ট পদ্ধতি, ক্রেডিট এবং ইনভয়েস এখন ওয়েবে TinyHumans-এ পরিচালনা করা হয়।',
   'settings.billing.backToSettings': 'সেটিংসে ফিরুন',
   'settings.billing.openingBrowser': 'ব্রাউজার খোলা হচ্ছে...',
   'settings.billing.browserNotOpen': 'ব্রাউজার না খুললে উপরের বাটন ব্যবহার করুন।',
-  'settings.billing.browserOpenFailed': 'ব্রাউজার স্বয়ংক্রিয়ভাবে খোলা যায়নি। উপরের বাটন ব্যবহার করুন।',
-  'settings.tools.chooseCapabilities': 'OpenHuman আপনার হয়ে কোন ক্যাপাবিলিটিগুলো ব্যবহার করতে পারবে তা বেছে নিন।',
+  'settings.billing.browserOpenFailed':
+    'ব্রাউজার স্বয়ংক্রিয়ভাবে খোলা যায়নি। উপরের বাটন ব্যবহার করুন।',
+  'settings.tools.chooseCapabilities':
+    'OpenHuman আপনার হয়ে কোন ক্যাপাবিলিটিগুলো ব্যবহার করতে পারবে তা বেছে নিন।',
   'settings.tools.saveChanges': 'পরিবর্তন সংরক্ষণ করুন',
   'settings.tools.preferencesSaved': 'পছন্দ সংরক্ষিত',
   'settings.tools.saveFailed': 'পছন্দ সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।',
@@ -60,20 +65,26 @@ const bn2: TranslationMap = {
   'settings.screenAwareness.startSession': 'সেশন শুরু করুন',
   'settings.screenAwareness.stopSession': 'সেশন বন্ধ করুন',
   'settings.screenAwareness.analyzeNow': 'এখনই বিশ্লেষণ করুন',
-  'settings.screenAwareness.macosOnly': 'স্ক্রিন সচেতনতা ডেস্কটপ ক্যাপচার এবং অনুমতি নিয়ন্ত্রণ বর্তমানে শুধু macOS-এ সমর্থিত।',
+  'settings.screenAwareness.macosOnly':
+    'স্ক্রিন সচেতনতা ডেস্কটপ ক্যাপচার এবং অনুমতি নিয়ন্ত্রণ বর্তমানে শুধু macOS-এ সমর্থিত।',
   'connections.comingSoon': 'শীঘ্রই আসছে',
   'connections.setUp': 'সেটআপ করুন',
   'connections.configured': 'কনফিগার করা হয়েছে',
   'connections.unavailable': 'পাওয়া যাচ্ছে না',
   'connections.checking': 'পরীক্ষা হচ্ছে…',
-  'connections.walletConfigured': 'আপনার রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় কনফিগার করা হয়েছে।',
-  'connections.walletReady': 'একটি রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় সেটআপ করুন।',
-  'connections.walletError': 'ওয়ালেট স্ট্যাটাস পরীক্ষা করা যায়নি। রিকভারি ফ্রেজ প্যানেল থেকে আবার চেষ্টা করতে ট্যাপ করুন।',
+  'connections.walletConfigured':
+    'আপনার রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় কনফিগার করা হয়েছে।',
+  'connections.walletReady':
+    'একটি রিকভারি ফ্রেজ থেকে লোকাল EVM, BTC, Solana এবং Tron পরিচয় সেটআপ করুন।',
+  'connections.walletError':
+    'ওয়ালেট স্ট্যাটাস পরীক্ষা করা যায়নি। রিকভারি ফ্রেজ প্যানেল থেকে আবার চেষ্টা করতে ট্যাপ করুন।',
   'connections.walletChecking': 'ওয়ালেট স্ট্যাটাস পরীক্ষা হচ্ছে...',
   'connections.walletIdentities': 'ওয়ালেট পরিচয়',
-  'connections.walletDerived': 'আপনার রিকভারি ফ্রেজ থেকে লোকালি ডেরাইভ করা এবং শুধু নিরাপদ মেটাডেটা হিসেবে সংরক্ষিত।',
+  'connections.walletDerived':
+    'আপনার রিকভারি ফ্রেজ থেকে লোকালি ডেরাইভ করা এবং শুধু নিরাপদ মেটাডেটা হিসেবে সংরক্ষিত।',
   'connections.privacySecurity': 'গোপনীয়তা ও নিরাপত্তা',
-  'connections.privacySecurityDesc': 'সব ডেটা ও ক্রেডেনশিয়াল জিরো-ডেটা রিটেনশন নীতি সহ লোকালে সংরক্ষিত। আপনার তথ্য এনক্রিপ্ট করা এবং তৃতীয় পক্ষের সাথে কখনো শেয়ার করা হয় না।',
+  'connections.privacySecurityDesc':
+    'সব ডেটা ও ক্রেডেনশিয়াল জিরো-ডেটা রিটেনশন নীতি সহ লোকালে সংরক্ষিত। আপনার তথ্য এনক্রিপ্ট করা এবং তৃতীয় পক্ষের সাথে কখনো শেয়ার করা হয় না।',
   'channels.status.connecting': 'সংযোগ হচ্ছে',
   'channels.status.notConfigured': 'কনফিগার করা হয়নি',
   'channels.noActiveRoute': 'কোনো সক্রিয় রুট নেই',
@@ -84,7 +95,8 @@ const bn2: TranslationMap = {
   'channels.configNotAvailable': 'কনফিগারেশন পাওয়া যাচ্ছে না',
   'channels.channel': 'চ্যানেল',
   'devOptions.coreModeNotSet': 'কোর মোড: সেট করা হয়নি',
-  'devOptions.coreModeNotSetDesc': 'বুট-চেক পিকার এখনো নিশ্চিত করা হয়নি। লোকাল বা ক্লাউড বেছে নিতে পিকারে সুইচ মোড ব্যবহার করুন।',
+  'devOptions.coreModeNotSetDesc':
+    'বুট-চেক পিকার এখনো নিশ্চিত করা হয়নি। লোকাল বা ক্লাউড বেছে নিতে পিকারে সুইচ মোড ব্যবহার করুন।',
   'devOptions.local': 'লোকাল',
   'devOptions.embeddedCoreSidecar': 'এম্বেডেড কোর সাইডকার',
   'devOptions.sidecarSpawned': 'অ্যাপ লঞ্চে Tauri শেল দ্বারা ইন-প্রসেসে স্প্যান করা হয়েছে।',
@@ -93,29 +105,36 @@ const bn2: TranslationMap = {
   'devOptions.token': 'টোকেন',
   'devOptions.tokenNotSet': 'সেট করা হয়নি — RPC 401 দেবে',
   'devOptions.triggerSentryTest': 'Sentry পরীক্ষা ট্রিগার করুন (স্টেজিং)',
-  'devOptions.triggerSentryTestDesc': 'Sentry পাইপলাইন যাচাই করতে একটি ট্যাগড ত্রুটি পাঠায়। ইস্যু #1072 — যাচাইয়ের পরে সরান।',
+  'devOptions.triggerSentryTestDesc':
+    'Sentry পাইপলাইন যাচাই করতে একটি ট্যাগড ত্রুটি পাঠায়। ইস্যু #1072 — যাচাইয়ের পরে সরান।',
   'devOptions.sendTestEvent': 'পরীক্ষা ইভেন্ট পাঠান',
   'devOptions.sending': 'পাঠানো হচ্ছে…',
   'devOptions.eventSent': 'ইভেন্ট পাঠানো হয়েছে',
   'devOptions.failed': 'ব্যর্থ',
   'devOptions.appLogs': 'অ্যাপ লগ',
-  'devOptions.appLogsDesc': 'রোলিং ডেইলি লগ ফাইল ধারণকারী ফোল্ডার খুলুন। ইস্যু রিপোর্ট করার সময় সর্বশেষ ফাইলটি সংযুক্ত করুন।',
+  'devOptions.appLogsDesc':
+    'রোলিং ডেইলি লগ ফাইল ধারণকারী ফোল্ডার খুলুন। ইস্যু রিপোর্ট করার সময় সর্বশেষ ফাইলটি সংযুক্ত করুন।',
   'devOptions.openLogsFolder': 'লগ ফোল্ডার খুলুন',
   'mnemonic.phraseSaved': 'রিকভারি ফ্রেজ সংরক্ষিত',
   'mnemonic.walletReady': 'মাল্টি-চেইন ওয়ালেট পরিচয় প্রস্তুত। সেটিংসে ফিরছে...',
   'mnemonic.writeDownWords': 'এই',
-  'mnemonic.wordsInOrder': 'শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন। এই ফ্রেজটি আপনার লোকাল এনক্রিপশন কী এবং EVM, BTC, Solana ও Tron ওয়ালেট পরিচয় সুরক্ষিত করে।',
-  'mnemonic.cannotRecover': 'এই ফ্রেজ হারালে কখনো পুনরুদ্ধার করা যাবে না এবং সম্পূর্ণ আপনার ডিভাইসে রাখা উচিত।',
+  'mnemonic.wordsInOrder':
+    'শব্দগুলো ক্রমানুসারে লিখে নিরাপদ স্থানে সংরক্ষণ করুন। এই ফ্রেজটি আপনার লোকাল এনক্রিপশন কী এবং EVM, BTC, Solana ও Tron ওয়ালেট পরিচয় সুরক্ষিত করে।',
+  'mnemonic.cannotRecover':
+    'এই ফ্রেজ হারালে কখনো পুনরুদ্ধার করা যাবে না এবং সম্পূর্ণ আপনার ডিভাইসে রাখা উচিত।',
   'mnemonic.copyToClipboard': 'ক্লিপবোর্ডে কপি করুন',
   'mnemonic.alreadyHavePhrase': 'আমার কাছে ইতিমধ্যে একটি রিকভারি ফ্রেজ আছে',
-  'mnemonic.consentSaved': 'আমি এই ফ্রেজটি সংরক্ষণ করেছি এবং লোকাল ওয়ালেট সেটআপের জন্য এটি ব্যবহারে সম্মতি দিচ্ছি',
-  'mnemonic.enterPhraseToRestore': 'আপনার লোকাল ওয়ালেট পরিচয় পুনরুদ্ধার করতে নিচে আপনার রিকভারি ফ্রেজ দিন, বা যেকোনো ফিল্ডে পুরো ফ্রেজ পেস্ট করুন (নতুন ব্যাকআপের জন্য ১২টি শব্দ; পুরনো ভার্সনের ২৪ শব্দের ফ্রেজও কাজ করে)।',
+  'mnemonic.consentSaved':
+    'আমি এই ফ্রেজটি সংরক্ষণ করেছি এবং লোকাল ওয়ালেট সেটআপের জন্য এটি ব্যবহারে সম্মতি দিচ্ছি',
+  'mnemonic.enterPhraseToRestore':
+    'আপনার লোকাল ওয়ালেট পরিচয় পুনরুদ্ধার করতে নিচে আপনার রিকভারি ফ্রেজ দিন, বা যেকোনো ফিল্ডে পুরো ফ্রেজ পেস্ট করুন (নতুন ব্যাকআপের জন্য ১২টি শব্দ; পুরনো ভার্সনের ২৪ শব্দের ফ্রেজও কাজ করে)।',
   'mnemonic.words': 'শব্দ',
   'mnemonic.validPhrase': 'বৈধ রিকভারি ফ্রেজ',
   'mnemonic.generateNewPhrase': 'পরিবর্তে একটি নতুন রিকভারি ফ্রেজ তৈরি করুন',
   'mnemonic.securingData': 'আপনার ডেটা সুরক্ষিত হচ্ছে...',
   'mnemonic.saveRecoveryPhrase': 'রিকভারি ফ্রেজ সংরক্ষণ করুন',
-  'mnemonic.userNotLoaded': 'ব্যবহারকারী লোড হয়নি। দয়া করে আবার সাইন ইন করুন বা পেজ রিফ্রেশ করুন।',
+  'mnemonic.userNotLoaded':
+    'ব্যবহারকারী লোড হয়নি। দয়া করে আবার সাইন ইন করুন বা পেজ রিফ্রেশ করুন।',
   'mnemonic.invalidPhrase': 'অবৈধ রিকভারি ফ্রেজ। আপনার শব্দগুলো পরীক্ষা করে আবার চেষ্টা করুন।',
   'mnemonic.somethingWentWrong': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
   'team.failedToCreate': 'টিম তৈরি করতে ব্যর্থ',
@@ -143,7 +162,8 @@ const bn2: TranslationMap = {
   'team.join': 'যোগ দিন',
   'team.leaveTeam': 'টিম ছাড়ুন',
   'team.confirmLeave': 'আপনি কি ছেড়ে যেতে চান',
-  'team.leaveWarning': 'আপনি টিম এবং সব টিম রিসোর্সে অ্যাক্সেস হারাবেন। পুনরায় যোগ দিতে নতুন আমন্ত্রণ প্রয়োজন।',
+  'team.leaveWarning':
+    'আপনি টিম এবং সব টিম রিসোর্সে অ্যাক্সেস হারাবেন। পুনরায় যোগ দিতে নতুন আমন্ত্রণ প্রয়োজন।',
   'team.management': 'টিম ম্যানেজমেন্ট',
   'team.notFound': 'টিম পাওয়া যায়নি',
   'team.accessDenied': 'অ্যাক্সেস অস্বীকৃত',
@@ -159,9 +179,11 @@ const bn2: TranslationMap = {
   'voice.naturalCleanup': 'স্বাভাবিক পরিষ্কার',
   'voice.autoStart': 'কোরের সাথে স্বয়ংক্রিয়ভাবে ভয়েস সার্ভার শুরু করুন',
   'voice.customDictionary': 'কাস্টম ডিকশনারি',
-  'voice.customDictionaryDesc': 'স্বীকৃতির নির্ভুলতা উন্নত করতে নাম, প্রযুক্তিগত শব্দ এবং ডোমেন শব্দ যোগ করুন।',
+  'voice.customDictionaryDesc':
+    'স্বীকৃতির নির্ভুলতা উন্নত করতে নাম, প্রযুক্তিগত শব্দ এবং ডোমেন শব্দ যোগ করুন।',
   'voice.addWord': 'একটি শব্দ যোগ করুন...',
-  'voice.sttDisabled': 'লোকাল STT মডেল ডাউনলোড ও প্রস্তুত না হওয়া পর্যন্ত ভয়েস ডিক্টেশন নিষ্ক্রিয়।',
+  'voice.sttDisabled':
+    'লোকাল STT মডেল ডাউনলোড ও প্রস্তুত না হওয়া পর্যন্ত ভয়েস ডিক্টেশন নিষ্ক্রিয়।',
   'voice.openLocalAiModel': 'লোকাল AI মডেল খুলুন',
   'voice.serverRestarted': 'নতুন সেটিংস সহ ভয়েস সার্ভার রিস্টার্ট হয়েছে।',
   'voice.settingsSaved': 'ভয়েস সেটিংস সংরক্ষিত।',
@@ -204,10 +226,12 @@ const bn2: TranslationMap = {
   'chat.askAgent': 'এজেন্টকে যেকোনো কিছু জিজ্ঞেস করুন...',
   'chat.sendMessage': 'বার্তা পাঠান',
   'composio.triageTitle': 'ইন্টিগ্রেশন ট্রিগার',
-  'composio.triageDesc': 'সক্রিয় থাকলে, প্রতিটি আসন্ত Composio ট্রিগার একটি AI ট্রিয়াজ ধাপের মধ্য দিয়ে যায় যা ইভেন্ট শ্রেণীবদ্ধ করে এবং স্বয়ংক্রিয় কাজ শুরু করতে পারে — প্রতিটি ট্রিগারে একটি লোকাল LLM টার্ন। বৈশ্বিকভাবে বা নির্দিষ্ট ইন্টিগ্রেশনে নিষ্ক্রিয় করুন যদি আপনি ম্যানুয়াল রিভিউ পছন্দ করেন। যদি পরিবেশ ভ্যারিয়েবল',
+  'composio.triageDesc':
+    'সক্রিয় থাকলে, প্রতিটি আসন্ত Composio ট্রিগার একটি AI ট্রিয়াজ ধাপের মধ্য দিয়ে যায় যা ইভেন্ট শ্রেণীবদ্ধ করে এবং স্বয়ংক্রিয় কাজ শুরু করতে পারে — প্রতিটি ট্রিগারে একটি লোকাল LLM টার্ন। বৈশ্বিকভাবে বা নির্দিষ্ট ইন্টিগ্রেশনে নিষ্ক্রিয় করুন যদি আপনি ম্যানুয়াল রিভিউ পছন্দ করেন। যদি পরিবেশ ভ্যারিয়েবল',
   'composio.disableAllTriage': 'সব ট্রিগারের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
   'composio.triggersStillRecorded': 'ট্রিগারগুলো ইতিহাসে রেকর্ড থাকবে — কোনো LLM টার্ন চলবে না।',
-  'composio.disableSpecificIntegrations': 'নির্দিষ্ট ইন্টিগ্রেশনের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
+  'composio.disableSpecificIntegrations':
+    'নির্দিষ্ট ইন্টিগ্রেশনের জন্য AI ট্রিয়াজ নিষ্ক্রিয় করুন',
   'composio.settingsSaved': 'সেটিংস সংরক্ষিত',
   'composio.saveFailed': 'সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।',
   'cron.title': 'ক্রন জবস',
@@ -217,9 +241,11 @@ const bn2: TranslationMap = {
   'localModel.modelStatus': 'মডেল স্ট্যাটাস',
   'localModel.downloadModels': 'মডেল ডাউনলোড করুন',
   'localModel.usage': 'ব্যবহার',
-  'localModel.usageDesc': 'কোন সাবসিস্টেম লোকাল মডেলে চলবে তা বেছে নিন। বন্ধ থাকলে ক্লাউড ব্যবহার করে।',
+  'localModel.usageDesc':
+    'কোন সাবসিস্টেম লোকাল মডেলে চলবে তা বেছে নিন। বন্ধ থাকলে ক্লাউড ব্যবহার করে।',
   'localModel.enableRuntime': 'লোকাল AI রানটাইম সক্রিয় করুন',
-  'localModel.enableRuntimeDesc': 'মাস্টার সুইচ। ডিফল্টে বন্ধ — Ollama নিষ্ক্রিয় থাকে। চালু হলে, ট্রি সামারাইজার, স্ক্রিন ইন্টেলিজেন্স এবং অটোকমপ্লিট সর্বদা লোকাল মডেল ব্যবহার করে।',
+  'localModel.enableRuntimeDesc':
+    'মাস্টার সুইচ। ডিফল্টে বন্ধ — Ollama নিষ্ক্রিয় থাকে। চালু হলে, ট্রি সামারাইজার, স্ক্রিন ইন্টেলিজেন্স এবং অটোকমপ্লিট সর্বদা লোকাল মডেল ব্যবহার করে।',
   'localModel.advancedSettings': 'অ্যাডভান্সড সেটিংস',
   'localModel.debugTitle': 'লোকাল মডেল ডিবাগ',
   'screenAwareness.debugTitle': 'স্ক্রিন সচেতনতা ডিবাগ',
@@ -230,7 +256,8 @@ const bn2: TranslationMap = {
   'common.skip': 'এড়িয়ে যান',
   'common.disable': 'নিষ্ক্রিয় করুন',
   'common.enable': 'সক্রিয় করুন',
-  'chat.safetyTimeout': '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
+  'chat.safetyTimeout':
+    '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
   'chat.filter.all': 'সব',
   'chat.filter.work': 'কাজ',
   'chat.filter.briefing': 'ব্রিফিং',
@@ -257,7 +284,8 @@ const bn2: TranslationMap = {
   'chat.weeklyLimitHit': 'আপনি আপনার সাপ্তাহিক সীমায় পৌঁছেছেন।',
   'chat.resets': 'রিসেট হবে',
   'chat.topUpToContinue': 'চালিয়ে যেতে টপ আপ করুন।',
-  'chat.budgetComplete': 'আপনার অন্তর্ভুক্ত বাজেট শেষ হয়েছে। চালিয়ে যেতে ক্রেডিট যোগ করুন বা আপগ্রেড করুন।',
+  'chat.budgetComplete':
+    'আপনার অন্তর্ভুক্ত বাজেট শেষ হয়েছে। চালিয়ে যেতে ক্রেডিট যোগ করুন বা আপগ্রেড করুন।',
   'chat.rateLimitReached': '১০ ঘণ্টার রেট লিমিট পৌঁছেছে।',
   'chat.topUp': 'টপ আপ',
   'chat.fiveHourLimit': '৫ ঘণ্টার সীমা',
@@ -338,7 +366,8 @@ const bn2: TranslationMap = {
   'navigator.documents': 'ডকুমেন্ট',
   'navigator.people': 'মানুষ',
   'navigator.topics': 'বিষয়',
-  'dreams.description': 'স্বপ্ন হলো AI-জেনারেটেড প্রতিফলন যা আপনার মেমোরি থেকে প্যাটার্ন সংশ্লেষণ করে।',
+  'dreams.description':
+    'স্বপ্ন হলো AI-জেনারেটেড প্রতিফলন যা আপনার মেমোরি থেকে প্যাটার্ন সংশ্লেষণ করে।',
   'dreams.comingSoon': 'শীঘ্রই আসছে',
   'assignment.memoryLlm': 'মেমোরি LLM',
   'assignment.memoryLlmAria': 'মেমোরি LLM নির্বাচন',

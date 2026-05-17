@@ -1,5 +1,5 @@
-import { useT } from '../../lib/i18n/I18nContext';
 import { useUsageState } from '../../hooks/useUsageState';
+import { useT } from '../../lib/i18n/I18nContext';
 import { BILLING_DASHBOARD_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import UpsellBanner from './UpsellBanner';

@@ -1,5 +1,5 @@
-import type { PlanTier } from '../../types/api';
 import { useT } from '../../lib/i18n/I18nContext';
+import type { PlanTier } from '../../types/api';
 import { BILLING_DASHBOARD_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import { PLANS } from '../settings/panels/billingHelpers';
@@ -43,7 +43,9 @@ export default function UsageLimitModal({
 
   if (!open) return null;
 
-  const resetSuffix = resetTime ? ` ${t('upsell.usageLimit.resetsIn').replace('{time}', formatResetTime(resetTime))}` : '';
+  const resetSuffix = resetTime
+    ? ` ${t('upsell.usageLimit.resetsIn').replace('{time}', formatResetTime(resetTime))}`
+    : '';
   const bodyText = isBudgetExhausted
     ? t('upsell.usageLimit.bodyBudget').replace('{reset}', resetSuffix)
     : t('upsell.usageLimit.bodyRate').replace('{reset}', resetSuffix);
@@ -78,11 +80,17 @@ export default function UsageLimitModal({
             </p>
             <ul className="space-y-0.5">
               <li className="text-xs text-stone-600">
-                {t('upsell.usageLimit.perWindow').replace('{amount}', nextPlan.fiveHourCapUsd.toFixed(2))}
+                {t('upsell.usageLimit.perWindow').replace(
+                  '{amount}',
+                  nextPlan.fiveHourCapUsd.toFixed(2)
+                )}
               </li>
               {nextPlan.weeklyBudgetUsd > 0 && (
                 <li className="text-xs text-stone-600">
-                  {t('upsell.usageLimit.weeklyInference').replace('{amount}', String(nextPlan.weeklyBudgetUsd))}
+                  {t('upsell.usageLimit.weeklyInference').replace(
+                    '{amount}',
+                    String(nextPlan.weeklyBudgetUsd)
+                  )}
                 </li>
               )}
             </ul>

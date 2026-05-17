@@ -16,11 +16,11 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useT } from '../../lib/i18n/I18nContext';
 import { TaskKanbanBoard } from '../../pages/conversations/components/TaskKanbanBoard';
 import { threadApi } from '../../services/api/threadApi';
 import { useAppSelector } from '../../store/hooks';
 import type { TaskBoard } from '../../types/turnState';
-import { useT } from '../../lib/i18n/I18nContext';
 
 const log = debug('intelligence:tasks');
 

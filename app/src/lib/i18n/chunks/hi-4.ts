@@ -43,7 +43,8 @@ const hi4: TranslationMap = {
   'composio.connect.subdomainInvalid': 'Subdomain गलत है',
   'composio.connect.subdomainRequired': 'जारी रखने के लिए अपना Atlassian subdomain डालें।',
   'composio.connect.wabaIdLabel': 'Waba id label',
-  'composio.connect.wabaIdRequired': 'जारी रखने के लिए अपना WhatsApp Business Account ID (WABA ID) डालें।',
+  'composio.connect.wabaIdRequired':
+    'जारी रखने के लिए अपना WhatsApp Business Account ID (WABA ID) डालें।',
   'composio.connect.waitingFor': '${} ${toolkit.name} ${}',
   'composio.connect.waitingHint': 'Waiting hint',
   'composio.triggers.heading': 'ट्रिगर',
@@ -54,13 +55,15 @@ const hi4: TranslationMap = {
   'conversations.taskKanban.moveLeft': 'बाएं ले जाएं',
   'conversations.taskKanban.moveRight': 'दाएं ले जाएं',
   'conversations.taskKanban.title': 'टास्क',
-  'conversations.toolTimeline.turn': 'turn ${subagent.childIteration}/${subagent.childMaxIterations}',
+  'conversations.toolTimeline.turn':
+    'turn ${subagent.childIteration}/${subagent.childMaxIterations}',
   'conversations.toolTimeline.workerThread': 'वर्कर थ्रेड',
   'daemon.serviceBlockingGate.body': 'Body',
   'daemon.serviceBlockingGate.downloadHint': 'Download hint',
   'daemon.serviceBlockingGate.downloadLatest': 'लेटेस्ट डाउनलोड करें',
   'daemon.serviceBlockingGate.retryCore': 'फिर से कोशिश हो रही है...',
-  'daemon.serviceBlockingGate.retryFailed': 'फिर से कोशिश विफल। लेटेस्ट ऐप बिल्ड डाउनलोड करके दोबारा कोशिश करें।',
+  'daemon.serviceBlockingGate.retryFailed':
+    'फिर से कोशिश विफल। लेटेस्ट ऐप बिल्ड डाउनलोड करके दोबारा कोशिश करें।',
   'daemon.serviceBlockingGate.retrying': 'फिर से कोशिश हो रही है...',
   'daemon.serviceBlockingGate.title': 'OpenHuman कोर उपलब्ध नहीं है',
   'home.banners.discordSubtitle': 'Discord subtitle',
@@ -83,7 +86,8 @@ const hi4: TranslationMap = {
   'intelligence.memoryChunk.mentioned.chunkOne': 'Chunk one',
   'intelligence.memoryChunk.mentioned.chunkOther': 'Chunk other',
   'intelligence.memoryChunk.mentioned.heading': 'm e n t i o n e d',
-  'intelligence.memoryChunk.scoreBars.ariaScore': '${sig.name} score ${(pct * 100).toFixed(0)} percent',
+  'intelligence.memoryChunk.scoreBars.ariaScore':
+    '${sig.name} score ${(pct * 100).toFixed(0)} percent',
   'intelligence.memoryChunk.scoreBars.atThreshold': 'थ्रेशोल्ड पर',
   'intelligence.memoryChunk.scoreBars.dropped': 'हटाया गया',
   'intelligence.memoryChunk.scoreBars.heading': 'w h y &nbsp; k e p t',
@@ -157,7 +161,8 @@ const hi4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'Llm desc',
   'pages.settings.ai.voice': 'वॉइस',
   'pages.settings.ai.voiceDesc': 'Voice desc',
-  'pages.settings.aiSection.description': 'लैंग्वेज मॉडल प्रोवाइडर, लोकल Ollama और वॉइस (STT / TTS)।',
+  'pages.settings.aiSection.description':
+    'लैंग्वेज मॉडल प्रोवाइडर, लोकल Ollama और वॉइस (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.features.messagingChannels': 'मैसेजिंग चैनल',
   'pages.settings.features.messagingChannelsDesc': 'Messaging channels desc',
@@ -284,14 +289,17 @@ const hi4: TranslationMap = {
   'settings.autocomplete.appFilter.refreshing': 'रिफ्रेश हो रहा है…',
   'settings.autocomplete.appFilter.runtime': 'रनटाइम',
   'settings.autocomplete.appFilter.test': 'टेस्ट',
-  'settings.autocomplete.completionStyle.acceptedCompletion': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
-  'settings.autocomplete.completionStyle.acceptedCompletions': '${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? \'\' : \'s\'} stored — used to personalise future suggestions.',
+  'settings.autocomplete.completionStyle.acceptedCompletion':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
+  'settings.autocomplete.completionStyle.acceptedCompletions':
+    "${String(historyEntries.length)} accepted completion${historyEntries.length === 1 ? '' : 's'} stored — used to personalise future suggestions.",
   'settings.autocomplete.completionStyle.clearHistory': 'क्लियर हो रहा है…',
   'settings.autocomplete.completionStyle.clearing': 'क्लियर हो रहा है…',
   'settings.autocomplete.completionStyle.debounce': 'Debounce (ms)',
   'settings.autocomplete.completionStyle.enabled': 'चालू है',
   'settings.autocomplete.completionStyle.maxChars': 'मैक्स कैरेक्टर',
-  'settings.autocomplete.completionStyle.noHistory': 'अभी कोई एक्सेप्टेड कम्पलीशन नहीं। पर्सनलाइज़ेशन शुरू करने के लिए Tab से सुझाव एक्सेप्ट करें।',
+  'settings.autocomplete.completionStyle.noHistory':
+    'अभी कोई एक्सेप्टेड कम्पलीशन नहीं। पर्सनलाइज़ेशन शुरू करने के लिए Tab से सुझाव एक्सेप्ट करें।',
   'settings.autocomplete.completionStyle.overlayTtl': 'Overlay TTL (ms)',
   'settings.autocomplete.completionStyle.personalizationHistory': 'पर्सनलाइज़ेशन हिस्ट्री',
   'settings.autocomplete.completionStyle.styleExamples': 'स्टाइल उदाहरण (एक प्रति लाइन)',

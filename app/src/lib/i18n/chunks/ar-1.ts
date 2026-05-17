@@ -75,7 +75,8 @@ const ar1: TranslationMap = {
   'settings.about': 'حول',
   'settings.aboutDesc': 'إصدار التطبيق وتحديثات البرنامج',
   'settings.developerOptions': 'متقدم',
-  'settings.developerOptionsDesc': 'إعداد الذكاء الاصطناعي وقنوات المراسلة والأدوات والتشخيص ولوحات التصحيح',
+  'settings.developerOptionsDesc':
+    'إعداد الذكاء الاصطناعي وقنوات المراسلة والأدوات والتشخيص ولوحات التصحيح',
   'settings.clearAppData': 'مسح بيانات التطبيق',
   'settings.clearAppDataDesc': 'تسجيل الخروج وحذف جميع البيانات المحلية للتطبيق نهائيًا',
   'settings.logOut': 'تسجيل الخروج',
@@ -129,10 +130,13 @@ const ar1: TranslationMap = {
   'home.greetingAfternoon': 'مساء الخير',
   'home.greetingEvening': 'مساء النور',
   'home.askAssistant': 'اسأل مساعدك أي شيء...',
-  'home.statusOk': 'جهازك متصل. احتفظ بالتطبيق مفتوحًا للحفاظ على الاتصال. راسل وكيلك باستخدام الزر أدناه.',
+  'home.statusOk':
+    'جهازك متصل. احتفظ بالتطبيق مفتوحًا للحفاظ على الاتصال. راسل وكيلك باستخدام الزر أدناه.',
   'home.statusBackendOnly': 'جارٍ إعادة الاتصال بالخادم… سيتوفر وكيلك قريبًا.',
-  'home.statusCoreUnreachable': 'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
-  'home.statusInternetOffline': 'جهازك غير متصل بالإنترنت حاليًا. تحقق من شبكتك أو أعد تشغيل التطبيق لإعادة الاتصال.',
+  'home.statusCoreUnreachable':
+    'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
+  'home.statusInternetOffline':
+    'جهازك غير متصل بالإنترنت حاليًا. تحقق من شبكتك أو أعد تشغيل التطبيق لإعادة الاتصال.',
   'home.restartCore': 'إعادة تشغيل النواة',
   'home.restartingCore': 'جارٍ إعادة تشغيل النواة…',
   'chat.newThread': 'محادثة جديدة',
@@ -195,7 +199,8 @@ const ar1: TranslationMap = {
   'onboarding.skip': 'تخطي',
   'onboarding.getStarted': 'ابدأ الآن',
   'onboarding.runtimeChoice.title': 'كيف تريد تشغيل OpenHuman؟',
-  'onboarding.runtimeChoice.subtitle': 'اختر الإعداد الأنسب لك. يمكنك تغيير هذا لاحقًا في الإعدادات.',
+  'onboarding.runtimeChoice.subtitle':
+    'اختر الإعداد الأنسب لك. يمكنك تغيير هذا لاحقًا في الإعدادات.',
   'onboarding.runtimeChoice.cloud.title': 'بسيط',
   'onboarding.runtimeChoice.cloud.tagline': 'دع OpenHuman يدير كل شيء نيابةً عنك.',
   'onboarding.runtimeChoice.cloud.f1': 'أمان مدمج',
@@ -215,7 +220,8 @@ const ar1: TranslationMap = {
   'onboarding.runtimeChoice.continueCustom': 'المتابعة بالخيار المخصص',
   'onboarding.runtimeChoice.recommended': 'موصى به',
   'onboarding.apiKeys.title': 'لنضف مفاتيح API الخاصة بك',
-  'onboarding.apiKeys.subtitle': 'يمكنك لصقها الآن أو تخطيها وإضافتها لاحقًا من الإعدادات › الذكاء الاصطناعي. تُحفظ المفاتيح على هذا الجهاز مشفرةً.',
+  'onboarding.apiKeys.subtitle':
+    'يمكنك لصقها الآن أو تخطيها وإضافتها لاحقًا من الإعدادات › الذكاء الاصطناعي. تُحفظ المفاتيح على هذا الجهاز مشفرةً.',
   'onboarding.apiKeys.openaiLabel': 'مفتاح OpenAI API',
   'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
   'onboarding.apiKeys.anthropicLabel': 'مفتاح Anthropic API',
@@ -238,28 +244,38 @@ const ar1: TranslationMap = {
   'onboarding.custom.continue': 'متابعة',
   'onboarding.custom.back': 'رجوع',
   'onboarding.custom.finish': 'إتمام الإعداد',
-  'onboarding.custom.configureLater': 'يمكنك إكمال الإعداد بعد انتهاء الإعداد الأولي. سننقلك إلى صفحة الإعدادات المناسبة عند الانتهاء.',
+  'onboarding.custom.configureLater':
+    'يمكنك إكمال الإعداد بعد انتهاء الإعداد الأولي. سننقلك إلى صفحة الإعدادات المناسبة عند الانتهاء.',
   'onboarding.custom.openSettings': 'فتح في الإعدادات',
   'onboarding.custom.inference.title': 'الاستدلال (النص)',
   'onboarding.custom.inference.subtitle': 'أي نموذج لغوي يجب أن يُجيب على أسئلتك ويشغّل وكلاءك؟',
-  'onboarding.custom.inference.defaultDesc': 'يُوجّه OpenHuman كل عبء عمل إلى نموذج افتراضي مناسب. بدون مفاتيح أو إعداد.',
-  'onboarding.custom.inference.configureDesc': 'استخدم مفتاحك الخاص من OpenAI أو Anthropic. سنستخدمه لجميع أعباء العمل النصية.',
+  'onboarding.custom.inference.defaultDesc':
+    'يُوجّه OpenHuman كل عبء عمل إلى نموذج افتراضي مناسب. بدون مفاتيح أو إعداد.',
+  'onboarding.custom.inference.configureDesc':
+    'استخدم مفتاحك الخاص من OpenAI أو Anthropic. سنستخدمه لجميع أعباء العمل النصية.',
   'onboarding.custom.voice.title': 'الصوت',
   'onboarding.custom.voice.subtitle': 'تحويل الكلام إلى نص والنص إلى كلام لوضع الصوت.',
-  'onboarding.custom.voice.defaultDesc': 'يأتي OpenHuman مع STT/TTS مُدار يعمل تلقائيًا. لا شيء يحتاج إلى إعداد.',
-  'onboarding.custom.voice.configureDesc': 'استخدم ElevenLabs / OpenAI Whisper / إلخ. اضبطه من الإعدادات › الصوت.',
+  'onboarding.custom.voice.defaultDesc':
+    'يأتي OpenHuman مع STT/TTS مُدار يعمل تلقائيًا. لا شيء يحتاج إلى إعداد.',
+  'onboarding.custom.voice.configureDesc':
+    'استخدم ElevenLabs / OpenAI Whisper / إلخ. اضبطه من الإعدادات › الصوت.',
   'onboarding.custom.oauth.title': 'الاتصالات (OAuth)',
   'onboarding.custom.oauth.subtitle': 'Gmail وSlack وNotion وخدمات أخرى متصلة تحتاج إلى OAuth.',
-  'onboarding.custom.oauth.defaultDesc': 'يشغّل OpenHuman مساحة عمل Composio مُدارة. نقرة واحدة لتوصيل كل خدمة لاحقًا.',
-  'onboarding.custom.oauth.configureDesc': 'استخدم حساب Composio الخاص بك / مفتاح API. اضبطه من الإعدادات › الاتصالات.',
+  'onboarding.custom.oauth.defaultDesc':
+    'يشغّل OpenHuman مساحة عمل Composio مُدارة. نقرة واحدة لتوصيل كل خدمة لاحقًا.',
+  'onboarding.custom.oauth.configureDesc':
+    'استخدم حساب Composio الخاص بك / مفتاح API. اضبطه من الإعدادات › الاتصالات.',
   'onboarding.custom.search.title': 'البحث على الويب',
   'onboarding.custom.search.subtitle': 'كيف يبحث OpenHuman على الويب نيابةً عنك.',
   'onboarding.custom.search.defaultDesc': 'يستخدم OpenHuman خادم بحث مُدار. لا حاجة لمفاتيح.',
-  'onboarding.custom.search.configureDesc': 'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
+  'onboarding.custom.search.configureDesc':
+    'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
   'onboarding.custom.memory.title': 'الذاكرة',
   'onboarding.custom.memory.subtitle': 'كيف يتذكر OpenHuman سياقك وتفضيلاتك ومحادثاتك السابقة.',
-  'onboarding.custom.memory.defaultDesc': 'يدير OpenHuman تخزين الذاكرة واسترجاعها تلقائيًا. لا شيء يحتاج إلى إعداد.',
-  'onboarding.custom.memory.configureDesc': 'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
+  'onboarding.custom.memory.defaultDesc':
+    'يدير OpenHuman تخزين الذاكرة واسترجاعها تلقائيًا. لا شيء يحتاج إلى إعداد.',
+  'onboarding.custom.memory.configureDesc':
+    'افحص الذاكرة أو صدّرها أو امسحها بنفسك. اضبطها من الإعدادات › الذاكرة.',
   'accounts.addAccount': 'إضافة حساب',
   'accounts.manageAccounts': 'إدارة الحسابات',
   'accounts.noAccounts': 'لا توجد حسابات متصلة',
@@ -316,11 +332,13 @@ const ar1: TranslationMap = {
   'misc.updateLater': 'لاحقًا',
   'misc.downloading': 'جارٍ التنزيل...',
   'misc.installing': 'جارٍ التثبيت...',
-  'misc.beta': 'OpenHuman في مرحلة تجريبية مبكرة. لا تتردد في مشاركة ملاحظاتك أو الإبلاغ عن أي أخطاء تواجهها — كل تقرير يساعدنا على الإنجاز بشكل أسرع.',
+  'misc.beta':
+    'OpenHuman في مرحلة تجريبية مبكرة. لا تتردد في مشاركة ملاحظاتك أو الإبلاغ عن أي أخطاء تواجهها — كل تقرير يساعدنا على الإنجاز بشكل أسرع.',
   'misc.betaFeedback': 'إرسال ملاحظات',
   'mnemonic.title': 'عبارة الاسترداد',
   'mnemonic.warning': 'اكتب هذه الكلمات بالترتيب واحفظها في مكان آمن.',
-  'mnemonic.copyWarning': 'لا تشارك عبارة الاسترداد أبدًا. أي شخص يمتلك هذه الكلمات يمكنه الوصول إلى حسابك.',
+  'mnemonic.copyWarning':
+    'لا تشارك عبارة الاسترداد أبدًا. أي شخص يمتلك هذه الكلمات يمكنه الوصول إلى حسابك.',
   'mnemonic.copied': 'تم نسخ عبارة الاسترداد إلى الحافظة',
   'mnemonic.reveal': 'الكشف عن العبارة',
   'mnemonic.hidden': 'عبارة الاسترداد مخفية',
@@ -336,11 +354,14 @@ const ar1: TranslationMap = {
   'privacy.staysLocal': 'يبقى محليًا',
   'privacy.anonymizedAnalytics': 'تحليلات مجهولة الهوية',
   'privacy.shareAnonymizedData': 'مشاركة بيانات الاستخدام المجهولة',
-  'privacy.shareAnonymizedDataDesc': 'ساعد في تحسين OpenHuman من خلال مشاركة تقارير الأعطال وتحليلات الاستخدام المجهولة. جميع البيانات مجهولة الهوية تمامًا — لا يُجمع أي بيانات شخصية أو رسائل أو مفاتيح محفظة أو معلومات جلسة.',
+  'privacy.shareAnonymizedDataDesc':
+    'ساعد في تحسين OpenHuman من خلال مشاركة تقارير الأعطال وتحليلات الاستخدام المجهولة. جميع البيانات مجهولة الهوية تمامًا — لا يُجمع أي بيانات شخصية أو رسائل أو مفاتيح محفظة أو معلومات جلسة.',
   'privacy.meetingFollowUps': 'متابعات الاجتماعات',
   'privacy.autoHandoffMeet': 'تسليم نسخ Google Meet تلقائيًا إلى المنسق',
-  'privacy.autoHandoffMeetDesc': 'عند انتهاء مكالمة Google Meet، يمكن لمنسق OpenHuman قراءة النسخة المكتوبة واتخاذ إجراءات كصياغة الرسائل أو جدولة المتابعات أو نشر الملخصات في مساحة عمل Slack المتصلة. معطّل افتراضيًا.',
-  'privacy.analyticsDisclaimer': 'جميع التحليلات وتقارير الأخطاء مجهولة الهوية تمامًا. عند التفعيل، نجمع فقط معلومات الأعطال ونوع الجهاز وموقع الخطأ في الملف. لا نصل أبدًا إلى رسائلك أو بيانات جلستك أو مفاتيح المحفظة أو مفاتيح API أو أي معلومات شخصية. يمكنك تغيير هذا الإعداد في أي وقت.',
+  'privacy.autoHandoffMeetDesc':
+    'عند انتهاء مكالمة Google Meet، يمكن لمنسق OpenHuman قراءة النسخة المكتوبة واتخاذ إجراءات كصياغة الرسائل أو جدولة المتابعات أو نشر الملخصات في مساحة عمل Slack المتصلة. معطّل افتراضيًا.',
+  'privacy.analyticsDisclaimer':
+    'جميع التحليلات وتقارير الأخطاء مجهولة الهوية تمامًا. عند التفعيل، نجمع فقط معلومات الأعطال ونوع الجهاز وموقع الخطأ في الملف. لا نصل أبدًا إلى رسائلك أو بيانات جلستك أو مفاتيح المحفظة أو مفاتيح API أو أي معلومات شخصية. يمكنك تغيير هذا الإعداد في أي وقت.',
   'settings.about.version': 'الإصدار',
   'settings.about.updateAvailable': 'متاح',
   'settings.about.softwareUpdates': 'تحديثات البرنامج',

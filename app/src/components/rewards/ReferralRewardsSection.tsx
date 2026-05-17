@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useT } from '../../lib/i18n/I18nContext';
-
 import { useUser } from '../../hooks/useUser';
+import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { referralApi } from '../../services/api/referralApi';
 import type { ReferralRelationshipStatus, ReferralStats } from '../../types/referral';
@@ -167,7 +166,9 @@ const ReferralRewardsSection = () => {
       <div className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6 space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold text-stone-900">{t('rewards.referralSection.title')}</h2>
+            <h2 className="text-2xl font-semibold text-stone-900">
+              {t('rewards.referralSection.title')}
+            </h2>
             <p className="text-sm text-stone-600 max-w-xl">
               {t('rewards.referralSection.subtitle')}
             </p>
@@ -251,10 +252,10 @@ const ReferralRewardsSection = () => {
 
       {stats && stats.canApplyReferral !== false && showApplyForm ? (
         <div className="rounded-xl shadow-soft border border-stone-200 bg-white p-4 space-y-3">
-          <h2 className="text-2xl font-semibold text-stone-900">{t('rewards.referralSection.haveCode')}</h2>
-          <p className="text-xs text-stone-600">
-            {t('rewards.referralSection.haveCodeDesc')}
-          </p>
+          <h2 className="text-2xl font-semibold text-stone-900">
+            {t('rewards.referralSection.haveCode')}
+          </h2>
+          <p className="text-xs text-stone-600">{t('rewards.referralSection.haveCodeDesc')}</p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="text"
@@ -270,7 +271,9 @@ const ReferralRewardsSection = () => {
               onClick={() => void handleApply()}
               disabled={applyLoading || !applyCode.trim()}
               className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-              {applyLoading ? t('rewards.referralSection.applying') : t('rewards.referralSection.apply')}
+              {applyLoading
+                ? t('rewards.referralSection.applying')
+                : t('rewards.referralSection.apply')}
             </button>
           </div>
           {applyError ? <p className="text-xs text-coral-600">{applyError}</p> : null}
@@ -281,15 +284,19 @@ const ReferralRewardsSection = () => {
         <p className="text-sm text-sage-700 rounded-xl border border-sage-200 bg-sage-50 px-3 py-2">
           {t('rewards.referralSection.linked')}
           {stats.appliedReferralCode
-            ? ' ' + t('rewards.referralSection.linkedCode').replace('{code}', stats.appliedReferralCode)
-            : ''}.
+            ? ' ' +
+              t('rewards.referralSection.linkedCode').replace('{code}', stats.appliedReferralCode)
+            : ''}
+          .
         </p>
       ) : null}
 
       {stats ? (
         <div className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6">
           <div>
-            <h3 className="text-sm font-semibold text-stone-900 mb-2">{t('rewards.referralSection.activity')}</h3>
+            <h3 className="text-sm font-semibold text-stone-900 mb-2">
+              {t('rewards.referralSection.activity')}
+            </h3>
             {stats.referrals.length === 0 ? (
               <p className="text-sm text-stone-500 rounded-xl border border-dashed border-stone-200 px-4 py-6 text-center">
                 {t('rewards.referralSection.noReferrals')}
@@ -299,10 +306,18 @@ const ReferralRewardsSection = () => {
                 <table className="min-w-full text-sm text-left">
                   <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                     <tr>
-                      <th className="px-3 py-2 font-medium">{t('rewards.referralSection.colReferredUser')}</th>
-                      <th className="px-3 py-2 font-medium">{t('rewards.referralSection.colStatus')}</th>
-                      <th className="px-3 py-2 font-medium">{t('rewards.referralSection.colReward')}</th>
-                      <th className="px-3 py-2 font-medium">{t('rewards.referralSection.colUpdated')}</th>
+                      <th className="px-3 py-2 font-medium">
+                        {t('rewards.referralSection.colReferredUser')}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t('rewards.referralSection.colStatus')}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t('rewards.referralSection.colReward')}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t('rewards.referralSection.colUpdated')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">

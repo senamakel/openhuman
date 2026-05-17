@@ -365,6 +365,8 @@ const pt5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Remover Echo',
   'webhooks.tunnels.title': 'Tunnels de Webhook',
   'webhooks.tunnels.toggleFailed': 'Falha ao alternar echo',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default pt5;

@@ -361,6 +361,8 @@ const ru5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Убрать эхо',
   'webhooks.tunnels.title': 'Вебхук-туннели',
   'webhooks.tunnels.toggleFailed': 'Не удалось переключить эхо',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default ru5;

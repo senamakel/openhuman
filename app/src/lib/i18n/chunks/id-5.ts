@@ -362,6 +362,8 @@ const id5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Hapus Echo',
   'webhooks.tunnels.title': 'Tunnel Webhook',
   'webhooks.tunnels.toggleFailed': 'Gagal mengalihkan echo',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default id5;

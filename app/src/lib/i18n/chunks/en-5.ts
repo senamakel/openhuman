@@ -361,6 +361,8 @@ const en5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Remove Echo',
   'webhooks.tunnels.title': 'Webhook Tunnels',
   'webhooks.tunnels.toggleFailed': 'Failed to toggle echo',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default en5;

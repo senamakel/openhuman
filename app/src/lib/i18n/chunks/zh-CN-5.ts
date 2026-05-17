@@ -354,6 +354,8 @@ const zhCN5: TranslationMap = {
   'webhooks.tunnels.removeEcho': '移除回显',
   'webhooks.tunnels.title': 'Webhook 隧道',
   'webhooks.tunnels.toggleFailed': '切换回显失败',
+  'composio.authExpired': '授权已过期',
+  'composio.reconnect': '重新连接',
 };
 
 export default zhCN5;

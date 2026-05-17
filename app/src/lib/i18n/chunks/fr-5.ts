@@ -369,6 +369,8 @@ const fr5: TranslationMap = {
   'webhooks.tunnels.removeEcho': "Supprimer l'écho",
   'webhooks.tunnels.title': 'Tunnels webhook',
   'webhooks.tunnels.toggleFailed': "Échec de la bascule de l'écho",
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default fr5;

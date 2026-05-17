@@ -361,6 +361,8 @@ const bn5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'ইকো সরান',
   'webhooks.tunnels.title': 'Webhook টানেল',
   'webhooks.tunnels.toggleFailed': 'ইকো টগল করতে ব্যর্থ',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default bn5;

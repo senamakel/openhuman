@@ -359,6 +359,8 @@ const ar5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'إزالة الصدى',
   'webhooks.tunnels.title': 'أنفاق Webhook',
   'webhooks.tunnels.toggleFailed': 'فشل تبديل الصدى',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default ar5;

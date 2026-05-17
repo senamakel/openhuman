@@ -362,6 +362,8 @@ const hi5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Echo हटाएं',
   'webhooks.tunnels.title': 'Webhook टनल',
   'webhooks.tunnels.toggleFailed': 'Echo टॉगल करने में दिक्कत',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default hi5;

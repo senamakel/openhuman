@@ -364,6 +364,8 @@ const es5: TranslationMap = {
   'webhooks.tunnels.removeEcho': 'Eliminar echo',
   'webhooks.tunnels.title': 'Túneles de webhook',
   'webhooks.tunnels.toggleFailed': 'No se pudo alternar el echo',
+  'composio.authExpired': 'Auth expired',
+  'composio.reconnect': 'Reconnect',
 };
 
 export default es5;

@@ -1,10 +1,4 @@
----
-name: Feature
-about: Used for new features or suggestions
-title: "Add WeChat message scraping into context and memory"
-type: Feature
-assignees: ""
----
+# Add WeChat message scraping into context and memory
 
 ## Summary
 

@@ -9,21 +9,24 @@ const id5: TranslationMap = {
   'settings.composio.apiKeyDesc': 'A Composio API key is currently stored on this device.',
   'settings.composio.apiKeyLabel': 'Composio API key',
   'settings.composio.apiKeyStored': 'API key stored',
-  'settings.composio.apiKeyStoredPlaceholder':
-    '••••••••••••••••',
+  'settings.composio.apiKeyStoredPlaceholder': '••••••••••••••••',
   'settings.composio.clearedToBackend': 'Beralih ke mode Backend',
   'settings.composio.confirmItem1': 'Your API key will be sent directly to Composio',
   'settings.composio.confirmItem2': 'Manage and rotate the key yourself at app.composio.dev',
-  'settings.composio.confirmItem3': 'OpenHuman won\'t act as a proxy',
+  'settings.composio.confirmItem3': "OpenHuman won't act as a proxy",
   'settings.composio.confirmNeedItems': 'You will need to:',
   'settings.composio.confirmSwitch': 'I understand, switch to Direct',
   'settings.composio.confirmTitle': 'Switching to Direct mode',
-  'settings.composio.confirmWarning': 'You are about to switch to Direct mode. Your Composio API key will be used directly for tool calls.',
-  'settings.composio.intro': 'Composio integrates 250+ external apps as tools your agent can call. Choose how those tool calls are routed.',
+  'settings.composio.confirmWarning':
+    'You are about to switch to Direct mode. Your Composio API key will be used directly for tool calls.',
+  'settings.composio.intro':
+    'Composio integrates 250+ external apps as tools your agent can call. Choose how those tool calls are routed.',
   'settings.composio.modeDirect': 'Langsung (bawa API key Anda sendiri)',
-  'settings.composio.modeDirectDesc': 'Calls go to backend.composio.dev directly. Sovereign / offline-friendly. Tool execution works synchronously; real-time trigger webhooks are not yet routed in direct mode (follow-up issue).',
+  'settings.composio.modeDirectDesc':
+    'Calls go to backend.composio.dev directly. Sovereign / offline-friendly. Tool execution works synchronously; real-time trigger webhooks are not yet routed in direct mode (follow-up issue).',
   'settings.composio.modeManaged': 'Terkelola (OpenHuman menanganinya untuk Anda)',
-  'settings.composio.modeManagedDesc': 'OpenHuman proxies tool calls through our backend (recommended). Auth is brokered; you never paste a Composio API key. Webhooks are fully routed.',
+  'settings.composio.modeManagedDesc':
+    'OpenHuman proxies tool calls through our backend (recommended). Auth is brokered; you never paste a Composio API key. Webhooks are fully routed.',
   'settings.composio.routingMode': 'Mode routing',
   'settings.composio.saveErrorNoKey': 'Failed to save. Direct mode requires a non-empty API key.',
   'settings.composio.saving': 'Menyimpan...',
@@ -321,7 +324,8 @@ const id5: TranslationMap = {
   'skills.setup.voice.sttReturnHint': 'Petunjuk kembali STT',
   'skills.setup.voice.title': 'Kecerdasan Suara',
   'skills.uninstall.couldNotUninstall': 'Could not uninstall',
-  'skills.uninstall.description': 'This permanently deletes the skill directory and all its bundled resources. The agent will stop seeing it at the next turn.',
+  'skills.uninstall.description':
+    'This permanently deletes the skill directory and all its bundled resources. The agent will stop seeing it at the next turn.',
   'skills.uninstall.title': 'Uninstall',
   'skills.uninstall.uninstallBtn': 'Menghapus...',
   'skills.uninstall.uninstalling': 'Menghapus...',

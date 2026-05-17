@@ -13,11 +13,7 @@ const USER_ID = 'e2e-settings-account-preferences';
 async function waitForHashContains(fragment: string, timeout = 10_000): Promise<void> {
   await browser.waitUntil(
     async () => String(await browser.execute(() => window.location.hash)).includes(fragment),
-    {
-      timeout,
-      interval: 250,
-      timeoutMsg: `hash did not include ${fragment}`,
-    }
+    { timeout, interval: 250, timeoutMsg: `hash did not include ${fragment}` }
   );
 }
 
@@ -110,16 +106,19 @@ describe('Settings - Account Preferences', () => {
     expect(await clickFirstSwitch()).toBe(true);
     expect(await clickBySelector('[data-testid="privacy-meet-handoff-toggle"]')).toBe(true);
 
-    await browser.waitUntil(async () => {
-      const analytics = await callOpenhumanRpc('openhuman.config_get_analytics_settings', {});
-      const meet = await callOpenhumanRpc('openhuman.config_get_meet_settings', {});
-      return (
-        analytics.ok &&
-        meet.ok &&
-        Boolean(analytics.result?.result?.enabled) === !initialAnalytics &&
-        Boolean(meet.result?.result?.auto_orchestrator_handoff) === !initialMeet
-      );
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'privacy settings did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const analytics = await callOpenhumanRpc('openhuman.config_get_analytics_settings', {});
+        const meet = await callOpenhumanRpc('openhuman.config_get_meet_settings', {});
+        return (
+          analytics.ok &&
+          meet.ok &&
+          Boolean(analytics.result?.result?.enabled) === !initialAnalytics &&
+          Boolean(meet.result?.result?.auto_orchestrator_handoff) === !initialMeet
+        );
+      },
+      { timeout: 15_000, interval: 500, timeoutMsg: 'privacy settings did not persist' }
+    );
 
     const snapshot = await callOpenhumanRpc('openhuman.app_state_snapshot', {});
     expect(snapshot.ok).toBe(true);
@@ -137,11 +136,7 @@ describe('Settings - Account Preferences', () => {
       async () =>
         (await textExists('If your browser did not open, use the button above.')) ||
         (await textExists('We could not open your browser automatically.')),
-      {
-        timeout: 15_000,
-        interval: 500,
-        timeoutMsg: 'billing redirect status did not settle',
-      }
+      { timeout: 15_000, interval: 500, timeoutMsg: 'billing redirect status did not settle' }
     );
 
     await clickText('Back to settings', 10_000);

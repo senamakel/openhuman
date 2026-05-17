@@ -110,7 +110,9 @@ async function defaultMessagingChannelFromStore(): Promise<string | null> {
         getState?: () => { channelConnections?: { defaultMessagingChannel?: string | null } };
       };
     };
-    return win.__OPENHUMAN_STORE__?.getState?.().channelConnections?.defaultMessagingChannel ?? null;
+    return (
+      win.__OPENHUMAN_STORE__?.getState?.().channelConnections?.defaultMessagingChannel ?? null
+    );
   });
 }
 
@@ -140,10 +142,11 @@ describe('Settings - Feature Preferences', () => {
 
     await waitForText('Default Messaging Channel', 15_000);
     await clickText('Discord', 10_000);
-    await browser.waitUntil(
-      async () => (await defaultMessagingChannelFromStore()) === 'discord',
-      { timeout: 10_000, interval: 500, timeoutMsg: 'default channel did not update' }
-    );
+    await browser.waitUntil(async () => (await defaultMessagingChannelFromStore()) === 'discord', {
+      timeout: 10_000,
+      interval: 500,
+      timeoutMsg: 'default channel did not update',
+    });
   });
 
   it('persists tools preferences to the core app-state snapshot', async () => {
@@ -158,11 +161,14 @@ describe('Settings - Feature Preferences', () => {
     await clickText('Save Changes', 10_000);
     await waitForText('Preferences saved', 10_000);
 
-    await browser.waitUntil(async () => {
-      const after = await callOpenhumanRpc('openhuman.app_state_snapshot', {});
-      const enabledAfter = after.result?.result?.localState?.onboardingTasks?.enabledTools ?? [];
-      return JSON.stringify(enabledAfter) !== JSON.stringify(enabledBefore);
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'tools settings did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const after = await callOpenhumanRpc('openhuman.app_state_snapshot', {});
+        const enabledAfter = after.result?.result?.localState?.onboardingTasks?.enabledTools ?? [];
+        return JSON.stringify(enabledAfter) !== JSON.stringify(enabledBefore);
+      },
+      { timeout: 15_000, interval: 500, timeoutMsg: 'tools settings did not persist' }
+    );
   });
 
   it('persists notifications DND and category preferences', async () => {
@@ -199,19 +205,25 @@ describe('Settings - Feature Preferences', () => {
     await customVoiceInput.waitForExist({ timeout: 10_000 });
     await customVoiceInput.setValue('voice-e2e-custom');
     expect(await clickSelector('[data-testid="mascot-voice-save-paste"]')).toBe(true);
-    await browser.waitUntil(
-      async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom',
-      { timeout: 10_000, interval: 500, timeoutMsg: 'custom mascot voice did not update' }
-    );
+    await browser.waitUntil(async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom', {
+      timeout: 10_000,
+      interval: 500,
+      timeoutMsg: 'custom mascot voice did not update',
+    });
     await browser.waitUntil(
       async () => (await mascotVoiceIdFromPersistedBlob()) === 'voice-e2e-custom',
-      { timeout: 15_000, interval: 500, timeoutMsg: 'custom mascot voice did not persist to storage' }
+      {
+        timeout: 15_000,
+        interval: 500,
+        timeoutMsg: 'custom mascot voice did not persist to storage',
+      }
     );
     await reloadAndReturnTo('/settings/voice', 'Mascot Voice');
 
-    await browser.waitUntil(
-      async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom',
-      { timeout: 15_000, interval: 500, timeoutMsg: 'custom mascot voice did not persist' }
-    );
+    await browser.waitUntil(async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom', {
+      timeout: 15_000,
+      interval: 500,
+      timeoutMsg: 'custom mascot voice did not persist',
+    });
   });
 });

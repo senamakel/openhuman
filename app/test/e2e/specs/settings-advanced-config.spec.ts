@@ -82,12 +82,15 @@ describe('Settings - Advanced Config', () => {
     await waitForText('Notification Intelligence', 15_000);
     expect(await clickSelector('input[type="checkbox"]')).toBe(true);
 
-    await browser.waitUntil(async () => {
-      const after = await callOpenhumanRpc('openhuman.notification_settings_get', {
-        provider: 'gmail',
-      });
-      return after.ok && Boolean(after.result?.settings?.enabled) === !initialEnabled;
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'notification routing did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const after = await callOpenhumanRpc('openhuman.notification_settings_get', {
+          provider: 'gmail',
+        });
+        return after.ok && Boolean(after.result?.settings?.enabled) === !initialEnabled;
+      },
+      { timeout: 15_000, interval: 500, timeoutMsg: 'notification routing did not persist' }
+    );
   });
 
   it('persists composio trigger triage settings', async () => {
@@ -103,16 +106,19 @@ describe('Settings - Advanced Config', () => {
     await clickText('Save', 10_000);
     await waitForText('Settings saved', 10_000);
 
-    await browser.waitUntil(async () => {
-      const after = await callOpenhumanRpc('openhuman.config_get_composio_trigger_settings', {});
-      const result = after.result?.result ?? {};
-      return (
-        after.ok &&
-        Array.isArray(result.triage_disabled_toolkits) &&
-        result.triage_disabled_toolkits.includes('gmail') &&
-        result.triage_disabled_toolkits.includes('slack')
-      );
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'composio trigger settings did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const after = await callOpenhumanRpc('openhuman.config_get_composio_trigger_settings', {});
+        const result = after.result?.result ?? {};
+        return (
+          after.ok &&
+          Array.isArray(result.triage_disabled_toolkits) &&
+          result.triage_disabled_toolkits.includes('gmail') &&
+          result.triage_disabled_toolkits.includes('slack')
+        );
+      },
+      { timeout: 15_000, interval: 500, timeoutMsg: 'composio trigger settings did not persist' }
+    );
   });
 
   it('switches composio routing mode to direct and can return to backend mode', async () => {
@@ -128,14 +134,17 @@ describe('Settings - Advanced Config', () => {
       await clickText('I understand, switch to Direct', 10_000);
     }
 
-    await browser.waitUntil(async () => {
-      const mode = await callOpenhumanRpc('openhuman.composio_get_mode', {});
-      return (
-        mode.ok &&
-        mode.result?.result?.mode === 'direct' &&
-        mode.result?.result?.api_key_set === true
-      );
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'composio direct mode did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const mode = await callOpenhumanRpc('openhuman.composio_get_mode', {});
+        return (
+          mode.ok &&
+          mode.result?.result?.mode === 'direct' &&
+          mode.result?.result?.api_key_set === true
+        );
+      },
+      { timeout: 15_000, interval: 500, timeoutMsg: 'composio direct mode did not persist' }
+    );
 
     const cleared = await callOpenhumanRpc('openhuman.composio_clear_api_key', {});
     expect(cleared.ok).toBe(true);
@@ -160,14 +169,17 @@ describe('Settings - Advanced Config', () => {
     await promptTextarea.setValue('persist this draft');
     await browser.pause(1000);
 
-    await browser.waitUntil(async () => {
-      const payload = await readLocalStorageJson<{
-        modelOverride?: string;
-        temperature?: string;
-        messages?: Array<{ role: string; text: string }>;
-      }>('openhuman.settings.agentChat.history');
-      return payload?.modelOverride === 'gpt-4.1-mini' && payload?.temperature === '0.2';
-    }, { timeout: 20_000, interval: 500, timeoutMsg: 'agent chat draft did not persist' });
+    await browser.waitUntil(
+      async () => {
+        const payload = await readLocalStorageJson<{
+          modelOverride?: string;
+          temperature?: string;
+          messages?: Array<{ role: string; text: string }>;
+        }>('openhuman.settings.agentChat.history');
+        return payload?.modelOverride === 'gpt-4.1-mini' && payload?.temperature === '0.2';
+      },
+      { timeout: 20_000, interval: 500, timeoutMsg: 'agent chat draft did not persist' }
+    );
   });
 
   it('mounts the remaining advanced settings routes', async () => {

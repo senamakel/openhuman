@@ -83,7 +83,14 @@ pub async fn list_configured_models(
             }
             r
         }
-        AuthStyle::OpenhumanJwt | AuthStyle::None => request,
+        AuthStyle::OpenhumanJwt => {
+            if !api_key.is_empty() {
+                request.header("Authorization", format!("Bearer {}", api_key))
+            } else {
+                request
+            }
+        }
+        AuthStyle::None => request,
     };
 
     let response = request
@@ -94,7 +101,8 @@ pub async fn list_configured_models(
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        let truncated = crate::openhuman::util::truncate_with_ellipsis(&body, 300);
+        let sanitized = sanitize_api_error(&body);
+        let truncated = crate::openhuman::util::truncate_with_ellipsis(&sanitized, 300);
         return Err(format!(
             "provider returned {}: {}",
             status.as_u16(),

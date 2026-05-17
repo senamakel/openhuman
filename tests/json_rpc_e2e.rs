@@ -3740,6 +3740,54 @@ async fn json_rpc_inference_namespace_lm_studio_prompt_and_status() {
         "hello from inference namespace"
     );
 
+    // openhuman.inference_update_model_settings — mutate `default_model`
+    // through the RPC transport so a controller-registration or param-shape
+    // regression surfaces here instead of in the settings-save UI flow.
+    // (We assert on `default_model` because that field is exposed by
+    // `inference_get_client_config`; `default_temperature` is not.)
+    let model_update = post_json_rpc(
+        &rpc_base,
+        366,
+        "openhuman.inference_update_model_settings",
+        json!({ "default_model": "e2e-updated-model" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&model_update, "inference_update_model_settings");
+    let client_cfg = post_json_rpc(
+        &rpc_base,
+        367,
+        "openhuman.inference_get_client_config",
+        json!({}),
+    )
+    .await;
+    let client_cfg_result = assert_no_jsonrpc_error(&client_cfg, "inference_get_client_config");
+    let updated_model = client_cfg_result
+        .pointer("/result/default_model")
+        .or_else(|| client_cfg_result.get("default_model"))
+        .and_then(Value::as_str);
+    assert_eq!(
+        updated_model,
+        Some("e2e-updated-model"),
+        "inference_get_client_config did not reflect updated default_model: {client_cfg_result}"
+    );
+
+    // openhuman.inference_list_models — no cloud provider configured for this
+    // local-only test, so we expect a structured error rather than a panic.
+    // Asserting an error here proves the controller is registered and reaches
+    // its handler over the RPC transport (the empty-picker symptom CodeRabbit
+    // flagged would surface as a controller-not-found error instead).
+    let list_models = post_json_rpc(
+        &rpc_base,
+        368,
+        "openhuman.inference_list_models",
+        json!({ "provider_id": "does-not-exist" }),
+    )
+    .await;
+    let _ = assert_jsonrpc_error(
+        &list_models,
+        "inference_list_models with unknown provider id",
+    );
+
     lm_join.abort();
     mock_join.abort();
     rpc_join.abort();

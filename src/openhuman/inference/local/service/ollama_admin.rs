@@ -45,8 +45,9 @@ impl LocalAiService {
         ))
     }
 
-    /// Like `ensure_ollama_server`, but forces a fresh install of the Ollama binary
-    /// (ignoring cached/workspace binaries). Used as a retry after the first attempt fails.
+    /// Alias of `ensure_ollama_server` in external-runtime mode.
+    /// OpenHuman no longer installs or starts Ollama automatically; the
+    /// "fresh" retry path is a no-op that defers to the standard check.
     pub(in crate::openhuman::inference::local::service) async fn ensure_ollama_server_fresh(
         &self,
         config: &Config,

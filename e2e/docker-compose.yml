@@ -65,6 +65,11 @@ services:
       # each platform's tree separate.
       - e2e-node-modules:/workspace/node_modules
       - e2e-app-node-modules:/workspace/app/node_modules
+      # CEF binary download cache — cef-dll-sys writes to ~/Library/Caches/tauri-cef
+      # inside the container. Without a named volume this is lost between runs and
+      # every new container re-downloads the ~400 MB CEF archive (which also fails
+      # when the container has no outbound DNS / TLS access to the CDN).
+      - e2e-cef-cache:/root/Library/Caches/tauri-cef
     environment:
       - DISPLAY=:99
       - CI=true
@@ -86,3 +91,4 @@ volumes:
   e2e-node-modules:
   e2e-app-node-modules:
   e2e-pnpm-project-store:
+  e2e-cef-cache:

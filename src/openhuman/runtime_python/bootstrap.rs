@@ -5,11 +5,12 @@
 
 use anyhow::{bail, Context, Result};
 use reqwest::Client;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use super::downloader::{download_distribution, fetch_release_metadata, select_distribution};
+use super::downloader::{download_distribution, select_distribution};
 use super::extractor::{atomic_install, extract_distribution};
 use super::resolver::{detect_system_python, SystemPython};
 use crate::openhuman::config::schema::RuntimePythonConfig;
@@ -43,9 +44,13 @@ pub struct PythonBootstrap {
 
 impl PythonBootstrap {
     pub fn new(config: RuntimePythonConfig) -> Self {
+        Self::new_with_client(config, Client::new())
+    }
+
+    pub(crate) fn new_with_client(config: RuntimePythonConfig, client: Client) -> Self {
         Self {
             config,
-            client: Client::new(),
+            client,
             cached: Arc::new(Mutex::new(None)),
         }
     }
@@ -85,7 +90,9 @@ impl PythonBootstrap {
             }
         }
 
-        let managed = self.install_managed().await?;
+        let managed = self
+            .install_managed_from_api(super::downloader::RELEASES_API)
+            .await?;
         *guard = Some(managed.clone());
         Ok(managed)
     }
@@ -103,18 +110,25 @@ impl PythonBootstrap {
 
 impl PythonBootstrap {
     async fn install_managed(&self) -> Result<ResolvedPython> {
+        self.install_managed_from_api(super::downloader::RELEASES_API)
+            .await
+    }
+
+    async fn install_managed_from_api(&self, releases_api_base: &str) -> Result<ResolvedPython> {
         let cache_root = self.cache_root();
         tokio::fs::create_dir_all(&cache_root)
             .await
             .with_context(|| format!("creating python runtime cache {}", cache_root.display()))?;
 
-        let release = fetch_release_metadata(
+        let release = super::downloader::fetch_release_metadata_from_base(
             &self.client,
+            releases_api_base,
             empty_to_none(&self.config.managed_release_tag),
         )
         .await?;
         let dist = select_distribution(&release, &self.config.minimum_version)?;
         let install_dir = cache_root.join(dist.install_dir_name());
+        let _install_lock = acquire_install_lock(&install_dir).await?;
 
         if let Some(existing) = probe_managed_install(&install_dir) {
             tracing::info!(
@@ -135,7 +149,11 @@ impl PythonBootstrap {
         let archive_path = cache_root.join(&dist.asset_name);
         download_distribution(&self.client, &dist, &archive_path).await?;
 
-        let scratch = cache_root.join(format!(".stage-{}", std::process::id()));
+        let scratch = cache_root.join(format!(
+            ".stage-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
         let _ = tokio::fs::remove_dir_all(&scratch).await;
         let top_level = extract_distribution(&archive_path, &scratch).await?;
         atomic_install(&top_level, &install_dir).await?;
@@ -227,3 +245,33 @@ fn find_python_binary(install_dir: &Path) -> Option<PathBuf> {
     }
     None
 }
+
+async fn acquire_install_lock(install_dir: &Path) -> Result<std::fs::File> {
+    let lock_path = install_dir.with_extension("lock");
+    if let Some(parent) = lock_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .with_context(|| format!("creating lock parent {}", parent.display()))?;
+    }
+
+    let lock_path_for_task = lock_path.clone();
+    tokio::task::spawn_blocking(move || -> Result<std::fs::File> {
+        use fs2::FileExt;
+
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&lock_path_for_task)
+            .with_context(|| format!("opening install lock {}", lock_path_for_task.display()))?;
+        file.lock_exclusive()
+            .with_context(|| format!("locking install target {}", lock_path_for_task.display()))?;
+        Ok(file)
+    })
+    .await
+    .context("join failure while acquiring runtime_python install lock")?
+}
+
+#[cfg(test)]
+#[path = "bootstrap_tests.rs"]
+mod tests;

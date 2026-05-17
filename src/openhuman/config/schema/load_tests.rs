@@ -644,6 +644,19 @@ fn env_overlay_runtime_python_flags_respect_bool_parser() {
         &HashMapEnv::new().with("OPENHUMAN_RUNTIME_PYTHON_MINIMUM_VERSION", "   "),
     );
     assert_eq!(cfg.runtime_python.minimum_version, original_version);
+
+    cfg.runtime_python.cache_dir = "/tmp/seed".into();
+    cfg.runtime_python.managed_release_tag = "20260510".into();
+    cfg.runtime_python.preferred_command = "python3.12".into();
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new()
+            .with("OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR", "   ")
+            .with("OPENHUMAN_RUNTIME_PYTHON_MANAGED_RELEASE_TAG", "   ")
+            .with("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND", "   "),
+    );
+    assert_eq!(cfg.runtime_python.cache_dir, "");
+    assert_eq!(cfg.runtime_python.managed_release_tag, "");
+    assert_eq!(cfg.runtime_python.preferred_command, "");
 }
 
 #[test]

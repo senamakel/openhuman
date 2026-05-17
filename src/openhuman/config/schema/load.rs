@@ -1161,16 +1161,10 @@ impl Config {
             }
         }
         if let Some(dir) = env.get("OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR") {
-            let trimmed = dir.trim();
-            if !trimmed.is_empty() {
-                self.runtime_python.cache_dir = trimmed.to_string();
-            }
+            self.runtime_python.cache_dir = dir.trim().to_string();
         }
         if let Some(tag) = env.get("OPENHUMAN_RUNTIME_PYTHON_MANAGED_RELEASE_TAG") {
-            let trimmed = tag.trim();
-            if !trimmed.is_empty() {
-                self.runtime_python.managed_release_tag = trimmed.to_string();
-            }
+            self.runtime_python.managed_release_tag = tag.trim().to_string();
         }
         if let Some(flag) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM") {
             if let Some(prefer_system) =
@@ -1180,10 +1174,7 @@ impl Config {
             }
         }
         if let Some(command) = env.get("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND") {
-            let trimmed = command.trim();
-            if !trimmed.is_empty() {
-                self.runtime_python.preferred_command = trimmed.to_string();
-            }
+            self.runtime_python.preferred_command = command.trim().to_string();
         }
 
         // Prefer the namespaced name. `OPENHUMAN_SENTRY_DSN` is the legacy

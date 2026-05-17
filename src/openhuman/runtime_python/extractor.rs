@@ -91,7 +91,13 @@ pub async fn atomic_install(staged: &Path, final_dest: &Path) -> Result<PathBuf>
             )
         }) {
             if let Some(backup_path) = backup.as_ref() {
-                let _ = fs::rename(backup_path, &final_dest);
+                if let Err(restore_err) = fs::rename(backup_path, &final_dest) {
+                    return Err(anyhow!(
+                        "{err}; rollback from {} to {} also failed: {restore_err}",
+                        backup_path.display(),
+                        final_dest.display()
+                    ));
+                }
             }
             return Err(err);
         }

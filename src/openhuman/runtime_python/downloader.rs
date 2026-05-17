@@ -14,7 +14,7 @@ use tokio::io::AsyncWriteExt;
 
 use super::resolver::{parse_python_version, PythonVersion};
 
-const RELEASES_API: &str =
+pub(crate) const RELEASES_API: &str =
     "https://api.github.com/repos/astral-sh/python-build-standalone/releases";
 
 #[derive(Debug, Clone, Deserialize)]
@@ -49,10 +49,18 @@ pub async fn fetch_release_metadata(
     client: &Client,
     release_tag: Option<&str>,
 ) -> Result<GithubRelease> {
+    fetch_release_metadata_from_base(client, RELEASES_API, release_tag).await
+}
+
+pub(crate) async fn fetch_release_metadata_from_base(
+    client: &Client,
+    releases_api_base: &str,
+    release_tag: Option<&str>,
+) -> Result<GithubRelease> {
     let url = if let Some(tag) = release_tag {
-        format!("{RELEASES_API}/tags/{tag}")
+        format!("{releases_api_base}/tags/{tag}")
     } else {
-        format!("{RELEASES_API}/latest")
+        format!("{releases_api_base}/latest")
     };
 
     tracing::debug!(url = %url, "[runtime_python::downloader] fetching release metadata");
@@ -245,29 +253,5 @@ pub async fn download_distribution(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_asset_into_distribution() {
-        let asset = GithubAsset {
-            name: "cpython-3.12.13+20260510-x86_64-apple-darwin-install_only.tar.gz".to_string(),
-            browser_download_url: "https://example.invalid/python.tar.gz".to_string(),
-            digest: Some("sha256:abc123".to_string()),
-        };
-        let dist = parse_distribution_asset(&asset, "20260510").expect("dist");
-        assert_eq!(dist.release_tag, "20260510");
-        assert_eq!(dist.version.display(), "3.12.13");
-        assert_eq!(dist.expected_sha256.as_deref(), Some("abc123"));
-    }
-
-    #[test]
-    fn ignores_non_install_only_assets() {
-        let asset = GithubAsset {
-            name: "cpython-3.12.13+20260510-x86_64-apple-darwin-full.tar.zst".to_string(),
-            browser_download_url: "https://example.invalid/python.tar.zst".to_string(),
-            digest: None,
-        };
-        assert!(parse_distribution_asset(&asset, "20260510").is_none());
-    }
-}
+#[path = "downloader_tests.rs"]
+mod tests;

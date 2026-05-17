@@ -11,7 +11,7 @@ use std::process::Stdio;
 use super::bootstrap::ResolvedPython;
 
 /// Launch spec for a Python stdio subprocess.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PythonLaunchSpec {
     /// Absolute or caller-resolved path to the Python script.
     pub script_path: PathBuf,

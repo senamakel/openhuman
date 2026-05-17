@@ -120,9 +120,11 @@ impl Tool for TodoTool {
             }
             "clear" => ops::clear(&location),
             "list" => ops::list(&location),
-            other => return Ok(ToolResult::error(format!(
+            other => {
+                return Ok(ToolResult::error(format!(
                 "unknown op '{other}' (expected add|edit|update_status|remove|replace|clear|list)"
-            ))),
+            )))
+            }
         };
 
         match result {

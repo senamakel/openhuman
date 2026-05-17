@@ -235,6 +235,11 @@ pub struct Config {
     #[serde(default)]
     pub node: NodeConfig,
 
+    /// Python managed runtime configuration (Python-backed MCP servers and
+    /// other Python subprocess integrations).
+    #[serde(default)]
+    pub runtime_python: RuntimePythonConfig,
+
     #[serde(default)]
     pub voice_server: VoiceServerConfig,
 
@@ -461,6 +466,7 @@ impl Default for Config {
             learning_provider: None,
             subconscious_provider: None,
             node: NodeConfig::default(),
+            runtime_python: RuntimePythonConfig::default(),
             voice_server: VoiceServerConfig::default(),
             integrations: IntegrationsConfig::default(),
             learning: LearningConfig::default(),

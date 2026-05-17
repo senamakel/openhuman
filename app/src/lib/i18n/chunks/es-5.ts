@@ -67,10 +67,10 @@ const es5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': 'Instalación de Ollama fallida',
   'settings.localModel.deviceCapability.installFailedDesc':
     'El instalador terminó antes de que Ollama estuviera disponible. Haz clic en reintentar o instálalo manualmente desde ollama.com.',
-  'settings.localModel.deviceCapability.installFirst': 'Instala Ollama primero.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Descripción de instalar primero',
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
+  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    'Instala Ollama primero para usar este nivel',
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Instalando Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Cargando info del dispositivo',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -144,8 +144,8 @@ const es5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Ruta del binario de Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Diagnósticos de Ollama',
-  'settings.localModel.status.ollamaNotInstalled': 'Ollama no está instalado',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'Descripción de Ollama no instalado',
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progreso',
   'settings.localModel.status.provider': 'Proveedor',
   'settings.localModel.status.retryBootstrap': 'Reintentar bootstrap',

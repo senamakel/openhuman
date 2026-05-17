@@ -69,11 +69,11 @@ const fr5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': "Échec de l'installation d'Ollama",
   'settings.localModel.deviceCapability.installFailedDesc':
     "L'installateur s'est terminé avant qu'Ollama soit utilisable. Clique sur Réessayer pour recommencer, ou installe manuellement depuis ollama.com.",
-  'settings.localModel.deviceCapability.installFirst': "Installe d'abord Ollama.",
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
   'settings.localModel.deviceCapability.installFirstDesc':
-    'Description de la première installation',
+    'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    "Installe d'abord Ollama pour utiliser ce niveau",
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': "Installation d'Ollama",
   'settings.localModel.deviceCapability.loadingDeviceInfo':
     "Chargement des informations de l'appareil",
@@ -148,8 +148,8 @@ const fr5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Chemin du binaire Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Diagnostics Ollama',
-  'settings.localModel.status.ollamaNotInstalled': "Ollama n'est pas installé",
-  'settings.localModel.status.ollamaNotInstalledDesc': "Description d'Ollama non installé",
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progression',
   'settings.localModel.status.provider': 'Fournisseur',
   'settings.localModel.status.retryBootstrap': 'Réessayer le bootstrap',

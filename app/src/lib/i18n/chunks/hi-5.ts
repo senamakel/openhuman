@@ -67,10 +67,10 @@ const hi5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': 'Ollama इन्स्टॉल विफल',
   'settings.localModel.deviceCapability.installFailedDesc':
     'Ollama यूज़ेबल होने से पहले इन्स्टॉलर बंद हो गया। दोबारा कोशिश करें या ollama.com से मैन्युअली इन्स्टॉल करें।',
-  'settings.localModel.deviceCapability.installFirst': 'पहले Ollama इन्स्टॉल करें।',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Install first desc',
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
+  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    'यह टियर इस्तेमाल करने के लिए पहले Ollama इन्स्टॉल करें',
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Ollama इन्स्टॉल हो रहा है',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'डिवाइस जानकारी लोड हो रही है',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -143,8 +143,8 @@ const hi5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Ollama binary path',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama डायग्नोस्टिक्स',
-  'settings.localModel.status.ollamaNotInstalled': 'Ollama इन्स्टॉल नहीं है',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'Ollama not installed desc',
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'प्रगति',
   'settings.localModel.status.provider': 'प्रोवाइडर',
   'settings.localModel.status.retryBootstrap': 'Bootstrap फिर से करें',

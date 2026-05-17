@@ -67,10 +67,10 @@ const ru5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': 'Установка Ollama не удалась',
   'settings.localModel.deviceCapability.installFailedDesc':
     'Установщик завершил работу до того, как Ollama стала готова к использованию. Нажми «Повторить» или установи вручную с ollama.com.',
-  'settings.localModel.deviceCapability.installFirst': 'Сначала установи Ollama.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Install first desc',
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
+  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    'Сначала установи Ollama для использования этого уровня',
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Установка Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Загрузка информации об устройстве',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -143,8 +143,8 @@ const ru5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Путь к бинарному файлу Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Диагностика Ollama',
-  'settings.localModel.status.ollamaNotInstalled': 'Ollama не установлена',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'Ollama not installed desc',
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Прогресс',
   'settings.localModel.status.provider': 'Провайдер',
   'settings.localModel.status.retryBootstrap': 'Повторить Bootstrap',

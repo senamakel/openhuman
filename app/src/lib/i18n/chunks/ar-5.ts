@@ -67,10 +67,10 @@ const ar5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': 'فشل تثبيت Ollama',
   'settings.localModel.deviceCapability.installFailedDesc':
     'خرج المثبّت قبل أن يصبح Ollama قابلاً للاستخدام. انقر إعادة المحاولة، أو ثبّته يدويًا من ollama.com.',
-  'settings.localModel.deviceCapability.installFirst': 'ثبّت Ollama أولاً.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'وصف التثبيت أولاً',
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
+  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    'ثبّت Ollama أولاً لاستخدام هذا المستوى',
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'جارٍ تثبيت Ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'جارٍ تحميل معلومات الجهاز',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -141,8 +141,8 @@ const ar5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'مسار ملف Ollama الثنائي',
   'settings.localModel.status.ollamaDiagnostics': 'تشخيص Ollama',
-  'settings.localModel.status.ollamaNotInstalled': 'Ollama غير مثبّت',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'وصف عدم تثبيت Ollama',
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'التقدم',
   'settings.localModel.status.provider': 'المزود',
   'settings.localModel.status.retryBootstrap': 'إعادة محاولة التمهيد',

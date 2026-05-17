@@ -68,10 +68,10 @@ const pt5: TranslationMap = {
   'settings.localModel.deviceCapability.installFailed': 'Instalação do Ollama falhou',
   'settings.localModel.deviceCapability.installFailedDesc':
     'O instalador encerrou antes que o Ollama estivesse utilizável. Clique em tentar novamente ou instale manualmente em ollama.com.',
-  'settings.localModel.deviceCapability.installFirst': 'Instale o Ollama primeiro.',
-  'settings.localModel.deviceCapability.installFirstDesc': 'Descrição de instalar primeiro',
+  'settings.localModel.deviceCapability.installFirst': 'Run Ollama first.',
+  'settings.localModel.deviceCapability.installFirstDesc': 'Local tiers depend on an externally managed Ollama endpoint. Start it yourself, pull the models you want, and keep using "Disabled (cloud fallback)" until the runtime is reachable.',
   'settings.localModel.deviceCapability.installOllamaFirst':
-    'Instale o Ollama primeiro para usar este nível',
+    'Run Ollama first to use this tier',
   'settings.localModel.deviceCapability.installingOllama': 'Instalando ollama',
   'settings.localModel.deviceCapability.loadingDeviceInfo': 'Carregando informações do dispositivo',
   'settings.localModel.deviceCapability.localAiDisabled':
@@ -145,8 +145,8 @@ const pt5: TranslationMap = {
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Caminho do binário Ollama',
   'settings.localModel.status.ollamaDiagnostics': 'Diagnósticos do Ollama',
-  'settings.localModel.status.ollamaNotInstalled': 'Ollama não está instalado',
-  'settings.localModel.status.ollamaNotInstalledDesc': 'Descrição: Ollama não instalado',
+  'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
+  'settings.localModel.status.ollamaNotInstalledDesc': 'OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama server, pull the models you want, and point workload routing at it.',
   'settings.localModel.status.progress': 'Progresso',
   'settings.localModel.status.provider': 'Provedor',
   'settings.localModel.status.retryBootstrap': 'Tentar Bootstrap Novamente',

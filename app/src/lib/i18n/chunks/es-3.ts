@@ -291,7 +291,8 @@ const es3: TranslationMap = {
   'app.openhumanLink.billing.stayOnTrial': 'Continuar con prueba',
   'app.openhumanLink.billing.trialCredit': 'Crédito de prueba',
   'app.openhumanLink.billing.trialDesc': 'Descripción de prueba',
-  'app.openhumanLink.defaultBody': 't ready in the popup yet. Open the full settings page when you',
+  'app.openhumanLink.defaultBody':
+    'Not ready in the popup yet. Open the full settings page when you need it.',
   'app.openhumanLink.discord.intro': 'Intro',
   'app.openhumanLink.discord.openInvite': 'Abrir invitación',
   'app.openhumanLink.discord.perk1': 'Perk1',
@@ -333,7 +334,7 @@ const es3: TranslationMap = {
   'app.update.header.restarting': 'Reiniciando…',
   'app.update.later': 'Después',
   'app.update.newVersionReady': 'Una nueva versión está lista para instalar.',
-  'app.update.progress.downloaded': '${formatBytes(downloaded)} descargado',
+  'app.update.progress.downloaded': '{amount} downloaded',
   'app.update.progress.installing': 'Instalando la nueva versión…',
   'app.update.progress.restarting': 'Relanzando la app…',
   'app.update.progress.working': '{percent}%',
@@ -349,7 +350,7 @@ const es3: TranslationMap = {
   'channels.discord.picker.allPermissionsOk':
     'El bot tiene todos los permisos requeridos en este canal.',
   'channels.discord.picker.botNotInServers': 'Bot no está en servidores',
-  'channels.discord.picker.category': '${} {categoryId}',
+  'channels.discord.picker.category': 'Category',
   'channels.discord.picker.channel': 'Canal',
   'channels.discord.picker.checkingPermissions': 'Verificando permisos',
   'channels.discord.picker.loadingChannels': 'Cargando canales...',

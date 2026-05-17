@@ -332,7 +332,7 @@ const id3: TranslationMap = {
   'app.update.header.restarting': 'Memulai ulang...',
   'app.update.later': 'Nanti',
   'app.update.newVersionReady': 'Versi baru siap diinstal.',
-  'app.update.progress.downloaded': '${formatBytes(downloaded)} diunduh',
+  'app.update.progress.downloaded': '{amount} downloaded',
   'app.update.progress.installing': 'Menginstal versi baru...',
   'app.update.progress.restarting': 'Meluncurkan ulang aplikasi...',
   'app.update.progress.working': '{percent}%',
@@ -348,7 +348,7 @@ const id3: TranslationMap = {
   'channels.discord.picker.allPermissionsOk':
     'Bot memiliki semua izin yang diperlukan di kanal ini.',
   'channels.discord.picker.botNotInServers': 'Bot tidak ada di server',
-  'channels.discord.picker.category': '${} {categoryId}',
+  'channels.discord.picker.category': 'Category',
   'channels.discord.picker.channel': 'Kanal',
   'channels.discord.picker.checkingPermissions': 'Memeriksa izin',
   'channels.discord.picker.loadingChannels': 'Memuat kanal...',

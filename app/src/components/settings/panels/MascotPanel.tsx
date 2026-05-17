@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useT } from '../../../lib/i18n/I18nContext';
+
 import { BackendMascot } from '../../../features/human/Mascot/backend/BackendMascot';
 import type { MascotDetail, MascotSummary } from '../../../features/human/Mascot/backend/types';
 import { getMascotPalette, type MascotColor } from '../../../features/human/Mascot/mascotPalette';
@@ -30,6 +32,7 @@ const COLOR_OPTIONS: ColorOption[] = [
 ];
 
 const MascotPanel = () => {
+  const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const dispatch = useAppDispatch();
   const storedColor = useAppSelector(selectMascotColor);
@@ -119,12 +122,12 @@ const MascotPanel = () => {
       <div className="p-4 space-y-4">
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2 px-1">
-            Color
+            {t('settings.mascot.colorHeading')}
           </h3>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {available.length === 0 ? (
               <p className="p-4 text-sm text-stone-500">
-                No OpenHuman color variants are available in this build.
+                {t('settings.mascot.noColorVariants')}
               </p>
             ) : (
               <div
@@ -160,14 +163,13 @@ const MascotPanel = () => {
             )}
           </div>
           <p className="text-xs text-stone-500 leading-relaxed px-1 mt-2">
-            The selected color is applied everywhere OpenHuman appears and is remembered across
-            restarts.
+            {t('settings.mascot.colorDesc')}
           </p>
         </div>
 
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2 px-1">
-            Character
+            {t('settings.mascot.characterHeading')}
           </h3>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             {backendListError && (
@@ -176,12 +178,11 @@ const MascotPanel = () => {
               </p>
             )}
             {!backendListError && backendList === null && (
-              <p className="p-4 text-sm text-stone-500">Loading OpenHuman library…</p>
+              <p className="p-4 text-sm text-stone-500">{t('settings.mascot.loadingLibrary')}</p>
             )}
             {backendList && backendList.length === 0 && !backendListError && (
               <p className="p-4 text-sm text-stone-500">
-                No OpenHuman characters are available yet. Local color variants above are still
-                active.
+                {t('settings.mascot.noCharacters')}
               </p>
             )}
             {backendList && backendList.length > 0 && (
@@ -194,9 +195,9 @@ const MascotPanel = () => {
                     className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 ${
                       selectedMascotId == null ? 'bg-stone-50 font-medium' : ''
                     }`}>
-                    <span>Local OpenHuman (default)</span>
+                    <span>{t('settings.mascot.localDefault')}</span>
                     {selectedMascotId == null && (
-                      <span className="text-[10px] uppercase text-primary-600">Active</span>
+                      <span className="text-[10px] uppercase text-primary-600">{t('settings.mascot.active')}</span>
                     )}
                   </button>
                 </li>
@@ -220,7 +221,7 @@ const MascotPanel = () => {
                           </span>
                         </span>
                         {active && (
-                          <span className="text-[10px] uppercase text-primary-600">Active</span>
+                          <span className="text-[10px] uppercase text-primary-600">{t('settings.mascot.active')}</span>
                         )}
                       </button>
                     </li>
@@ -244,8 +245,7 @@ const MascotPanel = () => {
           )}
           {detailError && <p className="mt-2 text-xs text-coral-700 px-1">{detailError}</p>}
           <p className="text-xs text-stone-500 leading-relaxed px-1 mt-2">
-            Characters come from the server-side library and animate via the same tween and viseme
-            pipeline as the meeting bot video stream.
+            {t('settings.mascot.characterDesc')}
           </p>
         </div>
       </div>

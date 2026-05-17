@@ -1,3 +1,4 @@
+import { useT } from '../../../../lib/i18n/I18nContext';
 import type { AutoRechargeSettings, SavedCard } from '../../../../services/api/creditsApi';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -68,14 +69,16 @@ const AutoRechargeSection = ({
   onSetDefault,
   onDeleteCard,
   onAddCard,
-}: AutoRechargeSectionProps) => (
+}: AutoRechargeSectionProps) => {
+  const { t } = useT();
+  return (
   <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
     {/* Header row */}
     <div className="flex items-center justify-between p-3">
       <div>
-        <p className="text-md font-semibold text-stone-900">Enable Auto-Recharge</p>
+        <p className="text-md font-semibold text-stone-900">{t('settings.billing.autoRecharge.title')}</p>
         <p className="text-[11px] text-stone-400 mt-0.5">
-          Automatically top up when your balance runs low
+          {t('settings.billing.autoRecharge.subtitle')}
         </p>
       </div>
       {arLoading ? (
@@ -86,7 +89,7 @@ const AutoRechargeSection = ({
           disabled={arSaving}
           role="switch"
           aria-checked={arSettings?.enabled ?? false}
-          aria-label="Toggle auto-recharge"
+          aria-label={t('settings.billing.autoRecharge.toggleAriaLabel')}
           className={`relative w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-900 ${
             arSaving ? 'opacity-50 cursor-not-allowed' : ''
           } ${arSettings?.enabled ? 'bg-primary-500' : 'bg-stone-600'}`}>
@@ -140,7 +143,7 @@ const AutoRechargeSection = ({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              Recharge in progress
+              {t('settings.billing.autoRecharge.rechargeInProgress')}
             </span>
           )}
           {arSettings.spentThisWeekUsd > 0 && (
@@ -151,7 +154,7 @@ const AutoRechargeSection = ({
           )}
           {arSettings.lastRechargeAt && (
             <span className="text-[10px] text-stone-500">
-              Last recharged{' '}
+              {t('settings.billing.autoRecharge.lastRecharged')}{' '}
               {new Date(arSettings.lastRechargeAt).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -176,14 +179,14 @@ const AutoRechargeSection = ({
               />
             </svg>
             <p className="text-[10px] text-coral-300">
-              Last recharge failed: {arSettings.lastError}
+              {t('settings.billing.autoRecharge.lastRechargeFailed')}: {arSettings.lastError}
             </p>
           </div>
         )}
 
         {/* Trigger threshold */}
         <div>
-          <p className="text-[11px] text-stone-400 mb-1.5">Recharge when balance drops below</p>
+          <p className="text-[11px] text-stone-400 mb-1.5">{t('settings.billing.autoRecharge.rechargeWhen')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {THRESHOLD_OPTIONS.map(v => (
               <button
@@ -202,7 +205,7 @@ const AutoRechargeSection = ({
 
         {/* Recharge amount */}
         <div>
-          <p className="text-[11px] text-stone-400 mb-1.5">Add this amount</p>
+          <p className="text-[11px] text-stone-400 mb-1.5">{t('settings.billing.autoRecharge.addAmount')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {RECHARGE_OPTIONS.map(v => (
               <button
@@ -221,7 +224,7 @@ const AutoRechargeSection = ({
 
         {/* Weekly limit */}
         <div>
-          <p className="text-[11px] text-stone-400 mb-1.5">Weekly spending limit</p>
+          <p className="text-[11px] text-stone-400 mb-1.5">{t('settings.billing.autoRecharge.weeklyLimit')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {WEEKLY_LIMIT_OPTIONS.map(v => (
               <button
@@ -241,7 +244,7 @@ const AutoRechargeSection = ({
         {/* Validation hint */}
         {arAmount <= arThreshold && (
           <p className="text-[10px] text-amber-400">
-            Recharge amount should be greater than the trigger threshold.
+            {t('settings.billing.autoRecharge.amountHint')}
           </p>
         )}
 
@@ -255,7 +258,7 @@ const AutoRechargeSection = ({
                 ? 'bg-stone-700/40 text-stone-500 cursor-not-allowed'
                 : 'bg-primary-500 hover:bg-primary-600 text-white'
             }`}>
-            {arSaving ? 'Saving…' : 'Save Settings'}
+            {arSaving ? t('settings.billing.autoRecharge.saving') : t('settings.billing.autoRecharge.saveSettings')}
           </button>
         )}
       </div>
@@ -264,11 +267,11 @@ const AutoRechargeSection = ({
     {/* Payment methods */}
     <div className="border-t border-stone-200 px-3 py-2.5">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-medium text-stone-600">Payment Methods</p>
+        <p className="text-[11px] font-medium text-stone-600">{t('settings.billing.autoRecharge.paymentMethods')}</p>
         <button
           onClick={onAddCard}
           className="text-[11px] text-primary-400 hover:text-primary-300 font-medium transition-colors">
-          + Add card on Stripe
+          {t('settings.billing.autoRecharge.addCard')}
         </button>
       </div>
 
@@ -293,7 +296,7 @@ const AutoRechargeSection = ({
             />
           </svg>
           <p className="text-[11px] text-stone-500">
-            No saved cards. Add one to enable auto-recharge.
+            {t('settings.billing.autoRecharge.noCards')}
           </p>
         </div>
       ) : (
@@ -329,7 +332,7 @@ const AutoRechargeSection = ({
                     </span>
                     {card.isDefault && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary-500/20 text-primary-400 border border-primary-500/30 font-medium">
-                        Default
+                        {t('settings.billing.autoRecharge.defaultCard')}
                       </span>
                     )}
                   </div>
@@ -346,7 +349,7 @@ const AutoRechargeSection = ({
                       onClick={() => onSetDefault(card.id)}
                       disabled={!!settingDefaultId || !!deletingCardId}
                       className="text-[10px] text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed px-1.5 py-1">
-                      {isSettingDefault ? '…' : 'Set default'}
+                      {isSettingDefault ? '…' : t('settings.billing.autoRecharge.setDefault')}
                     </button>
                   )}
 
@@ -356,12 +359,12 @@ const AutoRechargeSection = ({
                         onClick={() => onDeleteCard(card.id)}
                         disabled={isDeleting}
                         className="text-[10px] text-coral-400 hover:text-coral-300 font-medium transition-colors disabled:opacity-40 px-1.5 py-1">
-                        {isDeleting ? '…' : 'Confirm'}
+                        {isDeleting ? '…' : t('common.confirm')}
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
                         className="text-[10px] text-stone-500 hover:text-stone-400 transition-colors px-1 py-1">
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                     </div>
                   ) : (
@@ -369,7 +372,7 @@ const AutoRechargeSection = ({
                       onClick={() => setConfirmDeleteId(card.id)}
                       disabled={isDeleting || !!settingDefaultId}
                       className="text-[10px] text-stone-500 hover:text-coral-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed px-1.5 py-1">
-                      Remove
+                      {t('common.remove')}
                     </button>
                   )}
                 </div>
@@ -380,6 +383,7 @@ const AutoRechargeSection = ({
       )}
     </div>
   </div>
-);
+  );
+};
 
 export default AutoRechargeSection;

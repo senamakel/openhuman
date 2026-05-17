@@ -14,7 +14,8 @@ use tokio::io::AsyncWriteExt;
 
 use super::resolver::{parse_python_version, PythonVersion};
 
-const RELEASES_API: &str = "https://api.github.com/repos/astral-sh/python-build-standalone/releases";
+const RELEASES_API: &str =
+    "https://api.github.com/repos/astral-sh/python-build-standalone/releases";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GithubRelease {
@@ -69,7 +70,10 @@ pub async fn fetch_release_metadata(
         .with_context(|| format!("decoding release metadata from {url}"))
 }
 
-pub fn select_distribution(release: &GithubRelease, minimum_version: &str) -> Result<PythonDistribution> {
+pub fn select_distribution(
+    release: &GithubRelease,
+    minimum_version: &str,
+) -> Result<PythonDistribution> {
     let Some(minimum) = parse_python_version(minimum_version) else {
         bail!("invalid runtime_python.minimum_version `{minimum_version}`");
     };
@@ -91,7 +95,11 @@ pub fn select_distribution(release: &GithubRelease, minimum_version: &str) -> Re
         );
     }
 
-    candidates.sort_by(|a, b| b.version.cmp(&a.version).then_with(|| a.asset_name.cmp(&b.asset_name)));
+    candidates.sort_by(|a, b| {
+        b.version
+            .cmp(&a.version)
+            .then_with(|| a.asset_name.cmp(&b.asset_name))
+    });
 
     if let Some(preferred) = candidates
         .iter()
@@ -109,7 +117,8 @@ pub fn select_distribution(release: &GithubRelease, minimum_version: &str) -> Re
 
 fn parse_distribution_asset(asset: &GithubAsset, release_tag: &str) -> Option<PythonDistribution> {
     let name = asset.name.as_str();
-    if !name.starts_with("cpython-") || !name.ends_with(".tar.gz") || !name.contains("install_only") {
+    if !name.starts_with("cpython-") || !name.ends_with(".tar.gz") || !name.contains("install_only")
+    {
         return None;
     }
 
@@ -150,7 +159,9 @@ fn host_asset_suffix() -> Result<&'static str> {
 
 fn asset_matches_target(asset_name: &str, target_suffix: &str) -> bool {
     asset_name.ends_with(target_suffix)
-        || asset_name.ends_with(&target_suffix.replace("-install_only.tar.gz", "-install_only_stripped.tar.gz"))
+        || asset_name.ends_with(
+            &target_suffix.replace("-install_only.tar.gz", "-install_only_stripped.tar.gz"),
+        )
 }
 
 pub async fn download_distribution(

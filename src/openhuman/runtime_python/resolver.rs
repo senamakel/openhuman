@@ -95,10 +95,7 @@ fn detect_system_python_in_path(
 
     for candidate in candidate_commands(preferred_command) {
         let Some(path) = resolve_candidate(&candidate, path_var) else {
-            tracing::debug!(
-                candidate,
-                "[runtime_python::resolver] candidate not found"
-            );
+            tracing::debug!(candidate, "[runtime_python::resolver] candidate not found");
             continue;
         };
 
@@ -334,9 +331,8 @@ mod tests {
         fs::set_permissions(&script, perms).expect("chmod");
 
         let path_var = OsString::from(dir.path().display().to_string());
-        let found =
-            detect_system_python_in_path("3.12.0", Some("python3.12"), Some(&path_var))
-                .expect("python should resolve");
+        let found = detect_system_python_in_path("3.12.0", Some("python3.12"), Some(&path_var))
+            .expect("python should resolve");
 
         assert_eq!(found.version, "3.12.7");
         assert_eq!(found.path, script);

@@ -75,9 +75,10 @@ impl PythonBootstrap {
         }
 
         if self.config.prefer_system {
-            if let Some(system) =
-                detect_system_python(&self.config.minimum_version, empty_to_none(&self.config.preferred_command))
-            {
+            if let Some(system) = detect_system_python(
+                &self.config.minimum_version,
+                empty_to_none(&self.config.preferred_command),
+            ) {
                 let resolved = resolve_from_system(system);
                 *guard = Some(resolved.clone());
                 return Ok(resolved);
@@ -217,8 +218,10 @@ fn find_python_binary(install_dir: &Path) -> Option<PathBuf> {
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
-        if matches!(name, "python" | "python3" | "python3.12" | "python.exe" | "python3.exe" | "python3.12.exe")
-        {
+        if matches!(
+            name,
+            "python" | "python3" | "python3.12" | "python.exe" | "python3.exe" | "python3.12.exe"
+        ) {
             return Some(path.to_path_buf());
         }
     }

@@ -18,8 +18,8 @@ pub async fn extract_distribution(archive: &Path, extract_root: &Path) -> Result
         fs::create_dir_all(&extract_root)
             .with_context(|| format!("creating extract root {}", extract_root.display()))?;
 
-        let file =
-            File::open(&archive).with_context(|| format!("opening archive {}", archive.display()))?;
+        let file = File::open(&archive)
+            .with_context(|| format!("opening archive {}", archive.display()))?;
         let decoder = flate2::read::GzDecoder::new(file);
         let mut tar = tar::Archive::new(decoder);
         tar.set_preserve_permissions(true);

@@ -172,18 +172,22 @@ const ru5: TranslationMap = {
   'settings.mascot.noCharacters': 'No OpenHuman characters are available yet',
   'settings.mascot.noColorVariants': 'Нет цветовых вариантов',
   'settings.memoryWindow.balanced.badge': 'Recommended',
-  'settings.memoryWindow.balanced.hint': 'Sensible default — good continuity without burning extra tokens on every run.',
+  'settings.memoryWindow.balanced.hint':
+    'Sensible default — good continuity without burning extra tokens on every run.',
   'settings.memoryWindow.balanced.label': 'Balanced',
   'settings.memoryWindow.description':
     'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
   'settings.memoryWindow.extended.badge': 'More context',
-  'settings.memoryWindow.extended.hint': 'More long-term memory injected into each run. Higher token cost per turn.',
+  'settings.memoryWindow.extended.hint':
+    'More long-term memory injected into each run. Higher token cost per turn.',
   'settings.memoryWindow.extended.label': 'Extended',
   'settings.memoryWindow.maximum.badge': 'Highest cost',
-  'settings.memoryWindow.maximum.hint': 'The largest safe window. Best continuity, meaningfully higher token bill on every run.',
+  'settings.memoryWindow.maximum.hint':
+    'The largest safe window. Best continuity, meaningfully higher token bill on every run.',
   'settings.memoryWindow.maximum.label': 'Maximum',
   'settings.memoryWindow.minimal.badge': 'Cheapest',
-  'settings.memoryWindow.minimal.hint': 'Smallest memory window. Cheapest, fastest, least continuity between runs.',
+  'settings.memoryWindow.minimal.hint':
+    'Smallest memory window. Cheapest, fastest, least continuity between runs.',
   'settings.memoryWindow.minimal.label': 'Minimal',
   'settings.memoryWindow.title': 'Окно долгосрочной памяти',
   'settings.screenIntel.permissions.accessibility': 'Доступность',

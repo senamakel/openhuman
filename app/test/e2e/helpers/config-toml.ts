@@ -86,3 +86,15 @@ export function readBool(raw: string | null): boolean | null {
   if (raw === 'false') return false;
   return null;
 }
+
+/** Convenience: read a string-valued key from a section, stripping `"`. */
+export function readSectionString(
+  contents: string,
+  section: string,
+  key: string
+): string | null {
+  const raw = sectionValue(contents, section, key);
+  if (raw === null) return null;
+  const m = raw.match(/^"((?:[^"\\]|\\.)*)"$/);
+  return m ? m[1] : raw;
+}

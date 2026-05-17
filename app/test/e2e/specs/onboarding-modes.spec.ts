@@ -27,7 +27,7 @@ import { waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
 import {
   readBool,
   readConfigToml,
-  sectionValue,
+  readSectionString,
   topLevelValue,
 } from '../helpers/config-toml';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
@@ -284,45 +284,55 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     await pause(400);
     await clickOnboardingNext();
 
-    // Voice step → Configure → embedded VoicePanel renders.
+    // Voice step → Configure → embedded VoicePanel renders. The auto-start
+    // checkbox + Save button only render when local STT assets (Whisper) are
+    // installed (`disabled = !sttReady` gates that block). In the CI
+    // container we don't ship those assets, so we drive the always-visible
+    // provider selectors instead — flipping the STT provider fires
+    // `voice_set_providers`, which writes `config.local_ai.stt_provider`
+    // to `config.toml` via `config.save()`.
     expect(await testIdExists('onboarding-custom-voice-step', 10_000)).toBe(true);
     expect(await clickTestId('onboarding-custom-voice-step-configure')).toBe(true);
-    expect(await testIdExists('voice-auto-start-toggle', 10_000)).toBe(true);
+    expect(await testIdExists('voice-providers-section', 10_000)).toBe(true);
+    expect(await testIdExists('stt-provider-select', 10_000)).toBe(true);
 
-    // Capture the pre-toggle state, then flip the auto_start checkbox.
-    const before = await browser.execute(() => {
-      const el = document.querySelector<HTMLInputElement>(
-        '[data-testid="voice-auto-start-toggle"]'
+    const before = readSectionString(readConfigToml(), 'local_ai', 'stt_provider');
+    const want = before === 'whisper' ? 'cloud' : 'whisper';
+    stepLog(`stt_provider before=${before ?? '<unset>'} → want=${want}`);
+
+    // Drive the same onChange path the user would. The `<option disabled>`
+    // attribute blocks click/keyboard selection in the UI, but doesn't stop a
+    // synthetic change event from React's perspective once we set `.value`.
+    const dispatched = await browser.execute(next => {
+      const el = document.querySelector<HTMLSelectElement>(
+        '[data-testid="stt-provider-select"]'
       );
-      return el ? el.checked : null;
-    });
-    expect(typeof before).toBe('boolean');
-
-    await browser.execute(() => {
-      const el = document.querySelector<HTMLInputElement>(
-        '[data-testid="voice-auto-start-toggle"]'
-      );
-      if (!el) return;
-      el.click(); // synthesizes the React change event for a checkbox
-    });
-    await pause(300);
-
-    // Click Save → openhumanUpdateVoiceServerSettings → config.save().
-    const saved = await clickTestId('voice-save-settings', 10_000);
-    expect(saved).toBe(true);
+      if (!el) return false;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      )?.set;
+      if (setter) {
+        setter.call(el, next);
+      } else {
+        el.value = next;
+      }
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }, want);
+    expect(dispatched).toBe(true);
 
     // Poll config.toml for the new value.
-    const want = !before;
-    let onDisk: boolean | null = null;
+    let onDisk: string | null = null;
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
-      onDisk = readBool(sectionValue(readConfigToml(), 'voice_server', 'auto_start'));
+      onDisk = readSectionString(readConfigToml(), 'local_ai', 'stt_provider');
       if (onDisk === want) break;
       await pause(500);
     }
     if (onDisk !== want) {
       stepLog(
-        `voice_server.auto_start expected=${want} got=${onDisk}; config.toml:\n` +
+        `local_ai.stt_provider expected=${want} got=${onDisk ?? '<unset>'}; config.toml:\n` +
           readConfigToml()
       );
     }

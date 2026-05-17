@@ -16,6 +16,7 @@ pub mod ops;
 pub mod reliable;
 pub mod router;
 pub mod schemas;
+pub mod temperature;
 pub mod thread_context;
 pub mod traits;
 

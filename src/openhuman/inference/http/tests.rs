@@ -7,14 +7,35 @@
 //! A running inference backend is NOT required — the tests exercise the
 //! routing and auth-middleware layers only.
 
+use std::sync::Once;
+
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use tower::ServiceExt;
 
+use crate::core::auth::CORE_TOKEN_ENV_VAR;
 use crate::core::jsonrpc::build_core_http_router;
+
+const TEST_RPC_TOKEN: &str = "inference-http-tests-token";
+
+/// Initialize the per-process RPC bearer token exactly once, so that the
+/// auth middleware can answer 401 instead of 500 ("auth subsystem not
+/// initialized") in tests that don't spin up a real core.
+fn ensure_test_rpc_auth() {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        // SAFETY: test-only init; we serialize via `Once`, and live_routing_e2e
+        // uses its own env lock + a different token value so the two test
+        // binaries don't collide (they run in separate processes anyway).
+        unsafe { std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN) };
+        let tmp = tempfile::tempdir().expect("tempdir for token file");
+        crate::core::auth::init_rpc_token(tmp.path()).expect("init rpc auth token for http tests");
+    });
+}
 
 /// Build the test router (Socket.IO disabled — no real runtime needed).
 fn test_router() -> axum::Router {
+    ensure_test_rpc_auth();
     build_core_http_router(false)
 }
 
@@ -71,9 +92,9 @@ async fn test_models_no_bearer_returns_401() {
 /// test only asserts that auth passed.
 #[tokio::test]
 async fn test_chat_completions_with_bearer_not_rejected_as_auth_error() {
-    // Use the env var if set (CI with a real core token), otherwise use any
-    // non-empty string — the test-support middleware accepts it.
-    let token = std::env::var("OPENHUMAN_CORE_TOKEN").unwrap_or_else(|_| "test-token".to_string());
+    // Use the same token that `ensure_test_rpc_auth` installed via the
+    // `Once` initializer in this module.
+    let token = TEST_RPC_TOKEN.to_string();
 
     let body = serde_json::json!({
         "model": "ollama:llama3",

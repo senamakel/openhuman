@@ -116,7 +116,24 @@ async fn chat_completions_handler(
         })
         .collect();
 
-    let temperature = req.temperature.unwrap_or(config.default_temperature);
+    // If the caller supplied a temperature but the model is on the unsupported
+    // list, log a warning and drop it — sending temperature to o1/o3/o4/gpt-5
+    // reasoning models causes an API error. The provider layer applies the same
+    // check on the outbound body, so this is belt-and-suspenders for logging.
+    let temperature = {
+        let raw = req.temperature.unwrap_or(config.default_temperature);
+        let suppressed = crate::openhuman::inference::provider::temperature::temperature_for_model(
+            &model_id, raw, &config,
+        );
+        if suppressed.is_none() && req.temperature.is_some() {
+            tracing::warn!(
+                model = %model_id,
+                requested_temperature = req.temperature.unwrap_or(0.0),
+                "{LOG_PREFIX} dropping caller-supplied temperature — model is on temperature_unsupported_models list"
+            );
+        }
+        raw // the Provider layer handles omission; we pass the value through
+    };
     let completion_id = format!("chatcmpl-{}", uuid::Uuid::new_v4());
     let created = chrono::Utc::now().timestamp();
     let model_name = req.model.clone();

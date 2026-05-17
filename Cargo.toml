@@ -169,6 +169,8 @@ rppal = { version = "0.22", optional = true }
 # crates we never use (and that bloat the dev Cargo.lock noticeably).
 # TestTransport only needs the `test` feature.
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
+# Mock HTTP server for provider E2E tests (inference_provider_e2e).
+wiremock = "0.6"
 
 [features]
 sandbox-landlock = ["dep:landlock"]

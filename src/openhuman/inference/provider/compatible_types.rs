@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct ApiChatRequest {
     pub(crate) model: String,
     pub(crate) messages: Vec<Message>,
-    pub(crate) temperature: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) temperature: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -31,7 +32,8 @@ pub(crate) struct Message {
 pub(crate) struct NativeChatRequest {
     pub(crate) model: String,
     pub(crate) messages: Vec<NativeMessage>,
-    pub(crate) temperature: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) temperature: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

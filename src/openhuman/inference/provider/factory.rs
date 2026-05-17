@@ -213,7 +213,12 @@ fn make_ollama_provider(
         model,
         redact_endpoint(&endpoint)
     );
-    let p = make_openai_compatible_provider(&endpoint, "", CompatAuthStyle::None)?;
+    let p = make_openai_compatible_provider_with_config(
+        &endpoint,
+        "",
+        CompatAuthStyle::None,
+        &config.temperature_unsupported_models,
+    )?;
     Ok((p, model.to_string()))
 }
 
@@ -260,10 +265,15 @@ fn make_cloud_provider_by_slug(
 
     let key = lookup_key_for_slug(slug, config)?;
 
+    let unsupported = &config.temperature_unsupported_models;
     match entry.auth_style {
         AuthStyle::Anthropic => {
-            let p =
-                make_openai_compatible_provider(&entry.endpoint, &key, CompatAuthStyle::Anthropic)?;
+            let p = make_openai_compatible_provider_with_config(
+                &entry.endpoint,
+                &key,
+                CompatAuthStyle::Anthropic,
+                unsupported,
+            )?;
             Ok((p, effective_model))
         }
         AuthStyle::OpenhumanJwt => {
@@ -276,12 +286,21 @@ fn make_cloud_provider_by_slug(
             make_openhuman_backend(config)
         }
         AuthStyle::None => {
-            let p = make_openai_compatible_provider(&entry.endpoint, "", CompatAuthStyle::None)?;
+            let p = make_openai_compatible_provider_with_config(
+                &entry.endpoint,
+                "",
+                CompatAuthStyle::None,
+                unsupported,
+            )?;
             Ok((p, effective_model))
         }
         AuthStyle::Bearer => {
-            let p =
-                make_openai_compatible_provider(&entry.endpoint, &key, CompatAuthStyle::Bearer)?;
+            let p = make_openai_compatible_provider_with_config(
+                &entry.endpoint,
+                &key,
+                CompatAuthStyle::Bearer,
+                unsupported,
+            )?;
             Ok((p, effective_model))
         }
     }
@@ -332,14 +351,26 @@ fn make_openai_compatible_provider(
     api_key: &str,
     auth_style: CompatAuthStyle,
 ) -> anyhow::Result<Box<dyn Provider>> {
+    make_openai_compatible_provider_with_config(endpoint, api_key, auth_style, &[])
+}
+
+/// Build an `OpenAiCompatibleProvider` with auth style and temperature
+/// suppression list from config.
+fn make_openai_compatible_provider_with_config(
+    endpoint: &str,
+    api_key: &str,
+    auth_style: CompatAuthStyle,
+    temperature_unsupported_models: &[String],
+) -> anyhow::Result<Box<dyn Provider>> {
     let key = if api_key.trim().is_empty() {
         None
     } else {
         Some(api_key)
     };
-    Ok(Box::new(OpenAiCompatibleProvider::new(
-        "cloud", endpoint, key, auth_style,
-    )))
+    Ok(Box::new(
+        OpenAiCompatibleProvider::new("cloud", endpoint, key, auth_style)
+            .with_temperature_unsupported_models(temperature_unsupported_models.to_vec()),
+    ))
 }
 
 /// Return a safe-to-log representation of a URL endpoint: `scheme://host` only.

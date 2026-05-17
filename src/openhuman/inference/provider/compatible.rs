@@ -66,6 +66,11 @@ pub struct OpenAiCompatibleProvider {
     /// never see an unrecognized field that could trip strict input
     /// validation.
     emit_openhuman_thread_id: bool,
+    /// Shell-style glob patterns (`*` only) for model IDs that MUST NOT
+    /// receive a `temperature` field. Matches are done by
+    /// `temperature::glob_match`. Defaults to empty (all models support
+    /// temperature); populated by the factory when the config has entries.
+    pub(crate) temperature_unsupported_models: Vec<String>,
 }
 
 /// How the provider expects the API key to be sent.
@@ -165,6 +170,35 @@ impl OpenAiCompatibleProvider {
             user_agent: user_agent.map(ToString::to_string),
             merge_system_into_user,
             emit_openhuman_thread_id: false,
+            temperature_unsupported_models: Vec::new(),
+        }
+    }
+
+    /// Set the list of model glob patterns for which temperature must be
+    /// omitted from request bodies. Called by the provider factory to
+    /// propagate `config.temperature_unsupported_models`.
+    pub fn with_temperature_unsupported_models(mut self, patterns: Vec<String>) -> Self {
+        self.temperature_unsupported_models = patterns;
+        self
+    }
+
+    /// Resolve the effective temperature for `model`. Returns `None` when the
+    /// model matches a pattern in `temperature_unsupported_models` (causing the
+    /// field to be omitted from the serialised request).
+    fn effective_temperature(&self, model: &str, temperature: f64) -> Option<f64> {
+        if self
+            .temperature_unsupported_models
+            .iter()
+            .any(|pat| super::temperature::glob_match(pat, model))
+        {
+            tracing::debug!(
+                "[provider:{}] model='{}' matched temperature_unsupported_models — omitting temperature",
+                self.name,
+                model
+            );
+            None
+        } else {
+            Some(temperature)
         }
     }
 
@@ -1146,7 +1180,7 @@ impl Provider for OpenAiCompatibleProvider {
         let request = ApiChatRequest {
             model: model.to_string(),
             messages,
-            temperature,
+            temperature: self.effective_temperature(model, temperature),
             stream: Some(false),
             tools: None,
             tool_choice: None,
@@ -1280,7 +1314,7 @@ impl Provider for OpenAiCompatibleProvider {
         let request = ApiChatRequest {
             model: model.to_string(),
             messages: api_messages,
-            temperature,
+            temperature: self.effective_temperature(model, temperature),
             stream: Some(false),
             tools: None,
             tool_choice: None,
@@ -1380,7 +1414,7 @@ impl Provider for OpenAiCompatibleProvider {
         let request = ApiChatRequest {
             model: model.to_string(),
             messages: api_messages,
-            temperature,
+            temperature: self.effective_temperature(model, temperature),
             stream: Some(false),
             tools: if tools.is_empty() {
                 None
@@ -1477,7 +1511,7 @@ impl Provider for OpenAiCompatibleProvider {
             let native_request = NativeChatRequest {
                 model: model.to_string(),
                 messages: Self::convert_messages_for_native(&effective_messages),
-                temperature,
+                temperature: self.effective_temperature(model, temperature),
                 stream: Some(true),
                 tool_choice: tools.as_ref().map(|_| "auto".to_string()),
                 tools: tools.clone(),
@@ -1519,7 +1553,7 @@ impl Provider for OpenAiCompatibleProvider {
         let native_request = NativeChatRequest {
             model: model.to_string(),
             messages: Self::convert_messages_for_native(&effective_messages),
-            temperature,
+            temperature: self.effective_temperature(model, temperature),
             stream: Some(false),
             tool_choice: tools.as_ref().map(|_| "auto".to_string()),
             tools,
@@ -1670,7 +1704,7 @@ impl Provider for OpenAiCompatibleProvider {
         let request = ApiChatRequest {
             model: model.to_string(),
             messages,
-            temperature,
+            temperature: self.effective_temperature(model, temperature),
             stream: Some(options.enabled),
             tools: None,
             tool_choice: None,

@@ -55,7 +55,7 @@ fn native_request_emits_thread_id_when_present() {
     let req = super::NativeChatRequest {
         model: "sonnet".to_string(),
         messages: Vec::new(),
-        temperature: 0.7,
+        temperature: Some(0.7),
         stream: Some(false),
         tools: None,
         tool_choice: None,
@@ -72,7 +72,7 @@ fn native_request_emits_thread_id_when_present() {
     let req_no_thread = super::NativeChatRequest {
         model: "sonnet".to_string(),
         messages: Vec::new(),
-        temperature: 0.7,
+        temperature: Some(0.7),
         stream: Some(false),
         tools: None,
         tool_choice: None,
@@ -96,7 +96,7 @@ fn streaming_request_sets_stream_options_include_usage() {
     let req = super::NativeChatRequest {
         model: "sonnet".to_string(),
         messages: Vec::new(),
-        temperature: 0.0,
+        temperature: Some(0.0),
         stream: Some(true),
         tools: None,
         tool_choice: None,
@@ -119,7 +119,7 @@ fn non_streaming_request_omits_stream_options() {
     let req = super::NativeChatRequest {
         model: "sonnet".to_string(),
         messages: Vec::new(),
-        temperature: 0.0,
+        temperature: Some(0.0),
         stream: Some(false),
         tools: None,
         tool_choice: None,
@@ -171,7 +171,7 @@ fn request_serializes_correctly() {
                 content: "hello".to_string(),
             },
         ],
-        temperature: 0.4,
+        temperature: Some(0.4),
         stream: Some(false),
         tools: None,
         tool_choice: None,
@@ -771,7 +771,7 @@ fn request_serializes_with_tools() {
             role: "user".to_string(),
             content: "What is the weather?".to_string(),
         }],
-        temperature: 0.7,
+        temperature: Some(0.7),
         stream: Some(false),
         tools: Some(tools),
         tool_choice: Some("auto".to_string()),

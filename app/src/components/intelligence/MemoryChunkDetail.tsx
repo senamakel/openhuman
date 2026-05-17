@@ -128,7 +128,7 @@ export function MemoryChunkDetail({ chunk, onSelectEntity }: MemoryChunkDetailPr
               title={t('intelligence.memoryChunk.detail.copyChunkId')}>
               {t('intelligence.memoryChunk.detail.chunk')} {shortChunkId(chunk.id)}
               {copied && (
-                <span style={{ marginLeft: 6, color: 'var(--sage)' }}>{t('common.copied')}</span>
+                <span style={{ marginLeft: 6, color: 'var(--sage)' }}>{t('intelligence.memoryChunk.detail.copiedHint')}</span>
               )}
             </button>
             <span>·</span>

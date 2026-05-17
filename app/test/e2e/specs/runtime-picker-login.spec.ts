@@ -55,9 +55,9 @@ import { resetApp } from '../helpers/reset-app';
 import {
   logoutViaSettings,
   waitForHomePage,
-  walkOnboarding,
   waitForLoggedOutState,
   waitForRequest,
+  walkOnboarding,
 } from '../helpers/shared-flows';
 import {
   clearRequestLog,
@@ -82,9 +82,7 @@ const LOG = '[RuntimePicker]';
 async function clickByTextDom(text: string): Promise<boolean> {
   if (!supportsExecuteScript()) return false;
   return browser.execute(t => {
-    const all = Array.from(
-      document.querySelectorAll<HTMLElement>('button, [role="button"], a')
-    );
+    const all = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a'));
     const matches = all.filter(el => (el.textContent ?? '').includes(t));
     if (matches.length === 0) return false;
     matches.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
@@ -128,8 +126,8 @@ async function openRuntimePicker(): Promise<boolean> {
   if (!clicked) return false;
   await browser.pause(1_000);
   return Boolean(
-    await waitForText('Run Locally (Recommended)', 8_000).catch(() => false) ||
-      (await textExists('Run on the Cloud (Complex)'))
+    (await waitForText('Run Locally (Recommended)', 8_000).catch(() => false)) ||
+    (await textExists('Run on the Cloud (Complex)'))
   );
 }
 

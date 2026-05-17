@@ -36,12 +36,14 @@ vi.mock('../../store/providerSurfaceSlice', async importOriginal => {
 
 const ACCOUNT_ID = 'acct-discord-test';
 
-async function fireEvent(kind: string, payload: Record<string, unknown>): Promise<void> {
+async function fireEvent(
+  kind: string,
+  payload: Record<string, unknown>,
+  provider = 'discord'
+): Promise<void> {
   const handler = listeners.get('webview:event');
   if (!handler) throw new Error('webview:event listener not attached');
-  handler({
-    payload: { account_id: ACCOUNT_ID, provider: 'discord', kind, payload, ts: Date.now() },
-  });
+  handler({ payload: { account_id: ACCOUNT_ID, provider, kind, payload, ts: Date.now() } });
   await new Promise(r => setTimeout(r, 0));
 }
 
@@ -71,17 +73,41 @@ describe('webviewAccountService — Discord events', () => {
     expect(fetchRespondQueue).not.toHaveBeenCalled();
   });
 
+  it('persists generic non-discord ingest events through the legacy memory path', async () => {
+    await fireEvent(
+      'ingest',
+      { snapshotKey: 'snap-1', unread: 2, messages: [{ sender: 'Telegram Alice', body: 'Ping' }] },
+      'telegram'
+    );
+
+    expect(fetchRespondQueue).toHaveBeenCalledWith({ silent: true });
+    expect(callCoreRpc).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'openhuman.memory_doc_ingest',
+        params: expect.objectContaining({ namespace: 'webview:telegram:acct-discord-test' }),
+      })
+    );
+    expect(store.getState().accounts.messages[ACCOUNT_ID]).toEqual([
+      expect.objectContaining({ id: 'acct-discord-test:0', from: 'Telegram Alice', body: 'Ping' }),
+    ]);
+  });
+
   it('refreshes queue for normalized discord transcript events without re-writing memory', async () => {
     await fireEvent('discord_memory_ingest', {
       channelId: '123',
       channelName: 'general',
-      messages: [{ id: 'm1', from: 'Alice', body: 'Ship it' }],
+      messages: [{ sender: 'Alice', body: 'Ship it', date: 1715000000 }],
     });
 
     expect(fetchRespondQueue).toHaveBeenCalledWith({ silent: true });
     expect(callCoreRpc).not.toHaveBeenCalled();
     expect(store.getState().accounts.messages[ACCOUNT_ID]).toEqual([
-      expect.objectContaining({ id: 'm1', from: 'Alice', body: 'Ship it' }),
+      expect.objectContaining({
+        id: 'acct-discord-test:0',
+        from: 'Alice',
+        body: 'Ship it',
+        ts: 1715000000 * 1000,
+      }),
     ]);
   });
 });

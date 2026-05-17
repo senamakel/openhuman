@@ -116,7 +116,8 @@ const hi5: TranslationMap = {
   'settings.localModel.status.checkingOllama': 'Ollama चेक हो रहा है',
   'settings.localModel.status.customLocation': 'कस्टम लोकेशन',
   'settings.localModel.status.customLocationDesc': 'Custom location desc',
-  'settings.localModel.status.diagnosticsHint': 'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
+  'settings.localModel.status.diagnosticsHint':
+    'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
   'settings.localModel.status.downloadingUnknown': 'डाउनलोड हो रहा है (साइज़ अज्ञात)',
   'settings.localModel.status.eta': 'ETA',
   'settings.localModel.status.expectedModels': 'एक्सपेक्टेड मॉडल',
@@ -168,7 +169,8 @@ const hi5: TranslationMap = {
   'settings.memoryWindow.balanced.badge': 'Badge',
   'settings.memoryWindow.balanced.hint': 'Hint',
   'settings.memoryWindow.balanced.label': 'Balanced',
-  'settings.memoryWindow.description': 'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
+  'settings.memoryWindow.description':
+    'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
   'settings.memoryWindow.extended.badge': 'Badge',
   'settings.memoryWindow.extended.hint': 'Hint',
   'settings.memoryWindow.extended.label': 'Extended',
@@ -339,7 +341,7 @@ const hi5: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'It resets {time}.',
   'upsell.usageLimit.upgradePlan': 'प्लान अपग्रेड करें',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.tooltip.letsGo': 'Let\'s go!',
+  'walkthrough.tooltip.letsGo': "Let's go!",
   'walkthrough.tooltip.next': 'Next →',
   'walkthrough.tooltip.skip': 'Skip tour',
   'walkthrough.tooltip.stepCounter': '{n} of {total}',

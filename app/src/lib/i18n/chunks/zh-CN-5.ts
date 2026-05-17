@@ -111,7 +111,8 @@ const zhCN5: TranslationMap = {
   'settings.localModel.status.checkingOllama': '检查 Ollama',
   'settings.localModel.status.customLocation': '自定义位置',
   'settings.localModel.status.customLocationDesc': '自定义 Ollama 安装路径',
-  'settings.localModel.status.diagnosticsHint': 'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
+  'settings.localModel.status.diagnosticsHint':
+    'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
   'settings.localModel.status.downloadingUnknown': '下载中（大小未知）',
   'settings.localModel.status.eta': '预计完成时间',
   'settings.localModel.status.expectedModels': '预期模型',
@@ -163,7 +164,8 @@ const zhCN5: TranslationMap = {
   'settings.memoryWindow.balanced.badge': '均衡',
   'settings.memoryWindow.balanced.hint': '适合大多数用户',
   'settings.memoryWindow.balanced.label': 'Balanced',
-  'settings.memoryWindow.description': 'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
+  'settings.memoryWindow.description':
+    'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
   'settings.memoryWindow.extended.badge': '扩展',
   'settings.memoryWindow.extended.hint': '更多上下文，响应略慢',
   'settings.memoryWindow.extended.label': 'Extended',
@@ -329,7 +331,7 @@ const zhCN5: TranslationMap = {
   'upsell.usageLimit.resetsIn': '重置时间',
   'upsell.usageLimit.upgradePlan': '升级方案',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.tooltip.letsGo': 'Let\'s go!',
+  'walkthrough.tooltip.letsGo': "Let's go!",
   'walkthrough.tooltip.next': 'Next →',
   'walkthrough.tooltip.skip': 'Skip tour',
   'walkthrough.tooltip.stepCounter': '{n} of {total}',

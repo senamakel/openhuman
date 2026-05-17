@@ -309,8 +309,9 @@ const id3: TranslationMap = {
   'app.openhumanLink.notifications.promptHint': 'Petunjuk prompt',
   'app.openhumanLink.notifications.retry': 'Coba ulang notifikasi tes',
   'app.openhumanLink.notifications.send': 'Kirim notifikasi tes',
-  'app.openhumanLink.notifications.sendFailed': 'Couldn\'t send: {error}',
-  'app.openhumanLink.notifications.sent': 'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
+  'app.openhumanLink.notifications.sendFailed': "Couldn't send: {error}",
+  'app.openhumanLink.notifications.sent':
+    'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
   'app.openhumanLink.skipForNow': 'Lewati untuk sekarang',
   'app.openhumanLink.telegramUnavailable': 'Telegram tidak tersedia',
   'app.openhumanLink.title.accounts': 'Hubungkan aplikasi Anda',

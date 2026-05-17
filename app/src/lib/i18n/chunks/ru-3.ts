@@ -308,8 +308,9 @@ const ru3: TranslationMap = {
   'app.openhumanLink.notifications.promptHint': 'Prompt hint',
   'app.openhumanLink.notifications.retry': 'Повторить тестовое уведомление',
   'app.openhumanLink.notifications.send': 'Отправить тестовое уведомление',
-  'app.openhumanLink.notifications.sendFailed': 'Couldn\'t send: {error}',
-  'app.openhumanLink.notifications.sent': 'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
+  'app.openhumanLink.notifications.sendFailed': "Couldn't send: {error}",
+  'app.openhumanLink.notifications.sent':
+    'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
   'app.openhumanLink.skipForNow': 'Пропустить',
   'app.openhumanLink.telegramUnavailable': 'Telegram недоступен',
   'app.openhumanLink.title.accounts': 'Подключи свои приложения',

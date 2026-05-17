@@ -116,7 +116,8 @@ const en5: TranslationMap = {
   'settings.localModel.status.checkingOllama': 'Checking ollama',
   'settings.localModel.status.customLocation': 'Custom location',
   'settings.localModel.status.customLocationDesc': 'Custom location desc',
-  'settings.localModel.status.diagnosticsHint': 'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
+  'settings.localModel.status.diagnosticsHint':
+    'Click "Run Diagnostics" to verify Ollama is running and models are installed.',
   'settings.localModel.status.downloadingUnknown': 'Downloading (size unknown)',
   'settings.localModel.status.eta': 'Eta',
   'settings.localModel.status.expectedModels': 'Expected models',
@@ -168,7 +169,8 @@ const en5: TranslationMap = {
   'settings.memoryWindow.balanced.badge': 'Badge',
   'settings.memoryWindow.balanced.hint': 'Hint',
   'settings.memoryWindow.balanced.label': 'Balanced',
-  'settings.memoryWindow.description': 'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
+  'settings.memoryWindow.description':
+    'How much remembered context OpenHuman injects into every new agent run. Larger windows feel more aware of past conversations but use more tokens — and cost more — on every run.',
   'settings.memoryWindow.extended.badge': 'Badge',
   'settings.memoryWindow.extended.hint': 'Hint',
   'settings.memoryWindow.extended.label': 'Extended',
@@ -338,7 +340,7 @@ const en5: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'It resets {time}.',
   'upsell.usageLimit.upgradePlan': 'Upgrade plan',
   'upsell.usageLimit.weeklyInference': '{amount}',
-  'walkthrough.tooltip.letsGo': 'Let\'s go!',
+  'walkthrough.tooltip.letsGo': "Let's go!",
   'walkthrough.tooltip.next': 'Next →',
   'walkthrough.tooltip.skip': 'Skip tour',
   'walkthrough.tooltip.stepCounter': '{n} of {total}',

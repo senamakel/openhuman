@@ -311,8 +311,9 @@ const es3: TranslationMap = {
   'app.openhumanLink.notifications.promptHint': 'Sugerencia de permiso',
   'app.openhumanLink.notifications.retry': 'Reintentar notificación de prueba',
   'app.openhumanLink.notifications.send': 'Enviar notificación de prueba',
-  'app.openhumanLink.notifications.sendFailed': 'Couldn\'t send: {error}',
-  'app.openhumanLink.notifications.sent': 'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
+  'app.openhumanLink.notifications.sendFailed': "Couldn't send: {error}",
+  'app.openhumanLink.notifications.sent':
+    'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
   'app.openhumanLink.skipForNow': 'Omitir por ahora',
   'app.openhumanLink.telegramUnavailable': 'Telegram no disponible',
   'app.openhumanLink.title.accounts': 'Conecta tus apps',

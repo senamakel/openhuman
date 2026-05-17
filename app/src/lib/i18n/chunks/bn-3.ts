@@ -307,8 +307,9 @@ const bn3: TranslationMap = {
   'app.openhumanLink.notifications.promptHint': 'প্রম্পট হিন্ট',
   'app.openhumanLink.notifications.retry': 'পরীক্ষা বিজ্ঞপ্তি আবার চেষ্টা করুন',
   'app.openhumanLink.notifications.send': 'পরীক্ষা বিজ্ঞপ্তি পাঠান',
-  'app.openhumanLink.notifications.sendFailed': 'Couldn\'t send: {error}',
-  'app.openhumanLink.notifications.sent': 'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
+  'app.openhumanLink.notifications.sendFailed': "Couldn't send: {error}",
+  'app.openhumanLink.notifications.sent':
+    'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
   'app.openhumanLink.skipForNow': 'এখনের জন্য এড়িয়ে যান',
   'app.openhumanLink.telegramUnavailable': 'Telegram পাওয়া যাচ্ছে না',
   'app.openhumanLink.title.accounts': 'আপনার অ্যাপ সংযুক্ত করুন',

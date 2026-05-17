@@ -298,8 +298,9 @@ const zhCN3: TranslationMap = {
   'app.openhumanLink.notifications.promptHint': '提示',
   'app.openhumanLink.notifications.retry': '重试测试通知',
   'app.openhumanLink.notifications.send': '发送测试通知',
-  'app.openhumanLink.notifications.sendFailed': 'Couldn\'t send: {error}',
-  'app.openhumanLink.notifications.sent': 'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
+  'app.openhumanLink.notifications.sendFailed': "Couldn't send: {error}",
+  'app.openhumanLink.notifications.sent':
+    'Test notification sent. If you didn’t receive it, go to System Settings → Notifications → OpenHuman, turn on Allow Notifications, and set Banner Style to Persistent.',
   'app.openhumanLink.skipForNow': '暂时跳过',
   'app.openhumanLink.telegramUnavailable': 'Telegram 不可用',
   'app.openhumanLink.title.accounts': '连接你的应用',

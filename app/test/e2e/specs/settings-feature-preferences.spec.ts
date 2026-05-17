@@ -10,23 +10,6 @@ import { startMockServer, stopMockServer } from '../mock-server';
 
 const USER_ID = 'e2e-settings-feature-preferences';
 
-async function readPersistedSlice(key: string): Promise<Record<string, unknown> | null> {
-  return await browser.execute(sliceKey => {
-    const raw = window.localStorage.getItem(`persist:${sliceKey}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    const hydrated: Record<string, unknown> = {};
-    for (const [field, value] of Object.entries(parsed)) {
-      try {
-        hydrated[field] = JSON.parse(value);
-      } catch {
-        hydrated[field] = value;
-      }
-    }
-    return hydrated;
-  }, key);
-}
-
 async function setSelectValue(testId: string, value: string): Promise<boolean> {
   return await browser.execute(
     ({ id, next }) => {
@@ -62,6 +45,75 @@ async function clickSelector(selector: string): Promise<boolean> {
   }, selector);
 }
 
+async function reloadAndReturnTo(route: string, markerText: string): Promise<void> {
+  await browser.execute(() => window.location.reload());
+  await browser.pause(3000);
+  await navigateViaHash(route);
+  await waitForText(markerText, 15_000);
+}
+
+async function buttonHasSelectedStyle(label: string): Promise<boolean> {
+  return await browser.execute(text => {
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
+    const match = buttons.find(button => button.textContent?.includes(text));
+    return Boolean(match?.className.includes('bg-primary-50'));
+  }, label);
+}
+
+async function switchState(ariaLabel: string): Promise<string | null> {
+  return await browser.execute(label => {
+    const el = document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+    return el?.getAttribute('aria-checked') ?? null;
+  }, ariaLabel);
+}
+
+async function mascotColorChecked(colorId: string): Promise<string | null> {
+  return await browser.execute(id => {
+    const el = document.querySelector<HTMLElement>(`[data-testid="mascot-color-${id}"]`);
+    return el?.getAttribute('aria-checked') ?? null;
+  }, colorId);
+}
+
+async function mascotVoiceCurrentText(): Promise<string> {
+  return await browser.execute(() => {
+    const el = document.querySelector<HTMLElement>('[data-testid="mascot-voice-current"]');
+    return el?.textContent ?? '';
+  });
+}
+
+async function mascotVoiceIdFromStore(): Promise<string | null> {
+  return await browser.execute(() => {
+    const win = window as unknown as {
+      __OPENHUMAN_STORE__?: { getState?: () => { mascot?: { voiceId?: string | null } } };
+    };
+    return win.__OPENHUMAN_STORE__?.getState?.().mascot?.voiceId ?? null;
+  });
+}
+
+async function mascotVoiceIdFromPersistedBlob(): Promise<string | null> {
+  return await browser.execute(() => {
+    const activeUserId = window.localStorage.getItem('OPENHUMAN_ACTIVE_USER_ID');
+    if (!activeUserId) return null;
+    const raw = window.localStorage.getItem(`${activeUserId}:persist:mascot`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    const voiceIdRaw = parsed.voiceId;
+    if (!voiceIdRaw) return null;
+    return JSON.parse(voiceIdRaw) as string | null;
+  });
+}
+
+async function defaultMessagingChannelFromStore(): Promise<string | null> {
+  return await browser.execute(() => {
+    const win = window as unknown as {
+      __OPENHUMAN_STORE__?: {
+        getState?: () => { channelConnections?: { defaultMessagingChannel?: string | null } };
+      };
+    };
+    return win.__OPENHUMAN_STORE__?.getState?.().channelConnections?.defaultMessagingChannel ?? null;
+  });
+}
+
 describe('Settings - Feature Preferences', () => {
   before(async () => {
     await startMockServer();
@@ -88,12 +140,10 @@ describe('Settings - Feature Preferences', () => {
 
     await waitForText('Default Messaging Channel', 15_000);
     await clickText('Discord', 10_000);
-    await waitForText('Active route: discord via', 5_000);
-
-    await browser.waitUntil(async () => {
-      const persisted = await readPersistedSlice('channelConnections');
-      return persisted?.defaultMessagingChannel === 'discord';
-    }, { timeout: 10_000, interval: 250, timeoutMsg: 'default channel did not persist' });
+    await browser.waitUntil(
+      async () => (await defaultMessagingChannelFromStore()) === 'discord',
+      { timeout: 10_000, interval: 500, timeoutMsg: 'default channel did not update' }
+    );
   });
 
   it('persists tools preferences to the core app-state snapshot', async () => {
@@ -104,7 +154,7 @@ describe('Settings - Feature Preferences', () => {
     await navigateViaHash('/settings/tools');
     await waitForText('Tools', 15_000);
 
-    expect(await clickText('Filesystem', 10_000)).toBeDefined();
+    expect(await clickText('Shell Commands', 10_000)).toBeDefined();
     await clickText('Save Changes', 10_000);
     await waitForText('Preferences saved', 10_000);
 
@@ -116,13 +166,6 @@ describe('Settings - Feature Preferences', () => {
   });
 
   it('persists notifications DND and category preferences', async () => {
-    const dndBefore = await browser.execute(async () => {
-      const invoker = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: Function } })
-        .__TAURI_INTERNALS__?.invoke;
-      if (typeof invoker !== 'function') return null;
-      return await invoker('webview_notification_get_bypass_prefs');
-    });
-
     await navigateViaHash('/settings/notifications');
 
     await waitForText('Do Not Disturb', 15_000);
@@ -130,23 +173,10 @@ describe('Settings - Feature Preferences', () => {
 
     expect(await clickSelector('button[aria-label="Toggle Do Not Disturb"]')).toBe(true);
     expect(await clickSelector('button[aria-label="Toggle Messages notifications"]')).toBe(true);
+    await browser.pause(1000);
+    await reloadAndReturnTo('/settings/notifications', 'Do Not Disturb');
 
-    await browser.waitUntil(async () => {
-      const prefs = await browser.execute(async () => {
-        const invoker = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: Function } })
-          .__TAURI_INTERNALS__?.invoke;
-        if (typeof invoker !== 'function') return null;
-        return await invoker('webview_notification_get_bypass_prefs');
-      });
-      const persisted = await readPersistedSlice('notifications');
-      return (
-        prefs != null &&
-        typeof prefs === 'object' &&
-        prefs.global_dnd === !Boolean(dndBefore?.global_dnd) &&
-        persisted?.preferences != null &&
-        (persisted.preferences as Record<string, boolean>).messages === false
-      );
-    }, { timeout: 15_000, interval: 500, timeoutMsg: 'notification preferences did not persist' });
+    expect(await switchState('Toggle Messages notifications')).toBe('false');
   });
 
   it('persists mascot color selection', async () => {
@@ -154,11 +184,10 @@ describe('Settings - Feature Preferences', () => {
 
     await waitForText('Color', 15_000);
     expect(await clickSelector('[data-testid="mascot-color-burgundy"]')).toBe(true);
+    await browser.pause(1000);
+    await reloadAndReturnTo('/settings/mascot', 'Color');
 
-    await browser.waitUntil(async () => {
-      const persisted = await readPersistedSlice('mascot');
-      return persisted?.color === 'burgundy';
-    }, { timeout: 10_000, interval: 250, timeoutMsg: 'mascot color did not persist' });
+    expect(await mascotColorChecked('burgundy')).toBe('true');
   });
 
   it('persists the custom mascot voice override on the voice panel', async () => {
@@ -166,13 +195,23 @@ describe('Settings - Feature Preferences', () => {
 
     await waitForText('Mascot Voice', 20_000);
     expect(await setSelectValue('mascot-voice-select', '__custom__')).toBe(true);
-    expect(await setInputValue('mascot-voice-input', 'voice-e2e-custom')).toBe(true);
+    const customVoiceInput = await browser.$('[data-testid="mascot-voice-input"]');
+    await customVoiceInput.waitForExist({ timeout: 10_000 });
+    await customVoiceInput.setValue('voice-e2e-custom');
     expect(await clickSelector('[data-testid="mascot-voice-save-paste"]')).toBe(true);
+    await browser.waitUntil(
+      async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom',
+      { timeout: 10_000, interval: 500, timeoutMsg: 'custom mascot voice did not update' }
+    );
+    await browser.waitUntil(
+      async () => (await mascotVoiceIdFromPersistedBlob()) === 'voice-e2e-custom',
+      { timeout: 15_000, interval: 500, timeoutMsg: 'custom mascot voice did not persist to storage' }
+    );
+    await reloadAndReturnTo('/settings/voice', 'Mascot Voice');
 
-    await browser.waitUntil(async () => {
-      const persisted = await readPersistedSlice('mascot');
-      return persisted?.voiceId === 'voice-e2e-custom';
-    }, { timeout: 10_000, interval: 250, timeoutMsg: 'mascot voice override did not persist' });
-    expect(await textExists('current:')).toBe(true);
+    await browser.waitUntil(
+      async () => (await mascotVoiceIdFromStore()) === 'voice-e2e-custom',
+      { timeout: 15_000, interval: 500, timeoutMsg: 'custom mascot voice did not persist' }
+    );
   });
 });

@@ -232,7 +232,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
           <fieldset>
             <legend className="text-sm font-medium text-stone-900 mb-2">Routing mode</legend>
             <div className="space-y-2">
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label
+                className="flex items-start gap-3 cursor-pointer"
+                onClick={() => setMode('backend')}>
                 <input
                   type="radio"
                   name="composio-mode"
@@ -252,7 +254,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                   </p>
                 </div>
               </label>
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label
+                className="flex items-start gap-3 cursor-pointer"
+                onClick={() => setMode('direct')}>
                 <input
                   type="radio"
                   name="composio-mode"

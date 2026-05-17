@@ -230,7 +230,7 @@ const ru2: TranslationMap = {
   'composio.triggersStillRecorded':
     'Триггеры по-прежнему записываются в историю — LLM-запросы не выполняются.',
   'composio.disableSpecificIntegrations': 'Отключить AI-сортировку для конкретных интеграций',
-  'composio.settingsSaved': 'Настройки сохранены',
+  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
   'composio.saveFailed': 'Не удалось сохранить. Попробуй ещё раз.',
   'cron.title': 'Задания по расписанию',
   'cron.scheduledJobs': 'Запланированные задания',

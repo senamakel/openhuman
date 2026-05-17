@@ -235,7 +235,7 @@ const pt2: TranslationMap = {
   'composio.triggersStillRecorded':
     'Os gatilhos ainda são registrados no histórico — nenhum turno de LLM é executado.',
   'composio.disableSpecificIntegrations': 'Desativar triagem de IA para integrações específicas',
-  'composio.settingsSaved': 'Configurações salvas',
+  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
   'composio.saveFailed': 'Falha ao salvar. Tente novamente.',
   'cron.title': 'Tarefas Cron',
   'cron.scheduledJobs': 'Tarefas Agendadas',

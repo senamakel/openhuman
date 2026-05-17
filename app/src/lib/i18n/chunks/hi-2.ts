@@ -230,7 +230,7 @@ const hi2: TranslationMap = {
   'composio.triggersStillRecorded':
     'ट्रिगर हिस्ट्री में रिकॉर्ड होते रहते हैं — कोई LLM टर्न नहीं चलता।',
   'composio.disableSpecificIntegrations': 'खास इंटीग्रेशन के लिए AI triage बंद करें',
-  'composio.settingsSaved': 'सेटिंग्स सेव हो गईं',
+  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
   'composio.saveFailed': 'सेव नहीं हो पाया। दोबारा कोशिश करें।',
   'cron.title': 'Cron Jobs',
   'cron.scheduledJobs': 'शेड्यूल्ड जॉब्स',

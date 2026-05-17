@@ -1385,8 +1385,7 @@ const en: TranslationMap = {
   'intelligence.memoryChunk.mentioned.chunkOne': '1 chunk',
   'intelligence.memoryChunk.mentioned.chunkOther': '{count} chunks',
   'intelligence.memoryChunk.mentioned.heading': 'm e n t i o n e d',
-  'intelligence.memoryChunk.scoreBars.ariaScore':
-    '{name} score {pct} percent',
+  'intelligence.memoryChunk.scoreBars.ariaScore': '{name} score {pct} percent',
   'intelligence.memoryChunk.scoreBars.atThreshold': 'at {threshold}',
   'intelligence.memoryChunk.scoreBars.dropped': 'dropped',
   'intelligence.memoryChunk.scoreBars.heading': 'w h y   k e p t',

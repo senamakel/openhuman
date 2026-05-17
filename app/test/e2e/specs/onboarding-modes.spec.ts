@@ -14,10 +14,10 @@
  *     expected `data-testid`s (i.e. *all settings are reachable*).
  *
  *   - Phase C — Advanced/Custom path with Configure on the Voice step:
- *     pick Configure, the embedded VoicePanel renders. Toggle the
- *     `voice_server.auto_start` checkbox and click Save. Within a few
- *     seconds the on-disk `config.toml` reflects the new value (i.e.
- *     *advanced settings apply immediately to the core's config.toml*).
+ *     pick Configure, the embedded VoicePanel renders. Flip the STT
+ *     provider selector and assert `config.toml` updates
+ *     `local_ai.stt_provider` within a few seconds (i.e. advanced voice
+ *     provider settings apply immediately to persisted config).
  *
  * Auth is the bypass deep-link path. The mock API server runs on the same
  * port the dist bundle was built against (see `app/scripts/e2e-run-session.sh`).
@@ -264,7 +264,7 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
   // Phase C — Advanced (Custom), Configure on Voice mutates config.toml
   // ───────────────────────────────────────────────────────────────────────
 
-  it('advanced/custom path: Configure on Voice toggles auto_start into config.toml', async () => {
+  it('advanced/custom path: Configure on Voice updates local_ai.stt_provider in config.toml', async () => {
     await resetOnboardingFlagAndReload();
 
     // Welcome → Runtime choice (Custom) → Inference (Default).

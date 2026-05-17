@@ -128,6 +128,7 @@ type Phase =
   | 'authorizing'
   | 'waiting'
   | 'connected'
+  | 'expired'
   | 'disconnecting'
   | 'error';
 
@@ -158,8 +159,15 @@ export default function ComposioConnectModal({
 
   const initialState = deriveComposioState(connection);
   const initiallyConnected = initialState === 'connected';
+  const initiallyExpired = initialState === 'expired';
   const [phase, setPhase] = useState<Phase>(
-    initiallyConnected ? 'connected' : initialState === 'pending' ? 'waiting' : 'idle'
+    initiallyConnected
+      ? 'connected'
+      : initiallyExpired
+        ? 'expired'
+        : initialState === 'pending'
+          ? 'waiting'
+          : 'idle'
   );
   const [error, setError] = useState<string | null>(null);
   const [connectUrl, setConnectUrl] = useState<string | null>(null);
@@ -253,6 +261,12 @@ export default function ComposioConnectModal({
             stopPolling();
             setPhase('error');
             setError(`${t('composio.connect.connectionFailed')} (status: ${hit.status}).`);
+            return;
+          }
+          if (state === 'expired') {
+            stopPolling();
+            setPhase('expired');
+            setError(null);
             return;
           }
         }
@@ -479,7 +493,9 @@ export default function ComposioConnectModal({
   const headerTitle =
     phase === 'connected'
       ? `${t('composio.connect.manage')} ${toolkit.name}`
-      : `${t('composio.connect.connect')} ${toolkit.name}`;
+      : phase === 'expired'
+        ? `${t('composio.reconnect')} ${toolkit.name}`
+        : `${t('composio.connect.connect')} ${toolkit.name}`;
 
   const modalContent = (
     <div
@@ -644,6 +660,27 @@ export default function ComposioConnectModal({
             </>
           )}
 
+          {phase === 'expired' && (
+            <>
+              <div className="rounded-xl border border-coral-200 bg-coral-50 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-coral-800">
+                  <div className="w-2 h-2 rounded-full bg-coral-500" />
+                  {toolkit.name} authorization expired
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-coral-700">
+                  Reconnect to re-enable {toolkit.name} tools. OpenHuman will keep this integration
+                  unavailable until you refresh OAuth access.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleConnect()}
+                className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors">
+                Reconnect {toolkit.name}
+              </button>
+            </>
+          )}
+
           {phase === 'connected' && (
             <>
               <div className="flex items-center gap-2 text-sm text-sage-700">
@@ -699,7 +736,9 @@ export default function ComposioConnectModal({
               <button
                 type="button"
                 onClick={() => {
-                  setPhase(initiallyConnected ? 'connected' : 'idle');
+                  setPhase(
+                    initiallyConnected ? 'connected' : initiallyExpired ? 'expired' : 'idle'
+                  );
                   setError(null);
                 }}
                 className="w-full rounded-xl border border-stone-200 bg-white text-stone-700 text-sm font-medium py-2 hover:bg-stone-50 transition-colors">

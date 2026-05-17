@@ -41,14 +41,28 @@ interface OpenhumanLinkEvent {
 
 export const OPENHUMAN_LINK_EVENT = 'openhuman-link';
 
+const ALLOWED_PATHS = [
+  'settings/notifications',
+  'settings/billing',
+  'settings/messaging',
+  'community/discord',
+  'accounts/setup',
+] as const;
+
+type AllowedPath = (typeof ALLOWED_PATHS)[number];
+
+const ALLOWED_PATHS_SET = new Set<string>(ALLOWED_PATHS);
+
 const OpenhumanLinkModal = () => {
   const { t } = useT();
-  const [activePath, setActivePath] = useState<string | null>(null);
+  const [activePath, setActivePath] = useState<AllowedPath | null>(null);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<OpenhumanLinkEvent>).detail;
-      if (detail?.path) setActivePath(detail.path);
+      if (detail?.path && ALLOWED_PATHS_SET.has(detail.path)) {
+        setActivePath(detail.path as AllowedPath);
+      }
     };
     window.addEventListener(OPENHUMAN_LINK_EVENT, handler);
     return () => window.removeEventListener(OPENHUMAN_LINK_EVENT, handler);
@@ -91,7 +105,7 @@ const OpenhumanLinkModal = () => {
             </svg>
           </button>
         </div>
-        <div className="p-5">{renderBody(activePath, close, t)}</div>
+        <div className="p-5">{renderBody(activePath, close)}</div>
       </div>
     </div>
   );
@@ -143,7 +157,7 @@ const MessagingSetupBridge = ({ onClose }: { onClose: () => void }) => {
   return <ChannelSetupModal definition={telegram} onClose={onClose} />;
 };
 
-function titleForPath(path: string, t: (k: string) => string): string {
+function titleForPath(path: AllowedPath, t: (k: string) => string): string {
   switch (path) {
     case 'settings/notifications':
       return t('app.openhumanLink.title.notifications');
@@ -155,12 +169,10 @@ function titleForPath(path: string, t: (k: string) => string): string {
       return t('app.openhumanLink.title.discord');
     case 'accounts/setup':
       return t('app.openhumanLink.title.accounts');
-    default:
-      return t('nav.settings');
   }
 }
 
-function renderBody(path: string, close: () => void, t: (k: string) => string) {
+function renderBody(path: AllowedPath, close: () => void) {
   switch (path) {
     case 'settings/notifications':
       return <NotificationsBody close={close} />;
@@ -176,13 +188,6 @@ function renderBody(path: string, close: () => void, t: (k: string) => string) {
       return <DiscordBody close={close} />;
     case 'accounts/setup':
       return <AccountsSetupBody close={close} />;
-    default:
-      return (
-        <div className="space-y-3 text-sm text-stone-700">
-          <p>{t('app.openhumanLink.defaultBody')}</p>
-          <DoneFooter close={close} />
-        </div>
-      );
   }
 }
 

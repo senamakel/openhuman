@@ -6,8 +6,6 @@ type: Feature
 assignees: ""
 ---
 
-Use a concise sentence-case title that describes the requested outcome. Do not add `Feature` or bracket prefixes to the title.
-
 ## Summary
 
 Ingest messages from the embedded WeChat webview into OpenHuman so the agent can use recent WeChat conversations as context and persist useful history into memory.

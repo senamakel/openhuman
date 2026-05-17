@@ -6,6 +6,8 @@
  *   - "Composio"   — shown for cards backed by the Composio toolkit (kind === 'composio')
  */
 
+import { useT } from '../lib/i18n/I18nContext';
+
 const MESSAGING_IDS = ['imessage', 'telegram', 'whatsapp'] as const;
 type MessagingId = (typeof MESSAGING_IDS)[number];
 
@@ -19,16 +21,17 @@ interface ConnectionBadgeProps {
 }
 
 export default function ConnectionBadge({ kind }: ConnectionBadgeProps) {
+  const { t } = useT();
   if (kind === 'composio') {
     return (
       <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[10px] font-medium text-violet-700 leading-none">
-        Composio
+        {t('app.connectionBadge.composio')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-medium text-sky-700 leading-none">
-      Messaging
+      {t('app.connectionBadge.messaging')}
     </span>
   );
 }

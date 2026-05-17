@@ -105,7 +105,7 @@ async function waitForHash(prefix: string, timeout = 15_000): Promise<boolean> {
 async function resetOnboardingFlagAndReload(): Promise<void> {
   stepLog('Resetting onboarding_completed=false via RPC');
   const res = await callOpenhumanRpc<{ completed: boolean }>(
-    'config.set_onboarding_completed',
+    'openhuman.config_set_onboarding_completed',
     { value: false }
   );
   if (!res.ok) {

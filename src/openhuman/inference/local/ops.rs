@@ -147,10 +147,16 @@ pub async fn local_ai_status(config: &Config) -> Result<RpcOutcome<LocalAiStatus
             service_clone.bootstrap(&config_clone).await;
         });
     }
-    Ok(RpcOutcome::single_log(
-        service.status(),
-        "local ai status fetched",
-    ))
+    // `LocalAiService` is a process-wide singleton whose cached `provider`
+    // field was set at first init from whichever config it saw. After an
+    // `inference_update_local_settings` call that swaps providers
+    // (e.g. ollama → lm_studio) the cached value is stale, so we overlay
+    // the current config's provider on the status snapshot before returning.
+    let mut snapshot = service.status();
+    snapshot.provider = local_ai::provider::provider_from_config(config)
+        .as_str()
+        .to_string();
+    Ok(RpcOutcome::single_log(snapshot, "local ai status fetched"))
 }
 
 /// Generates a summary of the provided text using local AI models.

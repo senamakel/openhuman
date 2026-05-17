@@ -1,19 +1,19 @@
 use super::*;
 use tempfile::tempdir;
 
-fn disabled_config() -> Config {
+fn disabled_config() -> (Config, tempfile::TempDir) {
     let tmp = tempdir().expect("tempdir");
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");
     config.config_path = tmp.path().join("config.toml");
     config.local_ai.runtime_enabled = false;
     config.local_ai.opt_in_confirmed = false;
-    config
+    (config, tmp)
 }
 
 #[tokio::test]
 async fn inference_status_reports_disabled_state_when_runtime_disabled() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let outcome = inference_status(&config).await.expect("status");
     assert!(
         matches!(outcome.value.state.as_str(), "idle" | "disabled"),
@@ -24,7 +24,7 @@ async fn inference_status_reports_disabled_state_when_runtime_disabled() {
 
 #[tokio::test]
 async fn inference_prompt_reuses_local_ai_disabled_error() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let err = inference_prompt(&config, "hello", None, Some(true))
         .await
         .expect_err("prompt should fail");
@@ -33,7 +33,7 @@ async fn inference_prompt_reuses_local_ai_disabled_error() {
 
 #[tokio::test]
 async fn inference_summarize_reuses_local_ai_disabled_error() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let err = inference_summarize(&config, "hello", None)
         .await
         .expect_err("summarize should fail");
@@ -42,7 +42,7 @@ async fn inference_summarize_reuses_local_ai_disabled_error() {
 
 #[tokio::test]
 async fn inference_embed_reuses_local_ai_disabled_error() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let err = inference_embed(&config, &["hello".to_string()])
         .await
         .expect_err("embed should fail");
@@ -51,7 +51,7 @@ async fn inference_embed_reuses_local_ai_disabled_error() {
 
 #[tokio::test]
 async fn inference_chat_rejects_empty_messages() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let err = inference_chat(&config, vec![], None)
         .await
         .expect_err("chat should fail");
@@ -60,7 +60,7 @@ async fn inference_chat_rejects_empty_messages() {
 
 #[tokio::test]
 async fn inference_should_react_short_circuits_for_empty_message() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let outcome = inference_should_react(&config, "   ", "web")
         .await
         .expect("reaction decision");
@@ -70,7 +70,7 @@ async fn inference_should_react_short_circuits_for_empty_message() {
 
 #[tokio::test]
 async fn inference_analyze_sentiment_handles_empty_message() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let outcome = inference_analyze_sentiment(&config, "   ")
         .await
         .expect("sentiment");
@@ -79,7 +79,7 @@ async fn inference_analyze_sentiment_handles_empty_message() {
 
 #[tokio::test]
 async fn inference_should_send_gif_short_circuits_for_empty_message() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let outcome = inference_should_send_gif(&config, "   ", "web")
         .await
         .expect("gif decision");
@@ -88,7 +88,7 @@ async fn inference_should_send_gif_short_circuits_for_empty_message() {
 
 #[tokio::test]
 async fn inference_tenor_search_requires_query() {
-    let config = disabled_config();
+    let (config, _tmp) = disabled_config();
     let err = inference_tenor_search(&config, "   ", Some(3))
         .await
         .expect_err("query validation should fail");

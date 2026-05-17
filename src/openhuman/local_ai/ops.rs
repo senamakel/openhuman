@@ -348,10 +348,7 @@ pub async fn local_ai_download_asset(
         .download_asset(config, capability.trim())
         .await
         .map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        output,
-        "local ai voice asset download triggered",
-    ))
+    Ok(RpcOutcome::single_log(output, "local ai asset download triggered"))
 }
 
 /// A single message in a local AI chat conversation.

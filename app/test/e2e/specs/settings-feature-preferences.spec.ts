@@ -3,34 +3,17 @@ import { browser, expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, waitForText } from '../helpers/element-helpers';
+import {
+  clickSelector,
+  clickText,
+  setSelectValueByTestId,
+  waitForText,
+} from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
 
 const USER_ID = 'e2e-settings-feature-preferences';
-
-async function setSelectValue(testId: string, value: string): Promise<boolean> {
-  return await browser.execute(
-    ({ id, next }) => {
-      const el = document.querySelector<HTMLSelectElement>(`[data-testid="${id}"]`);
-      if (!el) return false;
-      el.value = next;
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    },
-    { id: testId, next: value }
-  );
-}
-
-async function clickSelector(selector: string): Promise<boolean> {
-  return await browser.execute(sel => {
-    const el = document.querySelector<HTMLElement>(sel);
-    if (!el) return false;
-    el.click();
-    return true;
-  }, selector);
-}
 
 async function reloadAndReturnTo(route: string, markerText: string): Promise<void> {
   await browser.execute(() => window.location.reload());
@@ -154,6 +137,7 @@ describe('Settings - Feature Preferences', () => {
     await browser.pause(1000);
     await reloadAndReturnTo('/settings/notifications', 'Do Not Disturb');
 
+    expect(await switchState('Toggle Do Not Disturb')).toBe('true');
     expect(await switchState('Toggle Messages notifications')).toBe('false');
   });
 
@@ -172,7 +156,7 @@ describe('Settings - Feature Preferences', () => {
     await navigateViaHash('/settings/voice');
 
     await waitForText('Mascot Voice', 20_000);
-    expect(await setSelectValue('mascot-voice-select', '__custom__')).toBe(true);
+    expect(await setSelectValueByTestId('mascot-voice-select', '__custom__')).toBe(true);
     const customVoiceInput = await browser.$('[data-testid="mascot-voice-input"]');
     await customVoiceInput.waitForExist({ timeout: 10_000 });
     await customVoiceInput.setValue('voice-e2e-custom');

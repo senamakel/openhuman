@@ -3,31 +3,18 @@ import { browser, expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, textExists, waitForText } from '../helpers/element-helpers';
+import {
+  clickLabelContaining,
+  clickSelector,
+  clickText,
+  textExists,
+  waitForText,
+} from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
 
 const USER_ID = 'e2e-settings-advanced-config';
-
-async function clickSelector(selector: string): Promise<boolean> {
-  return await browser.execute(sel => {
-    const el = document.querySelector<HTMLElement>(sel);
-    if (!el) return false;
-    el.click();
-    return true;
-  }, selector);
-}
-
-async function clickLabelContaining(text: string): Promise<boolean> {
-  return await browser.execute(targetText => {
-    const labels = Array.from(document.querySelectorAll<HTMLLabelElement>('label'));
-    const label = labels.find(node => node.textContent?.includes(targetText));
-    if (!label) return false;
-    label.click();
-    return true;
-  }, text);
-}
 
 async function readLocalStorageJson<T = unknown>(key: string): Promise<T | null> {
   return await browser.execute(storageKey => {
@@ -66,7 +53,7 @@ describe('Settings - Advanced Config', () => {
 
     await navigateViaHash('/settings/notification-routing');
     await waitForText('Notification Intelligence', 15_000);
-    expect(await clickSelector('input[type="checkbox"]')).toBe(true);
+    await clickSelector('input[type="checkbox"]');
 
     await browser.waitUntil(
       async () => {
@@ -111,7 +98,7 @@ describe('Settings - Advanced Config', () => {
     await navigateViaHash('/settings/composio-routing');
     await waitForText('Routing mode', 15_000);
 
-    expect(await clickLabelContaining('Direct (bring your own API key)')).toBe(true);
+    await clickLabelContaining('Direct (bring your own API key)');
     const apiKeyInput = await browser.$('#composio-api-key');
     await apiKeyInput.waitForExist({ timeout: 10_000 });
     await apiKeyInput.setValue('ck_live_e2e_composio_key');

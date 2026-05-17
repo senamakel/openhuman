@@ -3,7 +3,7 @@ import { browser, expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, textExists, waitForText } from '../helpers/element-helpers';
+import { clickSelector, clickText, textExists, waitForText } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -15,39 +15,6 @@ async function waitForHashContains(fragment: string, timeout = 10_000): Promise<
     async () => String(await browser.execute(() => window.location.hash)).includes(fragment),
     { timeout, interval: 250, timeoutMsg: `hash did not include ${fragment}` }
   );
-}
-
-async function clickFirstSwitch(timeout = 10_000): Promise<boolean> {
-  return await browser.executeAsync(
-    ({ timeout: ms }, done) => {
-      const deadline = Date.now() + ms;
-      const poll = () => {
-        const switches = Array.from(document.querySelectorAll<HTMLElement>('[role="switch"]'));
-        const target = switches[0];
-        if (target) {
-          target.click();
-          done(true);
-          return;
-        }
-        if (Date.now() > deadline) {
-          done(false);
-          return;
-        }
-        window.setTimeout(poll, 100);
-      };
-      poll();
-    },
-    { timeout }
-  );
-}
-
-async function clickBySelector(selector: string): Promise<boolean> {
-  return await browser.execute(sel => {
-    const el = document.querySelector<HTMLElement>(sel);
-    if (!el) return false;
-    el.click();
-    return true;
-  }, selector);
 }
 
 describe('Settings - Account Preferences', () => {
@@ -74,7 +41,7 @@ describe('Settings - Account Preferences', () => {
     await navigateViaHash('/settings/recovery-phrase');
 
     await waitForText('Copy to Clipboard', 15_000);
-    expect(await clickBySelector('input[type="checkbox"]')).toBe(true);
+    await clickSelector('input[type="checkbox"]');
     await clickText('Save Recovery Phrase', 10_000);
 
     await waitForText('Recovery phrase saved', 20_000);
@@ -103,8 +70,8 @@ describe('Settings - Account Preferences', () => {
     await waitForText('Privacy', 15_000);
     await waitForText('Share Anonymized Usage Data', 15_000);
 
-    expect(await clickFirstSwitch()).toBe(true);
-    expect(await clickBySelector('[data-testid="privacy-meet-handoff-toggle"]')).toBe(true);
+    await clickSelector('[data-testid="privacy-analytics-toggle"]');
+    await clickSelector('[data-testid="privacy-meet-handoff-toggle"]');
 
     await browser.waitUntil(
       async () => {

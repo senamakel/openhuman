@@ -26,10 +26,17 @@ pub async fn inference_summarize(
     text: &str,
     max_tokens: Option<u32>,
 ) -> Result<RpcOutcome<String>, String> {
-    debug!(text_len = text.len(), ?max_tokens, "{LOG_PREFIX} summarize:start");
+    debug!(
+        text_len = text.len(),
+        ?max_tokens,
+        "{LOG_PREFIX} summarize:start"
+    );
     let result = local_ai::rpc::local_ai_summarize(config, text, max_tokens).await;
     match &result {
-        Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} summarize:ok"),
+        Ok(outcome) => debug!(
+            output_len = outcome.value.len(),
+            "{LOG_PREFIX} summarize:ok"
+        ),
         Err(err) => error!(error = %err, "{LOG_PREFIX} summarize:error"),
     }
     result
@@ -67,9 +74,13 @@ pub async fn inference_vision_prompt(
         ?max_tokens,
         "{LOG_PREFIX} vision_prompt:start"
     );
-    let result = local_ai::rpc::local_ai_vision_prompt(config, prompt, image_refs, max_tokens).await;
+    let result =
+        local_ai::rpc::local_ai_vision_prompt(config, prompt, image_refs, max_tokens).await;
     match &result {
-        Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} vision_prompt:ok"),
+        Ok(outcome) => debug!(
+            output_len = outcome.value.len(),
+            "{LOG_PREFIX} vision_prompt:ok"
+        ),
         Err(err) => error!(error = %err, "{LOG_PREFIX} vision_prompt:error"),
     }
     result
@@ -97,7 +108,11 @@ pub async fn inference_chat(
     messages: Vec<LocalAiChatMessage>,
     max_tokens: Option<u32>,
 ) -> Result<RpcOutcome<String>, String> {
-    debug!(message_count = messages.len(), ?max_tokens, "{LOG_PREFIX} chat:start");
+    debug!(
+        message_count = messages.len(),
+        ?max_tokens,
+        "{LOG_PREFIX} chat:start"
+    );
     let result = local_ai::rpc::local_ai_chat(config, messages, max_tokens).await;
     match &result {
         Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} chat:ok"),
@@ -113,8 +128,7 @@ pub async fn inference_should_react(
 ) -> Result<RpcOutcome<ReactionDecision>, String> {
     debug!(
         message_len = message.len(),
-        channel_type,
-        "{LOG_PREFIX} should_react:start"
+        channel_type, "{LOG_PREFIX} should_react:start"
     );
     let result = local_ai::rpc::local_ai_should_react(config, message, channel_type).await;
     match &result {
@@ -131,10 +145,15 @@ pub async fn inference_analyze_sentiment(
     config: &Config,
     message: &str,
 ) -> Result<RpcOutcome<SentimentResult>, String> {
-    debug!(message_len = message.len(), "{LOG_PREFIX} analyze_sentiment:start");
+    debug!(
+        message_len = message.len(),
+        "{LOG_PREFIX} analyze_sentiment:start"
+    );
     let result = local_ai::sentiment::local_ai_analyze_sentiment(config, message).await;
     match &result {
-        Ok(outcome) => debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok"),
+        Ok(outcome) => {
+            debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok")
+        }
         Err(err) => error!(error = %err, "{LOG_PREFIX} analyze_sentiment:error"),
     }
     result
@@ -147,10 +166,10 @@ pub async fn inference_should_send_gif(
 ) -> Result<RpcOutcome<GifDecision>, String> {
     debug!(
         message_len = message.len(),
-        channel_type,
-        "{LOG_PREFIX} should_send_gif:start"
+        channel_type, "{LOG_PREFIX} should_send_gif:start"
     );
-    let result = local_ai::gif_decision::local_ai_should_send_gif(config, message, channel_type).await;
+    let result =
+        local_ai::gif_decision::local_ai_should_send_gif(config, message, channel_type).await;
     match &result {
         Ok(outcome) => debug!(
             should_send_gif = outcome.value.should_send_gif,
@@ -166,10 +185,17 @@ pub async fn inference_tenor_search(
     query: &str,
     limit: Option<u32>,
 ) -> Result<RpcOutcome<TenorSearchResult>, String> {
-    debug!(query_len = query.len(), ?limit, "{LOG_PREFIX} tenor_search:start");
+    debug!(
+        query_len = query.len(),
+        ?limit,
+        "{LOG_PREFIX} tenor_search:start"
+    );
     let result = local_ai::gif_decision::tenor_search(config, query, limit).await;
     match &result {
-        Ok(outcome) => debug!(result_count = outcome.value.results.len(), "{LOG_PREFIX} tenor_search:ok"),
+        Ok(outcome) => debug!(
+            result_count = outcome.value.results.len(),
+            "{LOG_PREFIX} tenor_search:ok"
+        ),
         Err(err) => error!(error = %err, "{LOG_PREFIX} tenor_search:error"),
     }
     result

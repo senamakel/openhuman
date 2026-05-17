@@ -292,7 +292,7 @@ describe('Runtime picker → login → onboarding → home → logout', () => {
     if (!meCall) {
       console.log(`${LOG} /auth/me not seen. Log:`, JSON.stringify(getRequestLog(), null, 2));
     }
-    expect(meCall).toBeDefined();
+    expect(meCall).toBeTruthy();
 
     // Walk through onboarding if it's shown (new user path); a returning user
     // would skip directly to Home. walkOnboarding is a no-op when there's no

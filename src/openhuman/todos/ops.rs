@@ -12,11 +12,25 @@ use crate::openhuman::agent::task_board::{
     normalise_board, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
 use chrono::Utc;
+use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use uuid::Uuid;
 
 use super::store::{global_scratch_store, ScratchTodoStore};
+
+/// Serialise scratch CRUD so each public op's load → mutate → save
+/// sequence runs in one critical section. Per-thread ops are already
+/// atomic at the file-rename level via `TaskBoardStore::put`.
+fn scratch_serial_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(())).lock()
+}
+
+fn maybe_scratch_lock(location: &BoardLocation) -> Option<MutexGuard<'static, ()>> {
+    matches!(location, BoardLocation::Scratch).then(scratch_serial_lock)
+}
 
 /// Stable string aliases accepted on the wire for [`TaskCardStatus`].
 pub fn parse_status(raw: &str) -> Result<TaskCardStatus, String> {
@@ -176,6 +190,7 @@ pub fn add(
         content_len = content.len(),
         "[todos][ops] add entry"
     );
+    let _scratch_guard = maybe_scratch_lock(location);
     let content = content.trim();
     if content.is_empty() {
         return Err("todo content must not be empty".to_string());
@@ -205,6 +220,7 @@ pub fn edit(location: &BoardLocation, id: &str, patch: CardPatch) -> Result<Todo
         id,
         "[todos][ops] edit entry"
     );
+    let _scratch_guard = maybe_scratch_lock(location);
     let mut cards = load_cards(location)?;
     let card = cards
         .iter_mut()
@@ -256,6 +272,7 @@ pub fn remove(location: &BoardLocation, id: &str) -> Result<TodosSnapshot, Strin
         id,
         "[todos][ops] remove entry"
     );
+    let _scratch_guard = maybe_scratch_lock(location);
     let mut cards = load_cards(location)?;
     let before = cards.len();
     cards.retain(|c| c.id != id);
@@ -277,6 +294,7 @@ pub fn replace(
         card_count = cards.len(),
         "[todos][ops] replace entry"
     );
+    let _scratch_guard = maybe_scratch_lock(location);
     enforce_single_in_progress(&cards)?;
     let cards = save_cards(location, cards)?;
     emit_progress(location, &cards);
@@ -286,6 +304,7 @@ pub fn replace(
 /// Empty the list.
 pub fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
     tracing::debug!(thread_id = ?location.thread_id(), "[todos][ops] clear entry");
+    let _scratch_guard = maybe_scratch_lock(location);
     let cards = save_cards(location, Vec::new())?;
     emit_progress(location, &cards);
     Ok(into_snapshot(location, cards))
@@ -293,6 +312,7 @@ pub fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
 
 /// Snapshot the current list without mutating.
 pub fn list(location: &BoardLocation) -> Result<TodosSnapshot, String> {
+    let _scratch_guard = maybe_scratch_lock(location);
     let cards = load_cards(location)?;
     Ok(into_snapshot(location, cards))
 }

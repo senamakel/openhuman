@@ -29,6 +29,11 @@ impl ScratchTodoStore {
     }
 }
 
+// NOTE: scratch CRUD calls in [`super::ops`] (load → mutate → save) are
+// serialised by a coarser process-global mutex on the ops side, so the
+// pair runs in one critical section even though [`snapshot`] and
+// [`replace`] each take this inner lock independently.
+
 /// Process-global scratch store handle. The same `Arc` is returned across
 /// calls so tool re-registration doesn't lose in-memory state.
 pub fn global_scratch_store() -> Arc<ScratchTodoStore> {

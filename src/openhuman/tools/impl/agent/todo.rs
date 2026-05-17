@@ -155,10 +155,15 @@ fn current_location() -> BoardLocation {
 }
 
 fn required_string(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
-    args.get(key)
+    let value = args
+        .get(key)
         .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .ok_or_else(|| anyhow::anyhow!("missing required field `{key}`"))
+        .ok_or_else(|| anyhow::anyhow!("missing required field `{key}`"))?;
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow::anyhow!("missing required field `{key}`"));
+    }
+    Ok(trimmed.to_string())
 }
 
 fn optional_string(args: &serde_json::Value, key: &str) -> Option<String> {

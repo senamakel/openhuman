@@ -379,6 +379,7 @@ const DiscordBody = ({ close }: { close: () => void }) => {
  */
 const ACCOUNTS_SETUP_PROVIDERS: readonly AccountProvider[] = [
   'whatsapp',
+  'wechat',
   'telegram',
   'slack',
   'discord',

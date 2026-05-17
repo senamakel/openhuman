@@ -37,17 +37,6 @@ interface ModelStatusSectionProps {
   onRepairAction?: (action: RepairAction) => void;
 }
 
-const repairActionLabel = (action: RepairAction): string => {
-  switch (action.action) {
-    case 'install_ollama':
-      return 'Install Ollama';
-    case 'start_server':
-      return 'Start Server';
-    case 'pull_model':
-      return `Pull ${action.model}`;
-  }
-};
-
 const ModelStatusSection = ({
   status,
   downloads,
@@ -78,19 +67,26 @@ const ModelStatusSection = ({
   onRunDiagnostics,
   onRepairAction,
 }: ModelStatusSectionProps) => {
-  // Core reports `ollama_available: false` when no Ollama binary is
-  // discoverable on disk. The backend short-circuits all `has_model` HTTP
-  // probes in that state, so model rows below will all read "missing". Surface
-  // a clear install CTA up front so users don't have to interpret the empty
-  // model state on their own.
+  // OpenHuman no longer installs or launches Ollama itself. When the runtime
+  // is unavailable, surface manual guidance instead of management controls.
   const showInstallOllamaCta = downloads?.ollama_available === false;
 
+  void isTriggeringDownload;
+  void bootstrapMessage;
+  void isInstalling;
+  void isInstallError;
+  void showErrorDetail;
+  void ollamaPathInput;
+  void isSettingPath;
+  void runtimeEnabled;
+  void onTriggerDownload;
+  void onSetOllamaPath;
+  void onClearOllamaPath;
+  void onSetOllamaPathInput;
+  void onToggleErrorDetail;
+  void onRepairAction;
+
   if (showInstallOllamaCta) {
-    // No Ollama on disk — the runtime-status card and diagnostics panels
-    // below would just read "n/a" / "missing" everywhere, which is more
-    // confusing than helpful. Render only the install CTA, with the binary
-    // path setter inline for users who installed Ollama in a non-standard
-    // location that auto-discovery can't find.
     return (
       <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
         <div className="flex items-start gap-3">
@@ -107,79 +103,21 @@ const ModelStatusSection = ({
             />
           </svg>
           <div className="flex-1 space-y-1">
-            <div className="text-sm font-semibold text-amber-900">Ollama is not installed</div>
+            <div className="text-sm font-semibold text-amber-900">Ollama runtime unavailable</div>
             <div className="text-xs text-amber-800">
-              Local AI features (chat, vision, embedding) need the Ollama runtime. Install it below
-              — the installer runs silently and lands in your workspace; no console window will
-              appear.
+              OpenHuman now treats Ollama as an external inference runtime. Start your own Ollama
+              server, pull the models you want, and point workload routing at it.
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => onTriggerDownload(true)}
-            disabled={isTriggeringDownload}
-            className="px-3 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium">
-            {isTriggeringDownload ? 'Installing...' : 'Install Ollama'}
-          </button>
           <a
             href="https://ollama.com"
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 text-xs rounded-md border border-amber-300 hover:border-amber-400 text-amber-800">
-            Install manually
+            Ollama docs
           </a>
-        </div>
-
-        {isInstallError && status?.error_detail && (
-          <div className="space-y-1 pt-2 border-t border-amber-200">
-            <button
-              type="button"
-              onClick={onToggleErrorDetail}
-              className="text-xs text-red-700 hover:text-red-600 underline">
-              {showErrorDetail ? 'Hide error details' : 'Show install error details'}
-            </button>
-            {showErrorDetail && (
-              <pre className="max-h-40 overflow-auto rounded bg-red-50 border border-red-200 p-2 text-[10px] text-red-700 leading-tight whitespace-pre-wrap break-words">
-                {status.error_detail}
-              </pre>
-            )}
-          </div>
-        )}
-
-        <div className="pt-2 border-t border-amber-200 space-y-1">
-          <div className="text-amber-900 text-xs font-medium">
-            Already installed in a custom location?
-          </div>
-          <div className="text-[11px] text-amber-800">
-            Point us at the binary and we&apos;ll use it instead of running the installer.
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="text"
-              value={ollamaPathInput}
-              onChange={e => onSetOllamaPathInput(e.target.value)}
-              placeholder="C:\Users\you\AppData\Local\Programs\Ollama\ollama.exe"
-              className="flex-1 rounded-md border border-amber-300 bg-white px-2 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={onSetOllamaPath}
-              disabled={isSettingPath || !ollamaPathInput.trim()}
-              className="px-2 py-1.5 text-xs rounded-md bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white whitespace-nowrap">
-              {isSettingPath ? 'Setting...' : 'Set Path'}
-            </button>
-            {ollamaPathInput && (
-              <button
-                type="button"
-                onClick={onClearOllamaPath}
-                disabled={isSettingPath}
-                className="px-2 py-1.5 text-xs rounded-md border border-amber-300 hover:border-amber-400 disabled:opacity-60 text-amber-800 whitespace-nowrap">
-                Clear
-              </button>
-            )}
-          </div>
         </div>
       </section>
     );
@@ -272,7 +210,7 @@ const ModelStatusSection = ({
           {status?.warning && <div className="text-xs text-amber-700">{status.warning}</div>}
           {statusError && <div className="text-xs text-red-600">{statusError}</div>}
 
-          {isInstallError && status?.error_detail && (
+          {status?.error_detail && (
             <div className="space-y-1">
               <button
                 onClick={onToggleErrorDetail}
@@ -285,7 +223,7 @@ const ModelStatusSection = ({
                 </pre>
               )}
               <p className="text-xs text-stone-500">
-                Install Ollama manually from{' '}
+                OpenHuman only connects to an already-running Ollama-compatible endpoint. See{' '}
                 <a
                   href="https://ollama.com"
                   target="_blank"
@@ -293,73 +231,10 @@ const ModelStatusSection = ({
                   className="text-primary-500 hover:text-primary-600 underline">
                   ollama.com
                 </a>{' '}
-                then set its path below.
+                for setup instructions, then retry after your runtime is reachable.
               </p>
             </div>
           )}
-
-          <div className="space-y-1">
-            <div className="text-stone-500 text-xs uppercase tracking-wide">
-              Ollama Binary Path (optional)
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={ollamaPathInput}
-                onChange={e => onSetOllamaPathInput(e.target.value)}
-                placeholder="/usr/local/bin/ollama"
-                className="flex-1 rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none"
-              />
-              <button
-                onClick={onSetOllamaPath}
-                disabled={isSettingPath || !ollamaPathInput.trim()}
-                className="px-2 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white whitespace-nowrap">
-                {isSettingPath ? 'Setting...' : 'Set Path'}
-              </button>
-              {ollamaPathInput && (
-                <button
-                  onClick={onClearOllamaPath}
-                  disabled={isSettingPath}
-                  className="px-2 py-1.5 text-xs rounded-md border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600 whitespace-nowrap">
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            {status?.state === 'ready' ? (
-              <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-green-50 text-green-700 border border-green-200 font-medium">
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Running
-              </span>
-            ) : (
-              <button
-                onClick={() => onTriggerDownload(false)}
-                disabled={!runtimeEnabled || isTriggeringDownload}
-                className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
-                {isTriggeringDownload
-                  ? 'Triggering...'
-                  : status?.state === 'degraded'
-                    ? 'Retry Bootstrap'
-                    : 'Bootstrap / Resume'}
-              </button>
-            )}
-            <button
-              onClick={() => onTriggerDownload(true)}
-              disabled={!runtimeEnabled || isTriggeringDownload}
-              className="px-3 py-1.5 text-xs rounded-md border border-stone-200 hover:border-stone-300 disabled:opacity-60 text-stone-600">
-              {isTriggeringDownload ? 'Working...' : 'Force Re-bootstrap'}
-            </button>
-            {bootstrapMessage && <span className="text-xs text-green-600">{bootstrapMessage}</span>}
-          </div>
         </div>
       </section>
 
@@ -376,14 +251,14 @@ const ModelStatusSection = ({
         <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
           {!diagnostics && !diagnosticsError && (
             <p className="text-xs text-stone-500">
-              Click &ldquo;Run Diagnostics&rdquo; to verify Ollama is running and models are
-              installed.
+              Click &ldquo;Run Diagnostics&rdquo; to verify your external Ollama endpoint is
+              reachable and has the expected models.
             </p>
           )}
           {isDiagnosticsLoading && (
             <div className="flex items-center gap-2 text-xs text-primary-600">
               <div className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-              Checking Ollama server and models...
+              Checking Ollama endpoint and models...
             </div>
           )}
           {diagnosticsError && (
@@ -511,23 +386,9 @@ const ModelStatusSection = ({
                 </div>
               )}
 
-              {diagnostics.repair_actions && diagnostics.repair_actions.length > 0 && (
-                <div>
-                  <div className="text-amber-700 uppercase tracking-wide text-[10px] mb-1">
-                    Suggested Fixes
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {diagnostics.repair_actions.map((action, i) => (
-                      <button
-                        key={i}
-                        onClick={() => onRepairAction?.(action)}
-                        className="px-2.5 py-1 text-xs rounded-md bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors">
-                        {repairActionLabel(action)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="text-xs text-stone-500">
+                Manage the Ollama process and model pulls outside OpenHuman, then rerun diagnostics.
+              </div>
             </>
           )}
         </div>

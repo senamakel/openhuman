@@ -29,8 +29,8 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
+use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, ToolCall};
 use crate::openhuman::memory::conversations::ConversationMessage;
-use crate::openhuman::providers::{ChatMessage, ChatRequest, Provider, ToolCall};
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 /// Prompt suffix injected into every typed sub-agent run.
@@ -76,6 +76,9 @@ fn append_subagent_role_contract(base_prompt: String, agent_id: &str) -> String 
 /// Resolve a sub-agent's `(provider, model)` based on its declarative
 /// `[model]` spec.
 ///
+///   - inline `model` override — highest precedence for one call.
+///   - config-level pin — `[orchestrator] model` or `[teams.*]`
+///     `lead_model` / `agent_model`, when present.
 ///   - `Inherit` — use the parent's provider AND model. Literally
 ///     "do what the parent does".
 ///   - `Hint(workload)` — build a fresh provider via the per-workload
@@ -105,6 +108,7 @@ pub(super) fn resolve_subagent_provider(
     config: Option<&crate::openhuman::config::Config>,
     parent_provider: std::sync::Arc<dyn Provider>,
     parent_model: String,
+    is_team_lead: bool,
     model_override: Option<&str>,
 ) -> (std::sync::Arc<dyn Provider>, String) {
     use crate::openhuman::agent::harness::definition::ModelSpec;
@@ -112,8 +116,17 @@ pub(super) fn resolve_subagent_provider(
         .map(str::trim)
         .filter(|model| !model.is_empty())
     {
-        log::info!(
+        log::debug!(
             "[subagent_runner] agent_id={} using inline model override model={}",
+            agent_id,
+            model
+        );
+        return (parent_provider, model.to_string());
+    }
+
+    if let Some(model) = config.and_then(|cfg| cfg.configured_agent_model(agent_id, is_team_lead)) {
+        log::debug!(
+            "[subagent_runner] agent_id={} using config-level model pin model={}",
             agent_id,
             model
         );
@@ -122,23 +135,25 @@ pub(super) fn resolve_subagent_provider(
 
     match spec {
         ModelSpec::Hint(workload) => match config {
-            Some(cfg) => match crate::openhuman::providers::create_chat_provider(workload, cfg) {
-                Ok((p, m)) => {
-                    log::info!(
+            Some(cfg) => {
+                match crate::openhuman::inference::provider::create_chat_provider(workload, cfg) {
+                    Ok((p, m)) => {
+                        log::info!(
                         "[subagent_runner] role={} agent_id={} resolved via workload factory model={}",
                         workload, agent_id, m
                     );
-                    (std::sync::Arc::from(p), m)
-                }
-                Err(e) => {
-                    log::warn!(
+                        (std::sync::Arc::from(p), m)
+                    }
+                    Err(e) => {
+                        log::warn!(
                         "[subagent_runner] workload '{}' provider build failed ({}) for agent_id={} — \
                          falling back to parent provider + parent model '{}'",
                         workload, e, agent_id, parent_model
                     );
-                    (parent_provider, parent_model)
+                        (parent_provider, parent_model)
+                    }
                 }
-            },
+            }
             None => {
                 log::warn!(
                     "[subagent_runner] config load failed for workload '{}' (agent_id={}) — \
@@ -298,6 +313,7 @@ async fn run_typed_mode(
         config_loaded.as_ref().ok(),
         parent.provider.clone(),
         parent.model_name.clone(),
+        !definition.subagents.is_empty(),
         options.model_override.as_deref(),
     );
     let temperature = definition.temperature;
@@ -1170,7 +1186,7 @@ async fn run_inner_loop(
             output_tokens: usage.output_tokens,
             cached_input_tokens: usage.cached_input_tokens,
             charged_amount_usd: usage.charged_amount_usd,
-            thread_id: crate::openhuman::providers::thread_context::current_thread_id(),
+            thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
         };
         if let Err(err) = transcript::write_transcript(&path, history, &meta, None) {
             tracing::debug!(

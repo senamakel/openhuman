@@ -18,8 +18,8 @@ use crate::openhuman::agent::memory_loader::{DefaultMemoryLoader, MemoryLoader};
 use crate::openhuman::config::{Config, ContextConfig};
 use crate::openhuman::context::prompt::SystemPromptBuilder;
 use crate::openhuman::context::{ContextManager, ProviderSummarizer};
+use crate::openhuman::inference::provider::{self, Provider};
 use crate::openhuman::memory::{self, Memory};
-use crate::openhuman::providers::{self, Provider};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool, ToolSpec};
 use anyhow::Result;
@@ -514,7 +514,7 @@ impl Agent {
     ///   legacy behaviour).
     ///
     /// The welcome agent uses this entry point when routed from the
-    /// Tauri web channel (see `channels::providers::web::build_session_agent`).
+    /// Tauri web channel (see `channels::provider::web::build_session_agent`).
     pub fn from_config_for_agent(config: &Config, agent_id: &str) -> Result<Self> {
         // Look up the target definition up front so we can fail fast
         // with a clear error instead of building half an agent and then
@@ -594,7 +594,7 @@ impl Agent {
     /// [`SystemPromptBuilder`], seeded with the `source_chunks` snapshot
     /// from the spawning subconscious reflection (#623).
     ///
-    /// Used by `channels::providers::web::build_session_agent` when a
+    /// Used by `channels::provider::web::build_session_agent` when a
     /// chat thread's seed message metadata flags
     /// `origin == "subconscious_reflection"` — the orchestrator then
     /// has the same memory context the reflection-LLM had, so the user's
@@ -762,7 +762,7 @@ impl Agent {
         // backend. Those are valuable but orthogonal — they can be layered
         // back on top of the factory's output in a follow-up without
         // re-introducing the routing bypass.
-        let _ = providers::ProviderRuntimeOptions {
+        let _ = provider::ProviderRuntimeOptions {
             auth_profile_override: None,
             openhuman_dir: config.config_path.parent().map(std::path::PathBuf::from),
             secrets_encrypt: config.secrets.encrypt,
@@ -774,8 +774,22 @@ impl Agent {
             Some("hint:summarization") | Some("summarization-v1") => "summarization",
             _ => "reasoning",
         };
-        let (provider, model_name): (Box<dyn Provider>, String) =
-            crate::openhuman::providers::create_chat_provider(provider_role, config)?;
+        let (provider, mut model_name): (Box<dyn Provider>, String) =
+            crate::openhuman::inference::provider::create_chat_provider(provider_role, config)?;
+        let target_agent_id = target_def
+            .map(|def| def.id.as_str())
+            .unwrap_or("orchestrator");
+        let target_is_lead = target_def
+            .map(|def| !def.subagents.is_empty())
+            .unwrap_or(true);
+        if let Some(pinned_model) = config.configured_agent_model(target_agent_id, target_is_lead) {
+            log::debug!(
+                "[session-builder] agent_id={} using config-level model pin model={}",
+                target_agent_id,
+                pinned_model
+            );
+            model_name = pinned_model.to_string();
+        }
 
         // Dispatcher selection is deferred until after the tool list is
         // finalised (orchestrator tools are appended below). We capture
@@ -825,21 +839,28 @@ impl Agent {
                     def.omit_skills_catalog,
                 ),
                 PromptSource::File { path } => {
-                    let workspace_path = config
-                        .workspace_dir
-                        .join("agent")
-                        .join("prompts")
-                        .join(path);
+                    let prompt_root = config.workspace_dir.join("agent").join("prompts");
+                    let workspace_path = prompt_root.join(path);
                     let body_text = if workspace_path.is_file() {
-                        std::fs::read_to_string(&workspace_path).unwrap_or_else(|e| {
-                            log::warn!(
-                                "[agent::builder] failed to read prompt {}: {e} — using empty body",
-                                workspace_path.display()
-                            );
-                            String::new()
-                        })
+                        match crate::openhuman::security::validate_path_within_root(&workspace_path, &prompt_root) {
+                            Ok(resolved) => {
+                                std::fs::read_to_string(&resolved).unwrap_or_else(|e| {
+                                    log::warn!(
+                                        "[agent::builder] failed to read prompt {}: {e} — using empty body",
+                                        workspace_path.display()
+                                    );
+                                    String::new()
+                                })
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "[agent::builder] prompt path rejected: {e} — using empty body"
+                                );
+                                String::new()
+                            }
+                        }
                     } else {
-                        log::warn!(
+                        log::debug!(
                             "[agent::builder] prompt file {} not found — using empty body",
                             path
                         );
@@ -924,21 +945,22 @@ impl Agent {
                 let full_config = Arc::new(config.clone());
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
-                let reflection_provider: Option<Arc<dyn crate::openhuman::providers::Provider>> =
-                    if config.learning.reflection_source
-                        == crate::openhuman::config::ReflectionSource::Cloud
-                    {
-                        Some(Arc::from(providers::create_routed_provider(
-                            config.inference_url.as_deref(),
-                            config.api_url.as_deref(),
-                            config.api_key.as_deref(),
-                            &config.reliability,
-                            &config.model_routes,
-                            &model_name,
-                        )?))
-                    } else {
-                        None
-                    };
+                let reflection_provider: Option<
+                    Arc<dyn crate::openhuman::inference::provider::Provider>,
+                > = if config.learning.reflection_source
+                    == crate::openhuman::config::ReflectionSource::Cloud
+                {
+                    Some(Arc::from(provider::create_routed_provider(
+                        config.inference_url.as_deref(),
+                        config.api_url.as_deref(),
+                        config.api_key.as_deref(),
+                        &config.reliability,
+                        &config.model_routes,
+                        &model_name,
+                    )?))
+                } else {
+                    None
+                };
                 post_turn_hooks.push(Arc::new(crate::openhuman::learning::ReflectionHook::new(
                     config.learning.clone(),
                     full_config.clone(),

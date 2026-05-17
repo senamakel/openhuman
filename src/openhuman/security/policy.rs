@@ -498,8 +498,17 @@ impl SecurityPolicy {
         approved: bool,
     ) -> Result<CommandRiskLevel, String> {
         if !self.is_command_allowed(command) {
-            let truncated: String = command.chars().take(80).collect();
-            log::warn!("[openhuman:policy] Command blocked by allowlist: {truncated}");
+            // Truncate the command in BOTH the log and the Err return: the Err
+            // string is bubbled back to the frontend, and a full untruncated
+            // command can leak secrets in args (e.g. `curl -H "Authorization:
+            // Bearer …"`, `psql "postgres://user:pass@…"`). The 80-char cap
+            // matches the log truncation so a long base command with safe args
+            // still shows enough context to diagnose the block.
+            let truncated = &command[..floor_char_boundary(command, 80)];
+            log::warn!(
+                "[openhuman:policy] Command blocked by allowlist: {}",
+                truncated
+            );
             return Err(format!(
                 "Command not allowed by security policy: {truncated}"
             ));
@@ -811,6 +820,33 @@ impl SecurityPolicy {
             tracker: ActionTracker::new(),
         }
     }
+}
+
+/// Validate that a file path resolves within a given root directory.
+/// Canonicalizes both paths and checks that the resolved candidate
+/// starts with the root. Callers should check `.is_file()` first
+/// to avoid errors on non-existent paths (normal missing-file case).
+///
+/// Used to prevent path traversal in agent definition TOML files and
+/// other user-controllable file references.
+pub fn validate_path_within_root(
+    candidate: &std::path::Path,
+    root: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    let resolved_root = root
+        .canonicalize()
+        .map_err(|e| format!("workspace root: {e}"))?;
+    let resolved = candidate
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", candidate.display()))?;
+    if !resolved.starts_with(&resolved_root) {
+        return Err(format!(
+            "path escapes root: {} is not under {}",
+            resolved.display(),
+            resolved_root.display()
+        ));
+    }
+    Ok(resolved)
 }
 
 #[cfg(test)]

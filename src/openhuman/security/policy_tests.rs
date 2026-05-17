@@ -1008,3 +1008,141 @@ fn is_path_allowed_blocks_url_encoded_traversal() {
         "URL-encoded parent dir traversal must be blocked"
     );
 }
+
+// Regression: #1941. The allowlist-miss Err return used to echo the full
+// untruncated command, leaking secrets in args (e.g. an Authorization Bearer
+// header in a `curl` invocation that the agent issued). The log already
+// truncated at 80 chars; the Err path now matches.
+#[test]
+fn validate_command_truncates_secrets_in_allowlist_miss_error() {
+    // Use a base command NOT on the default allowlist so we hit the
+    // allowlist-miss branch. Pad the command so the secret sits past byte 80.
+    let prefix = "totallybogusbin --really-long-flag-that-eats-the-budget=";
+    let padding = "x".repeat(80usize.saturating_sub(prefix.len()));
+    let secret = "Bearer SECRETTOKEN_DO_NOT_LEAK_ME_123";
+    let cmd = format!("{prefix}{padding} -H \"Authorization: {secret}\"");
+    assert!(
+        cmd.len() > 80,
+        "fixture must be longer than the 80-char truncation cap"
+    );
+    assert!(
+        cmd.contains(secret),
+        "fixture must contain the secret token so the test can check it leaks"
+    );
+
+    let p = default_policy();
+    let err = p
+        .validate_command_execution(&cmd, false)
+        .expect_err("unknown command should be rejected");
+
+    assert!(
+        !err.contains(secret),
+        "Err return leaked the secret past the 80-char truncation boundary: {err}"
+    );
+    assert!(
+        err.starts_with("Command not allowed by security policy: "),
+        "Err return should still carry the policy-decision prefix: {err}"
+    );
+}
+
+// Regression: #1941. Mirrors the log-truncation multi-byte safety net (#1813)
+// for the Err path. A multi-byte UTF-8 char straddling byte 80 of the command
+// would panic the formatter if we did a naked `&command[..80]` slice.
+#[test]
+fn validate_command_err_truncation_handles_multibyte_char_at_boundary() {
+    let prefix = "totallybogusbin ";
+    let filler = "a".repeat(80 - prefix.len() - 1);
+    let cmd = format!("{prefix}{filler}魔 trailing");
+    assert!(
+        !cmd.is_char_boundary(80),
+        "fixture must place a multi-byte char across byte 80"
+    );
+
+    let p = default_policy();
+    let result = p.validate_command_execution(&cmd, false);
+    assert!(
+        result.is_err(),
+        "fixture must hit the allowlist-miss Err path"
+    );
+}
+
+// ── validate_path_within_root ─────────────────────────────────────────────
+
+#[test]
+fn validate_path_within_root_allows_contained_path() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("prompt.md");
+    std::fs::write(&file, b"hello").unwrap();
+    let result = validate_path_within_root(&file, root.path());
+    assert!(result.is_ok(), "contained path must be allowed: {result:?}");
+    assert_eq!(result.unwrap(), file.canonicalize().unwrap());
+}
+
+#[test]
+fn validate_path_within_root_blocks_parent_traversal() {
+    let root = tempfile::tempdir().unwrap();
+    let subdir = root.path().join("prompts");
+    std::fs::create_dir(&subdir).unwrap();
+    // Create a file one level above the prompts subdir but still within root.
+    let victim = root.path().join("secret.txt");
+    std::fs::write(&victim, b"secret").unwrap();
+    // Construct a traversal path: <root>/prompts/../secret.txt
+    let traversal = subdir.join("..").join("secret.txt");
+    // With the prompts dir as root, the traversal must be blocked.
+    let result = validate_path_within_root(&traversal, &subdir);
+    assert!(
+        result.is_err(),
+        "path escaping root via '..' must be blocked"
+    );
+}
+
+#[test]
+fn validate_path_within_root_blocks_absolute_escape() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("a.md");
+    std::fs::write(&file, b"x").unwrap();
+    // Use a completely different tempdir as the root — file is outside it.
+    let other_root = tempfile::tempdir().unwrap();
+    let result = validate_path_within_root(&file, other_root.path());
+    assert!(
+        result.is_err(),
+        "path outside root must be blocked: {result:?}"
+    );
+}
+
+#[test]
+fn validate_path_within_root_fails_on_nonexistent_candidate() {
+    let root = tempfile::tempdir().unwrap();
+    let missing = root.path().join("does_not_exist.md");
+    // canonicalize() will fail — we expect an error, not a panic.
+    let result = validate_path_within_root(&missing, root.path());
+    assert!(
+        result.is_err(),
+        "non-existent candidate must return an error"
+    );
+}
+
+#[test]
+fn validate_path_within_root_blocks_symlink_escape() {
+    let root = tempfile::tempdir().unwrap();
+    let prompts_dir = root.path().join("prompts");
+    std::fs::create_dir(&prompts_dir).unwrap();
+    // Create a target file outside the prompts dir.
+    let outside = root.path().join("outside.txt");
+    std::fs::write(&outside, b"sensitive").unwrap();
+    // Create a symlink inside prompts/ pointing outside.
+    let link = prompts_dir.join("evil.md");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&outside, &link).unwrap();
+    #[cfg(not(unix))]
+    {
+        // Skip symlink test on non-Unix where symlink creation may require
+        // elevated privileges.
+        return;
+    }
+    let result = validate_path_within_root(&link, &prompts_dir);
+    assert!(
+        result.is_err(),
+        "symlink escaping prompt root must be blocked"
+    );
+}

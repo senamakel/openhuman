@@ -33,7 +33,7 @@ const bn1: TranslationMap = {
   'common.ok': 'বুঝলাম',
   'common.retry': 'Try again',
   'common.copy': 'কপি',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'আরও জানুন',
   'common.seeAll': 'দেখুন',
   'common.dismiss': 'বাদ দিন',

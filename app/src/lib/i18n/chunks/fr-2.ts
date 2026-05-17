@@ -237,7 +237,7 @@ const fr2: TranslationMap = {
     "Les déclencheurs sont toujours enregistrés dans l'historique — aucun tour LLM n'est exécuté.",
   'composio.disableSpecificIntegrations':
     'Désactiver le triage IA pour des intégrations spécifiques',
-  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
+  'composio.settingsSaved': 'Settings saved',
   'composio.saveFailed': "Échec de l'enregistrement. Réessaie.",
   'cron.title': 'Tâches cron',
   'cron.scheduledJobs': 'Tâches planifiées',

@@ -231,7 +231,7 @@ const id2: TranslationMap = {
   'composio.triggersStillRecorded':
     'Pemicu tetap dicatat ke riwayat — tidak ada giliran LLM yang dijalankan.',
   'composio.disableSpecificIntegrations': 'Nonaktifkan triase AI untuk integrasi tertentu',
-  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
+  'composio.settingsSaved': 'Settings saved',
   'composio.saveFailed': 'Gagal menyimpan. Coba lagi.',
   'cron.title': 'Cron Job',
   'cron.scheduledJobs': 'Job Terjadwal',

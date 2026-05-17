@@ -33,7 +33,7 @@ const es1: TranslationMap = {
   'common.ok': 'Entendido',
   'common.retry': 'Try again',
   'common.copy': 'Copiar',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'Más información',
   'common.seeAll': 'Ver',
   'common.dismiss': 'Descartar',

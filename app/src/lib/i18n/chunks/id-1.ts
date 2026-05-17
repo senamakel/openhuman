@@ -33,7 +33,7 @@ const id1: TranslationMap = {
   'common.ok': 'Mengerti',
   'common.retry': 'Try again',
   'common.copy': 'Salin',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'Pelajari lagi',
   'common.seeAll': 'Lihat',
   'common.dismiss': 'Abaikan',

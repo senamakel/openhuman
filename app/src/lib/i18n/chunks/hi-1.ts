@@ -33,7 +33,7 @@ const hi1: TranslationMap = {
   'common.ok': 'ठीक है',
   'common.retry': 'Try again',
   'common.copy': 'कॉपी करें',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'और जानें',
   'common.seeAll': 'देखें',
   'common.dismiss': 'हटाएं',

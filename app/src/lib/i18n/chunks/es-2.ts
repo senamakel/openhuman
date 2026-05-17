@@ -235,7 +235,7 @@ const es2: TranslationMap = {
     'Los disparadores siguen registrándose en el historial — no se ejecuta ningún turno de LLM.',
   'composio.disableSpecificIntegrations':
     'Desactivar clasificación de IA para integraciones específicas',
-  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
+  'composio.settingsSaved': 'Settings saved',
   'composio.saveFailed': 'No se pudo guardar. Inténtalo de nuevo.',
   'cron.title': 'Tareas cron',
   'cron.scheduledJobs': 'Trabajos programados',

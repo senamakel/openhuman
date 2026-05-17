@@ -229,7 +229,7 @@ const en2: TranslationMap = {
   'composio.disableAllTriage': 'Disable AI triage for all triggers',
   'composio.triggersStillRecorded': 'Triggers are still recorded to history — no LLM turn is run.',
   'composio.disableSpecificIntegrations': 'Disable AI triage for specific integrations',
-  'composio.settingsSaved': 'Failed to save. Direct mode requires a non-empty API key.',
+  'composio.settingsSaved': 'Settings saved',
   'composio.saveFailed': 'Failed to save. Try again.',
   'cron.title': 'Cron Jobs',
   'cron.scheduledJobs': 'Scheduled Jobs',

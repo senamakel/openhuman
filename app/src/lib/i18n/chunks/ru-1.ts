@@ -33,7 +33,7 @@ const ru1: TranslationMap = {
   'common.ok': 'Понятно',
   'common.retry': 'Try again',
   'common.copy': 'Копировать',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'Узнать больше',
   'common.seeAll': 'Посмотреть',
   'common.dismiss': 'Закрыть',

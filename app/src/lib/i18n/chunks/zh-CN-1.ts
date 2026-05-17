@@ -33,7 +33,7 @@ const zhCN1: TranslationMap = {
   'common.ok': '确定',
   'common.retry': 'Try again',
   'common.copy': '复制',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': '了解更多',
   'common.seeAll': '查看全部',
   'common.dismiss': '忽略',

@@ -204,7 +204,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
           />
         )}
         <div className={embedded ? '' : 'p-4'}>
-          <p className="text-sm text-stone-500">{t('common.loading')}</p>
+          <p className="text-sm text-stone-500">{t('settings.composio.loading')}</p>
         </div>
       </div>
     );

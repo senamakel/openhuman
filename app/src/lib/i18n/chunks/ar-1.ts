@@ -33,7 +33,7 @@ const ar1: TranslationMap = {
   'common.ok': 'حسنًا',
   'common.retry': 'Try again',
   'common.copy': 'نسخ',
-  'common.copied': 'copied',
+  'common.copied': 'Copied',
   'common.learnMore': 'معرفة المزيد',
   'common.seeAll': 'عرض',
   'common.dismiss': 'تجاهل',

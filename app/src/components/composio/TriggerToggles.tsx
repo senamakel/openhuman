@@ -148,7 +148,7 @@ export default function TriggerToggles({
         <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wide">
           {t('composio.triggers.heading')}
         </h3>
-        <p className="mt-1 text-[11px] text-stone-400">{t('common.loading')}</p>
+        <p className="mt-1 text-[11px] text-stone-400">{t('composio.triggers.loading')}</p>
       </div>
     );
   }

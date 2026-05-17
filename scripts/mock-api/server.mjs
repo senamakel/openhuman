@@ -10,6 +10,7 @@ import {
   tryParseJson,
 } from "./http.mjs";
 import { handleAuth } from "./routes/auth.mjs";
+import { handleAudio } from "./routes/audio.mjs";
 import { handleConversations } from "./routes/conversations.mjs";
 import { handleCron } from "./routes/cron.mjs";
 import { handleIntegrations } from "./routes/integrations.mjs";
@@ -42,6 +43,7 @@ const ROUTE_HANDLERS = [
   handleUser,
   handleInvites,
   handlePayments,
+  handleAudio,
   // LLM completions must run before the catch-all stub in
   // `handleIntegrations` so keyword-driven test scripts can override
   // the default "Hello from e2e mock agent" reply.

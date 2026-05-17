@@ -127,6 +127,13 @@ function scheduleMockSocketActions(session, actions = []) {
               : (action.data ?? null),
           targetSid: session.sid,
         });
+        return;
+      }
+      if (action?.agentAudioStream) {
+        emitMockAgentAudioStream({
+          targetSid: session.sid,
+          ...action.agentAudioStream,
+        });
       }
     }, delayMs);
   }
@@ -405,6 +412,75 @@ export function emitMockSocketEvent({
   }
 
   return matchingSessions.length;
+}
+
+export function emitMockAgentAudioStream({
+  sessionId = "mock-agent-session",
+  requestId,
+  text = "",
+  voiceId = "",
+  contentType = "audio/mpeg",
+  chunks,
+  chunkDelayMs = 0,
+  targetSid,
+  targetUserId,
+  excludeSid,
+}) {
+  const resolvedRequestId = requestId || `mock-audio-${createMockId("req")}`;
+  const normalizedChunks =
+    Array.isArray(chunks) && chunks.length > 0
+      ? chunks
+      : [Buffer.from("ID3MOCKAUDIO", "utf8").toString("base64")];
+
+  let delivered = emitMockSocketEvent({
+    event: "agent:audio:start",
+    data: {
+      sessionId,
+      requestId: resolvedRequestId,
+      contentType,
+      voiceId,
+      text,
+    },
+    targetSid,
+    targetUserId,
+    excludeSid,
+  });
+
+  normalizedChunks.forEach((chunk, index) => {
+    delivered = Math.max(
+      delivered,
+      emitMockSocketEvent({
+        event: "agent:audio:chunk",
+        data: {
+          sessionId,
+          requestId: resolvedRequestId,
+          chunk,
+        },
+        targetSid,
+        targetUserId,
+        excludeSid,
+        delayMs: chunkDelayMs * (index + 1),
+      }),
+    );
+  });
+
+  delivered = Math.max(
+    delivered,
+    emitMockSocketEvent({
+      event: "agent:audio:end",
+      data: {
+        sessionId,
+        requestId: resolvedRequestId,
+        ttsCharCount: String(text || "").length,
+      },
+      targetSid,
+      targetUserId,
+      excludeSid,
+      delayMs: chunkDelayMs * (normalizedChunks.length + 1),
+    }),
+  );
+
+  return delivered;
 }
 
 export function disconnectMockSockets({ targetSid, targetUserId } = {}) {

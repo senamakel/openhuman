@@ -1,4 +1,4 @@
-//! Bundled local AI stack (Ollama / LM Studio, whisper.cpp, Piper).
+//! Local asset/runtime support for speech models and localhost-backed AI integrations.
 
 #[cfg(test)]
 pub(crate) static LOCAL_AI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
@@ -13,7 +13,6 @@ pub(crate) fn local_ai_test_guard() -> std::sync::MutexGuard<'static, ()> {
 
 mod core;
 pub mod device;
-pub mod gif_decision;
 pub mod ops;
 pub mod presets;
 mod schemas;
@@ -36,14 +35,12 @@ pub(crate) mod voice_install_common;
 
 pub use core::*;
 pub use device::DeviceProfile;
-pub use gif_decision::{GifDecision, TenorGifResult, TenorSearchResult};
 pub use ops as rpc;
 pub use ops::*;
 pub use presets::{ModelPreset, ModelTier, VisionMode};
 pub use schemas::{
     all_controller_schemas as all_local_ai_controller_schemas,
     all_registered_controllers as all_local_ai_registered_controllers,
-    schemas as local_ai_controller_schema,
 };
 pub use sentiment::SentimentResult;
 pub(crate) use service::whisper_engine;

@@ -302,6 +302,9 @@ impl LocalAiService {
         }
 
         if let Err(err) = self.ensure_ollama_server(&effective_config).await {
+            log::warn!(
+                "[local_ai] bootstrap degraded: external runtime connectivity check failed: {err}"
+            );
             let mut status = self.status.lock();
             status.state = "degraded".to_string();
             status.error_category = Some("server".to_string());

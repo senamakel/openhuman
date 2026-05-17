@@ -128,38 +128,6 @@ export interface SentimentResult {
   confidence: number;
 }
 
-export interface GifDecision {
-  should_send_gif: boolean;
-  search_query: string | null;
-}
-
-export interface TenorMediaFormat {
-  url: string;
-  dims: [number, number];
-  size: number;
-  duration?: number;
-}
-
-export interface TenorGifResult {
-  id: string;
-  title: string;
-  contentDescription: string;
-  url: string;
-  media: {
-    gif?: TenorMediaFormat;
-    tinygif?: TenorMediaFormat;
-    mediumgif?: TenorMediaFormat;
-    mp4?: TenorMediaFormat;
-    tinymp4?: TenorMediaFormat;
-  };
-  created: number;
-}
-
-export interface TenorSearchResult {
-  results: TenorGifResult[];
-  next: string;
-}
-
 export interface DeviceProfileResult {
   total_ram_bytes: number;
   cpu_count: number;
@@ -248,11 +216,11 @@ export async function openhumanAgentChat(
 export async function openhumanLocalAiStatus(): Promise<CommandResponse<LocalAiStatus>> {
   try {
     return await callCoreRpc<CommandResponse<LocalAiStatus>>({
-      method: 'openhuman.local_ai_status',
+      method: 'openhuman.inference_status',
     });
   } catch (err) {
     const message = tauriErrorMessage(err);
-    if (message.includes('unknown method: openhuman.local_ai_status')) {
+    if (message.includes('unknown method: openhuman.inference_status')) {
       throw new Error(
         'Local model runtime is unavailable in this core build. Restart app after updating to the latest build.'
       );
@@ -266,7 +234,7 @@ export async function openhumanLocalAiSummarize(
   maxTokens?: number
 ): Promise<CommandResponse<string>> {
   return await callCoreRpc<CommandResponse<string>>({
-    method: 'openhuman.local_ai_summarize',
+    method: 'openhuman.inference_summarize',
     params: { text, max_tokens: maxTokens },
   });
 }
@@ -277,7 +245,7 @@ export async function openhumanLocalAiPrompt(
   noThink?: boolean
 ): Promise<CommandResponse<string>> {
   return await callCoreRpc<CommandResponse<string>>({
-    method: 'openhuman.local_ai_prompt',
+    method: 'openhuman.inference_prompt',
     params: { prompt, max_tokens: maxTokens, no_think: noThink },
   });
 }
@@ -288,7 +256,7 @@ export async function openhumanLocalAiVisionPrompt(
   maxTokens?: number
 ): Promise<CommandResponse<string>> {
   return await callCoreRpc<CommandResponse<string>>({
-    method: 'openhuman.local_ai_vision_prompt',
+    method: 'openhuman.inference_vision_prompt',
     params: { prompt, image_refs: imageRefs, max_tokens: maxTokens },
   });
 }
@@ -297,7 +265,7 @@ export async function openhumanLocalAiEmbed(
   inputs: string[]
 ): Promise<CommandResponse<LocalAiEmbeddingResult>> {
   return await callCoreRpc<CommandResponse<LocalAiEmbeddingResult>>({
-    method: 'openhuman.local_ai_embed',
+    method: 'openhuman.inference_embed',
     params: { inputs },
   });
 }
@@ -332,67 +300,42 @@ export async function openhumanLocalAiTts(
 }
 
 /**
- * Multi-turn chat completion via the local Ollama model.
+ * Multi-turn chat completion via the configured inference provider.
  */
 export async function openhumanLocalAiChat(
   messages: LocalAiChatMessage[],
   maxTokens?: number
 ): Promise<CommandResponse<string>> {
   return await callCoreRpc<CommandResponse<string>>({
-    method: 'openhuman.local_ai_chat',
+    method: 'openhuman.inference_chat',
     params: { messages, max_tokens: maxTokens },
   });
 }
 
 /**
- * Ask the local model whether the assistant should react to a user message
- * with an emoji.
+ * Ask the configured inference provider whether the assistant should react to
+ * a user message with an emoji.
  */
 export async function openhumanLocalAiShouldReact(
   message: string,
   channelType: string
 ): Promise<CommandResponse<ReactionDecision>> {
   return await callCoreRpc<CommandResponse<ReactionDecision>>({
-    method: 'openhuman.local_ai_should_react',
+    method: 'openhuman.inference_should_react',
     params: { message, channel_type: channelType },
   });
 }
 
 /**
- * Classify the emotion and sentiment of a user message via the local model.
+ * Classify the emotion and sentiment of a user message via the configured
+ * inference provider.
  */
 export async function openhumanLocalAiAnalyzeSentiment(
   message: string
 ): Promise<CommandResponse<SentimentResult>> {
   return await callCoreRpc<CommandResponse<SentimentResult>>({
-    method: 'openhuman.local_ai_analyze_sentiment',
+    method: 'openhuman.inference_analyze_sentiment',
     params: { message },
-  });
-}
-
-/**
- * Ask the local model whether a GIF response is appropriate for this message.
- */
-export async function openhumanLocalAiShouldSendGif(
-  message: string,
-  channelType: string
-): Promise<CommandResponse<GifDecision>> {
-  return await callCoreRpc<CommandResponse<GifDecision>>({
-    method: 'openhuman.local_ai_should_send_gif',
-    params: { message, channel_type: channelType },
-  });
-}
-
-/**
- * Search for GIFs via the backend Tenor proxy.
- */
-export async function openhumanLocalAiTenorSearch(
-  query: string,
-  limit?: number
-): Promise<CommandResponse<TenorSearchResult>> {
-  return await callCoreRpc<CommandResponse<TenorSearchResult>>({
-    method: 'openhuman.local_ai_tenor_search',
-    params: { query, limit },
   });
 }
 

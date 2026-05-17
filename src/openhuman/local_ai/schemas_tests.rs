@@ -5,7 +5,7 @@ fn catalog_counts_match_and_nonempty() {
     let s = all_controller_schemas();
     let h = all_registered_controllers();
     assert_eq!(s.len(), h.len());
-    assert!(s.len() >= 20, "local_ai should expose >=20 controller fns");
+    assert!(s.len() >= 16, "local_ai should expose >=16 controller fns");
 }
 
 #[test]
@@ -29,11 +29,6 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
     let keys = [
         "agent_chat",
         "agent_chat_simple",
-        "local_ai_status",
-        "local_ai_summarize",
-        "local_ai_prompt",
-        "local_ai_vision_prompt",
-        "local_ai_embed",
         "local_ai_transcribe",
         "local_ai_transcribe_bytes",
         "local_ai_tts",
@@ -44,11 +39,10 @@ fn every_registered_key_resolves_to_non_unknown_schema() {
         "local_ai_presets",
         "local_ai_apply_preset",
         "local_ai_diagnostics",
-        "local_ai_chat",
-        "local_ai_should_react",
-        "local_ai_analyze_sentiment",
-        "local_ai_should_send_gif",
-        "local_ai_tenor_search",
+        "local_ai_install_whisper",
+        "local_ai_install_piper",
+        "local_ai_whisper_install_status",
+        "local_ai_piper_install_status",
     ];
     for k in keys {
         let s = schemas(k);
@@ -106,28 +100,9 @@ fn deserialize_params_errors_on_invalid_shape() {
 }
 
 #[test]
-fn prompt_schema_has_inputs() {
-    let s = schemas("local_ai_prompt");
-    assert!(!s.inputs.is_empty());
-}
-
-#[test]
 fn apply_preset_schema_has_inputs() {
     let s = schemas("local_ai_apply_preset");
     assert!(!s.inputs.is_empty());
-}
-
-#[test]
-fn download_schema_optional_force_flag() {
-    let s = schemas("local_ai_download");
-    let force = s.inputs.iter().find(|f| f.name == "force");
-    assert!(force.is_some_and(|f| !f.required));
-}
-
-#[test]
-fn summarize_schema_requires_text_or_equivalent() {
-    let s = schemas("local_ai_summarize");
-    assert!(s.inputs.iter().any(|f| f.required));
 }
 
 // ── Handler-level tests that don't need Ollama ────────────────

@@ -1291,6 +1291,114 @@ async fn json_rpc_thread_not_found_errors_are_structured() {
 }
 
 #[tokio::test]
+async fn json_rpc_thread_generate_title_falls_back_when_provider_path_is_unavailable() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    with_chat_completion_models(|models| models.clear());
+    with_chat_completion_requests(|requests| requests.clear());
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let create = post_json_rpc(&rpc_base, 9013, "openhuman.threads_create_new", json!({})).await;
+    let create_outer = assert_no_jsonrpc_error(&create, "threads_create_new");
+    let created = create_outer
+        .get("data")
+        .expect("data envelope in create response");
+    let thread_id = created
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("thread id");
+    let original_title = created
+        .get("title")
+        .and_then(Value::as_str)
+        .expect("placeholder title")
+        .to_string();
+
+    let user_append = post_json_rpc(
+        &rpc_base,
+        9014,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": "msg-user",
+                "content": "Please summarize the latest five email threads for me.",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&user_append, "threads_message_append user");
+
+    let agent_append = post_json_rpc(
+        &rpc_base,
+        9015,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": "msg-agent",
+                "content": "Here is the summary you asked for.",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "agent",
+                "createdAt": "2026-01-01T00:00:02Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&agent_append, "threads_message_append agent");
+
+    let title = post_json_rpc(
+        &rpc_base,
+        9016,
+        "openhuman.threads_generate_title",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let title_outer = assert_no_jsonrpc_error(&title, "threads_generate_title");
+    let titled = title_outer
+        .get("data")
+        .expect("data envelope in title response");
+    let generated_title = titled
+        .get("title")
+        .and_then(Value::as_str)
+        .expect("generated title");
+
+    assert_ne!(generated_title, original_title);
+    assert!(
+        generated_title.contains("Please summarize the latest five email threads for"),
+        "fallback title should be derived from the first user message: {generated_title}"
+    );
+
+    let captured_models = with_chat_completion_models(|models| models.clone());
+    assert!(
+        captured_models.is_empty(),
+        "the minimal config path currently falls back before hitting mock chat completions"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_turn_state_lifecycle() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
@@ -2511,6 +2619,71 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
     assert!(
         runtime.get("service").and_then(Value::as_object).is_some(),
         "expected runtime.service object: {runtime}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_app_state_update_local_state_round_trips_into_snapshot() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let update = post_json_rpc(
+        &rpc_base,
+        10041,
+        "openhuman.app_state_update_local_state",
+        json!({
+            "encryptionKey": "  secret-key  ",
+            "onboardingTasks": {
+                "accessibilityPermissionGranted": true,
+                "enabledTools": ["search"],
+                "connectedSources": ["telegram"]
+            }
+        }),
+    )
+    .await;
+    let update_result = assert_no_jsonrpc_error(&update, "app_state_update_local_state");
+    let updated_state = update_result.get("result").unwrap_or(&update_result);
+    assert_eq!(
+        updated_state.get("encryptionKey").and_then(Value::as_str),
+        Some("secret-key")
+    );
+
+    let snapshot = post_json_rpc(&rpc_base, 10042, "openhuman.app_state_snapshot", json!({})).await;
+    let snapshot_result = assert_no_jsonrpc_error(&snapshot, "app_state_snapshot after update");
+    let body = snapshot_result.get("result").unwrap_or(&snapshot_result);
+    let local_state = body
+        .get("localState")
+        .and_then(Value::as_object)
+        .expect("localState object");
+    assert_eq!(
+        local_state.get("encryptionKey").and_then(Value::as_str),
+        Some("secret-key")
+    );
+    assert_eq!(
+        local_state
+            .get("onboardingTasks")
+            .and_then(Value::as_object)
+            .and_then(|tasks| tasks.get("accessibilityPermissionGranted"))
+            .and_then(Value::as_bool),
+        Some(true)
     );
 
     mock_join.abort();

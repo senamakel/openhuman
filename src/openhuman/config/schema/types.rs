@@ -141,6 +141,9 @@ pub struct Config {
     pub gitbooks: GitbooksConfig,
 
     #[serde(default)]
+    pub mcp_client: McpClientConfig,
+
+    #[serde(default)]
     pub multimodal: MultimodalConfig,
 
     #[serde(default)]
@@ -419,6 +422,7 @@ impl Default for Config {
             http_request: HttpRequestConfig::default(),
             curl: CurlConfig::default(),
             gitbooks: GitbooksConfig::default(),
+            mcp_client: McpClientConfig::default(),
             multimodal: MultimodalConfig::default(),
             seltz: SeltzConfig::default(),
             web_search: WebSearchConfig::default(),

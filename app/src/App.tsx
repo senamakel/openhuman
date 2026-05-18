@@ -32,6 +32,7 @@ import {
 } from './lib/webviewNotifications';
 import ChatRuntimeProvider from './providers/ChatRuntimeProvider';
 import CoreStateProvider, { useCoreState } from './providers/CoreStateProvider';
+import ThemeProvider from './providers/ThemeProvider';
 import SocketProvider from './providers/SocketProvider';
 import { trackPageView } from './services/analytics';
 import { startCoreHealthMonitor, stopCoreHealthMonitor } from './services/coreHealthMonitor';
@@ -83,26 +84,28 @@ function App() {
       )}>
       <Provider store={store}>
         <PersistGate loading={<PersistRehydrationScreen />} persistor={persistor}>
-          <I18nProvider>
-            <BootCheckGate>
-              <CoreStateProvider>
-                <SocketProvider>
-                  <ChatRuntimeProvider>
-                    <Router>
-                      <CommandProvider>
-                        <ServiceBlockingGate>
-                          <AppShell />
-                          <DictationHotkeyManager />
-                          <LocalAIDownloadSnackbar />
-                          <AppUpdatePrompt />
-                        </ServiceBlockingGate>
-                      </CommandProvider>
-                    </Router>
-                  </ChatRuntimeProvider>
-                </SocketProvider>
-              </CoreStateProvider>
-            </BootCheckGate>
-          </I18nProvider>
+          <ThemeProvider>
+            <I18nProvider>
+              <BootCheckGate>
+                <CoreStateProvider>
+                  <SocketProvider>
+                    <ChatRuntimeProvider>
+                      <Router>
+                        <CommandProvider>
+                          <ServiceBlockingGate>
+                            <AppShell />
+                            <DictationHotkeyManager />
+                            <LocalAIDownloadSnackbar />
+                            <AppUpdatePrompt />
+                          </ServiceBlockingGate>
+                        </CommandProvider>
+                      </Router>
+                    </ChatRuntimeProvider>
+                  </SocketProvider>
+                </CoreStateProvider>
+              </BootCheckGate>
+            </I18nProvider>
+          </ThemeProvider>
         </PersistGate>
       </Provider>
     </Sentry.ErrorBoundary>

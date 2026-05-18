@@ -23,6 +23,7 @@ import mascotReducer from './mascotSlice';
 import notificationReducer from './notificationSlice';
 import providerSurfacesReducer from './providerSurfaceSlice';
 import socketReducer from './socketSlice';
+import themeReducer from './themeSlice';
 import threadReducer from './threadSlice';
 import { userScopedStorage } from './userScopedStorage';
 
@@ -77,6 +78,12 @@ const persistedCoreModeReducer = persistReducer(coreModePersistConfig, coreModeR
 
 const localePersistConfig = { key: 'locale', storage: localStorageAdapter, whitelist: ['current'] };
 const persistedLocaleReducer = persistReducer(localePersistConfig, localeReducer);
+
+// Theme preference is pre-login and applies to the whole desktop app
+// (light/dark/system). Persist via plain localStorage so it survives user
+// switches like coreMode does.
+const themePersistConfig = { key: 'theme', storage: localStorageAdapter, whitelist: ['mode'] };
+const persistedThemeReducer = persistReducer(themePersistConfig, themeReducer);
 
 const channelConnectionsPersistConfig = {
   key: 'channelConnections',
@@ -133,6 +140,7 @@ export const store = configureStore({
     coreMode: persistedCoreModeReducer,
     locale: persistedLocaleReducer,
     mascot: persistedMascotReducer,
+    theme: persistedThemeReducer,
   },
   middleware: getDefaultMiddleware => {
     const middleware = getDefaultMiddleware({

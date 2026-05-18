@@ -102,7 +102,7 @@ function MeetingBotsBanner({ onClick }: { onClick: () => void }) {
 
         <span
           aria-hidden="true"
-          className="ml-2 hidden text-stone-400 dark:text-neutral-500 transition group-hover:text-stone-600 dark:text-neutral-300 sm:inline">
+          className="ml-2 hidden text-stone-400 dark:text-neutral-500 transition group-hover:text-stone-600 dark:group-hover:text-neutral-300 sm:inline">
           →
         </span>
       </div>
@@ -239,7 +239,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 placeholder={selected.domainHint}
                 disabled={isComingSoon || submitting}
                 autoFocus
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
+                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
                 required
               />
             </label>

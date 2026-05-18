@@ -264,7 +264,7 @@ const ReferralRewardsSection = () => {
               onKeyDown={e => e.key === 'Enter' && void handleApply()}
               placeholder={t('rewards.referralSection.placeholder')}
               disabled={applyLoading}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
             <button
               type="button"

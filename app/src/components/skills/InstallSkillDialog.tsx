@@ -271,7 +271,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
               }}
               disabled={submitting}
               aria-label="Close"
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-stone-400 dark:text-neutral-500 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 hover:text-stone-600 dark:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-40">
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-stone-400 dark:text-neutral-500 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 hover:text-stone-600 dark:hover:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-40">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -303,7 +303,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 disabled={submitting || result !== null}
                 required
                 maxLength={2048}
-                className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:bg-stone-50 dark:bg-neutral-800/60 disabled:text-stone-500 dark:text-neutral-400"
+                className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:bg-stone-50 dark:disabled:bg-neutral-800/60 disabled:text-stone-500 dark:text-neutral-400"
                 placeholder="https://raw.githubusercontent.com/owner/repo/main/SKILL.md"
               />
               {url.trim() && !urlValid ? (
@@ -336,7 +336,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
                 value={timeoutSecs}
                 onChange={e => setTimeoutSecs(e.target.value)}
                 disabled={submitting || result !== null}
-                className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:bg-stone-50 dark:bg-neutral-800/60 disabled:text-stone-500 dark:text-neutral-400"
+                className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:bg-stone-50 dark:disabled:bg-neutral-800/60 disabled:text-stone-500 dark:text-neutral-400"
                 placeholder="60"
               />
               {!timeoutValid ? (

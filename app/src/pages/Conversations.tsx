@@ -1591,7 +1591,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                       )}
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:text-neutral-300 dark:hover:text-neutral-300 transition-all`}
+                        className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 dark:hover:text-neutral-300 transition-all`}
                         title={t('chat.copyResponse')}>
                         {copiedMessageId === msg.id ? (
                           <svg
@@ -1673,7 +1673,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                                   ))}
                                   <button
                                     onClick={() => setReactionPickerMsgId(null)}
-                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:text-neutral-500 dark:hover:text-neutral-500 text-xs px-0.5">
+                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 dark:hover:text-neutral-500 text-xs px-0.5">
                                     ✕
                                   </button>
                                 </div>
@@ -2028,7 +2028,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   placeholder={t('chat.typeMessage')}
                   rows={1}
                   disabled={composerInteractionBlocked}
-                  className="relative z-10 w-full resize-none border-0 bg-transparent pl-4 pr-10 py-2.5 text-sm leading-normal whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative z-10 w-full resize-none border-0 bg-transparent pl-4 pr-10 py-2.5 text-sm leading-normal whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 {/* Voice input mic hidden per #717 (inputMode='voice' path retained). */}
               </div>
@@ -2074,7 +2074,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 type="button"
                 onClick={() => setInputMode('text')}
                 disabled={isRecording || isTranscribing}
-                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
                 title={t('chat.switchToText')}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path

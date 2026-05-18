@@ -574,7 +574,7 @@ export default function ComposioConnectModal({
                       if (error) setError(null);
                     }}
                     placeholder="e.g. 123456789012345"
-                    className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
                   <p className="text-[11px] leading-relaxed text-stone-400 dark:text-neutral-500">
                     Find it via <span className="font-mono">GET /me/businesses</span> then{' '}
@@ -877,7 +877,7 @@ function AtlassianSubdomainInput({
           placeholder="your-subdomain"
           aria-describedby="atlassian-subdomain-hint"
           aria-invalid={!!error}
-          className="flex-1 min-w-0 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 bg-transparent focus:outline-none"
+          className="flex-1 min-w-0 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 bg-transparent focus:outline-none"
         />
         <span className="pr-3 text-xs text-stone-400 dark:text-neutral-500 select-none whitespace-nowrap">
           .atlassian.net

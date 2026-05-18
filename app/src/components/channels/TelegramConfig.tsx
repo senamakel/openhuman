@@ -350,7 +350,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
                 type="button"
                 disabled={busyKeys[compositeKey] || status === 'disconnected'}
                 onClick={() => handleDisconnect(spec.mode)}
-                className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700 disabled:opacity-50">
+                className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-700 dark:hover:border-neutral-700 disabled:opacity-50">
                 {t('accounts.disconnect')}
               </button>
             </div>

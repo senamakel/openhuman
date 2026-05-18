@@ -188,7 +188,7 @@ const MemoryDebugPanel = () => {
             <input
               value={documentsNamespaceFilter}
               onChange={e => setDocumentsNamespaceFilter(e.target.value)}
-              className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:text-neutral-500"
+              className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500"
               placeholder="Filter by namespace..."
             />
             <button
@@ -276,13 +276,13 @@ const MemoryDebugPanel = () => {
           <input
             value={namespaceInput}
             onChange={e => setNamespaceInput(e.target.value)}
-            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:text-neutral-500"
+            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500"
             placeholder="Namespace"
           />
           <textarea
             value={queryInput}
             onChange={e => setQueryInput(e.target.value)}
-            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:text-neutral-500"
+            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500"
             rows={2}
             placeholder="Query text..."
           />
@@ -361,7 +361,7 @@ const MemoryDebugPanel = () => {
               <input
                 value={clearNamespaceInput}
                 onChange={e => setClearNamespaceInput(e.target.value)}
-                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:text-neutral-500"
+                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500"
                 placeholder="e.g. skill:gmail:user@example.com"
               />
             )}

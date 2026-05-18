@@ -105,8 +105,12 @@ describe('Settings - Account Preferences', () => {
 
     await browser.waitUntil(
       async () =>
+        // browserNotOpen: shown when open succeeds but browser may not have focused
         (await textExists('If your browser did not open, use the button above.')) ||
-        (await textExists('We could not open your browser automatically.')),
+        // browserOpenFailed: shown when openUrl() throws (E2E headless environment)
+        (await textExists('The browser could not be opened automatically.')) ||
+        // Opening state (transient)
+        (await textExists('Opening your browser...')),
       { timeout: 15_000, interval: 500, timeoutMsg: 'billing redirect status did not settle' }
     );
 

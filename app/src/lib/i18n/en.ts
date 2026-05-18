@@ -1697,7 +1697,7 @@ const en: TranslationMap = {
   'settings.cron.jobs.loadingRuns': 'core-runs:${job.id}',
   'settings.cron.jobs.nextRun': 'Next run',
   'settings.cron.jobs.pause': 'Pause',
-  'settings.cron.jobs.paused': 'Enabled',
+  'settings.cron.jobs.paused': 'Paused',
   'settings.cron.jobs.recentRuns': 'Recent runs',
   'settings.cron.jobs.removing': 'core-remove:${job.id}',
   'settings.cron.jobs.resume': 'Resume',

@@ -343,12 +343,12 @@ describe('Login flow — complete with mock data (Linux)', () => {
 
   it('app navigated to Home page after onboarding', async () => {
     const nameCandidates = [
+      'Ask your assistant anything',
+      'Ask your assistant',
       'Test',
       'Good morning',
       'Good afternoon',
       'Good evening',
-      'Message OpenHuman',
-      'Upgrade to Premium',
     ];
 
     const foundText = await waitForAnyText(nameCandidates, 15_000);
@@ -432,10 +432,11 @@ describe('Login flow — complete with mock data (Linux)', () => {
 
     // Assert the app navigated to home (post-login UI marker)
     const homeCandidates = [
+      'Ask your assistant anything',
+      'Ask your assistant',
       'Good morning',
       'Good afternoon',
       'Good evening',
-      'Message OpenHuman',
       'Home',
     ];
     const foundHome = await waitForAnyText(homeCandidates, 15_000);

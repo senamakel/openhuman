@@ -34,7 +34,9 @@ describe('Socket reconnect skill sync smoke', () => {
     }
 
     const ok =
-      home || (await textExists('Message OpenHuman')) || (await textExists('Upgrade to Premium'));
+      home ||
+      (await textExists('Ask your assistant anything')) ||
+      (await textExists('Ask your assistant'));
     expect(ok).toBeTruthy();
   });
 });

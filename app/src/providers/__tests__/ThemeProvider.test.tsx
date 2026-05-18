@@ -4,14 +4,11 @@ import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import ThemeProvider from '../ThemeProvider';
 import themeReducer, { setThemeMode, type ThemeMode } from '../../store/themeSlice';
+import ThemeProvider from '../ThemeProvider';
 
 function makeStore(mode: ThemeMode) {
-  return configureStore({
-    reducer: { theme: themeReducer },
-    preloadedState: { theme: { mode } },
-  });
+  return configureStore({ reducer: { theme: themeReducer }, preloadedState: { theme: { mode } } });
 }
 
 function renderWithStore(mode: ThemeMode, children: ReactNode = null) {
@@ -56,9 +53,7 @@ describe('ThemeProvider', () => {
       removeEventListener: (_e: string, cb: () => void) => listeners.delete(cb),
     }));
     // matchMedia is read from `window.matchMedia` — jsdom exposes it.
-    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = (
-      query: string
-    ) =>
+    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = (query: string) =>
       ({
         matches: query.includes('dark'),
         media: query,
@@ -88,9 +83,7 @@ describe('ThemeProvider', () => {
 
   it('cleans up the prefers-color-scheme listener when unmounted (modern API)', () => {
     const remove = vi.fn();
-    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = ((
-      query: string
-    ) =>
+    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = ((query: string) =>
       ({
         matches: false,
         media: query,
@@ -109,9 +102,7 @@ describe('ThemeProvider', () => {
 
   it('falls back to addListener/removeListener on older webviews', () => {
     const removeLegacy = vi.fn();
-    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = ((
-      query: string
-    ) =>
+    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = ((query: string) =>
       ({
         matches: false,
         media: query,

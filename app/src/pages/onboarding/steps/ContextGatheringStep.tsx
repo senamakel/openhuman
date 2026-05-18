@@ -286,12 +286,12 @@ const ContextGatheringStep = ({
 
   if (finished && hasError) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-soft animate-fade-up">
+      <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-soft animate-fade-up">
         <div className="flex flex-col items-center justify-center gap-5">
-          <h1 className="text-xl font-bold text-stone-900">
+          <h1 className="text-xl font-bold text-stone-900 dark:text-neutral-100">
             {t('onboarding.contextGathering.title')}
           </h1>
-          <p className="text-sm text-stone-600 text-center max-w-xs leading-relaxed">
+          <p className="text-sm text-stone-600 dark:text-neutral-300 text-center max-w-xs leading-relaxed">
             {t('onboarding.contextGathering.errorDesc')}
           </p>
           <OnboardingNextButton
@@ -304,16 +304,16 @@ const ContextGatheringStep = ({
   }
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-soft animate-fade-up">
+    <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-soft animate-fade-up">
       <div className="flex flex-col items-center justify-center gap-6 py-8">
         {/* Pulsing avatar silhouette */}
         <div className="w-20 h-20 rounded-full bg-gradient-to-r from-stone-300 via-stone-100 to-stone-300 bg-[length:200%_100%] animate-shimmer" />
 
         {/* Title */}
-        <h1 className="text-xl font-bold text-stone-900 animate-pulse">
+        <h1 className="text-xl font-bold text-stone-900 dark:text-neutral-100 animate-pulse">
           {t('onboarding.contextGathering.buildingProfile')}
         </h1>
-        <p className="text-sm text-stone-500 leading-relaxed">
+        <p className="text-sm text-stone-500 dark:text-neutral-400 leading-relaxed">
           {t('onboarding.contextGathering.buildingDesc')}
         </p>
 

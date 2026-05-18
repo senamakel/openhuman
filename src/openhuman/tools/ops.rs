@@ -121,7 +121,7 @@ pub fn all_tools_with_runtime(
         // `plan_exit` marker that hands a plan-mode pass off to a
         // build-mode pass. The plan→build mode switch itself is a
         // follow-up; the tool emits a stable marker today.
-        Box::new(TodoWriteTool::new(global_todo_store())),
+        Box::new(TodoTool::new()),
         Box::new(PlanExitTool::new()),
         Box::new(CheckOnboardingStatusTool::new()),
         Box::new(CompleteOnboardingTool::new()),
@@ -338,7 +338,7 @@ pub fn all_tools_with_runtime(
         tools.push(Box::new(DelegateTool::new_with_options(
             delegate_agents,
             security.clone(),
-            crate::openhuman::providers::ProviderRuntimeOptions {
+            crate::openhuman::inference::provider::ProviderRuntimeOptions {
                 auth_profile_override: None,
                 openhuman_dir: root_config
                     .config_path

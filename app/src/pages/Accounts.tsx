@@ -70,7 +70,7 @@ const RailButton = ({
     // too, where ring-2 + bg-primary-50 don't transform but the lifted
     // z still helps tooltips render cleanly above neighbours.
     className={`group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all hover:z-50 ${
-      active ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-stone-100 hover:scale-105'
+      active ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-stone-100 dark:hover:bg-neutral-800/60 hover:scale-105'
     }`}
     aria-label={tooltip}>
     {children}
@@ -242,7 +242,7 @@ const Accounts = () => {
     <div className="relative flex h-full gap-3 overflow-hidden">
       {/* Narrow icon rail — always rendered. */}
       {/* [#1123] welcomeLocked guard removed — welcome-agent onboarding replaced by Joyride walkthrough */}
-      <aside className="z-30 flex w-16 flex-none flex-col items-center gap-2 bg-white/60 py-3 backdrop-blur-md my-3 ml-3 rounded-2xl border border-stone-200/70 shadow-soft">
+      <aside className="z-30 flex w-16 flex-none flex-col items-center gap-2 bg-white/60 dark:bg-neutral-900/60 py-3 backdrop-blur-md my-3 ml-3 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 shadow-soft">
         <RailButton active={isAgentSelected} onClick={selectAgent} tooltip={t('accounts.agent')}>
           <AgentIcon className="h-9 w-9 rounded-lg" />
         </RailButton>
@@ -261,7 +261,7 @@ const Accounts = () => {
 
         <button
           onClick={() => setAddOpen(true)}
-          className="group relative mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-stone-300 text-stone-400 hover:z-50 hover:bg-stone-50 hover:text-stone-600"
+          className="group relative mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-stone-300 dark:border-neutral-700 text-stone-400 dark:text-neutral-500 hover:z-50 hover:bg-stone-50 dark:hover:bg-neutral-800/60 hover:text-stone-600 dark:hover:text-neutral-300"
           aria-label={t('accounts.addAccount')}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -297,7 +297,7 @@ const Accounts = () => {
             <WebviewHost accountId={active.id} provider={active.provider} />
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-stone-400">
+          <div className="flex flex-1 items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
             {t('accounts.noAccounts')}
           </div>
         )}
@@ -312,12 +312,12 @@ const Accounts = () => {
 
       {ctxMenu && (
         <div
-          className="fixed z-50 min-w-[140px] rounded-lg border border-stone-200 bg-white py-1 shadow-strong"
+          className="fixed z-50 min-w-[140px] rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 py-1 shadow-strong"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
           <button
             onClick={() => void handleLogout(ctxMenu.accountId)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-stone-100">
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-stone-100 dark:hover:bg-neutral-800/60">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

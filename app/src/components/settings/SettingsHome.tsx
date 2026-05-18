@@ -127,6 +127,22 @@ const SettingsHome = () => {
           rightElement: <LanguageSelect ariaLabel={t('settings.language')} />,
         },
         {
+          id: 'appearance',
+          title: 'Appearance',
+          description: 'Pick light, dark, or match your system theme',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+              />
+            </svg>
+          ),
+          onClick: () => navigateToSettings('appearance'),
+        },
+        {
           id: 'mascot',
           title: 'Mascot',
           description: 'Pick the mascot color used across the app',

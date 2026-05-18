@@ -53,6 +53,7 @@ interface CliOptions {
   locales: Locale[];
   scanUnused: boolean;
   outDir: string | null;
+  strictUnused: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -61,11 +62,13 @@ function parseArgs(argv: string[]): CliOptions {
     locales: [...ALL_LOCALES],
     scanUnused: true,
     outDir: null,
+    strictUnused: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--json") opts.json = true;
     else if (a === "--no-unused") opts.scanUnused = false;
+    else if (a === "--strict-unused") opts.strictUnused = true;
     else if (a === "--out") opts.outDir = argv[++i] ?? null;
     else if (a === "--locale" || a === "--locales") {
       const list = (argv[++i] ?? "")
@@ -82,7 +85,7 @@ function parseArgs(argv: string[]): CliOptions {
       opts.locales = list;
     } else if (a === "-h" || a === "--help") {
       console.log(
-        "Usage: pnpm exec tsx scripts/i18n-coverage.ts [--json] [--locale es,fr] [--no-unused] [--out <dir>]",
+        "Usage: pnpm exec tsx scripts/i18n-coverage.ts [--json] [--locale es,fr] [--no-unused] [--strict-unused] [--out <dir>]",
       );
       process.exit(0);
     } else {
@@ -422,15 +425,15 @@ async function main() {
     console.log(formatReport(reports, unused));
   }
 
-  const anyIssue =
-    reports.some(
-      (r) =>
-        r.missingChunks.length ||
-        r.missingKeys.length ||
-        r.extraKeys.length ||
-        r.driftedKeys.length,
-    ) || (unused?.length ?? 0) > 0;
-  process.exit(anyIssue ? 1 : 0);
+  const localeFailure = reports.some(
+    (r) =>
+      r.missingChunks.length ||
+      r.missingKeys.length ||
+      r.extraKeys.length ||
+      r.driftedKeys.length,
+  );
+  const unusedFailure = opts.strictUnused && (unused?.length ?? 0) > 0;
+  process.exit(localeFailure || unusedFailure ? 1 : 0);
 }
 
 main().catch((err) => {

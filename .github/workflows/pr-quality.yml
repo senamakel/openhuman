@@ -43,6 +43,28 @@ jobs:
           fetch-depth: 1
       - name: Verify Coverage Matrix
         run: node scripts/check-coverage-matrix.mjs
+  i18n-coverage:
+    name: i18n Coverage
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'docs') && !contains(github.event.pull_request.labels.*.name, 'chore') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify i18n coverage (missing / extra / drifted / en.ts ↔ chunks)
+        run: pnpm i18n:check
   markdown-link-check:
     name: Markdown Link Check
     runs-on: ubuntu-latest

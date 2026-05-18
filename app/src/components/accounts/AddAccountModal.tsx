@@ -62,7 +62,7 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
 
         <div className="space-y-1">
           {available.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-stone-200 dark:border-neutral-800 dark:border-neutral-700 p-6 text-center text-sm text-stone-500 dark:text-neutral-400">
+            <div className="rounded-lg border border-dashed border-stone-200 dark:border-neutral-800 p-6 text-center text-sm text-stone-500 dark:text-neutral-400">
               {t('accounts.addModal.allConnected')}
             </div>
           ) : (

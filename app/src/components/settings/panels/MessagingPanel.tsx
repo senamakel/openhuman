@@ -46,13 +46,13 @@ function statusLabel(status: ChannelConnectionStatus, t: (key: string) => string
 function statusColor(status: ChannelConnectionStatus): string {
   switch (status) {
     case 'connected':
-      return 'text-sage-600 dark:text-sage-300 dark:text-sage-400';
+      return 'text-sage-600 dark:text-sage-300';
     case 'connecting':
-      return 'text-amber-600 dark:text-amber-300 dark:text-amber-400';
+      return 'text-amber-600 dark:text-amber-300';
     case 'error':
-      return 'text-coral-600 dark:text-coral-300 dark:text-coral-400';
+      return 'text-coral-600 dark:text-coral-300';
     default:
-      return 'text-stone-400 dark:text-neutral-500 dark:text-neutral-500';
+      return 'text-stone-400 dark:text-neutral-500';
   }
 }
 
@@ -115,8 +115,8 @@ const MessagingPanel = () => {
 
       <div className="p-4 space-y-4">
         {/* Default channel selector */}
-        <section className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+        <section className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('channels.defaultMessaging')}
           </h3>
           <div className="grid grid-cols-2 gap-2">
@@ -133,14 +133,14 @@ const MessagingPanel = () => {
                   className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                     selected
                       ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300'
-                      : 'border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 text-stone-600 dark:text-neutral-300 dark:text-neutral-300 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700'
+                      : 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700'
                   }`}>
                   {def.display_name}
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+          <p className="text-xs text-stone-400 dark:text-neutral-500">
             {t('channels.activeRoute')}:{' '}
             <span className="text-primary-600 dark:text-primary-300">{recommendedRoute}</span>
           </p>
@@ -153,18 +153,18 @@ const MessagingPanel = () => {
         )}
 
         {loading && (
-          <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+          <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm text-stone-400 dark:text-neutral-500">
             {t('channels.loadingDefinitions')}
           </div>
         )}
 
         {/* Channel cards — click to open the shared ChannelSetupModal */}
         {!loading && (
-          <section className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <section className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               {t('channels.channelConnections')}
             </h3>
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
               {t('channels.configureAuthModes')}
             </p>
             <div className="space-y-2">
@@ -178,12 +178,12 @@ const MessagingPanel = () => {
                     key={channelId}
                     type="button"
                     onClick={() => setChannelModalDef(def)}
-                    className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-3 text-left transition-colors hover:bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700">
+                    className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 text-left transition-colors hover:bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700">
                     <div className="flex items-center gap-3">
                       <span className="text-lg flex-shrink-0">{icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                             {def.display_name}
                           </span>
                           <div
@@ -193,12 +193,12 @@ const MessagingPanel = () => {
                             {statusLabel(status, t)}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+                        <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
                           {def.description}
                         </p>
                       </div>
                       <svg
-                        className="w-4 h-4 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 flex-shrink-0"
+                        className="w-4 h-4 text-stone-400 dark:text-neutral-500 flex-shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24">

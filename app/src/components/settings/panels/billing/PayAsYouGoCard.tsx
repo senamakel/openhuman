@@ -94,7 +94,7 @@ const PayAsYouGoCard = ({
               key={amount}
               onClick={() => onTopUp(amount)}
               disabled={isToppingUp}
-              className="group rounded-2xl border border-primary-200 dark:border-primary-500/30/50 bg-primary-50/50 px-4 py-5 text-center transition-all hover:border-primary-200 dark:border-primary-500/30 disabled:cursor-not-allowed disabled:opacity-50">
+              className="group rounded-2xl border border-primary-200 dark:border-primary-500/30 bg-primary-50/50 px-4 py-5 text-center transition-all hover:border-primary-200 dark:border-primary-500/30 disabled:cursor-not-allowed disabled:opacity-50">
               <div className="text-2xl font-bold tracking-tight text-primary-600 dark:text-primary-300">
                 {isToppingUp ? t('settings.billing.payAsYouGo.opening') : `$${amount.toFixed(2)}`}
               </div>

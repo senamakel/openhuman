@@ -215,7 +215,7 @@ const SubscriptionPlans = ({
                       {plan.features.slice(0, 4).map(feature => (
                         <span
                           key={feature.text}
-                          className="rounded-full bg-stone-100/50 border border-primary-200 dark:border-primary-500/30/50 px-3 py-1 text-xs font-medium text-stone-600 dark:text-neutral-300">
+                          className="rounded-full bg-stone-100/50 border border-primary-200 dark:border-primary-500/30 px-3 py-1 text-xs font-medium text-stone-600 dark:text-neutral-300">
                           {feature.text}
                         </span>
                       ))}

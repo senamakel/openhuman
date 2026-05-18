@@ -209,7 +209,7 @@ export default function TriggerToggles({
             <li
               key={sig}
               data-testid={`trigger-row-${sig}`}
-              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
+              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 break-all">
                   {label}

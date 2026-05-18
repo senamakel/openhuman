@@ -81,7 +81,7 @@ const AppearancePanel = () => {
             Theme
           </h3>
           <div
-            className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
+            className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
             role="radiogroup"
             aria-label="Theme">
             {OPTIONS.map((opt, idx) => {
@@ -97,7 +97,7 @@ const AppearancePanel = () => {
                     idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
                   } ${
                     selected
-                      ? 'bg-primary-50 dark:bg-primary-500/10 dark:bg-primary-900/20'
+                      ? 'bg-primary-50 dark:bg-primary-500/10'
                       : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
                   }`}>
                   <span

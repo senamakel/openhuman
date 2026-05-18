@@ -107,7 +107,7 @@ export default function RewardsCommunityTab({
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               onClick={() => navigate('/settings/messaging')}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300 shadow-lg transition-transform active:scale-[0.98]">
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300 shadow-lg transition-transform active:scale-[0.98]">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -153,7 +153,7 @@ export default function RewardsCommunityTab({
               data-testid="rewards-retry"
               onClick={onRetry}
               disabled={isLoading}
-              className="rounded-full border border-amber-300 dark:border-amber-500/40 bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200 shadow-sm transition-colors hover:bg-amber-100 dark:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60">
+              className="rounded-full border border-amber-300 dark:border-amber-500/40 bg-white dark:bg-neutral-900 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200 shadow-sm transition-colors hover:bg-amber-100 dark:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60">
               {isLoading ? t('rewards.community.retrying') : t('rewards.community.tryAgain')}
             </button>
           ) : null}
@@ -161,13 +161,13 @@ export default function RewardsCommunityTab({
       ) : null}
 
       <div className="space-y-4">
-        <section className="rounded-[1.25rem] bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-6 shadow-[0_4px_20px_rgba(25,28,30,0.04)]">
+        <section className="rounded-[1.25rem] bg-white dark:bg-neutral-900 p-6 shadow-[0_4px_20px_rgba(25,28,30,0.04)]">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
                 {t('rewards.community.yourProgress')}
               </h2>
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+              <p className="text-xs text-stone-500 dark:text-neutral-400">
                 {isLoading
                   ? t('rewards.community.loadingRewards')
                   : t('rewards.community.achievementsUnlocked')
@@ -198,7 +198,7 @@ export default function RewardsCommunityTab({
                   className="text-primary-600 dark:text-primary-300 transition-all duration-300"
                 />
               </svg>
-              <span className="absolute text-sm font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              <span className="absolute text-sm font-bold text-stone-900 dark:text-neutral-100">
                 {progressPercent}%
               </span>
             </div>
@@ -211,7 +211,7 @@ export default function RewardsCommunityTab({
                 className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                   role?.unlocked
                     ? 'border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300'
-                    : 'border-dashed border-stone-300 dark:border-neutral-700 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500 dark:text-neutral-500'
+                    : 'border-dashed border-stone-300 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500'
                 }`}>
                 <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
                   {roleGlyph(index)}
@@ -223,13 +223,13 @@ export default function RewardsCommunityTab({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
               {t('rewards.community.rolesAndRewards')}
             </h2>
           </div>
           {isLoading ? (
-            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-5 shadow-soft">
-              <div className="text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-soft">
+              <div className="text-sm text-stone-600 dark:text-neutral-300">
                 {t('rewards.community.loadingRewards')}
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function RewardsCommunityTab({
               return (
                 <div
                   key={role.id}
-                  className={`rounded-[1.25rem] bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-5 shadow-sm transition-shadow hover:shadow-md ${
+                  className={`rounded-[1.25rem] bg-white dark:bg-neutral-900 p-5 shadow-sm transition-shadow hover:shadow-md ${
                     role.unlocked ? 'ring-1 ring-primary-100' : 'ring-1 ring-black/[0.04]'
                   }`}>
                   <div className="flex items-start justify-between gap-4">
@@ -252,10 +252,10 @@ export default function RewardsCommunityTab({
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                        <h3 className="text-base font-bold text-stone-900 dark:text-neutral-100">
                           {role.title}
                         </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                        <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
                           {role.description}
                         </p>
                       </div>
@@ -283,21 +283,21 @@ export default function RewardsCommunityTab({
               );
             })
           ) : (
-            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-5 shadow-soft">
-              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-soft">
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
                 {t('rewards.community.syncPending')}
               </h2>
-              <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+              <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
                 {t('rewards.community.syncPendingDesc')}
               </p>
             </div>
           )}
         </section>
 
-        <section className="rounded-[1.25rem] bg-[#f2f4f6] p-4 text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+        <section className="rounded-[1.25rem] bg-[#f2f4f6] p-4 text-sm text-stone-600 dark:text-neutral-300">
           <div className="flex items-center justify-between gap-3">
             <span>{t('rewards.community.discordServer')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <span className="font-semibold text-stone-900 dark:text-neutral-100">
               {!snapshot
                 ? t('rewards.community.discordWaiting')
                 : snapshot.discord.membershipStatus === 'member'
@@ -311,7 +311,7 @@ export default function RewardsCommunityTab({
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <span>{t('rewards.community.currentStreak')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <span className="font-semibold text-stone-900 dark:text-neutral-100">
               {snapshot
                 ? t('rewards.community.streakDays').replace(
                     '{n}',
@@ -322,7 +322,7 @@ export default function RewardsCommunityTab({
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <span>{t('rewards.community.cumulativeTokens')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <span className="font-semibold text-stone-900 dark:text-neutral-100">
               {snapshot
                 ? formatNumber(snapshot.metrics.cumulativeTokens)
                 : t('rewards.community.unknown')}

@@ -1279,7 +1279,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   className={`w-full text-left px-4 py-3 border-b border-stone-50 dark:border-neutral-800 transition-colors group cursor-pointer ${
                     selectedThreadId === thread.id
                       ? 'bg-primary-50 border-l-2 border-l-primary-500'
-                      : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60'
+                      : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60'
                   }`}>
                   <div className="flex items-center justify-between">
                     <p
@@ -1477,7 +1477,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   setProfileDraft(DEFAULT_PROFILE_DRAFT);
                   setProfileDraftOpen(false);
                 }}
-                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 px-3 text-xs font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
+                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 px-3 text-xs font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
                 Cancel
               </button>
             </div>
@@ -1599,7 +1599,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                       )}
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 dark:hover:text-neutral-300 transition-all`}
+                        className={`absolute -top-1 ${msg.sender === 'user' ? '-left-8' : '-right-8'} p-1 rounded-md opacity-0 group-hover/msg:opacity-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-all`}
                         title={t('chat.copyResponse')}>
                         {copiedMessageId === msg.id ? (
                           <svg
@@ -1681,7 +1681,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                                   ))}
                                   <button
                                     onClick={() => setReactionPickerMsgId(null)}
-                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 dark:hover:text-neutral-500 text-xs px-0.5">
+                                    className="ml-0.5 text-stone-600 dark:text-neutral-300 hover:text-stone-400 dark:hover:text-neutral-500 text-xs px-0.5">
                                     ✕
                                   </button>
                                 </div>
@@ -1712,9 +1712,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   <div className="flex justify-start">
                     <div className="bg-stone-200/80 dark:bg-neutral-800 rounded-2xl rounded-bl-md px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 dark:bg-neutral-400 animate-bounce [animation-delay:0ms]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 dark:bg-neutral-400 animate-bounce [animation-delay:150ms]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 dark:bg-neutral-400 animate-bounce [animation-delay:300ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-stone-50 dark:bg-neutral-800/600 animate-bounce [animation-delay:300ms]" />
                       </div>
                     </div>
                   </div>
@@ -2090,7 +2090,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 type="button"
                 onClick={() => setInputMode('text')}
                 disabled={isRecording || isTranscribing}
-                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
                 title={t('chat.switchToText')}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path

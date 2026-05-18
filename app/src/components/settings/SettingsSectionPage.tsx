@@ -32,7 +32,7 @@ const SettingsSectionPage = ({ title, description, items }: SettingsSectionPageP
 
       <div>
         {description && (
-          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 px-5 pb-3">
+          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 px-5 pb-3">
             {description}
           </p>
         )}

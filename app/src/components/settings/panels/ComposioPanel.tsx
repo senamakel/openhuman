@@ -204,7 +204,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
           />
         )}
         <div className={embedded ? '' : 'p-4'}>
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+          <p className="text-sm text-stone-500 dark:text-neutral-400">
             {t('settings.composio.loading')}
           </p>
         </div>
@@ -224,14 +224,14 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
       )}
 
       <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
-        <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+        <p className="text-sm text-stone-500 dark:text-neutral-400">
           {t('settings.composio.intro')}
         </p>
 
         {/* Mode toggle */}
-        <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60/60 p-4 space-y-3">
+        <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4 space-y-3">
           <fieldset>
-            <legend className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-2">
+            <legend className="text-sm font-medium text-stone-900 dark:text-neutral-100 mb-2">
               {t('settings.composio.routingMode')}
             </legend>
             <div className="space-y-2">
@@ -248,10 +248,10 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                   className="mt-1"
                 />
                 <div className="text-left">
-                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                     {t('settings.composio.modeManaged')}
                   </span>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
                     {t('settings.composio.modeManagedDesc')}
                   </p>
                 </div>
@@ -269,10 +269,10 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                   className="mt-1"
                 />
                 <div className="text-left">
-                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                     {t('settings.composio.modeDirect')}
                   </span>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
                     {t('settings.composio.modeDirectDesc')}
                   </p>
                 </div>
@@ -285,11 +285,11 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
         {mode === 'direct' && (
           <div className="space-y-2">
             <label
-              className="block text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100"
+              className="block text-sm font-medium text-stone-800 dark:text-neutral-100"
               htmlFor="composio-api-key">
               {t('settings.composio.apiKeyLabel')}
             </label>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            <p className="text-xs text-stone-500 dark:text-neutral-400">
               {t('settings.composio.apiKeyDesc')}
             </p>
             <input
@@ -303,7 +303,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                   ? t('settings.composio.apiKeyStoredPlaceholder')
                   : 'ck_live_xxxxxxxxxxxxxxxx'
               }
-              className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+              className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
             />
             {apiKeyStored && (
               <p className="text-xs text-green-600 dark:text-green-300">
@@ -341,7 +341,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                 type="button"
                 onClick={handleCancelTransition}
                 disabled={saving}
-                className="flex-1 py-2 rounded-xl border border-stone-300 dark:border-neutral-700 dark:border-neutral-700 bg-white dark:bg-neutral-900 dark:bg-neutral-900 text-stone-800 dark:text-neutral-100 dark:text-neutral-100 text-sm font-medium hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 transition-colors disabled:opacity-50">
+                className="flex-1 py-2 rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-stone-800 dark:text-neutral-100 text-sm font-medium hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 transition-colors disabled:opacity-50">
                 {t('common.cancel')}
               </button>
               <button

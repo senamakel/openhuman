@@ -144,7 +144,7 @@ export function AgentMessageBubble({
               {table.rows.map((row, rowIndex) => (
                 <tr
                   key={`${rowIndex}:${row.join('|')}`}
-                  className="odd:bg-white dark:bg-neutral-900 even:bg-stone-50 dark:bg-neutral-800/60/70">
+                  className="odd:bg-white dark:bg-neutral-900 even:bg-stone-50 dark:bg-neutral-800/60">
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${rowIndex}:${cellIndex}:${cell}`}

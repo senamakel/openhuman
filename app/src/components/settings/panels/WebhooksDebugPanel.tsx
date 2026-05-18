@@ -155,23 +155,23 @@ const WebhooksDebugPanel = () => {
             type="button"
             onClick={() => void loadData()}
             disabled={loading}
-            className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
             {loading ? 'Loading...' : 'Refresh'}
           </button>
           <button
             type="button"
             onClick={() => void handleClearLogs()}
             disabled={clearing || logs.length === 0}
-            className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
             {clearing ? 'Clearing...' : 'Clear Logs'}
           </button>
-          <span className="text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+          <span className="text-stone-500 dark:text-neutral-400">
             {registrations.length} registered &middot; {logs.length} captured &middot;{' '}
             <span
               className={
                 isLive
                   ? 'text-sage-600 dark:text-sage-300'
-                  : 'text-stone-400 dark:text-neutral-500 dark:text-neutral-500'
+                  : 'text-stone-400 dark:text-neutral-500'
               }>
               {isLive ? 'live' : 'disconnected'}
             </span>
@@ -185,9 +185,9 @@ const WebhooksDebugPanel = () => {
         )}
 
         {lastEvent && (
-          <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+          <div className="text-xs text-stone-500 dark:text-neutral-400">
             Last event:{' '}
-            <span className="font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+            <span className="font-medium text-stone-700 dark:text-neutral-200">
               {lastEvent.event_type}
             </span>{' '}
             at {formatDateTime(lastEvent.timestamp)}
@@ -196,11 +196,11 @@ const WebhooksDebugPanel = () => {
 
         {/* Registrations */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             Registered Webhooks
           </h3>
           {registrations.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
               No active registrations.
             </p>
           ) : (
@@ -208,21 +208,21 @@ const WebhooksDebugPanel = () => {
               {registrations.map(registration => (
                 <div
                   key={registration.tunnel_uuid}
-                  className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-3">
+                  className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    <span className="text-xs font-semibold text-stone-900 dark:text-neutral-100">
                       {registration.tunnel_name || registration.tunnel_uuid}
                     </span>
                     <div className="flex gap-1 text-[10px]">
-                      <span className="rounded-full bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                      <span className="rounded-full bg-stone-200 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300">
                         {registration.target_kind}
                       </span>
-                      <span className="rounded-full bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                      <span className="rounded-full bg-stone-200 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300">
                         {registration.skill_id}
                       </span>
                     </div>
                   </div>
-                  <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400 font-mono break-all">
+                  <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 font-mono break-all">
                     {backendUrl
                       ? tunnelsApi.ingressUrl(backendUrl, registration.tunnel_uuid)
                       : 'Resolving backend URL…'}
@@ -235,11 +235,11 @@ const WebhooksDebugPanel = () => {
 
         {/* Captured Requests */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             Captured Requests
           </h3>
           {logs.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
               No webhook requests captured yet.
             </p>
           ) : (
@@ -252,17 +252,17 @@ const WebhooksDebugPanel = () => {
                   className={`w-full rounded-xl border p-3 text-left transition-colors ${
                     selectedLog?.correlation_id === entry.correlation_id
                       ? 'border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10'
-                      : 'border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800'
+                      : 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800'
                   }`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    <span className="text-xs font-semibold text-stone-900 dark:text-neutral-100">
                       {entry.method} {entry.path}
                     </span>
-                    <span className="text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    <span className="text-[10px] text-stone-500 dark:text-neutral-400">
                       {entry.status_code ?? '...'}
                     </span>
                   </div>
-                  <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
                     {entry.tunnel_name} {entry.skill_id ? `· ${entry.skill_id}` : '· unrouted'} ·{' '}
                     {formatDateTime(entry.updated_at)}
                   </div>
@@ -270,24 +270,24 @@ const WebhooksDebugPanel = () => {
               ))}
 
               {selectedLog && (
-                <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-3 space-y-3">
+                <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 space-y-3">
                   <div>
-                    <div className="text-xs font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    <div className="text-xs font-semibold text-stone-900 dark:text-neutral-100">
                       {selectedLog.method} {selectedLog.path}
                     </div>
-                    <div className="text-[10px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500 font-mono">
+                    <div className="text-[10px] text-stone-400 dark:text-neutral-500 font-mono">
                       {selectedLog.correlation_id}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1 text-[10px]">
-                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300">
                       {selectedLog.stage}
                     </span>
-                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300">
                       {selectedLog.status_code ?? 'pending'}
                     </span>
-                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    <span className="rounded-full bg-stone-200 dark:bg-neutral-800 px-2 py-0.5 text-stone-600 dark:text-neutral-300">
                       {selectedLog.skill_id || 'unrouted'}
                     </span>
                   </div>
@@ -334,10 +334,10 @@ const WebhooksDebugPanel = () => {
 function PayloadBlock({ title, value }: { title: string; value: string }) {
   return (
     <details className="text-xs">
-      <summary className="cursor-pointer font-semibold text-stone-500 dark:text-neutral-400 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
+      <summary className="cursor-pointer font-semibold text-stone-500 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
         {title}
       </summary>
-      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
+      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
         {value}
       </pre>
     </details>

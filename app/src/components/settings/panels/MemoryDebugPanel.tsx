@@ -183,21 +183,21 @@ const MemoryDebugPanel = () => {
       <div className="p-4 space-y-4">
         {/* Documents */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             Documents
           </h3>
           <div className="flex gap-2">
             <input
               value={documentsNamespaceFilter}
               onChange={e => setDocumentsNamespaceFilter(e.target.value)}
-              className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
+              className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
               placeholder="Filter by namespace..."
             />
             <button
               type="button"
               onClick={() => void loadDocuments()}
               disabled={documentsLoading}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
               {documentsLoading ? '...' : 'Refresh'}
             </button>
           </div>
@@ -207,7 +207,7 @@ const MemoryDebugPanel = () => {
             </div>
           )}
           {documents.length === 0 && !documentsLoading ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
               No documents found.
             </p>
           ) : (
@@ -215,16 +215,16 @@ const MemoryDebugPanel = () => {
               {documents.map(doc => (
                 <div
                   key={`${doc.namespace}:${doc.documentId}`}
-                  className="flex items-start justify-between gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-2">
+                  className="flex items-start justify-between gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-2">
                   <div className="min-w-0">
-                    <div className="text-xs font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 break-all">
+                    <div className="text-xs font-medium text-stone-900 dark:text-neutral-100 break-all">
                       {doc.documentId}
                     </div>
-                    <div className="text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400 break-all">
+                    <div className="text-[11px] text-stone-500 dark:text-neutral-400 break-all">
                       {doc.namespace}
                     </div>
                     {doc.title && (
-                      <div className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+                      <div className="text-[11px] text-stone-400 dark:text-neutral-500">
                         {doc.title}
                       </div>
                     )}
@@ -233,7 +233,7 @@ const MemoryDebugPanel = () => {
                     type="button"
                     disabled={Boolean(deleteLoadingId)}
                     onClick={() => void handleDelete(doc)}
-                    className="shrink-0 rounded border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 px-2 py-1 text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+                    className="shrink-0 rounded border border-stone-200 dark:border-neutral-800 px-2 py-1 text-[10px] text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
                     {deleteLoadingId === doc.documentId ? '...' : 'Delete'}
                   </button>
                 </div>
@@ -241,10 +241,10 @@ const MemoryDebugPanel = () => {
             </div>
           )}
           <details className="text-xs">
-            <summary className="cursor-pointer text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <summary className="cursor-pointer text-stone-400 dark:text-neutral-500">
               Raw response
             </summary>
-            <pre className="mt-1 max-h-32 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
+            <pre className="mt-1 max-h-32 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
               {JSON.stringify(documentsRaw, null, 2)}
             </pre>
           </details>
@@ -253,14 +253,14 @@ const MemoryDebugPanel = () => {
         {/* Namespaces */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               Namespaces
             </h3>
             <button
               type="button"
               onClick={() => void loadNamespaces()}
               disabled={namespacesLoading}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1 text-[11px] font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1 text-[11px] font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
               {namespacesLoading ? '...' : 'Refresh'}
             </button>
           </div>
@@ -274,13 +274,13 @@ const MemoryDebugPanel = () => {
               {namespaces.map(ns => (
                 <span
                   key={ns}
-                  className="rounded-full bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 px-2 py-0.5 text-[11px] text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[11px] text-stone-600 dark:text-neutral-300">
                   {ns}
                 </span>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
               No namespaces found.
             </p>
           )}
@@ -288,19 +288,19 @@ const MemoryDebugPanel = () => {
 
         {/* Query & Recall */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             Query & Recall
           </h3>
           <input
             value={namespaceInput}
             onChange={e => setNamespaceInput(e.target.value)}
-            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
+            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
             placeholder="Namespace"
           />
           <textarea
             value={queryInput}
             onChange={e => setQueryInput(e.target.value)}
-            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
+            className="w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
             rows={2}
             placeholder="Query text..."
           />
@@ -308,10 +308,10 @@ const MemoryDebugPanel = () => {
             <input
               value={maxChunksInput}
               onChange={e => setMaxChunksInput(e.target.value)}
-              className="w-16 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-2 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200"
+              className="w-16 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-2 py-1.5 text-xs text-stone-700 dark:text-neutral-200"
               placeholder="10"
             />
-            <span className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            <span className="text-[11px] text-stone-400 dark:text-neutral-500">
               max chunks
             </span>
             <div className="flex-1" />
@@ -319,14 +319,14 @@ const MemoryDebugPanel = () => {
               type="button"
               onClick={() => void handleQuery()}
               disabled={queryLoading || !namespaceInput.trim() || !queryInput.trim()}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
               {queryLoading ? '...' : 'Query'}
             </button>
             <button
               type="button"
               onClick={() => void handleRecall()}
               disabled={recallLoading || !namespaceInput.trim()}
-              className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800 disabled:opacity-50">
               {recallLoading ? '...' : 'Recall'}
             </button>
           </div>
@@ -340,25 +340,25 @@ const MemoryDebugPanel = () => {
             <div className="space-y-2">
               {queryResult && (
                 <div>
-                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">
+                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 mb-1">
                     Query result
                   </div>
                   <MemoryTextWithEntities
                     text={queryResult.text ?? ''}
                     entities={queryResult.entities}
-                    className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
+                    className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
                   />
                 </div>
               )}
               {recallResult && (
                 <div>
-                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">
+                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 mb-1">
                     Recall result
                   </div>
                   <MemoryTextWithEntities
                     text={recallResult.text ?? ''}
                     entities={recallResult.entities}
-                    className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
+                    className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-2 text-[11px] leading-5 min-h-12 whitespace-pre-wrap"
                   />
                 </div>
               )}
@@ -368,10 +368,10 @@ const MemoryDebugPanel = () => {
 
         {/* Clear Namespace */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             Clear Namespace
           </h3>
-          <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+          <p className="text-xs text-stone-400 dark:text-neutral-500">
             Permanently delete all documents within a namespace.
           </p>
           <div className="flex gap-2">
@@ -379,7 +379,7 @@ const MemoryDebugPanel = () => {
               <select
                 value={clearNamespaceInput}
                 onChange={e => setClearNamespaceInput(e.target.value)}
-                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200">
                 <option value="">Select namespace...</option>
                 {namespaces.map(ns => (
                   <option key={ns} value={ns}>
@@ -391,7 +391,7 @@ const MemoryDebugPanel = () => {
               <input
                 value={clearNamespaceInput}
                 onChange={e => setClearNamespaceInput(e.target.value)}
-                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
+                className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500"
                 placeholder="e.g. skill:gmail:user@example.com"
               />
             )}

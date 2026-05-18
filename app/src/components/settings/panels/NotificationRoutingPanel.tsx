@@ -113,23 +113,23 @@ const NotificationRoutingPanel = () => {
 
       <div className="p-4 space-y-4">
         {stats && (
-          <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-              <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <div className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
+              <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                 Pipeline stats
               </p>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
+            <div className="grid grid-cols-3 divide-x divide-stone-100 dark:divide-neutral-800">
               {[
                 { label: 'Total', value: stats.total },
                 { label: 'Unread', value: stats.unread },
                 { label: 'Unscored', value: stats.unscored },
               ].map(({ label, value }) => (
                 <div key={label} className="px-4 py-3 text-center">
-                  <p className="text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  <p className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
                     {value}
                   </p>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  <p className="text-xs text-stone-500 dark:text-neutral-400">
                     {label}
                   </p>
                 </div>
@@ -167,19 +167,19 @@ const NotificationRoutingPanel = () => {
         </div>
 
         {/* How it works */}
-        <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+        <div className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
+            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
               How it works
             </p>
           </div>
-          <div className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
+          <div className="divide-y divide-stone-100 dark:divide-neutral-800">
             {[
               {
                 label: 'Drop',
                 desc: 'Noise / spam — stored but not surfaced',
                 color:
-                  'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 dark:text-neutral-300',
+                  'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300',
               },
               {
                 label: 'Acknowledge',
@@ -202,7 +202,7 @@ const NotificationRoutingPanel = () => {
                   className={`flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-semibold ${row.color}`}>
                   {row.label}
                 </span>
-                <span className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                <span className="text-xs text-stone-600 dark:text-neutral-300">
                   {row.desc}
                 </span>
               </div>
@@ -210,13 +210,13 @@ const NotificationRoutingPanel = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+        <div className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
+            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
               Per-provider routing
             </p>
           </div>
-          <div className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
+          <div className="divide-y divide-stone-100 dark:divide-neutral-800">
             {providers.map(provider => {
               const hasLoadError = Boolean(loadErrors[provider]);
               const isLoaded = Boolean(loadedProviders[provider]);
@@ -229,10 +229,10 @@ const NotificationRoutingPanel = () => {
               return (
                 <div key={provider} className="px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100 capitalize">
+                    <p className="text-sm font-medium text-stone-800 dark:text-neutral-100 capitalize">
                       {provider}
                     </p>
-                    <label className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300 flex items-center gap-2">
+                    <label className="text-xs text-stone-600 dark:text-neutral-300 flex items-center gap-2">
                       Enabled
                       <input
                         type="checkbox"
@@ -244,7 +244,7 @@ const NotificationRoutingPanel = () => {
                       />
                     </label>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-neutral-300">
                     Threshold
                     <input
                       className="flex-1"
@@ -262,7 +262,7 @@ const NotificationRoutingPanel = () => {
                     />
                     <span>{s.importance_threshold.toFixed(2)}</span>
                   </label>
-                  <label className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300 flex items-center gap-2">
+                  <label className="text-xs text-stone-600 dark:text-neutral-300 flex items-center gap-2">
                     Route to orchestrator
                     <input
                       type="checkbox"

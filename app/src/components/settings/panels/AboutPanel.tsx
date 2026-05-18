@@ -42,11 +42,11 @@ const AboutPanel = () => {
       />
 
       <div className="p-4 space-y-4">
-        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4">
-          <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+          <div className="text-xs text-stone-500 dark:text-neutral-400">
             {t('settings.about.version')}
           </div>
-          <div className="mt-1 text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          <div className="mt-1 text-lg font-semibold text-stone-900 dark:text-neutral-100">
             v{APP_VERSION}
           </div>
           {info?.available && info.available_version && (
@@ -56,17 +56,17 @@ const AboutPanel = () => {
           )}
         </div>
 
-        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4">
+        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                 {t('settings.about.softwareUpdates')}
               </div>
-              <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed">
+              <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
                 {summary}
               </div>
               {lastCheckedAt && (
-                <div className="mt-1 text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+                <div className="mt-1 text-[11px] text-stone-400 dark:text-neutral-500">
                   {t('settings.about.lastChecked')} {formatRelative(lastCheckedAt, t)}
                 </div>
               )}
@@ -81,11 +81,11 @@ const AboutPanel = () => {
           </div>
         </div>
 
-        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4">
-          <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+          <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
             {t('settings.about.releases')}
           </div>
-          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed">
+          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
             {t('settings.about.releasesDesc')}
           </p>
           <button
@@ -93,7 +93,7 @@ const AboutPanel = () => {
             onClick={() => {
               void openUrl(LATEST_APP_DOWNLOAD_URL);
             }}
-            className="mt-3 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 text-stone-700 dark:text-neutral-200 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-xs transition-colors">
+            className="mt-3 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-neutral-800 text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 text-xs transition-colors">
             {t('settings.about.openReleases')}
           </button>
         </div>

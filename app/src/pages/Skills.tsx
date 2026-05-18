@@ -179,13 +179,13 @@ function ComposioConnectorTile({
             ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/70'
             : isExpired || isError
               ? 'border-coral-200 bg-coral-50/30 hover:bg-coral-50/50'
-              : 'border-stone-200 bg-white hover:bg-stone-50'
+              : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800/60'
       }`}>
-      <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 [&_img]:max-h-10 [&_img]:max-w-10 [&_svg]:h-8 [&_svg]:w-8">
+      <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 dark:text-neutral-200 [&_img]:max-h-10 [&_img]:max-w-10 [&_svg]:h-8 [&_svg]:w-8">
         {meta.icon}
       </div>
       <div className="flex w-full min-w-0 flex-col items-center justify-start gap-0.5">
-        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-stone-900">
+        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-stone-900 dark:text-neutral-100">
           {meta.name}
         </span>
         <span
@@ -227,13 +227,13 @@ function ChannelTile({ def, status, icon, onOpen }: ChannelTileProps) {
             ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/70'
             : isError
               ? 'border-coral-200 bg-coral-50/30 hover:bg-coral-50/50'
-              : 'border-stone-200 bg-white hover:bg-stone-50'
+              : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800/60'
       }`}>
-      <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 [&>span]:h-12 [&>span]:w-12 [&>span]:rounded-2xl [&_svg]:h-7 [&_svg]:w-7">
+      <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 dark:text-neutral-200 [&>span]:h-12 [&>span]:w-12 [&>span]:rounded-2xl [&_svg]:h-7 [&_svg]:w-7">
         {icon}
       </div>
       <div className="flex min-h-[2.5rem] w-full min-w-0 flex-col items-center justify-start gap-0.5">
-        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-stone-900">
+        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-stone-900 dark:text-neutral-100">
           {def.display_name}
         </span>
         <span className={`line-clamp-1 text-[10px] font-medium ${channelStatusColor(status)}`}>
@@ -573,10 +573,10 @@ export default function Skills() {
   const renderGroup = ({ category, items }: { category: SkillCategory; items: SkillItem[] }) => (
     <div
       key={category}
-      className="rounded-2xl border border-stone-200 bg-white p-3 shadow-soft animate-fade-up">
+      className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
       <div className="px-1 pb-3 pt-1">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-900">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-stone-100">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-stone-100 dark:bg-neutral-800">
             <SkillCategoryIcon
               category={category}
               className={skillCategoryHeadingClassName(category)}
@@ -801,12 +801,12 @@ export default function Skills() {
             {
               <>
                 {channelsGroup && (
-                  <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-soft animate-fade-up">
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
                       <h2
-                        className="flex items-center gap-2 text-sm font-semibold text-stone-900"
+                        className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-neutral-100"
                         data-walkthrough="skills-channels">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-stone-100">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-stone-100 dark:bg-neutral-800">
                           <SkillCategoryIcon
                             category="Channels"
                             className={skillCategoryHeadingClassName('Channels')}
@@ -814,7 +814,7 @@ export default function Skills() {
                         </span>
                         {t('skills.channels')}
                       </h2>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500">
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
                         {t('channels.defaultMessaging')}
                       </p>
                     </div>
@@ -836,14 +836,14 @@ export default function Skills() {
 
                 <MeetingBotsCard onToast={addToast} />
 
-                <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-soft animate-fade-up">
+                <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                   <div className="px-1 pb-3 pt-1">
                     <h2
-                      className="text-sm font-semibold text-stone-900"
+                      className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
                       data-walkthrough="skills-grid">
                       {t('skills.integrations')}
                     </h2>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500">
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
                       {t('skills.available')}
                     </p>
                   </div>
@@ -871,7 +871,7 @@ export default function Skills() {
                       ))}
                     </div>
                   ) : (
-                    <p className="px-1 py-4 text-center text-xs text-stone-400">
+                    <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
                       {t('skills.noResults')}
                     </p>
                   )}

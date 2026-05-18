@@ -1493,7 +1493,7 @@ const en: TranslationMap = {
   'rewards.community.heroTitle': 'Hero title',
   'rewards.community.joinDiscord': 'Join Discord',
   'rewards.community.loadingRewards': 'Loading rewards…',
-  'rewards.community.locked': 'Unlocked',
+  'rewards.community.locked': 'Locked',
   'rewards.community.retrying': 'Retrying…',
   'rewards.community.rolesAndRewards': 'Roles & Rewards',
   'rewards.community.streakDays': '{n}',

@@ -28,8 +28,8 @@ const ENTITY_TYPE_RE = /\(([A-Z][A-Z0-9_]{1,30})\)/g;
 const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   PERSON: { bg: 'bg-sky-500/15', text: 'text-sky-300', border: 'border-sky-500/20' },
   PROJECT: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/20' },
-  ORG: { bg: 'bg-amber-500/15', text: 'text-amber-300', border: 'border-amber-500/20' },
-  ORGANIZATION: { bg: 'bg-amber-500/15', text: 'text-amber-300', border: 'border-amber-500/20' },
+  ORG: { bg: 'bg-amber-50 dark:bg-amber-500/100/15', text: 'text-amber-300', border: 'border-amber-500/20' },
+  ORGANIZATION: { bg: 'bg-amber-50 dark:bg-amber-500/100/15', text: 'text-amber-300', border: 'border-amber-500/20' },
   TECHNOLOGY: { bg: 'bg-violet-500/15', text: 'text-violet-300', border: 'border-violet-500/20' },
   TOOL: { bg: 'bg-violet-500/15', text: 'text-violet-300', border: 'border-violet-500/20' },
   LOCATION: { bg: 'bg-rose-500/15', text: 'text-rose-300', border: 'border-rose-500/20' },
@@ -38,7 +38,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> 
 };
 
 const DEFAULT_TYPE_COLOR = {
-  bg: 'bg-primary-500/15',
+  bg: 'bg-primary-50 dark:bg-primary-500/150/15',
   text: 'text-primary-300',
   border: 'border-primary-500/20',
 };

@@ -195,7 +195,7 @@ export default function Intelligence() {
                 {activeTab === 'memory' &&
                   (ingestionStatus.running || ingestionStatus.queueDepth > 0) && (
                     <div
-                      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700"
+                      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"
                       title={
                         ingestionStatus.running
                           ? ingestionStatus.currentTitle

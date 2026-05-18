@@ -73,7 +73,7 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       label: t('stats.namespaces'),
       value: formatNumber(totalNamespaces),
       sub: undefined,
-      color: 'text-amber-600',
+      color: 'text-amber-600 dark:text-amber-300',
     },
     {
       label: t('stats.relations'),
@@ -102,14 +102,14 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       {stats.map(stat => (
         <div
           key={stat.label}
-          className="rounded-xl border border-stone-200 bg-stone-50 p-3 transition-colors hover:bg-stone-100">
-          <div className="text-[11px] uppercase tracking-wide text-stone-500 mb-1">
+          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800">
+          <div className="text-[11px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 mb-1">
             {stat.label}
           </div>
           <div className={`text-xl font-semibold ${stat.color}`}>
-            {loading ? <div className="h-7 w-16 rounded bg-stone-200 animate-pulse" /> : stat.value}
+            {loading ? <div className="h-7 w-16 rounded bg-stone-200 dark:bg-neutral-800 animate-pulse" /> : stat.value}
           </div>
-          {stat.sub && <div className="text-[11px] text-stone-500 mt-0.5">{stat.sub}</div>}
+          {stat.sub && <div className="text-[11px] text-stone-500 dark:text-neutral-400 mt-0.5">{stat.sub}</div>}
         </div>
       ))}
     </div>

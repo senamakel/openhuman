@@ -47,7 +47,7 @@ export default function IntelligenceMemoryTab({
             placeholder={t('memory.search')}
             value={searchFilter}
             onChange={e => setSearchFilter(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-none focus:border-primary-500/50 transition-colors"
+            className="w-full px-3 py-2 text-sm bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-lg text-stone-900 dark:text-neutral-100 placeholder-stone-400 focus:outline-none focus:border-primary-500/50 transition-colors"
           />
         </div>
         <label htmlFor="actionable-source" className="sr-only">
@@ -57,7 +57,7 @@ export default function IntelligenceMemoryTab({
           id="actionable-source"
           value={sourceFilter}
           onChange={e => setSourceFilter(e.target.value as ActionableItemSource | 'all')}
-          className="px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg text-stone-900 focus:outline-none focus:border-primary-500/50 transition-colors">
+          className="px-3 py-2 text-sm bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-lg text-stone-900 dark:text-neutral-100 focus:outline-none focus:border-primary-500/50 transition-colors">
           <option value="all">{t('memory.sourceFilter.all')}</option>
           <option value="email">{t('memory.sourceFilter.email')}</option>
           <option value="calendar">{t('memory.sourceFilter.calendar')}</option>
@@ -71,23 +71,23 @@ export default function IntelligenceMemoryTab({
 
       {itemsLoading && !usingMemoryData ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
-          <h2 className="text-lg font-semibold text-stone-900 mb-2">{t('memory.loading')}</h2>
-          <p className="text-stone-400 text-sm">{t('memory.fetching')}</p>
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('memory.loading')}</h2>
+          <p className="text-stone-400 dark:text-neutral-500 text-sm">{t('memory.fetching')}</p>
         </div>
       ) : isRunning && items.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
-          <h2 className="text-lg font-semibold text-stone-900 mb-2">{t('memory.analyzing')}</h2>
-          <p className="text-stone-400 text-sm">{t('memory.analyzingHint')}</p>
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('memory.analyzing')}</h2>
+          <p className="text-stone-400 dark:text-neutral-500 text-sm">{t('memory.analyzingHint')}</p>
         </div>
       ) : timeGroups.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
             <svg
               className="w-8 h-8 text-primary-400"
               fill="none"
@@ -103,26 +103,26 @@ export default function IntelligenceMemoryTab({
           </div>
           {searchFilter || sourceFilter !== 'all' ? (
             <>
-              <h2 className="text-lg font-semibold text-stone-900 mb-2">{t('memory.noMatches')}</h2>
-              <p className="text-stone-400 text-sm">{t('memory.noMatchesHint')}</p>
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('memory.noMatches')}</h2>
+              <p className="text-stone-400 dark:text-neutral-500 text-sm">{t('memory.noMatchesHint')}</p>
             </>
           ) : usingMemoryData ? (
             <>
-              <h2 className="text-lg font-semibold text-stone-900 mb-2">
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">
                 {t('memory.allCaughtUp')}
               </h2>
-              <p className="text-stone-400 text-sm">{t('memory.allCaughtUpHint')}</p>
+              <p className="text-stone-400 dark:text-neutral-500 text-sm">{t('memory.allCaughtUpHint')}</p>
             </>
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-stone-900 mb-2">
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">
                 {t('memory.noAnalysis')}
               </h2>
-              <p className="text-stone-400 text-sm mb-4">{t('memory.noAnalysisHint')}</p>
+              <p className="text-stone-400 dark:text-neutral-500 text-sm mb-4">{t('memory.noAnalysisHint')}</p>
               <button
                 onClick={() => void handleAnalyzeNow()}
                 disabled={isRunning}
-                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
+                className="px-4 py-2 bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
                 {t('memory.analyzeNow')}
               </button>
             </>
@@ -131,7 +131,7 @@ export default function IntelligenceMemoryTab({
       ) : (
         <div className="space-y-6">
           {isRunning && (
-            <div className="flex items-center gap-2 text-xs text-stone-400 animate-fade-up">
+            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-neutral-500 animate-fade-up">
               <div className="w-3 h-3 border border-stone-400 border-t-transparent rounded-full animate-spin" />
               {t('memory.analyzing')}
             </div>
@@ -142,8 +142,8 @@ export default function IntelligenceMemoryTab({
               className="animate-fade-up"
               style={{ animationDelay: `${groupIndex * 50}ms` }}>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-stone-900 opacity-80">{group.label}</h2>
-                <div className="text-xs bg-stone-100 text-stone-900 px-2 py-1 rounded-full">
+                <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 opacity-80">{group.label}</h2>
+                <div className="text-xs bg-stone-100 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100 px-2 py-1 rounded-full">
                   {group.count}
                 </div>
               </div>

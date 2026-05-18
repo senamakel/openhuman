@@ -54,7 +54,9 @@ async function waitForCoreSidecar(timeout = 30_000): Promise<void> {
   let lastErr: unknown;
   await browser.waitUntil(
     async () => {
-      const result = await callOpenhumanRpc('openhuman.about_info', {});
+      // Use openhuman.about_app_list as a lightweight ping — it's a
+      // read-only catalog fetch that succeeds as soon as the core is up.
+      const result = await callOpenhumanRpc('openhuman.about_app_list', {});
       if (result.ok) {
         stepLog('core sidecar ready', { result: result.result });
         return true;

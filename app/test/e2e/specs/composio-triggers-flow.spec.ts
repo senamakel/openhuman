@@ -77,7 +77,7 @@ describe('Composio trigger toggles (UI + core RPC)', () => {
     // result may be bare value or wrapped in {result: ...} when logs are present
     const result = (out.result as { result?: unknown })?.result ?? out.result;
     const triggers = (result as { triggers?: unknown[] })?.triggers ?? [];
-    const slugs = (triggers as { slug?: string }[]).map((t) => t.slug);
+    const slugs = (triggers as { slug?: string }[]).map(t => t.slug);
     expect(slugs).toContain('GMAIL_NEW_GMAIL_MESSAGE');
     expect(slugs).toContain('SLACK_NEW_MESSAGE');
   });

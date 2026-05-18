@@ -67,10 +67,7 @@ export async function waitForHomePage(timeout = 15_000) {
   // Also accept the shorter variant and the navigation bar label as fallbacks.
   // The old strings ('Good morning', 'Message OpenHuman', 'Upgrade to Premium')
   // are no longer rendered on the home page.
-  const candidates = [
-    'Ask your assistant anything',
-    'Ask your assistant',
-  ];
+  const candidates = ['Ask your assistant anything', 'Ask your assistant'];
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     for (const text of candidates) {

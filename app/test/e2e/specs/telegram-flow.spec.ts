@@ -548,9 +548,7 @@ describe.skip('Telegram Integration Flows', () => {
         (await textExists('Ask your assistant anything')) ||
         (await textExists('Ask your assistant'));
       expect(hasMessageButton).toBe(true);
-      console.log(
-        `${LOG_PREFIX} 7.2.2: Home CTA present — write-capable tools accessible`
-      );
+      console.log(`${LOG_PREFIX} 7.2.2: Home CTA present — write-capable tools accessible`);
 
       console.log(`${LOG_PREFIX} 7.2.2 PASSED`);
     });

@@ -172,10 +172,7 @@ describe('mascotSlice', () => {
     it('setMascotVoiceGender ignores junk payloads', () => {
       const before = reducer(undefined, setMascotVoiceGender('female'));
       // Cast: simulate a stale dispatch (older build, wire-level fuzz).
-      const after = reducer(
-        before,
-        setMascotVoiceGender('robot' as unknown as 'female')
-      );
+      const after = reducer(before, setMascotVoiceGender('robot' as unknown as 'female'));
       expect(after.voiceGender).toBe('female');
     });
 
@@ -229,21 +226,15 @@ describe('mascotSlice', () => {
   describe('selectEffectiveMascotVoiceId', () => {
     it('returns the manual voiceId override when set and toggle off', () => {
       const state = reducer(undefined, setMascotVoiceId('custom-voice-1'));
-      expect(
-        selectEffectiveMascotVoiceId({
-          mascot: state,
-          locale: { current: 'en' },
-        })
-      ).toBe('custom-voice-1');
+      expect(selectEffectiveMascotVoiceId({ mascot: state, locale: { current: 'en' } })).toBe(
+        'custom-voice-1'
+      );
     });
 
     it('falls through to the build-time default when no override and toggle off', () => {
       const state = reducer(undefined, { type: '@@INIT' });
       // The setup.ts mock pins MASCOT_VOICE_ID to `JBFqnCBsd6RMkjVDRZzb`.
-      const id = selectEffectiveMascotVoiceId({
-        mascot: state,
-        locale: { current: 'en' },
-      });
+      const id = selectEffectiveMascotVoiceId({ mascot: state, locale: { current: 'en' } });
       expect(typeof id).toBe('string');
       expect(id.length).toBeGreaterThan(0);
     });
@@ -252,10 +243,7 @@ describe('mascotSlice', () => {
       let state = reducer(undefined, setMascotVoiceId('manual-override-id'));
       state = reducer(state, setMascotVoiceUseLocaleDefault(true));
       state = reducer(state, setMascotVoiceGender('female'));
-      const id = selectEffectiveMascotVoiceId({
-        mascot: state,
-        locale: { current: 'ar' },
-      });
+      const id = selectEffectiveMascotVoiceId({ mascot: state, locale: { current: 'ar' } });
       // Comes out of `DEFAULT_VOICE_BY_LOCALE.ar.female`; specific id
       // is pinned in the curated preset list.
       expect(id).toBe('AZnzlk1XvdvUeBnXmlld');

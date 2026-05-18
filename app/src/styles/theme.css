@@ -17,7 +17,8 @@
    Root Variables & Theme Configuration
    ============================================ */
 :root {
-  /* Semantic color tokens */
+  /* Semantic color tokens — these initial defaults are overridden by the
+     Light Mode block at the bottom of this file. */
   --color-background: theme('colors.canvas.50');
   --color-surface: theme('colors.white');
   --color-surface-elevated: theme('colors.canvas.100');
@@ -558,7 +559,10 @@ body::before {
    Light Mode (Default)
    ============================================ */
 :root {
-  --color-background: #f5f5f5;
+  /* Page bg tinted slightly toward primary-50 so the mesh gradient overlay
+     reads as a continuous palette rather than floating over a flat gray.
+     Pure white surfaces still pop against this softly-tinted canvas. */
+  --color-background: #f4f7fc;
   --color-surface: #ffffff;
   --color-surface-elevated: #fafafa;
   --color-border: #e5e5e5;

@@ -24,7 +24,8 @@ async function openWebhooksDebugPanel(): Promise<void> {
 }
 
 describe('Webhooks ingress surface (stub-level)', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

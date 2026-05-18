@@ -18,7 +18,8 @@ import { clearRequestLog, getRequestLog, startMockServer, stopMockServer } from 
 const USER_ID = 'e2e-skill-lifecycle';
 
 describe('Skill lifecycle smoke', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

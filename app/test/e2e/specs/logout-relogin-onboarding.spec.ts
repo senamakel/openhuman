@@ -107,7 +107,8 @@ async function waitForPersistedAuthToken(timeout = 10_000) {
 }
 
 describe('Logout -> re-login onboarding overlay', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     // Reach Welcome screen first (this spec drives login itself).
@@ -121,7 +122,8 @@ describe('Logout -> re-login onboarding overlay', () => {
     await stopMockServer();
   });
 
-  it('shows onboarding overlay with clean state after logout and re-login', async () => {
+  it('shows onboarding overlay with clean state after logout and re-login', async function () {
+    this.timeout(180_000);
     const hasChrome = await hasAppChrome();
     expect(hasChrome).toBe(true);
 

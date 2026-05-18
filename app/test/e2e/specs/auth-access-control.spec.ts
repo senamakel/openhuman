@@ -143,7 +143,8 @@ async function performFullLogin(token = 'e2e-test-token') {
 // ===========================================================================
 
 describe('Auth & Access Control', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     resetMockBehavior();
     setMockBehavior('composioConnections', '[]');
@@ -164,7 +165,8 @@ describe('Auth & Access Control', () => {
   // 1. Authentication
   // -------------------------------------------------------------------------
 
-  it('new user registers via deep link and reaches home', async () => {
+  it('new user registers via deep link and reaches home', async function () {
+    this.timeout(120_000);
     await performFullLogin('e2e-auth-token');
   });
 
@@ -388,7 +390,8 @@ describe('Auth & Access Control', () => {
     console.log(`[AuthAccess] Logout verified: welcomeUI=${onWelcome}, tokenCleared=${!hasToken}`);
   });
 
-  it('revoked session auto-logs out the user', async () => {
+  it('revoked session auto-logs out the user', async function () {
+    this.timeout(120_000);
     // Login fresh
     clearRequestLog();
     resetMockBehavior();

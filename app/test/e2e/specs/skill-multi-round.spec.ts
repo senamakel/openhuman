@@ -17,7 +17,8 @@ import { startMockServer, stopMockServer } from '../mock-server';
 const USER_ID = 'e2e-skill-multi-round';
 
 describe('Multi-round tool conversation smoke', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

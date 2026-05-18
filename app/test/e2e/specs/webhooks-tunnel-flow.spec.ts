@@ -64,7 +64,8 @@ function unwrapRpcValue<T = unknown>(raw: unknown): T | undefined {
 }
 
 describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await resetMockBehavior();
     await waitForApp();

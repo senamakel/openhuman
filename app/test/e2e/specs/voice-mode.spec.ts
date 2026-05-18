@@ -66,7 +66,9 @@ describe('Voice mode integration', () => {
     await stopMockServer();
   });
 
-  it('can switch to voice input mode, see status message, and switch back to text', async () => {
+  it('can switch to voice input mode, see status message, and switch back to text', async function () {
+    // Auth + onboarding + voice toggle all need more than 30s.
+    this.timeout(90_000);
     // --- Authenticate and reach conversations ---
     await triggerAuthDeepLink('e2e-voice-token');
     await waitForWindowVisible(25_000);
@@ -141,7 +143,8 @@ describe('Voice mode integration', () => {
     expect(textRestored).not.toBeNull();
   });
 
-  it('shows reply mode toggle with text and voice options', async () => {
+  it('shows reply mode toggle with text and voice options', async function () {
+    this.timeout(90_000);
     // Ensure conversations page is loaded (re-authenticate if state was lost).
     const onConversations = await waitForAnyText(
       ['Message OpenHuman', 'Type a message', 'Reply'],

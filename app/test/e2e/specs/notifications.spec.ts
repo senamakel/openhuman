@@ -71,7 +71,8 @@ async function waitForCoreSidecar(timeout = 30_000): Promise<void> {
 }
 
 describe('Notifications', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
 

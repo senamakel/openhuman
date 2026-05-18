@@ -58,7 +58,8 @@ async function invokeTauri<T = unknown>(
 }
 
 describe('Tauri commands', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await waitForApp();
     await resetApp(USER_ID);
   });

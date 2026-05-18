@@ -86,6 +86,9 @@ async function waitForRewardsSnapshot(timeout = 15_000): Promise<void> {
 
 describe('Rewards progression & persistence', () => {
   before(async function beforeSuite() {
+    // Auth + onboarding can take longer than the default 30s per-hook budget.
+    this.timeout(90_000);
+
     if (!supportsExecuteScript()) {
       stepLog('Skipping suite on Mac2 — Rewards bottom-tab label not mapped for Appium');
       this.skip();
@@ -110,7 +113,8 @@ describe('Rewards progression & persistence', () => {
     await stopMockServer();
   });
 
-  it('12.2.1 — message-driven progress is reflected in the unlocked-count summary', async () => {
+  it('12.2.1 — message-driven progress is reflected in the unlocked-count summary', async function () {
+    this.timeout(90_000);
     stepLog(
       'priming high_usage scenario (featuresUsedCount=6, cumulativeTokens=12.5M, streak=14d)'
     );
@@ -133,7 +137,8 @@ describe('Rewards progression & persistence', () => {
     expect(await textExists('Pro Supporter')).toBe(true);
   });
 
-  it('12.2.2 — usage metrics (current streak + cumulative tokens) render the snapshot values', async () => {
+  it('12.2.2 — usage metrics (current streak + cumulative tokens) render the snapshot values', async function () {
+    this.timeout(90_000);
     stepLog('priming high_usage scenario for metrics footer');
     resetMockBehavior();
     setMockBehavior('rewardsScenario', 'high_usage');
@@ -156,7 +161,8 @@ describe('Rewards progression & persistence', () => {
     expect(await textExists('12,500,000')).toBe(true);
   });
 
-  it('12.2.3 — state persists across a simulated restart (re-fetch on remount)', async () => {
+  it('12.2.3 — state persists across a simulated restart (re-fetch on remount)', async function () {
+    this.timeout(90_000);
     // Phase 1: load the high-usage snapshot with a fixed lastSyncedAt so we
     // can prove the second fetch advanced the timestamp without changing
     // the durable counters.

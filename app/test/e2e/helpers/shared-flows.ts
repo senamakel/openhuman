@@ -25,8 +25,8 @@ import { supportsExecuteScript } from './platform';
 /**
  * Open the "Add Account" modal on /accounts.
  *
- * The "Add app" affordance is a button whose only labelled descendants are an
- * SVG plus a tooltip span with `pointer-events: none`. None of the shared
+ * The "Add Account" affordance is a button whose only labelled descendants are
+ * an SVG plus a tooltip span with `pointer-events: none`. None of the shared
  * `clickButton`/`clickText` helpers can target it cleanly because the
  * accessible name lives only on `aria-label`, so this helper reaches for the
  * explicit selector. Tracking a follow-up `clickByAriaLabel` helper.
@@ -34,7 +34,8 @@ import { supportsExecuteScript } from './platform';
 export async function openAddAccountModal(): Promise<void> {
   const opened = await browser.execute(() => {
     const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
-    const addBtn = buttons.find(b => b.getAttribute('aria-label') === 'Add app');
+    // The aria-label is sourced from i18n key 'accounts.addAccount' = 'Add Account'.
+    const addBtn = buttons.find(b => b.getAttribute('aria-label') === 'Add Account');
     if (addBtn) {
       addBtn.click();
       return true;
@@ -42,7 +43,7 @@ export async function openAddAccountModal(): Promise<void> {
     return false;
   });
   if (!opened) {
-    throw new Error('Could not locate Add app button on /accounts');
+    throw new Error('Could not locate Add Account button on /chat');
   }
   await waitForText('Add account', 5_000);
 }

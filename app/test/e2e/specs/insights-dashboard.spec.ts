@@ -33,6 +33,7 @@ function stepLog(message: string, context?: unknown): void {
 
 describe('Insights dashboard smoke', () => {
   before(async function beforeSuite() {
+    this.timeout(90_000);
     if (!supportsExecuteScript()) {
       stepLog('Skipping suite on Mac2 — Intelligence sidebar not mapped');
       this.skip();

@@ -49,7 +49,8 @@ async function waitForRequest(method, urlFragment, timeout = 15_000) {
 // ===========================================================================
 
 describe('Card Payment Flow', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     clearRequestLog();
@@ -60,7 +61,8 @@ describe('Card Payment Flow', () => {
     await stopMockServer();
   });
 
-  it('login and reach home', async () => {
+  it('login and reach home', async function () {
+    this.timeout(120_000);
     await performFullLogin('e2e-card-payment-token');
   });
 

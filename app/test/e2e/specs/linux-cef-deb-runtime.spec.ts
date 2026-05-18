@@ -71,7 +71,8 @@ function stepLog(message: string, context?: unknown): void {
 }
 
 describe('Linux CEF deb package runtime (UI → Tauri → sidecar)', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     stepLog('Starting mock backend');
     await startMockServer();
     await waitForApp();

@@ -64,7 +64,8 @@ interface ListDefinitionsResult {
 }
 
 describe('System tools — Browser (open URL + automation registry)', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

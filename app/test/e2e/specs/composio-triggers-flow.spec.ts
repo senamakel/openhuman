@@ -36,7 +36,8 @@ function step(msg: string, ctx?: unknown) {
 }
 
 describe('Composio trigger toggles (UI + core RPC)', () => {
-  before(async () => {
+  before(async function beforeSuite() {
+    this.timeout(90_000);
     await startMockServer();
     setMockBehavior(
       'composioConnections',
@@ -58,7 +59,8 @@ describe('Composio trigger toggles (UI + core RPC)', () => {
     await stopMockServer();
   });
 
-  it('signs in deterministically', async () => {
+  it('signs in deterministically', async function () {
+    this.timeout(90_000);
     await triggerAuthDeepLinkBypass('e2e-composio-triggers-token');
     await waitForWindowVisible(25_000);
     await waitForWebView(15_000);

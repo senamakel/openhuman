@@ -245,16 +245,16 @@ const CoreModeBadge = () => {
 
   if (mode.kind === 'unset') {
     return (
-      <div className="px-4 py-3 rounded-lg border border-coral-300 bg-coral-50 dark:bg-coral-500/15 dark:border-coral-500/30">
+      <div className="px-4 py-3 rounded-lg border border-coral-300 dark:border-coral-500/40 bg-coral-50 dark:bg-coral-500/10 dark:bg-coral-500/15 dark:border-coral-500/30">
         <div className="text-sm font-semibold text-coral-900 dark:text-coral-300">{t('devOptions.coreModeNotSet')}</div>
-        <div className="text-xs text-coral-800 dark:text-coral-400 mt-0.5">{t('devOptions.coreModeNotSetDesc')}</div>
+        <div className="text-xs text-coral-800 dark:text-coral-200 dark:text-coral-400 mt-0.5">{t('devOptions.coreModeNotSetDesc')}</div>
       </div>
     );
   }
 
   if (mode.kind === 'local') {
     return (
-      <div className="px-4 py-3 rounded-lg border border-primary-300 bg-primary-50 dark:bg-primary-500/15 dark:border-primary-500/30">
+      <div className="px-4 py-3 rounded-lg border border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10 dark:bg-primary-500/15 dark:border-primary-500/30">
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded-full bg-primary-600 text-white text-[11px] font-medium">
             {t('devOptions.local')}
@@ -263,13 +263,13 @@ const CoreModeBadge = () => {
             {t('devOptions.embeddedCoreSidecar')}
           </span>
         </div>
-        <div className="text-xs text-primary-800 dark:text-primary-300 mt-1">{t('devOptions.sidecarSpawned')}</div>
+        <div className="text-xs text-primary-800 dark:text-primary-200 dark:text-primary-300 mt-1">{t('devOptions.sidecarSpawned')}</div>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-3 rounded-lg border border-sage-300 bg-sage-50 dark:bg-sage-500/15 dark:border-sage-500/30">
+    <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10 dark:bg-sage-500/15 dark:border-sage-500/30">
       <div className="flex items-center gap-2">
         <span className="px-2 py-0.5 rounded-full bg-sage-600 text-white text-[11px] font-medium">
           {t('devOptions.cloud')}
@@ -277,16 +277,16 @@ const CoreModeBadge = () => {
         <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">{t('devOptions.remoteCoreRpc')}</span>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-        <dt className="text-sage-700 dark:text-sage-300">URL:</dt>
+        <dt className="text-sage-700 dark:text-sage-300 dark:text-sage-300">URL:</dt>
         <dd className="font-mono text-sage-900 dark:text-sage-200 truncate" title={mode.url}>
           {mode.url}
         </dd>
-        <dt className="text-sage-700 dark:text-sage-300">{t('devOptions.token')}:</dt>
+        <dt className="text-sage-700 dark:text-sage-300 dark:text-sage-300">{t('devOptions.token')}:</dt>
         <dd className="text-sage-900 dark:text-sage-200">
           {mode.token ? (
             <span className="font-mono">••••••{mode.token.slice(-4)}</span>
           ) : (
-            <span className="text-coral-600">{t('devOptions.tokenNotSet')}</span>
+            <span className="text-coral-600 dark:text-coral-300">{t('devOptions.tokenNotSet')}</span>
           )}
         </dd>
       </dl>
@@ -315,13 +315,13 @@ const SentryTestRow = () => {
   };
 
   return (
-    <div className="px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-500/15 dark:border-amber-500/30">
+    <div className="px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/15 dark:border-amber-500/30">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">
             {t('devOptions.triggerSentryTest')}
           </div>
-          <div className="text-xs text-amber-800 dark:text-amber-400 mt-0.5">
+          <div className="text-xs text-amber-800 dark:text-amber-200 dark:text-amber-400 mt-0.5">
             {t('devOptions.triggerSentryTestDesc')}
           </div>
         </div>
@@ -344,7 +344,7 @@ const SentryTestRow = () => {
           </span>
         )}
         {status.kind === 'error' && (
-          <span className="text-coral-600">
+          <span className="text-coral-600 dark:text-coral-300">
             {t('devOptions.failed')}: {status.message}
           </span>
         )}
@@ -393,7 +393,7 @@ const LogsFolderRow = () => {
         </button>
       </div>
       {error && (
-        <div role="status" aria-live="polite" className="mt-2 text-xs text-coral-600">
+        <div role="status" aria-live="polite" className="mt-2 text-xs text-coral-600 dark:text-coral-300">
           {error}
         </div>
       )}

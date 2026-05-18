@@ -23,12 +23,12 @@ const SettingsMenuItem = ({
 }: SettingsMenuItemProps) => {
   // Color variations for dangerous items (like logout/delete)
   const titleColor = dangerous
-    ? 'text-amber-600 dark:text-amber-400'
-    : 'text-stone-900 dark:text-neutral-100';
+    ? 'text-amber-600 dark:text-amber-300 dark:text-amber-400'
+    : 'text-stone-900 dark:text-neutral-100 dark:text-neutral-100';
   const iconColor = dangerous
-    ? 'text-amber-600 dark:text-amber-400'
-    : 'text-stone-900 dark:text-neutral-200';
-  const borderColor = 'border-stone-200 dark:border-neutral-800';
+    ? 'text-amber-600 dark:text-amber-300 dark:text-amber-400'
+    : 'text-stone-900 dark:text-neutral-100 dark:text-neutral-200';
+  const borderColor = 'border-stone-200 dark:border-neutral-800 dark:border-neutral-800';
 
   // Border classes for first/last items
   const borderClasses = isLast ? '' : `border-b ${borderColor}`;
@@ -50,7 +50,7 @@ const SettingsMenuItem = ({
       <button
         type="button"
         onClick={onClick}
-        className={`w-full flex items-center justify-between py-3 px-4 bg-white dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 ${borderClasses} hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-all duration-200 text-left ${roundedClasses} focus:outline-none focus:ring-0 focus:border-inherit`}>
+        className={`w-full flex items-center justify-between py-3 px-4 bg-white dark:bg-neutral-900 dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 dark:text-neutral-100 ${borderClasses} hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 transition-all duration-200 text-left ${roundedClasses} focus:outline-none focus:ring-0 focus:border-inherit`}>
         {content}
       </button>
     );
@@ -58,7 +58,7 @@ const SettingsMenuItem = ({
 
   return (
     <div
-      className={`w-full flex items-center justify-between py-3 px-4 bg-white dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 ${borderClasses} ${roundedClasses}`}>
+      className={`w-full flex items-center justify-between py-3 px-4 bg-white dark:bg-neutral-900 dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 dark:text-neutral-100 ${borderClasses} ${roundedClasses}`}>
       {content}
     </div>
   );

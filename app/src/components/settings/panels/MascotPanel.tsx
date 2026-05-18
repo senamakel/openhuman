@@ -165,8 +165,7 @@ const MascotPanel = () => {
   // no matching `<option>`, and the picker stops reflecting the real
   // selection.
   const visiblePresets = ELEVENLABS_VOICE_PRESETS.filter(
-    p =>
-      p.id === effectiveVoiceId || p.gender === voiceGender || p.locales.includes('*')
+    p => p.id === effectiveVoiceId || p.gender === voiceGender || p.locales.includes('*')
   );
 
   const onGenderChange = (next: MascotVoiceGender) => {

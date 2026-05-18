@@ -171,7 +171,7 @@ For tasks that don't need to block the orchestrator's turn, `spawn_worker_thread
 
 Not every agent is allowed to spawn every other agent. The harness models a three-tier hierarchy that mirrors the cost / latency / depth-of-thought split between models:
 
-```
+```text
 Chat        (fast, UX-focused — e.g. orchestrator on `chat` hint)
   │
   ├─► Worker      ◄─── fast path: one delegation, leaf does the work
@@ -199,9 +199,9 @@ Each `AgentDefinition` carries an `agent_tier` field (`chat` / `reasoning` / `wo
 **Enforcement.** Two layers:
 
 1. **Loader-time (static).** [`agents::loader::validate_tier_hierarchy`](../../../src/openhuman/agent/agents/loader.rs) runs over the merged registry (built-ins + workspace TOMLs) and refuses to boot a registry that lists a same-tier or worker-with-subagents entry. Built-in archetypes are checked at compile-test time; user-shipped TOMLs are checked at workspace load.
-2. **Runtime depth gate (dynamic).** Independent of tier, the sub-agent runner caps total spawn chain depth at `MAX_SPAWN_DEPTH = 3` via a task-local counter incremented across `run_subagent`. A user-shipped TOML that drops the tier annotation still can't recurse past three hops. The harness surfaces this as the `SpawnDepthExceeded` agent error.
+2. **Runtime depth gate (dynamic, planned).** Independent of tier, the sub-agent runner *will* cap total spawn chain depth at `MAX_SPAWN_DEPTH = 3` via a task-local counter incremented across `run_subagent`, surfaced as a new `SpawnDepthExceeded` agent error. This makes a user-shipped TOML that drops the tier annotation still unable to recurse past three hops. Tracked as the follow-up to the gap noted in `harness_gap_tests.rs`.
 
-> **Status:** the loader-time tier check and `agent_tier` field are live (this section); the runtime depth-counter task-local is sketched in [`harness/fork_context.rs`](../../../src/openhuman/agent/harness/fork_context.rs) and gated in `subagent_runner::run_subagent`. See the `harness_gap_tests.rs` note for the pre-existing `SpawnDepthExceeded` gap that this work closes.
+> **Status:** the loader-time tier check and `agent_tier` field are live (this section). The runtime depth-counter task-local is *not yet implemented* — it is the planned defence-in-depth layer described above. Until it lands, depth is bounded only by the static loader contract plus the prompt-level rules in the orchestrator and planner agents.
 
 ### Toolkit-specific specialists
 

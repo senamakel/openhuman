@@ -20,10 +20,28 @@ vi.mock('../../hooks/useUsageState', () => ({
   useUsageState: () => ({ isRateLimited: false, shouldShowBudgetCompletedMessage: false }),
 }));
 
-// Default: return 'ok' so most tests see the normal state.
+// Default: return 'ok' so most tests see the normal state. The
+// blocking-state selector is the only thing this mock is asked to
+// resolve from the live code; Home.tsx also reads `theme.mode`, which
+// must come back as a ThemeMode string (not 'ok'), so the mock
+// inspects the selector callback to pick the right value.
 const useAppSelectorMock = vi.fn(() => 'ok' as string);
+const useAppDispatchMock = vi.fn(() => vi.fn());
 vi.mock('../../store/hooks', () => ({
-  useAppSelector: (_selector: unknown) => useAppSelectorMock(),
+  useAppSelector: (selector: unknown) => {
+    if (typeof selector === 'function') {
+      try {
+        const probed = (selector as (s: unknown) => unknown)({ theme: { mode: 'system' } });
+        if (probed === 'system' || probed === 'light' || probed === 'dark') {
+          return probed;
+        }
+      } catch {
+        // Selector didn't tolerate the probe — fall through to default.
+      }
+    }
+    return useAppSelectorMock();
+  },
+  useAppDispatch: () => useAppDispatchMock(),
 }));
 
 vi.mock('../../store/socketSelectors', () => ({ selectSocketStatus: vi.fn() }));

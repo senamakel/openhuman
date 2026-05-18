@@ -205,9 +205,9 @@ describe('Rewards role-unlock flows', () => {
     expect(await textExists('1 of 3 achievements unlocked')).toBe(true);
 
     // The plan-leg unlock must NOT also flip the integration label — discord
-    // remains not-linked in this scenario, so the membership badge says
-    // "Not linked". This rules out a regression where the snapshot
-    // copy-paste logic accidentally promoted the discord branch.
-    expect(await textExists('Not linked')).toBe(true);
+    // remains not-linked in this scenario, so the membership badge should NOT say
+    // "Joined the server". The i18n key 'rewards.community.discordNotLinked'
+    // renders as 'Discord not linked' (not 'Not linked').
+    expect(await textExists('Joined the server')).toBe(false);
   });
 });

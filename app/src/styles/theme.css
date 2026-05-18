@@ -559,10 +559,7 @@ body::before {
    Light Mode (Default)
    ============================================ */
 :root {
-  /* Page bg tinted slightly toward primary-50 so the mesh gradient overlay
-     reads as a continuous palette rather than floating over a flat gray.
-     Pure white surfaces still pop against this softly-tinted canvas. */
-  --color-background: #f4f7fc;
+  --color-background: #f5f5f5;
   --color-surface: #ffffff;
   --color-surface-elevated: #fafafa;
   --color-border: #e5e5e5;

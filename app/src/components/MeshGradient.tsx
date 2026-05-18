@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Gradient } from '../lib/meshGradient';
 
@@ -10,18 +10,6 @@ import { Gradient } from '../lib/meshGradient';
  */
 export default function MeshGradient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const obs = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    });
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
 
   useEffect(() => {
     let gradient: InstanceType<typeof Gradient> | null = null;
@@ -51,24 +39,14 @@ export default function MeshGradient() {
       ref={canvasRef}
       id="mesh-gradient"
       data-transition-in
-      className={`absolute inset-0 w-full h-full ${isDark ? 'opacity-100' : 'opacity-30'}`}
+      className="absolute inset-0 w-full h-full opacity-10"
       style={
-        (isDark
-          ? {
-              '--gradient-color-1': '#0a0a0a',
-              '--gradient-color-2': '#1e3a8a', // primary-900 deep ocean
-              '--gradient-color-3': '#1d4ed8', // primary-700
-              '--gradient-color-4': '#172554', // primary-950
-            }
-          : {
-              // Cohesive ocean → lavender → mint sweep, no white. Saturated
-              // enough that the bg dotted-canvas reads as a real surface
-              // (not a washed-out gradient) while staying premium-soft.
-              '--gradient-color-1': '#93C5FD', // primary-300
-              '--gradient-color-2': '#9B8AFB', // accent.lavender
-              '--gradient-color-3': '#7DD3FC', // accent.sky
-              '--gradient-color-4': '#BFDBFE', // primary-200
-            }) as React.CSSProperties
+        {
+          '--gradient-color-1': '#0019d9',
+          '--gradient-color-2': '#b5d5ff', // primary-50
+          '--gradient-color-3': '#ffffff', // primary-100
+          '--gradient-color-4': '#4fa4ff', // primary-200
+        } as React.CSSProperties
       }
     />
   );

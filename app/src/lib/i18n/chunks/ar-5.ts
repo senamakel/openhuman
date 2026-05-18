@@ -171,10 +171,12 @@ const ar5: TranslationMap = {
   'settings.mascot.noCharacters': 'لا توجد شخصيات OpenHuman متاحة بعد',
   'settings.mascot.noColorVariants': 'لا توجد ألوان متاحة',
   'settings.mascot.voice.current': 'الحالي',
-  'settings.mascot.voice.customDesc': 'ابحث عن معرّفات الصوت في api.elevenlabs.io/v1/voices أو لوحة تحكم ElevenLabs الخاصة بك. يُخزَّن المعرّف فقط — يبقى مفتاح API الخاص بك على الخادم.',
+  'settings.mascot.voice.customDesc':
+    'ابحث عن معرّفات الصوت في api.elevenlabs.io/v1/voices أو لوحة تحكم ElevenLabs الخاصة بك. يُخزَّن المعرّف فقط — يبقى مفتاح API الخاص بك على الخادم.',
   'settings.mascot.voice.customHeading': 'معرّف صوت مخصص',
   'settings.mascot.voice.customOption': 'آخر (لصق معرّف الصوت)…',
-  'settings.mascot.voice.desc': 'اختر صوت ElevenLabs الذي تستخدمه الشخصية للردود المنطوقة. صفِّ حسب الجنس، اختر من القائمة المنسّقة، الصق معرّفاً مخصصاً، أو دع التطبيق يختار صوتاً يطابق لغة الواجهة.',
+  'settings.mascot.voice.desc':
+    'اختر صوت ElevenLabs الذي تستخدمه الشخصية للردود المنطوقة. صفِّ حسب الجنس، اختر من القائمة المنسّقة، الصق معرّفاً مخصصاً، أو دع التطبيق يختار صوتاً يطابق لغة الواجهة.',
   'settings.mascot.voice.genderFemale': 'أنثى',
   'settings.mascot.voice.genderHeading': 'جنس الصوت',
   'settings.mascot.voice.genderMale': 'ذكر',

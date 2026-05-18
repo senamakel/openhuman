@@ -169,10 +169,12 @@ const zhCN5: TranslationMap = {
   'settings.mascot.noCharacters': '暂无可用的 OpenHuman 角色',
   'settings.mascot.noColorVariants': '无颜色变体',
   'settings.mascot.voice.current': '当前',
-  'settings.mascot.voice.customDesc': '在 api.elevenlabs.io/v1/voices 或您的 ElevenLabs 仪表板中查找语音 ID。仅存储 ID — 您的 API 密钥保留在后端。',
+  'settings.mascot.voice.customDesc':
+    '在 api.elevenlabs.io/v1/voices 或您的 ElevenLabs 仪表板中查找语音 ID。仅存储 ID — 您的 API 密钥保留在后端。',
   'settings.mascot.voice.customHeading': '自定义语音 ID',
   'settings.mascot.voice.customOption': '其他（粘贴语音 ID）…',
-  'settings.mascot.voice.desc': '选择吉祥物用于语音回复的 ElevenLabs 声音。按性别筛选，从精选列表中选择，粘贴自定义 ID，或让应用根据您的界面语言自动选择声音。',
+  'settings.mascot.voice.desc':
+    '选择吉祥物用于语音回复的 ElevenLabs 声音。按性别筛选，从精选列表中选择，粘贴自定义 ID，或让应用根据您的界面语言自动选择声音。',
   'settings.mascot.voice.genderFemale': '女声',
   'settings.mascot.voice.genderHeading': '声音性别',
   'settings.mascot.voice.genderMale': '男声',

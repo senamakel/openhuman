@@ -174,10 +174,12 @@ const bn5: TranslationMap = {
   'settings.mascot.noCharacters': 'কোনো OpenHuman ক্যারেক্টার এখনও উপলব্ধ নেই',
   'settings.mascot.noColorVariants': 'কোনো রঙের ভেরিয়েন্ট নেই',
   'settings.mascot.voice.current': 'বর্তমান',
-  'settings.mascot.voice.customDesc': 'ভয়েস আইডি খুঁজুন api.elevenlabs.io/v1/voices বা আপনার ElevenLabs ড্যাশবোর্ডে। শুধু আইডি সংরক্ষিত থাকে — আপনার API কী ব্যাকএন্ডে থাকে।',
+  'settings.mascot.voice.customDesc':
+    'ভয়েস আইডি খুঁজুন api.elevenlabs.io/v1/voices বা আপনার ElevenLabs ড্যাশবোর্ডে। শুধু আইডি সংরক্ষিত থাকে — আপনার API কী ব্যাকএন্ডে থাকে।',
   'settings.mascot.voice.customHeading': 'কাস্টম ভয়েস আইডি',
   'settings.mascot.voice.customOption': 'অন্যান্য (ভয়েস আইডি পেস্ট করুন)…',
-  'settings.mascot.voice.desc': 'স্পোকেন উত্তরের জন্য ম্যাসকট যে ElevenLabs ভয়েস ব্যবহার করে তা বেছে নিন। জেন্ডার অনুযায়ী ফিল্টার করুন, কিউরেটেড তালিকা থেকে বাছাই করুন, কাস্টম আইডি পেস্ট করুন, অথবা ইন্টারফেস ভাষার সাথে মেলে এমন ভয়েস অ্যাপটিকে বেছে নিতে দিন।',
+  'settings.mascot.voice.desc':
+    'স্পোকেন উত্তরের জন্য ম্যাসকট যে ElevenLabs ভয়েস ব্যবহার করে তা বেছে নিন। জেন্ডার অনুযায়ী ফিল্টার করুন, কিউরেটেড তালিকা থেকে বাছাই করুন, কাস্টম আইডি পেস্ট করুন, অথবা ইন্টারফেস ভাষার সাথে মেলে এমন ভয়েস অ্যাপটিকে বেছে নিতে দিন।',
   'settings.mascot.voice.genderFemale': 'মহিলা',
   'settings.mascot.voice.genderHeading': 'ভয়েস জেন্ডার',
   'settings.mascot.voice.genderMale': 'পুরুষ',
@@ -189,7 +191,8 @@ const bn5: TranslationMap = {
   'settings.mascot.voice.previewing': 'প্রিভিউ চলছে…',
   'settings.mascot.voice.reset': 'ডিফল্টে রিসেট করুন',
   'settings.mascot.voice.useLocaleDefault': 'অ্যাপের ভাষার সাথে মিলান',
-  'settings.mascot.voice.useLocaleDefaultDesc': 'বর্তমান ইন্টারফেস ভাষার জন্য স্বয়ংক্রিয়ভাবে একটি ভয়েস বেছে নিন।',
+  'settings.mascot.voice.useLocaleDefaultDesc':
+    'বর্তমান ইন্টারফেস ভাষার জন্য স্বয়ংক্রিয়ভাবে একটি ভয়েস বেছে নিন।',
   'settings.memoryWindow.balanced.badge': 'প্রস্তাবিত',
   'settings.memoryWindow.balanced.hint':
     'যৌক্তিক ডিফল্ট — প্রতিটি রানে অতিরিক্ত টোকেন না পুড়িয়ে ভাল ধারাবাহিকতা।',

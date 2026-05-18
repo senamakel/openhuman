@@ -218,9 +218,12 @@ Emit tool calls as `<tool_call>name[arg1|arg2]</tool_call>` blocks.
     );
     if saw_native {
         for tc in &response.tool_calls {
+            // Print tool name + arg byte-count only — raw arguments may
+            // contain user content / secrets and must not land in logs.
             eprintln!(
-                "[probe]   native tool_call name={} args={}",
-                tc.name, tc.arguments
+                "[probe]   native tool_call name={} arg_bytes={}",
+                tc.name,
+                tc.arguments.len()
             );
         }
     }

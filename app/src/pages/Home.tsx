@@ -175,8 +175,8 @@ const Home = () => {
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
+            title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
             className="p-2 rounded-full text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800/60 transition-colors">
             {isDark ? (
               <svg

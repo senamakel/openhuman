@@ -63,7 +63,7 @@ function MeetingBotsBanner({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       data-testid="meeting-bots-banner"
-      className="group relative w-full overflow-hidden rounded-2xl border border-primary-200/60 bg-gradient-to-br from-primary-50 via-white to-amber-50 p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 animate-fade-up">
+      className="group relative w-full overflow-hidden rounded-2xl border border-primary-200/60 dark:border-primary-500/30 bg-gradient-to-br from-primary-50 via-white to-amber-50 dark:from-primary-500/15 dark:via-neutral-900 dark:to-amber-500/10 p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 animate-fade-up">
       {/* Decorative gradient orbs — purely cosmetic, hidden from a11y. */}
       <span
         aria-hidden="true"
@@ -91,7 +91,7 @@ function MeetingBotsBanner({ onClick }: { onClick: () => void }) {
             <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               {t('skills.meetingBots.bannerTitle')}
             </h2>
-            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">
+            <span className="rounded-full bg-primary-100 dark:bg-primary-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">
               {t('skills.meetingBots.newBadge')}
             </span>
           </div>
@@ -186,12 +186,12 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
         onClick={e => e.stopPropagation()}>
         {/* Header band — same fun gradient as the banner so the modal feels like
             a continuation of the click, not a context switch. */}
-        <div className="relative bg-gradient-to-br from-primary-50 via-white to-amber-50 px-5 py-4">
+        <div className="relative bg-gradient-to-br from-primary-50 via-white to-amber-50 dark:from-primary-500/15 dark:via-neutral-900 dark:to-amber-500/10 px-5 py-4">
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 rounded-full p-1 text-stone-500 dark:text-neutral-400 hover:bg-white/80 hover:text-stone-800 dark:text-neutral-100">
+            className="absolute right-3 top-3 rounded-full p-1 text-stone-500 dark:text-neutral-400 hover:bg-white/80 dark:hover:bg-neutral-800/60 hover:text-stone-800 dark:hover:text-neutral-100">
             ✕
           </button>
           <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{t('skills.meetingBots.modalTitle')}</h2>
@@ -215,7 +215,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                   className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
                     active
                       ? 'bg-primary-500 text-white'
-                      : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:bg-neutral-800'
+                      : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700'
                   }`}>
                   {p.label}
                   {p.comingSoon && <span className="ml-1 opacity-70">· soon</span>}
@@ -239,7 +239,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 placeholder={selected.domainHint}
                 disabled={isComingSoon || submitting}
                 autoFocus
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
+                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
                 required
               />
             </label>
@@ -254,7 +254,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 onChange={e => setDisplayName(e.target.value)}
                 maxLength={64}
                 disabled={isComingSoon || submitting}
-                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
+                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
               />
             </label>
 
@@ -263,8 +263,8 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 role="alert"
                 className={`rounded-xl border px-3 py-2 text-xs ${
                   capacityGated
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-coral-200 bg-coral-50 text-coral-700'
+                    ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                    : 'border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 text-coral-700 dark:text-coral-300'
                 }`}>
                 {error}
               </div>
@@ -274,13 +274,13 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl px-3 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800">
+                className="rounded-xl px-3 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800">
                 {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={submitting || isComingSoon || !meetUrl.trim()}
-                className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 dark:bg-neutral-800 disabled:text-stone-400 dark:text-neutral-500">
+                className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 dark:disabled:bg-neutral-700 disabled:text-stone-400 dark:disabled:text-neutral-500">
                 {isComingSoon
                   ? `${selected.label} ${t('skills.meetingBots.comingSoon')}`
                   : submitting

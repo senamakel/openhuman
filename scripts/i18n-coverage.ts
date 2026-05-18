@@ -69,12 +69,27 @@ function parseArgs(argv: string[]): CliOptions {
     if (a === "--json") opts.json = true;
     else if (a === "--no-unused") opts.scanUnused = false;
     else if (a === "--strict-unused") opts.strictUnused = true;
-    else if (a === "--out") opts.outDir = argv[++i] ?? null;
-    else if (a === "--locale" || a === "--locales") {
-      const list = (argv[++i] ?? "")
+    else if (a === "--out") {
+      const out = argv[++i];
+      if (!out || out.startsWith("--")) {
+        console.error("--out requires a directory path");
+        process.exit(2);
+      }
+      opts.outDir = out;
+    } else if (a === "--locale" || a === "--locales") {
+      const raw = argv[++i];
+      if (!raw || raw.startsWith("--")) {
+        console.error("--locale requires a comma-separated locale list");
+        process.exit(2);
+      }
+      const list = raw
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean) as Locale[];
+      if (!list.length) {
+        console.error("--locale cannot be empty");
+        process.exit(2);
+      }
       const bad = list.filter((l) => !ALL_LOCALES.includes(l));
       if (bad.length) {
         console.error(

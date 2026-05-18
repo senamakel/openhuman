@@ -46,8 +46,26 @@ interface InputFile {
 }
 
 function jsString(s: string): string {
-  // Single-quoted JS string literal. Escape \ and ' only; preserve unicode.
-  return "'" + s.replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+  // Single-quoted JS string literal. Escape backslash, single quote, and any
+  // character that would otherwise break out of the single-line literal:
+  // \n, \r, \t, U+2028, U+2029, and the rest of the C0 control range.
+  const escaped = s.replace(/[\\'\n\r\t\u0000-\u001f\u2028\u2029]/g, (ch) => {
+    switch (ch) {
+      case "\\":
+        return "\\\\";
+      case "'":
+        return "\\'";
+      case "\n":
+        return "\\n";
+      case "\r":
+        return "\\r";
+      case "\t":
+        return "\\t";
+      default:
+        return "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0");
+    }
+  });
+  return "'" + escaped + "'";
 }
 
 function camelVar(locale: string, n: number): string {
@@ -85,7 +103,9 @@ async function writeChunk(
   const lines: string[] = [];
   lines.push(`import type { TranslationMap } from '../types';`);
   lines.push("");
-  lines.push(`// ${langLabel} chunk ${n}/${CHUNK_COUNT}. Translated from chunks/en-${n}.ts.`);
+  lines.push(
+    `// ${langLabel} chunk ${n}/${CHUNK_COUNT}. Translated from chunks/en-${n}.ts.`,
+  );
   lines.push(`const ${camelVar(locale, n)}: TranslationMap = {`);
   for (const k of keysInOrder) {
     const v = values[k];
@@ -100,7 +120,9 @@ async function writeChunk(
   await fs.writeFile(file, lines.join("\n"));
 }
 
-async function applyLocale(input: InputFile): Promise<{ updated: number; total: number }> {
+async function applyLocale(
+  input: InputFile,
+): Promise<{ updated: number; total: number }> {
   const { locale, translations } = input;
   if (locale === "en") throw new Error("refusing to overwrite English source");
   let updated = 0;
@@ -157,7 +179,9 @@ async function main() {
     const raw = await fs.readFile(path.join(dir, f), "utf8");
     const input = JSON.parse(raw) as InputFile;
     if (input.locale !== locale) {
-      console.error(`! ${f}: locale mismatch (${input.locale} vs ${locale}) — skipping`);
+      console.error(
+        `! ${f}: locale mismatch (${input.locale} vs ${locale}) — skipping`,
+      );
       continue;
     }
     const res = await applyLocale(input);

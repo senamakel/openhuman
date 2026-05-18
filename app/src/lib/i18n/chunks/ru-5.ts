@@ -292,7 +292,7 @@ const ru5: TranslationMap = {
     'После предоставления разрешений в Системных настройках нажми ниже для перезапуска и применения изменений.',
   'skills.setup.screenIntel.enableBtn': 'Включение...',
   'skills.setup.screenIntel.enableDesc':
-    's на вашем экране и передавать полезный контекст вашему агенту',
+    'Видеть, что происходит на вашем экране, и передавать полезный контекст вашему агенту',
   'skills.setup.screenIntel.enableError': 'Не удалось включить интеллект экрана',
   'skills.setup.screenIntel.enabling': 'Включение...',
   'skills.setup.screenIntel.grant': 'Открытие...',

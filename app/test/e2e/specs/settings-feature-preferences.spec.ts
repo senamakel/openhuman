@@ -88,8 +88,9 @@ describe('Settings - Feature Preferences', () => {
     await navigateViaHash('/settings/features');
 
     await waitForText('Features', 15_000);
-    await waitForText('Screen Awareness', 15_000);
-    await waitForText('Messaging Channels', 15_000);
+    // i18n uses sentence-case: 'Screen awareness', 'Messaging channels', etc.
+    await waitForText('Screen awareness', 15_000);
+    await waitForText('Messaging channels', 15_000);
     await waitForText('Notifications', 15_000);
     await waitForText('Tools', 15_000);
   });

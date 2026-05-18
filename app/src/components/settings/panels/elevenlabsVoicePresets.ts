@@ -45,7 +45,12 @@ export const ELEVENLABS_VOICE_PRESETS: readonly ElevenLabsVoicePreset[] = [
   // George (multilingual). `locales: ['*']` keeps it visible in both
   // the female- and male-filtered dropdowns so it's always one click
   // away as a "safe fallback".
-  { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George · multilingual (male)', gender: 'male', locales: ['*'] },
+  {
+    id: 'JBFqnCBsd6RMkjVDRZzb',
+    label: 'George · multilingual (male)',
+    gender: 'male',
+    locales: ['*'],
+  },
   // Public ElevenLabs library voices — stable ids, mix of accents.
   { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel · US (female)', gender: 'female', locales: ['en'] },
   { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Bella · US (female)', gender: 'female', locales: ['en'] },
@@ -70,12 +75,7 @@ export const ELEVENLABS_VOICE_PRESETS: readonly ElevenLabsVoicePreset[] = [
     gender: 'male',
     locales: ['en'],
   },
-  {
-    id: 'TxGEqnHWrfWFTfGW9XjX',
-    label: 'Josh · US (male, deep)',
-    gender: 'male',
-    locales: ['en'],
-  },
+  { id: 'TxGEqnHWrfWFTfGW9XjX', label: 'Josh · US (male, deep)', gender: 'male', locales: ['en'] },
 ];
 
 /**

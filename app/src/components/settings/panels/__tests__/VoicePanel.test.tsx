@@ -510,5 +510,4 @@ describe('VoicePanel', () => {
       )
     );
   });
-
 });

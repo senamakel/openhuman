@@ -220,7 +220,8 @@ const MascotPanel = () => {
 
   const localeDefaultVoiceId = defaultVoiceIdForLocale(locale, voiceGender);
   const presetPickerDisabled = useLocaleDefault;
-  const isCustomVoice = !presetPickerDisabled && (voicePasteMode || !isCuratedVoicePreset(effectiveVoiceId));
+  const isCustomVoice =
+    !presetPickerDisabled && (voicePasteMode || !isCuratedVoicePreset(effectiveVoiceId));
 
   return (
     <div>

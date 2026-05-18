@@ -4,8 +4,8 @@ use super::{
     extract_provider_error_detail, generic_inference_error_user_message,
     inference_budget_exceeded_user_message, is_inference_budget_exceeded_error, json_output,
     key_for, locale_reply_directive, normalize_model_override, optional_f64, optional_string,
-    provider_role_for_model_override, required_string, schemas, set_test_forced_run_chat_task_error,
-    start_chat, subscribe_web_channel_events,
+    provider_role_for_model_override, required_string, schemas,
+    set_test_forced_run_chat_task_error, start_chat, subscribe_web_channel_events,
 };
 use crate::core::TypeSchema;
 use tokio::time::{timeout, Duration};
@@ -425,7 +425,10 @@ fn locale_reply_directive_returns_none_for_english() {
 #[test]
 fn locale_reply_directive_renders_known_locales() {
     let ar = locale_reply_directive("ar").expect("arabic directive expected");
-    assert!(ar.contains("Arabic"), "directive must name the language: {ar}");
+    assert!(
+        ar.contains("Arabic"),
+        "directive must name the language: {ar}"
+    );
     assert!(
         ar.contains("Respond in Arabic"),
         "directive must instruct the agent: {ar}"

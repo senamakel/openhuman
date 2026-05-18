@@ -565,9 +565,7 @@ describe('useHumanMascot TTS playback', () => {
       // Selector now resolves the build-time `MASCOT_VOICE_ID` default
       // eagerly so the call site never has to fall back. Locks the
       // no-regression contract for users who never opened the picker.
-      expect(synthesizeSpeech).toHaveBeenCalledWith('hello', {
-        voiceId: 'JBFqnCBsd6RMkjVDRZzb',
-      });
+      expect(synthesizeSpeech).toHaveBeenCalledWith('hello', { voiceId: 'JBFqnCBsd6RMkjVDRZzb' });
     });
   });
 });

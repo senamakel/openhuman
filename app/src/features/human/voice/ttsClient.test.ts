@@ -33,11 +33,7 @@ describe('synthesizeSpeech (core RPC)', () => {
     await synthesizeSpeech('hi');
     expect(mock).toHaveBeenCalledWith({
       method: 'openhuman.voice_reply_synthesize',
-      params: {
-        text: 'hi.',
-        voice_id: 'JBFqnCBsd6RMkjVDRZzb',
-        model_id: 'eleven_multilingual_v2',
-      },
+      params: { text: 'hi.', voice_id: 'JBFqnCBsd6RMkjVDRZzb', model_id: 'eleven_multilingual_v2' },
     });
   });
 

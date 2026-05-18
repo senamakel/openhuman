@@ -1,68 +1,97 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-const REPO_ROOT = path.resolve(__dirname, '../../../../..');
-const SCRIPT = path.join(REPO_ROOT, 'scripts/i18n-coverage.ts');
+import enAggregate from '../en';
 
-interface LocaleReport {
-  locale: string;
-  missingChunks: number[];
-  missingKeys: string[];
-  extraKeys: string[];
-  driftedKeys: Array<{ key: string; expectedChunk: number; actualChunk: number }>;
+const CHUNK_COUNT = 5;
+const LOCALES = ['zh-CN', 'hi', 'es', 'ar', 'fr', 'bn', 'pt', 'ru', 'id', 'it'] as const;
+
+interface ChunkModule {
+  default: Record<string, string>;
 }
 
-let locales: LocaleReport[] = [];
+/**
+ * Eagerly imported chunk modules — Vite turns the glob into a static map at
+ * build time, so this works in both Vitest and production builds (no dynamic
+ * import() at runtime, which CLAUDE.md forbids in app/src code).
+ */
+const chunkModules = import.meta.glob<ChunkModule>('../chunks/*.ts', { eager: true });
+
+function loadChunks(locale: string): Array<Record<string, string> | null> {
+  const out: Array<Record<string, string> | null> = [];
+  for (let n = 1; n <= CHUNK_COUNT; n++) {
+    const key = `../chunks/${locale}-${n}.ts`;
+    const mod = chunkModules[key];
+    out.push(mod ? mod.default : null);
+  }
+  return out;
+}
+
+function flatten(chunks: Array<Record<string, string> | null>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of chunks) {
+    if (!c) continue;
+    Object.assign(out, c);
+  }
+  return out;
+}
+
+function keyToChunk(chunks: Array<Record<string, string> | null>): Map<string, number> {
+  const out = new Map<string, number>();
+  chunks.forEach((c, i) => {
+    if (!c) return;
+    for (const k of Object.keys(c)) out.set(k, i + 1);
+  });
+  return out;
+}
+
+const enChunks = loadChunks('en');
+const enFlat = flatten(enChunks);
+const enKeyChunk = keyToChunk(enChunks);
 
 describe('i18n coverage', () => {
-  beforeAll(() => {
-    // Pipe stdout to a temp file via shell redirection — under vitest's worker pool,
-    // direct `stdio: 'pipe'` truncates at 64KB regardless of maxBuffer.
-    const dir = mkdtempSync(path.join(tmpdir(), 'i18n-cov-'));
-    const out = path.join(dir, 'report.json');
-    try {
-      const tsx = path.join(REPO_ROOT, 'node_modules/.bin/tsx');
-      execFileSync('sh', ['-c', `"${tsx}" "${SCRIPT}" --json --no-unused > "${out}"`], {
-        cwd: REPO_ROOT,
-        stdio: ['ignore', 'inherit', 'inherit'],
-      });
-      const parsed = JSON.parse(readFileSync(out, 'utf8')) as { locales: LocaleReport[] };
-      locales = parsed.locales;
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+  it('English aggregate (en.ts) matches the en-N.ts chunks key-for-key', () => {
+    const enTsKeys = new Set(Object.keys(enAggregate as Record<string, string>));
+    const enChunkKeys = new Set(Object.keys(enFlat));
+    const inAggregateOnly = [...enTsKeys].filter(k => !enChunkKeys.has(k));
+    const inChunksOnly = [...enChunkKeys].filter(k => !enTsKeys.has(k));
+    expect({ inAggregateOnly, inChunksOnly }).toEqual({ inAggregateOnly: [], inChunksOnly: [] });
+  });
+
+  it('has no missing English chunk files', () => {
+    const missing = enChunks
+      .map((c, i) => (c == null ? i + 1 : null))
+      .filter((n): n is number => n !== null);
+    expect(missing).toEqual([]);
+  });
+
+  it.each(LOCALES)('locale %s has no missing chunk files', locale => {
+    const missing = loadChunks(locale)
+      .map((c, i) => (c == null ? i + 1 : null))
+      .filter((n): n is number => n !== null);
+    expect(missing).toEqual([]);
+  });
+
+  it.each(LOCALES)('locale %s defines every English key', locale => {
+    const flat = flatten(loadChunks(locale));
+    const missing = Object.keys(enFlat).filter(k => !(k in flat));
+    expect(missing).toEqual([]);
+  });
+
+  it.each(LOCALES)('locale %s defines no keys absent from English', locale => {
+    const flat = flatten(loadChunks(locale));
+    const extra = Object.keys(flat).filter(k => !(k in enFlat));
+    expect(extra).toEqual([]);
+  });
+
+  it.each(LOCALES)('locale %s places each key in the same chunk as English', locale => {
+    const localeKeyChunk = keyToChunk(loadChunks(locale));
+    const drift: Array<{ key: string; en: number; locale: number }> = [];
+    for (const [k, actual] of localeKeyChunk) {
+      const expected = enKeyChunk.get(k);
+      if (expected !== undefined && expected !== actual) {
+        drift.push({ key: k, en: expected, locale: actual });
+      }
     }
-  }, 60_000);
-
-  it('runs against every non-English locale', () => {
-    expect(locales.length).toBeGreaterThan(0);
-  });
-
-  it('no locale has missing chunk files', () => {
-    const offenders = locales.filter(l => l.missingChunks.length).map(l => l.locale);
-    expect(offenders).toEqual([]);
-  });
-
-  it('no locale is missing keys vs English', () => {
-    const offenders = locales
-      .filter(l => l.missingKeys.length)
-      .map(l => `${l.locale}:${l.missingKeys.length}`);
-    expect(offenders).toEqual([]);
-  });
-
-  it('no locale defines keys absent from English', () => {
-    const offenders = locales
-      .filter(l => l.extraKeys.length)
-      .map(l => `${l.locale}:${l.extraKeys.join(',')}`);
-    expect(offenders).toEqual([]);
-  });
-
-  it('every key lives in the same chunk as English', () => {
-    const offenders = locales
-      .filter(l => l.driftedKeys.length)
-      .map(l => `${l.locale}:${l.driftedKeys.length}`);
-    expect(offenders).toEqual([]);
+    expect(drift).toEqual([]);
   });
 });

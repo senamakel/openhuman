@@ -55,9 +55,7 @@ describe('I18nProvider', () => {
     expect(screen.getByText('Bersihkan Data Aplikasi')).toBeInTheDocument();
     expect(screen.getByText('Keluar')).toBeInTheDocument();
     // Unknown keys fall through locale → English → raw key.
-    expect(screen.getByTestId('missing-key')).toHaveTextContent(
-      'this.key.does.not.exist',
-    );
+    expect(screen.getByTestId('missing-key')).toHaveTextContent('this.key.does.not.exist');
   });
 
   it('keeps the Simplified Chinese locale complete against English keys', () => {

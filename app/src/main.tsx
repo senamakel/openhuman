@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom/client';
 
 import App from './App';
 import './index.css';
+import './styles/theme.css';
 import { getCoreStateSnapshot } from './lib/coreState/store';
 import MascotWindowApp from './mascot/MascotWindowApp';
 import OverlayApp from './overlay/OverlayApp';

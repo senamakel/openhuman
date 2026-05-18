@@ -43,9 +43,9 @@ const statusTone = (state: string): string => {
     case 'degraded':
       return 'text-amber-700';
     case 'disabled':
-      return 'text-stone-500';
+      return 'text-stone-500 dark:text-neutral-400';
     default:
-      return 'text-stone-700';
+      return 'text-stone-700 dark:text-neutral-200';
   }
 };
 

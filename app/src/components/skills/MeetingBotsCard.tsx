@@ -77,7 +77,7 @@ function MeetingBotsBanner({ onClick }: { onClick: () => void }) {
       <div className="relative flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-base font-bold text-primary-600 shadow-soft ring-1 ring-primary-200/70">
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-neutral-900 text-base font-bold text-primary-600 shadow-soft ring-1 ring-primary-200/70">
           {/* Tiny "wave" mark — three dots that animate on hover. */}
           <span className="flex items-end gap-0.5">
             <span className="h-2 w-1 rounded-full bg-primary-500 transition group-hover:h-3" />
@@ -88,21 +88,21 @@ function MeetingBotsBanner({ onClick }: { onClick: () => void }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-stone-900">
+            <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
               {t('skills.meetingBots.bannerTitle')}
             </h2>
             <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">
               {t('skills.meetingBots.newBadge')}
             </span>
           </div>
-          <p className="mt-0.5 line-clamp-1 text-[11px] leading-relaxed text-stone-600">
+          <p className="mt-0.5 line-clamp-1 text-[11px] leading-relaxed text-stone-600 dark:text-neutral-300">
             {t('skills.meetingBots.bannerDesc')}
           </p>
         </div>
 
         <span
           aria-hidden="true"
-          className="ml-2 hidden text-stone-400 transition group-hover:text-stone-600 sm:inline">
+          className="ml-2 hidden text-stone-400 dark:text-neutral-500 transition group-hover:text-stone-600 dark:text-neutral-300 sm:inline">
           →
         </span>
       </div>
@@ -182,7 +182,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}>
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 shadow-xl"
         onClick={e => e.stopPropagation()}>
         {/* Header band — same fun gradient as the banner so the modal feels like
             a continuation of the click, not a context switch. */}
@@ -191,11 +191,11 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 rounded-full p-1 text-stone-500 hover:bg-white/80 hover:text-stone-800">
+            className="absolute right-3 top-3 rounded-full p-1 text-stone-500 dark:text-neutral-400 hover:bg-white/80 hover:text-stone-800 dark:text-neutral-100">
             ✕
           </button>
-          <h2 className="text-base font-semibold text-stone-900">{t('skills.meetingBots.modalTitle')}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-stone-600">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{t('skills.meetingBots.modalTitle')}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
             {t('skills.meetingBots.modalDesc')}
           </p>
         </div>
@@ -215,7 +215,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                   className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
                     active
                       ? 'bg-primary-500 text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:bg-neutral-800'
                   }`}>
                   {p.label}
                   {p.comingSoon && <span className="ml-1 opacity-70">· soon</span>}
@@ -226,7 +226,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
                 {t('skills.meetingBots.meetingLink')}
               </span>
               <input
@@ -239,13 +239,13 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 placeholder={selected.domainHint}
                 disabled={isComingSoon || submitting}
                 autoFocus
-                className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50"
+                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
                 required
               />
             </label>
 
             <label className="block">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
                 {t('skills.meetingBots.displayName')}
               </span>
               <input
@@ -254,7 +254,7 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
                 onChange={e => setDisplayName(e.target.value)}
                 maxLength={64}
                 disabled={isComingSoon || submitting}
-                className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50"
+                className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:bg-neutral-800/60"
               />
             </label>
 
@@ -274,13 +274,13 @@ function MeetingBotsModal({ onClose, onToast }: ModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">
+                className="rounded-xl px-3 py-2 text-sm font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800">
                 {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={submitting || isComingSoon || !meetUrl.trim()}
-                className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-400">
+                className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-stone-200 dark:bg-neutral-800 disabled:text-stone-400 dark:text-neutral-500">
                 {isComingSoon
                   ? `${selected.label} ${t('skills.meetingBots.comingSoon')}`
                   : submitting

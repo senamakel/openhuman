@@ -288,13 +288,13 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
         const busy = busyKeys[compositeKey] ?? false;
 
         return (
-          <div key={spec.mode} className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+          <div key={spec.mode} className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                   {AUTH_MODE_LABELS[spec.mode] ?? spec.mode}
                 </p>
-                <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">{spec.description}</p>
+                <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">{spec.description}</p>
                 {connection?.lastError && (
                   <p className="text-xs text-coral-600 mt-1">{connection.lastError}</p>
                 )}
@@ -324,7 +324,7 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
                   {t('channels.discord.linkTokenLabel')}
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-white dark:bg-neutral-900 border border-primary-200 px-2 py-1 text-xs font-mono text-stone-800 dark:text-neutral-100 select-all break-all">
+                  <code className="flex-1 rounded bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-primary-200 px-2 py-1 text-xs font-mono text-stone-800 dark:text-neutral-100 dark:text-neutral-100 select-all break-all">
                     {linkToken}
                   </code>
                   <button
@@ -334,7 +334,7 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
                     {copied ? t('common.copied') : t('common.copy')}
                   </button>
                 </div>
-                <p className="text-xs text-stone-500 dark:text-neutral-400">
+                <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                   {t('channels.discord.linkTokenInstruction').replace('{token}', linkToken)}
                 </p>
                 <p className="text-xs text-amber-600 font-medium">
@@ -353,7 +353,7 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
                   type="button"
                   disabled={busy}
                   onClick={() => handleDisconnect(spec.mode)}
-                  className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-700 disabled:opacity-50">
+                  className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700 disabled:opacity-50">
                   {t('accounts.disconnect')}
                 </button>
               </div>
@@ -373,7 +373,7 @@ const DiscordConfig = ({ definition }: DiscordConfigProps) => {
                   type="button"
                   disabled={busy || status === 'disconnected'}
                   onClick={() => handleDisconnect(spec.mode)}
-                  className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-700 disabled:opacity-50">
+                  className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300 hover:border-stone-300 dark:border-neutral-700 dark:hover:border-neutral-700 disabled:opacity-50">
                   {t('accounts.disconnect')}
                 </button>
               </div>

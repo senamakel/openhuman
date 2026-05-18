@@ -223,14 +223,14 @@ const RecoveryPhrasePanel = () => {
                 </svg>
               </div>
               <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-              <p className="text-xs text-stone-500">{t('mnemonic.walletReady')}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400">{t('mnemonic.walletReady')}</p>
             </div>
           ) : (
             <>
               {mode === 'generate' ? (
                 <>
                   <div className="mb-4 space-y-3">
-                    <p className="text-sm text-stone-600 leading-relaxed">
+                    <p className="text-sm text-stone-600 dark:text-neutral-300 leading-relaxed">
                       {t('mnemonic.writeDownWords')} {MNEMONIC_GENERATE_WORD_COUNT}{' '}
                       {t('mnemonic.wordsInOrder')}
                     </p>
@@ -253,13 +253,13 @@ const RecoveryPhrasePanel = () => {
                     </div>
                   </div>
 
-                  <div className="bg-stone-50 rounded-2xl p-4 mb-4 border border-stone-200">
+                  <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-stone-200 dark:border-neutral-800">
                     <div className="grid grid-cols-3 gap-2">
                       {words.map((word, index) => (
                         <div
                           key={index}
-                          className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 text-sm border border-stone-200">
-                          <span className="text-stone-500 font-mono text-xs w-5 text-right">
+                          className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg px-3 py-2 text-sm border border-stone-200 dark:border-neutral-800">
+                          <span className="text-stone-500 dark:text-neutral-400 font-mono text-xs w-5 text-right">
                             {index + 1}.
                           </span>
                           <span className="font-mono font-medium">{word}</span>
@@ -270,7 +270,7 @@ const RecoveryPhrasePanel = () => {
 
                   <button
                     onClick={handleCopy}
-                    className="w-full flex items-center justify-center gap-2 border border-stone-200 hover:border-stone-300 font-medium py-2.5 text-sm rounded-xl text-stone-700 transition-all duration-200 mb-3">
+                    className="w-full flex items-center justify-center gap-2 border border-stone-200 dark:border-neutral-800 hover:border-stone-300 dark:border-neutral-700 font-medium py-2.5 text-sm rounded-xl text-stone-700 dark:text-neutral-200 transition-all duration-200 mb-3">
                     {copied ? (
                       <>
                         <svg
@@ -315,19 +315,19 @@ const RecoveryPhrasePanel = () => {
                       onChange={e => setConfirmed(e.target.checked)}
                       className="mt-0.5 w-4 h-4 rounded border-stone-500 text-primary-500 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-stone-700">{t('mnemonic.consentSaved')}</span>
+                    <span className="text-sm text-stone-700 dark:text-neutral-200">{t('mnemonic.consentSaved')}</span>
                   </label>
                 </>
               ) : (
                 <>
                   <div className="mb-4">
-                    <p className="text-sm text-stone-600 leading-relaxed">
+                    <p className="text-sm text-stone-600 dark:text-neutral-300 leading-relaxed">
                       {t('mnemonic.enterPhraseToRestore')}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs text-stone-500">{t('mnemonic.words')}:</span>
+                    <span className="text-xs text-stone-500 dark:text-neutral-400">{t('mnemonic.words')}:</span>
                     {BIP39_IMPORT_LENGTHS.map(len => (
                       <button
                         key={len}
@@ -336,18 +336,18 @@ const RecoveryPhrasePanel = () => {
                         className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
                           selectedWordCount === len
                             ? 'bg-primary-500/20 border-primary-500/40 text-primary-600 border'
-                            : 'border border-stone-200 text-stone-500 hover:border-stone-300'
+                            : 'border border-stone-200 dark:border-neutral-800 text-stone-500 dark:text-neutral-400 hover:border-stone-300 dark:border-neutral-700'
                         }`}>
                         {len}
                       </button>
                     ))}
                   </div>
 
-                  <div className="bg-stone-50 rounded-2xl p-4 mb-4 border border-stone-200">
+                  <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-2xl p-4 mb-4 border border-stone-200 dark:border-neutral-800">
                     <div className="grid grid-cols-3 gap-2">
                       {importWords.map((word, index) => (
                         <div key={index} className="flex items-center gap-1.5">
-                          <span className="text-stone-500 font-mono text-xs w-5 text-right shrink-0">
+                          <span className="text-stone-500 dark:text-neutral-400 font-mono text-xs w-5 text-right shrink-0">
                             {index + 1}.
                           </span>
                           <input
@@ -361,12 +361,12 @@ const RecoveryPhrasePanel = () => {
                             onKeyDown={e => handleImportKeyDown(index, e)}
                             autoComplete="off"
                             spellCheck={false}
-                            className={`w-full font-mono text-sm font-medium px-2 py-1.5 rounded-lg border bg-white text-stone-900 outline-none transition-colors ${
+                            className={`w-full font-mono text-sm font-medium px-2 py-1.5 rounded-lg border bg-white dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 outline-none transition-colors ${
                               importValid === false && word.trim()
                                 ? 'border-coral-400 focus:border-coral-300'
                                 : importValid === true
                                   ? 'border-sage-400 focus:border-sage-300'
-                                  : 'border-stone-200 focus:border-primary-400'
+                                  : 'border-stone-200 dark:border-neutral-800 focus:border-primary-400'
                             }`}
                           />
                         </div>

@@ -124,11 +124,11 @@ const VoiceDebugPanel = () => {
       <div className="p-4 space-y-4">
         {/* Runtime status section */}
         <section className="space-y-3">
-          <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-3">
+          <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-stone-900">Runtime Status</h3>
-                <p className="text-xs text-stone-500 mt-1">
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Runtime Status</h3>
+                <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
                   Live diagnostics for the voice server and speech-to-text engine.
                 </p>
               </div>
@@ -141,22 +141,22 @@ const VoiceDebugPanel = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-md border border-stone-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wide text-stone-500">Server</div>
-                <div className="mt-1 font-medium text-stone-900">
+              <div className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400">Server</div>
+                <div className="mt-1 font-medium text-stone-900 dark:text-neutral-100">
                   {serverStatus ? serverStatus.state : isLoading ? 'Loading…' : 'Unavailable'}
                 </div>
               </div>
-              <div className="rounded-md border border-stone-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wide text-stone-500">STT</div>
-                <div className="mt-1 font-medium text-stone-900">
+              <div className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400">STT</div>
+                <div className="mt-1 font-medium text-stone-900 dark:text-neutral-100">
                   {voiceStatus?.stt_available ? 'Ready' : 'Not ready'}
                 </div>
               </div>
             </div>
 
             {serverStatus && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-stone-600">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-stone-600 dark:text-neutral-300">
                 <div>Hotkey: {serverStatus.hotkey || 'n/a'}</div>
                 <div>Mode: {serverStatus.activation_mode}</div>
                 <div>Transcriptions: {serverStatus.transcription_count}</div>
@@ -174,10 +174,10 @@ const VoiceDebugPanel = () => {
 
         {/* Advanced settings section */}
         <section className="space-y-3">
-          <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-4">
+          <div className="bg-stone-50 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 p-4 space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-stone-900">Advanced Settings</h3>
-              <p className="text-xs text-stone-500 mt-1">
+              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Advanced Settings</h3>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
                 Low-level tuning parameters for recording and silence detection.
               </p>
             </div>
@@ -185,7 +185,7 @@ const VoiceDebugPanel = () => {
             {settings && (
               <>
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600">
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
                     Minimum Recording Seconds
                   </span>
                   <input
@@ -194,15 +194,15 @@ const VoiceDebugPanel = () => {
                     step="0.1"
                     value={settings.min_duration_secs}
                     onChange={e => updateSetting('min_duration_secs', Number(e.target.value) || 0)}
-                    className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400"
                   />
                 </label>
 
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600">
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
                     Silence Threshold (RMS)
                   </span>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="text-[11px] text-stone-400 dark:text-neutral-500">
                     Recordings with energy below this are treated as silence and skipped. Lower =
                     more sensitive.
                   </p>
@@ -215,7 +215,7 @@ const VoiceDebugPanel = () => {
                     onChange={e =>
                       updateSetting('silence_threshold', Number(e.target.value) || 0.002)
                     }
-                    className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400"
                   />
                 </label>
               </>

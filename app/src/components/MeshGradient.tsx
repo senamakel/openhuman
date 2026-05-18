@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Gradient } from '../lib/meshGradient';
 
@@ -10,6 +10,18 @@ import { Gradient } from '../lib/meshGradient';
  */
 export default function MeshGradient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     let gradient: InstanceType<typeof Gradient> | null = null;
@@ -41,12 +53,19 @@ export default function MeshGradient() {
       data-transition-in
       className="absolute inset-0 w-full h-full opacity-10"
       style={
-        {
-          '--gradient-color-1': '#0019d9',
-          '--gradient-color-2': '#b5d5ff', // primary-50
-          '--gradient-color-3': '#ffffff', // primary-100
-          '--gradient-color-4': '#4fa4ff', // primary-200
-        } as React.CSSProperties
+        (isDark
+          ? {
+              '--gradient-color-1': '#0a0a0a',
+              '--gradient-color-2': '#1e3a8a',
+              '--gradient-color-3': '#1d4ed8',
+              '--gradient-color-4': '#172554',
+            }
+          : {
+              '--gradient-color-1': '#0019d9',
+              '--gradient-color-2': '#b5d5ff', // primary-50
+              '--gradient-color-3': '#ffffff', // primary-100
+              '--gradient-color-4': '#4fa4ff', // primary-200
+            }) as React.CSSProperties
       }
     />
   );

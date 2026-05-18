@@ -247,7 +247,7 @@ function ModePicker({ onConfirm }: PickerProps) {
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'local'
                 ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:border-neutral-700 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60'
+                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
             }`}>
             <div className="font-medium">{t('bootCheck.localRecommended')}</div>
             <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{t('bootCheck.localDescription')}</div>
@@ -263,7 +263,7 @@ function ModePicker({ onConfirm }: PickerProps) {
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'cloud'
                 ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:border-neutral-700 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60'
+                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
             }`}>
             <div className="font-medium">{t('bootCheck.cloudMode')}</div>
             <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{t('bootCheck.cloudDescription')}</div>

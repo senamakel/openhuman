@@ -318,7 +318,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testStatus.kind === 'testing'}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
                 {testStatus.kind === 'testing'
                   ? t('bootCheck.testing')
                   : t('bootCheck.testConnection')}
@@ -347,7 +347,7 @@ function ModePicker({ onConfirm }: PickerProps) {
         <button
           type="button"
           onClick={handleContinue}
-          className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-5 py-2 text-sm font-medium text-white hover:bg-primary-600">
+          className="rounded-lg bg-primary-500 px-5 py-2 text-sm font-medium text-white hover:bg-primary-600">
           {t('common.continue')}
         </button>
       </div>
@@ -467,7 +467,7 @@ function ResultScreen({
             type="button"
             onClick={onAction}
             disabled={actionBusy}
-            className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
             {actionBusy ? t('bootCheck.restarting') : t('bootCheck.restartCore')}
           </button>
           <button
@@ -493,7 +493,7 @@ function ResultScreen({
             type="button"
             onClick={onAction}
             disabled={actionBusy}
-            className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
             {actionBusy ? t('bootCheck.updating') : t('bootCheck.updateCloudCore')}
           </button>
           <button
@@ -519,7 +519,7 @@ function ResultScreen({
           type="button"
           onClick={onAction}
           disabled={actionBusy}
-          className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
+          className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60">
           {actionBusy ? t('bootCheck.working') : t('bootCheck.restartUpdateCore')}
         </button>
         <button

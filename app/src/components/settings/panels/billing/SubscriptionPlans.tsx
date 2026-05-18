@@ -29,7 +29,7 @@ const SubscriptionPlans = ({
   return (
     <>
       <div className="flex flex-col gap-2 rounded-2xl bg-white dark:bg-neutral-900 p-4 border border-stone-200 dark:border-neutral-800">
-        <h3 className="font-headline text-2xl font-bold tracking-tight text-stone-950">
+        <h3 className="font-headline text-2xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
           {t('settings.billing.subscription.chooseTitle')}
         </h3>
         <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
@@ -38,7 +38,7 @@ const SubscriptionPlans = ({
 
         <div className="flex items-center justify-between mt-4">
           <div>
-            <p className="text-sm font-semibold text-stone-950">
+            <p className="text-sm font-semibold text-stone-950 dark:text-neutral-50">
               {t('settings.billing.subscription.cryptoQuestion')}
             </p>
             <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
@@ -48,7 +48,7 @@ const SubscriptionPlans = ({
           <button
             onClick={() => setPaymentMethod(paymentMethod === 'card' ? 'crypto' : 'card')}
             className={`relative h-6 w-11 rounded-full transition-colors ${
-              paymentMethod === 'crypto' ? 'bg-primary-600' : 'bg-stone-300'
+              paymentMethod === 'crypto' ? 'bg-primary-600' : 'bg-stone-300 dark:bg-neutral-700'
             }`}
             role="switch"
             aria-checked={paymentMethod === 'crypto'}>
@@ -197,7 +197,7 @@ const SubscriptionPlans = ({
 
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-headline text-xl font-bold tracking-tight text-stone-950">
+                      <h4 className="font-headline text-xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
                         {plan.name}
                       </h4>
                       {isPopular && (
@@ -206,7 +206,7 @@ const SubscriptionPlans = ({
                         </span>
                       )}
                       {isCurrent && !plan.recommended && (
-                        <span className="rounded-full bg-stone-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white">
+                        <span className="rounded-full bg-stone-950 dark:bg-neutral-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white">
                           {t('settings.billing.subscription.current')}
                         </span>
                       )}
@@ -225,7 +225,7 @@ const SubscriptionPlans = ({
 
                 <div className="flex items-end justify-between gap-2 sm:min-w-[148px] sm:flex-col sm:items-end">
                   <div className="text-right">
-                    <p className="text-2xl font-bold tracking-tight text-stone-950">
+                    <p className="text-2xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
                       {displayPrice(plan, billingInterval)}
                       {plan.tier !== 'FREE' && (
                         <span className="text-sm font-medium text-stone-400 dark:text-neutral-500">
@@ -259,7 +259,7 @@ const SubscriptionPlans = ({
                       className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
                         isPurchasing
                           ? 'cursor-not-allowed bg-stone-200 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500'
-                          : 'bg-stone-950 text-white hover:bg-primary-600'
+                          : 'bg-stone-950 dark:bg-neutral-50 text-white hover:bg-primary-600'
                       }`}>
                       {isThisPurchasing
                         ? t('settings.billing.subscription.waiting')

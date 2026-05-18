@@ -26,7 +26,7 @@ function statusDot(status: ChannelConnectionStatus): string {
     case 'error':
       return 'bg-coral-500';
     default:
-      return 'bg-stone-300';
+      return 'bg-stone-300 dark:bg-neutral-700';
   }
 }
 

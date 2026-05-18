@@ -319,7 +319,7 @@ function PayloadBlock({ title, value }: { title: string; value: string }) {
       <summary className="cursor-pointer font-semibold text-stone-500 dark:text-neutral-400 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
         {title}
       </summary>
-      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-950 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
+      <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
         {value}
       </pre>
     </details>

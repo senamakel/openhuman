@@ -32,7 +32,7 @@ const PayAsYouGoCard = ({
   return (
     <>
       <div className="rounded-lg bg-white dark:bg-neutral-900 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] ring-1 ring-stone-950/5">
-        <h3 className="font-headline text-xl font-bold tracking-tight text-stone-950">
+        <h3 className="font-headline text-xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
           {t('settings.billing.payAsYouGo.creditBalanceTitle')}
         </h3>
         <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
@@ -78,7 +78,7 @@ const PayAsYouGoCard = ({
         )}
       </div>
       <div className="rounded-lg bg-white dark:bg-neutral-900 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] ring-1 ring-stone-950/5">
-        <h3 className="font-headline text-xl font-bold tracking-tight text-stone-950">
+        <h3 className="font-headline text-xl font-bold tracking-tight text-stone-950 dark:text-neutral-50">
           {t('settings.billing.payAsYouGo.chooseTopUpTitle')}
         </h3>
         <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
@@ -134,7 +134,7 @@ const PayAsYouGoCard = ({
             <button
               onClick={handleCustomTopUp}
               disabled={!customTopUpAmountValid || isToppingUp}
-              className="rounded-2xl bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 lg:self-end">
+              className="rounded-2xl bg-stone-950 dark:bg-neutral-50 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 lg:self-end">
               {isToppingUp
                 ? t('settings.billing.payAsYouGo.opening')
                 : t('settings.billing.payAsYouGo.chargeCustomAmount')}

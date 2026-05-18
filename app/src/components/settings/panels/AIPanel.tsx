@@ -396,7 +396,7 @@ const ProviderToggleChip = ({
         aria-label={`${enabled ? 'Disconnect' : 'Connect'} ${label}`}
         disabled={busy}
         onClick={onToggle}
-        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'}`}>
+        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700 dark:bg-neutral-600'}`}>
         <span
           aria-hidden
           className={`inline-block h-3 w-3 transform rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
@@ -647,7 +647,7 @@ const LoopToggle = ({
       aria-checked={checked}
       disabled={busy}
       onClick={onToggle}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${checked ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'}`}>
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${checked ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700 dark:bg-neutral-600'}`}>
       <span
         aria-hidden
         className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`}
@@ -1821,7 +1821,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                           setPendingLocalLabel(label);
                         }
                       }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300'}`}>
+                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700'}`}>
                       <span
                         aria-hidden
                         className={`inline-block h-3 w-3 transform rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}

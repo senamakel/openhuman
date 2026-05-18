@@ -256,6 +256,11 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const socketStatus = useAppSelector(selectSocketStatus);
   const agentProfiles = useAppSelector(selectAgentProfiles);
   const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
+  // Optional chain because narrow test stores (e.g. Conversations.test
+  // bootstraps without the locale slice) shouldn't crash here. `'en'`
+  // matches the no-locale-directive branch in the core, so legacy
+  // behaviour stays intact.
+  const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
@@ -758,6 +763,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
         message: trimmed,
         model: CHAT_MODEL_ID,
         profileId: selectedAgentProfileId,
+        locale: uiLocale,
       });
       trackEvent('chat_message_sent');
 

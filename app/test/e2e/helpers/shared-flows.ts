@@ -63,13 +63,13 @@ export async function waitForRequest(log, method, urlFragment, timeout = 15_000)
 }
 
 export async function waitForHomePage(timeout = 15_000) {
+  // Home page renders a CTA button with t('home.askAssistant') = 'Ask your assistant anything...'.
+  // Also accept the shorter variant and the navigation bar label as fallbacks.
+  // The old strings ('Good morning', 'Message OpenHuman', 'Upgrade to Premium')
+  // are no longer rendered on the home page.
   const candidates = [
-    'Test',
-    'Good morning',
-    'Good afternoon',
-    'Good evening',
-    'Message OpenHuman',
-    'Upgrade to Premium',
+    'Ask your assistant anything',
+    'Ask your assistant',
   ];
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {

@@ -36,8 +36,8 @@ describe('Multi-round tool conversation smoke', () => {
     expect(String(hash)).toContain('/chat');
 
     const ok =
-      (await textExists('Message OpenHuman')) ||
-      (await textExists('Type a message')) ||
+      (await textExists('Type a message...')) ||
+      (await textExists('Ask the agent anything...')) ||
       (await textExists('Conversation'));
     expect(ok).toBe(true);
   });

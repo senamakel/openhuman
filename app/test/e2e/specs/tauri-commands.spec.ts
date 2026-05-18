@@ -111,10 +111,13 @@ describe('Tauri commands', () => {
   });
 
   it('round-trips an RPC through the relay (openhuman.about_app_list)', async () => {
-    const res = await callOpenhumanRpc<{ capabilities: unknown[] }>('openhuman.about_app_list', {});
+    const res = await callOpenhumanRpc('openhuman.about_app_list', {});
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(Array.isArray(res.result.capabilities)).toBe(true);
-    expect(res.result.capabilities.length).toBeGreaterThan(0);
+    // RpcOutcome with single_log returns {result: Capability[], logs: [string]}.
+    // The outer `result` field (from JSON-RPC) holds that envelope.
+    const capabilities = (res.result as { result?: unknown[] })?.result ?? res.result;
+    expect(Array.isArray(capabilities)).toBe(true);
+    expect((capabilities as unknown[]).length).toBeGreaterThan(0);
   });
 });

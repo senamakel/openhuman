@@ -220,7 +220,7 @@ describe('Auth & Access Control', () => {
     }
     expect(hasHandoff).toBe(true);
 
-    await expectBillingMarkers(['Open dashboard']);
+    await expectBillingMarkers(['Open billing dashboard']);
 
     console.log('[AuthAccess] 3.1.1 — Billing web handoff verified');
     await navigateToHome();
@@ -234,7 +234,7 @@ describe('Auth & Access Control', () => {
     await navigateToBilling();
     clearRequestLog();
 
-    await expectBillingMarkers(['Open dashboard', 'TinyHumans on the web']);
+    await expectBillingMarkers(['Open billing dashboard', 'TinyHumans on the web']);
 
     console.log('[AuthAccess] 3.2.1 — Billing dashboard entry point verified');
     await navigateToHome();
@@ -256,7 +256,7 @@ describe('Auth & Access Control', () => {
     await expectBillingMarkers([
       'Billing moved to the web',
       'Subscription changes',
-      'Open dashboard',
+      'Open billing dashboard',
     ]);
 
     console.log('[AuthAccess] 3.3.1 — Subscription management handoff verified');
@@ -272,7 +272,7 @@ describe('Auth & Access Control', () => {
     await navigateToBilling();
     await browser.pause(3_000);
 
-    await expectBillingMarkers(['Open dashboard']);
+    await expectBillingMarkers(['Open billing dashboard']);
 
     console.log('[AuthAccess] 3.3.3 — Dashboard handoff verified');
     resetMockBehavior();

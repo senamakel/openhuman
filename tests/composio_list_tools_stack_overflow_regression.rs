@@ -103,9 +103,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::harness::definition::{
-    AgentDefinitionRegistry, ModelSpec,
-};
+use openhuman_core::openhuman::agent::harness::definition::{AgentDefinitionRegistry, ModelSpec};
 use openhuman_core::openhuman::agent::harness::{
     run_subagent, with_parent_context, ParentExecutionContext, SubagentRunOptions,
 };
@@ -253,12 +251,7 @@ impl Memory for StubMemory {
     ) -> Result<()> {
         Ok(())
     }
-    async fn recall(
-        &self,
-        _: &str,
-        _: usize,
-        _: RecallOpts<'_>,
-    ) -> Result<Vec<MemoryEntry>> {
+    async fn recall(&self, _: &str, _: usize, _: RecallOpts<'_>) -> Result<Vec<MemoryEntry>> {
         Ok(vec![])
     }
     async fn get(&self, _: &str, _: &str) -> Result<Option<MemoryEntry>> {

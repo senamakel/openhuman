@@ -56,9 +56,11 @@ interface PanelProps {
 
 function Panel({ children }: PanelProps) {
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#f5f5f5] p-4">
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'var(--color-background)' }}>
       <AppBackground />
-      <div className="relative z-10 w-full max-w-xl rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-10 shadow-soft animate-fade-up">
+      <div className="relative z-10 w-full max-w-xl rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
         {children}
       </div>
     </div>

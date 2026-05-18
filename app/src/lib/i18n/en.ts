@@ -1452,27 +1452,34 @@ const en: TranslationMap = {
   'pages.settings.account.privacy': 'Privacy',
   'pages.settings.account.privacyDesc': 'Manage data sharing and anonymized usage preferences',
   'pages.settings.account.recoveryPhrase': 'Recovery Phrase',
-  'pages.settings.account.recoveryPhraseDesc': 'Manage your BIP39 recovery phrase for encryption and wallet access',
+  'pages.settings.account.recoveryPhraseDesc':
+    'Manage your BIP39 recovery phrase for encryption and wallet access',
   'pages.settings.account.team': 'Team',
   'pages.settings.account.teamDesc': 'Manage your team, members, and invites',
   'pages.settings.accountSection.description':
     'Recovery phrase, team, connections, and privacy settings.',
   'pages.settings.accountSection.title': 'Account',
   'pages.settings.ai.llm': 'LLM',
-  'pages.settings.ai.llmDesc': 'Cloud providers, local Ollama models, and per-workload routing (reasoning, agentic, memory, …)',
+  'pages.settings.ai.llmDesc':
+    'Cloud providers, local Ollama models, and per-workload routing (reasoning, agentic, memory, …)',
   'pages.settings.ai.voice': 'Voice',
-  'pages.settings.ai.voiceDesc': 'Speech-to-text (Whisper) and text-to-speech (Piper) — cloud vs local provider selection',
+  'pages.settings.ai.voiceDesc':
+    'Speech-to-text (Whisper) and text-to-speech (Piper) — cloud vs local provider selection',
   'pages.settings.aiSection.description':
     'Language model providers, local Ollama, and voice (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.features.messagingChannels': 'Messaging Channels',
-  'pages.settings.features.messagingChannelsDesc': 'Configure Telegram/Discord auth modes and default channel routing',
+  'pages.settings.features.messagingChannelsDesc':
+    'Configure Telegram/Discord auth modes and default channel routing',
   'pages.settings.features.notifications': 'Notifications',
-  'pages.settings.features.notificationsDesc': 'Choose which categories surface in the notification center',
+  'pages.settings.features.notificationsDesc':
+    'Choose which categories surface in the notification center',
   'pages.settings.features.screenAwareness': 'Screen Awareness',
-  'pages.settings.features.screenAwarenessDesc': 'Screen capture permissions, monitoring policy, and session controls',
+  'pages.settings.features.screenAwarenessDesc':
+    'Screen capture permissions, monitoring policy, and session controls',
   'pages.settings.features.tools': 'Tools',
-  'pages.settings.features.toolsDesc': 'Enable or disable capabilities OpenHuman can use on your behalf',
+  'pages.settings.features.toolsDesc':
+    'Enable or disable capabilities OpenHuman can use on your behalf',
   'pages.settings.featuresSection.description': 'Screen awareness, messaging, and tools.',
   'pages.settings.featuresSection.title': 'Features',
   'privacy.dataKind.credentials': 'Credentials',
@@ -1491,7 +1498,8 @@ const en: TranslationMap = {
   'rewards.community.discordServer': 'Discord server',
   'rewards.community.discordStatusUnavailable': 'Membership status unavailable',
   'rewards.community.discordWaiting': 'Waiting for backend sync',
-  'rewards.community.heroSubtitle': 'Unlock exclusive channels, supporter badges, and backend-synced rewards by connecting your Discord account.',
+  'rewards.community.heroSubtitle':
+    'Unlock exclusive channels, supporter badges, and backend-synced rewards by connecting your Discord account.',
   'rewards.community.heroTitle': 'Earn Rewards & Discord Roles',
   'rewards.community.joinDiscord': 'Join Discord',
   'rewards.community.loadingRewards': 'Loading rewards…',
@@ -1903,7 +1911,8 @@ const en: TranslationMap = {
   'skills.install.timeoutLabel': 'Timeout label',
   'skills.install.title': 'Install skill from URL',
   'skills.install.urlLabel': 'Skill URL',
-  'skills.meetingBots.bannerDesc': 'Drop a Google Meet link and OpenHuman joins as a guest, talks, listens, and waves back.',
+  'skills.meetingBots.bannerDesc':
+    'Drop a Google Meet link and OpenHuman joins as a guest, talks, listens, and waves back.',
   'skills.meetingBots.bannerTitle': 'Send OpenHuman to a meeting',
   'skills.meetingBots.busyTitle': 'OpenHuman is busy',
   'skills.meetingBots.comingSoon': '${selected.label} coming soon',
@@ -1914,7 +1923,8 @@ const en: TranslationMap = {
   'skills.meetingBots.joiningTitle': 'OpenHuman is joining the meeting',
   'skills.meetingBots.meetingLink': 'Meeting link',
   'skills.meetingBots.modalAriaLabel': 'Send OpenHuman to a meeting',
-  'skills.meetingBots.modalDesc': 'OpenHuman joins as an anonymous guest, streams its video into the call, and replies via the agent.',
+  'skills.meetingBots.modalDesc':
+    'OpenHuman joins as an anonymous guest, streams its video into the call, and replies via the agent.',
   'skills.meetingBots.modalTitle': 'Send OpenHuman to a meeting',
   'skills.meetingBots.newBadge': 'New',
   'skills.meetingBots.sendTo': 'Send to ${selected.label}',

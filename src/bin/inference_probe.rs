@@ -208,8 +208,14 @@ Emit tool calls as `<tool_call>name[arg1|arg2]</tool_call>` blocks.
     let text = response.text_or_empty();
     let saw_pformat = text.contains("<tool_call>") || text.contains("<toolcall>");
     let saw_native = !response.tool_calls.is_empty();
-    eprintln!("[probe] response.tool_calls.len() = {}", response.tool_calls.len());
-    eprintln!("[probe] response contains <tool_call> tag = {}", saw_pformat);
+    eprintln!(
+        "[probe] response.tool_calls.len() = {}",
+        response.tool_calls.len()
+    );
+    eprintln!(
+        "[probe] response contains <tool_call> tag = {}",
+        saw_pformat
+    );
     if saw_native {
         for tc in &response.tool_calls {
             eprintln!(

@@ -244,7 +244,8 @@ const en5: TranslationMap = {
   'skills.install.timeoutLabel': 'Timeout label',
   'skills.install.title': 'Install skill from URL',
   'skills.install.urlLabel': 'Skill URL',
-  'skills.meetingBots.bannerDesc': 'Drop a Google Meet link and OpenHuman joins as a guest, talks, listens, and waves back.',
+  'skills.meetingBots.bannerDesc':
+    'Drop a Google Meet link and OpenHuman joins as a guest, talks, listens, and waves back.',
   'skills.meetingBots.bannerTitle': 'Send OpenHuman to a meeting',
   'skills.meetingBots.busyTitle': 'OpenHuman is busy',
   'skills.meetingBots.comingSoon': 'Coming soon',
@@ -255,7 +256,8 @@ const en5: TranslationMap = {
   'skills.meetingBots.joiningTitle': 'OpenHuman is joining the meeting',
   'skills.meetingBots.meetingLink': 'Meeting link',
   'skills.meetingBots.modalAriaLabel': 'Send OpenHuman to a meeting',
-  'skills.meetingBots.modalDesc': 'OpenHuman joins as an anonymous guest, streams its video into the call, and replies via the agent.',
+  'skills.meetingBots.modalDesc':
+    'OpenHuman joins as an anonymous guest, streams its video into the call, and replies via the agent.',
   'skills.meetingBots.modalTitle': 'Send OpenHuman to a meeting',
   'skills.meetingBots.newBadge': 'New',
   'skills.meetingBots.sendTo': 'Send to',

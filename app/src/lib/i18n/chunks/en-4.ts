@@ -155,7 +155,8 @@ const en4: TranslationMap = {
   'pages.settings.account.privacy': 'Privacy',
   'pages.settings.account.privacyDesc': 'Manage data sharing and anonymized usage preferences',
   'pages.settings.account.recoveryPhrase': 'Recovery Phrase',
-  'pages.settings.account.recoveryPhraseDesc': 'Manage your BIP39 recovery phrase for encryption and wallet access',
+  'pages.settings.account.recoveryPhraseDesc':
+    'Manage your BIP39 recovery phrase for encryption and wallet access',
   'pages.settings.account.team': 'Team',
   'pages.settings.account.teamDesc': 'Manage your team, members, and invites',
   'pages.settings.accountSection.description':
@@ -194,7 +195,8 @@ const en4: TranslationMap = {
   'rewards.community.discordServer': 'Discord server',
   'rewards.community.discordStatusUnavailable': 'Membership status unavailable',
   'rewards.community.discordWaiting': 'Waiting for backend sync',
-  'rewards.community.heroSubtitle': 'Unlock exclusive channels, supporter badges, and backend-synced rewards by connecting your Discord account.',
+  'rewards.community.heroSubtitle':
+    'Unlock exclusive channels, supporter badges, and backend-synced rewards by connecting your Discord account.',
   'rewards.community.heroTitle': 'Earn Rewards & Discord Roles',
   'rewards.community.joinDiscord': 'Join Discord',
   'rewards.community.loadingRewards': 'Loading rewards…',

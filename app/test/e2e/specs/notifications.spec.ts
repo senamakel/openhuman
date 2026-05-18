@@ -204,9 +204,10 @@ describe('Notifications', () => {
     }
     expect(sectionVisible).toBe(true);
 
-    // The heading text should also be present.
-    await waitForText('System Events', 8_000);
-    await waitForText('All caught up', 8_000);
+    // The heading text: t('alerts.title') = 'Alerts'.
+    // The empty state: t('alerts.empty') = 'No alerts yet'.
+    await waitForText('Alerts', 8_000);
+    await waitForText('No alerts yet', 8_000);
   });
 
   it('native notification permission command returns a valid state', async () => {

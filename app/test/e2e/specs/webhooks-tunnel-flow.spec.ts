@@ -82,10 +82,10 @@ describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
   });
 
   it('reached the logged-in shell after onboarding', async () => {
-    const atHome =
-      (await textExists('Message OpenHuman')) ||
-      (await textExists('Good morning')) ||
-      (await textExists('Upgrade to Premium'));
+    // Home page renders a CTA button with this text (t('home.askAssistant')).
+    // The old anchors ('Message OpenHuman', 'Good morning', 'Upgrade to
+    // Premium') no longer appear on the home page.
+    const atHome = await textExists('Ask your assistant anything');
     expect(atHome).toBe(true);
   });
 

@@ -36,9 +36,12 @@ async function waitForRequest(method, urlFragment, timeout = 15_000) {
 }
 
 async function waitForHome(timeout = 20_000) {
+  // After auth + onboarding the app lands on /home. The home page renders
+  // a CTA button with t('home.askAssistant') = 'Ask your assistant anything...'
+  // The old 'Message OpenHuman' anchor no longer appears anywhere in the app.
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    if (await textExists('Message OpenHuman')) return true;
+    if (await textExists('Ask your assistant anything')) return true;
     await browser.pause(700);
   }
   return false;
@@ -88,7 +91,7 @@ describe('Voice mode integration', () => {
     expect(onHome).toBe(true);
 
     // --- Verify we see the text input area (default mode) ---
-    const hasTextInput = await waitForAnyText(['Message OpenHuman', 'Type a message'], 10_000);
+    const hasTextInput = await waitForAnyText(['Type a message', 'Ask the agent anything'], 10_000);
     expect(hasTextInput).not.toBeNull();
 
     // --- Verify voice toggle buttons are visible ---
@@ -139,7 +142,7 @@ describe('Voice mode integration', () => {
     await browser.pause(1_500);
 
     // --- Verify text input is restored ---
-    const textRestored = await waitForAnyText(['Message OpenHuman', 'Type a message'], 10_000);
+    const textRestored = await waitForAnyText(['Type a message', 'Ask the agent anything'], 10_000);
     expect(textRestored).not.toBeNull();
   });
 
@@ -147,7 +150,7 @@ describe('Voice mode integration', () => {
     this.timeout(90_000);
     // Ensure conversations page is loaded (re-authenticate if state was lost).
     const onConversations = await waitForAnyText(
-      ['Message OpenHuman', 'Type a message', 'Reply'],
+      ['Type a message', 'Ask the agent anything', 'Reply'],
       5_000
     );
     if (!onConversations) {

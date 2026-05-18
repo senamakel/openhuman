@@ -27,6 +27,7 @@ vi.mock('../../hooks/useUsageState', () => ({
 // inspects the selector callback to pick the right value.
 const useAppSelectorMock = vi.fn(() => 'ok' as string);
 const useAppDispatchMock = vi.fn(() => vi.fn());
+/* eslint-disable react-hooks/rules-of-hooks -- mock factories, not real hooks */
 vi.mock('../../store/hooks', () => ({
   useAppSelector: (selector: unknown) => {
     if (typeof selector === 'function') {
@@ -43,6 +44,7 @@ vi.mock('../../store/hooks', () => ({
   },
   useAppDispatch: () => useAppDispatchMock(),
 }));
+/* eslint-enable react-hooks/rules-of-hooks */
 
 vi.mock('../../store/socketSelectors', () => ({ selectSocketStatus: vi.fn() }));
 vi.mock('../../store/connectivitySelectors', () => ({ selectBlockingState: vi.fn() }));

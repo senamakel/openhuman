@@ -172,6 +172,26 @@ const en5: TranslationMap = {
   'settings.mascot.localDefault': 'Local OpenHuman (default)',
   'settings.mascot.noCharacters': 'No OpenHuman characters are available yet',
   'settings.mascot.noColorVariants': 'No color variants',
+  'settings.mascot.voice.current': 'current',
+  'settings.mascot.voice.customDesc':
+    'Find voice ids at api.elevenlabs.io/v1/voices or your ElevenLabs dashboard. Only the id is stored — your API key stays on the backend.',
+  'settings.mascot.voice.customHeading': 'Custom voice id',
+  'settings.mascot.voice.customOption': 'Other (paste voice id)…',
+  'settings.mascot.voice.desc':
+    'Pick the ElevenLabs voice the mascot uses for spoken replies. Filter by gender, pick from the curated list, paste a custom id, or let the app pick a voice that matches your interface language.',
+  'settings.mascot.voice.genderFemale': 'Female',
+  'settings.mascot.voice.genderHeading': 'Voice gender',
+  'settings.mascot.voice.genderMale': 'Male',
+  'settings.mascot.voice.heading': 'Voice',
+  'settings.mascot.voice.preset': 'Voice preset',
+  'settings.mascot.voice.presetHeading': 'Voice preset',
+  'settings.mascot.voice.preview': 'Preview voice',
+  'settings.mascot.voice.previewError': 'Voice preview failed',
+  'settings.mascot.voice.previewing': 'Previewing…',
+  'settings.mascot.voice.reset': 'Reset to default',
+  'settings.mascot.voice.useLocaleDefault': 'Match the app language',
+  'settings.mascot.voice.useLocaleDefaultDesc':
+    'Auto-pick a voice for the current interface language.',
   'settings.memoryWindow.balanced.badge': 'Recommended',
   'settings.memoryWindow.balanced.hint':
     'Sensible default — good continuity without burning extra tokens on every run.',

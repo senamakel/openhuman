@@ -114,14 +114,6 @@ const MascotPanel = () => {
     };
   }, [selectedMascotId]);
 
-  // Keep the paste-buffer aligned with external slice updates (e.g.
-  // a Reset action clears it). Without this the editor would strand
-  // the previous value after a reset / another tab edit.
-  useEffect(() => {
-    setVoiceDraft(storedVoiceId ?? '');
-    setVoicePreviewError(null);
-  }, [storedVoiceId]);
-
   // Stop any in-flight preview audio when the panel unmounts.
   useEffect(() => {
     return () => {
@@ -171,6 +163,11 @@ const MascotPanel = () => {
     dispatch(setMascotVoiceUseLocaleDefault(next));
   };
 
+  // All slice writes flow through this component, so the local draft +
+  // preview-error state can be reset inside the same handler that
+  // dispatches `setMascotVoiceId(...)` — no `useEffect` mirror needed
+  // (and the rule `react-hooks/set-state-in-effect` flags effect-based
+  // mirrors as a smell).
   const onPresetChange = (next: string) => {
     if (next === '__custom__') {
       setVoicePasteMode(true);
@@ -179,18 +176,21 @@ const MascotPanel = () => {
     }
     setVoicePasteMode(false);
     setVoicePreviewError(null);
+    setVoiceDraft(next);
     dispatch(setMascotVoiceId(next));
   };
 
   const onSavePaste = () => {
     setVoicePreviewError(null);
     const trimmed = voiceDraft.trim();
+    setVoiceDraft(trimmed);
     dispatch(setMascotVoiceId(trimmed.length > 0 ? trimmed : null));
   };
 
   const onVoiceReset = () => {
     setVoicePreviewError(null);
     setVoicePasteMode(false);
+    setVoiceDraft('');
     dispatch(setMascotVoiceId(null));
   };
 

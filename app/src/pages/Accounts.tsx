@@ -117,6 +117,10 @@ const Accounts = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
+  // Respond Queue is a power-user surface (pending replies from connected
+  // accounts). Hidden by default so the agent chat gets full width; users
+  // can toggle it open from the header. (#XXXX)
+  const [respondQueueOpen, setRespondQueueOpen] = useState(false);
 
   useEffect(() => {
     startWebviewAccountService();
@@ -278,19 +282,46 @@ const Accounts = () => {
       <main className="flex min-w-0 flex-1 flex-col">
         {isAgentSelected ? (
           <div className="flex h-full min-w-0">
-            <div className="min-w-0 flex-1">
+            <div className="relative min-w-0 flex-1">
               <AgentChatPanel />
+              {/* Floating toggle to reveal the Respond Queue side panel.
+                  Pinned top-right inside the chat pane so it doesn't shift
+                  layout when the panel opens/closes. */}
+              <button
+                type="button"
+                onClick={() => setRespondQueueOpen(prev => !prev)}
+                className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-full border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1 text-[11px] font-medium text-stone-600 dark:text-neutral-300 shadow-soft hover:bg-stone-50 dark:hover:bg-neutral-800/60"
+                title={
+                  respondQueueOpen
+                    ? t('accounts.respondQueue.hide')
+                    : t('accounts.respondQueue.show')
+                }>
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+                <span>
+                  {t('accounts.respondQueue.title')}
+                  {respondQueueCount > 0 && ` (${respondQueueCount})`}
+                </span>
+              </button>
             </div>
-            {/* Respond queue side panel restored */}
-            <RespondQueuePanel
-              items={respondQueue}
-              count={respondQueueCount}
-              status={respondQueueStatus}
-              error={respondQueueError}
-              onRefresh={() => {
-                void dispatch(fetchRespondQueue());
-              }}
-            />
+            {/* Respond queue side panel — hidden by default; reveals via toggle */}
+            {respondQueueOpen && (
+              <RespondQueuePanel
+                items={respondQueue}
+                count={respondQueueCount}
+                status={respondQueueStatus}
+                error={respondQueueError}
+                onRefresh={() => {
+                  void dispatch(fetchRespondQueue());
+                }}
+              />
+            )}
           </div>
         ) : active ? (
           <div className="flex-1 py-3 pr-3">

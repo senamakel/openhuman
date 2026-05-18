@@ -238,7 +238,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   // and clobber the auto-created one (#883 CodeRabbit feedback).
   // const skipInitialThreadSelectionRef = useRef(false);
 
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('text');

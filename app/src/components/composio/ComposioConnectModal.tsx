@@ -506,7 +506,7 @@ export default function ComposioConnectModal({
       aria-labelledby="composio-setup-title">
       <div
         ref={modalRef}
-        className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-3xl shadow-large w-full max-w-[460px] overflow-hidden animate-fade-up focus:outline-none focus:ring-0"
+        className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-3xl shadow-large w-full max-w-[460px] overflow-hidden animate-fade-up focus:outline-none focus:ring-0"
         style={{
           animationDuration: '200ms',
           animationTimingFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -515,21 +515,21 @@ export default function ComposioConnectModal({
         tabIndex={-1}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-4 border-b border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
+        <div className="p-4 border-b border-stone-200 dark:border-neutral-800">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 {toolkit.icon}
-                <h2 id="composio-setup-title" className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                <h2 id="composio-setup-title" className="text-base font-semibold text-stone-900 dark:text-neutral-100">
                   {headerTitle}
                 </h2>
               </div>
-              <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500 mt-1.5 line-clamp-2">{toolkit.description}</p>
+              <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1.5 line-clamp-2">{toolkit.description}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-1 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 dark:hover:text-neutral-100 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 flex-shrink-0"
+              className="p-1 text-stone-400 dark:text-neutral-500 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 dark:hover:text-neutral-100 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60 flex-shrink-0"
               aria-label={t('common.close')}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

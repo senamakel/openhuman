@@ -141,7 +141,7 @@ export function DiscordBanner() {
       onClick={() => {
         void openUrl(DISCORD_INVITE_URL);
       }}
-      className="mb-3 text-left mt-3 block rounded-2xl border border-[#CDD2FF] bg-gradient-to-r from-[#F6F7FF] via-[#F1F3FF] to-[#ECEFFF] px-4 py-4 text-[#414AAE] shadow-soft transition-transform transition-colors hover:-translate-y-0.5 hover:border-[#BCC3FF] hover:from-[#EEF0FF] hover:to-[#E5E9FF]">
+      className="mb-3 text-left mt-3 block w-full rounded-2xl border border-[#CDD2FF] bg-gradient-to-r from-[#F6F7FF] via-[#F1F3FF] to-[#ECEFFF] px-4 py-4 text-[#414AAE] shadow-soft transition-transform transition-colors hover:-translate-y-0.5 hover:border-[#BCC3FF] hover:from-[#EEF0FF] hover:to-[#E5E9FF] dark:border-[#5865F2]/30 dark:from-[#5865F2]/10 dark:via-[#5865F2]/15 dark:to-[#5865F2]/10 dark:text-[#A5B0FF] dark:hover:border-[#5865F2]/50 dark:hover:from-[#5865F2]/15 dark:hover:to-[#5865F2]/20">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5865F2]/12 text-[#5865F2]">
           <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -150,7 +150,9 @@ export function DiscordBanner() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{t('home.banners.discordTitle')}</div>
-          <div className="mt-0.5 text-sm text-[#5E66BC]">{t('home.banners.discordSubtitle')}</div>
+          <div className="mt-0.5 text-sm text-[#5E66BC] dark:text-[#8B95DD]">
+            {t('home.banners.discordSubtitle')}
+          </div>
         </div>
       </div>
     </button>

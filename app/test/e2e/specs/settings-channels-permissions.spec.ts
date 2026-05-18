@@ -43,9 +43,7 @@ describe('Settings - Channels & Permissions', () => {
     // or "No active route" (when no Discord account is connected in E2E).
     // We assert that the Active route label is rendered either way.
     await browser.pause(1_000);
-    expect(
-      (await textExists('Active route')) || (await textExists('No active route'))
-    ).toBe(true);
+    expect((await textExists('Active route')) || (await textExists('No active route'))).toBe(true);
   });
 
   it('renders privacy settings and analytics toggle (13.2.2)', async function () {

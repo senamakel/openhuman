@@ -313,7 +313,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
               onClick={() => void openVaultInObsidian(graph.content_root_abs)}
               data-testid="memory-open-in-obsidian"
               className="inline-flex items-center gap-2 rounded-lg
-                         bg-violet-500 px-4 py-2 text-sm font-semibold text-white
+                         bg-violet-50 dark:bg-violet-500/100 px-4 py-2 text-sm font-semibold text-white
                          shadow-sm transition-colors hover:bg-violet-600
                          focus:outline-none focus:ring-2 focus:ring-violet-300"
               title={`obsidian://open?path=${graph.content_root_abs}`}>

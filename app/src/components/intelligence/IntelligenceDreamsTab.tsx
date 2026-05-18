@@ -4,7 +4,7 @@ export default function IntelligenceDreamsTab() {
   const { t } = useT();
   return (
     <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-      <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-sky-500/10">
+      <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-sky-50 dark:bg-sky-500/10">
         <svg className="w-8 h-8 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"

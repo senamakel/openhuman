@@ -311,7 +311,7 @@ export default function IntelligenceSubconsciousTab({
                     )}
                     <button
                       onClick={() => void handleDismissEscalation(esc.id)}
-                      className="px-3 py-1.5 text-xs bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 rounded-lg transition-colors">
+                      className="px-3 py-1.5 text-xs bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200  text-stone-600 dark:text-neutral-300 rounded-lg transition-colors">
                       {t('common.skip')}
                     </button>
                   </div>

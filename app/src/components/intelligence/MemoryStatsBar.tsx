@@ -67,7 +67,7 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       label: t('stats.documents'),
       value: formatNumber(totalDocs),
       sub: docsToday > 0 ? `+${docsToday} ${t('stats.today')}` : undefined,
-      color: 'text-emerald-600',
+      color: 'text-emerald-600 dark:text-emerald-300',
     },
     {
       label: t('stats.namespaces'),
@@ -79,7 +79,7 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       label: t('stats.relations'),
       value: formatNumber(totalRelations),
       sub: undefined,
-      color: 'text-lavender-600',
+      color: 'text-lavender-600 dark:text-lavender-300',
     },
     {
       label: t('stats.firstMemory'),
@@ -87,13 +87,13 @@ export function MemoryStatsBar(props: MemoryStatsBarProps) {
       sub: newestDocTimestamp
         ? `${t('stats.latest')}: ${formatTimeAgo(newestDocTimestamp)}`
         : undefined,
-      color: 'text-sky-600',
+      color: 'text-sky-600 dark:text-sky-300',
     },
     {
       label: t('stats.sessions'),
       value: totalSessions !== null ? formatNumber(totalSessions) : '--',
       sub: totalTokens !== null ? `${formatNumber(totalTokens)} ${t('stats.tokens')}` : undefined,
-      color: 'text-rose-600',
+      color: 'text-rose-600 dark:text-rose-300',
     },
   ];
 

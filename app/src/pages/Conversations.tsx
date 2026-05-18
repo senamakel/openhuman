@@ -1481,7 +1481,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
             </div>
           </div>
         )}
-        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6]">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto px-5 py-4 bg-[#f6f6f6] dark:bg-neutral-950">
           {isLoadingMessages ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (

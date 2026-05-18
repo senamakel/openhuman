@@ -56,7 +56,9 @@ function ConnectionOptionRow({
       className={`group w-full flex items-center justify-between p-4 bg-white dark:bg-neutral-900 dark:bg-neutral-900 text-left transition-colors duration-150 ${
         isLast ? '' : 'border-b border-stone-200 dark:border-neutral-800 dark:border-neutral-800'
       } ${isFirst ? 'rounded-t-2xl' : ''} ${isLast ? 'rounded-b-2xl' : ''} ${
-        isDisabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 focus-visible:bg-stone-50 dark:bg-neutral-800/60 dark:focus-visible:bg-neutral-800/60'
+        isDisabled
+          ? 'opacity-70 cursor-not-allowed'
+          : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 focus-visible:bg-stone-50 dark:bg-neutral-800/60 dark:focus-visible:bg-neutral-800/60'
       } focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}>
       <div
         className={`w-5 h-5 flex-shrink-0 mr-3 text-stone-700 dark:text-neutral-200 dark:text-neutral-200 ${
@@ -65,7 +67,9 @@ function ConnectionOptionRow({
         {option.icon}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100 leading-snug">{option.name}</div>
+        <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100 leading-snug">
+          {option.name}
+        </div>
         <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5 leading-relaxed truncate">
           {option.description}
         </p>
@@ -188,7 +192,9 @@ const ConnectionsPanel = () => {
                 <p className="font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 text-sm">
                   {t('connections.walletIdentities')}
                 </p>
-                <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">{t('connections.walletDerived')}</p>
+                <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
+                  {t('connections.walletDerived')}
+                </p>
               </div>
               <div className="grid gap-2">
                 {walletStatus.accounts.map(account => (

@@ -148,7 +148,9 @@ export default function TriggerToggles({
         <h3 className="text-xs font-semibold text-stone-700 dark:text-neutral-200 uppercase tracking-wide">
           {t('composio.triggers.heading')}
         </h3>
-        <p className="mt-1 text-[11px] text-stone-400 dark:text-neutral-500">{t('composio.triggers.loading')}</p>
+        <p className="mt-1 text-[11px] text-stone-400 dark:text-neutral-500">
+          {t('composio.triggers.loading')}
+        </p>
       </div>
     );
   }
@@ -167,7 +169,9 @@ export default function TriggerToggles({
   }
 
   return (
-    <div className="border-t border-stone-100 dark:border-neutral-800 pt-3 mt-1 space-y-2" data-testid="trigger-toggles">
+    <div
+      className="border-t border-stone-100 dark:border-neutral-800 pt-3 mt-1 space-y-2"
+      data-testid="trigger-toggles">
       <div className="flex items-baseline justify-between">
         <h3 className="text-xs font-semibold text-stone-700 dark:text-neutral-200 uppercase tracking-wide">
           {t('composio.triggers.heading')}
@@ -207,8 +211,14 @@ export default function TriggerToggles({
               data-testid={`trigger-row-${sig}`}
               className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
               <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 break-all">{label}</span>
-                {sub && <p className="text-[11px] text-stone-400 dark:text-neutral-500 leading-snug">{sub}</p>}
+                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 break-all">
+                  {label}
+                </span>
+                {sub && (
+                  <p className="text-[11px] text-stone-400 dark:text-neutral-500 leading-snug">
+                    {sub}
+                  </p>
+                )}
               </div>
               <button
                 type="button"

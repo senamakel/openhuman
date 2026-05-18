@@ -102,8 +102,12 @@ export default function IntelligenceCallsTab({ onToast }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{t('calls.joinMeet')}</h2>
-        <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">{t('calls.joinMeetDescription')}</p>
+        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+          {t('calls.joinMeet')}
+        </h2>
+        <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
+          {t('calls.joinMeetDescription')}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,7 +172,9 @@ export default function IntelligenceCallsTab({ onToast }: Props) {
                   <div className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
                     {call.displayName}
                   </div>
-                  <div className="truncate text-xs text-stone-500 dark:text-neutral-400">{call.meetUrl}</div>
+                  <div className="truncate text-xs text-stone-500 dark:text-neutral-400">
+                    {call.meetUrl}
+                  </div>
                 </div>
                 <button
                   type="button"

@@ -73,8 +73,12 @@ const ReferralApplyStep = ({ onNext, onApplied }: ReferralApplyStepProps) => {
   return (
     <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-soft animate-fade-up">
       <div className="text-center mb-6">
-        <h1 className="text-xl font-bold mb-2 text-stone-900 dark:text-neutral-100">{t('onboarding.referral')}</h1>
-        <p className="text-stone-600 dark:text-neutral-300 text-sm">{t('onboarding.referralDesc')}</p>
+        <h1 className="text-xl font-bold mb-2 text-stone-900 dark:text-neutral-100">
+          {t('onboarding.referral')}
+        </h1>
+        <p className="text-stone-600 dark:text-neutral-300 text-sm">
+          {t('onboarding.referralDesc')}
+        </p>
       </div>
 
       {success ? (
@@ -93,7 +97,9 @@ const ReferralApplyStep = ({ onNext, onApplied }: ReferralApplyStepProps) => {
               />
             </svg>
           </div>
-          <p className="text-sage-600 dark:text-sage-300 font-medium text-sm">{t('common.success')}</p>
+          <p className="text-sage-600 dark:text-sage-300 font-medium text-sm">
+            {t('common.success')}
+          </p>
         </div>
       ) : (
         <>

@@ -111,7 +111,8 @@ const TeamMembersPanel = () => {
   const roleBadgeColor: Record<string, string> = {
     ADMIN: 'bg-primary-500/20 text-primary-400 border-primary-500/30',
     BILLING_MANAGER: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    MEMBER: 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/600/20 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 border-stone-500/30',
+    MEMBER:
+      'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/600/20 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 border-stone-500/30',
   };
 
   return (
@@ -161,7 +162,10 @@ const TeamMembersPanel = () => {
           {/* Full loading state - only when loading and no existing data */}
           {isLoadingMembers && members.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <svg className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -176,7 +180,9 @@ const TeamMembersPanel = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              <span className="ml-3 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Loading members...</span>
+              <span className="ml-3 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                Loading members...
+              </span>
             </div>
           ) : (
             <div className="space-y-2">
@@ -197,11 +203,15 @@ const TeamMembersPanel = () => {
                           {displayName(member)}
                         </span>
                         {isCurrentUser(member) && (
-                          <span className="text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">(You)</span>
+                          <span className="text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                            (You)
+                          </span>
                         )}
                       </div>
                       {member.user.username && (
-                        <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 truncate">@{member.user.username}</p>
+                        <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 truncate">
+                          @{member.user.username}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -254,7 +264,9 @@ const TeamMembersPanel = () => {
 
               {members.length === 0 && !isLoadingMembers && (
                 <div className="text-center py-8">
-                  <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">No members found</p>
+                  <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    No members found
+                  </p>
                 </div>
               )}
             </div>
@@ -264,7 +276,9 @@ const TeamMembersPanel = () => {
           {memberToRemove && (
             <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">Remove Team Member</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  Remove Team Member
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -276,8 +290,10 @@ const TeamMembersPanel = () => {
                   <div className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
                     <p>
                       Are you sure you want to remove{' '}
-                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{displayName(memberToRemove)}</strong> from
-                      the team?
+                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                        {displayName(memberToRemove)}
+                      </strong>{' '}
+                      from the team?
                     </p>
                     <p className="mt-2 text-coral-400">
                       They will lose access to the team and all team resources.
@@ -307,7 +323,9 @@ const TeamMembersPanel = () => {
           {roleChangeConfirmation && (
             <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">Change Member Role</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  Change Member Role
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">

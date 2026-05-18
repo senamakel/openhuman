@@ -43,8 +43,12 @@ const AboutPanel = () => {
 
       <div className="p-4 space-y-4">
         <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4">
-          <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.about.version')}</div>
-          <div className="mt-1 text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">v{APP_VERSION}</div>
+          <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('settings.about.version')}
+          </div>
+          <div className="mt-1 text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            v{APP_VERSION}
+          </div>
           {info?.available && info.available_version && (
             <div className="mt-1 text-xs text-primary-500">
               v{info.available_version} {t('settings.about.updateAvailable')}
@@ -58,7 +62,9 @@ const AboutPanel = () => {
               <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                 {t('settings.about.softwareUpdates')}
               </div>
-              <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed">{summary}</div>
+              <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed">
+                {summary}
+              </div>
               {lastCheckedAt && (
                 <div className="mt-1 text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
                   {t('settings.about.lastChecked')} {formatRelative(lastCheckedAt, t)}
@@ -76,7 +82,9 @@ const AboutPanel = () => {
         </div>
 
         <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4">
-          <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('settings.about.releases')}</div>
+          <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('settings.about.releases')}
+          </div>
           <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed">
             {t('settings.about.releasesDesc')}
           </p>

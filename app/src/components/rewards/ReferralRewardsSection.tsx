@@ -176,7 +176,9 @@ const ReferralRewardsSection = () => {
         </div>
 
         {loading && !stats ? (
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('rewards.referralSection.loading')}</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('rewards.referralSection.loading')}
+          </p>
         ) : null}
         {loadError ? (
           <div className="rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-sm text-coral-800 dark:text-coral-200">
@@ -243,7 +245,9 @@ const ReferralRewardsSection = () => {
                 {t('rewards.referralSection.share')}
               </button>
               {copyHint ? (
-                <span className="self-center text-sm text-sage-600 dark:text-sage-300">{copyHint}</span>
+                <span className="self-center text-sm text-sage-600 dark:text-sage-300">
+                  {copyHint}
+                </span>
               ) : null}
             </div>
           </>
@@ -255,7 +259,9 @@ const ReferralRewardsSection = () => {
           <h2 className="text-2xl font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
             {t('rewards.referralSection.haveCode')}
           </h2>
-          <p className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{t('rewards.referralSection.haveCodeDesc')}</p>
+          <p className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+            {t('rewards.referralSection.haveCodeDesc')}
+          </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="text"
@@ -276,7 +282,9 @@ const ReferralRewardsSection = () => {
                 : t('rewards.referralSection.apply')}
             </button>
           </div>
-          {applyError ? <p className="text-xs text-coral-600 dark:text-coral-300">{applyError}</p> : null}
+          {applyError ? (
+            <p className="text-xs text-coral-600 dark:text-coral-300">{applyError}</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -322,7 +330,9 @@ const ReferralRewardsSection = () => {
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
                     {stats.referrals.map((row, idx) => (
-                      <tr key={row.id ?? row.referredUserId ?? idx} className="bg-white dark:bg-neutral-900 dark:bg-neutral-900">
+                      <tr
+                        key={row.id ?? row.referredUserId ?? idx}
+                        className="bg-white dark:bg-neutral-900 dark:bg-neutral-900">
                         <td className="px-3 py-2 font-mono text-stone-800 dark:text-neutral-100 dark:text-neutral-100">
                           {row.referredUserMasked || row.referredDisplayName || '—'}
                         </td>

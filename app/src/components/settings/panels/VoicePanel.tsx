@@ -515,7 +515,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
             className="bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-4 space-y-4"
             data-testid="voice-providers-section">
             <div>
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Voice Providers</h3>
+              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                Voice Providers
+              </h3>
               <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
                 Choose where transcription and synthesis run. Use the Install locally buttons to
                 download the binaries and models into your workspace — no manual{' '}
@@ -524,7 +526,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Speech-to-Text Provider</span>
+                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  Speech-to-Text Provider
+                </span>
                 <select
                   aria-label="STT provider"
                   data-testid="stt-provider-select"
@@ -576,7 +580,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               </label>
               {sttProvider === 'whisper' && (
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Whisper Model</span>
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    Whisper Model
+                  </span>
                   <select
                     aria-label="Whisper model"
                     data-testid="stt-model-select"
@@ -610,7 +616,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 </label>
               )}
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Text-to-Speech Provider</span>
+                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  Text-to-Speech Provider
+                </span>
                 <select
                   aria-label="TTS provider"
                   data-testid="tts-provider-select"
@@ -662,7 +670,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               </label>
               {ttsProvider === 'piper' && (
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Piper Voice</span>
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    Piper Voice
+                  </span>
                   <select
                     aria-label="Piper voice"
                     data-testid="tts-voice-select"
@@ -743,7 +753,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
           <section className="space-y-3" data-testid="mascot-voice-section">
             <div className="bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-4 space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Mascot Voice</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  Mascot Voice
+                </h3>
                 <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
                   Pick the ElevenLabs voice the mascot uses for spoken replies. Switch among the
                   curated presets, paste any voice id you have access to under{' '}
@@ -753,7 +765,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               </div>
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Voice preset</span>
+                <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  Voice preset
+                </span>
                 <select
                   aria-label="Mascot voice preset"
                   data-testid="mascot-voice-select"
@@ -771,7 +785,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
               {isCustomMascotVoice && (
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Custom voice id</span>
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    Custom voice id
+                  </span>
                   <div className="flex gap-2">
                     <input
                       aria-label="Custom ElevenLabs voice id"
@@ -843,14 +859,20 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
         <section className={`space-y-3 ${disabled ? 'opacity-60' : ''}`}>
           <div className="bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-4 space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('voice.settings')}</h3>
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">{t('voice.settingsDesc')}</p>
+              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                {t('voice.settings')}
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
+                {t('voice.settingsDesc')}
+              </p>
             </div>
 
             {!disabled && settings && (
               <>
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{t('voice.hotkey')}</span>
+                  <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                    {t('voice.hotkey')}
+                  </span>
                   <input
                     value={settings.hotkey}
                     onChange={e => updateSetting('hotkey', e.target.value)}
@@ -905,7 +927,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     <span className="text-xs font-medium text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
                       {t('voice.customDictionary')}
                     </span>
-                    <p className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{t('voice.customDictionaryDesc')}</p>
+                    <p className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+                      {t('voice.customDictionaryDesc')}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <input

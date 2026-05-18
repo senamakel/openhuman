@@ -33,9 +33,12 @@ const ChannelSelector = ({
   return (
     <section className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{t('channels.title')}</h2>
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          {t('channels.title')}
+        </h2>
         <p className="text-xs text-stone-400 dark:text-neutral-500">
-          {t('channels.activeRoute')}: <span className="text-primary-600 dark:text-primary-300">{activeRoute}</span>
+          {t('channels.activeRoute')}:{' '}
+          <span className="text-primary-600 dark:text-primary-300">{activeRoute}</span>
         </p>
       </div>
 

@@ -116,7 +116,9 @@ const MessagingPanel = () => {
       <div className="p-4 space-y-4">
         {/* Default channel selector */}
         <section className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('channels.defaultMessaging')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('channels.defaultMessaging')}
+          </h3>
           <div className="grid grid-cols-2 gap-2">
             {definitions.map(def => {
               const channelId = def.id as ChannelType;
@@ -162,7 +164,9 @@ const MessagingPanel = () => {
             <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
               {t('channels.channelConnections')}
             </h3>
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{t('channels.configureAuthModes')}</p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              {t('channels.configureAuthModes')}
+            </p>
             <div className="space-y-2">
               {configurableChannels.map(def => {
                 const channelId = def.id as ChannelType;
@@ -189,7 +193,9 @@ const MessagingPanel = () => {
                             {statusLabel(status, t)}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">{def.description}</p>
+                        <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+                          {def.description}
+                        </p>
                       </div>
                       <svg
                         className="w-4 h-4 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 flex-shrink-0"

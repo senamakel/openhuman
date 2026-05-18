@@ -15,7 +15,9 @@ const InferenceBudget = ({ teamUsage, isLoadingCredits }: InferenceBudgetProps) 
           {t('settings.billing.inferenceBudget.title')}
         </h3>
         {isLoadingCredits && (
-          <span className="text-[10px] text-stone-500 dark:text-neutral-400">{t('common.loading')}</span>
+          <span className="text-[10px] text-stone-500 dark:text-neutral-400">
+            {t('common.loading')}
+          </span>
         )}
         {teamUsage && !isLoadingCredits && (
           <span className="text-xs text-stone-400 dark:text-neutral-500">
@@ -78,7 +80,9 @@ const InferenceBudget = ({ teamUsage, isLoadingCredits }: InferenceBudgetProps) 
       ) : isLoadingCredits ? (
         <div className="h-1.5 w-full rounded-full bg-stone-200 dark:bg-neutral-800 animate-pulse" />
       ) : (
-        <p className="text-xs text-stone-500 dark:text-neutral-400">{t('settings.billing.inferenceBudget.loadError')}</p>
+        <p className="text-xs text-stone-500 dark:text-neutral-400">
+          {t('settings.billing.inferenceBudget.loadError')}
+        </p>
       )}
     </div>
   );

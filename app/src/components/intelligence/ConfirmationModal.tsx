@@ -59,7 +59,9 @@ export function ConfirmationModal({ modal, onClose }: ConfirmationModalProps) {
               </div>
             )}
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">{modal.title}</h2>
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+                {modal.title}
+              </h2>
               <p className="text-sm text-stone-600 dark:text-neutral-300 mt-1">{modal.message}</p>
             </div>
           </div>

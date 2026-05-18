@@ -21,7 +21,9 @@ const DebugSection = ({
         onClick={() => setIsOpen(prev => !prev)}
         className="flex w-full items-center justify-between text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
         <span>Debug & Diagnostics</span>
-        <span className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{isOpen ? 'Collapse' : 'Expand'}</span>
+        <span className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+          {isOpen ? 'Collapse' : 'Expand'}
+        </span>
       </button>
       {isOpen && <ScreenIntelligenceDebugPanel state={state} />}
     </section>
@@ -110,10 +112,14 @@ const ScreenAwarenessDebugPanel = () => {
       <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
         {/* Advanced policy settings */}
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Screen Intelligence Policy</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Screen Intelligence Policy
+          </h3>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">Baseline FPS</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              Baseline FPS
+            </span>
             <input
               type="number"
               min={0.2}
@@ -127,7 +133,9 @@ const ScreenAwarenessDebugPanel = () => {
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
             <div>
-              <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">Use Vision Model</span>
+              <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                Use Vision Model
+              </span>
               <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
                 Send screenshots to a vision LLM for richer context. When off, only OCR text is used
                 with a text LLM — faster and no vision model required.
@@ -142,7 +150,9 @@ const ScreenAwarenessDebugPanel = () => {
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
             <div>
-              <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">Keep Screenshots</span>
+              <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                Keep Screenshots
+              </span>
               <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
                 Save captured screenshots to the workspace instead of deleting after processing
               </p>
@@ -155,7 +165,9 @@ const ScreenAwarenessDebugPanel = () => {
           </label>
 
           <div className="space-y-1">
-            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Allowlist (one rule per line)</div>
+            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+              Allowlist (one rule per line)
+            </div>
             <textarea
               value={allowlistText}
               onChange={event => setAllowlistText(event.target.value)}
@@ -165,7 +177,9 @@ const ScreenAwarenessDebugPanel = () => {
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">Denylist (one rule per line)</div>
+            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+              Denylist (one rule per line)
+            </div>
             <textarea
               value={denylistText}
               onChange={event => setDenylistText(event.target.value)}
@@ -181,12 +195,16 @@ const ScreenAwarenessDebugPanel = () => {
             className="rounded-lg border border-primary-400 bg-primary-50 dark:bg-primary-500/10 px-3 py-2 text-sm text-primary-700 dark:text-primary-300 disabled:opacity-50">
             {isSavingConfig ? 'Saving…' : 'Save Screen Intelligence Settings'}
           </button>
-          {configError && <div className="text-xs text-red-600 dark:text-red-300">{configError}</div>}
+          {configError && (
+            <div className="text-xs text-red-600 dark:text-red-300">{configError}</div>
+          )}
         </section>
 
         {/* Session stats */}
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Session Stats</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Session Stats
+          </h3>
           <div className="text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300 space-y-1">
             <div>Frames (ephemeral): {status?.session.frames_in_memory ?? 0}</div>
             <div>Panic stop: {status?.session.panic_hotkey ?? 'Cmd+Shift+.'}</div>
@@ -204,7 +222,9 @@ const ScreenAwarenessDebugPanel = () => {
         {/* Vision summaries */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Vision Summaries</h3>
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              Vision Summaries
+            </h3>
             <button
               type="button"
               onClick={() => void refreshVision(10)}
@@ -215,7 +235,9 @@ const ScreenAwarenessDebugPanel = () => {
           </div>
 
           {recentVisionSummaries.length === 0 ? (
-            <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">No summaries yet.</div>
+            <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+              No summaries yet.
+            </div>
           ) : (
             <div className="space-y-2">
               {recentVisionSummaries.map(summary => (
@@ -227,7 +249,9 @@ const ScreenAwarenessDebugPanel = () => {
                     {summary.app_name ?? 'Unknown App'}
                     {summary.window_title ? ` · ${summary.window_title}` : ''}
                   </div>
-                  <div className="mt-1 text-stone-800 dark:text-neutral-100 dark:text-neutral-100">{summary.actionable_notes}</div>
+                  <div className="mt-1 text-stone-800 dark:text-neutral-100 dark:text-neutral-100">
+                    {summary.actionable_notes}
+                  </div>
                 </div>
               ))}
             </div>

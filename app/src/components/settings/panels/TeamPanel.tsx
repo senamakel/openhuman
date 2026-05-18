@@ -137,7 +137,8 @@ const TeamPanel = () => {
     const colors: Record<string, string> = {
       ADMIN: 'bg-primary-500/20 text-primary-400 border-primary-500/30',
       BILLING_MANAGER: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      MEMBER: 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/600/20 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 border-stone-500/30',
+      MEMBER:
+        'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/600/20 text-stone-400 dark:text-neutral-500 dark:text-neutral-500 border-stone-500/30',
     };
 
     return (
@@ -184,7 +185,9 @@ const TeamPanel = () => {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 truncate">{team.name}</span>
+              <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 truncate">
+                {team.name}
+              </span>
               {roleBadge(role, team.createdBy)}
               {planBadge(team.subscription.plan)}
               {isActive && (
@@ -194,7 +197,9 @@ const TeamPanel = () => {
               )}
             </div>
             {team.isPersonal && (
-              <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500 mt-0.5">{t('team.personalTeam')}</p>
+              <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500 mt-0.5">
+                {t('team.personalTeam')}
+              </p>
             )}
           </div>
         </div>
@@ -247,7 +252,10 @@ const TeamPanel = () => {
 
           {isLoading && teams.length === 0 && (
             <div className="flex items-center justify-center py-8">
-              <svg className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -327,7 +335,9 @@ const TeamPanel = () => {
           {teamToLeave && (
             <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">{t('team.leaveTeam')}</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  {t('team.leaveTeam')}
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -339,7 +349,10 @@ const TeamPanel = () => {
                   <div className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                     <p>
                       {t('team.confirmLeave')}{' '}
-                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{teamToLeave.team.name}</strong>?
+                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                        {teamToLeave.team.name}
+                      </strong>
+                      ?
                     </p>
                     <p className="mt-2 text-amber-400">{t('team.leaveWarning')}</p>
                   </div>

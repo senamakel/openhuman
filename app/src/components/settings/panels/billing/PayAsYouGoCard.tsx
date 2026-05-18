@@ -68,7 +68,10 @@ const PayAsYouGoCard = ({
         ) : isLoadingCredits ? (
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[0, 1, 2].map(index => (
-              <div key={index} className="h-24 rounded-2xl bg-stone-100 dark:bg-neutral-800 animate-pulse" />
+              <div
+                key={index}
+                className="h-24 rounded-2xl bg-stone-100 dark:bg-neutral-800 animate-pulse"
+              />
             ))}
           </div>
         ) : (
@@ -111,7 +114,9 @@ const PayAsYouGoCard = ({
                 {t('settings.billing.payAsYouGo.customAmount')}
               </label>
               <div className="mt-2 flex items-center rounded-2xl bg-white dark:bg-neutral-900 px-4 ring-1 ring-stone-200 focus-within:ring-2 focus-within:ring-primary-500/20">
-                <span className="text-sm font-semibold text-stone-500 dark:text-neutral-400">$</span>
+                <span className="text-sm font-semibold text-stone-500 dark:text-neutral-400">
+                  $
+                </span>
                 <input
                   id="billing-custom-top-up"
                   type="number"

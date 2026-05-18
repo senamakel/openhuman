@@ -58,7 +58,9 @@ const CompletionStyleSection = ({
   return (
     <>
       <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{t('autocomplete.settings')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          {t('autocomplete.settings')}
+        </h3>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
           <span className="text-sm text-stone-700 dark:text-neutral-200">
             {t('settings.autocomplete.completionStyle.enabled')}
@@ -70,7 +72,9 @@ const CompletionStyleSection = ({
           />
         </label>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-stone-700 dark:text-neutral-200">{t('autocomplete.acceptWithTab')}</span>
+          <span className="text-sm text-stone-700 dark:text-neutral-200">
+            {t('autocomplete.acceptWithTab')}
+          </span>
           <input
             type="checkbox"
             checked={acceptWithTab}
@@ -120,7 +124,9 @@ const CompletionStyleSection = ({
           />
         </label>
         <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-stone-700 dark:text-neutral-200">{t('autocomplete.stylePreset')}</span>
+          <span className="text-sm text-stone-700 dark:text-neutral-200">
+            {t('autocomplete.stylePreset')}
+          </span>
           <select
             value={stylePreset}
             onChange={event => onSetStylePreset(event.target.value)}
@@ -155,7 +161,9 @@ const CompletionStyleSection = ({
           />
         </div>
         <div className="space-y-1">
-          <div className="text-xs text-stone-600 dark:text-neutral-300">{t('autocomplete.disabledApps')}</div>
+          <div className="text-xs text-stone-600 dark:text-neutral-300">
+            {t('autocomplete.disabledApps')}
+          </div>
           <textarea
             value={disabledAppsText}
             onChange={event => onSetDisabledAppsText(event.target.value)}
@@ -210,7 +218,9 @@ const CompletionStyleSection = ({
                 </div>
                 <div className="flex items-baseline gap-1 text-stone-700 dark:text-neutral-200 truncate">
                   <span className="shrink-0 text-stone-400 dark:text-neutral-500">…</span>
-                  <span className="truncate text-stone-500 dark:text-neutral-400">{entry.context.slice(-40)}</span>
+                  <span className="truncate text-stone-500 dark:text-neutral-400">
+                    {entry.context.slice(-40)}
+                  </span>
                   <span className="shrink-0 text-stone-400 dark:text-neutral-500">→</span>
                   <span className="font-medium text-primary-500 truncate">{entry.suggestion}</span>
                 </div>

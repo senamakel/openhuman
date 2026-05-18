@@ -85,13 +85,17 @@ export default function RespondQueuePanel({
               className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:cursor-default"
               disabled={!item.deepLink}>
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs font-medium text-stone-800 dark:text-neutral-100">{queueTitle(item)}</p>
+                <p className="truncate text-xs font-medium text-stone-800 dark:text-neutral-100">
+                  {queueTitle(item)}
+                </p>
                 <span className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] uppercase text-stone-600 dark:text-neutral-300">
                   {item.provider}
                 </span>
               </div>
               {item.snippet ? (
-                <p className="mt-1 line-clamp-2 text-xs text-stone-600 dark:text-neutral-300">{item.snippet}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-stone-600 dark:text-neutral-300">
+                  {item.snippet}
+                </p>
               ) : null}
               <div className="mt-1 flex items-center justify-between text-[10px] text-stone-500 dark:text-neutral-400">
                 <span>{item.senderName ?? item.senderHandle ?? item.accountId}</span>

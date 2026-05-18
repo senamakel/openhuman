@@ -50,12 +50,16 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
         <h1 className="text-2xl font-display text-stone-900 dark:text-neutral-100 mb-2 leading-tight">
           {t('onboarding.apiKeys.title')}
         </h1>
-        <p className="text-stone-500 dark:text-neutral-400 text-sm leading-relaxed">{t('onboarding.apiKeys.subtitle')}</p>
+        <p className="text-stone-500 dark:text-neutral-400 text-sm leading-relaxed">
+          {t('onboarding.apiKeys.subtitle')}
+        </p>
       </div>
 
       <div className="mt-6 flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="onboarding-openai-key" className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+          <label
+            htmlFor="onboarding-openai-key"
+            className="text-xs font-medium text-stone-700 dark:text-neutral-200">
             {t('onboarding.apiKeys.openaiLabel')}
           </label>
           <input
@@ -75,7 +79,9 @@ const ApiKeysStep = ({ onNext, onSkip }: ApiKeysStepProps) => {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="onboarding-anthropic-key" className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+          <label
+            htmlFor="onboarding-anthropic-key"
+            className="text-xs font-medium text-stone-700 dark:text-neutral-200">
             {t('onboarding.apiKeys.anthropicLabel')}
           </label>
           <input

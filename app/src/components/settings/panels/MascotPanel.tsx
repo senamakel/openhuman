@@ -125,7 +125,9 @@ const MascotPanel = () => {
           </h3>
           <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 overflow-hidden">
             {available.length === 0 ? (
-              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.mascot.noColorVariants')}</p>
+              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('settings.mascot.noColorVariants')}
+              </p>
             ) : (
               <div
                 className="grid grid-cols-5 gap-3 p-4"
@@ -144,15 +146,21 @@ const MascotPanel = () => {
                       onClick={() => handleSelect(opt.id)}
                       data-testid={`mascot-color-${opt.id}`}
                       className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                        selected ? 'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800' : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60'
+                        selected
+                          ? 'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800'
+                          : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60'
                       }`}>
                       <span
                         className={`w-10 h-10 rounded-full border-2 transition-shadow ${
-                          selected ? 'border-primary-500 shadow-soft' : 'border-stone-200 dark:border-neutral-800 dark:border-neutral-800'
+                          selected
+                            ? 'border-primary-500 shadow-soft'
+                            : 'border-stone-200 dark:border-neutral-800 dark:border-neutral-800'
                         }`}
                         style={{ backgroundColor: palette.bodyFill }}
                       />
-                      <span className="text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{opt.label}</span>
+                      <span className="text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                        {opt.label}
+                      </span>
                     </button>
                   );
                 })}
@@ -175,10 +183,14 @@ const MascotPanel = () => {
               </p>
             )}
             {!backendListError && backendList === null && (
-              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.mascot.loadingLibrary')}</p>
+              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('settings.mascot.loadingLibrary')}
+              </p>
             )}
             {backendList && backendList.length === 0 && !backendListError && (
-              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.mascot.noCharacters')}</p>
+              <p className="p-4 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('settings.mascot.noCharacters')}
+              </p>
             )}
             {backendList && backendList.length > 0 && (
               <ul className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
@@ -188,7 +200,9 @@ const MascotPanel = () => {
                     onClick={() => handleSelectBackend(null)}
                     aria-pressed={selectedMascotId == null}
                     className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 ${
-                      selectedMascotId == null ? 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 font-medium' : ''
+                      selectedMascotId == null
+                        ? 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 font-medium'
+                        : ''
                     }`}>
                     <span>{t('settings.mascot.localDefault')}</span>
                     {selectedMascotId == null && (
@@ -208,7 +222,9 @@ const MascotPanel = () => {
                         aria-pressed={active}
                         data-testid={`backend-mascot-${summary.id}`}
                         className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 ${
-                          active ? 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 font-medium' : ''
+                          active
+                            ? 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 font-medium'
+                            : ''
                         }`}>
                         <span className="flex flex-col">
                           <span>{summary.name}</span>
@@ -242,7 +258,9 @@ const MascotPanel = () => {
               </div>
             </div>
           )}
-          {detailError && <p className="mt-2 text-xs text-coral-700 dark:text-coral-300 px-1">{detailError}</p>}
+          {detailError && (
+            <p className="mt-2 text-xs text-coral-700 dark:text-coral-300 px-1">{detailError}</p>
+          )}
           <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 leading-relaxed px-1 mt-2">
             {t('settings.mascot.characterDesc')}
           </p>

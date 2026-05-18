@@ -308,13 +308,17 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
         const status: ChannelConnectionStatus = connection?.status ?? 'disconnected';
 
         return (
-          <div key={spec.mode} className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+          <div
+            key={spec.mode}
+            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
                   {AUTH_MODE_LABELS[spec.mode] ?? spec.mode}
                 </p>
-                <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">{spec.description}</p>
+                <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
+                  {spec.description}
+                </p>
                 {connection?.lastError && (
                   <p className="text-xs text-coral-600 mt-1">{connection.lastError}</p>
                 )}

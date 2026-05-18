@@ -187,7 +187,9 @@ export function MemorySyncConnections({ pollIntervalMs }: MemorySyncConnectionsP
   if (loading) {
     return (
       <section className="memory-sync-connections" data-testid="memory-sync-connections">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">{t('common.loading')}</p>
       </section>
     );
@@ -196,7 +198,9 @@ export function MemorySyncConnections({ pollIntervalMs }: MemorySyncConnectionsP
   if (loadError) {
     return (
       <section className="memory-sync-connections" data-testid="memory-sync-connections">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <p className="mt-2 rounded-md bg-coral-50 dark:bg-coral-500/10 p-2 text-xs text-coral-800 break-words">
           {t('sync.failedToLoad')}: {loadError}
         </p>
@@ -207,7 +211,9 @@ export function MemorySyncConnections({ pollIntervalMs }: MemorySyncConnectionsP
   if (statuses.length === 0) {
     return (
       <section className="memory-sync-connections" data-testid="memory-sync-connections">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">{t('sync.noContent')}</p>
       </section>
     );
@@ -215,7 +221,9 @@ export function MemorySyncConnections({ pollIntervalMs }: MemorySyncConnectionsP
 
   return (
     <section className="memory-sync-connections" data-testid="memory-sync-connections">
-      <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+      <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+        {t('sync.memorySources')}
+      </h3>
       <div className="mt-2 space-y-2">
         {statuses.map(s => (
           <SourceCard key={s.provider} status={s} />

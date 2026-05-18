@@ -5,7 +5,6 @@ import ReactDOM from 'react-dom/client';
 
 import App from './App';
 import './index.css';
-import './styles/theme.css';
 import { getCoreStateSnapshot } from './lib/coreState/store';
 import MascotWindowApp from './mascot/MascotWindowApp';
 import OverlayApp from './overlay/OverlayApp';
@@ -13,6 +12,7 @@ import './polyfills';
 import { initGA, initSentry, trackEvent } from './services/analytics';
 import { setStoreForApiClient } from './services/apiClient';
 import { primeActiveUserId } from './store/userScopedStorage';
+import './styles/theme.css';
 import { APP_VERSION } from './utils/config';
 import { setupDesktopDeepLinkListener } from './utils/desktopDeepLinkListener';
 import { getActiveUserIdFromCore } from './utils/tauriCommands';

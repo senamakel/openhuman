@@ -223,7 +223,9 @@ const RecoveryPhrasePanel = () => {
                 </svg>
               </div>
               <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('mnemonic.walletReady')}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('mnemonic.walletReady')}
+              </p>
             </div>
           ) : (
             <>
@@ -315,7 +317,9 @@ const RecoveryPhrasePanel = () => {
                       onChange={e => setConfirmed(e.target.checked)}
                       className="mt-0.5 w-4 h-4 rounded border-stone-500 text-primary-500 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('mnemonic.consentSaved')}</span>
+                    <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                      {t('mnemonic.consentSaved')}
+                    </span>
                   </label>
                 </>
               ) : (
@@ -327,7 +331,9 @@ const RecoveryPhrasePanel = () => {
                   </div>
 
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('mnemonic.words')}:</span>
+                    <span className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                      {t('mnemonic.words')}:
+                    </span>
                     {BIP39_IMPORT_LENGTHS.map(len => (
                       <button
                         key={len}
@@ -412,7 +418,9 @@ const RecoveryPhrasePanel = () => {
                       d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
                     />
                   </svg>
-                  <p className="text-xs text-coral-700 dark:text-coral-300 leading-relaxed">{error}</p>
+                  <p className="text-xs text-coral-700 dark:text-coral-300 leading-relaxed">
+                    {error}
+                  </p>
                 </div>
               )}
 

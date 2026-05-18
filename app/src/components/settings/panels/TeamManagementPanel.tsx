@@ -98,7 +98,9 @@ const TeamManagementPanel = () => {
           breadcrumbs={breadcrumbs}
         />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('team.notFound')}</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('team.notFound')}
+          </p>
         </div>
       </div>
     );
@@ -114,7 +116,9 @@ const TeamManagementPanel = () => {
           breadcrumbs={breadcrumbs}
         />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('team.accessDenied')}</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('team.accessDenied')}
+          </p>
         </div>
       </div>
     );
@@ -142,7 +146,9 @@ const TeamManagementPanel = () => {
                 </span>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{team.name}</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  {team.name}
+                </h3>
                 <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                   {team.subscription.plan} Plan • Created{' '}
                   {new Date(team.createdAt).toLocaleDateString()}
@@ -175,8 +181,12 @@ const TeamManagementPanel = () => {
                   />
                 </svg>
                 <div>
-                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Members</div>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Manage team members and roles</p>
+                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    Members
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    Manage team members and roles
+                  </p>
                 </div>
               </div>
               <svg
@@ -211,8 +221,12 @@ const TeamManagementPanel = () => {
                   />
                 </svg>
                 <div>
-                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Invites</div>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Generate and manage invite codes</p>
+                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    Invites
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    Generate and manage invite codes
+                  </p>
                 </div>
               </div>
               <svg
@@ -247,8 +261,12 @@ const TeamManagementPanel = () => {
                   />
                 </svg>
                 <div>
-                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Team Settings</div>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Edit team name and settings</p>
+                  <div className="font-medium text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    Team Settings
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    Edit team name and settings
+                  </p>
                 </div>
               </div>
               <svg
@@ -285,7 +303,9 @@ const TeamManagementPanel = () => {
                   </svg>
                   <div>
                     <div className="font-medium text-sm text-coral-400">Delete Team</div>
-                    <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Permanently delete this team</p>
+                    <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                      Permanently delete this team
+                    </p>
                   </div>
                 </div>
                 <svg
@@ -308,7 +328,9 @@ const TeamManagementPanel = () => {
           {isEditModalOpen && (
             <div className="fixed inset-0 bg-stone-900/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">Edit Team Settings</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  Edit Team Settings
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -354,7 +376,9 @@ const TeamManagementPanel = () => {
           {isDeleteModalOpen && (
             <div className="fixed inset-0 bg-stone-900/40 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">Delete Team</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  Delete Team
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">
@@ -366,7 +390,10 @@ const TeamManagementPanel = () => {
                   <div className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
                     <p>
                       Are you sure you want to delete{' '}
-                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{teamEntry?.team.name}</strong>?
+                      <strong className="text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                        {teamEntry?.team.name}
+                      </strong>
+                      ?
                     </p>
                     <p className="mt-2 text-coral-400">
                       This action cannot be undone. All team data will be permanently removed.

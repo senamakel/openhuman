@@ -47,11 +47,16 @@ const SystemIcon = (
 
 const OPTIONS: ModeOption[] = [
   { id: 'light', label: 'Light', description: 'Bright surfaces, dark text.', icon: SunIcon },
-  { id: 'dark', label: 'Dark', description: 'Dim surfaces, easier on the eyes after dusk.', icon: MoonIcon },
+  {
+    id: 'dark',
+    label: 'Dark',
+    description: 'Dim surfaces, easier on the eyes after dusk.',
+    icon: MoonIcon,
+  },
   {
     id: 'system',
     label: 'Match system',
-    description: "Follow your OS appearance setting.",
+    description: 'Follow your OS appearance setting.',
     icon: SystemIcon,
   },
 ];

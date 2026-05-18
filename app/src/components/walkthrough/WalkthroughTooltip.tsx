@@ -65,7 +65,9 @@ const WalkthroughTooltip = ({
           </div>
 
           {/* Body */}
-          <div className="text-[13px] text-stone-600 dark:text-neutral-300 leading-relaxed mb-5">{step.content}</div>
+          <div className="text-[13px] text-stone-600 dark:text-neutral-300 leading-relaxed mb-5">
+            {step.content}
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2">

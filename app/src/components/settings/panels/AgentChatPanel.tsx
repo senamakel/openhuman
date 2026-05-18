@@ -84,8 +84,12 @@ const AgentChatPanel = () => {
 
       <div className="p-4 space-y-4">
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('chat.overrides')}</h3>
-          <p className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{t('chat.agentChatDesc')}</p>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('chat.overrides')}
+          </h3>
+          <p className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+            {t('chat.agentChatDesc')}
+          </p>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-2 text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
               {t('chat.model')}
@@ -109,7 +113,9 @@ const AgentChatPanel = () => {
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('chat.conversation')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('chat.conversation')}
+          </h3>
           {error && (
             <div className="rounded-lg border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               {error}
@@ -117,7 +123,9 @@ const AgentChatPanel = () => {
           )}
           <div className="rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-4 space-y-3">
             {messages.length === 0 && (
-              <div className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{t('chat.startAgentConversation')}</div>
+              <div className="text-sm text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+                {t('chat.startAgentConversation')}
+              </div>
             )}
             {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className="space-y-1">
@@ -126,7 +134,9 @@ const AgentChatPanel = () => {
                 </div>
                 <div
                   className={`text-sm whitespace-pre-wrap ${
-                    message.role === 'user' ? 'text-stone-900 dark:text-neutral-100 dark:text-neutral-100' : 'text-emerald-700 dark:text-emerald-300'
+                    message.role === 'user'
+                      ? 'text-stone-900 dark:text-neutral-100 dark:text-neutral-100'
+                      : 'text-emerald-700 dark:text-emerald-300'
                   }`}>
                   {message.text}
                 </div>

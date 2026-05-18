@@ -45,7 +45,9 @@ export default function ComposeioTriggerHistory({ entries }: ComposeioTriggerHis
     <div className="space-y-3">
       <h3 className="text-lg font-semibold text-stone-900">
         {t('webhooks.composioHistory.title')}{' '}
-        <span className="text-sm font-normal text-stone-400 dark:text-neutral-500">({entries.length})</span>
+        <span className="text-sm font-normal text-stone-400 dark:text-neutral-500">
+          ({entries.length})
+        </span>
       </h3>
       <div className="space-y-3">
         {entries.map(entry => (

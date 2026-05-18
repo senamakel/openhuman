@@ -68,7 +68,9 @@ export default function UsageLimitModal({
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">{t('upsell.usageLimit.heading')}</h2>
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+            {t('upsell.usageLimit.heading')}
+          </h2>
         </div>
 
         <p className="text-sm text-stone-600 dark:text-neutral-300 text-center mb-4">{bodyText}</p>

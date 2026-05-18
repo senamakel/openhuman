@@ -209,7 +209,9 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
         <div
           data-testid={`webview-placeholder-${accountId}`}
           className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 ${
-            isLoading ? 'text-stone-500 dark:text-neutral-400' : 'text-stone-400 dark:text-neutral-500'
+            isLoading
+              ? 'text-stone-500 dark:text-neutral-400'
+              : 'text-stone-400 dark:text-neutral-500'
           }`}
           role={isLoading ? 'status' : undefined}
           aria-live={isLoading ? 'polite' : undefined}
@@ -246,7 +248,9 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
           aria-label={t('accounts.webviewHost.loadTimeout')}>
           <div className="max-w-sm space-y-1">
             <p className="text-sm font-semibold text-stone-800 dark:text-neutral-100">{`${providerName} ${t('accounts.webviewHost.takingLonger')}`}</p>
-            <p className="text-xs text-stone-600 dark:text-neutral-300">{t('accounts.webviewHost.timeoutHint')}</p>
+            <p className="text-xs text-stone-600 dark:text-neutral-300">
+              {t('accounts.webviewHost.timeoutHint')}
+            </p>
           </div>
           <button
             type="button"

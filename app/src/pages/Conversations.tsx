@@ -1222,7 +1222,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
       {!isSidebar && effectiveShowSidebar && (
         <div className="w-64 flex-shrink-0 flex flex-col bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
-            <h2 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('chat.threads')}</h2>
+            <h2 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+              {t('chat.threads')}
+            </h2>
             {/* [#1123] welcomeLocked guard removed — always show new thread button */}
             <button
               onClick={() => void handleCreateNewThread()}
@@ -1510,8 +1512,12 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <p className="text-sm text-stone-400 dark:text-neutral-500 mb-1">{t('chat.failedToLoadMessages')}</p>
-              <p className="text-xs text-stone-600 dark:text-neutral-300 mb-3 text-center">{messagesError}</p>
+              <p className="text-sm text-stone-400 dark:text-neutral-500 mb-1">
+                {t('chat.failedToLoadMessages')}
+              </p>
+              <p className="text-xs text-stone-600 dark:text-neutral-300 mb-3 text-center">
+                {messagesError}
+              </p>
               <button
                 onClick={() => window.location.reload()}
                 className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
@@ -1737,7 +1743,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                         <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
                           <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
-                              STREAMING_PREVIEW_CHARS && <span className="text-stone-400 dark:text-neutral-500">…</span>}
+                              STREAMING_PREVIEW_CHARS && (
+                              <span className="text-stone-400 dark:text-neutral-500">…</span>
+                            )}
                             {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
                             <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
                           </p>
@@ -1921,7 +1929,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                       <div className="bg-stone-900 text-white text-[10px] rounded-lg px-3 py-2 shadow-lg whitespace-nowrap space-y-1.5">
                         {!teamUsage.bypassCycleLimit && (
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-stone-400 dark:text-neutral-500">{t('chat.fiveHourLimit')}</span>
+                            <span className="text-stone-400 dark:text-neutral-500">
+                              {t('chat.fiveHourLimit')}
+                            </span>
                             <span>
                               ${(teamUsage.cycleLimit5hr ?? 0).toFixed(2)} / $
                               {(teamUsage.fiveHourCapUsd ?? 0).toFixed(2)}
@@ -1934,7 +1944,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                           </div>
                         )}
                         <div className="flex items-center justify-between gap-4">
-                          <span className="text-stone-400 dark:text-neutral-500">{t('chat.weeklyLimit')}</span>
+                          <span className="text-stone-400 dark:text-neutral-500">
+                            {t('chat.weeklyLimit')}
+                          </span>
                           <span>
                             ${(teamUsage.remainingUsd ?? 0).toFixed(2)} / $
                             {(teamUsage.cycleBudgetUsd ?? 0).toFixed(2)} {t('chat.left')}
@@ -2014,7 +2026,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   aria-hidden
                   className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-normal font-sans">
                   <span className="invisible">{inputValue}</span>
-                  <span className="text-stone-500 dark:text-neutral-400/50">{inlineCompletionSuffix}</span>
+                  <span className="text-stone-500 dark:text-neutral-400/50">
+                    {inlineCompletionSuffix}
+                  </span>
                 </div>
                 <textarea
                   ref={textInputRef}

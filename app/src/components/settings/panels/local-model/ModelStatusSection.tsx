@@ -186,8 +186,12 @@ const ModelStatusSection = ({
                   ? t('settings.localModel.status.downloadingUnknown')
                   : `${Math.round(progress * 100)}%`}
             </span>
-            {downloadedText && <span className="text-stone-600 dark:text-neutral-300">{downloadedText}</span>}
-            {speedText && <span className="text-primary-600 dark:text-primary-300">{speedText}</span>}
+            {downloadedText && (
+              <span className="text-stone-600 dark:text-neutral-300">{downloadedText}</span>
+            )}
+            {speedText && (
+              <span className="text-primary-600 dark:text-primary-300">{speedText}</span>
+            )}
             {etaText && (
               <span className="text-primary-500">
                 {t('settings.localModel.status.eta')} {etaText}
@@ -200,13 +204,17 @@ const ModelStatusSection = ({
               <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.provider')}
               </div>
-              <div className="text-stone-800 dark:text-neutral-100 mt-1">{status?.provider ?? 'n/a'}</div>
+              <div className="text-stone-800 dark:text-neutral-100 mt-1">
+                {status?.provider ?? 'n/a'}
+              </div>
             </div>
             <div className="rounded-md border border-stone-200 dark:border-neutral-800 p-2">
               <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.model')}
               </div>
-              <div className="text-stone-800 dark:text-neutral-100 mt-1">{status?.model_id ?? 'n/a'}</div>
+              <div className="text-stone-800 dark:text-neutral-100 mt-1">
+                {status?.model_id ?? 'n/a'}
+              </div>
             </div>
           </div>
 
@@ -215,7 +223,9 @@ const ModelStatusSection = ({
               <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.backend')}
               </div>
-              <div className="text-stone-800 dark:text-neutral-100 mt-1">{status?.active_backend ?? 'cpu'}</div>
+              <div className="text-stone-800 dark:text-neutral-100 mt-1">
+                {status?.active_backend ?? 'cpu'}
+              </div>
             </div>
             <div className="rounded-md border border-stone-200 dark:border-neutral-800 p-2">
               <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
@@ -246,10 +256,16 @@ const ModelStatusSection = ({
           )}
 
           {status?.backend_reason && (
-            <div className="text-xs text-primary-600 dark:text-primary-300">{status.backend_reason}</div>
+            <div className="text-xs text-primary-600 dark:text-primary-300">
+              {status.backend_reason}
+            </div>
           )}
-          {status?.warning && <div className="text-xs text-amber-700 dark:text-amber-300">{status.warning}</div>}
-          {statusError && <div className="text-xs text-red-600 dark:text-red-300">{statusError}</div>}
+          {status?.warning && (
+            <div className="text-xs text-amber-700 dark:text-amber-300">{status.warning}</div>
+          )}
+          {statusError && (
+            <div className="text-xs text-red-600 dark:text-red-300">{statusError}</div>
+          )}
 
           {status?.error_detail && (
             <div className="space-y-1">
@@ -318,7 +334,12 @@ const ModelStatusSection = ({
                 <span
                   className={`inline-block h-2.5 w-2.5 rounded-full ${diagnostics.ok ? 'bg-green-400' : 'bg-red-400'}`}
                 />
-                <span className={diagnostics.ok ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}>
+                <span
+                  className={
+                    diagnostics.ok
+                      ? 'text-green-600 dark:text-green-300'
+                      : 'text-red-600 dark:text-red-300'
+                  }>
                   {diagnostics.ok
                     ? t('settings.localModel.status.allChecksPassed')
                     : t('settings.localModel.status.issuesFound').replace(
@@ -377,7 +398,9 @@ const ModelStatusSection = ({
                       <div
                         key={m.name}
                         className="flex items-center justify-between rounded border border-stone-200 dark:border-neutral-800 px-2 py-1.5 text-xs">
-                        <span className="text-stone-800 dark:text-neutral-100 font-medium">{m.name}</span>
+                        <span className="text-stone-800 dark:text-neutral-100 font-medium">
+                          {m.name}
+                        </span>
                         <span className="text-stone-400 dark:text-neutral-500">
                           {typeof m.size === 'number' ? formatBytes(m.size) : ''}
                         </span>
@@ -395,16 +418,22 @@ const ModelStatusSection = ({
                   <div className="flex items-center gap-2">
                     <span
                       className={
-                        diagnostics.expected.chat_found ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'
+                        diagnostics.expected.chat_found
+                          ? 'text-green-600 dark:text-green-300'
+                          : 'text-red-600 dark:text-red-300'
                       }>
                       {diagnostics.expected.chat_found ? '✓' : '✗'}
                     </span>
-                    <span className="text-stone-700 dark:text-neutral-200">Chat: {diagnostics.expected.chat_model}</span>
+                    <span className="text-stone-700 dark:text-neutral-200">
+                      Chat: {diagnostics.expected.chat_model}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span
                       className={
-                        diagnostics.expected.embedding_found ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'
+                        diagnostics.expected.embedding_found
+                          ? 'text-green-600 dark:text-green-300'
+                          : 'text-red-600 dark:text-red-300'
                       }>
                       {diagnostics.expected.embedding_found ? '✓' : '✗'}
                     </span>
@@ -415,7 +444,9 @@ const ModelStatusSection = ({
                   <div className="flex items-center gap-2">
                     <span
                       className={
-                        diagnostics.expected.vision_found ? 'text-green-600 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'
+                        diagnostics.expected.vision_found
+                          ? 'text-green-600 dark:text-green-300'
+                          : 'text-amber-700 dark:text-amber-300'
                       }>
                       {diagnostics.expected.vision_found ? '✓' : '–'}
                     </span>

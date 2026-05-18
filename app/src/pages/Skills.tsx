@@ -190,7 +190,9 @@ function ComposioConnectorTile({
         </span>
         <span
           className={`line-clamp-1 text-[10px] font-medium ${
-            hasComposioError ? 'text-amber-700 dark:text-amber-300' : composioStatusColor(connection)
+            hasComposioError
+              ? 'text-amber-700 dark:text-amber-300'
+              : composioStatusColor(connection)
           }`}>
           {statusLabel}
         </span>

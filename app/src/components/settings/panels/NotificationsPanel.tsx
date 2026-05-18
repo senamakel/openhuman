@@ -111,7 +111,9 @@ const NotificationsPanel = () => {
                     }}
                     disabled={dndSaving}
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-70 ${
-                      dnd ? 'bg-primary-500' : 'bg-stone-400 dark:bg-neutral-600 dark:bg-neutral-600'
+                      dnd
+                        ? 'bg-primary-500'
+                        : 'bg-stone-400 dark:bg-neutral-600 dark:bg-neutral-600'
                     }`}
                     role="switch"
                     aria-checked={dnd}
@@ -138,7 +140,9 @@ const NotificationsPanel = () => {
                 return (
                   <div key={cat.id} className="flex items-center justify-between p-4">
                     <div className="flex-1 mr-4">
-                      <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{cat.title}</p>
+                      <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                        {cat.title}
+                      </p>
                       <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1 leading-relaxed">
                         {cat.description}
                       </p>
@@ -146,7 +150,9 @@ const NotificationsPanel = () => {
                     <button
                       onClick={() => handleToggle(cat.id)}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
-                        enabled ? 'bg-primary-500' : 'bg-stone-400 dark:bg-neutral-600 dark:bg-neutral-600'
+                        enabled
+                          ? 'bg-primary-500'
+                          : 'bg-stone-400 dark:bg-neutral-600 dark:bg-neutral-600'
                       }`}
                       role="switch"
                       aria-checked={enabled}

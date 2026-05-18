@@ -246,8 +246,12 @@ const CoreModeBadge = () => {
   if (mode.kind === 'unset') {
     return (
       <div className="px-4 py-3 rounded-lg border border-coral-300 dark:border-coral-500/40 bg-coral-50 dark:bg-coral-500/10 dark:bg-coral-500/15 dark:border-coral-500/30">
-        <div className="text-sm font-semibold text-coral-900 dark:text-coral-300">{t('devOptions.coreModeNotSet')}</div>
-        <div className="text-xs text-coral-800 dark:text-coral-200 dark:text-coral-400 mt-0.5">{t('devOptions.coreModeNotSetDesc')}</div>
+        <div className="text-sm font-semibold text-coral-900 dark:text-coral-300">
+          {t('devOptions.coreModeNotSet')}
+        </div>
+        <div className="text-xs text-coral-800 dark:text-coral-200 dark:text-coral-400 mt-0.5">
+          {t('devOptions.coreModeNotSetDesc')}
+        </div>
       </div>
     );
   }
@@ -263,7 +267,9 @@ const CoreModeBadge = () => {
             {t('devOptions.embeddedCoreSidecar')}
           </span>
         </div>
-        <div className="text-xs text-primary-800 dark:text-primary-200 dark:text-primary-300 mt-1">{t('devOptions.sidecarSpawned')}</div>
+        <div className="text-xs text-primary-800 dark:text-primary-200 dark:text-primary-300 mt-1">
+          {t('devOptions.sidecarSpawned')}
+        </div>
       </div>
     );
   }
@@ -274,19 +280,25 @@ const CoreModeBadge = () => {
         <span className="px-2 py-0.5 rounded-full bg-sage-600 text-white text-[11px] font-medium">
           {t('devOptions.cloud')}
         </span>
-        <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">{t('devOptions.remoteCoreRpc')}</span>
+        <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">
+          {t('devOptions.remoteCoreRpc')}
+        </span>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
         <dt className="text-sage-700 dark:text-sage-300 dark:text-sage-300">URL:</dt>
         <dd className="font-mono text-sage-900 dark:text-sage-200 truncate" title={mode.url}>
           {mode.url}
         </dd>
-        <dt className="text-sage-700 dark:text-sage-300 dark:text-sage-300">{t('devOptions.token')}:</dt>
+        <dt className="text-sage-700 dark:text-sage-300 dark:text-sage-300">
+          {t('devOptions.token')}:
+        </dt>
         <dd className="text-sage-900 dark:text-sage-200">
           {mode.token ? (
             <span className="font-mono">••••••{mode.token.slice(-4)}</span>
           ) : (
-            <span className="text-coral-600 dark:text-coral-300">{t('devOptions.tokenNotSet')}</span>
+            <span className="text-coral-600 dark:text-coral-300">
+              {t('devOptions.tokenNotSet')}
+            </span>
           )}
         </dd>
       </dl>
@@ -382,9 +394,17 @@ const LogsFolderRow = () => {
     <div className="px-4 py-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-800/60">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-900 dark:text-neutral-100">{t('devOptions.appLogs')}</div>
-          <div className="text-xs text-slate-700 dark:text-neutral-300 mt-0.5">{t('devOptions.appLogsDesc')}</div>
-          {path && <div className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1 font-mono truncate">{path}</div>}
+          <div className="text-sm font-semibold text-slate-900 dark:text-neutral-100">
+            {t('devOptions.appLogs')}
+          </div>
+          <div className="text-xs text-slate-700 dark:text-neutral-300 mt-0.5">
+            {t('devOptions.appLogsDesc')}
+          </div>
+          {path && (
+            <div className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1 font-mono truncate">
+              {path}
+            </div>
+          )}
         </div>
         <button
           onClick={onClick}
@@ -393,7 +413,10 @@ const LogsFolderRow = () => {
         </button>
       </div>
       {error && (
-        <div role="status" aria-live="polite" className="mt-2 text-xs text-coral-600 dark:text-coral-300">
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-2 text-xs text-coral-600 dark:text-coral-300">
           {error}
         </div>
       )}

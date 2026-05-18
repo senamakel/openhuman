@@ -183,7 +183,9 @@ const MemoryDebugPanel = () => {
       <div className="p-4 space-y-4">
         {/* Documents */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Documents</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Documents
+          </h3>
           <div className="flex gap-2">
             <input
               value={documentsNamespaceFilter}
@@ -205,7 +207,9 @@ const MemoryDebugPanel = () => {
             </div>
           )}
           {documents.length === 0 && !documentsLoading ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">No documents found.</p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              No documents found.
+            </p>
           ) : (
             <div className="space-y-1">
               {documents.map(doc => (
@@ -216,8 +220,14 @@ const MemoryDebugPanel = () => {
                     <div className="text-xs font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100 break-all">
                       {doc.documentId}
                     </div>
-                    <div className="text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400 break-all">{doc.namespace}</div>
-                    {doc.title && <div className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{doc.title}</div>}
+                    <div className="text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400 break-all">
+                      {doc.namespace}
+                    </div>
+                    {doc.title && (
+                      <div className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+                        {doc.title}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -231,7 +241,9 @@ const MemoryDebugPanel = () => {
             </div>
           )}
           <details className="text-xs">
-            <summary className="cursor-pointer text-stone-400 dark:text-neutral-500 dark:text-neutral-500">Raw response</summary>
+            <summary className="cursor-pointer text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              Raw response
+            </summary>
             <pre className="mt-1 max-h-32 overflow-auto rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-950 dark:bg-neutral-50 p-2 text-[11px] text-stone-100 whitespace-pre-wrap break-words">
               {JSON.stringify(documentsRaw, null, 2)}
             </pre>
@@ -241,7 +253,9 @@ const MemoryDebugPanel = () => {
         {/* Namespaces */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Namespaces</h3>
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              Namespaces
+            </h3>
             <button
               type="button"
               onClick={() => void loadNamespaces()}
@@ -266,13 +280,17 @@ const MemoryDebugPanel = () => {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">No namespaces found.</p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              No namespaces found.
+            </p>
           )}
         </section>
 
         {/* Query & Recall */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Query & Recall</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Query & Recall
+          </h3>
           <input
             value={namespaceInput}
             onChange={e => setNamespaceInput(e.target.value)}
@@ -293,7 +311,9 @@ const MemoryDebugPanel = () => {
               className="w-16 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-2 py-1.5 text-xs text-stone-700 dark:text-neutral-200 dark:text-neutral-200"
               placeholder="10"
             />
-            <span className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">max chunks</span>
+            <span className="text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              max chunks
+            </span>
             <div className="flex-1" />
             <button
               type="button"
@@ -310,13 +330,19 @@ const MemoryDebugPanel = () => {
               {recallLoading ? '...' : 'Recall'}
             </button>
           </div>
-          {queryError && <div className="text-xs text-coral-600 dark:text-coral-300">Query: {queryError}</div>}
-          {recallError && <div className="text-xs text-coral-600 dark:text-coral-300">Recall: {recallError}</div>}
+          {queryError && (
+            <div className="text-xs text-coral-600 dark:text-coral-300">Query: {queryError}</div>
+          )}
+          {recallError && (
+            <div className="text-xs text-coral-600 dark:text-coral-300">Recall: {recallError}</div>
+          )}
           {(queryResult || recallResult) && (
             <div className="space-y-2">
               {queryResult && (
                 <div>
-                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">Query result</div>
+                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">
+                    Query result
+                  </div>
                   <MemoryTextWithEntities
                     text={queryResult.text ?? ''}
                     entities={queryResult.entities}
@@ -326,7 +352,9 @@ const MemoryDebugPanel = () => {
               )}
               {recallResult && (
                 <div>
-                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">Recall result</div>
+                  <div className="text-[11px] font-medium text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mb-1">
+                    Recall result
+                  </div>
                   <MemoryTextWithEntities
                     text={recallResult.text ?? ''}
                     entities={recallResult.entities}
@@ -340,7 +368,9 @@ const MemoryDebugPanel = () => {
 
         {/* Clear Namespace */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Clear Namespace</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Clear Namespace
+          </h3>
           <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
             Permanently delete all documents within a namespace.
           </p>
@@ -373,8 +403,12 @@ const MemoryDebugPanel = () => {
               {clearLoading ? '...' : 'Clear'}
             </button>
           </div>
-          {clearSuccess && <div className="text-xs text-sage-600 dark:text-sage-300">{clearSuccess}</div>}
-          {clearError && <div className="text-xs text-coral-600 dark:text-coral-300">{clearError}</div>}
+          {clearSuccess && (
+            <div className="text-xs text-sage-600 dark:text-sage-300">{clearSuccess}</div>
+          )}
+          {clearError && (
+            <div className="text-xs text-coral-600 dark:text-coral-300">{clearError}</div>
+          )}
         </section>
       </div>
     </div>

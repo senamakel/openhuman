@@ -225,7 +225,9 @@ export function MemorySources({
       <section
         className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4"
         data-testid="memory-sources">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">{t('common.loading')}</p>
       </section>
     );
@@ -236,7 +238,9 @@ export function MemorySources({
       <section
         className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4"
         data-testid="memory-sources">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <p className="mt-2 break-words rounded-md bg-coral-50 dark:bg-coral-500/10 p-2 text-xs text-coral-800">
           {loadError}
         </p>
@@ -249,8 +253,12 @@ export function MemorySources({
       <section
         className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4"
         data-testid="memory-sources">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
-        <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">{t('sync.noConnectedSources')}</p>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
+        <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">
+          {t('sync.noConnectedSources')}
+        </p>
       </section>
     );
   }
@@ -260,7 +268,9 @@ export function MemorySources({
       className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4"
       data-testid="memory-sources">
       <header className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">{t('sync.memorySources')}</h3>
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
+          {t('sync.memorySources')}
+        </h3>
         <span className="text-xs text-stone-400 dark:text-neutral-500">
           {rows.length} identit{rows.length === 1 ? 'y' : 'ies'}
         </span>
@@ -309,7 +319,9 @@ function SourceRowCard({ row, isSyncing, onSync }: SourceRowCardProps) {
       data-testid={`memory-source-row-${toolkit}`}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">{title}</span>
+          <span className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
+            {title}
+          </span>
           {status && (
             <span
               className={`rounded-md px-2 py-0.5 text-xs font-medium ${freshnessBadge(status.freshness)}`}

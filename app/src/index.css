@@ -178,7 +178,11 @@
   }
 
   :root.dark .app-dotted-canvas {
-    background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-image: radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px
+    );
   }
 
   /* Input components with consistent styling */

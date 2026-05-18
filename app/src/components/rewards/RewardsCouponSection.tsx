@@ -20,7 +20,8 @@ function formatDateTime(value: string | null, pendingLabel: string): string {
 
 function redemptionStatusClass(coupon: RedeemedCoupon): string {
   if (coupon.fulfilled) return 'bg-sage-100 dark:bg-sage-500/20 text-sage-700 dark:text-sage-300';
-  if (coupon.activationType === 'CONDITIONAL') return 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200';
+  if (coupon.activationType === 'CONDITIONAL')
+    return 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200';
   return 'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 dark:text-neutral-200';
 }
 
@@ -141,8 +142,12 @@ const RewardsCouponSection = () => {
     <>
       <section className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-6 space-y-5">
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('rewards.coupon.title')}</h2>
-          <p className="max-w-2xl text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{t('rewards.coupon.subtitle')}</p>
+          <h2 className="text-2xl font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('rewards.coupon.title')}
+          </h2>
+          <p className="max-w-2xl text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+            {t('rewards.coupon.subtitle')}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -230,7 +235,9 @@ const RewardsCouponSection = () => {
           </div>
 
           {loading && redeemedCoupons.length === 0 ? (
-            <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('rewards.coupon.loadingHistory')}</p>
+            <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+              {t('rewards.coupon.loadingHistory')}
+            </p>
           ) : null}
 
           {redeemedCoupons.length === 0 && !loading && !loadError ? (
@@ -253,8 +260,12 @@ const RewardsCouponSection = () => {
                     <tr
                       key={`${coupon.code}-${coupon.redeemedAt ?? coupon.activationType}`}
                       className="bg-white dark:bg-neutral-900 dark:bg-neutral-900">
-                      <td className="px-3 py-2 font-mono text-stone-800 dark:text-neutral-100 dark:text-neutral-100">{coupon.code}</td>
-                      <td className="px-3 py-2 text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{formatUsd(coupon.amountUsd)}</td>
+                      <td className="px-3 py-2 font-mono text-stone-800 dark:text-neutral-100 dark:text-neutral-100">
+                        {coupon.code}
+                      </td>
+                      <td className="px-3 py-2 text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                        {formatUsd(coupon.amountUsd)}
+                      </td>
                       <td className="px-3 py-2">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${redemptionStatusClass(coupon)}`}>

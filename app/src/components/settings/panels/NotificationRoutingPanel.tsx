@@ -115,7 +115,9 @@ const NotificationRoutingPanel = () => {
         {stats && (
           <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-              <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Pipeline stats</p>
+              <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                Pipeline stats
+              </p>
             </div>
             <div className="grid grid-cols-3 divide-x divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
               {[
@@ -124,8 +126,12 @@ const NotificationRoutingPanel = () => {
                 { label: 'Unscored', value: stats.unscored },
               ].map(({ label, value }) => (
                 <div key={label} className="px-4 py-3 text-center">
-                  <p className="text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{value}</p>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{label}</p>
+                  <p className="text-lg font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                    {value}
+                  </p>
+                  <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    {label}
+                  </p>
                 </div>
               ))}
             </div>
@@ -148,7 +154,9 @@ const NotificationRoutingPanel = () => {
               />
             </svg>
             <div>
-              <p className="font-medium text-blue-800 dark:text-blue-200 text-sm">Notification Intelligence</p>
+              <p className="font-medium text-blue-800 dark:text-blue-200 text-sm">
+                Notification Intelligence
+              </p>
               <p className="text-blue-700 dark:text-blue-300 text-xs mt-1 leading-relaxed">
                 Every notification from your connected accounts is scored by a local AI model.
                 High-importance notifications are automatically routed to your orchestrator agent so
@@ -161,14 +169,17 @@ const NotificationRoutingPanel = () => {
         {/* How it works */}
         <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">How it works</p>
+            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              How it works
+            </p>
           </div>
           <div className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
             {[
               {
                 label: 'Drop',
                 desc: 'Noise / spam — stored but not surfaced',
-                color: 'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 dark:text-neutral-300',
+                color:
+                  'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 dark:text-neutral-300',
               },
               {
                 label: 'Acknowledge',
@@ -191,7 +202,9 @@ const NotificationRoutingPanel = () => {
                   className={`flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-semibold ${row.color}`}>
                   {row.label}
                 </span>
-                <span className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{row.desc}</span>
+                <span className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                  {row.desc}
+                </span>
               </div>
             ))}
           </div>
@@ -199,7 +212,9 @@ const NotificationRoutingPanel = () => {
 
         <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800 dark:border-neutral-800">
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Per-provider routing</p>
+            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              Per-provider routing
+            </p>
           </div>
           <div className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800">
             {providers.map(provider => {
@@ -214,7 +229,9 @@ const NotificationRoutingPanel = () => {
               return (
                 <div key={provider} className="px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100 capitalize">{provider}</p>
+                    <p className="text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100 capitalize">
+                      {provider}
+                    </p>
                     <label className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300 flex items-center gap-2">
                       Enabled
                       <input

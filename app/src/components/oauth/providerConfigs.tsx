@@ -49,7 +49,8 @@ export const oauthProviderConfigs: OAuthProviderConfig[] = [
     name: 'Google',
     icon: GoogleIcon,
     color: 'bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700',
-    hoverColor: 'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
+    hoverColor:
+      'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
     textColor: 'text-gray-900 dark:text-neutral-100',
     showOnWelcome: true,
   },
@@ -58,7 +59,8 @@ export const oauthProviderConfigs: OAuthProviderConfig[] = [
     name: 'GitHub',
     icon: GitHubIcon,
     color: 'bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700',
-    hoverColor: 'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
+    hoverColor:
+      'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
     textColor: 'text-gray-900 dark:text-neutral-100',
     showOnWelcome: true,
   },
@@ -67,7 +69,8 @@ export const oauthProviderConfigs: OAuthProviderConfig[] = [
     name: 'Twitter',
     icon: TwitterIcon,
     color: 'bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700',
-    hoverColor: 'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
+    hoverColor:
+      'hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-neutral-800 dark:hover:border-neutral-600',
     textColor: 'text-gray-900 dark:text-neutral-100',
     showOnWelcome: true,
   },

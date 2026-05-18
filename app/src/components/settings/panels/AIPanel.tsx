@@ -87,11 +87,23 @@ type RoutingMap = Record<WorkloadId, ProviderRef>;
 // Slug-keyed display metadata for built-in provider slugs. Used only for
 // chip rendering (label, tone). Custom providers use `provider.label` directly.
 const BUILTIN_PROVIDER_META: Record<string, { tone: string; label: string }> = {
-  openhuman: { label: 'OpenHuman', tone: 'bg-primary-50 dark:bg-primary-500/10 ring-primary-200 text-primary-900' },
-  openai: { label: 'OpenAI', tone: 'bg-emerald-50 dark:bg-emerald-500/10 ring-emerald-200 text-emerald-900' },
-  anthropic: { label: 'Anthropic', tone: 'bg-orange-50 dark:bg-orange-500/10 ring-orange-200 text-orange-900' },
+  openhuman: {
+    label: 'OpenHuman',
+    tone: 'bg-primary-50 dark:bg-primary-500/10 ring-primary-200 text-primary-900',
+  },
+  openai: {
+    label: 'OpenAI',
+    tone: 'bg-emerald-50 dark:bg-emerald-500/10 ring-emerald-200 text-emerald-900',
+  },
+  anthropic: {
+    label: 'Anthropic',
+    tone: 'bg-orange-50 dark:bg-orange-500/10 ring-orange-200 text-orange-900',
+  },
   openrouter: { label: 'OpenRouter', tone: 'bg-slate-100 ring-slate-300 text-slate-900' },
-  custom: { label: 'Custom', tone: 'bg-stone-100 dark:bg-neutral-800 ring-stone-300 text-stone-900 dark:text-neutral-100' },
+  custom: {
+    label: 'Custom',
+    tone: 'bg-stone-100 dark:bg-neutral-800 ring-stone-300 text-stone-900 dark:text-neutral-100',
+  },
 };
 
 const WORKLOADS: Workload[] = [
@@ -368,7 +380,10 @@ const LOCAL_CHIP_TONE: Record<LocalChipSlug, string> = {
 const LOCAL_CHIP_LABEL: Record<LocalChipSlug, string> = { lmstudio: 'LM Studio', ollama: 'Ollama' };
 
 function slugTone(slug: string): string {
-  return BUILTIN_PROVIDER_META[slug]?.tone ?? 'bg-stone-100 dark:bg-neutral-800 ring-stone-300 text-stone-900 dark:text-neutral-100';
+  return (
+    BUILTIN_PROVIDER_META[slug]?.tone ??
+    'bg-stone-100 dark:bg-neutral-800 ring-stone-300 text-stone-900 dark:text-neutral-100'
+  );
 }
 
 const ProviderToggleChip = ({
@@ -461,11 +476,15 @@ const ProviderKeyDialog = ({
       <div className="w-full max-w-md rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-6 shadow-soft">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{`${t('settings.ai.connectProvider')} ${label}`}</h3>
-          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.ai.apiKeyStoredEncrypted')}</p>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('settings.ai.apiKeyStoredEncrypted')}
+          </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="provider-key-input" className="text-xs font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+          <label
+            htmlFor="provider-key-input"
+            className="text-xs font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
             {t('settings.ai.apiKeyFieldLabel')}
           </label>
           <input
@@ -487,7 +506,9 @@ const ProviderKeyDialog = ({
             }}
             className="rounded-lg border border-stone-300 dark:border-neutral-700 dark:border-neutral-700 bg-white dark:bg-neutral-900 dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60"
           />
-          {error ? <p className="text-xs font-medium text-red-600 dark:text-red-300">{error}</p> : null}
+          {error ? (
+            <p className="text-xs font-medium text-red-600 dark:text-red-300">{error}</p>
+          ) : null}
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
@@ -637,8 +658,12 @@ const LoopToggle = ({
 }) => (
   <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-3 py-2">
     <div className="min-w-0">
-      <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{label}</div>
-      <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{description}</div>
+      <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+        {label}
+      </div>
+      <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+        {description}
+      </div>
     </div>
     <button
       type="button"
@@ -666,19 +691,33 @@ const MetricTile = ({
   detail?: string;
 }) => (
   <div className="rounded-md bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-    <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500 dark:text-neutral-500">{label}</div>
-    <div className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{value}</div>
-    {detail ? <div className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{detail}</div> : null}
+    <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+      {label}
+    </div>
+    <div className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+      {value}
+    </div>
+    {detail ? (
+      <div className="mt-0.5 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+        {detail}
+      </div>
+    ) : null}
   </div>
 );
 
 const FormulaRow = ({ label, value, detail }: { label: string; value: string; detail: string }) => (
   <div className="rounded-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-3 py-2">
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-200">{label}</span>
-      <span className="font-mono text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{value}</span>
+      <span className="text-xs font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-200">
+        {label}
+      </span>
+      <span className="font-mono text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+        {value}
+      </span>
     </div>
-    <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{detail}</div>
+    <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+      {detail}
+    </div>
   </div>
 );
 
@@ -899,7 +938,9 @@ const BackgroundLoopControls = ({
   return (
     <div className="space-y-4">
       <div className="border-b border-stone-200 dark:border-neutral-800 dark:border-neutral-800 pb-2">
-        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Background loops</h2>
+        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          Background loops
+        </h2>
         <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
           See what runs without a chat message, pause heartbeat work, and inspect recent credit
           ledger rows.
@@ -917,7 +958,9 @@ const BackgroundLoopControls = ({
           <div className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Heartbeat controls</div>
+                <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  Heartbeat controls
+                </div>
                 <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                   Defaults off. Enabling starts the loop; disabling aborts the running task.
                 </div>
@@ -1098,7 +1141,9 @@ const BackgroundLoopControls = ({
               {loops.map(loop => (
                 <div key={loop.name} className="grid gap-2 px-3 py-3 md:grid-cols-[150px_1fr]">
                   <div>
-                    <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{loop.name}</div>
+                    <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                      {loop.name}
+                    </div>
                     <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                       <span>{loop.enabled ? 'on' : 'off'}</span>
                       <span>{loop.cadence}</span>
@@ -1109,7 +1154,9 @@ const BackgroundLoopControls = ({
                     <div className="mt-1 font-mono text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                       route: {loop.route}
                     </div>
-                    <div className="mt-1 text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{loop.risk}</div>
+                    <div className="mt-1 text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                      {loop.risk}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1120,7 +1167,9 @@ const BackgroundLoopControls = ({
         <div className="rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Recent usage ledger</div>
+              <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                Recent usage ledger
+              </div>
               <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                 Backend rows expose action/time today; source tags need backend support.
               </div>
@@ -1308,7 +1357,9 @@ const BackgroundLoopControls = ({
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">No spend rows loaded.</div>
+                  <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    No spend rows loaded.
+                  </div>
                 )}
               </div>
             </div>
@@ -1324,11 +1375,15 @@ const BackgroundLoopControls = ({
                       key={hour}
                       className="flex items-center justify-between gap-2 text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
                       <span>{hour}</span>
-                      <span className="font-mono text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{formatUsd(total)}</span>
+                      <span className="font-mono text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                        {formatUsd(total)}
+                      </span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">No hourly spend yet.</div>
+                  <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                    No hourly spend yet.
+                  </div>
                 )}
               </div>
             </div>
@@ -1389,15 +1444,23 @@ const WorkloadRow = ({
 
   const segmentBase =
     'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer';
-  const activeSegment = 'bg-white dark:bg-neutral-900 dark:bg-neutral-700 text-stone-900 dark:text-neutral-100 dark:text-neutral-100 shadow-subtle ring-1 ring-stone-200 dark:ring-neutral-600';
-  const inactiveSegment = 'text-stone-500 dark:text-neutral-400 dark:text-neutral-400 hover:text-stone-800 dark:text-neutral-100 dark:hover:text-neutral-200';
+  const activeSegment =
+    'bg-white dark:bg-neutral-900 dark:bg-neutral-700 text-stone-900 dark:text-neutral-100 dark:text-neutral-100 shadow-subtle ring-1 ring-stone-200 dark:ring-neutral-600';
+  const inactiveSegment =
+    'text-stone-500 dark:text-neutral-400 dark:text-neutral-400 hover:text-stone-800 dark:text-neutral-100 dark:hover:text-neutral-200';
 
   return (
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{workload.label}</div>
-        <div className="truncate text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{workload.description}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500 truncate">↳ {resolved}</div>
+        <div className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+          {workload.label}
+        </div>
+        <div className="truncate text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+          {workload.description}
+        </div>
+        <div className="mt-0.5 font-mono text-[11px] text-stone-400 dark:text-neutral-500 dark:text-neutral-500 truncate">
+          ↳ {resolved}
+        </div>
       </div>
       <div className="inline-flex shrink-0 items-center rounded-lg bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 p-0.5">
         <button
@@ -1498,7 +1561,9 @@ const CustomRoutingDialog = ({
             <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
               {t('settings.ai.customRouting')}
             </h3>
-            <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{workload.label}</p>
+            <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+              {workload.label}
+            </p>
           </div>
           <button
             type="button"
@@ -1728,12 +1793,18 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
               {t('settings.ai.llmProviders')}
             </h2>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">{t('settings.ai.llmProvidersDesc')}</p>
+            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+              {t('settings.ai.llmProvidersDesc')}
+            </p>
           </div>
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">
-            {loading && <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('common.loading')}</div>}
+            {loading && (
+              <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('common.loading')}
+              </div>
+            )}
             {error && (
               <div className="rounded-md border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
                 {error}
@@ -1842,8 +1913,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
           <div className="border-b border-stone-200 dark:border-neutral-800 dark:border-neutral-800 pb-2">
-            <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('settings.ai.routing')}</h2>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">{t('settings.ai.routingDesc')}</p>
+            <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+              {t('settings.ai.routing')}
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+              {t('settings.ai.routingDesc')}
+            </p>
           </div>
 
           <section className="space-y-3">
@@ -1890,7 +1965,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
 
             <div className="text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
               {t('settings.ai.defaultResolvesTo')}{' '}
-              <span className="font-mono text-stone-700 dark:text-neutral-200 dark:text-neutral-200">OpenHuman</span>.
+              <span className="font-mono text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+                OpenHuman
+              </span>
+              .
             </div>
           </section>
         </div>

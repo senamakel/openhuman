@@ -274,9 +274,13 @@ export function ActionableCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-stone-900 dark:text-neutral-100 leading-snug">{item.title}</h3>
+                <h3 className="text-sm font-medium text-stone-900 dark:text-neutral-100 leading-snug">
+                  {item.title}
+                </h3>
                 {item.description && (
-                  <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1 leading-relaxed">{item.description}</p>
+                  <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1 leading-relaxed">
+                    {item.description}
+                  </p>
                 )}
               </div>
 
@@ -348,7 +352,9 @@ export function ActionableCard({
             <div className="flex items-center gap-2 mt-2">
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${priorityDotClasses[item.priority]}`} />
-                <span className="text-xs text-stone-500 dark:text-neutral-400">{item.sourceLabel || item.source}</span>
+                <span className="text-xs text-stone-500 dark:text-neutral-400">
+                  {item.sourceLabel || item.source}
+                </span>
               </div>
               <span className="text-xs text-stone-600 dark:text-neutral-300">•</span>
               <span className="text-xs text-stone-500 dark:text-neutral-400">{timeAgo}</span>

@@ -211,7 +211,9 @@ const Invites = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-stone-500 dark:text-neutral-400 text-center py-6">{t('invites.noInvites')}</p>
+                <p className="text-sm text-stone-500 dark:text-neutral-400 text-center py-6">
+                  {t('invites.noInvites')}
+                </p>
               )}
             </div>
           </div>

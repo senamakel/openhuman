@@ -101,7 +101,9 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
   return (
     <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-soft animate-fade-up">
       <div className="text-center mb-4">
-        <h1 className="text-xl font-bold mb-2 text-stone-900 dark:text-neutral-100">{t('skills.connect')}</h1>
+        <h1 className="text-xl font-bold mb-2 text-stone-900 dark:text-neutral-100">
+          {t('skills.connect')}
+        </h1>
         <p className="text-stone-600 dark:text-neutral-300 text-sm">{t('skills.available')}</p>
       </div>
 

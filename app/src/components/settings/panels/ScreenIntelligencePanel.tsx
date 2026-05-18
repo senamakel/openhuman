@@ -141,7 +141,9 @@ const ScreenIntelligencePanel = () => {
           </h3>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('common.enabled')}</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {t('common.enabled')}
+            </span>
             <input
               type="checkbox"
               checked={enabled}
@@ -150,7 +152,9 @@ const ScreenIntelligencePanel = () => {
           </label>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('settings.screenAwareness.mode')}</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {t('settings.screenAwareness.mode')}
+            </span>
             <select
               value={policyMode}
               onChange={event =>
@@ -191,7 +195,9 @@ const ScreenIntelligencePanel = () => {
             className="rounded-lg border border-primary-400 bg-primary-50 dark:bg-primary-500/10 px-3 py-2 text-sm text-primary-700 dark:text-primary-300 disabled:opacity-50">
             {isSavingConfig ? 'Saving…' : t('settings.screenAwareness.saveSettings')}
           </button>
-          {configError && <div className="text-xs text-red-600 dark:text-red-300">{configError}</div>}
+          {configError && (
+            <div className="text-xs text-red-600 dark:text-red-300">{configError}</div>
+          )}
         </section>
 
         <section className="space-y-3">

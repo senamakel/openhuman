@@ -354,7 +354,8 @@ function ModeToggle({ mode, onChange }: ModeToggleProps) {
   const baseBtn =
     'px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200';
   const active = 'bg-primary-500 text-white shadow-sm';
-  const idle = 'bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60';
+  const idle =
+    'bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60';
   return (
     <div
       className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-1"

@@ -173,7 +173,9 @@ export default function SubconsciousReflectionCards({
 
   if (loading) {
     return (
-      <div data-testid="reflection-cards-loading" className="text-xs text-stone-400 dark:text-neutral-500 py-2">
+      <div
+        data-testid="reflection-cards-loading"
+        className="text-xs text-stone-400 dark:text-neutral-500 py-2">
         {t('reflections.loading')}
       </div>
     );
@@ -181,7 +183,9 @@ export default function SubconsciousReflectionCards({
 
   if (visible.length === 0 && !error) {
     return (
-      <div data-testid="reflection-cards-empty" className="text-xs text-stone-400 dark:text-neutral-500 py-3">
+      <div
+        data-testid="reflection-cards-empty"
+        className="text-xs text-stone-400 dark:text-neutral-500 py-3">
         {t('reflections.empty')}
       </div>
     );
@@ -203,7 +207,9 @@ export default function SubconsciousReflectionCards({
           </span>
         </h3>
         {error && (
-          <div data-testid="reflection-cards-error" className="text-xs text-coral-600 dark:text-coral-300 mt-2">
+          <div
+            data-testid="reflection-cards-error"
+            className="text-xs text-coral-600 dark:text-coral-300 mt-2">
             {error}
           </div>
         )}
@@ -243,7 +249,9 @@ export default function SubconsciousReflectionCards({
                     {formatRelativeTime(r.created_at, t)}
                   </span>
                 </div>
-                <p className="text-sm text-stone-900 dark:text-neutral-100 whitespace-pre-line break-words">{r.body}</p>
+                <p className="text-sm text-stone-900 dark:text-neutral-100 whitespace-pre-line break-words">
+                  {r.body}
+                </p>
                 {r.proposed_action && (
                   <p className="text-xs text-stone-500 dark:text-neutral-400 mt-2">
                     <em>{t('reflections.proposedAction')}:</em> {r.proposed_action}

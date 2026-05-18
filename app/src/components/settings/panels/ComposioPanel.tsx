@@ -204,7 +204,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
           />
         )}
         <div className={embedded ? '' : 'p-4'}>
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.composio.loading')}</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            {t('settings.composio.loading')}
+          </p>
         </div>
       </div>
     );
@@ -222,7 +224,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
       )}
 
       <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
-        <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.composio.intro')}</p>
+        <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+          {t('settings.composio.intro')}
+        </p>
 
         {/* Mode toggle */}
         <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60/60 p-4 space-y-3">
@@ -280,10 +284,14 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
         {/* API key field — only when Direct is selected */}
         {mode === 'direct' && (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100" htmlFor="composio-api-key">
+            <label
+              className="block text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100"
+              htmlFor="composio-api-key">
               {t('settings.composio.apiKeyLabel')}
             </label>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.composio.apiKeyDesc')}</p>
+            <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+              {t('settings.composio.apiKeyDesc')}
+            </p>
             <input
               id="composio-api-key"
               type="password"
@@ -298,7 +306,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
               className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
             />
             {apiKeyStored && (
-              <p className="text-xs text-green-600 dark:text-green-300">{t('settings.composio.apiKeyStored')}</p>
+              <p className="text-xs text-green-600 dark:text-green-300">
+                {t('settings.composio.apiKeyStored')}
+              </p>
             )}
           </div>
         )}
@@ -354,7 +364,9 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
         )}
 
         {saveStatus === 'saved' && (
-          <p className="text-xs text-center text-green-600 dark:text-green-300">{t('composio.settingsSaved')}</p>
+          <p className="text-xs text-center text-green-600 dark:text-green-300">
+            {t('composio.settingsSaved')}
+          </p>
         )}
         {saveStatus === 'cleared' && (
           <p className="text-xs text-center text-green-600 dark:text-green-300">

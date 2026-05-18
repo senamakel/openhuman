@@ -127,7 +127,9 @@ const VoiceDebugPanel = () => {
           <div className="bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Runtime Status</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                  Runtime Status
+                </h3>
                 <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
                   Live diagnostics for the voice server and speech-to-text engine.
                 </p>
@@ -142,13 +144,17 @@ const VoiceDebugPanel = () => {
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-3">
-                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Server</div>
+                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  Server
+                </div>
                 <div className="mt-1 font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                   {serverStatus ? serverStatus.state : isLoading ? 'Loading…' : 'Unavailable'}
                 </div>
               </div>
               <div className="rounded-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-3">
-                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 dark:text-neutral-400">STT</div>
+                <div className="text-[10px] uppercase tracking-wide text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  STT
+                </div>
                 <div className="mt-1 font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                   {voiceStatus?.stt_available ? 'Ready' : 'Not ready'}
                 </div>
@@ -176,7 +182,9 @@ const VoiceDebugPanel = () => {
         <section className="space-y-3">
           <div className="bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 rounded-lg border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 p-4 space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Advanced Settings</h3>
+              <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                Advanced Settings
+              </h3>
               <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1">
                 Low-level tuning parameters for recording and silence detection.
               </p>

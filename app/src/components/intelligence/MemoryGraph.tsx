@@ -284,7 +284,9 @@ export function MemoryGraph({ nodes, edges, mode, contentRootAbs, emptyHint }: M
         </div>
         <div className="flex items-center gap-3">
           {legend.map(item => (
-            <span key={item.label} className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-neutral-300">
+            <span
+              key={item.label}
+              className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-neutral-300">
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: item.color }}
@@ -349,11 +351,15 @@ export function MemoryGraph({ nodes, edges, mode, contentRootAbs, emptyHint }: M
               <span>
                 {hovered.child_count ?? 0} {t('graph.children')}
               </span>
-              <span className="ml-3 text-stone-400 dark:text-neutral-500">{t('graph.clickToOpenObsidian')}</span>
+              <span className="ml-3 text-stone-400 dark:text-neutral-500">
+                {t('graph.clickToOpenObsidian')}
+              </span>
             </>
           ) : hovered.kind === 'contact' ? (
             <>
-              <span className="font-medium text-violet-700 dark:text-violet-300">{hovered.label}</span>
+              <span className="font-medium text-violet-700 dark:text-violet-300">
+                {hovered.label}
+              </span>
               <span className="ml-3 text-stone-400 dark:text-neutral-500">
                 {t('graph.person')} · canonical id {hovered.id.slice(0, 12)}…
               </span>
@@ -361,7 +367,9 @@ export function MemoryGraph({ nodes, edges, mode, contentRootAbs, emptyHint }: M
           ) : (
             <>
               <span className="font-medium">{hovered.label || 'chunk'}</span>
-              <span className="ml-3 text-stone-400 dark:text-neutral-500">{t('graph.document')}</span>
+              <span className="ml-3 text-stone-400 dark:text-neutral-500">
+                {t('graph.document')}
+              </span>
             </>
           )}
         </div>

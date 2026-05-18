@@ -20,10 +20,14 @@ interface AnnotatedCapability extends Capability {
 
 const KIND_BADGE_CLASS: Record<PrivacyDataKind, string> = {
   raw: 'bg-sage-50 dark:bg-sage-500/10 dark:bg-sage-500/15 text-sage-700 dark:text-sage-300 dark:text-sage-300 border-sage-200 dark:border-sage-500/30 dark:border-sage-500/30',
-  derived: 'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 dark:border-amber-500/30',
-  credentials: 'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 dark:text-neutral-200 border-stone-200 dark:border-neutral-800 dark:border-neutral-700',
-  diagnostics: 'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-500/30',
-  metadata: 'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 text-stone-600 dark:text-neutral-300 dark:text-neutral-300 border-stone-200 dark:border-neutral-800 dark:border-neutral-700',
+  derived:
+    'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 dark:border-amber-500/30',
+  credentials:
+    'bg-stone-100 dark:bg-neutral-800 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 dark:text-neutral-200 border-stone-200 dark:border-neutral-800 dark:border-neutral-700',
+  diagnostics:
+    'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-500/30',
+  metadata:
+    'bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 text-stone-600 dark:text-neutral-300 dark:text-neutral-300 border-stone-200 dark:border-neutral-800 dark:border-neutral-700',
 };
 
 function kindLabel(kind: PrivacyDataKind, t: (key: string) => string): string {
@@ -110,23 +114,33 @@ const PrivacyPanel = () => {
             </h3>
             <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 overflow-hidden">
               {loadState === 'loading' && (
-                <p className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('privacy.loading')}</p>
+                <p className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  {t('privacy.loading')}
+                </p>
               )}
               {loadState === 'error' && (
-                <p className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400" data-testid="privacy-load-error">
+                <p
+                  className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400"
+                  data-testid="privacy-load-error">
                   {t('privacy.loadError')}
                 </p>
               )}
               {loadState === 'ready' && capabilities.length === 0 && (
-                <p className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('privacy.noCapabilities')}</p>
+                <p className="p-4 text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                  {t('privacy.noCapabilities')}
+                </p>
               )}
               {loadState === 'ready' && capabilities.length > 0 && (
-                <ul className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800" data-testid="privacy-capability-list">
+                <ul
+                  className="divide-y divide-stone-100 dark:divide-neutral-800 dark:divide-neutral-800"
+                  data-testid="privacy-capability-list">
                   {capabilities.map(cap => (
                     <li key={cap.id} className="p-4" data-testid={`privacy-row-${cap.id}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{cap.name}</p>
+                          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                            {cap.name}
+                          </p>
                           <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-1 leading-relaxed">
                             {cap.description}
                           </p>

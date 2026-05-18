@@ -185,7 +185,10 @@ const TeamInvitesPanel = () => {
           {/* Invites list */}
           {isLoadingInvites && invites.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <svg className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-stone-500 dark:text-neutral-400 dark:text-neutral-400 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -200,7 +203,9 @@ const TeamInvitesPanel = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              <span className="ml-3 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Loading invites...</span>
+              <span className="ml-3 text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                Loading invites...
+              </span>
             </div>
           ) : invites.length > 0 ? (
             <div className="space-y-2">
@@ -329,7 +334,9 @@ const TeamInvitesPanel = () => {
                   d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                 />
               </svg>
-              <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">No invites yet</p>
+              <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                No invites yet
+              </p>
               <p className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300 mt-1">
                 Generate an invite code to share with others
               </p>
@@ -340,7 +347,9 @@ const TeamInvitesPanel = () => {
           {inviteToRevoke && (
             <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-neutral-900 dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-md border border-stone-200 dark:border-neutral-800 dark:border-neutral-800">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">Revoke Invite Code</h3>
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100 mb-4">
+                  Revoke Invite Code
+                </h3>
 
                 {error && (
                   <div className="rounded-xl bg-coral-500/10 border border-coral-500/20 p-3 mb-4">

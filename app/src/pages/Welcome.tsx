@@ -110,7 +110,9 @@ const Welcome = () => {
               aria-atomic="true"
               className="mb-5 flex flex-col items-center justify-center gap-3 py-2">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-stone-300 dark:border-neutral-700 border-t-primary-500" />
-              <p className="text-sm font-medium text-stone-700 dark:text-neutral-200">Signing you in...</p>
+              <p className="text-sm font-medium text-stone-700 dark:text-neutral-200">
+                Signing you in...
+              </p>
             </div>
           ) : (
             <>

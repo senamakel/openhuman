@@ -32,8 +32,8 @@ import {
 } from './lib/webviewNotifications';
 import ChatRuntimeProvider from './providers/ChatRuntimeProvider';
 import CoreStateProvider, { useCoreState } from './providers/CoreStateProvider';
-import ThemeProvider from './providers/ThemeProvider';
 import SocketProvider from './providers/SocketProvider';
+import ThemeProvider from './providers/ThemeProvider';
 import { trackPageView } from './services/analytics';
 import { startCoreHealthMonitor, stopCoreHealthMonitor } from './services/coreHealthMonitor';
 import {

@@ -83,7 +83,9 @@ const ComposioTriagePanel = () => {
           breadcrumbs={breadcrumbs}
         />
         <div className="p-4">
-          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">Loading…</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+            Loading…
+          </p>
         </div>
       </div>
     );
@@ -117,11 +119,15 @@ const ComposioTriagePanel = () => {
               <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                 {t('composio.disableAllTriage')}
               </span>
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">{t('composio.triggersStillRecorded')}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400 mt-0.5">
+                {t('composio.triggersStillRecorded')}
+              </p>
             </div>
             <div
               className={`ml-3 flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                triageDisabled ? 'bg-coral-400' : 'bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800'
+                triageDisabled
+                  ? 'bg-coral-400'
+                  : 'bg-stone-200 dark:bg-neutral-800 dark:bg-neutral-800'
               }`}>
               <div
                 className={`absolute top-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 dark:bg-neutral-900 shadow transition-transform ${
@@ -133,7 +139,9 @@ const ComposioTriagePanel = () => {
         </div>
 
         <div className={`space-y-2 ${triageDisabled ? 'opacity-40 pointer-events-none' : ''}`}>
-          <label className="block text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100" htmlFor="disabled-toolkits">
+          <label
+            className="block text-sm font-medium text-stone-800 dark:text-neutral-100 dark:text-neutral-100"
+            htmlFor="disabled-toolkits">
             {t('composio.disableSpecificIntegrations')}
           </label>
           <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
@@ -160,7 +168,9 @@ const ComposioTriagePanel = () => {
         </button>
 
         {saveStatus === 'saved' && (
-          <p className="text-xs text-center text-green-600 dark:text-green-300">{t('composio.settingsSaved')}</p>
+          <p className="text-xs text-center text-green-600 dark:text-green-300">
+            {t('composio.settingsSaved')}
+          </p>
         )}
         {saveStatus === 'error' && (
           <p className="text-xs text-center text-red-500">{t('composio.saveFailed')}</p>

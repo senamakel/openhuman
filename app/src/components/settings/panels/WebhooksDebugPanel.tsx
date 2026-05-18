@@ -167,7 +167,12 @@ const WebhooksDebugPanel = () => {
           </button>
           <span className="text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
             {registrations.length} registered &middot; {logs.length} captured &middot;{' '}
-            <span className={isLive ? 'text-sage-600 dark:text-sage-300' : 'text-stone-400 dark:text-neutral-500 dark:text-neutral-500'}>
+            <span
+              className={
+                isLive
+                  ? 'text-sage-600 dark:text-sage-300'
+                  : 'text-stone-400 dark:text-neutral-500 dark:text-neutral-500'
+              }>
               {isLive ? 'live' : 'disconnected'}
             </span>
           </span>
@@ -181,16 +186,23 @@ const WebhooksDebugPanel = () => {
 
         {lastEvent && (
           <div className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
-            Last event: <span className="font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{lastEvent.event_type}</span>{' '}
+            Last event:{' '}
+            <span className="font-medium text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {lastEvent.event_type}
+            </span>{' '}
             at {formatDateTime(lastEvent.timestamp)}
           </div>
         )}
 
         {/* Registrations */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Registered Webhooks</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Registered Webhooks
+          </h3>
           {registrations.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">No active registrations.</p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              No active registrations.
+            </p>
           ) : (
             <div className="space-y-2">
               {registrations.map(registration => (
@@ -223,9 +235,13 @@ const WebhooksDebugPanel = () => {
 
         {/* Captured Requests */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">Captured Requests</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            Captured Requests
+          </h3>
           {logs.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">No webhook requests captured yet.</p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500 dark:text-neutral-500">
+              No webhook requests captured yet.
+            </p>
           ) : (
             <div className="space-y-2">
               {logs.map(entry => (
@@ -242,7 +258,9 @@ const WebhooksDebugPanel = () => {
                     <span className="text-xs font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
                       {entry.method} {entry.path}
                     </span>
-                    <span className="text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{entry.status_code ?? '...'}</span>
+                    <span className="text-[10px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                      {entry.status_code ?? '...'}
+                    </span>
                   </div>
                   <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
                     {entry.tunnel_name} {entry.skill_id ? `· ${entry.skill_id}` : '· unrouted'} ·{' '}

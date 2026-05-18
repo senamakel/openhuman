@@ -138,7 +138,9 @@ export default function IntelligenceTasksTab() {
       <div className="flex flex-col items-center gap-3 py-12 text-center text-stone-400 dark:text-neutral-500">
         <div className="text-3xl">📋</div>
         <p className="text-sm font-medium">{t('intelligence.tasks.empty')}</p>
-        <p className="text-xs text-stone-400 dark:text-neutral-500">{t('intelligence.tasks.emptyHint')}</p>
+        <p className="text-xs text-stone-400 dark:text-neutral-500">
+          {t('intelligence.tasks.emptyHint')}
+        </p>
       </div>
     );
   }
@@ -155,7 +157,9 @@ export default function IntelligenceTasksTab() {
       {boardEntries.map(entry => (
         <section key={entry.threadId} className="space-y-2">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200" title={entry.title}>
+            <h3
+              className="truncate text-sm font-semibold text-stone-700 dark:text-neutral-200"
+              title={entry.title}>
               {entry.title}
             </h3>
             {entry.live && (

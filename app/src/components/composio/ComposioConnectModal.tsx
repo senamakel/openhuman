@@ -520,11 +520,15 @@ export default function ComposioConnectModal({
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 {toolkit.icon}
-                <h2 id="composio-setup-title" className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+                <h2
+                  id="composio-setup-title"
+                  className="text-base font-semibold text-stone-900 dark:text-neutral-100">
                   {headerTitle}
                 </h2>
               </div>
-              <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1.5 line-clamp-2">{toolkit.description}</p>
+              <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1.5 line-clamp-2">
+                {toolkit.description}
+              </p>
             </div>
             <button
               type="button"
@@ -639,7 +643,9 @@ export default function ComposioConnectModal({
           )}
 
           {phase === 'authorizing' && (
-            <p className="text-sm text-stone-500 dark:text-neutral-400">{t('composio.connect.requestingUrl')}</p>
+            <p className="text-sm text-stone-500 dark:text-neutral-400">
+              {t('composio.connect.requestingUrl')}
+            </p>
           )}
 
           {phase === 'waiting' && (
@@ -656,7 +662,9 @@ export default function ComposioConnectModal({
                   {t('composio.connect.reopenBrowser')}
                 </button>
               )}
-              <p className="text-xs text-stone-400 dark:text-neutral-500">{t('composio.connect.waitingHint')}</p>
+              <p className="text-xs text-stone-400 dark:text-neutral-500">
+                {t('composio.connect.waitingHint')}
+              </p>
             </>
           )}
 
@@ -725,7 +733,9 @@ export default function ComposioConnectModal({
           )}
 
           {phase === 'disconnecting' && (
-            <p className="text-sm text-stone-500 dark:text-neutral-400">{t('composio.connect.disconnecting')}</p>
+            <p className="text-sm text-stone-500 dark:text-neutral-400">
+              {t('composio.connect.disconnecting')}
+            </p>
           )}
 
           {phase === 'error' && (
@@ -795,7 +805,9 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
         <h3 className="text-xs font-semibold text-stone-700 dark:text-neutral-200 uppercase tracking-wide">
           {t('composio.connect.permissions')}
         </h3>
-        <p className="text-[10px] text-stone-400 dark:text-neutral-500">{t('composio.connect.permissionsDefault')}</p>
+        <p className="text-[10px] text-stone-400 dark:text-neutral-500">
+          {t('composio.connect.permissionsDefault')}
+        </p>
       </div>
       <ul className="space-y-1.5">
         {SCOPE_ROWS.map(row => {
@@ -808,8 +820,12 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
               key={row.key}
               className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
               <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{rowLabel}</span>
-                <p className="text-[11px] text-stone-400 dark:text-neutral-500 leading-snug">{rowHint}</p>
+                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                  {rowLabel}
+                </span>
+                <p className="text-[11px] text-stone-400 dark:text-neutral-500 leading-snug">
+                  {rowHint}
+                </p>
               </div>
               <button
                 type="button"
@@ -891,7 +907,9 @@ function AtlassianSubdomainInput({
           {error}
         </p>
       ) : (
-        <p id="atlassian-subdomain-hint" className="text-[11px] leading-relaxed text-stone-400 dark:text-neutral-500">
+        <p
+          id="atlassian-subdomain-hint"
+          className="text-[11px] leading-relaxed text-stone-400 dark:text-neutral-500">
           {t('composio.connect.atlassianSubdomainHint')}
         </p>
       )}

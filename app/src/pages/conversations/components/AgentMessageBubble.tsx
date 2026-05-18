@@ -164,7 +164,8 @@ export function AgentMessageBubble({
   return (
     <>
       {textContent && (
-        <div className={`bg-stone-200 dark:bg-neutral-800/80 px-4 py-2.5 text-stone-900 dark:text-neutral-100 ${bubbleChrome}`}>
+        <div
+          className={`bg-stone-200 dark:bg-neutral-800/80 px-4 py-2.5 text-stone-900 dark:text-neutral-100 ${bubbleChrome}`}>
           <BubbleMarkdown content={textContent} />
         </div>
       )}

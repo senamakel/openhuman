@@ -30,13 +30,15 @@ const ACCENT_CLASSES: Record<
     selected: '!border-sage-500 bg-sage-50 dark:bg-sage-500/10 shadow-sm',
     dot: 'bg-sage-500',
     badge: 'bg-sage-500/10 text-sage-700 dark:text-sage-300',
-    highlight: 'border-sage-300 dark:border-sage-500/40 bg-sage-100 dark:bg-sage-500/20 text-sage-800 dark:text-sage-200',
+    highlight:
+      'border-sage-300 dark:border-sage-500/40 bg-sage-100 dark:bg-sage-500/20 text-sage-800 dark:text-sage-200',
   },
   primary: {
     selected: '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 shadow-sm',
     dot: 'bg-primary-500',
     badge: 'bg-primary-500/10 text-primary-600 dark:text-primary-300',
-    highlight: 'border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300',
+    highlight:
+      'border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300',
   },
 };
 
@@ -75,7 +77,9 @@ const ChoiceCard = ({
       <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{tagline}</p>
       <ul className="mt-3 flex flex-1 flex-col gap-1.5">
         {features.map(f => (
-          <li key={f} className="flex items-start gap-2 text-xs text-stone-700 dark:text-neutral-200">
+          <li
+            key={f}
+            className="flex items-start gap-2 text-xs text-stone-700 dark:text-neutral-200">
             <span
               aria-hidden
               className={`mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full ${accentClasses.dot}`}

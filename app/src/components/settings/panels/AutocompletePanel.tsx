@@ -199,10 +199,14 @@ const AutocompletePanel = () => {
 
       <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
         <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('autocomplete.settings')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('autocomplete.settings')}
+          </h3>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('common.enabled')}</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {t('common.enabled')}
+            </span>
             <input
               type="checkbox"
               checked={enabled}
@@ -211,7 +215,9 @@ const AutocompletePanel = () => {
           </label>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('autocomplete.acceptWithTab')}</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {t('autocomplete.acceptWithTab')}
+            </span>
             <input
               type="checkbox"
               checked={acceptWithTab}
@@ -220,7 +226,9 @@ const AutocompletePanel = () => {
           </label>
 
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">{t('autocomplete.stylePreset')}</span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200 dark:text-neutral-200">
+              {t('autocomplete.stylePreset')}
+            </span>
             <select
               value={stylePreset}
               onChange={event => setStylePreset(event.target.value)}
@@ -234,7 +242,9 @@ const AutocompletePanel = () => {
           </label>
 
           <div className="space-y-1">
-            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{t('autocomplete.disabledApps')}</div>
+            <div className="text-xs text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+              {t('autocomplete.disabledApps')}
+            </div>
             <textarea
               value={disabledAppsText}
               onChange={event => setDisabledAppsText(event.target.value)}
@@ -253,7 +263,9 @@ const AutocompletePanel = () => {
         </section>
 
         <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{t('autocomplete.runtime')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+            {t('autocomplete.runtime')}
+          </h3>
           <div className="text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300 space-y-1">
             <div>
               {t('autocomplete.running')}: {status?.running ? t('common.yes') : t('common.no')}

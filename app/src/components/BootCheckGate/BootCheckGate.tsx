@@ -250,7 +250,9 @@ function ModePicker({ onConfirm }: PickerProps) {
                 : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
             }`}>
             <div className="font-medium">{t('bootCheck.localRecommended')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{t('bootCheck.localDescription')}</div>
+            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+              {t('bootCheck.localDescription')}
+            </div>
           </button>
         )}
 
@@ -266,7 +268,9 @@ function ModePicker({ onConfirm }: PickerProps) {
                 : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
             }`}>
             <div className="font-medium">{t('bootCheck.cloudMode')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{t('bootCheck.cloudDescription')}</div>
+            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+              {t('bootCheck.cloudDescription')}
+            </div>
           </button>
         )}
 
@@ -365,7 +369,9 @@ function CheckingScreen() {
     <Panel>
       <div className="flex flex-col items-center gap-4 py-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 dark:border-neutral-700 border-t-primary-500" />
-        <p className="text-sm text-stone-600 dark:text-neutral-300">{t('bootCheck.checkingCore')}</p>
+        <p className="text-sm text-stone-600 dark:text-neutral-300">
+          {t('bootCheck.checkingCore')}
+        </p>
       </div>
     </Panel>
   );
@@ -400,7 +406,9 @@ function ResultScreen({
   if (result.kind === 'unreachable') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">{t('bootCheck.cannotReach')}</h2>
+        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+          {t('bootCheck.cannotReach')}
+        </h2>
         <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
           {result.reason || t('bootCheck.cannotReachDesc')}
         </p>
@@ -433,8 +441,12 @@ function ResultScreen({
   if (result.kind === 'daemonDetected') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">{t('bootCheck.legacyDetected')}</h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">{t('bootCheck.legacyDescription')}</p>
+        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+          {t('bootCheck.legacyDetected')}
+        </h2>
+        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+          {t('bootCheck.legacyDescription')}
+        </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <button
@@ -459,8 +471,12 @@ function ResultScreen({
   if (result.kind === 'outdatedLocal') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">{t('bootCheck.localNeedsRestart')}</h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">{t('bootCheck.localNeedsRestartDesc')}</p>
+        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+          {t('bootCheck.localNeedsRestart')}
+        </h2>
+        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+          {t('bootCheck.localNeedsRestartDesc')}
+        </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <button
@@ -485,8 +501,12 @@ function ResultScreen({
   if (result.kind === 'outdatedCloud') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">{t('bootCheck.cloudNeedsUpdate')}</h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">{t('bootCheck.cloudNeedsUpdateDesc')}</p>
+        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+          {t('bootCheck.cloudNeedsUpdate')}
+        </h2>
+        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+          {t('bootCheck.cloudNeedsUpdateDesc')}
+        </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <button
@@ -511,8 +531,12 @@ function ResultScreen({
   // noVersionMethod — treat like outdated, user picks which flavor of action
   return (
     <Panel>
-      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">{t('bootCheck.versionCheckFailed')}</h2>
-      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">{t('bootCheck.versionCheckFailedDesc')}</p>
+      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+        {t('bootCheck.versionCheckFailed')}
+      </h2>
+      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+        {t('bootCheck.versionCheckFailedDesc')}
+      </p>
       {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
       <div className="mt-5 flex gap-3">
         <button

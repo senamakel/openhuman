@@ -87,14 +87,18 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
                 {icon && <span className="text-base">{icon}</span>}
-                <h2 id="channel-setup-title" className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+                <h2
+                  id="channel-setup-title"
+                  className="text-base font-semibold text-stone-900 dark:text-neutral-100">
                   {definition.display_name}
                 </h2>
                 <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-primary-500/15 text-primary-600 dark:text-primary-300">
                   {t('channels.channel')}
                 </span>
               </div>
-              <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1.5">{definition.description}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1.5">
+                {definition.description}
+              </p>
             </div>
             <button
               onClick={onClose}

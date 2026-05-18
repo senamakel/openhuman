@@ -154,7 +154,9 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
       data-testid="vault-panel">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">Knowledge vaults</h3>
+          <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+            Knowledge vaults
+          </h3>
           <p className="text-xs text-stone-500 dark:text-neutral-400">
             Point at a local folder; files are chunked and mirrored into memory.
           </p>
@@ -189,7 +191,9 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
             />
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">Folder path (absolute)</span>
+            <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+              Folder path (absolute)
+            </span>
             <input
               type="text"
               value={newPath}
@@ -227,7 +231,9 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
       ) : null}
 
       {loading ? (
-        <div className="py-4 text-center text-xs text-stone-400 dark:text-neutral-500">Loading vaults…</div>
+        <div className="py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
+          Loading vaults…
+        </div>
       ) : loadError ? (
         <div className="rounded border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-800">
           Failed to load vaults: {loadError}
@@ -243,7 +249,9 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
             return (
               <li key={v.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">{v.name}</div>
+                  <div className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+                    {v.name}
+                  </div>
                   <div
                     className="truncate font-mono text-[11px] text-stone-500 dark:text-neutral-400"
                     title={v.root_path}>

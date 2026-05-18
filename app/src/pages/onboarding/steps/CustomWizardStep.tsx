@@ -31,7 +31,9 @@ const ChoiceCard = ({ selected, onClick, accent, title, description, testId }: C
           : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
       }`}>
       <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{title}</h3>
-      <p className="mt-1 text-xs text-stone-600 dark:text-neutral-300 leading-relaxed">{description}</p>
+      <p className="mt-1 text-xs text-stone-600 dark:text-neutral-300 leading-relaxed">
+        {description}
+      </p>
     </button>
   );
 };
@@ -104,8 +106,12 @@ const CustomWizardStep = ({
       className="rounded-2xl bg-white dark:bg-neutral-900 p-10 shadow-soft animate-fade-up">
       <WizardStepper labels={stepperLabels} activeIndex={stepIndex} />
 
-      <h1 className="mt-8 text-2xl font-display text-stone-900 dark:text-neutral-100 leading-tight">{title}</h1>
-      <p className="mt-2 text-sm text-stone-500 dark:text-neutral-400 leading-relaxed">{subtitle}</p>
+      <h1 className="mt-8 text-2xl font-display text-stone-900 dark:text-neutral-100 leading-tight">
+        {title}
+      </h1>
+      <p className="mt-2 text-sm text-stone-500 dark:text-neutral-400 leading-relaxed">
+        {subtitle}
+      </p>
 
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
         <ChoiceCard

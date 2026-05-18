@@ -274,11 +274,17 @@ export default function IntelligenceSubconsciousTab({
           </h3>
           <div className="space-y-2">
             {escalations.map(esc => (
-              <div key={esc.id} className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
+              <div
+                key={esc.id}
+                className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">{esc.title}</p>
-                    <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">{esc.description}</p>
+                    <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                      {esc.title}
+                    </p>
+                    <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
+                      {esc.description}
+                    </p>
                     <div className="flex items-center gap-2 mt-2">
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -331,15 +337,21 @@ export default function IntelligenceSubconsciousTab({
             <div className="w-6 h-6 mx-auto border-2 border-stone-300 dark:border-neutral-700 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : tasks.filter(t => !t.completed).length === 0 ? (
-          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">{t('subconscious.noActiveTasks')}</p>
+          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">
+            {t('subconscious.noActiveTasks')}
+          </p>
         ) : (
           <div className="space-y-1.5">
             {tasks
               .filter(t => !t.completed && t.source === 'system')
               .map(task => (
-                <div key={task.id} className="flex items-center py-2 px-3 bg-stone-50 dark:bg-neutral-800/60 rounded-lg">
+                <div
+                  key={task.id}
+                  className="flex items-center py-2 px-3 bg-stone-50 dark:bg-neutral-800/60 rounded-lg">
                   <div className="w-1.5 h-1.5 rounded-full bg-sage-400 flex-shrink-0 mr-2.5" />
-                  <span className="text-sm text-stone-900 dark:text-neutral-100 truncate flex-1">{task.title}</span>
+                  <span className="text-sm text-stone-900 dark:text-neutral-100 truncate flex-1">
+                    {task.title}
+                  </span>
                   <span className="text-[10px] text-stone-400 dark:text-neutral-500 flex-shrink-0 px-1.5 py-0.5 rounded bg-stone-100 dark:bg-neutral-800">
                     {t('subconscious.default')}
                   </span>
@@ -416,7 +428,9 @@ export default function IntelligenceSubconsciousTab({
           {t('subconscious.activityLog')}
         </h3>
         {logEntries.length === 0 ? (
-          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">{t('subconscious.noActivity')}</p>
+          <p className="text-xs text-stone-400 dark:text-neutral-500 py-3">
+            {t('subconscious.noActivity')}
+          </p>
         ) : (
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {logEntries.map(entry => (

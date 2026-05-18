@@ -121,14 +121,22 @@ const ModelDownloadSection = ({
               { label: 'STT', key: 'stt' as const, item: assets?.stt },
               { label: 'TTS', key: 'tts' as const, item: assets?.tts },
             ].map(({ label, key, item }) => (
-              <div key={String(label)} className="rounded-md border border-stone-200 dark:border-neutral-800 p-2">
-                <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">{label}</div>
-                <div className="text-stone-800 dark:text-neutral-100 mt-1 break-all">{item?.id ?? 'n/a'}</div>
+              <div
+                key={String(label)}
+                className="rounded-md border border-stone-200 dark:border-neutral-800 p-2">
+                <div className="text-stone-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+                  {label}
+                </div>
+                <div className="text-stone-800 dark:text-neutral-100 mt-1 break-all">
+                  {item?.id ?? 'n/a'}
+                </div>
                 <div className={`text-xs mt-1 ${statusTone(item?.state ?? 'idle')}`}>
                   {statusLabel(item?.state ?? 'idle')}
                 </div>
                 {item?.path && (
-                  <div className="text-[10px] text-stone-500 dark:text-neutral-400 mt-1 break-all">{item.path}</div>
+                  <div className="text-[10px] text-stone-500 dark:text-neutral-400 mt-1 break-all">
+                    {item.path}
+                  </div>
                 )}
                 {item?.provider === 'ollama' || item?.provider === 'lm_studio' ? (
                   <div className="mt-2 text-[10px] text-stone-500 dark:text-neutral-400">

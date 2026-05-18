@@ -113,10 +113,16 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
           </div>
 
           {/* Title */}
-          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 truncate">{n.title}</p>
+          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100 truncate">
+            {n.title}
+          </p>
 
           {/* Body preview */}
-          {n.body && <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{n.body}</p>}
+          {n.body && (
+            <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
+              {n.body}
+            </p>
+          )}
         </button>
         {onDismiss && (
           <button

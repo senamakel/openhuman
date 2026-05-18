@@ -59,7 +59,9 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
     );
   }
   return (
-    <div className="mt-1 space-y-0.5 text-[10px] text-stone-500 dark:text-neutral-400" data-testid="subagent-activity">
+    <div
+      className="mt-1 space-y-0.5 text-[10px] text-stone-500 dark:text-neutral-400"
+      data-testid="subagent-activity">
       {headerBits.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {headerBits.map(bit => (
@@ -86,9 +88,13 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
                 className="flex items-center gap-1.5"
                 data-testid="subagent-tool-call">
                 <span className={`text-[9px] ${tone}`}>•</span>
-                <span className="font-mono text-[10px] text-stone-700 dark:text-neutral-200">{call.toolName}</span>
+                <span className="font-mono text-[10px] text-stone-700 dark:text-neutral-200">
+                  {call.toolName}
+                </span>
                 {call.iteration != null ? (
-                  <span className="text-[9px] text-stone-400 dark:text-neutral-500">·t{call.iteration}</span>
+                  <span className="text-[9px] text-stone-400 dark:text-neutral-500">
+                    ·t{call.iteration}
+                  </span>
                 ) : null}
                 <span className={`text-[9px] ${tone}`}>{call.status}</span>
                 {call.elapsedMs != null && call.status !== 'running' ? (
@@ -155,7 +161,9 @@ export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] })
                 };
 
         return (
-          <div key={entry.id} className="flex flex-col gap-1 text-xs text-stone-400 dark:text-neutral-500">
+          <div
+            key={entry.id}
+            className="flex flex-col gap-1 text-xs text-stone-400 dark:text-neutral-500">
             {expandable ? (
               <details open={shouldAutoExpand} className="ml-1 group">
                 <summary className="flex cursor-pointer list-none items-center gap-2 select-none marker:hidden">
@@ -163,7 +171,9 @@ export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] })
                     className={`text-[10px] transition-transform group-open:rotate-90 ${statusTone.chevron}`}>
                     ▶
                   </span>
-                  <span className="font-medium text-stone-600 dark:text-neutral-300">{formatted.title}</span>
+                  <span className="font-medium text-stone-600 dark:text-neutral-300">
+                    {formatted.title}
+                  </span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] ${statusTone.pill}`}>
                     {entry.status}
                   </span>
@@ -193,7 +203,9 @@ export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] })
               </details>
             ) : (
               <div className="ml-1 flex items-center gap-2">
-                <span className="font-medium text-stone-600 dark:text-neutral-300">{formatted.title}</span>
+                <span className="font-medium text-stone-600 dark:text-neutral-300">
+                  {formatted.title}
+                </span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] ${statusTone.pill}`}>
                   {entry.status}
                 </span>

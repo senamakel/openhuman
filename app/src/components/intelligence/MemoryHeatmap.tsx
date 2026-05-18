@@ -141,7 +141,9 @@ export function MemoryHeatmap({ timestamps, loading }: MemoryHeatmapProps) {
     <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{t('memory.ingestionActivity')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            {t('memory.ingestionActivity')}
+          </h3>
           <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
             {totalEvents} {totalEvents !== 1 ? t('memory.events') : t('memory.event')}{' '}
             {t('memory.overTheLast')} {MONTHS} {t('memory.months')}

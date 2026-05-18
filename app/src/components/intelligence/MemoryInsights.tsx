@@ -193,10 +193,15 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
   if (loading) {
     return (
       <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-5">
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-4">{t('insights.title')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-4">
+          {t('insights.title')}
+        </h3>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-28 rounded-lg bg-stone-200 dark:bg-neutral-800 animate-pulse" />
+            <div
+              key={i}
+              className="h-28 rounded-lg bg-stone-200 dark:bg-neutral-800 animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -206,7 +211,9 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
   if (groups.length === 0) {
     return (
       <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-5">
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('insights.title')}</h3>
+        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
+          {t('insights.title')}
+        </h3>
         <p className="text-sm text-stone-600 dark:text-neutral-300">{t('insights.empty')}</p>
       </div>
     );
@@ -216,7 +223,9 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
     <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{t('insights.title')}</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            {t('insights.title')}
+          </h3>
           <p className="text-xs text-stone-500 dark:text-neutral-400 mt-0.5">
             {t('insights.description').replace('{count}', String(relations.length))}
           </p>
@@ -283,8 +292,12 @@ export function MemoryInsights({ relations, loading }: MemoryInsightsProps) {
                       {item.subject}
                       {item.subjectType && <EntityTypeBadge type={item.subjectType} />}
                     </span>
-                    <span className="text-stone-500 dark:text-neutral-400 shrink-0 italic">{item.predicate}</span>
-                    <span className="text-stone-600 dark:text-neutral-300 truncate" title={item.object}>
+                    <span className="text-stone-500 dark:text-neutral-400 shrink-0 italic">
+                      {item.predicate}
+                    </span>
+                    <span
+                      className="text-stone-600 dark:text-neutral-300 truncate"
+                      title={item.object}>
                       {item.object}
                       {item.objectType && <EntityTypeBadge type={item.objectType} />}
                     </span>

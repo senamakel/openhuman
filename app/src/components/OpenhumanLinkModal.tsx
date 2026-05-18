@@ -89,7 +89,9 @@ const OpenhumanLinkModal = () => {
         className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 shadow-xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-stone-100 dark:border-neutral-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{titleForPath(activePath, t)}</h2>
+          <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            {titleForPath(activePath, t)}
+          </h2>
           <button
             type="button"
             onClick={close}
@@ -311,7 +313,9 @@ const BillingBody = ({ close }: { close: () => void }) => {
           {t('app.openhumanLink.billing.trialCredit')}
         </p>
         <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-neutral-100">$1.00</p>
-        <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{t('app.openhumanLink.billing.trialDesc')}</p>
+        <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+          {t('app.openhumanLink.billing.trialDesc')}
+        </p>
       </div>
       <button
         type="button"
@@ -497,16 +501,22 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
               className="flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
               <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">{p.label}</div>
+                <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                  {p.label}
+                </div>
                 {on && status ? (
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`inline-block h-1.5 w-1.5 rounded-full ${statusDisplay(status).dotClass}`}
                     />
-                    <span className="text-xs text-stone-500 dark:text-neutral-400">{statusDisplay(status).label}</span>
+                    <span className="text-xs text-stone-500 dark:text-neutral-400">
+                      {statusDisplay(status).label}
+                    </span>
                   </div>
                 ) : (
-                  <p className="line-clamp-1 text-xs text-stone-500 dark:text-neutral-400">{p.description}</p>
+                  <p className="line-clamp-1 text-xs text-stone-500 dark:text-neutral-400">
+                    {p.description}
+                  </p>
                 )}
               </div>
               <button
@@ -528,7 +538,9 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
           );
         })}
       </div>
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{t('app.openhumanLink.accounts.webviewNote')}</p>
+      <p className="text-xs text-stone-400 dark:text-neutral-500">
+        {t('app.openhumanLink.accounts.webviewNote')}
+      </p>
       <DoneFooter close={close} onDone={handleDone} doneLabel={doneLabel} />
     </div>
   );

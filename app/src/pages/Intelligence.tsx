@@ -189,7 +189,9 @@ export default function Intelligence() {
                 {activeTab === 'memory' && (
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${systemStatusDot}`} />
-                    <span className="text-xs text-stone-400 dark:text-neutral-500">{systemStatusLabel}</span>
+                    <span className="text-xs text-stone-400 dark:text-neutral-500">
+                      {systemStatusLabel}
+                    </span>
                   </div>
                 )}
                 {activeTab === 'memory' &&

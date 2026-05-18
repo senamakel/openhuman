@@ -94,13 +94,19 @@ const BillingPanel = () => {
             </div>
 
             {status === 'opening' && (
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.billing.openingBrowser')}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('settings.billing.openingBrowser')}
+              </p>
             )}
             {status === 'idle' && (
-              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">{t('settings.billing.browserNotOpen')}</p>
+              <p className="text-xs text-stone-500 dark:text-neutral-400 dark:text-neutral-400">
+                {t('settings.billing.browserNotOpen')}
+              </p>
             )}
             {status === 'error' && (
-              <p className="text-xs text-coral-600 dark:text-coral-300">{t('settings.billing.browserOpenFailed')}</p>
+              <p className="text-xs text-coral-600 dark:text-coral-300">
+                {t('settings.billing.browserOpenFailed')}
+              </p>
             )}
           </div>
         </div>

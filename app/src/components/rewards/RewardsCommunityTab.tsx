@@ -13,10 +13,22 @@ function formatNumber(value: number): string {
 
 function roleAccentTone(index: number) {
   const tones = [
-    { iconBg: 'bg-amber-50 dark:bg-amber-500/10', iconText: 'text-amber-600 dark:text-amber-300', iconBorder: 'border-amber-100' },
-    { iconBg: 'bg-blue-50 dark:bg-blue-500/10', iconText: 'text-primary-600 dark:text-primary-300', iconBorder: 'border-blue-100' },
+    {
+      iconBg: 'bg-amber-50 dark:bg-amber-500/10',
+      iconText: 'text-amber-600 dark:text-amber-300',
+      iconBorder: 'border-amber-100',
+    },
+    {
+      iconBg: 'bg-blue-50 dark:bg-blue-500/10',
+      iconText: 'text-primary-600 dark:text-primary-300',
+      iconBorder: 'border-blue-100',
+    },
     { iconBg: 'bg-slate-100', iconText: 'text-slate-600', iconBorder: 'border-slate-200' },
-    { iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconText: 'text-emerald-600 dark:text-emerald-300', iconBorder: 'border-emerald-100' },
+    {
+      iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
+      iconText: 'text-emerald-600 dark:text-emerald-300',
+      iconBorder: 'border-emerald-100',
+    },
   ] as const;
 
   return tones[index % tones.length];
@@ -186,7 +198,9 @@ export default function RewardsCommunityTab({
                   className="text-primary-600 dark:text-primary-300 transition-all duration-300"
                 />
               </svg>
-              <span className="absolute text-sm font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{progressPercent}%</span>
+              <span className="absolute text-sm font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                {progressPercent}%
+              </span>
             </div>
           </div>
 
@@ -215,7 +229,9 @@ export default function RewardsCommunityTab({
           </div>
           {isLoading ? (
             <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 dark:border-neutral-800 bg-white dark:bg-neutral-900 dark:bg-neutral-900 p-5 shadow-soft">
-              <div className="text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">{t('rewards.community.loadingRewards')}</div>
+              <div className="text-sm text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
+                {t('rewards.community.loadingRewards')}
+              </div>
             </div>
           ) : rewardRoles.length > 0 ? (
             rewardRoles.map((role, index) => {
@@ -236,7 +252,9 @@ export default function RewardsCommunityTab({
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">{role.title}</h3>
+                        <h3 className="text-base font-bold text-stone-900 dark:text-neutral-100 dark:text-neutral-100">
+                          {role.title}
+                        </h3>
                         <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300 dark:text-neutral-300">
                           {role.description}
                         </p>

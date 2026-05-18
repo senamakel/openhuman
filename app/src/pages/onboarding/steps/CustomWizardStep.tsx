@@ -28,7 +28,7 @@ const ChoiceCard = ({ selected, onClick, accent, title, description, testId }: C
       className={`flex h-full w-full flex-col rounded-2xl border-2 p-5 text-left transition-colors focus:outline-none ${
         selected
           ? selectedClasses
-          : '!border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:!border-stone-300 dark:border-neutral-700 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60'
+          : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
       }`}>
       <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{title}</h3>
       <p className="mt-1 text-xs text-stone-600 dark:text-neutral-300 leading-relaxed">{description}</p>
@@ -136,7 +136,7 @@ const CustomWizardStep = ({
         <button
           type="button"
           onClick={onBack}
-          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 focus:outline-none">
+          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 focus:outline-none">
           {t('onboarding.custom.back')}
         </button>
         <div className="flex-1">

@@ -144,7 +144,7 @@ const MascotPanel = () => {
                       onClick={() => handleSelect(opt.id)}
                       data-testid={`mascot-color-${opt.id}`}
                       className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                        selected ? 'bg-stone-100 dark:bg-neutral-800' : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60'
+                        selected ? 'bg-stone-100 dark:bg-neutral-800' : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60'
                       }`}>
                       <span
                         className={`w-10 h-10 rounded-full border-2 transition-shadow ${
@@ -187,7 +187,7 @@ const MascotPanel = () => {
                     type="button"
                     onClick={() => handleSelectBackend(null)}
                     aria-pressed={selectedMascotId == null}
-                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 ${
+                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 ${
                       selectedMascotId == null ? 'bg-stone-50 dark:bg-neutral-800/60 font-medium' : ''
                     }`}>
                     <span>{t('settings.mascot.localDefault')}</span>
@@ -207,7 +207,7 @@ const MascotPanel = () => {
                         onClick={() => handleSelectBackend(summary.id)}
                         aria-pressed={active}
                         data-testid={`backend-mascot-${summary.id}`}
-                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 ${
+                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 ${
                           active ? 'bg-stone-50 dark:bg-neutral-800/60 font-medium' : ''
                         }`}>
                         <span className="flex flex-col">

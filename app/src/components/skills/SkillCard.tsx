@@ -69,7 +69,7 @@ export function UnifiedSkillCard({
   const ctaStyle = CTA_STYLES[ctaVariant] ?? CTA_STYLES.primary;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60">
+    <div className="flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-stone-600 dark:text-neutral-300">
         {icon}
       </div>
@@ -144,7 +144,7 @@ export function UnifiedSkillCard({
                       setMenuOpen(false);
                       action.onClick();
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-40">
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-40">
                     {action.icon}
                     {action.label}
                   </button>

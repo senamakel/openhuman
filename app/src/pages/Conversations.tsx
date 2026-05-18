@@ -1277,7 +1277,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   className={`w-full text-left px-4 py-3 border-b border-stone-50 dark:border-neutral-800 transition-colors group cursor-pointer ${
                     selectedThreadId === thread.id
                       ? 'bg-primary-50 border-l-2 border-l-primary-500'
-                      : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60'
+                      : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60'
                   }`}>
                   <div className="flex items-center justify-between">
                     <p
@@ -1475,7 +1475,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                   setProfileDraft(DEFAULT_PROFILE_DRAFT);
                   setProfileDraftOpen(false);
                 }}
-                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 px-3 text-xs font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
+                className="h-8 rounded-lg border border-stone-200 dark:border-neutral-800 px-3 text-xs font-medium text-stone-600 dark:text-neutral-300 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
                 Cancel
               </button>
             </div>

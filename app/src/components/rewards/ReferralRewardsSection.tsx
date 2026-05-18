@@ -239,7 +239,7 @@ const ReferralRewardsSection = () => {
                 type="button"
                 onClick={() => void handleShare()}
                 disabled={!referralCodeToCopy}
-                className="inline-flex items-center justify-center rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3 text-sm font-medium text-stone-700 dark:text-neutral-200 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-50">
+                className="inline-flex items-center justify-center rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3 text-sm font-medium text-stone-700 dark:text-neutral-200 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-50">
                 {t('rewards.referralSection.share')}
               </button>
               {copyHint ? (

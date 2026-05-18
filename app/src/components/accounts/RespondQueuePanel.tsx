@@ -49,7 +49,7 @@ export default function RespondQueuePanel({
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 px-2 py-1 text-xs text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
+          className="rounded-lg border border-stone-200 dark:border-neutral-800 px-2 py-1 text-xs text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
           {t('common.refresh')}
         </button>
       </div>
@@ -82,7 +82,7 @@ export default function RespondQueuePanel({
                   void openUrl(item.deepLink);
                 }
               }}
-              className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:cursor-default"
+              className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:cursor-default"
               disabled={!item.deepLink}>
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium text-stone-800 dark:text-neutral-100">{queueTitle(item)}</p>

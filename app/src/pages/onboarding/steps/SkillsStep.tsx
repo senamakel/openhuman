@@ -121,7 +121,7 @@ const SkillsStep = ({ onNext, onBack: _onBack }: SkillsStepProps) => {
             type="button"
             onClick={() => setActiveToolkit(gmailMeta)}
             data-testid="onboarding-skills-gmail-button"
-            className="w-full flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 text-left">
+            className="w-full flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 text-left">
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-lg">
               {gmailMeta.icon}
             </div>

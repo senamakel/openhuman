@@ -260,7 +260,7 @@ export function ActionableCard({
       <div
         className={`
           relative p-4 rounded-xl border backdrop-blur-sm transition-all duration-200
-          hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 hover:border-stone-200 dark:border-neutral-800
+          hover:bg-stone-50 dark:hover:bg-neutral-800/60 hover:border-stone-200 dark:border-neutral-800
           ${priorityClasses[item.priority]}
         `}>
         {/* Main content row */}

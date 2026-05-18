@@ -128,7 +128,7 @@ export default function UninstallSkillConfirmDialog({ skill, onClose, onUninstal
             type="button"
             disabled={submitting}
             onClick={onClose}
-            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:cursor-not-allowed disabled:opacity-50">
+            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:cursor-not-allowed disabled:opacity-50">
             {t('common.cancel')}
           </button>
           <button

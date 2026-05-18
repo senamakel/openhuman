@@ -410,13 +410,13 @@ function ResultScreen({
             type="button"
             onClick={onRetry}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('common.retry')}
           </button>
           <button
             type="button"
             onClick={onSwitchMode}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60">
+            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
             {t('bootCheck.switchMode')}
           </button>
           <button
@@ -448,7 +448,7 @@ function ResultScreen({
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -474,7 +474,7 @@ function ResultScreen({
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -500,7 +500,7 @@ function ResultScreen({
             type="button"
             onClick={onSwitchMode}
             disabled={actionBusy}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
             {t('bootCheck.switchMode')}
           </button>
         </div>
@@ -526,7 +526,7 @@ function ResultScreen({
           type="button"
           onClick={onSwitchMode}
           disabled={actionBusy}
-          className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-60">
+          className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:opacity-60">
           {t('bootCheck.switchMode')}
         </button>
       </div>

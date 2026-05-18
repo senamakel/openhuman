@@ -632,7 +632,7 @@ export default function ComposioConnectModal({
                   setSubdomainError(null);
                   setError(null);
                 }}
-                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 text-xs font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 transition-colors">
+                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 text-xs font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors">
                 {t('common.cancel')}
               </button>
             </>
@@ -741,7 +741,7 @@ export default function ComposioConnectModal({
                   );
                   setError(null);
                 }}
-                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 text-sm font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 transition-colors">
+                className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 text-sm font-medium py-2 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors">
                 {t('common.dismiss')}
               </button>
             </>
@@ -806,7 +806,7 @@ function ScopeToggles({ scopes, savingScope, onToggle, error }: ScopeTogglesProp
           return (
             <li
               key={row.key}
-              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60">
+              className="flex items-start justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-neutral-800/60">
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{rowLabel}</span>
                 <p className="text-[11px] text-stone-400 dark:text-neutral-500 leading-snug">{rowHint}</p>

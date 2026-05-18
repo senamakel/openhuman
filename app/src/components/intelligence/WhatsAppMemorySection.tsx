@@ -65,7 +65,7 @@ export function WhatsAppMemorySection({ pollIntervalMs = 30000 }: WhatsAppMemory
           disabled={syncing}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stone-200 dark:border-neutral-800
                      bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-stone-700 dark:text-neutral-200 shadow-sm
-                     transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60
+                     transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60
                      disabled:cursor-not-allowed disabled:opacity-50
                      focus:outline-none focus:ring-2 focus:ring-primary-200">
           <RefreshIcon spinning={syncing} />

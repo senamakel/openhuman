@@ -331,7 +331,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
                 type="button"
                 onClick={handleCancelTransition}
                 disabled={saving}
-                className="flex-1 py-2 rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-stone-800 dark:text-neutral-100 text-sm font-medium hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 transition-colors disabled:opacity-50">
+                className="flex-1 py-2 rounded-xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-stone-800 dark:text-neutral-100 text-sm font-medium hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors disabled:opacity-50">
                 {t('common.cancel')}
               </button>
               <button

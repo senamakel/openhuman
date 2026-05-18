@@ -64,7 +64,7 @@ function channelStatusColor(status: ChannelConnectionStatus): string {
     case 'error':
       return 'text-coral-600';
     default:
-      return 'text-stone-400';
+      return 'text-stone-400 dark:text-neutral-500';
   }
 }
 
@@ -101,7 +101,7 @@ function composioStatusColor(connection: ComposioConnection | undefined): string
     case 'error':
       return 'text-coral-600';
     default:
-      return 'text-stone-400';
+      return 'text-stone-400 dark:text-neutral-500';
   }
 }
 
@@ -692,12 +692,12 @@ export default function Skills() {
                   ? t('scope.project')
                   : t('scope.legacy');
             const scopeColor = skill.legacy
-              ? 'text-stone-600'
+              ? 'text-stone-600 dark:text-neutral-300'
               : skill.scope === 'user'
                 ? 'text-sage-600'
                 : skill.scope === 'project'
                   ? 'text-amber-600'
-                  : 'text-stone-600';
+                  : 'text-stone-600 dark:text-neutral-300';
             const canUninstall = skill.scope === 'user' && !skill.legacy;
             return (
               <UnifiedSkillCard
@@ -757,8 +757,10 @@ export default function Skills() {
           <div className="w-full max-w-3xl space-y-4">
             {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h1 className="text-base font-semibold text-stone-900">Skills</h1>
-                <p className="text-xs text-stone-500">
+                <h1 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+                  Skills
+                </h1>
+                <p className="text-xs text-stone-500 dark:text-neutral-400">
                   Scaffold a new <code className="font-mono">SKILL.md</code> or install a published
                   package.
                 </p>
@@ -767,7 +769,7 @@ export default function Skills() {
                 <button
                   type="button"
                   onClick={() => setInstallDialogOpen(true)}
-                  className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-700 shadow-soft transition-colors hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
+                  className="rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-xs font-medium text-stone-700 dark:text-neutral-200 shadow-soft transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1">
                   Install from URL
                 </button>
                 <button
@@ -791,7 +793,7 @@ export default function Skills() {
                   <button
                     type="button"
                     onClick={() => void refreshComposio()}
-                    className="flex-shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-100">
+                    className="flex-shrink-0 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-white dark:bg-neutral-900 px-3 py-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100 dark:hover:bg-amber-500/10">
                     Retry
                   </button>
                 </div>

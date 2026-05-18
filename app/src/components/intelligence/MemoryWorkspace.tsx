@@ -252,7 +252,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
             data-testid="memory-wipe-all"
             className="inline-flex items-center gap-2 rounded-lg
                        border border-coral-200 dark:border-coral-500/30 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-semibold
-                       text-coral-700 dark:text-coral-300 shadow-sm transition-colors hover:bg-coral-50 dark:bg-coral-500/10
+                       text-coral-700 dark:text-coral-300 shadow-sm transition-colors hover:bg-coral-50 dark:hover:bg-coral-500/10
                        disabled:cursor-not-allowed disabled:opacity-50
                        focus:outline-none focus:ring-2 focus:ring-coral-200"
             title={t('workspace.wipeTitle')}>
@@ -272,8 +272,8 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
             disabled={resetting || wiping || building}
             data-testid="memory-reset-tree"
             className="inline-flex items-center gap-2 rounded-lg
-                       border border-amber-300 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-semibold
-                       text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:bg-amber-500/10
+                       border border-amber-300 dark:border-amber-500/30 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-semibold
+                       text-amber-800 dark:text-amber-300 shadow-sm transition-colors hover:bg-amber-50 dark:hover:bg-amber-500/10
                        disabled:cursor-not-allowed disabled:opacity-50
                        focus:outline-none focus:ring-2 focus:ring-amber-200"
             title={t('workspace.resetTreeTitle')}>
@@ -293,7 +293,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
             disabled={building}
             data-testid="memory-build-trees"
             className="inline-flex items-center gap-2 rounded-lg
-                       bg-primary-50 dark:bg-primary-500/150 px-4 py-2 text-sm font-semibold text-white
+                       bg-primary-500 px-4 py-2 text-sm font-semibold text-white
                        shadow-sm transition-colors hover:bg-primary-600
                        disabled:cursor-not-allowed disabled:opacity-50
                        focus:outline-none focus:ring-2 focus:ring-primary-200">
@@ -313,7 +313,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
               onClick={() => void openVaultInObsidian(graph.content_root_abs)}
               data-testid="memory-open-in-obsidian"
               className="inline-flex items-center gap-2 rounded-lg
-                         bg-violet-50 dark:bg-violet-500/100 px-4 py-2 text-sm font-semibold text-white
+                         bg-violet-500 px-4 py-2 text-sm font-semibold text-white
                          shadow-sm transition-colors hover:bg-violet-600
                          focus:outline-none focus:ring-2 focus:ring-violet-300"
               title={`obsidian://open?path=${graph.content_root_abs}`}>
@@ -353,8 +353,8 @@ function ModeToggle({ mode, onChange }: ModeToggleProps) {
   const { t } = useT();
   const baseBtn =
     'px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200';
-  const active = 'bg-primary-50 dark:bg-primary-500/150 text-white shadow-sm';
-  const idle = 'bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60';
+  const active = 'bg-primary-500 text-white shadow-sm';
+  const idle = 'bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60';
   return (
     <div
       className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-1"

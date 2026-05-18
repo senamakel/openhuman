@@ -164,7 +164,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
           onClick={() => setShowForm(v => !v)}
           className="inline-flex items-center gap-1 rounded-md border border-primary-300 bg-white dark:bg-neutral-900
                      px-3 py-1.5 text-xs font-semibold text-primary-700 dark:text-primary-300 shadow-sm
-                     transition-colors hover:bg-primary-50 dark:bg-primary-500/15
+                     transition-colors hover:bg-primary-50 dark:hover:bg-primary-500/15
                      focus:outline-none focus:ring-2 focus:ring-primary-200"
           data-testid="vault-add-toggle">
           {showForm ? 'Cancel' : '+ Add vault'}
@@ -217,7 +217,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
             <button
               type="submit"
               disabled={creating}
-              className="rounded-md bg-primary-50 dark:bg-primary-500/150 px-3 py-1.5 text-xs font-semibold text-white
+              className="rounded-md bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white
                          shadow-sm transition-colors hover:bg-primary-600
                          disabled:cursor-not-allowed disabled:opacity-50">
               {creating ? 'Creating…' : 'Create vault'}
@@ -263,7 +263,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
                     disabled={state === 'sync' || state === 'remove'}
                     className="rounded-md border border-primary-300 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs
                                font-semibold text-primary-700 dark:text-primary-300 shadow-sm transition-colors
-                               hover:bg-primary-50 dark:bg-primary-500/15 disabled:cursor-not-allowed disabled:opacity-50">
+                               hover:bg-primary-50 dark:hover:bg-primary-500/15 disabled:cursor-not-allowed disabled:opacity-50">
                     {state === 'sync' ? 'Syncing…' : 'Sync'}
                   </button>
                   <button
@@ -272,7 +272,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
                     disabled={state === 'sync' || state === 'remove'}
                     className="rounded-md border border-coral-200 dark:border-coral-500/30 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs
                                font-semibold text-coral-700 dark:text-coral-300 shadow-sm transition-colors
-                               hover:bg-coral-50 dark:bg-coral-500/10 disabled:cursor-not-allowed disabled:opacity-50">
+                               hover:bg-coral-50 dark:hover:bg-coral-500/10 disabled:cursor-not-allowed disabled:opacity-50">
                     {state === 'remove' ? 'Removing…' : 'Remove'}
                   </button>
                 </div>

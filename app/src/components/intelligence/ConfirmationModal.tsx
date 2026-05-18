@@ -93,8 +93,8 @@ export function ConfirmationModal({ modal, onClose }: ConfirmationModalProps) {
               px-4 py-2 text-sm font-medium rounded-lg transition-colors
               ${
                 modal.destructive
-                  ? 'bg-coral-50 dark:bg-coral-500/100 hover:bg-coral-600 text-white'
-                  : 'bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 text-white'
+                  ? 'bg-coral-500 hover:bg-coral-600 text-white'
+                  : 'bg-primary-500 hover:bg-primary-600 text-white'
               }
             `}>
             {modal.confirmText || t('common.confirm')}

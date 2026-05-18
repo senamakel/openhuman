@@ -254,7 +254,7 @@ const ScreenIntelligenceDebugPanel = ({ state }: ScreenIntelligenceDebugPanelPro
 
 const PermissionDot = ({ label, value }: { label: string; value?: string }) => {
   const color =
-    value === 'granted' ? 'bg-green-50 dark:bg-green-500/100' : value === 'denied' ? 'bg-red-50 dark:bg-red-500/100' : 'bg-stone-600';
+    value === 'granted' ? 'bg-green-500' : value === 'denied' ? 'bg-red-500' : 'bg-stone-600';
   return (
     <div className="flex items-center gap-1.5">
       <div className={`h-2 w-2 rounded-full ${color}`} />

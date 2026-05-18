@@ -341,7 +341,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
                 type="button"
                 disabled={busyKeys[compositeKey]}
                 onClick={() => handleConnect(spec)}
-                className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
+                className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
                 {status === 'connected'
                   ? t('channels.telegram.reconnect')
                   : t('channels.telegram.connect')}

@@ -255,7 +255,7 @@ export default function SubconsciousReflectionCards({
                   <button
                     data-testid={`reflection-act-${r.id}`}
                     onClick={() => void handleAct(r)}
-                    className="px-3 py-1.5 text-xs bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 text-white rounded-lg transition-colors">
+                    className="px-3 py-1.5 text-xs bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
                     {t('reflections.act')}
                   </button>
                 )}

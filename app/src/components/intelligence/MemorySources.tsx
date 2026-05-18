@@ -342,7 +342,7 @@ function SourceRowCard({ row, isSyncing, onSync }: SourceRowCardProps) {
           <div className="mt-2 max-w-md" data-testid={`memory-source-progress-${toolkit}`}>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100 dark:bg-neutral-800">
               <div
-                className="h-full bg-primary-50 dark:bg-primary-500/150 transition-all"
+                className="h-full bg-primary-500 transition-all"
                 style={{ width: `${pct}%` }}
                 role="progressbar"
                 aria-valuenow={batchProcessed}
@@ -364,7 +364,7 @@ function SourceRowCard({ row, isSyncing, onSync }: SourceRowCardProps) {
           disabled={isSyncing || !isActive}
           data-testid={`memory-source-sync-${toolkit}`}
           className="inline-flex items-center gap-1.5 rounded-md
-                     bg-primary-50 dark:bg-primary-500/150 px-3 py-1.5 text-xs font-semibold text-white
+                     bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white
                      shadow-sm transition-colors hover:bg-primary-600
                      disabled:cursor-not-allowed disabled:opacity-50
                      focus:outline-none focus:ring-2 focus:ring-primary-200">

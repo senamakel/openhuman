@@ -71,7 +71,7 @@ export default function IntelligenceMemoryTab({
 
       {itemsLoading && !usingMemoryData ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
           <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('memory.loading')}</h2>
@@ -79,7 +79,7 @@ export default function IntelligenceMemoryTab({
         </div>
       ) : isRunning && items.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
             <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
           <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100 mb-2">{t('memory.analyzing')}</h2>
@@ -87,7 +87,7 @@ export default function IntelligenceMemoryTab({
         </div>
       ) : timeGroups.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center animate-fade-up">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-500/150/10">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-primary-500/10">
             <svg
               className="w-8 h-8 text-primary-400"
               fill="none"
@@ -122,7 +122,7 @@ export default function IntelligenceMemoryTab({
               <button
                 onClick={() => void handleAnalyzeNow()}
                 disabled={isRunning}
-                className="px-4 py-2 bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
+                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
                 {t('memory.analyzeNow')}
               </button>
             </>

@@ -41,10 +41,10 @@ const TOAST_ICONS = {
 };
 
 const TOAST_STYLES = {
-  success: 'bg-sage-50 dark:bg-sage-500/100 text-white',
-  error: 'bg-coral-50 dark:bg-coral-500/100 text-white',
-  warning: 'bg-amber-50 dark:bg-amber-500/100 text-white',
-  info: 'bg-primary-50 dark:bg-primary-500/150 text-white',
+  success: 'bg-sage-500 text-white',
+  error: 'bg-coral-500 text-white',
+  warning: 'bg-amber-500 text-white',
+  info: 'bg-primary-500 text-white',
 };
 
 export function Toast({ notification, onRemove }: ToastProps) {

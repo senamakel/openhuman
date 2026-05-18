@@ -299,13 +299,13 @@ export default function IntelligenceSubconsciousTab({
                     {isSkillRelated(esc.title, esc.description) ? (
                       <button
                         onClick={() => handleFixInSkills(esc.id)}
-                        className="px-3 py-1.5 text-xs bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 text-white rounded-lg transition-colors">
+                        className="px-3 py-1.5 text-xs bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
                         {t('subconscious.fixInConnections')}
                       </button>
                     ) : (
                       <button
                         onClick={() => void handleApproveEscalation(esc.id)}
-                        className="px-3 py-1.5 text-xs bg-sage-50 dark:bg-sage-500/100 hover:bg-sage-600 text-white rounded-lg transition-colors">
+                        className="px-3 py-1.5 text-xs bg-sage-500 hover:bg-sage-600 text-white rounded-lg transition-colors">
                         {t('subconscious.goAhead')}
                       </button>
                     )}
@@ -358,7 +358,7 @@ export default function IntelligenceSubconsciousTab({
                       aria-label={`${task.enabled ? t('common.disable') : t('common.enable')} ${task.title}`}
                       onClick={() => void handleToggleTask(task.id, !task.enabled, task.title)}
                       className={`relative w-7 h-4 rounded-full flex-shrink-0 transition-colors ${
-                        task.enabled ? 'bg-sage-50 dark:bg-sage-500/100' : 'bg-stone-300'
+                        task.enabled ? 'bg-sage-500' : 'bg-stone-300'
                       }`}>
                       <span
                         className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${
@@ -405,7 +405,7 @@ export default function IntelligenceSubconsciousTab({
           <button
             type="submit"
             disabled={!newTaskTitle.trim()}
-            className="px-3 py-2 text-sm bg-primary-50 dark:bg-primary-500/150 hover:bg-primary-600 disabled:opacity-40 text-white rounded-lg transition-colors">
+            className="px-3 py-2 text-sm bg-primary-500 hover:bg-primary-600 disabled:opacity-40 text-white rounded-lg transition-colors">
             {t('common.add')}
           </button>
         </form>

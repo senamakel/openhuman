@@ -235,8 +235,8 @@ export function ActionableCard({
 
   // Priority styling
   const priorityClasses = {
-    critical: 'border-coral-500/30 bg-coral-50 dark:bg-coral-500/100/5',
-    important: 'border-amber-500/30 bg-amber-50 dark:bg-amber-500/100/5',
+    critical: 'border-coral-500/30 bg-coral-500/5',
+    important: 'border-amber-500/30 bg-amber-500/5',
     normal: 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60',
   };
 
@@ -355,7 +355,7 @@ export function ActionableCard({
               {isNew && (
                 <>
                   <span className="text-xs text-stone-600 dark:text-neutral-300">•</span>
-                  <span className="text-xs bg-sage-50 dark:bg-sage-500/100 text-white px-1.5 py-0.5 rounded-sm font-medium">
+                  <span className="text-xs bg-sage-500 text-white px-1.5 py-0.5 rounded-sm font-medium">
                     {t('actionable.new')}
                   </span>
                 </>

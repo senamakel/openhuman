@@ -76,10 +76,10 @@ export function SubagentActivityBlock({ subagent }: { subagent: SubagentActivity
           {subagent.toolCalls.map(call => {
             const tone =
               call.status === 'running'
-                ? 'text-amber-700'
+                ? 'text-amber-700 dark:text-amber-300'
                 : call.status === 'success'
-                  ? 'text-sage-700'
-                  : 'text-coral-700';
+                  ? 'text-sage-700 dark:text-sage-300'
+                  : 'text-coral-700 dark:text-coral-300';
             return (
               <li
                 key={call.callId}
@@ -135,23 +135,23 @@ export function ToolTimelineBlock({ entries }: { entries: ToolTimelineEntry[] })
         const statusTone =
           entry.status === 'running'
             ? {
-                pill: 'bg-amber-100 text-amber-600',
-                bubble: 'bg-amber-50 text-amber-900',
-                code: 'text-amber-800',
-                chevron: 'text-amber-500',
+                pill: 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300',
+                bubble: 'bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-200',
+                code: 'text-amber-800 dark:text-amber-300',
+                chevron: 'text-amber-500 dark:text-amber-400',
               }
             : entry.status === 'success'
               ? {
-                  pill: 'bg-sage-100 text-sage-600',
-                  bubble: 'bg-sage-50 text-sage-900',
-                  code: 'text-sage-800',
-                  chevron: 'text-sage-500',
+                  pill: 'bg-sage-100 dark:bg-sage-500/20 text-sage-600 dark:text-sage-300',
+                  bubble: 'bg-sage-50 dark:bg-sage-500/10 text-sage-900 dark:text-sage-200',
+                  code: 'text-sage-800 dark:text-sage-300',
+                  chevron: 'text-sage-500 dark:text-sage-400',
                 }
               : {
-                  pill: 'bg-coral-100 text-coral-600',
-                  bubble: 'bg-coral-50 text-coral-900',
-                  code: 'text-coral-800',
-                  chevron: 'text-coral-500',
+                  pill: 'bg-coral-100 dark:bg-coral-500/20 text-coral-600 dark:text-coral-300',
+                  bubble: 'bg-coral-50 dark:bg-coral-500/10 text-coral-900 dark:text-coral-200',
+                  code: 'text-coral-800 dark:text-coral-300',
+                  chevron: 'text-coral-500 dark:text-coral-400',
                 };
 
         return (

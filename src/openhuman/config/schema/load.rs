@@ -469,9 +469,13 @@ pub fn pre_login_user_dir(default_openhuman_dir: &Path) -> PathBuf {
 /// 2026-05-17, and `tests/composio_list_tools_stack_overflow_regression.rs`).
 /// Moving the parse onto the blocking-pool gives it a *fresh* thread
 /// stack with no async tower above it, so the same parser frames easily
-/// fit. This is the actual stack-overflow fix; the cache in
-/// `config::ops::load_config_with_timeout` is an additional optimization
-/// that avoids paying the parse on repeat calls.
+/// fit. (An earlier draft of this fix also fronted
+/// `config::ops::load_config_with_timeout` with a per-process cache to
+/// skip the parse on repeat calls, but it was reverted — the in-process
+/// integration tests in `tests/json_rpc_e2e.rs` reuse workspace paths
+/// and load config mid-mutation, racing the cache. The spawn_blocking
+/// move is sufficient on its own once paired with the Tauri worker
+/// stack bump in `app/src-tauri/src/lib.rs`.)
 async fn parse_config_with_recovery(config_path: &Path, contents: &str) -> (Config, bool) {
     let parse_err = match parse_toml_off_worker(contents.to_string()).await {
         Ok(config) => {

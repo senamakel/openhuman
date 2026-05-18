@@ -620,8 +620,8 @@ body::before {
 
 /* Dark-mode overrides for component classes that hardcode light colors.
    Keep these scoped — the Tailwind utility classes used in TSX still need
-   per-call `dark:` variants. This block only fixes the .btn-*/.card-*/.input-*
-   etc. component shortcuts declared above. */
+   per-call `dark:` variants. This block only fixes the .btn / .card / .input
+   component shortcuts declared above. */
 :root.dark .card-elevated,
 :root.dark .card-interactive,
 :root.dark .market-card,

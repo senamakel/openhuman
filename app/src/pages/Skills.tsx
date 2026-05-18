@@ -58,11 +58,11 @@ function channelStatusLabel(status: ChannelConnectionStatus, t: (key: string) =>
 function channelStatusColor(status: ChannelConnectionStatus): string {
   switch (status) {
     case 'connected':
-      return 'text-sage-600';
+      return 'text-sage-600 dark:text-sage-300';
     case 'connecting':
-      return 'text-amber-600';
+      return 'text-amber-600 dark:text-amber-300';
     case 'error':
-      return 'text-coral-600';
+      return 'text-coral-600 dark:text-coral-300';
     default:
       return 'text-stone-400 dark:text-neutral-500';
   }
@@ -93,13 +93,13 @@ function composioStatusLabel(
 function composioStatusColor(connection: ComposioConnection | undefined): string {
   switch (deriveComposioState(connection)) {
     case 'connected':
-      return 'text-sage-600';
+      return 'text-sage-600 dark:text-sage-300';
     case 'pending':
-      return 'text-amber-600';
+      return 'text-amber-600 dark:text-amber-300';
     case 'expired':
-      return 'text-coral-600';
+      return 'text-coral-600 dark:text-coral-300';
     case 'error':
-      return 'text-coral-600';
+      return 'text-coral-600 dark:text-coral-300';
     default:
       return 'text-stone-400 dark:text-neutral-500';
   }
@@ -174,11 +174,11 @@ function ComposioConnectorTile({
       aria-label={`${meta.name}, ${statusLabel}. ${ctaLabel}.`}
       className={`group flex flex-col justify-center items-center rounded-2xl border p-3 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
         isConnected
-          ? 'border-sage-300 bg-sage-50/80 shadow-[0_0_0_1px_rgba(34,197,94,0.12)] hover:bg-sage-50'
+          ? 'border-sage-300 bg-sage-50/80 shadow-[0_0_0_1px_rgba(34,197,94,0.12)] hover:bg-sage-50 dark:border-sage-500/30 dark:bg-sage-500/10 dark:hover:bg-sage-500/15'
           : isPending
-            ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/70'
+            ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10 dark:hover:bg-amber-500/15'
             : isExpired || isError
-              ? 'border-coral-200 bg-coral-50/30 hover:bg-coral-50/50'
+              ? 'border-coral-200 bg-coral-50/30 hover:bg-coral-50/50 dark:border-coral-500/30 dark:bg-coral-500/10 dark:hover:bg-coral-500/15'
               : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800/60'
       }`}>
       <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center text-stone-700 dark:text-neutral-200 [&_img]:max-h-10 [&_img]:max-w-10 [&_svg]:h-8 [&_svg]:w-8">
@@ -190,7 +190,7 @@ function ComposioConnectorTile({
         </span>
         <span
           className={`line-clamp-1 text-[10px] font-medium ${
-            hasComposioError ? 'text-amber-700' : composioStatusColor(connection)
+            hasComposioError ? 'text-amber-700 dark:text-amber-300' : composioStatusColor(connection)
           }`}>
           {statusLabel}
         </span>

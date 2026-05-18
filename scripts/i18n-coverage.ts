@@ -329,6 +329,24 @@ async function main() {
     process.exit(2);
   }
 
+  // Guard against drift between en.ts (runtime source of truth) and the en-N.ts chunks.
+  // Both must agree key-for-key or downstream tests / translator workflows will diverge.
+  const enAggregateModule = (await import(
+    pathToFileURL(path.join(I18N_DIR, "en.ts")).href
+  )) as { default: Record<string, string> };
+  const enTsKeys = new Set(Object.keys(enAggregateModule.default));
+  const enChunkKeys = new Set(Object.keys(en.flat));
+  const inEnTsNotChunks = [...enTsKeys].filter((k) => !enChunkKeys.has(k));
+  const inChunksNotEnTs = [...enChunkKeys].filter((k) => !enTsKeys.has(k));
+  if (inEnTsNotChunks.length || inChunksNotEnTs.length) {
+    console.error(
+      `! Drift between en.ts and en-N.ts chunks:\n` +
+        `    in en.ts only: ${inEnTsNotChunks.join(", ") || "(none)"}\n` +
+        `    in chunks only: ${inChunksNotEnTs.join(", ") || "(none)"}`,
+    );
+    process.exit(2);
+  }
+
   const reports: LocaleReport[] = [];
   for (const locale of opts.locales) {
     if (locale === "en") continue;

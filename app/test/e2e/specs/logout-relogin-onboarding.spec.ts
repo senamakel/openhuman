@@ -24,7 +24,6 @@ import {
 } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import {
-  isOnboardingOverlayVisible,
   logoutViaSettings,
   performFullLogin,
   waitForLoggedOutState,

@@ -587,7 +587,11 @@ body::before {
    Dark Mode — applied when <html class="dark">
    ============================================ */
 :root.dark {
-  --color-background: #0a0a0a;
+  /* Page bg is darker than card/surface so elevated content (cards, menus,
+     panels) stands out against it. neutral-950 (#0a0a0a) for the page,
+     neutral-900 (#171717) for cards gives ~9% lightness delta — visible
+     but calm. */
+  --color-background: #000000;
   --color-surface: #171717;
   --color-surface-elevated: #1f1f1f;
   --color-border: #2d2d2d;

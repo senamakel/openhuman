@@ -16,7 +16,7 @@ function statusBadgeClass(status: ReferralRelationshipStatus): string {
     case 'converted':
       return 'bg-sage-100 text-sage-800';
     case 'expired':
-      return 'bg-stone-100 text-stone-600';
+      return 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300';
     default:
       return 'bg-amber-50 text-amber-800';
   }
@@ -163,20 +163,20 @@ const ReferralRewardsSection = () => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6 space-y-6">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6 space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold text-stone-900">
+            <h2 className="text-2xl font-semibold text-stone-900 dark:text-neutral-100">
               {t('rewards.referralSection.title')}
             </h2>
-            <p className="text-sm text-stone-600 max-w-xl">
+            <p className="text-sm text-stone-600 dark:text-neutral-300 max-w-xl">
               {t('rewards.referralSection.subtitle')}
             </p>
           </div>
         </div>
 
         {loading && !stats ? (
-          <p className="text-sm text-stone-500">{t('rewards.referralSection.loading')}</p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400">{t('rewards.referralSection.loading')}</p>
         ) : null}
         {loadError ? (
           <div className="rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-800">
@@ -193,35 +193,35 @@ const ReferralRewardsSection = () => {
         {stats ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
+              <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
                   {t('rewards.referralSection.yourCode')}
                 </div>
-                <div className="mt-2 font-mono text-lg font-semibold text-stone-900 break-all">
+                <div className="mt-2 font-mono text-lg font-semibold text-stone-900 dark:text-neutral-100 break-all">
                   {stats.referralCode || '—'}
                 </div>
               </div>
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
+              <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
                   {t('rewards.referralSection.totalEarned')}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-stone-900">
+                <div className="mt-2 text-2xl font-semibold text-stone-900 dark:text-neutral-100">
                   {formatUsd(stats.totals.totalRewardUsd)}
                 </div>
               </div>
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
+              <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
                   {t('rewards.referralSection.pendingReferrals')}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-stone-900">
+                <div className="mt-2 text-2xl font-semibold text-stone-900 dark:text-neutral-100">
                   {stats.totals.pendingCount}
                 </div>
               </div>
-              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
+              <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-neutral-500">
                   {t('rewards.referralSection.completed')}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-stone-900">
+                <div className="mt-2 text-2xl font-semibold text-stone-900 dark:text-neutral-100">
                   {stats.totals.convertedCount}
                 </div>
               </div>
@@ -239,7 +239,7 @@ const ReferralRewardsSection = () => {
                 type="button"
                 onClick={() => void handleShare()}
                 disabled={!referralCodeToCopy}
-                className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50">
+                className="inline-flex items-center justify-center rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3 text-sm font-medium text-stone-700 dark:text-neutral-200 transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 disabled:opacity-50">
                 {t('rewards.referralSection.share')}
               </button>
               {copyHint ? (
@@ -251,11 +251,11 @@ const ReferralRewardsSection = () => {
       </div>
 
       {stats && stats.canApplyReferral !== false && showApplyForm ? (
-        <div className="rounded-xl shadow-soft border border-stone-200 bg-white p-4 space-y-3">
-          <h2 className="text-2xl font-semibold text-stone-900">
+        <div className="rounded-xl shadow-soft border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
+          <h2 className="text-2xl font-semibold text-stone-900 dark:text-neutral-100">
             {t('rewards.referralSection.haveCode')}
           </h2>
-          <p className="text-xs text-stone-600">{t('rewards.referralSection.haveCodeDesc')}</p>
+          <p className="text-xs text-stone-600 dark:text-neutral-300">{t('rewards.referralSection.haveCodeDesc')}</p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="text"
@@ -264,7 +264,7 @@ const ReferralRewardsSection = () => {
               onKeyDown={e => e.key === 'Enter' && void handleApply()}
               placeholder={t('rewards.referralSection.placeholder')}
               disabled={applyLoading}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 bg-white font-mono text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 font-mono text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
             <button
               type="button"
@@ -292,19 +292,19 @@ const ReferralRewardsSection = () => {
       ) : null}
 
       {stats ? (
-        <div className="bg-white rounded-2xl shadow-soft border border-stone-200 p-6">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6">
           <div>
-            <h3 className="text-sm font-semibold text-stone-900 mb-2">
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
               {t('rewards.referralSection.activity')}
             </h3>
             {stats.referrals.length === 0 ? (
-              <p className="text-sm text-stone-500 rounded-xl border border-dashed border-stone-200 px-4 py-6 text-center">
+              <p className="text-sm text-stone-500 dark:text-neutral-400 rounded-xl border border-dashed border-stone-200 dark:border-neutral-800 px-4 py-6 text-center">
                 {t('rewards.referralSection.noReferrals')}
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-stone-200">
+              <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-neutral-800">
                 <table className="min-w-full text-sm text-left">
-                  <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
+                  <thead className="bg-stone-50 dark:bg-neutral-800/60 text-xs uppercase tracking-wide text-stone-500 dark:text-neutral-400">
                     <tr>
                       <th className="px-3 py-2 font-medium">
                         {t('rewards.referralSection.colReferredUser')}
@@ -320,10 +320,10 @@ const ReferralRewardsSection = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y divide-stone-100 dark:divide-neutral-800">
                     {stats.referrals.map((row, idx) => (
-                      <tr key={row.id ?? row.referredUserId ?? idx} className="bg-white">
-                        <td className="px-3 py-2 font-mono text-stone-800">
+                      <tr key={row.id ?? row.referredUserId ?? idx} className="bg-white dark:bg-neutral-900">
+                        <td className="px-3 py-2 font-mono text-stone-800 dark:text-neutral-100">
                           {row.referredUserMasked || row.referredDisplayName || '—'}
                         </td>
                         <td className="px-3 py-2">
@@ -336,12 +336,12 @@ const ReferralRewardsSection = () => {
                                 : t('rewards.referralSection.statusJoined')}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-stone-700">
+                        <td className="px-3 py-2 text-stone-700 dark:text-neutral-200">
                           {row.rewardUsd != null && row.rewardUsd > 0
                             ? formatUsd(row.rewardUsd)
                             : '—'}
                         </td>
-                        <td className="px-3 py-2 text-stone-500 text-xs">
+                        <td className="px-3 py-2 text-stone-500 dark:text-neutral-400 text-xs">
                           {row.status === 'converted' && row.convertedAt
                             ? new Date(row.convertedAt).toLocaleString()
                             : row.createdAt

@@ -46,7 +46,11 @@ async function invokeTauriCommand<T>(
         // Use __TAURI_INTERNALS__.invoke — the same path @tauri-apps/api/core uses
         // internally. Under CEF, window.__TAURI__ is not populated but
         // __TAURI_INTERNALS__ is always present (mirrors tauri-commands.spec.ts).
-        const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: (cmd: string, args?: unknown) => Promise<unknown> } }).__TAURI_INTERNALS__;
+        const internals = (
+          window as unknown as {
+            __TAURI_INTERNALS__?: { invoke?: (cmd: string, args?: unknown) => Promise<unknown> };
+          }
+        ).__TAURI_INTERNALS__;
         if (typeof internals?.invoke !== 'function') {
           done({ ok: false, error: 'window.__TAURI_INTERNALS__.invoke not available' });
           return;
@@ -54,7 +58,9 @@ async function invokeTauriCommand<T>(
         internals
           .invoke(cmd, a)
           .then((r: unknown) => done({ ok: true, result: r }))
-          .catch((e: unknown) => done({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+          .catch((e: unknown) =>
+            done({ ok: false, error: e instanceof Error ? e.message : String(e) })
+          );
       },
       command,
       args

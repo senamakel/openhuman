@@ -163,7 +163,7 @@ const DiscordServerChannelPicker = ({
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700">
+        <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
           {error}
         </div>
       )}
@@ -254,8 +254,8 @@ const DiscordServerChannelPicker = ({
         <div
           className={`rounded-lg border px-3 py-2 text-xs ${
             permissions.missing_permissions.length === 0
-              ? 'border-sage-200 bg-sage-50 text-sage-700'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
+              ? 'border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 text-sage-700 dark:text-sage-300'
+              : 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'
           }`}>
           {permissions.missing_permissions.length === 0 ? (
             <span>{t('channels.discord.picker.allPermissionsOk')}</span>

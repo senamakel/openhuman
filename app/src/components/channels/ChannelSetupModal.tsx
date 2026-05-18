@@ -90,7 +90,7 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
                 <h2 id="channel-setup-title" className="text-base font-semibold text-stone-900 dark:text-neutral-100">
                   {definition.display_name}
                 </h2>
-                <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-primary-500/15 text-primary-600">
+                <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-primary-50 dark:bg-primary-500/150/15 text-primary-600 dark:text-primary-300">
                   {t('channels.channel')}
                 </span>
               </div>

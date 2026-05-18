@@ -297,7 +297,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
   return (
     <div className="space-y-3">
       {error && (
-        <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
+        <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-700 dark:text-coral-300">
           {error}
         </div>
       )}
@@ -341,7 +341,7 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
                 type="button"
                 disabled={busyKeys[compositeKey]}
                 onClick={() => handleConnect(spec)}
-                className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
+                className="rounded-lg bg-primary-50 dark:bg-primary-500/150 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
                 {status === 'connected'
                   ? t('channels.telegram.reconnect')
                   : t('channels.telegram.connect')}

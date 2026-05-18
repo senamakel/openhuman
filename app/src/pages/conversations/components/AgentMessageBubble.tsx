@@ -126,7 +126,7 @@ export function AgentMessageBubble({
   if (table) {
     return (
       <div
-        className={`w-full max-w-full overflow-hidden border border-stone-200 dark:border-neutral-800 bg-white/90 shadow-sm ${bubbleChrome}`}>
+        className={`w-full max-w-full overflow-hidden border border-stone-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-900/90 shadow-sm ${bubbleChrome}`}>
         <div className="overflow-x-auto">
           <table className="w-max min-w-full border-collapse text-left text-sm text-stone-800 dark:text-neutral-100">
             <thead className="bg-stone-100 dark:bg-neutral-800/90">
@@ -144,7 +144,7 @@ export function AgentMessageBubble({
               {table.rows.map((row, rowIndex) => (
                 <tr
                   key={`${rowIndex}:${row.join('|')}`}
-                  className="odd:bg-white dark:bg-neutral-900 even:bg-stone-50 dark:bg-neutral-800/60">
+                  className="odd:bg-white dark:odd:bg-neutral-900 even:bg-stone-50 dark:even:bg-neutral-800/60">
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${rowIndex}:${cellIndex}:${cell}`}

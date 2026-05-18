@@ -250,7 +250,7 @@ const TeamInvitesPanel = () => {
                           disabled={status !== 'active'}
                           className={`p-1.5 rounded-lg transition-colors ${
                             status === 'active'
-                              ? 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 dark:text-neutral-100 dark:hover:text-neutral-100 dark:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800 dark:bg-neutral-800'
+                              ? 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800'
                               : 'text-stone-600 dark:text-neutral-300 cursor-not-allowed'
                           }`}
                           aria-label="Copy invite code">
@@ -373,7 +373,7 @@ const TeamInvitesPanel = () => {
                     <button
                       onClick={() => setInviteToRevoke(null)}
                       disabled={revokingId === inviteToRevoke.id}
-                      className="flex-1 px-4 py-2 text-sm font-medium rounded-xl bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200 transition-colors disabled:opacity-50">
+                      className="flex-1 px-4 py-2 text-sm font-medium rounded-xl bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:hover:bg-neutral-700 text-stone-700 dark:text-neutral-200 transition-colors disabled:opacity-50">
                       Cancel
                     </button>
                     <button

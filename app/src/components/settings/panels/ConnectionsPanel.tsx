@@ -44,7 +44,7 @@ function ConnectionOptionRow({
       {option.statusLabel}
     </span>
   ) : (
-    <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-primary-50 text-primary-600 border border-primary-100">
+    <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-primary-50 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 border border-primary-100 dark:border-primary-500/30">
       {t('connections.setUp')}
     </span>
   );

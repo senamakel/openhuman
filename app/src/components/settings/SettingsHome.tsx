@@ -277,7 +277,7 @@ const SettingsHome = () => {
       {/* Log Out & Clear Data Confirmation Modal */}
       {showLogoutAndClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-stone-200">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-md w-full p-6 border border-stone-200 dark:border-neutral-800">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
                 <svg
@@ -294,12 +294,14 @@ const SettingsHome = () => {
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-stone-900">{t('clearData.title')}</h3>
+                <h3 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+                  {t('clearData.title')}
+                </h3>
               </div>
             </div>
 
             <div className="mb-6">
-              <div className="text-stone-700 text-sm leading-relaxed">
+              <div className="text-stone-700 dark:text-neutral-300 text-sm leading-relaxed">
                 <p>{t('clearData.warning')}</p>
                 <ul className="list-disc pl-5 mt-2 space-y-1">
                   <li>{t('clearData.bulletSettings')}</li>
@@ -324,7 +326,7 @@ const SettingsHome = () => {
                   setError(null);
                 }}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100 transition-colors disabled:opacity-50">
+                className="flex-1 px-4 py-2 rounded-lg border border-stone-200 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50">
                 {t('common.cancel')}
               </button>
               <button

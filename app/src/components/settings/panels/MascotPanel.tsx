@@ -71,6 +71,12 @@ const MascotPanel = () => {
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Monotonically-bumped preview-request id. Unmount + each new preview
+  // both increment it so any in-flight `synthesizeSpeech(...)` whose
+  // resolve loses the race is detected and bails out before touching
+  // refs / state — covers the "user navigates away mid-fetch" case the
+  // earlier audio-only cleanup missed.
+  const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,9 +120,12 @@ const MascotPanel = () => {
     };
   }, [selectedMascotId]);
 
-  // Stop any in-flight preview audio when the panel unmounts.
+  // Stop any in-flight preview audio when the panel unmounts. Also
+  // bump the preview request id so a `synthesizeSpeech(...)` that
+  // resolves after unmount can detect the staleness and bail.
   useEffect(() => {
     return () => {
+      previewRequestIdRef.current += 1;
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
         previewAudioRef.current.src = '';
@@ -150,9 +159,14 @@ const MascotPanel = () => {
   // ── Voice picker handlers ────────────────────────────────────────
   // Presets the dropdown should expose. Always include the default
   // mascot voice (regardless of its gender) so the user can fall back
-  // without untoggling the gender filter first.
+  // without untoggling the gender filter first. Also always include
+  // the currently-active preset id — otherwise flipping the gender
+  // filter leaves the controlled `<select>` pointing at an id with
+  // no matching `<option>`, and the picker stops reflecting the real
+  // selection.
   const visiblePresets = ELEVENLABS_VOICE_PRESETS.filter(
-    p => p.gender === voiceGender || p.locales.includes('*')
+    p =>
+      p.id === effectiveVoiceId || p.gender === voiceGender || p.locales.includes('*')
   );
 
   const onGenderChange = (next: MascotVoiceGender) => {
@@ -195,6 +209,11 @@ const MascotPanel = () => {
   };
 
   const onVoicePreview = async () => {
+    // Each click reserves a fresh request id; the unmount cleanup and
+    // every subsequent click bump the ref, so a stale `synthesizeSpeech`
+    // resolve can detect that the user has moved on before it mutates
+    // state or starts audio for a preview that's no longer wanted.
+    const requestId = ++previewRequestIdRef.current;
     setIsPreviewingVoice(true);
     setVoicePreviewError(null);
     if (previewAudioRef.current) {
@@ -206,15 +225,17 @@ const MascotPanel = () => {
       const tts = await synthesizeSpeech("Hi, I'm your assistant. This is a voice preview.", {
         voiceId: effectiveVoiceId,
       });
+      if (previewRequestIdRef.current !== requestId) return;
       const src = `data:${tts.audio_mime || 'audio/mpeg'};base64,${tts.audio_base64}`;
       const audio = new window.Audio(src);
       previewAudioRef.current = audio;
       await audio.play();
     } catch (err) {
+      if (previewRequestIdRef.current !== requestId) return;
       const message = err instanceof Error ? err.message : 'Voice preview failed';
       setVoicePreviewError(message);
     } finally {
-      setIsPreviewingVoice(false);
+      if (previewRequestIdRef.current === requestId) setIsPreviewingVoice(false);
     }
   };
 

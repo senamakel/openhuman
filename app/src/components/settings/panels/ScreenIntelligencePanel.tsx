@@ -136,12 +136,12 @@ const ScreenIntelligencePanel = () => {
         )}
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('settings.features.screenAwareness')}
           </h3>
 
-          <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-            <span className="text-sm text-stone-700">{t('common.enabled')}</span>
+          <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+            <span className="text-sm text-stone-700 dark:text-neutral-200">{t('common.enabled')}</span>
             <input
               type="checkbox"
               checked={enabled}
@@ -149,8 +149,8 @@ const ScreenIntelligencePanel = () => {
             />
           </label>
 
-          <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-            <span className="text-sm text-stone-700">{t('settings.screenAwareness.mode')}</span>
+          <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+            <span className="text-sm text-stone-700 dark:text-neutral-200">{t('settings.screenAwareness.mode')}</span>
             <select
               value={policyMode}
               onChange={event =>
@@ -160,7 +160,7 @@ const ScreenIntelligencePanel = () => {
                     : 'all_except_blacklist'
                 )
               }
-              className="rounded border border-stone-200 bg-white px-2 py-1 text-xs text-stone-700">
+              className="rounded border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200">
               <option value="all_except_blacklist">
                 {t('settings.screenAwareness.allExceptBlacklist')}
               </option>
@@ -168,8 +168,8 @@ const ScreenIntelligencePanel = () => {
             </select>
           </label>
 
-          <label className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-            <span className="text-sm text-stone-700">
+          <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
+            <span className="text-sm text-stone-700 dark:text-neutral-200">
               {t('settings.screenAwareness.screenMonitoring')}
             </span>
             <input
@@ -195,10 +195,10 @@ const ScreenIntelligencePanel = () => {
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900">
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('settings.screenAwareness.session')}
           </h3>
-          <div className="text-sm text-stone-600 space-y-1">
+          <div className="text-sm text-stone-600 dark:text-neutral-300 space-y-1">
             <div>
               {t('settings.screenAwareness.status')}:{' '}
               {status?.session.active
@@ -242,7 +242,7 @@ const ScreenIntelligencePanel = () => {
         </section>
 
         {status !== null && !status.platform_supported && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-700">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-500/15 dark:border-amber-500/30 p-3 text-sm text-amber-700 dark:text-amber-300">
             {t('settings.screenAwareness.macosOnly')}
           </div>
         )}

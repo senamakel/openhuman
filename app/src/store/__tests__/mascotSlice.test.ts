@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 
 import reducer, {
   DEFAULT_MASCOT_COLOR,
+  DEFAULT_MASCOT_VOICE_GENDER,
   MAX_MASCOT_VOICE_ID_LEN,
+  selectEffectiveMascotVoiceId,
   selectMascotColor,
+  selectMascotVoiceGender,
   selectMascotVoiceId,
+  selectMascotVoiceUseLocaleDefault,
   selectSelectedMascotId,
   setMascotColor,
+  setMascotVoiceGender,
   setMascotVoiceId,
+  setMascotVoiceUseLocaleDefault,
   setSelectedMascotId,
   SUPPORTED_MASCOT_COLORS,
 } from '../mascotSlice';
@@ -141,6 +147,127 @@ describe('mascotSlice', () => {
       const state = reducer(undefined, rehydrate('mascot', { color: 'green' }));
       expect(state.color).toBe('green');
       expect(state.voiceId).toBeNull();
+    });
+  });
+
+  // Voice gender + locale-default toggle land alongside the voice id
+  // (see `selectEffectiveMascotVoiceId`). Each branch of the resolver
+  // is pinned here so future refactors can't silently flip precedence.
+  describe('voice gender + locale default', () => {
+    it('defaults to the shipped voice gender and the toggle off', () => {
+      const state = reducer(undefined, { type: '@@INIT' });
+      expect(state.voiceGender).toBe(DEFAULT_MASCOT_VOICE_GENDER);
+      expect(state.voiceUseLocaleDefault).toBe(false);
+      expect(selectMascotVoiceGender({ mascot: state })).toBe(DEFAULT_MASCOT_VOICE_GENDER);
+      expect(selectMascotVoiceUseLocaleDefault({ mascot: state })).toBe(false);
+    });
+
+    it('setMascotVoiceGender accepts male/female', () => {
+      let state = reducer(undefined, setMascotVoiceGender('female'));
+      expect(state.voiceGender).toBe('female');
+      state = reducer(state, setMascotVoiceGender('male'));
+      expect(state.voiceGender).toBe('male');
+    });
+
+    it('setMascotVoiceGender ignores junk payloads', () => {
+      const before = reducer(undefined, setMascotVoiceGender('female'));
+      // Cast: simulate a stale dispatch (older build, wire-level fuzz).
+      const after = reducer(
+        before,
+        setMascotVoiceGender('robot' as unknown as 'female')
+      );
+      expect(after.voiceGender).toBe('female');
+    });
+
+    it('setMascotVoiceUseLocaleDefault flips the toggle', () => {
+      let state = reducer(undefined, setMascotVoiceUseLocaleDefault(true));
+      expect(state.voiceUseLocaleDefault).toBe(true);
+      state = reducer(state, setMascotVoiceUseLocaleDefault(false));
+      expect(state.voiceUseLocaleDefault).toBe(false);
+    });
+
+    it('resetUserScopedState restores both fields to defaults', () => {
+      let state = reducer(undefined, setMascotVoiceGender('female'));
+      state = reducer(state, setMascotVoiceUseLocaleDefault(true));
+      const reset = reducer(state, resetUserScopedState());
+      expect(reset.voiceGender).toBe(DEFAULT_MASCOT_VOICE_GENDER);
+      expect(reset.voiceUseLocaleDefault).toBe(false);
+    });
+
+    it('REHYDRATE restores a valid voiceGender + voiceUseLocaleDefault', () => {
+      const state = reducer(undefined, {
+        type: REHYDRATE,
+        key: 'mascot',
+        payload: { voiceGender: 'female', voiceUseLocaleDefault: true },
+      });
+      expect(state.voiceGender).toBe('female');
+      expect(state.voiceUseLocaleDefault).toBe(true);
+    });
+
+    it('REHYDRATE scrubs unknown voiceGender back to default', () => {
+      const state = reducer(undefined, {
+        type: REHYDRATE,
+        key: 'mascot',
+        payload: { voiceGender: 'space-elf', voiceUseLocaleDefault: 'yes' },
+      });
+      expect(state.voiceGender).toBe(DEFAULT_MASCOT_VOICE_GENDER);
+      // Non-boolean → coerced to false (the safe default).
+      expect(state.voiceUseLocaleDefault).toBe(false);
+    });
+
+    it('REHYDRATE treats older payloads without voice-gender fields as defaults', () => {
+      const state = reducer(undefined, {
+        type: REHYDRATE,
+        key: 'mascot',
+        payload: { color: 'navy' },
+      });
+      expect(state.voiceGender).toBe(DEFAULT_MASCOT_VOICE_GENDER);
+      expect(state.voiceUseLocaleDefault).toBe(false);
+    });
+  });
+
+  describe('selectEffectiveMascotVoiceId', () => {
+    it('returns the manual voiceId override when set and toggle off', () => {
+      const state = reducer(undefined, setMascotVoiceId('custom-voice-1'));
+      expect(
+        selectEffectiveMascotVoiceId({
+          mascot: state,
+          locale: { current: 'en' },
+        })
+      ).toBe('custom-voice-1');
+    });
+
+    it('falls through to the build-time default when no override and toggle off', () => {
+      const state = reducer(undefined, { type: '@@INIT' });
+      // The setup.ts mock pins MASCOT_VOICE_ID to `JBFqnCBsd6RMkjVDRZzb`.
+      const id = selectEffectiveMascotVoiceId({
+        mascot: state,
+        locale: { current: 'en' },
+      });
+      expect(typeof id).toBe('string');
+      expect(id.length).toBeGreaterThan(0);
+    });
+
+    it('locale-default branch wins over a manual override when toggle is on', () => {
+      let state = reducer(undefined, setMascotVoiceId('manual-override-id'));
+      state = reducer(state, setMascotVoiceUseLocaleDefault(true));
+      state = reducer(state, setMascotVoiceGender('female'));
+      const id = selectEffectiveMascotVoiceId({
+        mascot: state,
+        locale: { current: 'ar' },
+      });
+      // Comes out of `DEFAULT_VOICE_BY_LOCALE.ar.female`; specific id
+      // is pinned in the curated preset list.
+      expect(id).toBe('AZnzlk1XvdvUeBnXmlld');
+      expect(id).not.toBe('manual-override-id');
+    });
+
+    it('locale-default branch falls back to English when locale slice is absent', () => {
+      let state = reducer(undefined, setMascotVoiceUseLocaleDefault(true));
+      state = reducer(state, setMascotVoiceGender('male'));
+      // No `locale` slice provided → resolver should treat it as `en`.
+      const id = selectEffectiveMascotVoiceId({ mascot: state });
+      expect(id).toBe('pNInz6obpgDQGcFmaJgB');
     });
   });
 

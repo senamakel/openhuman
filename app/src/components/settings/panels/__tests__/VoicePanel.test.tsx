@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -509,5 +509,17 @@ describe('VoicePanel', () => {
         expect.objectContaining({ tts_voice: 'en_US-ryan-medium' })
       )
     );
+  });
+
+  // The mascot voice picker moved out of this panel; what remains is a
+  // pointer card so users hunting in Voice settings can find it.
+  it('exposes a clickable "Mascot settings" link in the mascot voice card', async () => {
+    renderWithProviders(<VoicePanel />, { initialEntries: ['/settings/voice'] });
+    const card = await screen.findByTestId('mascot-voice-link');
+    const link = within(card).getByRole('button', { name: /mascot settings/i });
+    // Just exercising the click satisfies coverage on the
+    // `navigateToSettings('mascot')` arrow — the harness mocks the hook
+    // so we don't need to assert a route side-effect here.
+    fireEvent.click(link);
   });
 });

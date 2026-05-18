@@ -98,9 +98,7 @@ const TeamManagementPanel = () => {
           breadcrumbs={breadcrumbs}
         />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-stone-500 dark:text-neutral-400">
-            {t('team.notFound')}
-          </p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400">{t('team.notFound')}</p>
         </div>
       </div>
     );
@@ -116,9 +114,7 @@ const TeamManagementPanel = () => {
           breadcrumbs={breadcrumbs}
         />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-stone-500 dark:text-neutral-400">
-            {t('team.accessDenied')}
-          </p>
+          <p className="text-sm text-stone-500 dark:text-neutral-400">{t('team.accessDenied')}</p>
         </div>
       </div>
     );

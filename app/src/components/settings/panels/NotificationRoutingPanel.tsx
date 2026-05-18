@@ -129,9 +129,7 @@ const NotificationRoutingPanel = () => {
                   <p className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
                     {value}
                   </p>
-                  <p className="text-xs text-stone-500 dark:text-neutral-400">
-                    {label}
-                  </p>
+                  <p className="text-xs text-stone-500 dark:text-neutral-400">{label}</p>
                 </div>
               ))}
             </div>
@@ -169,17 +167,14 @@ const NotificationRoutingPanel = () => {
         {/* How it works */}
         <div className="bg-white dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-stone-100 dark:border-neutral-800">
-            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-              How it works
-            </p>
+            <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">How it works</p>
           </div>
           <div className="divide-y divide-stone-100 dark:divide-neutral-800">
             {[
               {
                 label: 'Drop',
                 desc: 'Noise / spam — stored but not surfaced',
-                color:
-                  'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300',
+                color: 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300',
               },
               {
                 label: 'Acknowledge',
@@ -202,9 +197,7 @@ const NotificationRoutingPanel = () => {
                   className={`flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-semibold ${row.color}`}>
                   {row.label}
                 </span>
-                <span className="text-xs text-stone-600 dark:text-neutral-300">
-                  {row.desc}
-                </span>
+                <span className="text-xs text-stone-600 dark:text-neutral-300">{row.desc}</span>
               </div>
             ))}
           </div>

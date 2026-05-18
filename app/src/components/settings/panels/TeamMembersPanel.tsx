@@ -264,9 +264,7 @@ const TeamMembersPanel = () => {
 
               {members.length === 0 && !isLoadingMembers && (
                 <div className="text-center py-8">
-                  <p className="text-sm text-stone-500 dark:text-neutral-400">
-                    No members found
-                  </p>
+                  <p className="text-sm text-stone-500 dark:text-neutral-400">No members found</p>
                 </div>
               )}
             </div>

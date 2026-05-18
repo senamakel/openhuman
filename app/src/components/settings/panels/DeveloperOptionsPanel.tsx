@@ -289,9 +289,7 @@ const CoreModeBadge = () => {
         <dd className="font-mono text-sage-900 dark:text-sage-200 truncate" title={mode.url}>
           {mode.url}
         </dd>
-        <dt className="text-sage-700 dark:text-sage-300">
-          {t('devOptions.token')}:
-        </dt>
+        <dt className="text-sage-700 dark:text-sage-300">{t('devOptions.token')}:</dt>
         <dd className="text-sage-900 dark:text-sage-200">
           {mode.token ? (
             <span className="font-mono">••••••{mode.token.slice(-4)}</span>

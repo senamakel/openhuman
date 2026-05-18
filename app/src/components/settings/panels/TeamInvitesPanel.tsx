@@ -334,9 +334,7 @@ const TeamInvitesPanel = () => {
                   d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                 />
               </svg>
-              <p className="text-sm text-stone-500 dark:text-neutral-400">
-                No invites yet
-              </p>
+              <p className="text-sm text-stone-500 dark:text-neutral-400">No invites yet</p>
               <p className="text-xs text-stone-600 dark:text-neutral-300 mt-1">
                 Generate an invite code to share with others
               </p>

@@ -169,9 +169,7 @@ const WebhooksDebugPanel = () => {
             {registrations.length} registered &middot; {logs.length} captured &middot;{' '}
             <span
               className={
-                isLive
-                  ? 'text-sage-600 dark:text-sage-300'
-                  : 'text-stone-400 dark:text-neutral-500'
+                isLive ? 'text-sage-600 dark:text-sage-300' : 'text-stone-400 dark:text-neutral-500'
               }>
               {isLive ? 'live' : 'disconnected'}
             </span>
@@ -200,9 +198,7 @@ const WebhooksDebugPanel = () => {
             Registered Webhooks
           </h3>
           {registrations.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500">
-              No active registrations.
-            </p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500">No active registrations.</p>
           ) : (
             <div className="space-y-2">
               {registrations.map(registration => (

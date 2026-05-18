@@ -133,9 +133,7 @@ const ToolsPanel = ({ embedded = false }: ToolsPanelProps = {}) => {
                       </div>
                       <div
                         className={`ml-3 flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                          enabled[tool.id]
-                            ? 'bg-sage-500'
-                            : 'bg-stone-200 dark:bg-neutral-800'
+                          enabled[tool.id] ? 'bg-sage-500' : 'bg-stone-200 dark:bg-neutral-800'
                         }`}>
                         <div
                           className={`absolute top-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${

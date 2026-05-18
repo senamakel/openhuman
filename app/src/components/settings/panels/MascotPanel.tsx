@@ -222,9 +222,7 @@ const MascotPanel = () => {
                         aria-pressed={active}
                         data-testid={`backend-mascot-${summary.id}`}
                         className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 ${
-                          active
-                            ? 'bg-stone-50 dark:bg-neutral-800/60 font-medium'
-                            : ''
+                          active ? 'bg-stone-50 dark:bg-neutral-800/60 font-medium' : ''
                         }`}>
                         <span className="flex flex-col">
                           <span>{summary.name}</span>

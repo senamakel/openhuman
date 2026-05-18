@@ -87,9 +87,7 @@ const AgentChatPanel = () => {
           <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('chat.overrides')}
           </h3>
-          <p className="text-sm text-stone-400 dark:text-neutral-500">
-            {t('chat.agentChatDesc')}
-          </p>
+          <p className="text-sm text-stone-400 dark:text-neutral-500">{t('chat.agentChatDesc')}</p>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-2 text-sm text-stone-600 dark:text-neutral-300">
               {t('chat.model')}

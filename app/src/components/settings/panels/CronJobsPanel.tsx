@@ -144,9 +144,7 @@ const CronJobsPanel = () => {
           <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
             {t('cron.scheduledJobs')}
           </h3>
-          <p className="text-xs text-stone-400 dark:text-neutral-500">
-            {t('cron.manageCronJobs')}
-          </p>
+          <p className="text-xs text-stone-400 dark:text-neutral-500">{t('cron.manageCronJobs')}</p>
         </section>
 
         {coreError && (

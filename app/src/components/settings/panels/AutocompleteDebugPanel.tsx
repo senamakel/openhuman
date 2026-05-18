@@ -469,9 +469,7 @@ const AutocompleteDebugPanel = () => {
         {/* Runtime section                                                     */}
         {/* ------------------------------------------------------------------ */}
         <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            Runtime
-          </h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Runtime</h3>
           <div className="text-sm text-stone-700 dark:text-neutral-200 space-y-1">
             <div>Platform supported: {status?.platform_supported ? 'yes' : 'no'}</div>
             <div>Enabled: {status?.enabled ? 'yes' : 'no'}</div>
@@ -512,9 +510,7 @@ const AutocompleteDebugPanel = () => {
         {/* Test section                                                        */}
         {/* ------------------------------------------------------------------ */}
         <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            Test
-          </h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Test</h3>
           <div className="space-y-1">
             <div className="text-xs text-stone-600 dark:text-neutral-300">
               Context Override (optional)
@@ -581,9 +577,7 @@ const AutocompleteDebugPanel = () => {
             Advanced Settings
           </h3>
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200">
-              Debounce Ms
-            </span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200">Debounce Ms</span>
             <input
               type="number"
               min={50}
@@ -595,9 +589,7 @@ const AutocompleteDebugPanel = () => {
             />
           </label>
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200">
-              Max Characters
-            </span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200">Max Characters</span>
             <input
               type="number"
               min={32}
@@ -609,9 +601,7 @@ const AutocompleteDebugPanel = () => {
             />
           </label>
           <label className="flex items-center justify-between rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2">
-            <span className="text-sm text-stone-700 dark:text-neutral-200">
-              Overlay TTL Ms
-            </span>
+            <span className="text-sm text-stone-700 dark:text-neutral-200">Overlay TTL Ms</span>
             <input
               type="number"
               min={300}
@@ -623,9 +613,7 @@ const AutocompleteDebugPanel = () => {
             />
           </label>
           <div className="space-y-1">
-            <div className="text-xs text-stone-600 dark:text-neutral-300">
-              Style Instructions
-            </div>
+            <div className="text-xs text-stone-600 dark:text-neutral-300">Style Instructions</div>
             <textarea
               value={styleInstructions}
               onChange={event => setStyleInstructions(event.target.value)}
@@ -693,15 +681,11 @@ const AutocompleteDebugPanel = () => {
                     )}
                   </div>
                   <div className="flex items-baseline gap-1 text-stone-700 dark:text-neutral-200 truncate">
-                    <span className="shrink-0 text-stone-400 dark:text-neutral-500">
-                      …
-                    </span>
+                    <span className="shrink-0 text-stone-400 dark:text-neutral-500">…</span>
                     <span className="truncate text-stone-500 dark:text-neutral-400">
                       {entry.context.slice(-40)}
                     </span>
-                    <span className="shrink-0 text-stone-400 dark:text-neutral-500">
-                      →
-                    </span>
+                    <span className="shrink-0 text-stone-400 dark:text-neutral-500">→</span>
                     <span className="font-medium text-primary-500 truncate">
                       {entry.suggestion}
                     </span>

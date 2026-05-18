@@ -183,9 +183,7 @@ const MemoryDebugPanel = () => {
       <div className="p-4 space-y-4">
         {/* Documents */}
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            Documents
-          </h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Documents</h3>
           <div className="flex gap-2">
             <input
               value={documentsNamespaceFilter}
@@ -207,9 +205,7 @@ const MemoryDebugPanel = () => {
             </div>
           )}
           {documents.length === 0 && !documentsLoading ? (
-            <p className="text-xs text-stone-400 dark:text-neutral-500">
-              No documents found.
-            </p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500">No documents found.</p>
           ) : (
             <div className="space-y-1">
               {documents.map(doc => (
@@ -280,9 +276,7 @@ const MemoryDebugPanel = () => {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-stone-400 dark:text-neutral-500">
-              No namespaces found.
-            </p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500">No namespaces found.</p>
           )}
         </section>
 
@@ -311,9 +305,7 @@ const MemoryDebugPanel = () => {
               className="w-16 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-2 py-1.5 text-xs text-stone-700 dark:text-neutral-200"
               placeholder="10"
             />
-            <span className="text-[11px] text-stone-400 dark:text-neutral-500">
-              max chunks
-            </span>
+            <span className="text-[11px] text-stone-400 dark:text-neutral-500">max chunks</span>
             <div className="flex-1" />
             <button
               type="button"

@@ -1825,6 +1825,7 @@ const CustomRoutingDialog = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="range"
+                    aria-label="Temperature override (slider)"
                     min={0}
                     max={2}
                     step={0.05}
@@ -1834,6 +1835,7 @@ const CustomRoutingDialog = ({
                   />
                   <input
                     type="number"
+                    aria-label="Temperature override (value)"
                     min={0}
                     max={2}
                     step={0.05}
@@ -2280,11 +2282,30 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             );
             try {
               const trimmed = value.trim();
+              // Normalize local-runtime endpoints so the cloud_providers entry
+              // always carries the OpenAI-compatible `/v1` path that the
+              // `list_configured_models` probe expects. Without this,
+              // `http://host:11434` would pass validation, be stored verbatim,
+              // and silently fail model discovery until the user manually
+              // appended `/v1` — confusing because the UI would still mark the
+              // provider connected (caught in review).
+              const endpoint = isLocalRuntime
+                ? (() => {
+                    const url = new URL(trimmed); // throws on malformed → caught above
+                    if (!/^https?:$/.test(url.protocol)) {
+                      throw new Error('Endpoint must start with http:// or https://');
+                    }
+                    if (url.pathname === '' || url.pathname === '/') {
+                      url.pathname = '/v1';
+                    }
+                    return url.toString().replace(/\/$/, '');
+                  })()
+                : defaultEndpointFor(slug);
               const upserted: CloudProvider = {
                 id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
                 slug,
                 label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
-                endpoint: isLocalRuntime ? trimmed : defaultEndpointFor(slug),
+                endpoint,
                 authStyle: authStyleForSlug(slug),
                 maskedKey: maskKeyLabel(true),
               };
@@ -2311,7 +2332,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 // UI marked "connected" while chat would silently keep using
                 // the default localhost host — a real footgun (caught in
                 // review).
-                const baseUrl = trimmed.replace(/\/v1\/?$/, '');
+                const baseUrl = endpoint.replace(/\/v1\/?$/, '');
                 await openhumanUpdateLocalAiSettings({
                   base_url: baseUrl,
                   provider: 'ollama',

@@ -142,6 +142,45 @@ describe('parseProviderString', () => {
   it('falls back to openhuman for unrecognised bare strings', () => {
     expect(parseProviderString('unknown-provider')).toEqual({ kind: 'openhuman' });
   });
+
+  // The `@<temp>` suffix is the per-workload temperature override added with
+  // the LLM-routing UI redesign. It must round-trip through parse/serialize
+  // and degrade gracefully when the tail isn't a finite number.
+  describe('temperature suffix grammar', () => {
+    it('parses @temp suffix on cloud strings', () => {
+      expect(parseProviderString('openai:gpt-4o@0.7')).toEqual({
+        kind: 'cloud',
+        providerSlug: 'openai',
+        model: 'gpt-4o',
+        temperature: 0.7,
+      });
+    });
+
+    it('parses @temp suffix on ollama strings (including model ids with colons)', () => {
+      expect(parseProviderString('ollama:llama3.1:8b@0.2')).toEqual({
+        kind: 'local',
+        model: 'llama3.1:8b',
+        temperature: 0.2,
+      });
+    });
+
+    it('treats a non-numeric @tail as part of the model id', () => {
+      // Guards against silently dropping a chunk of the model id when the
+      // user happens to pick a tag like `:beta` after an `@`.
+      expect(parseProviderString('openai:gpt@beta')).toEqual({
+        kind: 'cloud',
+        providerSlug: 'openai',
+        model: 'gpt@beta',
+      });
+    });
+
+    it('drops the temperature key when not configured (toEqual contract)', () => {
+      // Existing call sites compare with toEqual — emitting an extra
+      // `temperature: null` would break unrelated snapshots.
+      const ref = parseProviderString('openai:gpt-4o');
+      expect(ref).toEqual({ kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o' });
+    });
+  });
 });
 
 // ─── serializeProviderRef ─────────────────────────────────────────────────────
@@ -171,6 +210,52 @@ describe('serializeProviderRef', () => {
     for (const ref of cases) {
       expect(parseProviderString(serializeProviderRef(ref))).toEqual(ref);
     }
+  });
+
+  it('appends @temp suffix when temperature is set, omits when not', () => {
+    expect(serializeProviderRef({ kind: 'cloud', providerSlug: 'openai', model: 'gpt-4o' })).toBe(
+      'openai:gpt-4o'
+    );
+    expect(
+      serializeProviderRef({
+        kind: 'cloud',
+        providerSlug: 'openai',
+        model: 'gpt-4o',
+        temperature: 0.7,
+      })
+    ).toBe('openai:gpt-4o@0.7');
+    expect(serializeProviderRef({ kind: 'local', model: 'llama3', temperature: 1.25 })).toBe(
+      'ollama:llama3@1.25'
+    );
+  });
+
+  it('rounds temperature to 2 decimal places on the wire', () => {
+    // Stops floating-point drift (0.7 + 0.0000001) from leaking into the
+    // persisted provider string and confusing the Rust factory.
+    expect(
+      serializeProviderRef({
+        kind: 'cloud',
+        providerSlug: 'openai',
+        model: 'gpt-4o',
+        temperature: 0.7000001,
+      })
+    ).toBe('openai:gpt-4o@0.7');
+  });
+
+  it('treats non-finite temperatures as unset', () => {
+    expect(serializeProviderRef({ kind: 'local', model: 'llama3', temperature: Number.NaN })).toBe(
+      'ollama:llama3'
+    );
+  });
+
+  it('round-trips temperature through parse + serialize', () => {
+    const ref: ProviderRef = {
+      kind: 'cloud',
+      providerSlug: 'openai',
+      model: 'gpt-4o',
+      temperature: 0.2,
+    };
+    expect(parseProviderString(serializeProviderRef(ref))).toEqual(ref);
   });
 });
 

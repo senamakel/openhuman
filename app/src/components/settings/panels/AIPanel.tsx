@@ -323,14 +323,17 @@ function useAISettings() {
 
   const isDirty = JSON.stringify(saved) !== JSON.stringify(draft);
 
-  const persist = useCallback(async (nextDraft: AISettings) => {
-    const prevApi = toApiSettings(saved);
-    const nextApi = toApiSettings(nextDraft);
-    await saveAISettings(prevApi, nextApi);
-    setSaved(nextDraft);
-    setDraft(nextDraft);
-    setError('');
-  }, [saved]);
+  const persist = useCallback(
+    async (nextDraft: AISettings) => {
+      const prevApi = toApiSettings(saved);
+      const nextApi = toApiSettings(nextDraft);
+      await saveAISettings(prevApi, nextApi);
+      setSaved(nextDraft);
+      setDraft(nextDraft);
+      setError('');
+    },
+    [saved]
+  );
 
   const save = useCallback(async () => {
     try {

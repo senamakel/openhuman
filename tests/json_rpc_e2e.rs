@@ -2045,8 +2045,7 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models() {
 }
 
 #[tokio::test]
-async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change()
-{
+async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_route_change() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

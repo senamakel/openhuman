@@ -2210,18 +2210,54 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 id,
                 maskedKey: maskKeyLabel(apiKey ? true : next.maskedKey.startsWith('••••')),
               };
-              // Persist the credential BEFORE mutating draft, so a key-write
-              // failure doesn't leave the config referencing a provider with
-              // no stored key.
+
+              // Snapshot the prior persisted cloud_providers list so we can
+              // restore it if the live probe fails.
+              const priorWireProviders = saved.cloudProviders.map(p => ({
+                id: p.id,
+                slug: p.slug,
+                label: p.label,
+                endpoint: p.endpoint,
+                auth_style: p.authStyle,
+              }));
+
+              // Persist the credential BEFORE the probe so the factory has it
+              // available. Let setCloudProviderKey throw — the editor's
+              // button-click handler catches and surfaces the error inline.
               if (apiKey && upserted.slug !== 'openhuman') {
+                await setCloudProviderKey(upserted.slug, apiKey);
+              }
+
+              // Live verification — flush the new cloud_providers list and
+              // call `/models` through the Rust controller. Skip for the
+              // OpenHuman backend (session JWT, no probe-able endpoint).
+              if (upserted.slug !== 'openhuman') {
+                const list =
+                  editing === 'new'
+                    ? [...draft.cloudProviders, upserted]
+                    : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
+                const nextWireProviders = list
+                  .filter(p => !['', 'cloud', 'openhuman', 'pid'].includes(p.slug))
+                  .map(p => ({
+                    id: p.id,
+                    slug: p.slug,
+                    label: p.label,
+                    endpoint: p.endpoint,
+                    auth_style: p.authStyle,
+                  }));
+                await flushCloudProviders(nextWireProviders);
                 try {
-                  await setCloudProviderKey(upserted.slug, apiKey);
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : String(err);
-                  console.warn('[ai-settings] setCloudProviderKey failed', msg);
-                  return;
+                  await listProviderModels(upserted.slug);
+                } catch (probeErr) {
+                  await flushCloudProviders(priorWireProviders).catch(() => {});
+                  if (apiKey) {
+                    await clearCloudProviderKey(upserted.slug).catch(() => {});
+                  }
+                  const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+                  throw new Error(`Could not reach ${upserted.label}: ${msg}`);
                 }
               }
+
               const list =
                 editing === 'new'
                   ? [...draft.cloudProviders, upserted]
@@ -2309,29 +2345,32 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 authStyle: authStyleForSlug(slug),
                 maskedKey: maskKeyLabel(true),
               };
-              // Persist the credential / endpoint BEFORE mutating draft so a
-              // failure can't leave config + secrets out of sync.
+
+              // Snapshot the prior persisted cloud_providers list so we can
+              // roll back to it if the live probe fails. `saved` reflects what
+              // is currently on disk (the eager-flush effect keeps it in sync
+              // with `draft`), so this is the right baseline to restore to.
+              const priorWireProviders = saved.cloudProviders.map(p => ({
+                id: p.id,
+                slug: p.slug,
+                label: p.label,
+                endpoint: p.endpoint,
+                auth_style: p.authStyle,
+              }));
+
+              // Persist the credential / endpoint BEFORE the probe, so the
+              // factory has everything it needs to actually answer it. Each
+              // step short-circuits and surfaces its own error via throw —
+              // ProviderKeyDialog.handleSave catches and keeps the dialog open
+              // so the user can fix the value and retry.
               if (!isLocalRuntime && slug !== 'openhuman') {
-                try {
-                  await setCloudProviderKey(slug, trimmed);
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : String(err);
-                  console.warn('[ai-settings] setCloudProviderKey failed', msg);
-                  return;
-                }
+                await setCloudProviderKey(slug, trimmed);
               } else if (isLocalRuntime && slug === 'ollama') {
                 // The Rust Ollama branch reads `config.local_ai.base_url`
-                // (not `cloud_providers[].endpoint`) when building the
-                // provider — persist it eagerly so chat routing actually
-                // hits the user-chosen host. Strip a trailing `/v1` since
+                // (not `cloud_providers[].endpoint`) when building the chat
+                // provider — persist it eagerly so chat routing actually hits
+                // the user-chosen host. Strip a trailing `/v1` since
                 // `make_ollama_provider` appends `/v1` itself.
-                //
-                // Let the error propagate to ProviderKeyDialog.handleSave so
-                // the user sees the failure and the dialog stays open. Adding
-                // the provider entry on a half-failed persist would leave the
-                // UI marked "connected" while chat would silently keep using
-                // the default localhost host — a real footgun (caught in
-                // review).
                 const baseUrl = endpoint.replace(/\/v1\/?$/, '');
                 await openhumanUpdateLocalAiSettings({
                   base_url: baseUrl,
@@ -2340,6 +2379,39 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                   opt_in_confirmed: true,
                 });
               }
+
+              // Live verification: flush the new cloud_providers list to disk
+              // and call `/models` through the Rust controller. A reachable
+              // endpoint + valid auth header is the strongest check we can
+              // make without burning tokens. Skip the probe for the
+              // OpenHuman backend (session JWT, no /models endpoint to hit).
+              if (slug !== 'openhuman') {
+                const nextWireProviders = [
+                  ...priorWireProviders.filter(p => p.slug !== slug),
+                  {
+                    id: upserted.id,
+                    slug: upserted.slug,
+                    label: upserted.label,
+                    endpoint: upserted.endpoint,
+                    auth_style: upserted.authStyle,
+                  },
+                ];
+                await flushCloudProviders(nextWireProviders);
+                try {
+                  await listProviderModels(slug);
+                } catch (probeErr) {
+                  // Roll back so the UI / on-disk state never reflects a
+                  // provider we couldn't actually reach. The user sees the
+                  // error in the dialog and the chip stays in the OFF state.
+                  await flushCloudProviders(priorWireProviders).catch(() => {});
+                  if (!isLocalRuntime && slug !== 'openhuman') {
+                    await clearCloudProviderKey(slug).catch(() => {});
+                  }
+                  const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+                  throw new Error(`Could not reach ${upserted.label}: ${msg}`);
+                }
+              }
+
               setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
               setKeyDialogFor(null);
               setPendingLocalLabel(null);
@@ -2384,6 +2456,7 @@ const CloudProviderEditor = ({
   const [endpoint, setEndpoint] = useState(initial?.endpoint ?? defaultEndpointFor(defaultSlug));
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const isOpenHuman = slug === 'openhuman';
   const hasExistingKey = (initial?.maskedKey ?? '').startsWith('••••');
 
@@ -2471,6 +2544,11 @@ const CloudProviderEditor = ({
               />
             </div>
           )}
+          {submitError && (
+            <div className="rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300 break-words">
+              {submitError}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-stone-200 dark:border-neutral-800 px-4 py-3">
           <button
@@ -2482,6 +2560,7 @@ const CloudProviderEditor = ({
           <button
             onClick={async () => {
               setSaving(true);
+              setSubmitError(null);
               try {
                 await onSubmit(
                   {
@@ -2494,6 +2573,11 @@ const CloudProviderEditor = ({
                   },
                   apiKey.trim()
                 );
+              } catch (err) {
+                // Caller throws when the live /models probe rejects — surface
+                // the failure inline and keep the dialog open so the user can
+                // fix the key/URL and retry.
+                setSubmitError(err instanceof Error ? err.message : String(err));
               } finally {
                 setSaving(false);
               }

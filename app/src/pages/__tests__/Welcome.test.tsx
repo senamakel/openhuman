@@ -12,6 +12,12 @@ import {
 } from '../../utils/configPersistence';
 import Welcome from '../Welcome';
 
+const mockStoreSessionToken = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../../providers/CoreStateProvider', () => ({
+  useCoreState: () => ({ storeSessionToken: mockStoreSessionToken }),
+}));
+
 const oauthButtonSpy = vi.fn();
 const oauthOverrideSpy = vi.fn();
 
@@ -290,5 +296,49 @@ describe('Welcome — OAuth buttons presence', () => {
     renderWithProviders(<Welcome />);
 
     expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Welcome — local login', () => {
+  beforeEach(() => {
+    mockStoreSessionToken.mockReset().mockResolvedValue(undefined);
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: null,
+      requiresAppDataReset: false,
+    });
+  });
+
+  it('renders the "Continue locally" button', () => {
+    renderWithProviders(<Welcome />);
+
+    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+  });
+
+  it('calls storeSessionToken with a local session token and navigates to /home', async () => {
+    renderWithProviders(<Welcome />);
+
+    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
+    fireEvent.click(localBtn);
+
+    await waitFor(() => {
+      expect(mockStoreSessionToken).toHaveBeenCalledTimes(1);
+    });
+    const [tokenArg, userArg] = mockStoreSessionToken.mock.calls[0];
+    expect(tokenArg).toContain('local');
+    expect(userArg).toEqual(expect.objectContaining({ id: 'local' }));
+  });
+
+  it('shows error when storeSessionToken rejects', async () => {
+    mockStoreSessionToken.mockRejectedValueOnce(new Error('token save failed'));
+
+    renderWithProviders(<Welcome />);
+
+    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
+    fireEvent.click(localBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/token save failed/)).toBeInTheDocument();
+    });
   });
 });

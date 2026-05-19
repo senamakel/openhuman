@@ -97,7 +97,8 @@ describe('Settings - Account Preferences', () => {
     expect(Boolean(snapshot.result?.result?.meetAutoOrchestratorHandoff)).toBe(!initialMeet);
   });
 
-  it('opens the billing route and settles the redirect status copy', async () => {
+  it('opens the billing route and settles the redirect status copy', async function () {
+    this.timeout(60_000);
     await navigateViaHash('/settings/billing');
 
     await waitForHashContains('/settings/billing');

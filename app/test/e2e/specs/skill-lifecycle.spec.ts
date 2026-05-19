@@ -35,7 +35,10 @@ describe('Skill lifecycle smoke', () => {
 
   it('Skills page mounts and fetched the registry', async () => {
     await navigateToSkills();
-    await browser.pause(2_000);
+    await browser.waitUntil(
+      async () => String(await browser.execute(() => window.location.hash)).includes('/skills'),
+      { timeout: 10_000, interval: 250, timeoutMsg: 'Skills route did not mount in time' }
+    );
 
     const hash = await browser.execute(() => window.location.hash);
     expect(String(hash)).toContain('/skills');

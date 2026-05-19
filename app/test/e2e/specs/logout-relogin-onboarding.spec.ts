@@ -74,7 +74,7 @@ describe('Logout -> re-login onboarding overlay', () => {
       const tree = await dumpAccessibilityTree();
       console.log('[LogoutReLogin] Logged-out state not visible. Tree:\n', tree.slice(0, 4000));
     }
-    expect(loggedOutMarker).not.toBeNull();
+    expect(loggedOutMarker).toBeTruthy();
 
     // Step 3: Re-login with a delayed /auth/me response so we can observe
     // the interim state.
@@ -113,10 +113,8 @@ describe('Logout -> re-login onboarding overlay', () => {
     expect(meCall).toBeDefined();
 
     // Step 5: After a fresh login (delayed profile fetch), the onboarding
-    // overlay must eventually appear. Give it 8s to mount.
-    await browser.pause(1500);
-
-    const overlayVisible = await waitForOnboardingOverlayVisible(8_000);
+    // overlay must eventually appear. Rely on the explicit overlay wait.
+    const overlayVisible = await waitForOnboardingOverlayVisible(9_500);
     if (!overlayVisible) {
       const tree = await dumpAccessibilityTree();
       console.log(

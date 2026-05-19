@@ -43,7 +43,7 @@ export async function openAddAccountModal(): Promise<void> {
     return false;
   });
   if (!opened) {
-    throw new Error('Could not locate Add Account button on /chat');
+    throw new Error('Could not locate Add Account button on /accounts');
   }
   await waitForText('Add account', 5_000);
 }

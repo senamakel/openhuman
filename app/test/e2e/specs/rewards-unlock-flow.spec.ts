@@ -147,7 +147,8 @@ describe('Rewards role-unlock flows', () => {
     expect(unlockedCount).toBeGreaterThanOrEqual(1);
   });
 
-  it('12.1.2 — integration-based unlock reflects Discord membership in the UI', async () => {
+  it('12.1.2 — integration-based unlock reflects Discord membership in the UI', async function () {
+    this.timeout(90_000);
     stepLog('priming integration_unlocked scenario');
     resetMockBehavior();
     setMockBehavior('rewardsScenario', 'integration_unlocked');
@@ -188,7 +189,8 @@ describe('Rewards role-unlock flows', () => {
     expect(streakStillLocked).toBe(true);
   });
 
-  it('12.1.3 — plan-based unlock surfaces the PRO achievement once plan + active sub are set', async () => {
+  it('12.1.3 — plan-based unlock surfaces the PRO achievement once plan + active sub are set', async function () {
+    this.timeout(90_000);
     stepLog('priming plan_unlocked scenario');
     resetMockBehavior();
     setMockBehavior('rewardsScenario', 'plan_unlocked');

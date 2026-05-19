@@ -115,11 +115,40 @@ pub async fn list_configured_models(
         .await
         .map_err(|e| format!("[providers][list_models] failed to parse JSON: {}", e))?;
 
-    let data = body
-        .get("data")
-        .and_then(|d| d.as_array())
-        .cloned()
-        .unwrap_or_default();
+    // OpenAI-compatible servers occasionally return HTTP 200 with an error
+    // payload instead of a 4xx (LM Studio does this for unknown paths like
+    // `/v11/models` — body `{"error":"Unexpected endpoint or method..."}`).
+    // Treat any top-level `error` field as a failure so the AI-panel probe
+    // doesn't silently accept a typo'd endpoint.
+    if let Some(err_field) = body.get("error") {
+        let msg = err_field
+            .as_str()
+            .map(|s| s.to_string())
+            .or_else(|| {
+                err_field
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| err_field.to_string());
+        let sanitized = sanitize_api_error(&msg);
+        return Err(format!("provider returned error payload: {}", sanitized));
+    }
+
+    // A valid `/models` response has a top-level `data` array (per the
+    // OpenAI API contract). Missing it means the endpoint isn't
+    // `/models`-compatible — the user almost certainly typed the wrong
+    // path. Fail loudly so the AI-panel probe surfaces the mistake.
+    let Some(data) = body.get("data").and_then(|d| d.as_array()).cloned() else {
+        let keys = body
+            .as_object()
+            .map(|o| o.keys().cloned().collect::<Vec<_>>().join(", "))
+            .unwrap_or_else(|| "<non-object>".to_string());
+        return Err(format!(
+            "provider response missing `data` array — endpoint is not OpenAI-compatible (got keys: {})",
+            keys
+        ));
+    };
 
     let models: Vec<ModelInfo> = data
         .iter()

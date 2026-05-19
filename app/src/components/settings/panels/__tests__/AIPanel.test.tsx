@@ -512,7 +512,7 @@ describe('AIPanel', () => {
 
   // ─── Custom routing dialog: per-workload temperature override ───────────────
 
-  it('Custom routing dialog wires a per-workload temperature override into the saved string', async () => {
+  it('Custom routing dialog saves the routing change immediately from the modal', async () => {
     const settingsWithOpenAI = {
       cloudProviders: [
         {
@@ -553,14 +553,14 @@ describe('AIPanel', () => {
     expect(tempValueInput).toBeInTheDocument();
     fireEvent.change(tempValueInput, { target: { value: '0.2' } });
 
-    // Save dialog → routing draft updates → click main Save bar.
+    // Save dialog → persists immediately without requiring the sticky Save bar.
     fireEvent.click(within(dialog).getByRole('button', { name: /^Save$/i }));
+    await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: /Custom routing/i })).not.toBeInTheDocument()
     );
+    expect(screen.queryByText(/unsaved change/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
-    await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
     const [, next] = vi.mocked(saveAISettings).mock.calls[0];
     expect(next.routing.reasoning).toEqual({
       kind: 'cloud',

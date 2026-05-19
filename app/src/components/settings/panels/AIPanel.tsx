@@ -323,6 +323,15 @@ function useAISettings() {
 
   const isDirty = JSON.stringify(saved) !== JSON.stringify(draft);
 
+  const persist = useCallback(async (nextDraft: AISettings) => {
+    const prevApi = toApiSettings(saved);
+    const nextApi = toApiSettings(nextDraft);
+    await saveAISettings(prevApi, nextApi);
+    setSaved(nextDraft);
+    setDraft(nextDraft);
+    setError('');
+  }, [saved]);
+
   const save = useCallback(async () => {
     try {
       // Defensive verification at global-Save time. Each provider that is new
@@ -350,20 +359,16 @@ function useAISettings() {
         }
       }
 
-      const prevApi = toApiSettings(saved);
-      const nextApi = toApiSettings(draft);
-      await saveAISettings(prevApi, nextApi);
-      setSaved(draft);
-      setError('');
+      await persist(draft);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save AI settings';
       setError(message);
     }
-  }, [saved, draft]);
+  }, [saved, draft, persist]);
 
   const discard = useCallback(() => setDraft(saved), [saved]);
 
-  return { saved, draft, setDraft, isDirty, save, discard, loading, error, reload };
+  return { saved, draft, setDraft, isDirty, save, persist, discard, loading, error, reload };
 }
 
 function useOllamaStatus() {
@@ -1964,7 +1969,7 @@ interface AIPanelProps {
 const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
-  const { saved, draft, setDraft, isDirty, save, discard, loading, error, reload } =
+  const { saved, draft, setDraft, isDirty, save, persist, discard, loading, error, reload } =
     useAISettings();
   const ollama = useOllamaStatus();
   const installed = useInstalledModels(ollama.snapshot);
@@ -2318,8 +2323,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               localModels={installed}
               ollamaRunning={ollama.state === 'running'}
               onClose={() => setCustomDialogFor(null)}
-              onSubmit={next => {
-                updateRouting(customDialogFor, next);
+              onSubmit={async next => {
+                const nextDraft = {
+                  ...draft,
+                  routing: { ...draft.routing, [customDialogFor]: next },
+                };
+                await persist(nextDraft);
                 setCustomDialogFor(null);
               }}
             />

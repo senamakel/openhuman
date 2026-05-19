@@ -48,6 +48,7 @@ pub fn auth_key_for_slug(slug: &str) -> String {
 /// Returns `"openhuman"` when the workload has no explicit override.
 pub fn provider_for_role(role: &str, config: &Config) -> String {
     let opt = match role {
+        "chat" => config.chat_provider.as_deref(),
         "reasoning" => config.reasoning_provider.as_deref(),
         "agentic" => config.agentic_provider.as_deref(),
         "coding" => config.coding_provider.as_deref(),

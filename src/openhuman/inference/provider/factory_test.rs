@@ -169,6 +169,7 @@ async fn ollama_provider_does_not_require_api_key() {
 fn all_workloads_default_to_openhuman() {
     let config = Config::default();
     for role in &[
+        "chat",
         "reasoning",
         "agentic",
         "coding",
@@ -184,6 +185,18 @@ fn all_workloads_default_to_openhuman() {
             "role={role} must default to openhuman"
         );
     }
+}
+
+// Regression: the `chat` workload was added to the UI + config schema (#2152)
+// but `provider_for_role` was not extended, so every chat message silently
+// routed to the OpenHuman backend regardless of the user's `chat_provider`
+// configuration. Keep this test alongside the other override checks so the
+// arm can't drop out again.
+#[test]
+fn chat_workload_override_respected() {
+    let mut config = Config::default();
+    config.chat_provider = Some("openai:gpt-4".to_string());
+    assert_eq!(provider_for_role("chat", &config), "openai:gpt-4");
 }
 
 #[test]

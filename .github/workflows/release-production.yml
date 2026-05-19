@@ -28,6 +28,16 @@ on:
         default: patch
         type: choice
         options: [patch, minor, major]
+      skip_e2e:
+        description:
+          Skip the entire pretest phase (unit/rust plus E2E) and continue
+          directly to create-release + build matrix. Use only when the
+          required pretest signal is already known (e.g. promoting a
+          staging tag whose pretests already ran green) and you need to
+          unblock a production cut.
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: write
   packages: write
@@ -308,12 +318,14 @@ jobs:
   pretest-tests:
     name: Pretest — unit + rust
     needs: [prepare-build]
+    if: ${{ !inputs.skip_e2e }}
     uses: ./.github/workflows/test-reusable.yml
     with:
       ref: ${{ needs.prepare-build.outputs.build_ref }}
   pretest-e2e:
     name: Pretest — E2E (all OS, full suite)
     needs: [prepare-build]
+    if: ${{ !inputs.skip_e2e }}
     uses: ./.github/workflows/e2e-reusable.yml
     with:
       ref: ${{ needs.prepare-build.outputs.build_ref }}
@@ -330,7 +342,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     needs: [prepare-build, pretest-tests, pretest-e2e]
-    if: needs.pretest-tests.result == 'success' && needs.pretest-e2e.result == 'success'
+    if: >-
+      always()
+      && needs.prepare-build.result == 'success'
+      && (needs.pretest-tests.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
+      && (needs.pretest-e2e.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))
     outputs:
       release_id: ${{ steps.create.outputs.release_id }}
       upload_url: ${{ steps.create.outputs.upload_url }}
@@ -390,6 +408,7 @@ jobs:
       with_release_upload: true
       release_id: ${{ needs.create-release.outputs.release_id }}
       build_sidecar: false
+      skip_pretests: ${{ inputs.skip_e2e }}
 
   # =========================================================================
   # Phase 3b: Build & push Docker image (runs parallel with build-desktop).

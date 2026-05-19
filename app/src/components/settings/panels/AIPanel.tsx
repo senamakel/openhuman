@@ -2299,20 +2299,20 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 // provider — persist it eagerly so chat routing actually
                 // hits the user-chosen host. Strip a trailing `/v1` since
                 // `make_ollama_provider` appends `/v1` itself.
+                //
+                // Let the error propagate to ProviderKeyDialog.handleSave so
+                // the user sees the failure and the dialog stays open. Adding
+                // the provider entry on a half-failed persist would leave the
+                // UI marked "connected" while chat would silently keep using
+                // the default localhost host — a real footgun (caught in
+                // review).
                 const baseUrl = trimmed.replace(/\/v1\/?$/, '');
-                try {
-                  await openhumanUpdateLocalAiSettings({
-                    base_url: baseUrl,
-                    provider: 'ollama',
-                    runtime_enabled: true,
-                    opt_in_confirmed: true,
-                  });
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : String(err);
-                  console.warn('[ai-settings] persist ollama base_url failed', msg);
-                  // Continue anyway — the cloud_providers entry still lets the
-                  // /models probe work from the AI panel.
-                }
+                await openhumanUpdateLocalAiSettings({
+                  base_url: baseUrl,
+                  provider: 'ollama',
+                  runtime_enabled: true,
+                  opt_in_confirmed: true,
+                });
               }
               setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
               setKeyDialogFor(null);

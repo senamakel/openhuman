@@ -8,11 +8,22 @@ use super::AuthService;
 
 use super::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
+pub const LOCAL_SESSION_USER_ID: &str = "local";
+
 pub fn profile_name_or_default(value: Option<&str>) -> &str {
     value
         .map(str::trim)
         .filter(|v| !v.is_empty())
         .unwrap_or(DEFAULT_AUTH_PROFILE_NAME)
+}
+
+pub fn is_local_session_token(token: &str) -> bool {
+    let trimmed = token.trim();
+    let mut parts = trimmed.split('.');
+    matches!(
+        (parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some(_), Some(_), Some("local"), None)
+    )
 }
 
 pub fn parse_fields_value(
@@ -156,6 +167,15 @@ mod tests {
     fn profile_name_or_default_returns_value_when_present() {
         assert_eq!(profile_name_or_default(Some("work")), "work");
         assert_eq!(profile_name_or_default(Some("  work  ")), "work");
+    }
+
+    #[test]
+    fn is_local_session_token_requires_local_signature_marker() {
+        assert!(is_local_session_token("header.payload.local"));
+        assert!(is_local_session_token("  header.payload.local  "));
+        assert!(!is_local_session_token("header.payload.remote"));
+        assert!(!is_local_session_token("header.payload.local.extra"));
+        assert!(!is_local_session_token("not-a-jwt"));
     }
 
     // ── parse_fields_value ─────────────────────────────────────────

@@ -18,7 +18,7 @@ use crate::api::jwt::{bearer_authorization_value, get_session_token};
 use crate::openhuman::autocomplete::AutocompleteStatus;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::session_support::build_session_state;
+use crate::openhuman::credentials::session_support::{build_session_state, is_local_session_token};
 use crate::openhuman::inference::LocalAiStatus;
 use crate::openhuman::screen_intelligence::AccessibilityStatus;
 use crate::openhuman::service::{ServiceState, ServiceStatus};
@@ -450,11 +450,15 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     let session_token = get_session_token(&config)?;
     let stored_user = sanitize_snapshot_user(auth.user.clone());
     let current_user = if let Some(token) = session_token.clone().filter(|t| !t.trim().is_empty()) {
-        match fetch_current_user_cached(&config, &token).await {
-            Ok(fresh_user) => fresh_user.or(stored_user.clone()),
-            Err(error) => {
-                warn!("{LOG_PREFIX} current user refresh failed; using stored snapshot fallback: {error}");
-                stored_user.clone()
+        if is_local_session_token(&token) {
+            stored_user.clone()
+        } else {
+            match fetch_current_user_cached(&config, &token).await {
+                Ok(fresh_user) => fresh_user.or(stored_user.clone()),
+                Err(error) => {
+                    warn!("{LOG_PREFIX} current user refresh failed; using stored snapshot fallback: {error}");
+                    stored_user.clone()
+                }
             }
         }
     } else {

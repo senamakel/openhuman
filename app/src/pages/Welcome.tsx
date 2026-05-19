@@ -1,11 +1,13 @@
 import createDebug from 'debug';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
 import { oauthProviderConfigs } from '../components/oauth/providerConfigs';
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 import Button from '../components/ui/Button';
 import { useT } from '../lib/i18n/I18nContext';
+import { useCoreState } from '../providers/CoreStateProvider';
 import { clearBackendUrlCache } from '../services/backendUrl';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
 import { resetCoreMode } from '../store/coreModeSlice';
@@ -13,16 +15,21 @@ import { useDeepLinkAuthState } from '../store/deepLinkAuthState';
 import { useAppDispatch } from '../store/hooks';
 import { clearAllAppData } from '../utils/clearAllAppData';
 import { clearStoredCoreMode, clearStoredCoreToken, storeRpcUrl } from '../utils/configPersistence';
+import { createLocalSessionToken, LOCAL_SESSION_USER } from '../utils/localSession';
 
 const log = createDebug('app:welcome');
 
 const Welcome = () => {
   const { t } = useT();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { storeSessionToken } = useCoreState();
   const { isProcessing, errorMessage, requiresAppDataReset } = useDeepLinkAuthState();
 
   const [isClearingAppData, setIsClearingAppData] = useState(false);
+  const [isLocalSigningIn, setIsLocalSigningIn] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [localLoginError, setLocalLoginError] = useState<string | null>(null);
 
   const handleClearAppData = async () => {
     setIsClearingAppData(true);
@@ -50,6 +57,21 @@ const Welcome = () => {
     clearCoreRpcTokenCache();
     clearBackendUrlCache();
     dispatch(resetCoreMode());
+  };
+
+  const handleLocalLogin = async () => {
+    setIsLocalSigningIn(true);
+    setLocalLoginError(null);
+    try {
+      log('[welcome] local session login requested');
+      await storeSessionToken(createLocalSessionToken(), LOCAL_SESSION_USER);
+      navigate('/home', { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log('[welcome] local session login failed: %s', message);
+      setLocalLoginError(message || 'Could not start a local session.');
+      setIsLocalSigningIn(false);
+    }
   };
 
   return (
@@ -127,6 +149,24 @@ const Welcome = () => {
                       className="!rounded-full !px-4 !py-2"
                     />
                   ))}
+              </div>
+              <div className="mt-5 space-y-2">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleLocalLogin}
+                  disabled={isLocalSigningIn}
+                  className="w-full">
+                  {isLocalSigningIn ? 'Starting local session...' : 'Continue locally'}
+                </Button>
+                <p className="text-[11px] leading-4 text-center text-stone-500 dark:text-neutral-400">
+                  Uses an offline local profile and skips TinyHumans OAuth.
+                </p>
+                {localLoginError ? (
+                  <p className="text-[11px] leading-4 text-center font-medium text-red-700">
+                    {localLoginError}
+                  </p>
+                ) : null}
               </div>
             </>
           )}

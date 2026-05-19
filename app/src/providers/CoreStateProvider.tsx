@@ -30,6 +30,7 @@ import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
+import { isLocalSessionToken, LOCAL_SESSION_USER_ID } from '../utils/localSession';
 import {
   openhumanUpdateAnalyticsSettings,
   openhumanUpdateMeetSettings,
@@ -276,7 +277,8 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     //   - poll-detected flip (core-side user swap)
     //   - re-login as a different user after sign-out
     const seedUserId = getActiveUserId();
-    const isFlip = Boolean(nextIdentity) && seedUserId !== nextIdentity;
+    const isLocalSession = isLocalSessionToken(nextSnapshot.sessionToken);
+    const isFlip = Boolean(nextIdentity) && seedUserId !== nextIdentity && !isLocalSession;
     const isLogout = Boolean(previousAuthed) && !nextAuthed;
     // Clear team caches whenever the visible identity changes (in-memory user
     // shift) so the post-commit UI doesn't show user A's team list during the
@@ -451,7 +453,10 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       await doRefresh();
       if (!cancelled) {
         const next = getCoreStateSnapshot();
-        if (next.snapshot.auth.isAuthenticated) {
+        if (
+          next.snapshot.auth.isAuthenticated &&
+          !isLocalSessionToken(next.snapshot.sessionToken)
+        ) {
           await refreshTeams().catch(err => {
             log('refreshTeams failed during bootstrap: %O', sanitizeError(err));
           });
@@ -567,6 +572,9 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const storeSessionToken = useCallback(
     async (token: string, user?: object) => {
       logoutGuardUntilRef.current = 0;
+      if (isLocalSessionToken(token)) {
+        setActiveUserId(LOCAL_SESSION_USER_ID);
+      }
       await storeSession(token, user ?? {});
       try {
         await syncMemoryClientToken(token);
@@ -581,9 +589,11 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       // letting redux-persist rehydrate the prior user's slices on launch
       // (#900). Restart now happens inside handleIdentityFlip after purge.
       await refresh();
-      await refreshTeams().catch(err => {
-        log('refreshTeams failed after session store: %O', sanitizeError(err));
-      });
+      if (!isLocalSessionToken(token)) {
+        await refreshTeams().catch(err => {
+          log('refreshTeams failed after session store: %O', sanitizeError(err));
+        });
+      }
     },
     [refresh, refreshTeams]
   );
@@ -636,6 +646,10 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   // so re-registers are rare.
   useEffect(() => {
     const runReauth = (method: string, source: string) => {
+      if (isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken)) {
+        log('auth-expired ignored for local session (method=%s source=%s)', method, source);
+        return;
+      }
       const now = Date.now();
       if (now - lastReauthAtRef.current < 10_000) {
         log('auth-expired debounced (method=%s source=%s)', method, source);

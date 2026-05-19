@@ -179,6 +179,26 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
     // (this one, `llm_provider.api_error`, …) gets the same teardown.
     if let Err(ref msg) = result {
         if is_session_expired_error(msg) {
+            let is_local_session =
+                match crate::openhuman::config::rpc::load_config_with_timeout().await {
+                    Ok(config) => crate::api::jwt::get_session_token(&config)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|token| {
+                            crate::openhuman::credentials::session_support::is_local_session_token(
+                                &token,
+                            )
+                        }),
+                    Err(_) => false,
+                };
+            if is_local_session {
+                log::warn!(
+                    "[jsonrpc] backend returned 401 for method '{}' during local session; skipping SessionExpired publish",
+                    method
+                );
+                return result;
+            }
+
             log::warn!(
                 "[jsonrpc] backend returned 401 for method '{}' — publishing SessionExpired",
                 method

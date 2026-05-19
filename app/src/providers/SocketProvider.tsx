@@ -6,6 +6,7 @@ import { socketService } from '../services/socketService';
 import { setBackend, setCore } from '../store/connectivitySlice';
 import { store } from '../store/index';
 import { IS_DEV } from '../utils/config';
+import { isLocalSessionToken } from '../utils/localSession';
 import { useCoreState } from './CoreStateProvider';
 
 /**
@@ -40,6 +41,12 @@ const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // Handle socket connection based on token
   useEffect(() => {
     const previousToken = previousTokenRef.current;
+
+    if (isLocalSessionToken(token)) {
+      previousTokenRef.current = token;
+      socketService.disconnect();
+      return;
+    }
 
     // Token was set - connect
     if (token && token !== previousToken) {

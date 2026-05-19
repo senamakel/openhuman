@@ -292,16 +292,21 @@ function useAISettings() {
 
   // Eagerly persist user-configured cloud providers whenever they diverge from
   // the saved snapshot so listProviderModels can resolve by slug immediately
-  // after a provider is added, before the global Save. Reserved slugs
-  // ("openhuman", "ollama", "cloud", "pid") are built-ins that Rust rejects as
-  // custom providers — filter them out before flushing.
+  // after a provider is added, before the global Save.
+  //
+  // Reserved slugs ("openhuman", "cloud", "pid") are built-ins that Rust
+  // rejects as custom providers — filter them out before flushing. `ollama`
+  // and `lmstudio` are NOT filtered: the AI panel needs an `ollama` entry on
+  // disk for the model dropdown probe (`list_configured_models` looks up by
+  // slug). Chat routing is unaffected because the factory's `ollama:<model>`
+  // prefix branch fires before the `<slug>:<model>` cloud-provider lookup.
   useEffect(() => {
     if (loading) return;
     const userProviders = draft.cloudProviders.filter(
-      p => !['', 'cloud', 'openhuman', 'ollama', 'pid'].includes(p.slug)
+      p => !['', 'cloud', 'openhuman', 'pid'].includes(p.slug)
     );
     const savedUserProviders = saved.cloudProviders.filter(
-      p => !['', 'cloud', 'openhuman', 'ollama', 'pid'].includes(p.slug)
+      p => !['', 'cloud', 'openhuman', 'pid'].includes(p.slug)
     );
     if (JSON.stringify(userProviders) === JSON.stringify(savedUserProviders)) return;
     const wire = userProviders.map(p => ({

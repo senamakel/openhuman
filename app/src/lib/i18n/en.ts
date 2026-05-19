@@ -1570,7 +1570,7 @@ const en: TranslationMap = {
   'settings.ai.apiKeyStoredEncrypted': 'Your API key is stored encrypted on this device.',
   'settings.ai.apiKeysEncrypted': 'auth-profiles.json',
   'settings.ai.clearStoredKey': 'Clear stored key',
-  'settings.ai.connectProvider': 'Connect {label}',
+  'settings.ai.connectProvider': 'Connect',
   'settings.ai.customRouting': 'Custom routing',
   'settings.ai.defaultResolvesTo': 'OpenHuman',
   'settings.ai.discard': 'Discard',

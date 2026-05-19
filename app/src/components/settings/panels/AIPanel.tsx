@@ -33,7 +33,10 @@ import {
   type CreditTransaction,
   type TeamUsage,
 } from '../../../services/api/creditsApi';
-import type { AuthStyle } from '../../../utils/tauriCommands/config';
+import {
+  type AuthStyle,
+  openhumanUpdateLocalAiSettings,
+} from '../../../utils/tauriCommands/config';
 import {
   type HeartbeatPlannerSummary,
   type HeartbeatSettings,
@@ -77,8 +80,8 @@ type WorkloadGroup = 'chat' | 'background';
 
 type ProviderRef =
   | { kind: 'openhuman' }
-  | { kind: 'cloud'; providerSlug: string; model: string }
-  | { kind: 'local'; model: string };
+  | { kind: 'cloud'; providerSlug: string; model: string; temperature?: number | null }
+  | { kind: 'local'; model: string; temperature?: number | null };
 
 type Workload = { id: WorkloadId; group: WorkloadGroup; label: string; description: string };
 
@@ -460,28 +463,41 @@ const ProviderToggleChip = ({
   );
 };
 
-// Minimal API-key dialog — shown when the user flips a provider toggle ON.
-// No endpoint / model fields; default endpoint is derived from the slug and
-// the model is left empty (the routing dialog picks the model per workload).
+// Connect-provider dialog — shown when the user flips a provider toggle ON.
+//
+// Two modes:
+//   - apiKey: cloud providers (OpenAI, Anthropic, …). Collects a secret.
+//   - endpoint: local runtimes (Ollama, LM Studio). Collects an HTTP URL
+//     (and optionally an API key for OpenAI-compatible self-hosted setups).
+//
+// The parent decides how to persist: cloud → auth-profiles, local → both
+// the cloud_providers entry's `endpoint` (so /models discovery works) and
+// `local_ai.base_url` (so the Rust factory's Ollama branch routes to it).
 const ProviderKeyDialog = ({
   slug,
   label,
+  isLocalRuntime,
   onCancel,
   onSubmit,
 }: {
   slug: string;
   label: string;
+  /** When true, render an "Endpoint URL" field instead of API key. */
+  isLocalRuntime: boolean;
   onCancel: () => void;
-  onSubmit: (apiKey: string) => Promise<void> | void;
+  /** Returns the entered value. For local runtimes this is the endpoint URL;
+   *  for cloud providers it's the API key. */
+  onSubmit: (value: string) => Promise<void> | void;
 }) => {
   const { t } = useT();
-  const [apiKey, setApiKey] = useState('');
+  const [value, setValue] = useState<string>(isLocalRuntime ? defaultEndpointFor(slug) : '');
   const [phase, setPhase] = useState<'idle' | 'saving'>('idle');
   const [error, setError] = useState<string | null>(null);
   const busy = phase !== 'idle';
 
-  const placeholder =
-    slug === 'openai'
+  const placeholder = isLocalRuntime
+    ? defaultEndpointFor(slug) || 'http://localhost:11434/v1'
+    : slug === 'openai'
       ? 'sk-...'
       : slug === 'anthropic'
         ? 'sk-ant-...'
@@ -489,10 +505,19 @@ const ProviderKeyDialog = ({
           ? 'sk-or-...'
           : 'your-api-key';
 
+  const fieldLabel = isLocalRuntime ? 'Endpoint URL' : t('settings.ai.apiKeyFieldLabel');
+  const helper = isLocalRuntime
+    ? `Where ${label} is reachable. Default is localhost; point this at a remote host (e.g. http://10.0.0.4:11434/v1) to use a shared instance.`
+    : t('settings.ai.apiKeyStoredEncrypted');
+
   const handleSave = async () => {
-    const trimmed = apiKey.trim();
+    const trimmed = value.trim();
     if (!trimmed) {
-      setError(t('settings.ai.apiKeyRequired'));
+      setError(isLocalRuntime ? 'Endpoint URL is required' : t('settings.ai.apiKeyRequired'));
+      return;
+    }
+    if (isLocalRuntime && !/^https?:\/\//i.test(trimmed)) {
+      setError('Endpoint must start with http:// or https://');
       return;
     }
     setError(null);
@@ -515,20 +540,18 @@ const ProviderKeyDialog = ({
       <div className="w-full max-w-md rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">{`${t('settings.ai.connectProvider')} ${label}`}</h3>
-          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-            {t('settings.ai.apiKeyStoredEncrypted')}
-          </p>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{helper}</p>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="provider-key-input"
             className="text-xs font-medium text-stone-700 dark:text-neutral-200">
-            {t('settings.ai.apiKeyFieldLabel')}
+            {fieldLabel}
           </label>
           <input
             id="provider-key-input"
-            type="text"
+            type={isLocalRuntime ? 'url' : 'text'}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
@@ -536,14 +559,14 @@ const ProviderKeyDialog = ({
             data-form-type="other"
             data-lpignore="true"
             data-1p-ignore="true"
-            value={apiKey}
+            value={value}
             placeholder={placeholder}
             disabled={busy}
             onChange={e => {
-              setApiKey(e.target.value);
+              setValue(e.target.value);
               setError(null);
             }}
-            className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60"
+            className={`rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60 ${isLocalRuntime ? 'font-mono' : ''}`}
           />
           {error ? (
             <p className="text-xs font-medium text-red-600 dark:text-red-300">{error}</p>
@@ -1564,6 +1587,11 @@ const CustomRoutingDialog = ({
   const [cloudModelsLoading, setCloudModelsLoading] = useState(false);
   const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
   const [modelsKey, setModelsKey] = useState(0);
+  // Optional temperature override for this workload. `null` = use provider/global default;
+  // a finite number means "send `temperature: X` upstream for this workload only".
+  const [temperature, setTemperature] = useState<number | null>(
+    initial.kind === 'cloud' || initial.kind === 'local' ? (initial.temperature ?? null) : null
+  );
 
   const selectedCloud =
     source?.kind === 'cloud' ? customCloud.find(c => c.slug === source.providerSlug) : undefined;
@@ -1614,10 +1642,16 @@ const CustomRoutingDialog = ({
 
   const handleSave = () => {
     if (!source || !canSave) return;
+    const temp = temperature == null || !Number.isFinite(temperature) ? null : temperature;
     if (source.kind === 'cloud') {
-      onSubmit({ kind: 'cloud', providerSlug: source.providerSlug, model: model.trim() });
+      onSubmit({
+        kind: 'cloud',
+        providerSlug: source.providerSlug,
+        model: model.trim(),
+        temperature: temp,
+      });
     } else {
-      onSubmit({ kind: 'local', model: model.trim() });
+      onSubmit({ kind: 'local', model: model.trim(), temperature: temp });
     }
   };
 
@@ -1762,6 +1796,55 @@ const CustomRoutingDialog = ({
                 />
               )}
             </div>
+
+            {/* Temperature override (optional). When unchecked, the workload
+                inherits the provider/global default temperature. */}
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-center justify-between gap-2 text-xs font-medium text-stone-700 dark:text-neutral-200">
+                <span className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={temperature != null}
+                    onChange={e => setTemperature(e.target.checked ? 0.7 : null)}
+                    className="h-3.5 w-3.5 rounded border-stone-300 dark:border-neutral-700 text-primary-500 focus:ring-primary-500"
+                  />
+                  Temperature override
+                </span>
+                {temperature != null && (
+                  <span className="font-mono text-[11px] text-stone-500 dark:text-neutral-400">
+                    {temperature.toFixed(2)}
+                  </span>
+                )}
+              </label>
+              {temperature != null && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={temperature}
+                    onChange={e => setTemperature(Number(e.target.value))}
+                    className="flex-1 accent-primary-500"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={temperature}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      if (Number.isFinite(v)) setTemperature(Math.max(0, Math.min(2, v)));
+                    }}
+                    className="w-16 rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-mono text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              )}
+              <p className="text-[11px] text-stone-400 dark:text-neutral-500">
+                Lower = more deterministic. Leave unchecked to use the provider default.
+              </p>
+            </div>
           </div>
         )}
 
@@ -1875,12 +1958,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
       const a = saved.routing[w.id];
       const b = draft.routing[w.id];
       if (JSON.stringify(a) !== JSON.stringify(b)) {
-        const describe = (r: ProviderRef) =>
-          r.kind === 'openhuman'
-            ? 'openhuman'
-            : r.kind === 'cloud'
-              ? `${r.providerSlug}:${r.model}`
-              : `local:${r.model}`;
+        const describe = (r: ProviderRef) => {
+          if (r.kind === 'openhuman') return 'openhuman';
+          const tempSuffix = r.temperature != null ? `@${r.temperature.toFixed(2)}` : '';
+          if (r.kind === 'cloud') return `${r.providerSlug}:${r.model}${tempSuffix}`;
+          return `local:${r.model}${tempSuffix}`;
+        };
         out.push(`${w.label} → ${describe(b)}`);
       }
     }
@@ -2178,38 +2261,57 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
         <ProviderKeyDialog
           slug={keyDialogFor}
           label={pendingLocalLabel ?? BUILTIN_PROVIDER_META[keyDialogFor]?.label ?? keyDialogFor}
+          isLocalRuntime={Boolean(pendingLocalLabel)}
           onCancel={() => {
             setKeyDialogFor(null);
             setPendingLocalLabel(null);
           }}
-          onSubmit={async apiKey => {
+          onSubmit={async value => {
             const slug = keyDialogFor;
             const localLabel = pendingLocalLabel;
+            const isLocalRuntime = Boolean(localLabel);
             setBusyAction(
               `toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : slug}`
             );
             try {
-              // For LM Studio / Ollama the dialog's "API key" field is
-              // actually the local endpoint URL, so persist it as endpoint
-              // and skip the credential save (no remote key to store).
-              const isLocalRuntime = Boolean(localLabel);
+              const trimmed = value.trim();
               const upserted: CloudProvider = {
                 id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
                 slug,
                 label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
-                endpoint: isLocalRuntime ? apiKey.trim() : defaultEndpointFor(slug),
+                endpoint: isLocalRuntime ? trimmed : defaultEndpointFor(slug),
                 authStyle: authStyleForSlug(slug),
                 maskedKey: maskKeyLabel(true),
               };
-              // Persist the credential BEFORE mutating draft, so a key-write
+              // Persist the credential / endpoint BEFORE mutating draft so a
               // failure can't leave config + secrets out of sync.
               if (!isLocalRuntime && slug !== 'openhuman') {
                 try {
-                  await setCloudProviderKey(slug, apiKey);
+                  await setCloudProviderKey(slug, trimmed);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
                   return;
+                }
+              } else if (isLocalRuntime && slug === 'ollama') {
+                // The Rust Ollama branch reads `config.local_ai.base_url`
+                // (not `cloud_providers[].endpoint`) when building the
+                // provider — persist it eagerly so chat routing actually
+                // hits the user-chosen host. Strip a trailing `/v1` since
+                // `make_ollama_provider` appends `/v1` itself.
+                const baseUrl = trimmed.replace(/\/v1\/?$/, '');
+                try {
+                  await openhumanUpdateLocalAiSettings({
+                    base_url: baseUrl,
+                    provider: 'ollama',
+                    runtime_enabled: true,
+                    opt_in_confirmed: true,
+                  });
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  console.warn('[ai-settings] persist ollama base_url failed', msg);
+                  // Continue anyway — the cloud_providers entry still lets the
+                  // /models probe work from the AI panel.
                 }
               }
               setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
@@ -2394,6 +2496,13 @@ function defaultEndpointFor(slug: string): string {
       return 'https://api.anthropic.com/v1';
     case 'openrouter':
       return 'https://openrouter.ai/api/v1';
+    case 'ollama':
+      // Ollama exposes an OpenAI-compatible endpoint at /v1; the bare host is
+      // also accepted by the Rust factory (it appends /v1 internally for chat).
+      // For the /models probe we want the OpenAI-compat path.
+      return 'http://localhost:11434/v1';
+    case 'lmstudio':
+      return 'http://localhost:1234/v1';
     default:
       return '';
   }

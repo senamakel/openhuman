@@ -65,11 +65,38 @@ export const BACKGROUND_WORKLOADS: WorkloadId[] = [
 ];
 export const ALL_WORKLOADS: WorkloadId[] = [...CHAT_WORKLOADS, ...BACKGROUND_WORKLOADS];
 
-/** Provider reference parsed from a stored provider-string. */
+/** Provider reference parsed from a stored provider-string.
+ *
+ * Wire grammar: `"<slug>:<model>[@<temperature>]"`. The optional
+ * `@<temperature>` suffix overrides the global default for this workload
+ * only. The Rust factory strips it before sending the model id upstream.
+ */
 export type ProviderRef =
   | { kind: 'openhuman' }
-  | { kind: 'cloud'; providerSlug: string; model: string }
-  | { kind: 'local'; model: string };
+  | { kind: 'cloud'; providerSlug: string; model: string; temperature?: number | null }
+  | { kind: 'local'; model: string; temperature?: number | null };
+
+/** Parse a `<model>[@<temp>]` suffix into `(model, temperature)`. */
+function splitModelAndTemp(raw: string): { model: string; temperature: number | null } {
+  const at = raw.lastIndexOf('@');
+  if (at < 0) return { model: raw.trim(), temperature: null };
+  const head = raw.slice(0, at).trim();
+  const tail = raw.slice(at + 1).trim();
+  const parsed = Number(tail);
+  if (!head || !Number.isFinite(parsed)) {
+    // Malformed suffix — treat the whole thing as the model id.
+    return { model: raw.trim(), temperature: null };
+  }
+  return { model: head, temperature: parsed };
+}
+
+/** Format the model + optional temperature suffix used on the wire. */
+function joinModelAndTemp(model: string, temperature: number | null | undefined): string {
+  if (temperature == null || !Number.isFinite(temperature)) return model;
+  // Two decimal places is plenty for the 0..2 slider and avoids 0.7000000001 drift.
+  const rounded = Math.round(temperature * 100) / 100;
+  return `${model}@${String(rounded)}`;
+}
 
 /**
  * Cloud provider entry as the UI sees it — endpoint config plus a derived
@@ -110,16 +137,19 @@ export function parseProviderString(s: string | null | undefined): ProviderRef {
     return { kind: 'openhuman' };
   }
   if (trimmed.startsWith('ollama:')) {
-    return { kind: 'local', model: trimmed.slice('ollama:'.length).trim() };
+    const { model, temperature } = splitModelAndTemp(trimmed.slice('ollama:'.length));
+    return temperature == null ? { kind: 'local', model } : { kind: 'local', model, temperature };
   }
   const colonIdx = trimmed.indexOf(':');
   if (colonIdx > 0) {
     const slug = trimmed.slice(0, colonIdx).trim();
-    const model = trimmed.slice(colonIdx + 1).trim();
+    const { model, temperature } = splitModelAndTemp(trimmed.slice(colonIdx + 1));
     if (slug === 'openhuman') {
       return { kind: 'openhuman' };
     }
-    return { kind: 'cloud', providerSlug: slug, model };
+    return temperature == null
+      ? { kind: 'cloud', providerSlug: slug, model }
+      : { kind: 'cloud', providerSlug: slug, model, temperature };
   }
   // Unrecognised bare string → fall back to openhuman.
   return { kind: 'openhuman' };
@@ -131,9 +161,9 @@ export function serializeProviderRef(ref: ProviderRef): string {
     case 'openhuman':
       return 'openhuman';
     case 'cloud':
-      return `${ref.providerSlug}:${ref.model}`;
+      return `${ref.providerSlug}:${joinModelAndTemp(ref.model, ref.temperature)}`;
     case 'local':
-      return `ollama:${ref.model}`;
+      return `ollama:${joinModelAndTemp(ref.model, ref.temperature)}`;
   }
 }
 

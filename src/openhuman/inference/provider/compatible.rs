@@ -71,6 +71,12 @@ pub struct OpenAiCompatibleProvider {
     /// `temperature::glob_match`. Defaults to empty (all models support
     /// temperature); populated by the factory when the config has entries.
     pub(crate) temperature_unsupported_models: Vec<String>,
+    /// Per-workload temperature override. When `Some`, replaces the
+    /// caller-supplied `temperature` for every chat call on this provider
+    /// instance — set by the factory when the workload's provider string
+    /// carries an `@<temp>` suffix (e.g. `"openai:gpt-4o@0.2"`). The
+    /// `temperature_unsupported_models` glob filter still applies after.
+    pub(crate) temperature_override: Option<f64>,
 }
 
 /// How the provider expects the API key to be sent.
@@ -171,6 +177,7 @@ impl OpenAiCompatibleProvider {
             merge_system_into_user,
             emit_openhuman_thread_id: false,
             temperature_unsupported_models: Vec::new(),
+            temperature_override: None,
         }
     }
 
@@ -182,9 +189,17 @@ impl OpenAiCompatibleProvider {
         self
     }
 
+    /// Pin a per-workload temperature, overriding whatever the caller passes.
+    /// Set by the factory when the provider string carries an `@<temp>` suffix.
+    pub fn with_temperature_override(mut self, temperature: Option<f64>) -> Self {
+        self.temperature_override = temperature;
+        self
+    }
+
     /// Resolve the effective temperature for `model`. Returns `None` when the
     /// model matches a pattern in `temperature_unsupported_models` (causing the
-    /// field to be omitted from the serialised request).
+    /// field to be omitted from the serialised request). Otherwise yields the
+    /// per-workload override if one was configured, else the caller's value.
     fn effective_temperature(&self, model: &str, temperature: f64) -> Option<f64> {
         if self
             .temperature_unsupported_models
@@ -198,7 +213,7 @@ impl OpenAiCompatibleProvider {
             );
             None
         } else {
-            Some(temperature)
+            Some(self.temperature_override.unwrap_or(temperature))
         }
     }
 

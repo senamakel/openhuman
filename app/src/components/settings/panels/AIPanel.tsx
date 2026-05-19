@@ -325,10 +325,36 @@ function useAISettings() {
 
   const save = useCallback(async () => {
     try {
+      // Defensive verification at global-Save time. Each provider that is new
+      // or whose endpoint changed since the last saved snapshot is re-probed
+      // through `openhuman.inference_list_models`. The chip / editor dialogs
+      // already probe at add-time; this is a belt-and-suspenders check that
+      // catches stale entries (endpoint flipped externally, daemon went
+      // unreachable between add-time and save-time, etc.) before they reach
+      // the saved config and start routing chat traffic to a dead host.
+      //
+      // OpenHuman is exempt (session JWT, no /models endpoint to hit).
+      const savedById = new Map(saved.cloudProviders.map(p => [p.id, p]));
+      const toProbe = draft.cloudProviders.filter(p => {
+        if (p.slug === 'openhuman') return false;
+        const prior = savedById.get(p.id);
+        return !prior || prior.endpoint !== p.endpoint;
+      });
+      for (const p of toProbe) {
+        try {
+          await listProviderModels(p.slug);
+        } catch (probeErr) {
+          const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+          setError(`Could not reach ${p.label}: ${msg}. Settings were not saved.`);
+          return;
+        }
+      }
+
       const prevApi = toApiSettings(saved);
       const nextApi = toApiSettings(draft);
       await saveAISettings(prevApi, nextApi);
       setSaved(draft);
+      setError('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save AI settings';
       setError(message);

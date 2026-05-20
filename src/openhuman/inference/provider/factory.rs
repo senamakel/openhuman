@@ -8,11 +8,12 @@
 //!
 //! ```text
 //! "openhuman"                    → OpenHumanBackendProvider; model = config.default_model
+//! "cloud" / missing              → primary_cloud; legacy custom inference_url wins when
+//!                                  primary still points at OpenHuman after migration
 //! "ollama:<model>[@<temp>]"      → local Ollama at config.local_ai.base_url
 //! "<slug>:<model>[@<temp>]"      → cloud_providers entry keyed by slug;
 //!                                  builds OpenAiCompatibleProvider (Bearer) or
 //!                                  Anthropic flavour depending on auth_style.
-//! ""  / missing                  → falls back to "openhuman"
 //! ```
 //!
 //! The optional `@<temp>` suffix pins a per-workload temperature override on
@@ -35,6 +36,21 @@ pub const PROVIDER_OPENHUMAN: &str = "openhuman";
 /// Prefix for Ollama-local providers: `"ollama:<model>"`.
 pub const OLLAMA_PROVIDER_PREFIX: &str = "ollama:";
 
+fn is_abstract_tier_model(model: &str) -> bool {
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1,
+    };
+    // No dedicated constant for the summarization tier yet; keep the literal
+    // in sync with the tier name used by the summarizer sub-agent.
+    const MODEL_SUMMARIZATION_V1: &str = "summarization-v1";
+    let trimmed = model.trim();
+    trimmed == MODEL_REASONING_V1
+        || trimmed == MODEL_REASONING_QUICK_V1
+        || trimmed == MODEL_AGENTIC_V1
+        || trimmed == MODEL_CODING_V1
+        || trimmed == MODEL_SUMMARIZATION_V1
+}
+
 /// Auth-profile storage key for a slug-keyed provider.
 ///
 /// New writes use `"provider:<slug>"`. Lookups also try the bare `<slug>`
@@ -45,7 +61,11 @@ pub fn auth_key_for_slug(slug: &str) -> String {
 
 /// Return the configured provider string for a named workload role.
 ///
-/// Returns `"openhuman"` when the workload has no explicit override.
+/// Empty / `"cloud"` resolves through `primary_cloud`. For backwards
+/// compatibility, a legacy external `inference_url` takes precedence when
+/// `primary_cloud` still points at OpenHuman because migration 1→2 preserved
+/// the URL as a custom provider entry but older configs did not explicitly set
+/// per-workload routes.
 pub fn provider_for_role(role: &str, config: &Config) -> String {
     let opt = match role {
         "chat" => config.chat_provider.as_deref(),
@@ -66,24 +86,7 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
     };
     let s = opt.unwrap_or("").trim();
     if s.is_empty() || s == "cloud" {
-        // When no explicit per-workload provider is set, resolve
-        // primary_cloud.  If it points to a non-openhuman entry, route
-        // there so users can use their own LLM provider without having
-        // to set every single workload knob.  (An active app-session
-        // is still required — verified inside
-        // create_chat_provider_from_string.)
-        let primary_slug = config.primary_cloud.as_deref().and_then(|pid| {
-            config
-                .cloud_providers
-                .iter()
-                .find(|e| e.id == pid && e.slug != "openhuman")
-                .map(|e| e.slug.clone())
-        });
-        if let Some(slug) = primary_slug {
-            format!("{slug}:")
-        } else {
-            PROVIDER_OPENHUMAN.to_string()
-        }
+        resolve_primary_cloud_provider_string(config)
     } else {
         s.to_string()
     }
@@ -118,9 +121,10 @@ pub fn create_chat_provider_from_string(
         p
     );
 
-    // Empty / legacy "cloud" sentinel → OpenHuman backend.
+    // Empty / legacy "cloud" sentinel → primary cloud target.
     if p.is_empty() || p == "cloud" {
-        return make_openhuman_backend(config);
+        let resolved = resolve_primary_cloud_provider_string(config);
+        return create_chat_provider_from_string(role, &resolved, config);
     }
 
     if p == PROVIDER_OPENHUMAN {
@@ -268,6 +272,98 @@ fn verify_session_active(config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn resolve_primary_cloud_provider_string(config: &Config) -> String {
+    let primary = config
+        .primary_cloud
+        .as_deref()
+        .and_then(|id| config.cloud_providers.iter().find(|entry| entry.id == id));
+
+    if primary.is_some_and(is_openhuman_cloud_entry) {
+        if let Some(legacy) = legacy_custom_inference_provider_string(config) {
+            return legacy;
+        }
+    }
+
+    if let Some(entry) = primary {
+        return cloud_entry_provider_string(entry, config);
+    }
+
+    legacy_custom_inference_provider_string(config)
+        .unwrap_or_else(|| PROVIDER_OPENHUMAN.to_string())
+}
+
+fn legacy_custom_inference_provider_string(config: &Config) -> Option<String> {
+    let inference_url = config
+        .inference_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|url| !url.is_empty())?;
+
+    if looks_like_openhuman_backend(inference_url) {
+        return None;
+    }
+
+    let normalized_inference = normalize_endpoint_for_compare(inference_url);
+    config
+        .cloud_providers
+        .iter()
+        .find(|entry| {
+            !is_openhuman_cloud_entry(entry)
+                && normalize_endpoint_for_compare(&entry.endpoint) == normalized_inference
+        })
+        .map(|entry| cloud_entry_provider_string(entry, config))
+}
+
+fn cloud_entry_provider_string(
+    entry: &crate::openhuman::config::schema::cloud_providers::CloudProviderCreds,
+    config: &Config,
+) -> String {
+    if is_openhuman_cloud_entry(entry) {
+        return PROVIDER_OPENHUMAN.to_string();
+    }
+
+    let model = entry
+        .default_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .or_else(|| {
+            config
+                .default_model
+                .as_deref()
+                .map(str::trim)
+                .filter(|model| !model.is_empty())
+        })
+        .unwrap_or(crate::openhuman::config::DEFAULT_MODEL);
+
+    format!("{}:{model}", entry.slug)
+}
+
+fn is_openhuman_cloud_entry(
+    entry: &crate::openhuman::config::schema::cloud_providers::CloudProviderCreds,
+) -> bool {
+    entry.slug == PROVIDER_OPENHUMAN
+        || matches!(entry.auth_style, AuthStyle::OpenhumanJwt)
+        || looks_like_openhuman_backend(&entry.endpoint)
+}
+
+fn normalize_endpoint_for_compare(url: &str) -> String {
+    url.trim().trim_end_matches('/').to_ascii_lowercase()
+}
+
+fn looks_like_openhuman_backend(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    let without_scheme = lower.split("://").nth(1).unwrap_or(&lower);
+    let authority = without_scheme.split('/').next().unwrap_or("");
+    let host = authority.split('@').next_back().unwrap_or(authority);
+    let host_no_port = host.split(':').next().unwrap_or(host);
+    matches!(
+        host_no_port,
+        "api.openhuman.ai" | "api.tinyhumans.ai" | "staging-api.tinyhumans.ai" | "openhuman"
+    ) || host_no_port.ends_with(".openhuman.ai")
+        || host_no_port.ends_with(".tinyhumans.ai")
+}
+
 /// Parse a `<model>[@<temp>]` tail into `(model, override)`.
 ///
 /// Tolerates whitespace around the components. Returns `temperature = None`
@@ -345,11 +441,38 @@ fn make_cloud_provider_by_slug(
 
     // Resolve effective model: use provided model if non-empty, else fall back
     // to the entry's legacy default_model (if any), else empty → error.
-    let effective_model = if model.trim().is_empty() {
+    let mut effective_model = if model.trim().is_empty() {
         entry.default_model.clone().unwrap_or_default()
     } else {
         model.to_string()
     };
+
+    if entry.auth_style != AuthStyle::OpenhumanJwt && is_abstract_tier_model(&effective_model) {
+        if let Some(default_model) = entry
+            .default_model
+            .as_deref()
+            .map(str::trim)
+            .filter(|m| !m.is_empty() && !is_abstract_tier_model(m))
+        {
+            log::info!(
+                "[providers][chat-factory] role={} slug={} remapping abstract model {} -> {}",
+                role,
+                slug,
+                effective_model,
+                default_model
+            );
+            effective_model = default_model.to_string();
+        } else {
+            anyhow::bail!(
+                "[chat-factory] model '{}' is an abstract tier for role '{}', \
+                 but cloud provider slug '{}' has no concrete default_model configured. \
+                 Set cloud_providers[].default_model to a provider-native model id (e.g. deepseek-v4-pro).",
+                effective_model,
+                role,
+                slug
+            );
+        }
+    }
 
     log::info!(
         "[providers][chat-factory] role={} slug={} model={} endpoint_host={}",

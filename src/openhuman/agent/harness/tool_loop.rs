@@ -605,6 +605,30 @@ pub(crate) async fn run_tool_call_loop(
                 }
             };
 
+            // ── Tool policy check (#2131) ─────────────────
+            // Evaluate the pluggable ToolPolicy before any approval or
+            // execution. If the policy denies the call, skip everything
+            // (including approval side-effects) and return the denial
+            // reason as a tool error to the model.
+            if let PolicyDecision::Deny(reason) = tool_policy.evaluate(&call.name, &call.arguments)
+            {
+                tracing::warn!(
+                    iteration,
+                    tool = call.name.as_str(),
+                    reason = %reason,
+                    "[agent_loop] tool policy denied tool call"
+                );
+                let denied = format!("Tool '{}' denied by policy: {reason}", call.name);
+                emit_failed_completion(&denied).await;
+                individual_results.push(denied.clone());
+                let _ = writeln!(
+                    tool_results,
+                    "<tool_result name=\"{}\">\n{denied}\n</tool_result>",
+                    call.name
+                );
+                continue;
+            }
+
             // ── Approval hook ────────────────────────────────
             if let Some(mgr) = approval {
                 if mgr.needs_approval(&call.name) {
@@ -710,32 +734,6 @@ pub(crate) async fn run_tool_call_loop(
                             }
                         }
                     }
-                }
-            }
-
-            // ── Tool policy check (#2131) ─────────────────
-            // Evaluate the pluggable ToolPolicy before executing. If the
-            // policy denies the call, skip execution entirely and return the
-            // denial reason as a tool error to the model.
-            if tool_opt.is_some() {
-                if let PolicyDecision::Deny(reason) =
-                    tool_policy.evaluate(&call.name, &call.arguments)
-                {
-                    tracing::warn!(
-                        iteration,
-                        tool = call.name.as_str(),
-                        reason = %reason,
-                        "[agent_loop] tool policy denied tool call"
-                    );
-                    let denied = format!("Tool '{}' denied by policy: {reason}", call.name);
-                    emit_failed_completion(&denied).await;
-                    individual_results.push(denied.clone());
-                    let _ = writeln!(
-                        tool_results,
-                        "<tool_result name=\"{}\">\n{denied}\n</tool_result>",
-                        call.name
-                    );
-                    continue;
                 }
             }
 

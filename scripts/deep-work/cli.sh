@@ -11,6 +11,9 @@ Usage: pnpm deep-work <command> [args...]
 
 Full workflow automation for GitHub issues using worktrees and AI agents.
 
+By default `start` auto-assigns the issue to `@me`, and PR creation steps
+auto-assign the created PR to `@me`.
+
 Commands:
   start <issue-number>           Start full workflow for an issue
   pick                          Smart issue selection + start workflow

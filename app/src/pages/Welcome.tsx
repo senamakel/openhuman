@@ -6,6 +6,7 @@ import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
 import { oauthProviderConfigs } from '../components/oauth/providerConfigs';
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 import Button from '../components/ui/Button';
+import { useBackendReachable } from '../hooks/useBackendReachable';
 import { useT } from '../lib/i18n/I18nContext';
 import { useCoreState } from '../providers/CoreStateProvider';
 import { clearBackendUrlCache } from '../services/backendUrl';
@@ -27,6 +28,7 @@ const Welcome = () => {
   const dispatch = useAppDispatch();
   const { storeSessionToken } = useCoreState();
   const { isProcessing, errorMessage, requiresAppDataReset } = useDeepLinkAuthState();
+  const backendStatus = useBackendReachable();
 
   const [isClearingAppData, setIsClearingAppData] = useState(false);
   const [isLocalSigningIn, setIsLocalSigningIn] = useState(false);
@@ -152,26 +154,28 @@ const Welcome = () => {
                     />
                   ))}
               </div>
-              <div className="mt-5 space-y-2">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleLocalLogin}
-                  disabled={isLocalSigningIn}
-                  className="w-full">
-                  {isLocalSigningIn
-                    ? t('welcome.localSessionStarting')
-                    : t('welcome.continueLocally')}
-                </Button>
-                <p className="text-[11px] leading-4 text-center text-stone-500 dark:text-neutral-400">
-                  {t('welcome.localSessionDesc')}
-                </p>
-                {localLoginError ? (
-                  <p className="text-[11px] leading-4 text-center font-medium text-red-700">
-                    {localLoginError}
+              {backendStatus === 'unreachable' ? (
+                <div className="mt-5 space-y-2">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleLocalLogin}
+                    disabled={isLocalSigningIn}
+                    className="w-full">
+                    {isLocalSigningIn
+                      ? t('welcome.localSessionStarting')
+                      : t('welcome.continueLocally')}
+                  </Button>
+                  <p className="text-[11px] leading-4 text-center text-stone-500 dark:text-neutral-400">
+                    {t('welcome.localSessionDesc')}
                   </p>
-                ) : null}
-              </div>
+                  {localLoginError ? (
+                    <p className="text-[11px] leading-4 text-center font-medium text-red-700">
+                      {localLoginError}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               <p className="mt-3 text-center text-[11px] leading-5 text-stone-500 dark:text-neutral-500">
                 {t('welcome.legalConsentPrefix')}{' '}

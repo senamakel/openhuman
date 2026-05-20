@@ -86,6 +86,12 @@ vi.mock('../../services/backendUrl', () => ({
   getBackendUrl: vi.fn().mockResolvedValue('http://localhost:5005'),
 }));
 
+type BackendProbeStatus = 'probing' | 'reachable' | 'unreachable';
+const mockUseBackendReachable = vi.fn((): BackendProbeStatus => 'reachable');
+vi.mock('../../hooks/useBackendReachable', () => ({
+  useBackendReachable: () => mockUseBackendReachable(),
+}));
+
 vi.mock('../../utils/configPersistence', () => ({
   getStoredRpcUrl: vi.fn(() => 'http://127.0.0.1:7788/rpc'),
   peekStoredRpcUrl: vi.fn(() => null),
@@ -330,6 +336,7 @@ describe('Welcome — local login', () => {
   beforeEach(() => {
     mockStoreSessionToken.mockReset().mockResolvedValue(undefined);
     mockNavigate.mockReset();
+    mockUseBackendReachable.mockReturnValue('unreachable');
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
       errorMessage: null,
@@ -337,10 +344,24 @@ describe('Welcome — local login', () => {
     });
   });
 
-  it('renders the "Continue locally" button', () => {
+  it('renders the "Continue locally" button when backend is unreachable', () => {
     renderWithProviders(<Welcome />);
 
     expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+  });
+
+  it('hides the "Continue locally" button when backend is reachable', () => {
+    mockUseBackendReachable.mockReturnValue('reachable');
+    renderWithProviders(<Welcome />);
+
+    expect(screen.queryByRole('button', { name: /Continue locally/i })).not.toBeInTheDocument();
+  });
+
+  it('hides the "Continue locally" button while the probe is in flight', () => {
+    mockUseBackendReachable.mockReturnValue('probing');
+    renderWithProviders(<Welcome />);
+
+    expect(screen.queryByRole('button', { name: /Continue locally/i })).not.toBeInTheDocument();
   });
 
   it('calls storeSessionToken with a local session token and navigates to /home', async () => {

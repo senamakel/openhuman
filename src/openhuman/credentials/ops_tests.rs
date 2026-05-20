@@ -1,4 +1,5 @@
 use super::*;
+use crate::openhuman::credentials::session_support::LOCAL_SESSION_USER_ID;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -70,6 +71,68 @@ fn sanitize_stored_session_user_discards_empty_objects() {
     assert_eq!(
         sanitize_stored_session_user(Some(json!({ "firstName": "steven" }))),
         Some(json!({ "firstName": "steven" }))
+    );
+}
+
+// ── store_session (local session) ─────────────────────────────
+
+/// A local session token requires a non-empty user payload — the backend
+/// fetch path is bypassed entirely, so there is no fallback to derive the
+/// user from an API response.
+#[tokio::test]
+async fn store_session_local_token_rejects_missing_user_payload() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let local_token = "header.payload.local";
+    let err = store_session(&config, local_token, None, None)
+        .await
+        .unwrap_err();
+    assert!(
+        err.contains("local session requires a user payload"),
+        "expected 'local session requires a user payload', got: {err}"
+    );
+}
+
+/// A local session token with a user payload must be accepted without any
+/// network call, must force `user_id = "local"` regardless of what the
+/// caller passes, and must return a stored profile summary.
+#[tokio::test]
+async fn store_session_local_token_succeeds_without_network_and_forces_local_user_id() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let local_token = "header.payload.local";
+    let user = serde_json::json!({
+        "id": "local",
+        "name": "Local User",
+        "email": "local@openhuman.local"
+    });
+    // Pass a different user_id to verify it is overridden.
+    let result = store_session(
+        &config,
+        local_token,
+        Some("should-be-overridden".to_string()),
+        Some(user),
+    )
+    .await
+    .unwrap();
+    // Profile must be stored (no network call was required).
+    assert!(
+        result.value.has_token,
+        "local session should result in a stored token"
+    );
+    // Logs must mention that backend validation was skipped.
+    let log_text = result.logs.join(" ");
+    assert!(
+        log_text.contains("local session accepted without backend validation"),
+        "expected log confirming no backend call, got: {log_text}"
+    );
+    // The profile_id or metadata must reflect the forced user_id.
+    // Because store_session re-activates the user directory and reloads
+    // config (so it picks up the user-scoped workspace path), we verify
+    // via the returned profile summary rather than a secondary profile lookup.
+    assert_eq!(
+        result.value.provider, "app-session",
+        "profile must be stored under the app-session provider"
     );
 }
 

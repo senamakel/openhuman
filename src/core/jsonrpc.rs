@@ -179,26 +179,6 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
     // (this one, `llm_provider.api_error`, …) gets the same teardown.
     if let Err(ref msg) = result {
         if is_session_expired_error(msg) {
-            let is_local_session =
-                match crate::openhuman::config::rpc::load_config_with_timeout().await {
-                    Ok(config) => crate::api::jwt::get_session_token(&config)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|token| {
-                            crate::openhuman::credentials::session_support::is_local_session_token(
-                                &token,
-                            )
-                        }),
-                    Err(_) => false,
-                };
-            if is_local_session {
-                log::warn!(
-                    "[jsonrpc] backend returned 401 for method '{}' during local session; skipping SessionExpired publish",
-                    method
-                );
-                return result;
-            }
-
             log::warn!(
                 "[jsonrpc] backend returned 401 for method '{}' — publishing SessionExpired",
                 method
@@ -207,6 +187,13 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
             // upstream error string could include API keys / tokens from
             // pasted-through provider replies. `sanitize_api_error` runs
             // `scrub_secret_patterns` and truncates.
+            //
+            // Local-session protection is handled by `SessionExpiredSubscriber`
+            // in `src/openhuman/credentials/bus.rs` — it checks `is_local_session_token`
+            // after config load and short-circuits teardown with
+            // `scheduler_gate::set_signed_out(false)`. Duplicating that check
+            // here would pull a domain concern into the transport layer and would
+            // add an extra config-load round-trip on every 401.
             crate::core::event_bus::publish_global(
                 crate::core::event_bus::DomainEvent::SessionExpired {
                     source: format!("jsonrpc.invoke_method:{method}"),

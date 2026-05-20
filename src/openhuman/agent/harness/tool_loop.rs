@@ -612,7 +612,7 @@ pub(crate) async fn run_tool_call_loop(
             // reason as a tool error to the model.
             if let PolicyDecision::Deny(reason) = tool_policy.evaluate(&call.name, &call.arguments)
             {
-                tracing::warn!(
+                tracing::debug!(
                     iteration,
                     tool = call.name.as_str(),
                     reason = %reason,

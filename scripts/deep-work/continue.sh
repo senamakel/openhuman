@@ -294,4 +294,8 @@ fi
 
 echo ""
 echo "[deep-work] 🎯 Continue session complete!"
-echo "[deep-work] Use 'pnpm deep-work continue $issue' to resume anytime."
+if worktree_exists "$issue"; then
+  echo "[deep-work] Use 'pnpm deep-work continue $issue' to resume anytime."
+else
+  echo "[deep-work] Worktree was cleaned up. Use 'pnpm deep-work start $issue' to begin again."
+fi

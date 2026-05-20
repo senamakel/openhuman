@@ -174,7 +174,7 @@ const Welcome = () => {
               </div>
 
               <p className="mt-3 text-center text-[11px] leading-5 text-stone-500 dark:text-neutral-500">
-                By continuing, you agree to the{' '}
+                {t('welcome.legalConsentPrefix')}{' '}
                 <a
                   href={TERMS_OF_USE_URL}
                   target="_blank"
@@ -184,9 +184,9 @@ const Welcome = () => {
                     void openUrl(TERMS_OF_USE_URL);
                   }}
                   className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
-                  Terms
+                  {t('welcome.termsLink')}
                 </a>{' '}
-                and{' '}
+                {t('welcome.legalConsentAnd')}{' '}
                 <a
                   href={PRIVACY_POLICY_URL}
                   target="_blank"
@@ -196,7 +196,7 @@ const Welcome = () => {
                     void openUrl(PRIVACY_POLICY_URL);
                   }}
                   className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-neutral-300 dark:hover:text-neutral-100">
-                  Privacy Policy
+                  {t('welcome.privacyPolicyLink')}
                 </a>
                 .
               </p>

@@ -1154,6 +1154,10 @@ const en: TranslationMap = {
   'welcome.continueLocally': 'Continue locally',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
+  'welcome.legalConsentPrefix': 'By continuing, you agree to the',
+  'welcome.termsLink': 'Terms',
+  'welcome.legalConsentAnd': 'and',
+  'welcome.privacyPolicyLink': 'Privacy Policy',
 
   // Chat: Agent chat panel description
   'chat.agentChatDesc': 'Open a direct chat session with the agent.',

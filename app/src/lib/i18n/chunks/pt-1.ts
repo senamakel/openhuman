@@ -82,6 +82,8 @@ const pt1: TranslationMap = {
   'settings.clearAppDataDesc': 'Sair e excluir permanentemente todos os dados locais do app',
   'settings.logOut': 'Sair',
   'settings.logOutDesc': 'Sair da sua conta',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Idioma',
   'settings.languageDesc': 'Idioma de exibição da interface do app',
   'settings.alerts': 'Alertas',

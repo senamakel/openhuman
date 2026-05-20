@@ -83,6 +83,8 @@ const es1: TranslationMap = {
     'Cerrar sesión y eliminar permanentemente todos los datos locales de la app',
   'settings.logOut': 'Cerrar sesión',
   'settings.logOutDesc': 'Salir de tu cuenta',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Idioma',
   'settings.languageDesc': 'Idioma de visualización de la interfaz de la app',
   'settings.alerts': 'Alertas',

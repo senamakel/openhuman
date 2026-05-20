@@ -80,6 +80,8 @@ const zhCN1: TranslationMap = {
   'settings.clearAppDataDesc': '退出登录并永久清除所有本地应用数据',
   'settings.logOut': '退出登录',
   'settings.logOutDesc': '退出当前账户',
+  'settings.exitLocalSession': '退出本地会话',
+  'settings.exitLocalSessionDesc': '返回登录页面',
   'settings.language': '语言',
   'settings.languageDesc': '应用界面显示语言',
   'settings.alerts': '通知',

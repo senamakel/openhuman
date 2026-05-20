@@ -80,6 +80,8 @@ const id1: TranslationMap = {
   'settings.clearAppDataDesc': 'Keluar dan hapus permanen semua data aplikasi lokal',
   'settings.logOut': 'Keluar',
   'settings.logOutDesc': 'Keluar dari akun Anda',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Bahasa',
   'settings.languageDesc': 'Bahasa tampilan untuk antarmuka aplikasi',
   'settings.alerts': 'Peringatan',

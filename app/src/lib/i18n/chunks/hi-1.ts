@@ -80,6 +80,8 @@ const hi1: TranslationMap = {
   'settings.clearAppDataDesc': 'साइन आउट करें और सारा लोकल ऐप डेटा हमेशा के लिए मिटाएं',
   'settings.logOut': 'लॉग आउट',
   'settings.logOutDesc': 'अपने अकाउंट से साइन आउट करें',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'भाषा',
   'settings.languageDesc': 'ऐप इंटरफेस की डिस्प्ले भाषा',
   'settings.alerts': 'अलर्ट',

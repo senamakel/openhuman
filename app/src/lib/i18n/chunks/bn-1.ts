@@ -81,6 +81,8 @@ const bn1: TranslationMap = {
   'settings.clearAppDataDesc': 'সাইন আউট করুন এবং সব লোকাল ডেটা স্থায়ীভাবে মুছুন',
   'settings.logOut': 'লগ আউট',
   'settings.logOutDesc': 'আপনার অ্যাকাউন্ট থেকে সাইন আউট করুন',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'ভাষা',
   'settings.languageDesc': 'অ্যাপ ইন্টারফেসের প্রদর্শন ভাষা',
   'settings.alerts': 'সতর্কতা',

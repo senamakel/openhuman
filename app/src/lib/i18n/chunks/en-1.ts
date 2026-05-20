@@ -81,6 +81,8 @@ const en1: TranslationMap = {
   'settings.clearAppDataDesc': 'Sign out and permanently clear all local app data',
   'settings.logOut': 'Log out',
   'settings.logOutDesc': 'Sign out of your account',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Language',
   'settings.languageDesc': 'Display language for the app interface',
   'settings.alerts': 'Alerts',

@@ -82,6 +82,8 @@ const it1: TranslationMap = {
     "Disconnetti e cancella permanentemente tutti i dati locali dell'app",
   'settings.logOut': 'Disconnetti',
   'settings.logOutDesc': 'Disconnetti dal tuo account',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Lingua',
   'settings.languageDesc': "Lingua di visualizzazione dell'interfaccia dell'app",
   'settings.alerts': 'Avvisi',

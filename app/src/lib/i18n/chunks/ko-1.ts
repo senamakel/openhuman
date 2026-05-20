@@ -80,6 +80,8 @@ const ko1: TranslationMap = {
   'settings.clearAppDataDesc': '로그아웃하고 모든 로컬 앱 데이터를 영구적으로 삭제',
   'settings.logOut': '로그아웃',
   'settings.logOutDesc': '계정에서 로그아웃',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': '언어',
   'settings.languageDesc': '앱 인터페이스 표시 언어',
   'settings.alerts': '알림',

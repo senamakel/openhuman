@@ -60,6 +60,12 @@ vi.mock('../../components/oauth/providerConfigs', () => ({
 
 vi.mock('../../store/deepLinkAuthState', () => ({ useDeepLinkAuthState: vi.fn() }));
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
 const { mockClearAllAppData } = vi.hoisted(() => ({
   mockClearAllAppData: vi.fn().mockResolvedValue(undefined),
 }));
@@ -323,6 +329,7 @@ describe('Welcome — OAuth buttons presence', () => {
 describe('Welcome — local login', () => {
   beforeEach(() => {
     mockStoreSessionToken.mockReset().mockResolvedValue(undefined);
+    mockNavigate.mockReset();
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
       errorMessage: null,
@@ -348,6 +355,7 @@ describe('Welcome — local login', () => {
     const [tokenArg, userArg] = mockStoreSessionToken.mock.calls[0];
     expect(tokenArg).toContain('local');
     expect(userArg).toEqual(expect.objectContaining({ id: 'local' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
   });
 
   it('shows error when storeSessionToken rejects', async () => {

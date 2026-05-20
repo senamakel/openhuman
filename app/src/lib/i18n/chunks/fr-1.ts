@@ -83,6 +83,8 @@ const fr1: TranslationMap = {
     'Se déconnecter et supprimer définitivement toutes les données locales',
   'settings.logOut': 'Se déconnecter',
   'settings.logOutDesc': 'Se déconnecter de ton compte',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Langue',
   'settings.languageDesc': "Langue d'affichage de l'interface",
   'settings.alerts': 'Alertes',

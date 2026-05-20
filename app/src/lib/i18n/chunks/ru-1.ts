@@ -82,6 +82,8 @@ const ru1: TranslationMap = {
   'settings.clearAppDataDesc': 'Выйти из аккаунта и удалить все локальные данные приложения',
   'settings.logOut': 'Выйти',
   'settings.logOutDesc': 'Выйти из своего аккаунта',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Язык',
   'settings.languageDesc': 'Язык отображения интерфейса',
   'settings.alerts': 'Оповещения',

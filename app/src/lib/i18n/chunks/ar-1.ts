@@ -81,6 +81,8 @@ const ar1: TranslationMap = {
   'settings.clearAppDataDesc': 'تسجيل الخروج وحذف جميع البيانات المحلية للتطبيق نهائيًا',
   'settings.logOut': 'تسجيل الخروج',
   'settings.logOutDesc': 'تسجيل الخروج من حسابك',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'اللغة',
   'settings.languageDesc': 'لغة عرض واجهة التطبيق',
   'settings.alerts': 'التنبيهات',

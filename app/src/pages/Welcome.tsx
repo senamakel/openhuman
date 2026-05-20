@@ -15,8 +15,8 @@ import { useDeepLinkAuthState } from '../store/deepLinkAuthState';
 import { useAppDispatch } from '../store/hooks';
 import { clearAllAppData } from '../utils/clearAllAppData';
 import { clearStoredCoreMode, clearStoredCoreToken, storeRpcUrl } from '../utils/configPersistence';
-import { createLocalSessionToken, LOCAL_SESSION_USER } from '../utils/localSession';
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../utils/links';
+import { createLocalSessionToken, LOCAL_SESSION_USER } from '../utils/localSession';
 import { openUrl } from '../utils/openUrl';
 
 const log = createDebug('app:welcome');
@@ -159,10 +159,12 @@ const Welcome = () => {
                   onClick={handleLocalLogin}
                   disabled={isLocalSigningIn}
                   className="w-full">
-                  {isLocalSigningIn ? 'Starting local session...' : 'Continue locally'}
+                  {isLocalSigningIn
+                    ? t('welcome.localSessionStarting')
+                    : t('welcome.continueLocally')}
                 </Button>
                 <p className="text-[11px] leading-4 text-center text-stone-500 dark:text-neutral-400">
-                  Uses an offline local profile and skips TinyHumans OAuth.
+                  {t('welcome.localSessionDesc')}
                 </p>
                 {localLoginError ? (
                   <p className="text-[11px] leading-4 text-center font-medium text-red-700">

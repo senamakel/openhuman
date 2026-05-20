@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { clearAllAppData } from '../../utils/clearAllAppData';
 import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { isLocalSessionToken } from '../../utils/localSession';
 import { openUrl } from '../../utils/openUrl';
 import LanguageSelect from '../LanguageSelect';
 import SettingsHeader from './components/SettingsHeader';
@@ -31,6 +32,7 @@ const SettingsHome = () => {
   const { navigateToSettings } = useSettingsNavigation();
   const { clearSession, snapshot } = useCoreState();
   const { t } = useT();
+  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
   const [showLogoutAndClearModal, setShowLogoutAndClearModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,29 +165,36 @@ const SettingsHome = () => {
     // Features tile (Screen Awareness / Messaging Channels / Notifications /
     // Tools) used to live here. Everything under it moved into Advanced
     // (DeveloperOptionsPanel), so the section is gone from the home menu.
-    {
-      label: t('settings.billingAndRewards'),
-      items: [
-        {
-          id: 'billing',
-          title: t('settings.billingUsage'),
-          description: t('settings.billingUsageDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
-              />
-            </svg>
-          ),
-          onClick: () => {
-            openUrl(BILLING_DASHBOARD_URL).catch(() => {});
-          },
-        },
-      ],
-    },
+    // Billing & Rewards requires a backend-authenticated session.
+    // Hidden in local/offline mode — no auth headers are sent and the
+    // billing dashboard would not recognise the session.
+    ...(!isLocalSession
+      ? [
+          {
+            label: t('settings.billingAndRewards'),
+            items: [
+              {
+                id: 'billing',
+                title: t('settings.billingUsage'),
+                description: t('settings.billingUsageDesc'),
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                  </svg>
+                ),
+                onClick: () => {
+                  openUrl(BILLING_DASHBOARD_URL).catch(() => {});
+                },
+              },
+            ],
+          } satisfies SettingsSection,
+        ]
+      : []),
     {
       label: t('settings.advanced'),
       items: [
@@ -230,8 +239,8 @@ const SettingsHome = () => {
     },
     {
       id: 'logout',
-      title: t('settings.logOut'),
-      description: t('settings.logOutDesc'),
+      title: isLocalSession ? t('settings.exitLocalSession') : t('settings.logOut'),
+      description: isLocalSession ? t('settings.exitLocalSessionDesc') : t('settings.logOutDesc'),
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

@@ -201,10 +201,7 @@ describe('McpServersTab', () => {
       required_env_keys: [],
     };
     mockRegistryGet.mockResolvedValue(installDetail);
-    const newServer = {
-      ...SERVERS[0],
-      server_id: 'srv-new',
-    };
+    const newServer = { ...SERVERS[0], server_id: 'srv-new' };
     mockInstall.mockResolvedValue(newServer);
 
     // At minimum verify that the error message was shown (full reload path

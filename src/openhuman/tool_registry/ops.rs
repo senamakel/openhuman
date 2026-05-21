@@ -118,15 +118,18 @@ fn insert_registry_entry(
     source: &str,
 ) {
     let key = entry.tool_id.clone();
-    if entries.insert(key.clone(), entry).is_some() {
+    if entries.contains_key(&key) {
         // Duplicate tool IDs can arrive from external MCP servers that reuse
-        // well-known names.  Log and skip rather than panicking in production.
+        // well-known names.  First-write-wins: log and skip the duplicate
+        // rather than panicking or silently overwriting in production.
         log::warn!(
             "[tool_registry] duplicate tool_id={} from source={}; skipping",
             key,
             source
         );
+        return;
     }
+    entries.insert(key, entry);
 }
 
 fn mcp_tool_entry(spec: McpToolSpec) -> ToolRegistryEntry {

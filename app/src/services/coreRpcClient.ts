@@ -12,6 +12,27 @@ interface CoreRpcRelayRequest {
   method: string;
   params?: unknown;
   serviceManaged?: boolean;
+  /**
+   * Per-call timeout override in milliseconds. When omitted, defaults to the
+   * global `CORE_RPC_TIMEOUT_MS` (30s). Use for slow-but-alive RPCs such as
+   * first-launch `openhuman.app_state_snapshot` (#2156). Clamped to the same
+   * [MIN, MAX] window as the global default.
+   */
+  timeoutMs?: number;
+}
+
+/** Mirror of `parseCoreRpcTimeoutMs` bounds in `utils/config.ts`. */
+const PER_CALL_TIMEOUT_MIN_MS = 1_000;
+const PER_CALL_TIMEOUT_MAX_MS = 10 * 60 * 1_000;
+
+function resolvePerCallTimeoutMs(override: number | undefined): number {
+  if (override === undefined) return CORE_RPC_TIMEOUT_MS;
+  if (!Number.isFinite(override)) return CORE_RPC_TIMEOUT_MS;
+  const clamped = Math.min(
+    Math.max(Math.round(override), PER_CALL_TIMEOUT_MIN_MS),
+    PER_CALL_TIMEOUT_MAX_MS
+  );
+  return clamped;
 }
 
 interface JsonRpcRequestBody {
@@ -50,7 +71,9 @@ let resolvingCoreRpcToken: Promise<string | null> | null = null;
  */
 export type CoreRpcErrorKind =
   | 'auth_expired'
+  | 'provider_auth' // downstream provider 401 — NOT user session expiry
   | 'transport'
+  | 'timeout'
   | 'rate_limited'
   | 'budget_exceeded'
   | 'thread_not_found'
@@ -85,15 +108,47 @@ export function classifyRpcError(
   if (isThreadNotFoundRpcData(data)) return 'thread_not_found';
   if (httpStatus === 401) return 'auth_expired';
   if (httpStatus === 429) return 'rate_limited';
-  if (/\(401\b.*Unauthorized\)|Session expired/i.test(message)) return 'auth_expired';
+  // Confirmed OpenHuman session expiry — explicit markers from the backend/core.
+  if (/Session expired|SESSION_EXPIRED/i.test(message)) return 'auth_expired';
   // Core-side "no backend session token" → the auth profile is gone but the
   // frontend may still hold a stale sessionToken from an optimistic post-login
   // patch. Treat as auth-expired so `CoreStateProvider` clears the session and
   // `ProtectedRoute` bounces the user back to `/` (login) instead of trapping
   // them on an onboarding step that polls a failing RPC every 5 s.
   if (/no backend session token/i.test(message)) return 'auth_expired';
+  // "session JWT required" covers the case where a prior 401 already cleared
+  // the token and the very next RPC call finds no JWT in the store.
+  if (/session jwt required/i.test(message)) return 'auth_expired';
+  // OpenHuman backend path 401s (via authed_json): "{METHOD} /path failed (401 Unauthorized)"
+  // The HTTP method prefix distinguishes these from downstream provider 401s.
+  // Fix for issue #2286: only match when the message starts with an HTTP verb
+  // followed by a path — this excludes "Discord API error:", "OpenAI API error:", etc.
+  // HEAD and OPTIONS intentionally excluded — authed_json only uses these five verbs.
+  // Aligned with Rust is_session_expired_error: starts-with-verb check + separate
+  // contains checks for "401" and "unauthorized" (case-insensitive).
+  if (
+    /^(GET|POST|PUT|DELETE|PATCH)\s+\//.test(message) &&
+    /401/.test(message) &&
+    /unauthorized/i.test(message)
+  )
+    return 'auth_expired';
+  // Downstream provider/integration 401 — NOT user session expiry.
+  // e.g. "Discord API error: Discord list guilds failed (401): Unauthorized"
+  // e.g. "OpenAI API error (401 Unauthorized): invalid api key"
+  // e.g. "Composio v3 API error: HTTP 401: Unauthorized"
+  // Note: Discord uses "(401): Unauthorized" format (colon after status, reason outside parens),
+  // so we test for 401 and "unauthorized" independently rather than requiring both inside parens.
+  if (
+    (/401/.test(message) && /unauthorized/i.test(message)) ||
+    /invalid token|bad token/i.test(message)
+  )
+    return 'provider_auth';
   if (/429.*rate.?limit/i.test(message)) return 'rate_limited';
   if (/Budget exceeded|Insufficient budget/i.test(message)) return 'budget_exceeded';
+  // Local AbortController hit `CORE_RPC_TIMEOUT_MS` — distinct from backend
+  // `client error (Connect): operation timed out`. Must run BEFORE the
+  // `transport` arm so the more specific kind wins.
+  if (/timed out after \d+ms/i.test(message)) return 'timeout';
   if (/error sending request|client error \(Connect\)|timed out|ECONNREFUSED/i.test(message)) {
     return 'transport';
   }
@@ -339,7 +394,8 @@ export async function getCoreRpcToken(): Promise<string | null> {
  */
 export async function testCoreRpcConnection(
   url: string,
-  tokenOverride?: string
+  tokenOverride?: string,
+  init?: { signal?: AbortSignal }
 ): Promise<Response> {
   const token = tokenOverride?.trim() || (await getCoreRpcToken());
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -350,6 +406,7 @@ export async function testCoreRpcConnection(
     method: 'POST',
     headers,
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'core.ping', params: {} }),
+    signal: init?.signal,
   });
 }
 
@@ -388,6 +445,7 @@ export async function callCoreRpc<T>({
   method,
   params,
   serviceManaged = false, // kept for compatibility; direct frontend RPC does not use relay-level routing.
+  timeoutMs,
 }: CoreRpcRelayRequest): Promise<T> {
   void serviceManaged;
 
@@ -396,6 +454,7 @@ export async function callCoreRpc<T>({
   }
 
   const normalizedMethod = normalizeRpcMethod(method);
+  const effectiveTimeoutMs = resolvePerCallTimeoutMs(timeoutMs);
   const payload: JsonRpcRequestBody = {
     jsonrpc: '2.0',
     id: nextJsonRpcId++,
@@ -414,12 +473,14 @@ export async function callCoreRpc<T>({
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    // Bound the fetch to CORE_RPC_TIMEOUT_MS. Without this a hung core
-    // sidecar will block every caller (and the UI) forever. We use a
-    // manual AbortController + setTimeout rather than AbortSignal.timeout()
-    // so test fake timers can drive the abort deterministically.
+    // Bound the fetch. Without this a hung core sidecar would block every
+    // caller (and the UI) forever. We use a manual AbortController +
+    // setTimeout rather than AbortSignal.timeout() so test fake timers can
+    // drive the abort deterministically. Per-call `timeoutMs` (clamped) lets
+    // legitimately-slow RPCs such as first-launch `app_state_snapshot`
+    // (#2156) opt into a longer-but-still-bounded budget.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CORE_RPC_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
     let response: Response;
     try {
       response = await fetch(rpcUrl, {
@@ -430,7 +491,15 @@ export async function callCoreRpc<T>({
       });
     } catch (fetchErr) {
       if (controller.signal.aborted) {
-        throw new Error(`Core RPC ${payload.method} timed out after ${CORE_RPC_TIMEOUT_MS}ms`);
+        // Throw a fully-classified `CoreRpcError` here so the outer catch
+        // doesn't re-wrap a bare `Error` and so callers can branch on
+        // `err.kind === 'timeout'` (Sentry filter, soft toast skip). Use
+        // the per-call `effectiveTimeoutMs` so the message reflects the
+        // actual budget (#2156 raised the snapshot path to 90s).
+        throw new CoreRpcError(
+          `Core RPC ${payload.method} timed out after ${effectiveTimeoutMs}ms`,
+          'timeout'
+        );
       }
       throw fetchErr;
     } finally {

@@ -578,6 +578,79 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
     expect(screen.getByTestId('token').textContent).toBe('tok1');
   });
 
+  it('setEncryptionKey (updateLocalState) swallows refresh errors after the local-state write lands (#REACT-Z #REACT-Y)', async () => {
+    // Regression for OPENHUMAN-REACT-Z/Y: a missing `.catch()` on the
+    // follow-up `refresh()` inside `updateLocalState` let an
+    // `app_state_snapshot` timeout bubble out as an unhandled rejection.
+    fetchSnapshot.mockResolvedValueOnce(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
+    listTeams.mockResolvedValue([]);
+    vi.mocked(coreStateApi.updateCoreLocalState).mockReset();
+    vi.mocked(coreStateApi.updateCoreLocalState).mockResolvedValue(undefined as never);
+
+    let ctx: CoreStateContextValue | undefined;
+    render(
+      <CoreStateProvider>
+        <Consumer
+          captureCtx={next => {
+            ctx = next;
+          }}
+        />
+      </CoreStateProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
+    fetchSnapshot.mockRejectedValueOnce(
+      new Error('Core RPC openhuman.app_state_snapshot timed out after 30000ms')
+    );
+
+    await act(async () => {
+      // setEncryptionKey is a thin sync wrapper around updateLocalState
+      // (provider line 694) — exercising it covers the new .catch() arm
+      // on line 579-580.
+      await expect(ctx!.setEncryptionKey('new-key')).resolves.toBeUndefined();
+    });
+
+    expect(vi.mocked(coreStateApi.updateCoreLocalState)).toHaveBeenCalledWith({
+      encryptionKey: 'new-key',
+    });
+  });
+
+  it('storeSessionToken swallows refresh errors after the session write lands (#REACT-Z #REACT-Y)', async () => {
+    // Regression for OPENHUMAN-REACT-Z/Y: a missing `.catch()` on the
+    // post-login `refresh()` inside `storeSessionToken` let an
+    // `app_state_snapshot` timeout bubble out as an unhandled rejection
+    // immediately after sign-in.
+    fetchSnapshot.mockResolvedValueOnce(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
+    listTeams.mockResolvedValue([]);
+    vi.mocked(tauriCommands.storeSession).mockReset();
+    vi.mocked(tauriCommands.storeSession).mockResolvedValue(undefined as never);
+    vi.mocked(tauriCommands.syncMemoryClientToken).mockReset();
+    vi.mocked(tauriCommands.syncMemoryClientToken).mockResolvedValue(undefined as never);
+
+    let ctx: CoreStateContextValue | undefined;
+    render(
+      <CoreStateProvider>
+        <Consumer
+          captureCtx={next => {
+            ctx = next;
+          }}
+        />
+      </CoreStateProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
+    fetchSnapshot.mockRejectedValueOnce(
+      new Error('Core RPC openhuman.app_state_snapshot timed out after 30000ms')
+    );
+
+    await act(async () => {
+      const token = makeJwt({ sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600 });
+      await expect(ctx!.storeSessionToken(token, {})).resolves.toBeUndefined();
+    });
+
+    expect(vi.mocked(tauriCommands.storeSession)).toHaveBeenCalled();
+  });
+
   it('setMeetAutoOrchestratorHandoff swallows refresh errors after the RPC succeeds (#1299)', async () => {
     fetchSnapshot.mockResolvedValueOnce(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
     listTeams.mockResolvedValue([]);
@@ -612,14 +685,13 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
 });
 
 describe('coreStatePollFailureWarningMessage', () => {
-  it('logs bounded bootstrap failures and one suppression notice', () => {
+  it('warns once during bootstrap and once when warnings are suppressed', () => {
     expect(coreStatePollFailureWarningMessage(0)).toBeNull();
     expect(coreStatePollFailureWarningMessage(1)).toBe(
       '[core-state] bootstrap poll failed (attempt 1/5):'
     );
-    expect(coreStatePollFailureWarningMessage(5)).toBe(
-      '[core-state] bootstrap poll failed (attempt 5/5):'
-    );
+    expect(coreStatePollFailureWarningMessage(2)).toBeNull();
+    expect(coreStatePollFailureWarningMessage(5)).toBeNull();
     expect(coreStatePollFailureWarningMessage(6)).toBe(
       '[core-state] bootstrap budget exhausted; continuing with backoff. Suppressing further warnings until recovery:'
     );

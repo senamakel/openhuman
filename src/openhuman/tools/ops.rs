@@ -4,7 +4,7 @@ use crate::openhuman::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::openhuman::config::{Config, DelegateAgentConfig};
 use crate::openhuman::javascript::NodeBootstrap;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::security::SecurityPolicy;
+use crate::openhuman::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -14,12 +14,18 @@ pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
 }
 
 /// Create the default tool registry with explicit runtime adapter.
+///
+/// Convenience entry point used by tests and the lightweight CLI surface.
+/// Production assembly sites use [`all_tools_with_runtime`] and pass a real
+/// [`AuditLogger`]; this wrapper substitutes [`AuditLogger::disabled`] so
+/// existing test callers do not need to plumb one through.
 pub fn default_tools_with_runtime(
     security: Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
 ) -> Vec<Box<dyn Tool>> {
+    let audit = AuditLogger::disabled();
     vec![
-        Box::new(ShellTool::new(security.clone(), runtime)),
+        Box::new(ShellTool::new(security.clone(), runtime, audit)),
         Box::new(FileReadTool::new(security.clone())),
         Box::new(FileWriteTool::new(security)),
     ]
@@ -30,6 +36,7 @@ pub fn default_tools_with_runtime(
 pub fn all_tools(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
+    audit: Arc<AuditLogger>,
     memory: Arc<dyn Memory>,
     browser_config: &crate::openhuman::config::BrowserConfig,
     http_config: &crate::openhuman::config::HttpRequestConfig,
@@ -41,6 +48,7 @@ pub fn all_tools(
         config,
         security,
         Arc::new(NativeRuntime::new()),
+        audit,
         memory,
         browser_config,
         http_config,
@@ -56,6 +64,7 @@ pub fn all_tools_with_runtime(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,
+    audit: Arc<AuditLogger>,
     memory: Arc<dyn Memory>,
     browser_config: &crate::openhuman::config::BrowserConfig,
     http_config: &crate::openhuman::config::HttpRequestConfig,
@@ -89,10 +98,15 @@ pub fn all_tools_with_runtime(
         Box::new(ShellTool::with_node_bootstrap(
             security.clone(),
             Arc::clone(&runtime),
+            Arc::clone(&audit),
             Arc::clone(bootstrap),
         ))
     } else {
-        Box::new(ShellTool::new(security.clone(), Arc::clone(&runtime)))
+        Box::new(ShellTool::new(
+            security.clone(),
+            Arc::clone(&runtime),
+            Arc::clone(&audit),
+        ))
     };
 
     let mut tools: Vec<Box<dyn Tool>> = vec![
@@ -341,6 +355,27 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[seltz] registered seltz_search tool");
     } else {
         tracing::debug!("[seltz] disabled — set SELTZ_API_KEY to enable");
+    }
+
+    // SearXNG — self-hosted web search, gated on `searxng.enabled`.
+    // This is useful for users who want current web results without routing
+    // queries through OpenHuman's backend or a hosted search API.
+    if root_config.searxng.enabled {
+        tools.push(Box::new(
+            crate::openhuman::integrations::SearxngSearchTool::new(
+                root_config.searxng.base_url.clone(),
+                root_config.searxng.max_results,
+                root_config.searxng.default_language.clone(),
+                root_config.searxng.timeout_secs,
+            ),
+        ));
+        tracing::debug!(
+            base_url = %root_config.searxng.base_url,
+            max_results = root_config.searxng.max_results,
+            "[searxng] registered searxng_search tool"
+        );
+    } else {
+        tracing::debug!("[searxng] disabled — set searxng.enabled=true to enable");
     }
 
     // Managed Node.js exec tools — gated on `root_config.node.enabled`.

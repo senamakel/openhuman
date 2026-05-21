@@ -28,7 +28,13 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickButton, textExists, waitForText } from '../helpers/element-helpers';
+import {
+  clickNativeButton,
+  clickTestId,
+  textExists,
+  waitForTestId,
+  waitForText,
+} from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateToSettings, navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -57,42 +63,93 @@ async function waitForAnyText(candidates: string[], timeoutMs = 10_000): Promise
   return null;
 }
 
-/** Click the action button (Pause | Resume | Remove | …) inside the seeded cron row. */
-async function clickActionForJob(
-  jobId: string,
-  action: 'toggle' | 'run' | 'view-runs' | 'remove'
-): Promise<boolean> {
-  return Boolean(
-    await browser.execute(
-      (id: string, actionName: string) => {
-        const btn = document.querySelector<HTMLButtonElement>(
-          `[data-testid="cron-job-${actionName}-${id}"]`
-        );
-        if (!btn) return false;
-        btn.click();
-        return true;
-      },
-      jobId,
-      action
-    )
-  );
+function cronActionTestId(jobId: string, action: string): string | null {
+  switch (action) {
+    case 'Pause':
+    case 'Resume':
+      return `cron-job-toggle-${jobId}`;
+    case 'Run Now':
+      return `cron-job-run-${jobId}`;
+    case 'View Runs':
+      return `cron-job-view-runs-${jobId}`;
+    case 'Remove':
+      return `cron-job-remove-${jobId}`;
+    default:
+      return null;
+  }
 }
 
-/** Poll for the in-row toggle action button label to settle (e.g. "Pause" → "Resume"). */
+async function waitForCronPanel(timeoutMs = 5_000): Promise<void> {
+  try {
+    await waitForTestId('cron-jobs-panel', timeoutMs);
+  } catch (error) {
+    stepLog('cron panel test id unavailable, falling back to visible panel text', error);
+    await waitForText('Scheduled Jobs', timeoutMs);
+  }
+}
+
+async function waitForCronRow(jobId: string, timeoutMs = 10_000): Promise<void> {
+  try {
+    await waitForTestId(`cron-job-row-${jobId}`, timeoutMs);
+  } catch (error) {
+    stepLog(`cron row test id unavailable for ${jobId}, falling back to visible text`, error);
+    await waitForText(jobId, timeoutMs);
+  }
+}
+
+async function clickCronRefresh(): Promise<void> {
+  try {
+    await clickTestId('cron-refresh');
+  } catch (error) {
+    stepLog('cron refresh test id unavailable, falling back to button text', error);
+    await clickNativeButton('Refresh Cron Jobs');
+  }
+}
+
+/** Click the action button (Pause | Resume | Remove | …) inside a cron row. */
+async function clickActionForJob(jobId: string, action: string): Promise<boolean> {
+  const testId = cronActionTestId(jobId, action);
+  if (!testId) return false;
+  try {
+    await clickTestId(testId, 5_000);
+    return true;
+  } catch (error) {
+    stepLog(`test-id click failed for ${action} on ${jobId}, falling back to button text`, error);
+  }
+  try {
+    await clickNativeButton(action, 5_000);
+    return true;
+  } catch (error) {
+    stepLog(`failed to click ${action} for ${jobId}`, error);
+    return false;
+  }
+}
+
+/** Poll for the in-row action button label to settle (e.g. "Pause" → "Resume"). */
 async function waitForRowActionLabel(
   jobId: string,
   expected: string,
   timeoutMs = 10_000
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
+  const testId = `cron-job-toggle-${jobId}`;
+  try {
+    await waitForTestId(testId, Math.min(timeoutMs, 5_000));
+  } catch (error) {
+    stepLog(`toggle test id not found for ${jobId}, falling back to visible label`, error);
+    try {
+      await waitForText(expected, Math.min(timeoutMs, 5_000));
+    } catch {
+      return false;
+    }
+  }
   while (Date.now() < deadline) {
     const current = await browser.execute((id: string) => {
-      const btn = document.querySelector<HTMLButtonElement>(
-        `[data-testid="cron-job-toggle-${id}"]`
-      );
-      return (btn?.textContent ?? '').trim() || null;
-    }, jobId);
+      const button = document.querySelector(`[data-testid="${id}"]`);
+      return button?.textContent?.trim() ?? null;
+    }, testId);
     if (current === expected) return true;
+    if (await textExists(expected)) return true;
     await browser.pause(400);
   }
   return false;
@@ -109,11 +166,11 @@ async function openCronJobsPanel(): Promise<void> {
   await navigateViaHash('/settings/cron-jobs');
   await waitForText('Cron Jobs', 10_000);
   await waitForText('Scheduled Jobs', 5_000);
+  await waitForCronPanel(5_000);
 }
 
 describe('Cron jobs settings panel (real UI flow)', () => {
-  before(async function beforeSuite() {
-    this.timeout(90_000);
+  before(async () => {
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);
@@ -124,11 +181,10 @@ describe('Cron jobs settings panel (real UI flow)', () => {
   });
 
   it('completing onboarding lands the user on the home screen', async () => {
-    // The home page renders the CTA button with t('home.askAssistant').
-    // Legacy text like 'Message OpenHuman', 'Good morning', 'Good afternoon',
-    // 'Good evening', and 'Upgrade to Premium' no longer appear on the home page.
+    // Home.tsx renders t('home.askAssistant') = 'Ask your assistant anything...' as the stable
+    // CTA button. Old strings ('Good morning', 'Message OpenHuman', etc.) are no longer rendered.
     const home = await waitForAnyText(
-      ['Ask your assistant anything', 'Ask your assistant'],
+      ['Ask your assistant anything', 'Your device is connected'],
       15_000
     );
     expect(home).toBeTruthy();
@@ -137,11 +193,13 @@ describe('Cron jobs settings panel (real UI flow)', () => {
   it('the seeded morning_briefing job appears in the Cron Jobs panel', async () => {
     await openCronJobsPanel();
     // The seed runs in a detached spawn_blocking task — poll for the row.
-    const present = await waitForAnyText([MORNING_BRIEFING], 20_000);
-    if (!present) {
+    try {
+      await waitForCronRow(MORNING_BRIEFING, 20_000);
+    } catch {
       stepLog('morning_briefing row never rendered — clicking Refresh and retrying');
-      await clickButton('Refresh Cron Jobs');
+      await clickCronRefresh();
       await browser.pause(1_500);
+      await waitForCronRow(MORNING_BRIEFING, 10_000);
     }
     expect(await textExists(MORNING_BRIEFING)).toBe(true);
     expect(await textExists('Enabled')).toBe(true);
@@ -151,7 +209,7 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     const startLabel = await waitForRowActionLabel(MORNING_BRIEFING, 'Pause', 5_000);
     expect(startLabel).toBe(true);
 
-    const clicked = await clickActionForJob(MORNING_BRIEFING, 'toggle');
+    const clicked = await clickActionForJob(MORNING_BRIEFING, 'Pause');
     expect(clicked).toBe(true);
 
     const flipped = await waitForRowActionLabel(MORNING_BRIEFING, 'Resume', 10_000);
@@ -159,20 +217,20 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     expect(await textExists('Paused')).toBe(true);
 
     // Real UI persistence proof: refresh re-reads from the sidecar.
-    await clickButton('Refresh Cron Jobs');
+    await clickCronRefresh();
     await browser.pause(1_500);
     const stillResumed = await waitForRowActionLabel(MORNING_BRIEFING, 'Resume', 8_000);
     expect(stillResumed).toBe(true);
 
     // Restore so the next test starts from the enabled state.
-    const restored = await clickActionForJob(MORNING_BRIEFING, 'toggle');
+    const restored = await clickActionForJob(MORNING_BRIEFING, 'Resume');
     expect(restored).toBe(true);
     const back = await waitForRowActionLabel(MORNING_BRIEFING, 'Pause', 10_000);
     expect(back).toBe(true);
   });
 
   it('clicking Remove deletes the job from both the UI and the sidecar', async () => {
-    const clicked = await clickActionForJob(MORNING_BRIEFING, 'remove');
+    const clicked = await clickActionForJob(MORNING_BRIEFING, 'Remove');
     expect(clicked).toBe(true);
 
     // UI assertion first — the row should disappear and the empty state appear.

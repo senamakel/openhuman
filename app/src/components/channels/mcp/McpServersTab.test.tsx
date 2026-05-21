@@ -176,37 +176,51 @@ describe('McpServersTab', () => {
   });
 
   it('clears load error on successful reload after failure', async () => {
+    // Initial load fails (transient error banner appears), then a successful
+    // install triggers loadInstalled() — the banner must be cleared on success.
     mockInstalledList.mockRejectedValueOnce(new Error('Transient error'));
     mockStatus.mockResolvedValue([]);
-    mockRegistrySearch.mockResolvedValue({ servers: [], page: 1, total_pages: 1 });
+    mockRegistrySearch.mockResolvedValue({
+      servers: [{ qualified_name: 'acme/new-srv', display_name: 'New Server' }],
+      page: 1,
+      total_pages: 1,
+    });
 
     render(<McpServersTab />);
     vi.useRealTimers();
 
     await waitFor(() => screen.getByText('Transient error'));
 
-    // Second call succeeds
-    mockInstalledList.mockResolvedValue(SERVERS);
-
-    // When servers list is empty (error case) InstalledServerList renders two
-    // "Browse catalog" buttons (header link + empty-state CTA). Use the first.
-    fireEvent.click(screen.getAllByRole('button', { name: 'Browse catalog' })[0]);
-
-    // Simulate install success to trigger loadInstalled
-    const installDetail = {
-      qualified_name: 'acme/fs-server',
-      display_name: 'File Server',
+    // Drive an install flow that triggers loadInstalled() on success.
+    const detail = {
+      qualified_name: 'acme/new-srv',
+      display_name: 'New Server',
       description: null,
       connections: [],
       required_env_keys: [],
     };
-    mockRegistryGet.mockResolvedValue(installDetail);
-    const newServer = { ...SERVERS[0], server_id: 'srv-new' };
+    const newServer = { ...SERVERS[0], server_id: 'srv-new', qualified_name: 'acme/new-srv' };
+    mockRegistryGet.mockResolvedValue(detail);
     mockInstall.mockResolvedValue(newServer);
+    mockInstalledList.mockResolvedValue([newServer]); // reload after install succeeds
 
-    // At minimum verify that the error message was shown (full reload path
-    // tested elsewhere; this covers the setLoadError(null) call on success).
-    expect(screen.queryByText('Transient error')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Browse catalog' })[0]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync?.(300).catch(() => {});
+    });
+
+    await waitFor(() => screen.getByText('New Server'));
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    await waitFor(() => screen.getByRole('button', { name: 'Install' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    });
+
+    // After successful reload, the error banner must be gone.
+    await waitFor(() => {
+      expect(screen.queryByText('Transient error')).not.toBeInTheDocument();
+    });
   });
 
   it('shows tool count badge when connected', async () => {

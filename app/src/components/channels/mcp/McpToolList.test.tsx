@@ -56,8 +56,7 @@ describe('McpToolList', () => {
     // We expect 2 of the 3 items to have a description paragraph
     expect(screen.getByText('Reads a file from disk')).toBeInTheDocument();
     expect(screen.queryByText('undefined')).not.toBeInTheDocument();
-    // suppress unused var warning
-    void descriptions;
+    expect(descriptions).toHaveLength(2);
   });
 
   it('collapses again when toggle button is clicked twice', () => {

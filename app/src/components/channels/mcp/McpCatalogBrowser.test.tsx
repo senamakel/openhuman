@@ -66,8 +66,10 @@ describe('McpCatalogBrowser', () => {
     render(<McpCatalogBrowser onSelectInstall={() => {}} />);
 
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await vi.advanceTimersByTimeAsync(300);
     });
+    // waitFor polls via real setTimeout; switch back so it isn't deadlocked by fake timers.
+    vi.useRealTimers();
 
     await waitFor(() => {
       expect(screen.getByText('File Server')).toBeInTheDocument();
@@ -82,8 +84,9 @@ describe('McpCatalogBrowser', () => {
     render(<McpCatalogBrowser onSelectInstall={onSelectInstall} />);
 
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await vi.advanceTimersByTimeAsync(300);
     });
+    vi.useRealTimers();
 
     await waitFor(() => screen.getByText('File Server'));
 
@@ -97,8 +100,9 @@ describe('McpCatalogBrowser', () => {
     render(<McpCatalogBrowser onSelectInstall={() => {}} />);
 
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await vi.advanceTimersByTimeAsync(300);
     });
+    vi.useRealTimers();
 
     await waitFor(() => screen.getByText('Load more'));
     expect(screen.getByRole('button', { name: 'Load more' })).toBeInTheDocument();
@@ -109,8 +113,9 @@ describe('McpCatalogBrowser', () => {
     render(<McpCatalogBrowser onSelectInstall={() => {}} />);
 
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await vi.advanceTimersByTimeAsync(300);
     });
+    vi.useRealTimers();
 
     await waitFor(() => screen.getByText('Network error'));
   });

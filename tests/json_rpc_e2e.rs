@@ -6345,7 +6345,10 @@ async fn mcp_clients_lifecycle() {
     )
     .await;
     let list1_result = assert_no_jsonrpc_error(&list1, "mcp_clients_installed_list (initial)");
-    let installed = list1_result
+    // Handlers wrap their value in `{ "result": value, "logs": [...] }` when logs are
+    // emitted (see RpcOutcome::into_cli_compatible_json); unwrap that envelope here.
+    let list1_body = list1_result.get("result").unwrap_or(list1_result);
+    let installed = list1_body
         .get("installed")
         .and_then(Value::as_array)
         .expect("installed_list must return an 'installed' array");
@@ -6357,7 +6360,8 @@ async fn mcp_clients_lifecycle() {
     // ── 2. status should return empty servers ─────────────────────────────────
     let status1 = post_json_rpc(&rpc_base, 9902, "openhuman.mcp_clients_status", json!({})).await;
     let status1_result = assert_no_jsonrpc_error(&status1, "mcp_clients_status (initial)");
-    let servers = status1_result
+    let status1_body = status1_result.get("result").unwrap_or(status1_result);
+    let servers = status1_body
         .get("servers")
         .and_then(Value::as_array)
         .expect("status must return 'servers' array");

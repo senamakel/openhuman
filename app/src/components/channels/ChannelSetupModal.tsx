@@ -9,6 +9,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { ChannelDefinition, ChannelType } from '../../types/channels';
 import DiscordConfig from './DiscordConfig';
 import TelegramConfig from './TelegramConfig';
+import YuanbaoConfig from './YuanbaoConfig';
 
 const CHANNEL_ICONS: Record<string, string> = {
   telegram: '\u2708\uFE0F',
@@ -29,6 +30,8 @@ function ChannelConfigContent({ definition }: { definition: ChannelDefinition })
       return <TelegramConfig definition={definition} />;
     case 'discord':
       return <DiscordConfig definition={definition} />;
+    case 'yuanbao':
+      return <YuanbaoConfig definition={definition} />;
     default:
       return (
         <p className="text-sm text-stone-400 dark:text-neutral-500 py-4">
@@ -62,7 +65,7 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
     if (e.target === e.currentTarget) onClose();
   };
 
-  const icon = CHANNEL_ICONS[definition.icon] ?? '';
+  const emojiIcon = CHANNEL_ICONS[definition.icon] ?? '';
 
   const modalContent = (
     <div
@@ -86,7 +89,7 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
-                {icon && <span className="text-base">{icon}</span>}
+                {emojiIcon && <span className="text-base">{emojiIcon}</span>}
                 <h2
                   id="channel-setup-title"
                   className="text-base font-semibold text-stone-900 dark:text-neutral-100">

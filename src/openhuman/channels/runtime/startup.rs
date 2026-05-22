@@ -28,6 +28,7 @@ use crate::openhuman::channels::traits;
 use crate::openhuman::channels::whatsapp::WhatsAppChannel;
 #[cfg(feature = "whatsapp-web")]
 use crate::openhuman::channels::whatsapp_web::WhatsAppWebChannel;
+use crate::openhuman::channels::yuanbao::YuanbaoChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
 use crate::openhuman::context::channels_prompt::build_system_prompt;
@@ -498,6 +499,13 @@ pub async fn start_channels(config: Config) -> Result<()> {
             qq.app_secret.clone(),
             qq.allowed_users.clone(),
         )));
+    }
+
+    if let Some(ref yb) = config.channels_config.yuanbao {
+        match YuanbaoChannel::new(yb.clone()) {
+            Ok(ch) => channels.push(Arc::new(ch)),
+            Err(e) => tracing::warn!("[channels] yuanbao config invalid: {e}"),
+        }
     }
 
     if channels.is_empty() {

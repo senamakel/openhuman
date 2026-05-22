@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use crate::api::config::{app_env_from_env, effective_backend_api_url, is_staging_app_env};
 use crate::api::jwt::get_session_token;
 use crate::api::rest::BackendOAuthClient;
+use crate::openhuman::channels::providers::yuanbao::sign::SignManager;
 use crate::openhuman::config::{Config, DiscordConfig, IMessageConfig, TelegramConfig};
 use crate::openhuman::credentials;
 use crate::rpc::RpcOutcome;
@@ -108,6 +109,46 @@ fn parse_optional_bool(value: Option<&Value>) -> Option<bool> {
     }
 }
 
+/// Verify Yuanbao credentials against the `sign-token` endpoint before any
+/// persistence so invalid `app_key` / `app_secret` surface the upstream API
+/// error to the user instead of silently succeeding.
+///
+/// Honours an explicit `api_domain` already configured in TOML; otherwise
+/// derives it from `env` (prod by default).
+async fn verify_yuanbao_credentials(
+    config: &Config,
+    creds_map: &serde_json::Map<String, Value>,
+) -> Result<(), String> {
+    let app_key = creds_map
+        .get("app_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "missing required app_key".to_string())?;
+    let app_secret = creds_map
+        .get("app_secret")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "missing required app_secret".to_string())?;
+
+    let mut yb_config = config.channels_config.yuanbao.clone().unwrap_or_default();
+    if yb_config.api_domain.is_empty() {
+        yb_config.apply_env_defaults();
+    }
+
+    SignManager::new(reqwest::Client::new())
+        .get_token(
+            app_key,
+            app_secret,
+            &yb_config.api_domain,
+            &yb_config.route_env,
+        )
+        .await
+        .map_err(|e| format!("yuanbao credential verification failed: {e}"))?;
+    Ok(())
+}
+
 /// List all available channel definitions.
 pub async fn list_channels() -> Result<RpcOutcome<Vec<ChannelDefinition>>, String> {
     Ok(RpcOutcome::new(all_channel_definitions(), vec![]))
@@ -159,6 +200,13 @@ pub async fn connect_channel(
         .ok_or("credentials must be a JSON object")?;
 
     def.validate_credentials(auth_mode, creds_map)?;
+
+    // Yuanbao: verify credentials with the sign-token endpoint before any
+    // persistence so invalid creds surface the upstream API error to the
+    // user without leaving dangling credential entries or TOML state.
+    if channel_id == "yuanbao" && auth_mode == ChannelAuthMode::ApiKey {
+        verify_yuanbao_credentials(config, creds_map).await?;
+    }
 
     // iMessage is local-only (no credentials): persist channels_config + return connected.
     if channel_id == "imessage" && auth_mode == ChannelAuthMode::ManagedDm {
@@ -332,6 +380,41 @@ pub async fn connect_channel(
             mention_only,
             "[discord] connect_channel: wrote channels_config.discord; restart core for listener to load token"
         );
+    } else if channel_id == "yuanbao" && auth_mode == ChannelAuthMode::ApiKey {
+        let app_key = creds_map
+            .get("app_key")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "missing required app_key".to_string())?
+            .to_string();
+        let app_secret = creds_map
+            .get("app_secret")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "missing required app_secret".to_string())?
+            .to_string();
+
+        let mut persisted = config.clone();
+        let mut yb_config = persisted
+            .channels_config
+            .yuanbao
+            .clone()
+            .unwrap_or_default();
+        yb_config.app_key = app_key;
+        yb_config.app_secret = app_secret;
+        persisted.channels_config.yuanbao = Some(yb_config);
+
+        persisted
+            .save()
+            .await
+            .map_err(|e| format!("failed to persist yuanbao config.toml: {e}"))?;
+
+        tracing::info!(
+            target: "openhuman::channels",
+            "[yuanbao] connect_channel: wrote channels_config.yuanbao; restart core for WS listener"
+        );
     }
 
     Ok(RpcOutcome::single_log(
@@ -400,6 +483,18 @@ pub async fn disconnect_channel(
             tracing::info!(
                 target: "openhuman::channels",
                 "[imessage] disconnect_channel: cleared channels_config.imessage"
+            );
+        }
+    } else if channel_id == "yuanbao" && auth_mode == ChannelAuthMode::ApiKey {
+        let mut persisted = config.clone();
+        if persisted.channels_config.yuanbao.take().is_some() {
+            persisted
+                .save()
+                .await
+                .map_err(|e| format!("failed to clear yuanbao config.toml: {e}"))?;
+            tracing::info!(
+                target: "openhuman::channels",
+                "[yuanbao] disconnect_channel: cleared channels_config.yuanbao"
             );
         }
     }
@@ -506,6 +601,9 @@ pub async fn connected_channel_slugs(config: &Config) -> Result<Vec<String>, Str
     }
     if cc.imessage.is_some() {
         slugs.insert("imessage".to_string());
+    }
+    if cc.yuanbao.is_some() {
+        slugs.insert("yuanbao".to_string());
     }
     if cc.irc.is_some() {
         slugs.insert("irc".to_string());

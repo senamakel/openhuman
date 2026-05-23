@@ -315,13 +315,6 @@ const Settings = () => {
       route: 'ledger-usage',
       icon: LlmIcon,
     },
-    {
-      id: 'search',
-      title: t('settings.search.title'),
-      description: t('settings.search.menuDesc'),
-      route: 'search',
-      icon: LlmIcon,
-    },
   ];
 
   const composioSettingsItems = [

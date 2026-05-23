@@ -24,12 +24,12 @@ use std::time::Duration;
 
 const DEFAULT_API_BASE: &str = "https://api.search.brave.com/res/v1";
 
-fn http_client(timeout_secs: u64) -> reqwest::Client {
+fn http_client(timeout_secs: u64) -> anyhow::Result<reqwest::Client> {
     crate::openhuman::tls::tls_client_builder()
         .timeout(Duration::from_secs(timeout_secs.max(1)))
         .connect_timeout(Duration::from_secs(10))
         .build()
-        .expect("failed to build Brave HTTP client")
+        .map_err(|e| anyhow::anyhow!("failed to build Brave HTTP client: {e}"))
 }
 
 #[derive(Debug, Clone)]
@@ -62,7 +62,15 @@ async fn brave_get(
 ) -> anyhow::Result<Value> {
     let key = cfg.require_key()?;
     let url = format!("{DEFAULT_API_BASE}{path}");
-    let client = http_client(cfg.timeout_secs);
+    tracing::debug!(
+        path = %path,
+        timeout_secs = cfg.timeout_secs,
+        key_present = true,
+        param_count = query.len(),
+        "[brave] GET request"
+    );
+    let client = http_client(cfg.timeout_secs)?;
+    let started = std::time::Instant::now();
     let resp = client
         .get(&url)
         .header("X-Subscription-Token", key)
@@ -71,15 +79,34 @@ async fn brave_get(
         .query(query)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Brave request failed: {e}"))?;
+        .map_err(|e| {
+            tracing::warn!(path = %path, "[brave] request send failed: {e}");
+            anyhow::anyhow!("Brave request failed: {e}")
+        })?;
     let status = resp.status();
+    let elapsed_ms = started.elapsed().as_millis();
     let body = resp.text().await.unwrap_or_default();
     if !status.is_success() {
         let detail = crate::openhuman::util::utf8_safe_prefix_at_byte_boundary(&body, 500);
+        tracing::warn!(
+            path = %path,
+            status = %status,
+            elapsed_ms = elapsed_ms as u64,
+            "[brave] non-2xx response: {detail}"
+        );
         anyhow::bail!("Brave returned {status}: {detail}");
     }
-    serde_json::from_str::<Value>(&body)
-        .map_err(|e| anyhow::anyhow!("Brave returned malformed JSON: {e}"))
+    tracing::debug!(
+        path = %path,
+        status = %status,
+        elapsed_ms = elapsed_ms as u64,
+        body_bytes = body.len(),
+        "[brave] response ok"
+    );
+    serde_json::from_str::<Value>(&body).map_err(|e| {
+        tracing::warn!(path = %path, "[brave] JSON parse failed: {e}");
+        anyhow::anyhow!("Brave returned malformed JSON: {e}")
+    })
 }
 
 fn extract_query(args: &Value) -> anyhow::Result<String> {

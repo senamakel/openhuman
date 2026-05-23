@@ -812,11 +812,9 @@ fn extract_string_outcome(result: &Value) -> String {
 }
 
 fn write_min_config(openhuman_dir: &Path, api_origin: &str) {
-    // `chat_onboarding_completed = true` bypasses the welcome agent so that
-    // `channel_web_chat` in tests routes straight to the orchestrator. Without
-    // this, the first chat turn goes through the welcome flow whose tool
-    // contract is not modelled by the e2e mock, which closes the SSE stream
-    // mid-response.
+    // `chat_onboarding_completed = true` is retained for backward compatibility
+    // with existing config.toml files. All chat turns now route to the
+    // orchestrator directly regardless of this flag.
     let cfg = format!(
         r#"api_url = "{api_origin}"
 default_model = "e2e-mock-model"
@@ -2681,10 +2679,9 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
         Some(false),
         "expected onboardingCompleted=false default: {body}"
     );
-    // Welcome-lockdown frontend gate (#883). `write_min_config` sets
-    // `chat_onboarding_completed = true` so the test harness bypasses the
-    // welcome agent; the snapshot must surface the same camelCase key the
-    // React app reads.
+    // `chat_onboarding_completed` is a deprecated config field retained for
+    // backward compat. `write_min_config` sets it to `true`; the snapshot
+    // surfaces the same camelCase key the React app reads.
     assert_eq!(
         body.get("chatOnboardingCompleted").and_then(Value::as_bool),
         Some(true),
@@ -2835,7 +2832,7 @@ async fn json_rpc_wallet_setup_round_trips_status() {
             "encryptedMnemonic": encrypted_mnemonic,
             "accounts": [
                 { "chain": "evm", "address": "0x9858EfFD232B4033E47d90003D41EC34EcaEda94", "derivationPath": "m/44'/60'/0'/0/0" },
-                { "chain": "btc", "address": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA", "derivationPath": "m/44'/0'/0'/0/0" },
+                { "chain": "btc", "address": "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu", "derivationPath": "m/84'/0'/0'/0/0" },
                 { "chain": "solana", "address": "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk", "derivationPath": "m/44'/501'/0'/0'" },
                 { "chain": "tron", "address": "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH", "derivationPath": "m/44'/195'/0'/0/0" }
             ]
@@ -2942,7 +2939,7 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
             "encryptedMnemonic": encrypted_mnemonic,
             "accounts": [
                 { "chain": "evm", "address": "0x9858EfFD232B4033E47d90003D41EC34EcaEda94", "derivationPath": "m/44'/60'/0'/0/0" },
-                { "chain": "btc", "address": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA", "derivationPath": "m/44'/0'/0'/0/0" },
+                { "chain": "btc", "address": "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu", "derivationPath": "m/84'/0'/0'/0/0" },
                 { "chain": "solana", "address": "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk", "derivationPath": "m/44'/501'/0'/0'" },
                 { "chain": "tron", "address": "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH", "derivationPath": "m/44'/195'/0'/0/0" }
             ]
@@ -2962,11 +2959,30 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     let body = assert_no_jsonrpc_error(&assets, "wallet_supported_assets");
     let result = body.get("result").unwrap_or(&body);
     let list = result.as_array().expect("supported_assets array");
-    assert_eq!(
-        list.len(),
-        8,
-        "expected four native assets plus EVM tokens: {result}"
-    );
+    // Pin the actual expected multi-chain catalog (not just a lower bound) so a
+    // regression that silently drops a network is caught.
+    for expected_evm in [
+        "ethereum_mainnet",
+        "base_mainnet",
+        "arbitrum_one",
+        "optimism_mainnet",
+        "polygon_mainnet",
+    ] {
+        assert!(
+            list.iter()
+                .any(|a| a.get("evmNetwork").and_then(Value::as_str) == Some(expected_evm)),
+            "expected {expected_evm} asset row in catalog: {result}"
+        );
+    }
+    for (chain, symbol) in [("btc", "BTC"), ("solana", "SOL"), ("tron", "TRX")] {
+        assert!(
+            list.iter()
+                .any(|a| a.get("chain").and_then(Value::as_str) == Some(chain)
+                    && a.get("symbol").and_then(Value::as_str) == Some(symbol)
+                    && a.get("native").and_then(Value::as_bool) == Some(true)),
+            "expected native {symbol} on {chain}: {result}"
+        );
+    }
     assert!(
         list.iter().any(
             |asset| asset.get("symbol").and_then(Value::as_str) == Some("ETH")
@@ -2987,7 +3003,8 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     let body = assert_no_jsonrpc_error(&cs, "wallet_chain_status");
     let result = body.get("result").unwrap_or(&body);
     let rows = result.as_array().expect("chain_status array");
-    assert_eq!(rows.len(), 4);
+    // 5 EVM rows (one per L2 / mainnet) + 3 non-EVM chains.
+    assert_eq!(rows.len(), 8);
     assert!(
         rows.iter()
             .all(|r| r.get("providerStatus").and_then(Value::as_str) == Some("ready")),
@@ -3000,9 +3017,16 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     let result = body.get("result").unwrap_or(&body);
     let rows = result.as_array().expect("balances array");
     assert_eq!(rows.len(), 4);
-    assert!(rows
-        .iter()
-        .all(|r| r.get("raw").and_then(Value::as_str) == Some("0")));
+    // Every row reports a raw integer string. Don't require zero — the
+    // BTC/Solana/Tron default REST endpoints may have network access in CI
+    // and return non-placeholder values for the deterministic test addresses.
+    for r in rows {
+        let raw = r.get("raw").and_then(Value::as_str).expect("raw present");
+        assert!(
+            raw.chars().all(|c| c.is_ascii_digit()),
+            "raw must be a decimal string, got: {raw}"
+        );
+    }
 
     // prepare_transfer + execute_prepared (happy path).
     let prep = post_json_rpc(
@@ -3093,9 +3117,735 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     rpc_join.abort();
 }
 
-/// #883 — when `chat_onboarding_completed` is unset in config.toml (fresh
-/// user), the `openhuman.app_state_snapshot` RPC must surface the flag as
-/// `false` so the React welcome-lockdown kicks in.
+// ---------------------------------------------------------------------------
+// Multi-chain wallet E2E suite (PR multi-chain-complete).
+//
+// One test per chain exercising prepare_transfer → execute_prepared via the
+// public JSON-RPC controllers, with a chain-specific axum mock for the
+// upstream RPC/REST endpoint. The mocks return canned but real-shaped
+// responses; the assertions verify that the core actually signs and
+// broadcasts (not just that the controllers wire up).
+// ---------------------------------------------------------------------------
+
+const E2E_TEST_MNEMONIC_ADDRS_EVM: &str = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94";
+const E2E_TEST_MNEMONIC_ADDRS_BTC: &str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
+const E2E_TEST_MNEMONIC_ADDRS_SOL: &str = "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk";
+const E2E_TEST_MNEMONIC_ADDRS_TRON: &str = "TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH";
+
+fn wallet_setup_accounts_value() -> Value {
+    json!([
+        { "chain": "evm", "address": E2E_TEST_MNEMONIC_ADDRS_EVM, "derivationPath": "m/44'/60'/0'/0/0" },
+        { "chain": "btc", "address": E2E_TEST_MNEMONIC_ADDRS_BTC, "derivationPath": "m/84'/0'/0'/0/0" },
+        { "chain": "solana", "address": E2E_TEST_MNEMONIC_ADDRS_SOL, "derivationPath": "m/44'/501'/0'/0'" },
+        { "chain": "tron", "address": E2E_TEST_MNEMONIC_ADDRS_TRON, "derivationPath": "m/44'/195'/0'/0/0" }
+    ])
+}
+
+#[derive(Clone)]
+struct MockBaseRpcState {
+    raw_txs: Arc<Mutex<Vec<String>>>,
+    chain_id_hex: String,
+}
+
+async fn mock_evm_chain_rpc(
+    State(state): State<MockBaseRpcState>,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let method = payload
+        .get("method")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let params = payload
+        .get("params")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let result = match method {
+        "eth_chainId" => Value::String(state.chain_id_hex.clone()),
+        "eth_getTransactionCount" => Value::String("0x7".to_string()),
+        "eth_gasPrice" => Value::String("0x3b9aca00".to_string()),
+        "eth_estimateGas" => Value::String("0x5208".to_string()),
+        "eth_sendRawTransaction" => {
+            if let Some(raw) = params.first().and_then(Value::as_str) {
+                match state.raw_txs.lock() {
+                    Ok(mut guard) => guard.push(raw.to_string()),
+                    Err(p) => p.into_inner().push(raw.to_string()),
+                }
+            }
+            Value::String(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string(),
+            )
+        }
+        _ => Value::Null,
+    };
+    Json(json!({"jsonrpc":"2.0","id":1,"result":result}))
+}
+
+async fn start_mock_evm_with_chain_id(chain_id_hex: &str) -> (SocketAddr, Arc<Mutex<Vec<String>>>) {
+    let raw_txs = Arc::new(Mutex::new(Vec::new()));
+    let state = MockBaseRpcState {
+        raw_txs: raw_txs.clone(),
+        chain_id_hex: chain_id_hex.to_string(),
+    };
+    let app = Router::new()
+        .route("/", post(mock_evm_chain_rpc))
+        .with_state(state);
+    let (addr, _join) = serve_on_ephemeral(app).await;
+    (addr, raw_txs)
+}
+
+#[derive(Clone)]
+struct MockBtcRestState {
+    utxo: Value,
+    broadcast_txs: Arc<Mutex<Vec<String>>>,
+    queried_addresses: Arc<Mutex<Vec<String>>>,
+}
+
+async fn mock_btc_utxo(
+    axum::extract::Path(addr): axum::extract::Path<String>,
+    State(state): State<MockBtcRestState>,
+) -> Json<Value> {
+    match state.queried_addresses.lock() {
+        Ok(mut g) => g.push(addr),
+        Err(p) => p.into_inner().push(addr),
+    }
+    Json(state.utxo)
+}
+
+async fn mock_btc_broadcast(State(state): State<MockBtcRestState>, body: String) -> String {
+    match state.broadcast_txs.lock() {
+        Ok(mut g) => g.push(body),
+        Err(p) => p.into_inner().push(body),
+    }
+    "ababababababababababababababababababababababababababababababab".to_string()
+}
+
+struct MockBtcHandle {
+    addr: SocketAddr,
+    broadcast_txs: Arc<Mutex<Vec<String>>>,
+    queried_addresses: Arc<Mutex<Vec<String>>>,
+}
+
+async fn start_mock_btc() -> MockBtcHandle {
+    let broadcast = Arc::new(Mutex::new(Vec::new()));
+    let queried_addresses = Arc::new(Mutex::new(Vec::new()));
+    let utxo = json!([
+        { "txid": "1111111111111111111111111111111111111111111111111111111111111111",
+          "vout": 0, "value": 100_000u64 }
+    ]);
+    let state = MockBtcRestState {
+        utxo,
+        broadcast_txs: broadcast.clone(),
+        queried_addresses: queried_addresses.clone(),
+    };
+    let app = Router::new()
+        .route("/address/{addr}/utxo", axum::routing::get(mock_btc_utxo))
+        .route("/tx", post(mock_btc_broadcast))
+        .with_state(state);
+    let (addr, _join) = serve_on_ephemeral(app).await;
+    MockBtcHandle {
+        addr,
+        broadcast_txs: broadcast,
+        queried_addresses,
+    }
+}
+
+async fn mock_solana_rpc(Json(payload): Json<Value>) -> Json<Value> {
+    let method = payload
+        .get("method")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let result = match method {
+        "getLatestBlockhash" => json!({
+            "context": {"slot": 0},
+            "value": {
+                "blockhash": "GHtXQBsoZHVnNFa9YevAzFr17DJjgHXk3ycTKD5xD3Zi",
+                "lastValidBlockHeight": 0u64
+            }
+        }),
+        "getBalance" => json!({"context": {"slot": 0}, "value": 0u64}),
+        "sendTransaction" => Value::String(
+            "5xS9pXmqVz8R1nuRZTfsdsAxBdBFmtnAtuYbCsmK5DYzGn5vR4VqWGmiR5McLnYx8oFqLdo62q4qiUZpQyR4Hkn3".to_string(),
+        ),
+        _ => Value::Null,
+    };
+    Json(json!({"jsonrpc":"2.0","id":1,"result":result}))
+}
+
+async fn start_mock_solana() -> SocketAddr {
+    let app = Router::new().route("/", post(mock_solana_rpc));
+    let (addr, _join) = serve_on_ephemeral(app).await;
+    addr
+}
+
+#[derive(Clone, Default)]
+struct MockTronState {
+    create_hits: Arc<Mutex<u32>>,
+    trigger_hits: Arc<Mutex<u32>>,
+    broadcast_hits: Arc<Mutex<u32>>,
+}
+
+async fn mock_tron_create(State(state): State<MockTronState>, Json(_): Json<Value>) -> Json<Value> {
+    if let Ok(mut g) = state.create_hits.lock() {
+        *g += 1;
+    }
+    Json(json!({
+        "txID": "cd".repeat(32),
+        "raw_data": {"contract": []},
+        "raw_data_hex": "0a02ab1d2208deadbeef00deadbe40c89efd8a82325802",
+    }))
+}
+
+async fn mock_tron_trigger(
+    State(state): State<MockTronState>,
+    Json(_): Json<Value>,
+) -> Json<Value> {
+    if let Ok(mut g) = state.trigger_hits.lock() {
+        *g += 1;
+    }
+    Json(json!({
+        "transaction": {
+            "txID": "cd".repeat(32),
+            "raw_data": {"contract": []},
+            "raw_data_hex": "0a02ab1d2208deadbeef00deadbe40c89efd8a82325802",
+        }
+    }))
+}
+
+async fn mock_tron_broadcast(
+    State(state): State<MockTronState>,
+    Json(_): Json<Value>,
+) -> Json<Value> {
+    if let Ok(mut g) = state.broadcast_hits.lock() {
+        *g += 1;
+    }
+    Json(json!({"result": true, "txid": "cd".repeat(32)}))
+}
+
+struct MockTronHandle {
+    addr: SocketAddr,
+    state: MockTronState,
+}
+
+async fn start_mock_tron() -> MockTronHandle {
+    let state = MockTronState::default();
+    let app = Router::new()
+        .route("/wallet/createtransaction", post(mock_tron_create))
+        .route("/wallet/triggersmartcontract", post(mock_tron_trigger))
+        .route("/wallet/broadcasttransaction", post(mock_tron_broadcast))
+        .with_state(state.clone());
+    let (addr, _join) = serve_on_ephemeral(app).await;
+    MockTronHandle { addr, state }
+}
+
+async fn wallet_setup_via_rpc(rpc_base: &str, encrypted_mnemonic: &str) {
+    let setup = post_json_rpc(
+        rpc_base,
+        9001,
+        "openhuman.wallet_setup",
+        json!({
+            "consentGranted": true,
+            "source": "imported",
+            "mnemonicWordCount": 12,
+            "encryptedMnemonic": encrypted_mnemonic,
+            "accounts": wallet_setup_accounts_value(),
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&setup, "wallet_setup_for_chain_e2e");
+}
+
+/// EVM L2 selection: Base mainnet (chain_id 8453 = 0x2105). Verifies
+/// `evmNetwork: base_mainnet` routes signing + broadcast to the Base RPC
+/// override and *not* the Ethereum default.
+#[tokio::test]
+async fn json_rpc_wallet_evm_base_network_prepare_execute_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _evm_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_EVM");
+    let _base_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_BASE");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let encrypted_mnemonic = encrypt_test_mnemonic().await;
+
+    // Mock Base RPC at 0x2105 = 8453.
+    let (base_rpc_addr, base_raw_txs) = start_mock_evm_with_chain_id("0x2105").await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_BASE",
+        format!("http://{base_rpc_addr}"),
+    );
+
+    wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
+
+    let prep = post_json_rpc(
+        &rpc_base,
+        9101,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "evm",
+            "evmNetwork": "base_mainnet",
+            "toAddress": "0x1111111111111111111111111111111111111111",
+            "amountRaw": "1000",
+        }),
+    )
+    .await;
+    let prep_body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer_base");
+    let prep_result = prep_body.get("result").unwrap_or(prep_body);
+    assert_eq!(
+        prep_result.get("evmNetwork").and_then(Value::as_str),
+        Some("base_mainnet"),
+    );
+    let quote_id = prep_result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId")
+        .to_string();
+
+    let exec = post_json_rpc(
+        &rpc_base,
+        9102,
+        "openhuman.wallet_execute_prepared",
+        json!({"quoteId": quote_id, "confirmed": true}),
+    )
+    .await;
+    let exec_body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared_base");
+    let exec_result = exec_body.get("result").unwrap_or(exec_body);
+    assert_eq!(
+        exec_result.get("status").and_then(Value::as_str),
+        Some("broadcasted"),
+    );
+    assert_eq!(
+        exec_result.get("evmNetwork").and_then(Value::as_str),
+        Some("base_mainnet"),
+    );
+    let raw_count = match base_raw_txs.lock() {
+        Ok(g) => g.len(),
+        Err(p) => p.into_inner().len(),
+    };
+    assert_eq!(raw_count, 1, "expected one raw tx broadcast on Base RPC");
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// BTC: P2WPKH native segwit transfer end-to-end through controllers.
+#[tokio::test]
+async fn json_rpc_wallet_btc_prepare_execute_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _btc_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_BTC");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let encrypted_mnemonic = encrypt_test_mnemonic().await;
+
+    let btc_mock = start_mock_btc().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_BTC",
+        format!("http://{}", btc_mock.addr),
+    );
+
+    wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
+
+    let prep = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "btc",
+            "toAddress": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+            "amountRaw": "50000",
+        }),
+    )
+    .await;
+    let prep_body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer_btc");
+    let prep_result = prep_body.get("result").unwrap_or(prep_body);
+    let quote_id = prep_result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId")
+        .to_string();
+
+    let exec = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.wallet_execute_prepared",
+        json!({"quoteId": quote_id, "confirmed": true}),
+    )
+    .await;
+    let exec_body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared_btc");
+    let exec_result = exec_body.get("result").unwrap_or(exec_body);
+    assert_eq!(
+        exec_result.get("status").and_then(Value::as_str),
+        Some("broadcasted"),
+    );
+    let (broadcast_count, last_tx_hex) = match btc_mock.broadcast_txs.lock() {
+        Ok(g) => (g.len(), g.last().cloned()),
+        Err(p) => {
+            let g = p.into_inner();
+            (g.len(), g.last().cloned())
+        }
+    };
+    assert_eq!(broadcast_count, 1, "exactly one BTC broadcast call");
+    // Broadcast body must be non-empty segwit hex.
+    let raw_hex = last_tx_hex.expect("broadcast body recorded");
+    assert!(
+        !raw_hex.is_empty() && raw_hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "broadcast body must be hex, got: {raw_hex}"
+    );
+    // UTXO endpoint must be queried for the BIP84-derived sender, proving
+    // the address that flows into signing is the one we expect.
+    let queried = match btc_mock.queried_addresses.lock() {
+        Ok(g) => g.clone(),
+        Err(p) => p.into_inner().clone(),
+    };
+    assert!(
+        queried.iter().any(|a| a == E2E_TEST_MNEMONIC_ADDRS_BTC),
+        "UTXO endpoint must be queried for the sender's bc1q… address, got: {queried:?}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// Solana: native SOL transfer end-to-end through controllers.
+#[tokio::test]
+async fn json_rpc_wallet_solana_prepare_execute_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _sol_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_SOLANA");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let encrypted_mnemonic = encrypt_test_mnemonic().await;
+
+    let sol_addr = start_mock_solana().await;
+    std::env::set_var("OPENHUMAN_WALLET_RPC_SOLANA", format!("http://{sol_addr}"));
+
+    wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
+
+    let prep = post_json_rpc(
+        &rpc_base,
+        9301,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "solana",
+            "toAddress": "Vote111111111111111111111111111111111111111",
+            "amountRaw": "1000",
+        }),
+    )
+    .await;
+    let prep_body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer_solana");
+    let prep_result = prep_body.get("result").unwrap_or(prep_body);
+    let quote_id = prep_result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId")
+        .to_string();
+
+    let exec = post_json_rpc(
+        &rpc_base,
+        9302,
+        "openhuman.wallet_execute_prepared",
+        json!({"quoteId": quote_id, "confirmed": true}),
+    )
+    .await;
+    let exec_body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared_solana");
+    let exec_result = exec_body.get("result").unwrap_or(exec_body);
+    assert_eq!(
+        exec_result.get("status").and_then(Value::as_str),
+        Some("broadcasted"),
+    );
+    assert_eq!(
+        exec_result.get("transactionHash").and_then(Value::as_str),
+        Some("5xS9pXmqVz8R1nuRZTfsdsAxBdBFmtnAtuYbCsmK5DYzGn5vR4VqWGmiR5McLnYx8oFqLdo62q4qiUZpQyR4Hkn3"),
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// Tron: native TRX transfer end-to-end through controllers.
+#[tokio::test]
+async fn json_rpc_wallet_tron_prepare_execute_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _tron_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_TRON");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let encrypted_mnemonic = encrypt_test_mnemonic().await;
+
+    let tron_mock = start_mock_tron().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_TRON",
+        format!("http://{}", tron_mock.addr),
+    );
+
+    wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
+
+    let prep = post_json_rpc(
+        &rpc_base,
+        9401,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "tron",
+            "toAddress": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+            "amountRaw": "1000000",
+        }),
+    )
+    .await;
+    let prep_body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer_tron");
+    let prep_result = prep_body.get("result").unwrap_or(prep_body);
+    let quote_id = prep_result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId")
+        .to_string();
+
+    let exec = post_json_rpc(
+        &rpc_base,
+        9402,
+        "openhuman.wallet_execute_prepared",
+        json!({"quoteId": quote_id, "confirmed": true}),
+    )
+    .await;
+    let exec_body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared_tron");
+    let exec_result = exec_body.get("result").unwrap_or(exec_body);
+    assert_eq!(
+        exec_result.get("status").and_then(Value::as_str),
+        Some("broadcasted"),
+    );
+    assert_eq!(
+        exec_result.get("transactionHash").and_then(Value::as_str),
+        Some(format!("{}", "cd".repeat(32)).as_str()),
+    );
+    // Native TRX must go through createtransaction, NOT triggersmartcontract.
+    let create_hits = *tron_mock.state.create_hits.lock().unwrap();
+    let trigger_hits = *tron_mock.state.trigger_hits.lock().unwrap();
+    let broadcast_hits = *tron_mock.state.broadcast_hits.lock().unwrap();
+    assert_eq!(
+        create_hits, 1,
+        "native TRX must hit /wallet/createtransaction"
+    );
+    assert_eq!(
+        trigger_hits, 0,
+        "native TRX must NOT hit /wallet/triggersmartcontract"
+    );
+    assert_eq!(
+        broadcast_hits, 1,
+        "exactly one /wallet/broadcasttransaction call"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// Tron TRC20 lifecycle — verifies the triggersmartcontract path is used.
+#[tokio::test]
+async fn json_rpc_wallet_tron_trc20_prepare_execute_round_trips() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _tron_guard = EnvVarGuard::unset("OPENHUMAN_WALLET_RPC_TRON");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let encrypted_mnemonic = encrypt_test_mnemonic().await;
+
+    let tron_mock = start_mock_tron().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_TRON",
+        format!("http://{}", tron_mock.addr),
+    );
+
+    wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
+
+    let prep = post_json_rpc(
+        &rpc_base,
+        9501,
+        "openhuman.wallet_prepare_transfer",
+        json!({
+            "chain": "tron",
+            "toAddress": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+            "amountRaw": "5000000",
+            "assetSymbol": "USDT",
+        }),
+    )
+    .await;
+    let prep_body = assert_no_jsonrpc_error(&prep, "wallet_prepare_transfer_trc20");
+    let prep_result = prep_body.get("result").unwrap_or(prep_body);
+    assert_eq!(
+        prep_result.get("kind").and_then(Value::as_str),
+        Some("token_transfer"),
+    );
+    let quote_id = prep_result
+        .get("quoteId")
+        .and_then(Value::as_str)
+        .expect("quoteId")
+        .to_string();
+
+    let exec = post_json_rpc(
+        &rpc_base,
+        9502,
+        "openhuman.wallet_execute_prepared",
+        json!({"quoteId": quote_id, "confirmed": true}),
+    )
+    .await;
+    let exec_body = assert_no_jsonrpc_error(&exec, "wallet_execute_prepared_trc20");
+    let exec_result = exec_body.get("result").unwrap_or(exec_body);
+    assert_eq!(
+        exec_result.get("status").and_then(Value::as_str),
+        Some("broadcasted"),
+    );
+    // TRC20 must go through triggersmartcontract, NOT createtransaction.
+    let create_hits = *tron_mock.state.create_hits.lock().unwrap();
+    let trigger_hits = *tron_mock.state.trigger_hits.lock().unwrap();
+    let broadcast_hits = *tron_mock.state.broadcast_hits.lock().unwrap();
+    assert_eq!(
+        trigger_hits, 1,
+        "TRC20 transfer must hit /wallet/triggersmartcontract"
+    );
+    assert_eq!(
+        create_hits, 0,
+        "TRC20 transfer must NOT hit /wallet/createtransaction"
+    );
+    assert_eq!(
+        broadcast_hits, 1,
+        "exactly one /wallet/broadcasttransaction call"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// Wallet network_defaults must surface every supported EVM L2 plus BTC,
+/// Solana, and Tron, with chain_id populated for EVM rows.
+#[tokio::test]
+async fn json_rpc_wallet_network_defaults_lists_all_chains() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let resp = post_json_rpc(
+        &rpc_base,
+        9601,
+        "openhuman.wallet_network_defaults",
+        json!({}),
+    )
+    .await;
+    let body = assert_no_jsonrpc_error(&resp, "wallet_network_defaults");
+    let result = body.get("result").unwrap_or(body);
+    let rows = result.as_array().expect("array");
+    // Pin every expected EVM L2 + chain_id + the three non-EVM chains.
+    for (expected_evm, expected_chain_id) in [
+        ("ethereum_mainnet", 1u64),
+        ("base_mainnet", 8453),
+        ("arbitrum_one", 42161),
+        ("optimism_mainnet", 10),
+        ("polygon_mainnet", 137),
+    ] {
+        let row = rows
+            .iter()
+            .find(|r| r.get("evmNetwork").and_then(Value::as_str) == Some(expected_evm))
+            .unwrap_or_else(|| panic!("{expected_evm} row missing from network_defaults"));
+        assert_eq!(
+            row.get("chainId").and_then(Value::as_u64),
+            Some(expected_chain_id),
+            "{expected_evm} should expose chain_id {expected_chain_id}"
+        );
+    }
+    for expected_chain in ["btc", "solana", "tron"] {
+        assert!(
+            rows.iter().any(
+                |r| r.get("chain").and_then(Value::as_str) == Some(expected_chain)
+                    && r.get("evmNetwork").is_none()
+            ),
+            "{expected_chain} row missing from network_defaults"
+        );
+    }
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// Verify that when `chat_onboarding_completed` is unset in config.toml (fresh
+/// user), the `openhuman.app_state_snapshot` RPC surfaces the flag as `false`
+/// (its serde default). The field is deprecated but still surfaced for backward compat.
 #[tokio::test]
 async fn json_rpc_app_state_snapshot_chat_onboarding_defaults_false() {
     let _env_lock = json_rpc_e2e_env_lock();
@@ -3111,9 +3861,8 @@ async fn json_rpc_app_state_snapshot_chat_onboarding_defaults_false() {
     let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let mock_origin = format!("http://{}", mock_addr);
 
-    // Fresh-user config: no `chat_onboarding_completed` key → serde default
-    // of `false`. Cannot reuse `write_min_config` because it hard-codes the
-    // flag to `true` so the e2e mock can bypass the welcome agent.
+    // Fresh-user config: no `chat_onboarding_completed` key → serde default of `false`.
+    // Cannot reuse `write_min_config` because it hard-codes the flag to `true`.
     let cfg = format!(
         r#"api_url = "{mock_origin}"
 default_model = "e2e-mock-model"
@@ -6754,6 +7503,98 @@ async fn json_rpc_stale_auth_profile_lock_auto_recovered() {
         !lock_path.exists(),
         "stale lock file must be removed after recovery: {}",
         lock_path.display()
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_config_autonomy_settings_roundtrip() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config_with_local_ai_disabled(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // GET → expect the default (20).
+    let initial = post_json_rpc(
+        &rpc_base,
+        7001,
+        "openhuman.config_get_autonomy_settings",
+        json!({}),
+    )
+    .await;
+    let initial_outer = assert_no_jsonrpc_error(&initial, "get_autonomy_settings initial");
+    // assert_no_jsonrpc_error already strips the JSON-RPC envelope; one more hop
+    // strips the into_cli_compatible_json wrapper to reach the payload fields.
+    let initial_value = initial_outer
+        .get("result")
+        .and_then(|r| r.get("max_actions_per_hour"))
+        .and_then(Value::as_u64);
+    assert_eq!(
+        initial_value,
+        Some(20),
+        "expected default 20, got envelope: {initial_outer}"
+    );
+
+    // UPDATE → 250.
+    let update = post_json_rpc(
+        &rpc_base,
+        7002,
+        "openhuman.config_update_autonomy_settings",
+        json!({ "max_actions_per_hour": 250 }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_autonomy_settings");
+
+    // GET again → expect 250.
+    let after = post_json_rpc(
+        &rpc_base,
+        7003,
+        "openhuman.config_get_autonomy_settings",
+        json!({}),
+    )
+    .await;
+    let after_outer = assert_no_jsonrpc_error(&after, "get_autonomy_settings after");
+    let after_value = after_outer
+        .get("result")
+        .and_then(|r| r.get("max_actions_per_hour"))
+        .and_then(Value::as_u64);
+    assert_eq!(
+        after_value,
+        Some(250),
+        "expected 250 after update, got envelope: {after_outer}"
+    );
+
+    // Invalid value rejected — server returns JSON-RPC error envelope, not a result.
+    let bad = post_json_rpc(
+        &rpc_base,
+        7004,
+        "openhuman.config_update_autonomy_settings",
+        json!({ "max_actions_per_hour": 99999 }),
+    )
+    .await;
+    let bad_err = assert_jsonrpc_error(&bad, "update_autonomy_settings bad value");
+    let err_message = bad_err
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("error object missing message: {bad_err}"));
+    assert!(
+        err_message.contains("between 1 and 10000"),
+        "expected validation error in: {err_message}"
     );
 
     mock_join.abort();

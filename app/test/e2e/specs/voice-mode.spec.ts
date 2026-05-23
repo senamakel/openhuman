@@ -27,10 +27,10 @@ import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
 import {
+  waitForText as _waitForText,
   clickText,
   dumpAccessibilityTree,
   textExists,
-  waitForText as _waitForText,
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';

@@ -23,8 +23,7 @@ import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
 import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import MessagingPanel from '../components/settings/panels/MessagingPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
-import NotificationRoutingPanel from '../components/settings/panels/NotificationRoutingPanel';
-import NotificationsPanel from '../components/settings/panels/NotificationsPanel';
+import NotificationsTabbedPanel from '../components/settings/panels/NotificationsTabbedPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
 import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAwarenessDebugPanel';
@@ -348,7 +347,7 @@ const Settings = () => {
         <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
         <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
         <Route path="messaging" element={wrapSettingsPage(<MessagingPanel />)} />
-        <Route path="notifications" element={wrapSettingsPage(<NotificationsPanel />)} />
+        <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
         <Route path="mascot" element={wrapSettingsPage(<MascotPanel />)} />
         <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
         <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
@@ -357,9 +356,12 @@ const Settings = () => {
         <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
         <Route path="autonomy" element={wrapSettingsPage(<AutonomyPanel />)} />
         <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
+        {/* Legacy direct path for the routing tab — kept so existing links
+            (Developer Options entries, walkthroughs) keep working. The
+            tabbed panel reads the URL hash to land on the right tab. */}
         <Route
           path="notification-routing"
-          element={wrapSettingsPage(<NotificationRoutingPanel />)}
+          element={<Navigate to="/settings/notifications#routing" replace />}
         />
         <Route path="llm" element={wrapSettingsPage(<AIPanel />)} />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />

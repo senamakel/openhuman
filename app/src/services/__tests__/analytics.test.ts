@@ -300,13 +300,16 @@ describe('initSentry beforeSend manual-staging bypass', () => {
 
     const opts = hoisted.init.mock.calls[0][0] as {
       release: string;
-      tracesSampleRate: number;
+      tracesSampler: () => number;
       replaysSessionSampleRate: number;
       replaysOnErrorSampleRate: number;
       integrations: Array<{ name?: string }>;
     };
     expect(opts.release).toBe('openhuman@test+abc');
-    expect(opts.tracesSampleRate).toBe(0.1);
+    hoisted.analyticsEnabled = true;
+    expect(opts.tracesSampler()).toBe(0.1);
+    hoisted.analyticsEnabled = false;
+    expect(opts.tracesSampler()).toBe(0);
     expect(opts.replaysSessionSampleRate).toBe(0);
     expect(opts.replaysOnErrorSampleRate).toBe(0);
     const names = opts.integrations.map(i => i.name).filter(Boolean);

@@ -88,22 +88,6 @@ const developerItems = [
     ),
   },
   {
-    id: 'agent-chat',
-    titleKey: 'settings.developerMenu.agentChat.title',
-    descriptionKey: 'settings.developerMenu.agentChat.desc',
-    route: 'agent-chat',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 10h.01M12 10h.01M16 10h.01M21 11c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 19l1.395-3.72C3.512 14.042 3 12.574 3 11c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-        />
-      </svg>
-    ),
-  },
-  {
     id: 'cron-jobs',
     titleKey: 'settings.developerMenu.cronJobs.title',
     descriptionKey: 'settings.developerMenu.cronJobs.desc',
@@ -115,22 +99,6 @@ const developerItems = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'local-model-debug',
-    titleKey: 'settings.developerMenu.localModelDebug.title',
-    descriptionKey: 'settings.developerMenu.localModelDebug.desc',
-    route: 'local-model-debug',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
         />
       </svg>
     ),
@@ -236,22 +204,6 @@ const developerItems = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'autonomy',
-    titleKey: 'settings.developerMenu.autonomy.title',
-    descriptionKey: 'settings.developerMenu.autonomy.desc',
-    route: 'autonomy',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
         />
       </svg>
     ),

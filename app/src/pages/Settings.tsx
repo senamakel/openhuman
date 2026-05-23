@@ -277,6 +277,27 @@ const Settings = () => {
       route: 'voice',
       icon: VoiceIcon,
     },
+    {
+      id: 'agent-chat',
+      title: t('settings.developerMenu.agentChat.title'),
+      description: t('settings.developerMenu.agentChat.desc'),
+      route: 'agent-chat',
+      icon: LlmIcon,
+    },
+    {
+      id: 'autonomy',
+      title: t('settings.developerMenu.autonomy.title'),
+      description: t('settings.developerMenu.autonomy.desc'),
+      route: 'autonomy',
+      icon: LlmIcon,
+    },
+    {
+      id: 'local-model-debug',
+      title: t('settings.developerMenu.localModelDebug.title'),
+      description: t('settings.developerMenu.localModelDebug.desc'),
+      route: 'local-model-debug',
+      icon: LlmIcon,
+    },
   ];
 
   return (

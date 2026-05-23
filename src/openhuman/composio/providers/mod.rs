@@ -187,6 +187,7 @@ pub fn catalog_for_toolkit(toolkit: &str) -> Option<&'static [CuratedTool]> {
         "gmail" => Some(gmail::GMAIL_CURATED),
         "notion" => Some(notion::NOTION_CURATED),
         "github" => Some(github::GITHUB_CURATED),
+        "linear" => Some(linear::LINEAR_CURATED),
         // Catalog-only toolkits
         "slack" => Some(catalogs::SLACK_CURATED),
         "discord" => Some(catalogs::DISCORD_CURATED),
@@ -197,7 +198,6 @@ pub fn catalog_for_toolkit(toolkit: &str) -> Option<&'static [CuratedTool]> {
         "outlook" => Some(catalogs::OUTLOOK_CURATED),
         // MICROSOFT_TEAMS_* slugs extract to "microsoft" via toolkit_from_slug.
         "microsoft" | "microsoft_teams" => Some(catalogs::MICROSOFT_TEAMS_CURATED),
-        "linear" => Some(linear::LINEAR_CURATED),
         "jira" => Some(catalogs::JIRA_CURATED),
         "trello" => Some(catalogs::TRELLO_CURATED),
         "asana" => Some(catalogs::ASANA_CURATED),
@@ -473,15 +473,14 @@ mod tests {
 
     #[test]
     fn capability_matrix_includes_linear_as_native_memory_provider() {
-        // Locks in the per-issue #2400 registration: a Linear row must
-        // appear in the capability matrix with the same native-provider
-        // flags Gmail/Notion/Slack/ClickUp already carry (`memory_ingest`,
-        // `periodic_sync`, non-zero `sync_interval_secs`). If a future
-        // change drops one of the four registration touchpoints
+        // Per-issue #2400 registration: a Linear row must appear in
+        // the capability matrix as a native memory-ingest provider,
+        // matching gmail / notion / slack / clickup. If a future
+        // change drops one of the five registration touchpoints
         // (CAPABILITY_TOOLKITS, has_native_provider,
-        // native_provider_sync_interval, catalog_for_toolkit) this test
-        // fails loud rather than silently degrading the provider to
-        // catalog-only status.
+        // native_provider_sync_interval, catalog_for_toolkit,
+        // toolkit_description) this test fails loud rather than
+        // silently degrading the provider to catalog-only status.
         let matrix = capability_matrix();
         let linear = matrix
             .iter()

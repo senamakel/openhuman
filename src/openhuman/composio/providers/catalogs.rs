@@ -31,4 +31,8 @@ pub use super::catalogs_microsoft::{EXCEL_CURATED, ONE_DRIVE_CURATED};
 pub use super::catalogs_productivity::{
     ASANA_CURATED, DROPBOX_CURATED, JIRA_CURATED, OUTLOOK_CURATED, TODOIST_CURATED, TRELLO_CURATED,
 };
+// `LINEAR_CURATED` moved into `super::linear::LINEAR_CURATED` alongside
+// the native LinearProvider impl. `catalog_for_toolkit("linear")` now
+// routes there directly. Removing the re-export keeps a single source
+// of truth and matches how `gmail` / `notion` / `clickup` are wired.
 pub use super::catalogs_social_media::{SPOTIFY_CURATED, TWITTER_CURATED, YOUTUBE_CURATED};

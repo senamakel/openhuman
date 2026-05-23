@@ -183,9 +183,12 @@ async fn doc_put_with_multibyte_at_body_preview_boundary_does_not_panic() {
     let zwnj_bytes = zwnj.len_utf8();
 
     for offset in 0..zwnj_bytes {
-        // Build a body where the nominal cut falls `offset` bytes into the zwnj.
-        // Total length > BODY_PREVIEW_MAX_BYTES so the truncation path is exercised.
-        let prefix_len = BODY_PREVIEW_MAX_BYTES - offset + 20;
+        // Build a body where the nominal cut falls exactly `offset` bytes into the
+        // ZWNJ. `prefix_len` bytes of 'a' are placed before the ZWNJ so that the
+        // 2048-byte cut point lands `offset` bytes into the 3-byte ZWNJ codepoint.
+        // Total body length is prefix_len + zwnj_bytes + trailing, which is
+        // > BODY_PREVIEW_MAX_BYTES since trailing = offset + 80 >= 80.
+        let prefix_len = BODY_PREVIEW_MAX_BYTES - offset;
         let body = format!(
             "{}{}{}",
             "a".repeat(prefix_len),

@@ -28,6 +28,7 @@ import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
 import {
   waitForText as _waitForText,
+  clickNativeButton,
   clickText,
   dumpAccessibilityTree,
   textExists,
@@ -320,9 +321,9 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
         window.location.hash = '#/human';
       });
     } else {
-      // Mac2 path: click the Human tab button by aria-label.
-      const btn = await browser.$('//XCUIElementTypeButton[@label="Human"]');
-      await btn.click();
+      // Mac2 path: use the shared helper which abstracts the XCUIElementTypeButton
+      // XPath so the selector stays cross-driver and policy-compliant.
+      await clickNativeButton('Human');
     }
     // Allow React router to settle and the Human page to mount.
     await browser.pause(1_500);
@@ -565,14 +566,16 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
           return false;
         });
         if (!retried) {
-          // Dump the tree for diagnosis and skip the assertion — the page
-          // didn't mount in time, not a voice-error-mapping regression.
+          // Dump the tree for diagnosis, then fail explicitly so CI catches
+          // regressions where the Human tab stops mounting in time.
           const tree = await dumpAccessibilityTree();
           console.log(
             '[HumanTabE2E:6.3] Start-recording button not found. Tree:\n',
             tree.slice(0, 4_000)
           );
-          return;
+          throw new Error(
+            '[HumanTabE2E:6.3] Start-recording button not found after retry — Human tab did not mount in time'
+          );
         }
       }
 
@@ -682,7 +685,9 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
             '[HumanTabE2E:6.4] Start-recording button not found. Tree:\n',
             tree.slice(0, 4_000)
           );
-          return;
+          throw new Error(
+            '[HumanTabE2E:6.4] Start-recording button not found after retry — Human tab did not mount in time'
+          );
         }
       }
 

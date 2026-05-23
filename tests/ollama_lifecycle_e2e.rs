@@ -46,6 +46,34 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     }
 }
 
+// ── RAII env-var guard ────────────────────────────────────────────────────────
+//
+// Restores the previous env-var value (or removes it) when dropped.
+// This ensures cleanup runs even if an assertion panics early, preventing
+// env-var leakage that could destabilise subsequent tests.
+
+struct EnvVarGuard {
+    key: &'static str,
+    prev: Option<std::ffi::OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &std::ffi::OsStr) -> Self {
+        let prev = std::env::var_os(key);
+        std::env::set_var(key, value);
+        Self { key, prev }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match &self.prev {
+            Some(v) => std::env::set_var(self.key, v),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
+
 // ── Marker path helper ────────────────────────────────────────────────────────
 //
 // Mirrors the logic of `paths::ollama_spawn_marker_path`: when
@@ -88,7 +116,8 @@ async fn owned_spawn_shutdown_kills_child_and_clears_marker() {
     let tmp = tempfile::tempdir().unwrap();
 
     // Set OPENHUMAN_WORKSPACE so the marker path resolves under our tempdir.
-    std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
+    // EnvVarGuard restores the previous value on drop — even if an assertion panics.
+    let _ws_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
     let mut config = Config::default();
     config.workspace_dir = tmp.path().to_path_buf();
     config.config_path = tmp.path().join("config.toml");
@@ -153,8 +182,7 @@ async fn owned_spawn_shutdown_kills_child_and_clears_marker() {
         !still_alive,
         "child pid {child_pid} should be dead after shutdown_owned_ollama"
     );
-
-    std::env::remove_var("OPENHUMAN_WORKSPACE");
+    // _ws_guard restores OPENHUMAN_WORKSPACE when it drops.
 }
 
 // ── Test 2: external adoption — shutdown leaves external daemon untouched ─────
@@ -168,7 +196,7 @@ async fn external_adoption_shutdown_leaves_external_process_running() {
     let _guard = env_lock();
     let tmp = tempfile::tempdir().unwrap();
 
-    std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
+    let _ws_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
     let mut config = Config::default();
     config.workspace_dir = tmp.path().to_path_buf();
     config.config_path = tmp.path().join("config.toml");
@@ -225,8 +253,7 @@ async fn external_adoption_shutdown_leaves_external_process_running() {
     // Clean up the external stub ourselves.
     let _ = ext_child.kill().await;
     let _ = ext_child.wait().await;
-
-    std::env::remove_var("OPENHUMAN_WORKSPACE");
+    // _ws_guard restores OPENHUMAN_WORKSPACE when it drops.
 }
 
 // ── Test 3: crash recovery — stale marker with dead PID ───────────────────────
@@ -254,9 +281,12 @@ async fn crash_recovery_stale_marker_does_not_break_service() {
     let _guard = env_lock();
     let tmp = tempfile::tempdir().unwrap();
 
-    std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
+    let _ws_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().as_os_str());
     // Redirect Ollama health checks to a dead port so no real daemon is needed.
-    std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", "http://127.0.0.1:1");
+    let _ollama_url_guard = EnvVarGuard::set(
+        "OPENHUMAN_OLLAMA_BASE_URL",
+        std::ffi::OsStr::new("http://127.0.0.1:1"),
+    );
 
     let mut config = Config::default();
     config.workspace_dir = tmp.path().to_path_buf();
@@ -307,7 +337,5 @@ async fn crash_recovery_stale_marker_does_not_break_service() {
     // The stale marker on disk is harmless at this level — it is consumed
     // only during the bootstrap path (start_and_wait_for_server). The test
     // confirms the service remains operational despite it.
-
-    std::env::remove_var("OPENHUMAN_WORKSPACE");
-    std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
+    // _ws_guard and _ollama_url_guard restore the env vars when they drop.
 }

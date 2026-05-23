@@ -87,7 +87,13 @@ describe('Core port conflict recovery', () => {
     await stopMockServer();
   });
 
-  it('4.2.1 — app reaches usable state even when preferred port is pre-bound', async () => {
+  // NOTE on scope: the Tauri harness boots the app before any spec runs, so
+  // we cannot pre-bind DEFAULT_CORE_PORT before the embedded core attempts to
+  // listen. This case therefore validates startup integrity (core started and
+  // app reached a usable screen) rather than the port-conflict fallback branch.
+  // The conflict path (bind port → trigger restart → assert fallback) is
+  // exercised in 4.2.2 once the UI dialog for that scenario is implemented.
+  it('4.2.1 — app reaches usable state on normal startup (startup-integrity check)', async () => {
     stepLog('app is already running — verify it reached usable state', {
       defaultCorePort: DEFAULT_CORE_PORT,
     });

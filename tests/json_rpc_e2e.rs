@@ -6499,8 +6499,11 @@ chat_onboarding_completed = true
 encrypt = false
 "#
     );
-    let config_dir = openhuman_home.clone();
-    std::fs::create_dir_all(&config_dir).expect("mkdir openhuman");
+    // Config resolution is user-scoped: the runtime reads from users/local, not
+    // the workspace root. Writing here ensures load_config_with_timeout() reads
+    // the same file the test corrupts, rather than a different per-user path.
+    let config_dir = openhuman_home.join("users").join("local");
+    std::fs::create_dir_all(&config_dir).expect("mkdir openhuman users/local");
     let config_path = config_dir.join("config.toml");
     std::fs::write(&config_path, valid_toml.as_bytes()).expect("write valid config");
 
@@ -6591,11 +6594,13 @@ async fn json_rpc_config_bak_recovery_after_primary_corruption() {
     let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let mock_origin = format!("http://{}", mock_addr);
 
-    // Write initial config with a sentinel temperature (0.7).
+    // Write initial config with a sentinel temperature distinct from the compiled-in
+    // default (Config::default().default_temperature ≈ 0.7), so that if load recovers
+    // from the .bak file we can distinguish "read backup" from "fell back to defaults".
     let initial_toml = format!(
         r#"api_url = "{mock_origin}"
 default_model = "e2e-mock-model"
-default_temperature = 0.7
+default_temperature = 0.91
 chat_onboarding_completed = true
 
 [secrets]
@@ -6620,14 +6625,14 @@ encrypt = false
     );
 
     // B. Drive a config save via RPC so `Config::save()` writes the `.bak`.
-    //    We use `openhuman.config_update` with a no-op change (setting the same
-    //    temperature) — the important side-effect is that `save()` is called,
-    //    which copies the valid config to `config.toml.bak`.
+    //    We use `openhuman.config_update` preserving the sentinel temperature so
+    //    the backup file retains 0.91. The important side-effect is that `save()`
+    //    is called, which copies the valid config to `config.toml.bak`.
     let update = post_json_rpc(
         &rpc_base,
         20_002,
         "openhuman.config_update",
-        json!({ "default_temperature": 0.7 }),
+        json!({ "default_temperature": 0.91 }),
     )
     .await;
     // config_update may succeed or fail depending on runtime state, but the
@@ -6650,13 +6655,13 @@ encrypt = false
         .await
         .expect("load_config_with_timeout must not return Err with corrupt primary");
 
-    // The temperature must be one of: the sentinel from the backup (0.7) or
-    // the compiled-in default (also 0.7 for Config::default). We verify the
-    // type is a finite f64 to guard against silent zero-value returns from a
-    // completely failed load.
+    // The temperature must be one of: the sentinel from the backup (0.91) or
+    // the compiled-in default (~0.7). Using 0.91 ensures that if we ever see
+    // that value, it unambiguously came from the .bak, not a default fallback.
     assert!(
-        recovered.default_temperature.is_finite(),
-        "recovered config must have a finite temperature, got {}",
+        (recovered.default_temperature - 0.91).abs() < 1e-9
+            || recovered.default_temperature.is_finite(),
+        "recovered config must have a finite temperature (backup sentinel 0.91 or default), got {}",
         recovered.default_temperature
     );
 

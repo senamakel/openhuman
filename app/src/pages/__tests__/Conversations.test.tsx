@@ -8,9 +8,7 @@ import {
 
 describe('isComposerInteractionBlocked', () => {
   it('blocks composer interaction while a thread is actively running', () => {
-    expect(
-      isComposerInteractionBlocked({ activeThreadId: 'thread-1', rustChat: true })
-    ).toBe(true);
+    expect(isComposerInteractionBlocked({ activeThreadId: 'thread-1', rustChat: true })).toBe(true);
   });
 
   it('allows composer interaction when chat is idle and ready', () => {

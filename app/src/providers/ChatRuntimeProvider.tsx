@@ -231,10 +231,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // Resolution priority: selected > active (in-flight inference) > first thread.
       // `activeThreadId` tracks the currently running inference thread.
       const targetFromState =
-        state.selectedThreadId ??
-        state.activeThreadId ??
-        state.threads[0]?.id ??
-        null;
+        state.selectedThreadId ?? state.activeThreadId ?? state.threads[0]?.id ?? null;
       if (targetFromState) {
         return targetFromState;
       }

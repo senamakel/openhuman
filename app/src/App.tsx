@@ -155,8 +155,7 @@ function AppShell() {
     <div className="relative h-screen flex flex-col overflow-hidden">
       <AppBackground />
       <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
-        <div
-          className={`flex-1 overflow-y-auto ${fullscreen || onOnboardingRoute ? '' : 'pb-16'}`}>
+        <div className={`flex-1 overflow-y-auto ${fullscreen || onOnboardingRoute ? '' : 'pb-16'}`}>
           <GlobalUpsellBanner />
           <AppRoutes />
         </div>

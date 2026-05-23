@@ -83,7 +83,11 @@ fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<usize, String> 
 
     let mut threads_updated = 0usize;
     for thread in &threads {
-        if !thread.labels.iter().any(|label| label == WELCOME_THREAD_LABEL) {
+        if !thread
+            .labels
+            .iter()
+            .any(|label| label == WELCOME_THREAD_LABEL)
+        {
             continue;
         }
 
@@ -241,9 +245,17 @@ fn sanitize_agent_name(name: &str) -> String {
         .collect()
 }
 
-fn write_rewritten_meta(path: &Path, new_meta_line: &str, destination: &Path) -> Result<(), String> {
-    let original = fs::read_to_string(path)
-        .map_err(|e| format!("[migration::welcome-to-orchestrator] read {} failed: {e}", path.display()))?;
+fn write_rewritten_meta(
+    path: &Path,
+    new_meta_line: &str,
+    destination: &Path,
+) -> Result<(), String> {
+    let original = fs::read_to_string(path).map_err(|e| {
+        format!(
+            "[migration::welcome-to-orchestrator] read {} failed: {e}",
+            path.display()
+        )
+    })?;
     let rest = match original.split_once('\n') {
         Some((_, rest)) => rest,
         None => "",
@@ -357,7 +369,9 @@ fn write_marker(marker: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::conversations::{ensure_thread, list_threads, CreateConversationThread};
+    use crate::openhuman::memory::conversations::{
+        ensure_thread, list_threads, CreateConversationThread,
+    };
     use tempfile::TempDir;
 
     fn make_thread(id: &str, labels: Vec<String>) -> CreateConversationThread {
@@ -385,7 +399,10 @@ mod tests {
 
         ensure_thread(
             workspace.to_path_buf(),
-            make_thread("welcome-thread", vec!["onboarding".into(), "personal".into()]),
+            make_thread(
+                "welcome-thread",
+                vec!["onboarding".into(), "personal".into()],
+            ),
         )
         .unwrap();
 
@@ -403,11 +420,13 @@ mod tests {
         assert_eq!(result.markdown_files_renamed, 1);
 
         let threads = list_threads(workspace.to_path_buf()).unwrap();
-        let thread = threads.iter().find(|thread| thread.id == "welcome-thread").unwrap();
+        let thread = threads
+            .iter()
+            .find(|thread| thread.id == "welcome-thread")
+            .unwrap();
         assert_eq!(thread.labels, vec!["personal"]);
 
-        let renamed =
-            workspace.join("session_raw/1715000000_orchestrator_thread-abc.jsonl");
+        let renamed = workspace.join("session_raw/1715000000_orchestrator_thread-abc.jsonl");
         assert!(renamed.exists(), "renamed transcript should exist");
         let contents = fs::read_to_string(&renamed).unwrap();
         assert!(

@@ -174,14 +174,8 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const {
-    threads,
-    selectedThreadId,
-    messages,
-    isLoadingMessages,
-    messagesError,
-    activeThreadId,
-  } = useAppSelector(state => state.thread);
+  const { threads, selectedThreadId, messages, isLoadingMessages, messagesError, activeThreadId } =
+    useAppSelector(state => state.thread);
 
   const [showSidebar, setShowSidebar] = useState(true);
   const [inputValue, setInputValue] = useState('');
@@ -963,10 +957,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
   const inlineCompletionSuffix = getInlineCompletionSuffix(inputValue, inlineSuggestionValue);
   // Blocks all composer interaction while a turn is in-flight or Rust chat is unavailable.
   // isSending: the *selected* thread is in-flight (drives selected-thread UI only).
-  const composerInteractionBlocked = isComposerInteractionBlocked({
-    activeThreadId,
-    rustChat,
-  });
+  const composerInteractionBlocked = isComposerInteractionBlocked({ activeThreadId, rustChat });
   // Auto-focus the composer when a thread becomes selected and the composer
   // isn't blocked. Without this, navigating into a thread from elsewhere in
   // the app (e.g. acting on a subconscious reflection in the Intelligence

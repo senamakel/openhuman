@@ -24,9 +24,9 @@ describe('[#1123] Conversations — unlocked flow (welcome-lock removed)', () =>
   });
 
   it('still blocks when an agent thread is actively running (not a welcome-lock concern)', () => {
-    expect(
-      isComposerInteractionBlocked({ activeThreadId: 'thread-xyz', rustChat: true })
-    ).toBe(true);
+    expect(isComposerInteractionBlocked({ activeThreadId: 'thread-xyz', rustChat: true })).toBe(
+      true
+    );
   });
 
   it('blocks when rust chat transport is unavailable', () => {

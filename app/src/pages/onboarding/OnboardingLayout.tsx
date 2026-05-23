@@ -62,13 +62,7 @@ const OnboardingLayout = () => {
     }
 
     navigate('/home', { replace: true });
-  }, [
-    draft.connectedSources,
-    navigate,
-    setOnboardingCompletedFlag,
-    setOnboardingTasks,
-    snapshot,
-  ]);
+  }, [draft.connectedSources, navigate, setOnboardingCompletedFlag, setOnboardingTasks, snapshot]);
 
   const value = useMemo(
     () => ({ draft, setDraft, completeAndExit }),

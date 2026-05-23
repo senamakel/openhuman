@@ -27,8 +27,9 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import { useT } from '../../lib/i18n/I18nContext';
 import type { ToastNotification } from '../../types/intelligence';
-import { openUrl } from '../../utils/openUrl';
+import { openUrl, revealPath } from '../../utils/openUrl';
 import {
   type GraphExportResponse,
   type GraphMode,
@@ -39,6 +40,7 @@ import {
 } from '../../utils/tauriCommands';
 import { MemoryGraph } from './MemoryGraph';
 import { MemorySources } from './MemorySources';
+import { VaultPanel } from './VaultPanel';
 import { WhatsAppMemorySection } from './WhatsAppMemorySection';
 
 interface MemoryWorkspaceProps {
@@ -69,18 +71,25 @@ const SYNCABLE_TOOLKITS: ReadonlySet<string> = new Set(['gmail']);
  * the React app away from the Memory tab. The opener plugin hands the
  * URL straight to the system handler so Obsidian launches as a
  * separate process.
+ *
+ * Returns `null` on success, or the underlying error otherwise. The
+ * caller decides how to surface the outcome (toast, fallback, …); an
+ * unsurfaced no-op is the bug #2281 originally reported.
  */
-async function openVaultInObsidian(contentRootAbs: string): Promise<void> {
+async function openVaultInObsidian(contentRootAbs: string): Promise<unknown | null> {
   const url = `obsidian://open?path=${encodeURIComponent(contentRootAbs)}`;
   console.debug('[ui-flow][memory-workspace] open vault in Obsidian url=%s', url);
   try {
     await openUrl(url);
+    return null;
   } catch (err) {
     console.error('[ui-flow][memory-workspace] openUrl failed', err);
+    return err;
   }
 }
 
 export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
+  const { t } = useT();
   const [graph, setGraph] = useState<GraphExportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -119,10 +128,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
 
   const handleWipe = useCallback(async () => {
     // Two-step confirm so accidental clicks can't nuke a workspace.
-    const ok = window.confirm(
-      'This deletes every chunk, summary, and raw markdown file in this workspace. ' +
-        'Re-syncing afterwards will re-ingest from upstream. Continue?'
-    );
+    const ok = window.confirm(t('workspace.wipeConfirm'));
     if (!ok) return;
     setWiping(true);
     try {
@@ -157,12 +163,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
   }, [onToast, mode]);
 
   const handleResetTree = useCallback(async () => {
-    const ok = window.confirm(
-      'This deletes every summary, buffer, and tree job — but keeps chunks ' +
-        'and raw markdown intact. Every chunk gets re-queued through extraction ' +
-        'and the tree rebuilds from scratch on the *current* summariser. ' +
-        'No upstream re-fetch. Continue?'
-    );
+    const ok = window.confirm(t('workspace.resetTreeConfirm'));
     if (!ok) return;
     setResetting(true);
     try {
@@ -239,9 +240,52 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
     }
   }, [onToast, mode]);
 
+  // #2281: clicking "View Vault" must never silently no-op. Some
+  // users don't have Obsidian installed, in which case the OS shell
+  // accepts the `obsidian://` URL and does nothing visible. We always
+  // emit a toast that names the vault path AND offers a "Reveal
+  // Folder" action so the user has an OS-native way to inspect the
+  // vault even without Obsidian.
+  const handleViewVault = useCallback(
+    async (contentRootAbs: string) => {
+      const revealHandler = () => {
+        void (async () => {
+          try {
+            await revealPath(contentRootAbs);
+          } catch (err) {
+            console.error('[ui-flow][memory-workspace] revealPath failed', err);
+            onToast?.({
+              type: 'error',
+              title: t('workspace.revealVaultFailed'),
+              message: err instanceof Error ? err.message : String(err),
+            });
+          }
+        })();
+      };
+      const err = await openVaultInObsidian(contentRootAbs);
+      if (err === null) {
+        onToast?.({
+          type: 'info',
+          title: t('workspace.openingVaultTitle'),
+          message: `${t('workspace.openingVaultMessage')} ${contentRootAbs}`,
+          action: { label: t('workspace.revealFolder'), handler: revealHandler },
+        });
+      } else {
+        onToast?.({
+          type: 'error',
+          title: t('workspace.openVaultFailedTitle'),
+          message: `${t('workspace.openVaultFailedMessage')} ${contentRootAbs}`,
+          action: { label: t('workspace.revealFolder'), handler: revealHandler },
+        });
+      }
+    },
+    [onToast, t]
+  );
+
   return (
     <div className="space-y-4" data-testid="memory-workspace">
       <MemorySources syncableToolkits={SYNCABLE_TOOLKITS} pollIntervalMs={5000} onToast={onToast} />
+      <VaultPanel onToast={onToast} />
       <WhatsAppMemorySection />
 
       <div
@@ -255,18 +299,18 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
             disabled={wiping || building}
             data-testid="memory-wipe-all"
             className="inline-flex items-center gap-2 rounded-lg
-                       border border-coral-200 bg-white px-4 py-2 text-sm font-semibold
-                       text-coral-700 shadow-sm transition-colors hover:bg-coral-50
+                       border border-coral-200 dark:border-coral-500/30 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-semibold
+                       text-coral-700 dark:text-coral-300 shadow-sm transition-colors hover:bg-coral-50 dark:hover:bg-coral-500/10
                        disabled:cursor-not-allowed disabled:opacity-50
                        focus:outline-none focus:ring-2 focus:ring-coral-200"
-            title="Delete every chunk, summary, and raw file in this workspace">
+            title={t('workspace.wipeTitle')}>
             {wiping ? (
               <>
-                <Spinner /> Resetting…
+                <Spinner /> {t('workspace.resetting')}
               </>
             ) : (
               <>
-                <TrashIcon /> Reset memory
+                <TrashIcon /> {t('workspace.resetMemory')}
               </>
             )}
           </button>
@@ -276,18 +320,18 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
             disabled={resetting || wiping || building}
             data-testid="memory-reset-tree"
             className="inline-flex items-center gap-2 rounded-lg
-                       border border-amber-300 bg-white px-4 py-2 text-sm font-semibold
-                       text-amber-800 shadow-sm transition-colors hover:bg-amber-50
+                       border border-amber-300 dark:border-amber-500/30 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-semibold
+                       text-amber-800 dark:text-amber-300 shadow-sm transition-colors hover:bg-amber-50 dark:hover:bg-amber-500/10
                        disabled:cursor-not-allowed disabled:opacity-50
                        focus:outline-none focus:ring-2 focus:ring-amber-200"
-            title="Wipe summaries + buffers and re-summarise existing chunks (no upstream re-fetch)">
+            title={t('workspace.resetTreeTitle')}>
             {resetting ? (
               <>
-                <Spinner /> Rebuilding…
+                <Spinner /> {t('workspace.rebuilding')}
               </>
             ) : (
               <>
-                <RefreshIcon /> Reset memory tree
+                <RefreshIcon /> {t('workspace.resetMemoryTree')}
               </>
             )}
           </button>
@@ -303,18 +347,18 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
                        focus:outline-none focus:ring-2 focus:ring-primary-200">
             {building ? (
               <>
-                <Spinner /> Building…
+                <Spinner /> {t('workspace.building')}
               </>
             ) : (
               <>
-                <BrainIcon /> Build summary trees
+                <BrainIcon /> {t('workspace.buildSummaryTrees')}
               </>
             )}
           </button>
           {graph && (
             <button
               type="button"
-              onClick={() => void openVaultInObsidian(graph.content_root_abs)}
+              onClick={() => void handleViewVault(graph.content_root_abs)}
               data-testid="memory-open-in-obsidian"
               className="inline-flex items-center gap-2 rounded-lg
                          bg-violet-500 px-4 py-2 text-sm font-semibold text-white
@@ -322,19 +366,19 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
                          focus:outline-none focus:ring-2 focus:ring-violet-300"
               title={`obsidian://open?path=${graph.content_root_abs}`}>
               <ExternalLinkIcon />
-              View vault in Obsidian
+              {t('workspace.viewVault')}
             </button>
           )}
         </div>
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-800">
-          Failed to load memory graph: {error}
+        <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-800">
+          {t('workspace.graphLoadFailed')}: {error}
         </div>
       ) : !graph ? (
-        <div className="flex h-[640px] items-center justify-center rounded-lg border border-stone-100 bg-stone-50/40 text-sm text-stone-500">
-          Loading graph…
+        <div className="flex h-[640px] items-center justify-center rounded-lg border border-stone-100 dark:border-neutral-800 bg-stone-50/40 text-sm text-stone-500 dark:text-neutral-400">
+          {t('workspace.loadingGraph')}
         </div>
       ) : (
         <MemoryGraph
@@ -354,15 +398,17 @@ interface ModeToggleProps {
 }
 
 function ModeToggle({ mode, onChange }: ModeToggleProps) {
+  const { t } = useT();
   const baseBtn =
     'px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200';
   const active = 'bg-primary-500 text-white shadow-sm';
-  const idle = 'bg-white text-stone-600 hover:bg-stone-50';
+  const idle =
+    'bg-white dark:bg-neutral-900 text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800/60';
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-1"
+      className="inline-flex items-center gap-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-1"
       role="tablist"
-      aria-label="Graph view mode"
+      aria-label={t('workspace.graphViewMode')}
       data-testid="memory-graph-mode-toggle">
       <button
         type="button"
@@ -371,7 +417,7 @@ function ModeToggle({ mode, onChange }: ModeToggleProps) {
         role="tab"
         aria-selected={mode === 'tree'}
         data-testid="memory-graph-mode-tree">
-        Trees
+        {t('workspace.trees')}
       </button>
       <button
         type="button"
@@ -380,7 +426,7 @@ function ModeToggle({ mode, onChange }: ModeToggleProps) {
         role="tab"
         aria-selected={mode === 'contacts'}
         data-testid="memory-graph-mode-contacts">
-        Contacts
+        {t('workspace.contacts')}
       </button>
     </div>
   );

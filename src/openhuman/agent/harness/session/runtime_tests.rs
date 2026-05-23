@@ -2,8 +2,8 @@ use super::*;
 use crate::core::event_bus::{global, init_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::XmlToolDispatcher;
 use crate::openhuman::agent::error::AgentError;
+use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, ChatResponse, UsageInfo};
 use crate::openhuman::memory::Memory;
-use crate::openhuman::providers::{ChatMessage, ChatRequest, ChatResponse, UsageInfo};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -121,7 +121,7 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
     assert_eq!(calls[0].tool_call_id.as_deref(), Some("parsed-3-1"));
     assert_eq!(calls[1].tool_call_id.as_deref(), Some("keep"));
 
-    let response = crate::openhuman::providers::ChatResponse {
+    let response = crate::openhuman::inference::provider::ChatResponse {
         text: Some(String::new()),
         tool_calls: vec![],
         usage: None,
@@ -141,6 +141,56 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
         },
     ];
     assert_eq!(Agent::count_iterations(&history), 3);
+}
+
+#[tokio::test]
+async fn run_single_preserves_typed_max_iterations_error_for_sentry_skip() {
+    // OPENHUMAN-TAURI-99 regression guard: when the agent hits its tool
+    // iteration cap, `run_single` MUST surface the typed
+    // `AgentError::MaxIterationsExceeded` variant so the call site can
+    // downcast and skip `report_error`. If the error reaches the funnel as
+    // a plain `anyhow::Error::msg(..)` (e.g. someone reverts to
+    // `anyhow::bail!`), the downcast fails and Sentry re-floods with the
+    // exact noise this fix removes.
+    let _ = init_global(64);
+
+    let err_provider: Arc<dyn Provider> = Arc::new(StaticProvider {
+        response: Mutex::new(Some(Err(anyhow!(AgentError::MaxIterationsExceeded {
+            max: 8
+        })))),
+    });
+    let mut agent = make_agent(err_provider);
+    let err = agent
+        .run_single("hello")
+        .await
+        .expect_err("run_single should surface max-iter cap");
+
+    // The user-visible chat string MUST stay byte-identical — the UI
+    // (and `runtime_tool_calls.rs` channel test) reads this verbatim.
+    assert!(
+        err.to_string()
+            .contains("Agent exceeded maximum tool iterations"),
+        "canonical phrase missing: {err}"
+    );
+
+    // The downcast is the load-bearing condition for the Sentry skip in
+    // `Agent::run_single` (matches!(err.downcast_ref::<AgentError>(),
+    // Some(AgentError::MaxIterationsExceeded { .. }))). If this assertion
+    // ever fails the suppression silently regresses to error-level
+    // emission.
+    let downcast = err.downcast_ref::<AgentError>();
+    assert!(
+        matches!(downcast, Some(AgentError::MaxIterationsExceeded { max: 8 })),
+        "expected MaxIterationsExceeded {{ max: 8 }}, got {downcast:?}"
+    );
+
+    // Sanitized event message round-trips to the stable kind tag so the
+    // structured `log::info!` we emit instead of `report_error` carries
+    // the right `error_kind` for log-side filtering.
+    assert_eq!(
+        Agent::sanitize_event_error_message(&err),
+        "max_iterations_exceeded"
+    );
 }
 
 #[tokio::test]
@@ -252,12 +302,12 @@ fn helper_paths_cover_no_overlap_native_calls_and_truncation() {
     assert_eq!(appended.len(), 1);
     assert!(matches!(&appended[0], ConversationMessage::Chat(msg) if msg.content == "b"));
 
-    let native_calls = vec![crate::openhuman::providers::ToolCall {
+    let native_calls = vec![crate::openhuman::inference::provider::ToolCall {
         id: "native-1".into(),
         name: "echo".into(),
         arguments: "{}".into(),
     }];
-    let response = crate::openhuman::providers::ChatResponse {
+    let response = crate::openhuman::inference::provider::ChatResponse {
         text: Some(String::new()),
         tool_calls: native_calls.clone(),
         usage: None,

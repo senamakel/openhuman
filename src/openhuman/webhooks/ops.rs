@@ -1,4 +1,4 @@
-use crate::api::config::effective_api_url;
+use crate::api::config::effective_backend_api_url;
 use crate::api::jwt::get_session_token;
 use crate::api::BackendOAuthClient;
 use crate::openhuman::config::Config;
@@ -32,7 +32,7 @@ async fn get_authed_value(
     body: Option<Value>,
 ) -> Result<Value, String> {
     let token = require_token(config)?;
-    let api_url = effective_api_url(&config.api_url);
+    let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     client
         .authed_json(&token, method, path, body)
@@ -136,7 +136,7 @@ pub async fn unregister_echo(
 /// Register an agent-backed webhook tunnel.
 ///
 /// Incoming requests on this tunnel will be routed to the triage
-/// pipeline instead of the (removed) skill runtime.
+/// pipeline instead of direct skill dispatch.
 pub async fn register_agent(
     tunnel_uuid: &str,
     agent_id: Option<String>,
@@ -179,7 +179,7 @@ pub async fn trigger_agent(
         }
     };
 
-    let run = tokio::time::timeout(
+    let outcome = tokio::time::timeout(
         std::time::Duration::from_secs(60),
         crate::openhuman::agent::triage::run_triage(&envelope),
     )
@@ -187,23 +187,40 @@ pub async fn trigger_agent(
     .map_err(|_| "triage timed out after 60s".to_string())?
     .map_err(|e| format!("triage failed: {e}"))?;
 
-    tokio::time::timeout(
-        std::time::Duration::from_secs(60),
-        crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
-    )
-    .await
-    .map_err(|_| "apply_decision timed out after 60s".to_string())?
-    .map_err(|e| format!("apply_decision failed: {e}"))?;
+    match outcome {
+        crate::openhuman::agent::triage::TriageOutcome::Decision(run) => {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(60),
+                crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
+            )
+            .await
+            .map_err(|_| "apply_decision timed out after 60s".to_string())?
+            .map_err(|e| format!("apply_decision failed: {e}"))?;
 
-    Ok(RpcOutcome::single_log(
-        serde_json::json!({
-            "decision": run.decision.action.as_str(),
-            "target_agent": run.decision.target_agent,
-            "prompt": run.decision.prompt,
-            "reason": run.decision.reason,
-        }),
-        format!("webhooks.trigger_agent completed for {source}/{caller_id}"),
-    ))
+            Ok(RpcOutcome::single_log(
+                serde_json::json!({
+                    "decision": run.decision.action.as_str(),
+                    "target_agent": run.decision.target_agent,
+                    "prompt": run.decision.prompt,
+                    "reason": run.decision.reason,
+                    "resolution_path": run.resolution_path.as_str(),
+                }),
+                format!("webhooks.trigger_agent completed for {source}/{caller_id}"),
+            ))
+        }
+        crate::openhuman::agent::triage::TriageOutcome::Deferred {
+            defer_until_ms,
+            reason,
+        } => Ok(RpcOutcome::single_log(
+            serde_json::json!({
+                "decision": "deferred",
+                "resolution_path": "deferred",
+                "defer_until_ms": defer_until_ms,
+                "reason": reason,
+            }),
+            format!("webhooks.trigger_agent deferred for {source}/{caller_id}"),
+        )),
+    }
 }
 
 pub fn build_echo_response(request: &WebhookRequest) -> WebhookResponseData {

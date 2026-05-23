@@ -170,6 +170,41 @@ impl SystemPromptBuilder {
         self
     }
 
+    /// Append a [`ToolMemoryRulesSection`] carrying a pre-fetched
+    /// snapshot of Critical / High priority tool-scoped rules (#1400).
+    ///
+    /// Snapshot semantics — the rules are baked into the section at
+    /// construction so the rendered system prompt stays byte-identical
+    /// for the lifetime of the session. The session builder is
+    /// responsible for pre-fetching via
+    /// [`crate::openhuman::memory::ToolMemoryStore::rules_for_prompt`]
+    /// (or the `memory_tool_rules_for_prompt` RPC) before invoking
+    /// this method.
+    ///
+    /// No-op when `rules` is empty.
+    pub fn with_tool_memory_rules(
+        mut self,
+        rules: Vec<crate::openhuman::memory::ToolMemoryRule>,
+    ) -> Self {
+        if rules.is_empty() {
+            return self;
+        }
+        // Insert before the tool-catalogue section so these rules appear
+        // adjacent to the tool listings and survive tail-biased trimming.
+        // Falls back to push when no tools section is present.
+        let section: Box<dyn PromptSection> =
+            Box::new(crate::openhuman::memory::ToolMemoryRulesSection::new(rules));
+        let tools_idx = self
+            .sections
+            .iter()
+            .position(|s| s.name() == "tools" || s.name() == "tool_catalogue");
+        match tools_idx {
+            Some(idx) => self.sections.insert(idx, section),
+            None => self.sections.push(section),
+        }
+        self
+    }
+
     /// Append a "Memory context" section carrying the resolved chunks the
     /// subconscious LLM cited when it produced the reflection that
     /// spawned this thread (#623).
@@ -481,6 +516,18 @@ impl PromptSection for ToolsSection {
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        // Native function-calling: the provider already sends full JSON
+        // schemas in the API request — no need to repeat the tool catalogue
+        // in the system prompt (pure token bloat). However, any non-empty
+        // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
+        // from NativeToolDispatcher) must still be included so the model
+        // receives its behavioural guidance.
+        if ctx.tool_call_format == ToolCallFormat::Native {
+            if ctx.dispatcher_instructions.trim().is_empty() {
+                return Ok(String::new());
+            }
+            return Ok(ctx.dispatcher_instructions.to_string());
+        }
         let mut out = String::from("## Tools\n\n");
         let has_filter = !ctx.visible_tool_names.is_empty();
         for tool in ctx.tools {

@@ -8,12 +8,12 @@ use log::{debug, warn};
 use std::time::Instant;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::local_ai;
-use crate::openhuman::local_ai::model_ids;
-use crate::openhuman::local_ai::paths::{
+use crate::openhuman::inference::local as local_ai;
+use crate::openhuman::inference::local::model_ids;
+use crate::openhuman::inference::local::paths::{
     resolve_piper_binary, resolve_stt_model_path, resolve_tts_voice_path, resolve_whisper_binary,
 };
-use crate::openhuman::local_ai::whisper_engine;
+use crate::openhuman::inference::local::whisper_engine;
 use crate::rpc::RpcOutcome;
 
 use super::hallucination::{is_hallucinated_output, HallucinationMode};
@@ -54,6 +54,17 @@ pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, St
         safe_basename_str(&tts_voice),
     );
 
+    let stt_provider = if config.local_ai.stt_provider.trim().is_empty() {
+        "cloud".to_string()
+    } else {
+        config.local_ai.stt_provider.clone()
+    };
+    let tts_provider = if config.local_ai.tts_provider.trim().is_empty() {
+        "cloud".to_string()
+    } else {
+        config.local_ai.tts_provider.clone()
+    };
+
     let status = VoiceStatus {
         stt_available,
         tts_available,
@@ -65,6 +76,8 @@ pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, St
         tts_voice_path: tts_voice,
         whisper_in_process,
         llm_cleanup_enabled: config.local_ai.voice_llm_cleanup_enabled,
+        stt_provider,
+        tts_provider,
     };
 
     Ok(RpcOutcome::single_log(status, "voice status checked"))

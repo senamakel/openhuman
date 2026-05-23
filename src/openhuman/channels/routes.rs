@@ -5,7 +5,7 @@ use super::context::{
 };
 use super::traits;
 use super::{Channel, SendMessage};
-use crate::openhuman::providers::{self, Provider};
+use crate::openhuman::inference::provider::{self, Provider};
 use serde::Deserialize;
 use std::fmt::Write;
 use std::path::Path;
@@ -20,6 +20,7 @@ enum ChannelRuntimeCommand {
     SetProvider(String),
     ShowModel,
     SetModel(String),
+    TelegramRemote(super::providers::telegram::TelegramRemoteCommand),
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -37,13 +38,25 @@ fn supports_runtime_model_switch(channel_name: &str) -> bool {
     matches!(channel_name, "telegram" | "discord")
 }
 
+fn supports_telegram_remote_control(channel_name: &str) -> bool {
+    channel_name == "telegram"
+}
+
 fn parse_runtime_command(channel_name: &str, content: &str) -> Option<ChannelRuntimeCommand> {
-    if !supports_runtime_model_switch(channel_name) {
+    let trimmed = content.trim();
+    if !trimmed.starts_with('/') {
         return None;
     }
 
-    let trimmed = content.trim();
-    if !trimmed.starts_with('/') {
+    if supports_telegram_remote_control(channel_name) {
+        if let Some(remote) =
+            super::providers::telegram::remote_control::parse_telegram_remote_command(content)
+        {
+            return Some(ChannelRuntimeCommand::TelegramRemote(remote));
+        }
+    }
+
+    if !supports_runtime_model_switch(channel_name) {
         return None;
     }
 
@@ -83,7 +96,7 @@ fn resolve_provider_alias(name: &str) -> Option<String> {
         return None;
     }
 
-    let providers_list = providers::list_providers();
+    let providers_list = provider::list_providers();
     for provider in providers_list {
         if provider.name.eq_ignore_ascii_case(candidate)
             || provider
@@ -171,14 +184,15 @@ pub(crate) async fn get_or_create_provider(
         return Ok(existing);
     }
 
-    let api_url = if provider_name == ctx.default_provider.as_str() {
-        ctx.api_url.as_deref()
+    let (inference_url, backend_url) = if provider_name == ctx.default_provider.as_str() {
+        (ctx.inference_url.as_deref(), ctx.api_url.as_deref())
     } else {
-        None
+        (None, None)
     };
 
-    let provider = providers::create_resilient_provider_with_options(
-        api_url,
+    let provider = provider::create_resilient_provider_with_options(
+        inference_url,
+        backend_url,
         None,
         &ctx.reliability,
         &ctx.provider_runtime_options,
@@ -236,7 +250,7 @@ fn build_providers_help_response(current: &ChannelRouteSelection) -> String {
     response.push_str("\nSwitch provider with `/models <provider>`.\n");
     response.push_str("Switch model with `/model <model-id>`.\n\n");
     response.push_str("Available providers:\n");
-    for provider in providers::list_providers() {
+    for provider in provider::list_providers() {
         if provider.aliases.is_empty() {
             let _ = writeln!(response, "- {}", provider.name);
         } else {
@@ -268,6 +282,12 @@ pub(crate) async fn handle_runtime_command_if_needed(
     let mut current = get_route_selection(ctx, &sender_key);
 
     let response = match command {
+        ChannelRuntimeCommand::TelegramRemote(remote) => {
+            super::providers::telegram::remote_control::build_remote_command_response(
+                ctx, msg, remote,
+            )
+            .await
+        }
         ChannelRuntimeCommand::ShowProviders => build_providers_help_response(&current),
         ChannelRuntimeCommand::SetProvider(raw_provider) => {
             match resolve_provider_alias(&raw_provider) {
@@ -285,7 +305,7 @@ pub(crate) async fn handle_runtime_command_if_needed(
                         )
                     }
                     Err(err) => {
-                        let safe_err = providers::sanitize_api_error(&err.to_string());
+                        let safe_err = provider::sanitize_api_error(&err.to_string());
                         format!(
                             "Failed to initialize provider `{provider_name}`. Route unchanged.\nDetails: {safe_err}"
                         )

@@ -74,11 +74,14 @@ pub fn all_providers() -> Vec<ProviderArc> {
 }
 
 /// Register the built-in providers shipped with the core. Called once
-/// from `start_channels` / `bootstrap_skill_runtime` startup paths.
+/// from `start_channels` / `bootstrap_core_runtime` startup paths.
 ///
 /// Idempotent: re-running just re-registers (no-op in practice).
 pub fn init_default_providers() {
+    register_provider(Arc::new(super::clickup::ClickUpProvider::new()));
+    register_provider(Arc::new(super::github::GitHubProvider::new()));
     register_provider(Arc::new(super::gmail::GmailProvider::new()));
+    register_provider(Arc::new(super::linear::LinearProvider::new()));
     register_provider(Arc::new(super::notion::NotionProvider::new()));
     register_provider(Arc::new(super::slack::SlackProvider::new()));
     tracing::info!(

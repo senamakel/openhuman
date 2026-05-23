@@ -1,13 +1,17 @@
+import createDebug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
 
 import PillTabBar from '../components/PillTabBar';
 import RewardsCommunityTab from '../components/rewards/RewardsCommunityTab';
 import RewardsRedeemTab from '../components/rewards/RewardsRedeemTab';
 import RewardsReferralsTab from '../components/rewards/RewardsReferralsTab';
+import { useT } from '../lib/i18n/I18nContext';
 import { rewardsApi } from '../services/api/rewardsApi';
 import type { RewardsSnapshot } from '../types/rewards';
 
 type RewardsTab = 'referrals' | 'redeem' | 'rewards';
+
+const log = createDebug('rewards');
 
 function errorMessage(err: unknown): string {
   if (err && typeof err === 'object' && 'error' in err && typeof err.error === 'string') {
@@ -16,30 +20,32 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error) {
     return err.message;
   }
-  return 'Unable to load rewards';
+  return 'Unable to load rewards'; // fallback — translated at call site
 }
 
 const Rewards = () => {
+  const { t } = useT();
   const [selectedTab, setSelectedTab] = useState<RewardsTab>('rewards');
   const [snapshot, setSnapshot] = useState<RewardsSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadRewards = useCallback(async (signal?: { cancelled: boolean }) => {
-    console.debug('[rewards] fetching snapshot');
+    log('fetching snapshot');
     setIsLoading(true);
     setError(null);
     try {
       const result = await rewardsApi.getMyRewards();
       if (signal?.cancelled) return;
       setSnapshot(result);
-      console.debug('[rewards] snapshot applied', {
-        unlockedCount: result.summary.unlockedCount,
-        totalCount: result.summary.totalCount,
-      });
+      log(
+        'snapshot applied unlockedCount=%d totalCount=%d',
+        result.summary.unlockedCount,
+        result.summary.totalCount
+      );
     } catch (err) {
       const message = errorMessage(err);
-      console.debug('[rewards] snapshot load failed', message);
+      log('snapshot load failed error=%s', message);
       if (signal?.cancelled) return;
       setSnapshot(null);
       setError(message);
@@ -59,12 +65,12 @@ const Rewards = () => {
   }, [loadRewards]);
 
   const handleTabChange = useCallback((next: RewardsTab) => {
-    console.debug('[rewards] tab changed', { next });
+    log('tab changed next=%s', next);
     setSelectedTab(next);
   }, []);
 
   const handleRetry = useCallback(() => {
-    console.debug('[rewards] retry requested');
+    log('retry requested');
     void loadRewards();
   }, [loadRewards]);
 
@@ -73,9 +79,9 @@ const Rewards = () => {
       <div className="mx-auto max-w-2xl space-y-4">
         <PillTabBar
           items={[
-            { label: 'Referrals', value: 'referrals' },
-            { label: 'Rewards', value: 'rewards' },
-            { label: 'Redeem', value: 'redeem' },
+            { label: t('rewards.referrals'), value: 'referrals' },
+            { label: t('rewards.title'), value: 'rewards' },
+            { label: t('rewards.coupons'), value: 'redeem' },
           ]}
           selected={selectedTab}
           onChange={handleTabChange}

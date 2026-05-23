@@ -60,7 +60,10 @@ const TARGET_DISCOVERY_INTERVAL: Duration = Duration::from_millis(500);
 /// connection + session id so the caller (the speak pump) can keep
 /// using it for `Runtime.evaluate` calls — opening one CDP session
 /// per call rather than per pump tick saves ~5 ms per push.
-pub async fn install_audio_bridge(meet_url: &str) -> Result<(CdpConn, String), String> {
+pub async fn install_audio_bridge(
+    meet_url: &str,
+    frame_bus_port: u16,
+) -> Result<(CdpConn, String), String> {
     let (mut cdp, session) = wait_for_meet_target(meet_url).await?;
     log::info!(
         "[meet-audio] inject attached session={} meet_url_chars={}",
@@ -115,8 +118,13 @@ pub async fn install_audio_bridge(meet_url: &str) -> Result<(CdpConn, String), S
     // rationale. Meet's first getUserMedia call only fires after the
     // user clicks "Ask to join" (multiple seconds), so a post-reload
     // Runtime.evaluate lands well before it's needed.
-    if let Err(err) =
-        crate::meet_video::inject::install_camera_bridge_post_reload(&mut cdp, &session).await
+    crate::meet_video::inject::spawn_diagnostics_poller(meet_url.to_string());
+    if let Err(err) = crate::meet_video::inject::install_camera_bridge_post_reload(
+        &mut cdp,
+        &session,
+        frame_bus_port,
+    )
+    .await
     {
         log::warn!("[meet-audio] camera bridge install failed: {err} (falling back to static Y4M)");
     } else {

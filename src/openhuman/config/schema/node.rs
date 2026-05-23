@@ -7,6 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct NodeConfig {
     /// Master switch. When `false`, the Node runtime is not resolved and
     /// `node_exec` / `npm_exec` tools are not registered.
@@ -17,7 +18,7 @@ pub struct NodeConfig {
     #[serde(default = "default_version")]
     pub version: String,
     /// Absolute path to a directory where managed Node distributions are
-    /// extracted. Empty string means "use the default workspace cache dir"
+    /// extracted. Empty string means "use the default OpenHuman cache dir"
     /// (resolved by the runtime bootstrap).
     #[serde(default)]
     pub cache_dir: String,

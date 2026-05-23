@@ -19,6 +19,18 @@
 //! bail without crashing the window — the user can finish joining
 //! manually. Future work: emit lifecycle events back to the frontend so
 //! the UI can show "asking host…" / "joined" status.
+//!
+//! ## Cancellation
+//!
+//! [`spawn`] returns a [`tokio::task::AbortHandle`] that the caller must
+//! store and abort when the associated Meet window is closing. Without
+//! cancellation the scanner's CDP polling loops (NAME_INPUT_BUDGET +
+//! JOIN_BUTTON_BUDGET, up to 60 s total) keep WebSocket connections open
+//! to the CEF debugging endpoint. CEF waits for all active CDP sessions
+//! to detach before completing renderer shutdown, so an un-cancelled
+//! scanner delays the [`tauri::WindowEvent::Destroyed`] event — and
+//! therefore the `meet-call:closed` frontend event — by up to 60 s.
+//! See [`crate::meet_call::meet_call_close_window`] for the abort site.
 
 use std::time::Duration;
 
@@ -46,8 +58,13 @@ const NAME_INPUT_BUDGET: Duration = Duration::from_secs(30);
 const JOIN_BUTTON_BUDGET: Duration = Duration::from_secs(30);
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
 
-/// Spawn the CDP-driven join automation. Fire-and-forget — the caller
-/// (the Tauri command that just opened the window) doesn't wait for it.
+/// Spawn the CDP-driven join automation and return an abort handle.
+///
+/// The caller **must** call [`tokio::task::AbortHandle::abort`] on the
+/// returned handle when the Meet window is being torn down. Without
+/// cancellation the scanner's polling loops hold CDP connections open and
+/// delay CEF renderer shutdown by up to `NAME_INPUT_BUDGET +
+/// JOIN_BUTTON_BUDGET` (60 s). See the module-level doc for details.
 ///
 /// `meet_url` is the exact normalised URL the window was navigated to;
 /// the scanner uses it as a target-URL prefix so two concurrent calls
@@ -57,8 +74,10 @@ pub fn spawn<R: Runtime>(
     request_id: String,
     meet_url: String,
     display_name: String,
-) {
-    tauri::async_runtime::spawn(async move {
+) -> tokio::task::AbortHandle {
+    // Use tokio::spawn (not tauri::async_runtime::spawn) so we get a
+    // JoinHandle whose abort_handle() we can return to the caller.
+    let handle = tokio::spawn(async move {
         match run(&request_id, &meet_url, &display_name).await {
             Ok(()) => log::info!("[meet-scanner] join sequence completed request_id={request_id}"),
             Err(err) => {
@@ -66,6 +85,7 @@ pub fn spawn<R: Runtime>(
             }
         }
     });
+    handle.abort_handle()
 }
 
 async fn run(request_id: &str, meet_url: &str, display_name: &str) -> Result<(), String> {
@@ -261,4 +281,55 @@ async fn type_into_named_input(
         tokio::time::sleep(POLL_INTERVAL).await;
     }
     Err(format!("timeout waiting for input matching hint={hint}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn budget_constants_are_sane() {
+        // The total scanner budget (discovery + phases) should stay well
+        // under 120 s so it never outlasts a full meet session or a build
+        // timeout. This assertion catches accidental inflation.
+        let total =
+            TARGET_DISCOVERY_BUDGET + DEVICE_CHECK_BUDGET + NAME_INPUT_BUDGET + JOIN_BUTTON_BUDGET;
+        assert!(
+            total <= Duration::from_secs(120),
+            "total scanner budget {total:?} exceeds 120 s — check if constants were accidentally inflated"
+        );
+    }
+
+    #[tokio::test]
+    async fn abort_handle_cancels_spawned_task() {
+        // spawn a long-running task, abort it immediately, and assert it
+        // was cancelled before completing normally.
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+
+        let completed = Arc::new(AtomicBool::new(false));
+        let completed_clone = completed.clone();
+
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            completed_clone.store(true, Ordering::SeqCst);
+        });
+        let abort = handle.abort_handle();
+
+        abort.abort();
+
+        // Give the runtime a tick to process the abort.
+        tokio::task::yield_now().await;
+
+        assert!(
+            !completed.load(Ordering::SeqCst),
+            "task must not have completed after abort"
+        );
+        assert!(
+            handle.await.unwrap_err().is_cancelled(),
+            "awaited task must report cancellation"
+        );
+    }
 }

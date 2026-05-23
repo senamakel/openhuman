@@ -179,13 +179,17 @@ mod tests {
                 toolkit: "gmail".into(),
                 description: "Email access.".into(),
                 tools: Vec::new(),
+                gated_tools: Vec::new(),
                 connected: true,
+                non_active_status: None,
             },
             ConnectedIntegration {
                 toolkit: "notion".into(),
                 description: "Pitch during onboarding.".into(),
                 tools: Vec::new(),
+                gated_tools: Vec::new(),
                 connected: false,
+                non_active_status: None,
             },
         ];
         let body = build(&ctx_with(&integrations)).unwrap();

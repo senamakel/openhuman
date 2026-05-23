@@ -3,6 +3,50 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Optional model pin for the front-line orchestrator.
+///
+/// This is intentionally a small exact-model override: provider routing
+/// still comes from the normal reasoning workload, and this field only
+/// replaces the final model id when present.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct OrchestratorModelConfig {
+    pub model: Option<String>,
+}
+
+/// Optional per-team model pins used by delegation.
+///
+/// `lead_model` applies to agents that themselves expose sub-agents;
+/// `agent_model` applies to leaf workers. Callers fall back across the
+/// pair so configs can specify only one tier without breaking routing.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct TeamModelConfig {
+    pub lead_model: Option<String>,
+    pub agent_model: Option<String>,
+}
+
+impl TeamModelConfig {
+    pub fn model_for_role(&self, is_team_lead: bool) -> Option<&str> {
+        let lead_model = self
+            .lead_model
+            .as_deref()
+            .map(str::trim)
+            .filter(|model| !model.is_empty());
+        let agent_model = self
+            .agent_model
+            .as_deref()
+            .map(str::trim)
+            .filter(|model| !model.is_empty());
+
+        if is_team_lead {
+            lead_model.or(agent_model)
+        } else {
+            agent_model.or(lead_model)
+        }
+    }
+}
+
 /// User-facing memory-context window preset.
 ///
 /// Each preset maps deterministically (via [`MemoryContextWindow::limits`])
@@ -13,7 +57,7 @@ use serde::{Deserialize, Serialize};
 /// bounded (`Maximum` ≈ 8 000 chars of recall + ≈ 128 000 chars of root
 /// summary, ≈ 32k tokens) so users cannot accidentally blow up prompts.
 ///
-/// See `docs/MEMORY_CONTEXT_WINDOW.md` for the user-facing tradeoff
+/// See `gitbooks/developing/memory-context-window.md` for the user-facing tradeoff
 /// guidance and the per-preset numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "lowercase")]
@@ -116,6 +160,7 @@ fn default_max_depth() -> u32 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct AgentConfig {
     /// When true: bootstrap_max_chars=6000, rag_chunk_limit=2. Use for 13B or smaller models.
     #[serde(default)]
@@ -152,8 +197,11 @@ pub struct AgentConfig {
     pub memory_window: Option<MemoryContextWindow>,
     /// Per-channel maximum permission level for tool execution.
     /// Keys are channel names (e.g., "telegram", "discord", "web", "cli").
-    /// Values are permission levels: "none", "readonly", "write", "execute", "dangerous".
-    /// Channels not listed default to "readonly".
+    /// Values are permission levels: "none", "readonly" (or "read_only"),
+    /// "write", "execute", "dangerous".
+    /// When this map is empty, the agent preserves the legacy unrestricted
+    /// channel surface. Once configured, channels not listed here default to
+    /// "readonly".
     #[serde(default)]
     pub channel_permissions: std::collections::HashMap<String, String>,
 

@@ -16,7 +16,6 @@ export interface CoreOnboardingTasks {
 
 export interface CoreLocalState {
   encryptionKey: string | null;
-  primaryWalletAddress: string | null;
   onboardingTasks: CoreOnboardingTasks | null;
 }
 
@@ -77,7 +76,7 @@ const emptySnapshot: CoreAppSnapshot = {
   chatOnboardingCompleted: false,
   analyticsEnabled: false,
   meetAutoOrchestratorHandoff: false,
-  localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
+  localState: { encryptionKey: null, onboardingTasks: null },
   runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
 };
 
@@ -96,6 +95,14 @@ export function getCoreStateSnapshot(): CoreState {
 
 export function setCoreStateSnapshot(next: CoreState): void {
   currentState = next;
+}
+
+// Expose the snapshot getter on `window` so WDIO E2E specs can read the
+// authenticated user id (held in core state, not redux) to scope socket
+// readiness, account-switch races, and other backing-state assertions.
+if (typeof window !== 'undefined') {
+  (window as unknown as { __OPENHUMAN_CORE_STATE__?: () => CoreState }).__OPENHUMAN_CORE_STATE__ =
+    getCoreStateSnapshot;
 }
 
 /**

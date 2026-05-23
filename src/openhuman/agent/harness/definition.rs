@@ -127,6 +127,14 @@ pub struct AgentDefinition {
     #[serde(default = "defaults::max_iterations")]
     pub max_iterations: usize,
 
+    /// Maximum character length for this sub-agent's output before the
+    /// harness truncates it before feeding it back as a tool result to the
+    /// parent. `None` means no cap (the default for most agents). Set to
+    /// a value for research/planner/code agents to prevent context flooding
+    /// from large outputs.
+    #[serde(default)]
+    pub max_result_chars: Option<usize>,
+
     /// Wall-clock timeout for the sub-agent's execution (seconds).
     #[serde(default)]
     pub timeout_secs: Option<u64>,
@@ -149,10 +157,11 @@ pub struct AgentDefinition {
     ///   agent's `delegate_name` override) and whose description is the
     ///   target agent's [`AgentDefinition::when_to_use`].
     ///
-    /// * [`SubagentEntry::Skills`] — one [`SkillDelegationTool`] per
-    ///   connected Composio toolkit, each named `delegate_{toolkit}`,
-    ///   all routing to the generic `integrations_agent` with an appropriate
-    ///   `skill_filter` pre-populated.
+    /// * [`SubagentEntry::Skills`] — a single collapsed
+    ///   [`SkillDelegationTool`] named `delegate_to_integrations_agent`
+    ///   that takes the toolkit slug as an argument and routes to the
+    ///   generic `integrations_agent` with the corresponding
+    ///   `skill_filter` pre-populated (#1335).
     ///
     /// `subagents` is intentionally separate from [`AgentDefinition::tools`]
     /// so that reading a TOML makes the distinction obvious: `tools` is
@@ -171,10 +180,88 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub delegate_name: Option<String>,
 
+    // ── spawn hierarchy ────────────────────────────────────────────────
+    /// Tier this archetype occupies in the spawn hierarchy
+    /// (`chat` → `reasoning` → `worker`). Drives loader-time validation
+    /// of [`AgentDefinition::subagents`] and runtime depth gating in the
+    /// sub-agent runner. Defaults to [`AgentTier::Worker`] so existing
+    /// specialists fit the "leaf" role without per-file edits.
+    ///
+    /// **Hierarchy contract** (enforced by
+    /// [`super::super::agents::loader`] at registry build time):
+    ///
+    /// * `Chat` MUST NOT list another `Chat` agent in `subagents`. The
+    ///   user-facing fast tier is a leaf in its own dimension — it
+    ///   hands off to `Reasoning` or `Worker`, never to itself.
+    /// * `Reasoning` MUST NOT list another `Reasoning` agent in
+    ///   `subagents`. Reasoning composes downward into `Worker`s.
+    /// * `Worker` MUST NOT list any subagents. Workers execute; they
+    ///   do not orchestrate.
+    /// * `{ skills = "*" }` entries expand to the generic
+    ///   `integrations_agent` (a `Worker`) so they are always allowed.
+    ///
+    /// Combined with the harness's `MAX_SPAWN_DEPTH = 3` task-local
+    /// gate, this means any execution chain bottoms out within three
+    /// hops: `chat → reasoning → worker` (or `chat → worker` for the
+    /// fast path).
+    #[serde(default)]
+    pub agent_tier: AgentTier,
+
     // ── source bookkeeping ──────────────────────────────────────────────
     /// Tracks where the definition was loaded from (Builtin vs. File).
     #[serde(skip)]
     pub source: DefinitionSource,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent tier (spawn hierarchy)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Role an agent plays in the spawn hierarchy.
+///
+/// See [`AgentDefinition::agent_tier`] for the full contract. In short:
+///
+/// ```text
+/// Chat (fast, UX-focused)
+///   └─► Reasoning (slow, deep-thinking)
+///         └─► Worker (leaf executors)
+///   └─► Worker (direct fast-path delegation)
+/// ```
+///
+/// `Chat` and `Reasoning` are forbidden from spawning their own tier;
+/// `Worker` is forbidden from spawning anything. Total depth is capped
+/// at three hops by the harness regardless of tier (defence in depth
+/// against custom TOMLs that drop the tier annotation).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentTier {
+    /// User-facing fast-tier agent (e.g. the Orchestrator on the
+    /// `chat` model hint). Optimised for TTFT, not for long-horizon
+    /// reasoning. May delegate to `Reasoning` or `Worker`; must NOT
+    /// delegate to another `Chat` agent.
+    Chat,
+    /// Deep-thinking agent on a `reasoning-v1`-style model (e.g. the
+    /// Planner). Decomposes long-running tasks and delegates execution
+    /// to one or more `Worker`s. Must NOT delegate to another
+    /// `Reasoning` agent.
+    Reasoning,
+    /// Leaf executor — researchers, code executors, critics, archivists,
+    /// integration specialists, etc. Workers do the actual work and must
+    /// NOT spawn further subagents (a `Worker` with a non-empty
+    /// `subagents` list is rejected by the loader).
+    #[default]
+    Worker,
+}
+
+impl AgentTier {
+    /// Human-readable tier name used in error messages.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Chat => "chat",
+            Self::Reasoning => "reasoning",
+            Self::Worker => "worker",
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,9 +286,11 @@ pub struct AgentDefinition {
 pub enum SubagentEntry {
     /// Delegate to a specific built-in or custom agent by id.
     AgentId(String),
-    /// Expand at build time to one `delegate_{toolkit}` tool per
-    /// connected Composio toolkit, each routing to the generic
-    /// `integrations_agent` with `skill_filter` pre-set.
+    /// Expand at build time to a single collapsed
+    /// `delegate_to_integrations_agent` tool whose `toolkit` argument
+    /// selects which connected Composio toolkit to route to, with
+    /// `skill_filter` pre-set on the underlying `integrations_agent`
+    /// dispatch (#1335).
     Skills(SkillsWildcard),
 }
 
@@ -478,6 +567,21 @@ impl AgentDefinitionRegistry {
             );
             reg.insert(def);
         }
+
+        // Re-validate the tier hierarchy after custom overrides are
+        // merged in — a workspace TOML can legally replace a built-in
+        // (same id) and is held to the same spawn-hierarchy contract
+        // as the bundled set. See
+        // [`super::super::agents::loader::validate_tier_hierarchy`].
+        let snapshot: Vec<AgentDefinition> = reg.list().into_iter().cloned().collect();
+        super::super::agents::validate_tier_hierarchy(&snapshot).map_err(|e| {
+            anyhow::anyhow!(
+                "agent registry rejected after merging workspace overrides from {}: {}",
+                workspace.display(),
+                e
+            )
+        })?;
+
         Ok(reg)
     }
 

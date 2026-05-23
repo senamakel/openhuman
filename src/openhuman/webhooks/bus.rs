@@ -190,9 +190,9 @@ impl EventHandler for WebhookRequestSubscriber {
                 }
             }
             Some(ref reg) => {
-                // skill target kind or any other unrecognised kind — skill runtime not available
+                // skill target kind or any other unrecognised kind — direct skill dispatch is not available
                 tracing::debug!(
-                    "[webhook] skill tunnel {} (kind={}) — skill runtime not available",
+                    "[webhook] skill tunnel {} (kind={}) — direct skill dispatch not available",
                     tunnel_uuid,
                     reg.target_kind,
                 );
@@ -200,12 +200,12 @@ impl EventHandler for WebhookRequestSubscriber {
                     correlation_id: correlation_id.clone(),
                     status_code: 501,
                     headers: HashMap::new(),
-                    body: error_body("Skill runtime not available for direct dispatch"),
+                    body: error_body("Direct skill dispatch is not available"),
                 };
                 (
                     resp,
                     Some(reg.skill_id.clone()),
-                    Some("skill runtime not available".to_string()),
+                    Some("direct skill dispatch not available".to_string()),
                 )
             }
             None => {
@@ -302,19 +302,27 @@ fn decode_webhook_body(base64_body: &str) -> Result<serde_json::Value, String> {
 async fn run_agent_trigger(
     envelope: &crate::openhuman::agent::triage::TriggerEnvelope,
 ) -> Result<String, String> {
-    let run = crate::openhuman::agent::triage::run_triage(envelope)
+    let outcome = crate::openhuman::agent::triage::run_triage(envelope)
         .await
         .map_err(|e| format!("triage evaluation failed: {e}"))?;
 
-    crate::openhuman::agent::triage::apply_decision(run.clone(), envelope)
-        .await
-        .map_err(|e| format!("apply_decision failed: {e}"))?;
+    match outcome {
+        crate::openhuman::agent::triage::TriageOutcome::Decision(run) => {
+            crate::openhuman::agent::triage::apply_decision(run.clone(), envelope)
+                .await
+                .map_err(|e| format!("apply_decision failed: {e}"))?;
 
-    Ok(format!(
-        "Triage decision: {} (agent: {:?})",
-        run.decision.action.as_str(),
-        run.decision.target_agent
-    ))
+            Ok(format!(
+                "Triage decision: {} (agent: {:?})",
+                run.decision.action.as_str(),
+                run.decision.target_agent
+            ))
+        }
+        crate::openhuman::agent::triage::TriageOutcome::Deferred {
+            defer_until_ms,
+            reason,
+        } => Ok(format!("Triage deferred until {defer_until_ms}: {reason}")),
+    }
 }
 
 /// Build a base64-encoded JSON response body for an agent trigger result.

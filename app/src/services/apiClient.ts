@@ -1,5 +1,7 @@
 import type { ApiError } from '../types/api';
+import { IS_DEV } from '../utils/config';
 import { getBackendUrl } from './backendUrl';
+import { getClientVersionHeaders } from './clientVersionHeaders';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -36,10 +38,12 @@ class ApiClient {
   /**
    * Build headers for the request
    */
-  private buildHeaders(options: RequestOptions): HeadersInit {
+  private async buildHeaders(options: RequestOptions): Promise<Record<string, string>> {
+    const versionHeaders = await getClientVersionHeaders();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...options.headers,
+      ...versionHeaders,
     };
 
     // Add authorization header if auth is required
@@ -53,6 +57,13 @@ class ApiClient {
     return headers;
   }
 
+  private sanitizeRequestLogHeaders(headers: HeadersInit): Record<string, string> {
+    const safeHeaders = { ...(headers as Record<string, string>) };
+    delete safeHeaders.Authorization;
+    delete safeHeaders.authorization;
+    return safeHeaders;
+  }
+
   /**
    * Make an API request
    */
@@ -61,9 +72,11 @@ class ApiClient {
 
     const baseUrl = await getBackendUrl();
     const url = `${baseUrl}${endpoint}`;
-    const headers = this.buildHeaders({ ...options, requireAuth });
+    const headers = await this.buildHeaders({ ...options, requireAuth });
 
-    console.log('request', { url, headers, body, method });
+    if (IS_DEV) {
+      console.log('request', { url, headers: this.sanitizeRequestLogHeaders(headers), method });
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);

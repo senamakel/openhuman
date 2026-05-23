@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import reducer, { resetCoreMode, setCoreMode } from './coreModeSlice';
 
@@ -21,6 +21,18 @@ describe('coreModeSlice', () => {
     expect(state.mode).toEqual({ kind: 'cloud', url: 'https://core.example.com/rpc' });
   });
 
+  it('sets cloud mode with url + token', () => {
+    const state = reducer(
+      undefined,
+      setCoreMode({ kind: 'cloud', url: 'https://core.example.com/rpc', token: 'tok-1234' })
+    );
+    expect(state.mode).toEqual({
+      kind: 'cloud',
+      url: 'https://core.example.com/rpc',
+      token: 'tok-1234',
+    });
+  });
+
   it('resets to unset', () => {
     const withLocal = reducer(undefined, setCoreMode({ kind: 'local' }));
     const reset = reducer(withLocal, resetCoreMode());
@@ -40,5 +52,85 @@ describe('coreModeSlice', () => {
     // Structural assertion: the key used by redux-persist must match the
     // persist config key declared in store/index.ts.
     expect(setCoreMode.type).toMatch(/^coreMode\//);
+  });
+});
+
+describe('coreModeSlice — sync-localStorage-derived initial state', () => {
+  // The slice's initialState comes from `deriveInitialMode()` which reads
+  // `localStorage` at module load. We re-import per test to exercise each
+  // branch of that derivation.
+  async function freshImport() {
+    vi.resetModules();
+    return import('./coreModeSlice');
+  }
+
+  it('uses local mode when the E2E default core mode config is local', async () => {
+    localStorage.clear();
+    vi.resetModules();
+    vi.doMock('../utils/config', () => ({
+      CORE_RPC_URL: 'http://127.0.0.1:7788/rpc',
+      E2E_DEFAULT_CORE_MODE: 'local',
+    }));
+    try {
+      const mod = await import('./coreModeSlice');
+      const state = mod.default(undefined, { type: '@@INIT' });
+      expect(state.mode).toEqual({ kind: 'local' });
+    } finally {
+      vi.doUnmock('../utils/config');
+      vi.resetModules();
+    }
+  });
+
+  it('hydrates to local when openhuman_core_mode=local', async () => {
+    localStorage.clear();
+    localStorage.setItem('openhuman_core_mode', 'local');
+    const mod = await freshImport();
+    const state = mod.default(undefined, { type: '@@INIT' });
+    expect(state.mode).toEqual({ kind: 'local' });
+  });
+
+  it('hydrates to cloud with url + token when all three keys are present', async () => {
+    localStorage.clear();
+    localStorage.setItem('openhuman_core_mode', 'cloud');
+    localStorage.setItem('openhuman_core_rpc_url', 'https://core.example.com/rpc');
+    localStorage.setItem('openhuman_core_rpc_token', 'tok-abc');
+    const mod = await freshImport();
+    const state = mod.default(undefined, { type: '@@INIT' });
+    expect(state.mode).toEqual({
+      kind: 'cloud',
+      url: 'https://core.example.com/rpc',
+      token: 'tok-abc',
+    });
+  });
+
+  it('normalizes restored cloud base URLs to the /rpc endpoint', async () => {
+    localStorage.clear();
+    localStorage.setItem('openhuman_core_mode', 'cloud');
+    localStorage.setItem('openhuman_core_rpc_url', 'https://example.trycloudflare.com/');
+    localStorage.setItem('openhuman_core_rpc_token', 'tok-abc');
+    const mod = await freshImport();
+    const state = mod.default(undefined, { type: '@@INIT' });
+    expect(state.mode).toEqual({
+      kind: 'cloud',
+      url: 'https://example.trycloudflare.com/rpc',
+      token: 'tok-abc',
+    });
+  });
+
+  it('falls back to unset when cloud marker exists but URL or token is missing', async () => {
+    localStorage.clear();
+    localStorage.setItem('openhuman_core_mode', 'cloud');
+    localStorage.setItem('openhuman_core_rpc_url', 'https://core.example.com/rpc');
+    // Token deliberately missing.
+    const mod = await freshImport();
+    const state = mod.default(undefined, { type: '@@INIT' });
+    expect(state.mode).toEqual({ kind: 'unset' });
+  });
+
+  it('returns unset when no marker is stored', async () => {
+    localStorage.clear();
+    const mod = await freshImport();
+    const state = mod.default(undefined, { type: '@@INIT' });
+    expect(state.mode).toEqual({ kind: 'unset' });
   });
 });

@@ -7,10 +7,12 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Mutex;
 
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 
+use crate::openhuman::whatsapp_data::sqlite_retry::{retry_on_sqlite_busy, BUSY_TIMEOUT};
 use crate::openhuman::whatsapp_data::types::{
     ChatMeta, IngestMessage, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
     WhatsAppChat, WhatsAppMessage,
@@ -19,6 +21,9 @@ use crate::openhuman::whatsapp_data::types::{
 /// SQLite-backed store for WhatsApp chats and messages.
 pub struct WhatsAppDataStore {
     db_path: std::path::PathBuf,
+    /// Serializes write paths (upsert + prune) so concurrent ingest RPCs do not
+    /// open competing writers on the same `whatsapp_data.db` file.
+    write_lock: Mutex<()>,
 }
 
 impl WhatsAppDataStore {
@@ -31,7 +36,10 @@ impl WhatsAppDataStore {
                 .with_context(|| format!("create whatsapp_data dir: {}", parent.display()))?;
         }
         log::debug!("[whatsapp_data] opening store at {}", db_path.display());
-        let store = Self { db_path };
+        let store = Self {
+            db_path,
+            write_lock: Mutex::new(()),
+        };
         store.init_schema()?;
         Ok(store)
     }
@@ -77,8 +85,27 @@ impl WhatsAppDataStore {
     }
 
     fn open_conn(&self) -> Result<Connection> {
-        Connection::open(&self.db_path)
-            .with_context(|| format!("open whatsapp_data db: {}", self.db_path.display()))
+        let conn = Connection::open(&self.db_path)
+            .with_context(|| format!("open whatsapp_data db: {}", self.db_path.display()))?;
+        Self::configure_connection(&conn)?;
+        Ok(conn)
+    }
+
+    /// Per-connection pragmas: busy handler + WAL (idempotent on existing DBs).
+    fn configure_connection(conn: &Connection) -> Result<()> {
+        conn.busy_timeout(BUSY_TIMEOUT)
+            .context("configure whatsapp_data busy_timeout")?;
+        if let Err(wal_err) = conn.execute_batch("PRAGMA journal_mode=WAL;") {
+            log::warn!(
+                "[whatsapp_data] failed to enable WAL (filesystem may not support it): {wal_err}"
+            );
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open_conn_for_test(&self) -> Result<Connection> {
+        self.open_conn()
     }
 
     fn now_secs() -> i64 {
@@ -97,6 +124,20 @@ impl WhatsAppDataStore {
         if chats.is_empty() {
             return Ok(0);
         }
+        let _write_guard = self
+            .write_lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("whatsapp_data write lock poisoned: {e}"))?;
+        retry_on_sqlite_busy("upsert_chats", || {
+            self.upsert_chats_inner(account_id, chats)
+        })
+    }
+
+    fn upsert_chats_inner(
+        &self,
+        account_id: &str,
+        chats: &HashMap<String, ChatMeta>,
+    ) -> Result<usize> {
         let conn = self.open_conn()?;
         let now = Self::now_secs();
         let mut count = 0usize;
@@ -127,6 +168,16 @@ impl WhatsAppDataStore {
         if msgs.is_empty() {
             return Ok(0);
         }
+        let _write_guard = self
+            .write_lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("whatsapp_data write lock poisoned: {e}"))?;
+        retry_on_sqlite_busy("upsert_messages", || {
+            self.upsert_messages_inner(account_id, msgs)
+        })
+    }
+
+    fn upsert_messages_inner(&self, account_id: &str, msgs: &[IngestMessage]) -> Result<usize> {
         let conn = self.open_conn()?;
         let now = Self::now_secs();
         let mut count = 0usize;
@@ -210,6 +261,16 @@ impl WhatsAppDataStore {
     /// `last_message_ts` for every chat that lost rows, so `list_chats`
     /// returns accurate counts and ordering immediately.
     pub fn prune_old_messages(&self, cutoff_ts: i64) -> Result<u64> {
+        let _write_guard = self
+            .write_lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("whatsapp_data write lock poisoned: {e}"))?;
+        retry_on_sqlite_busy("prune_old_messages", || {
+            self.prune_old_messages_inner(cutoff_ts)
+        })
+    }
+
+    fn prune_old_messages_inner(&self, cutoff_ts: i64) -> Result<u64> {
         let conn = self.open_conn()?;
         let now = Self::now_secs();
 
@@ -361,9 +422,11 @@ impl WhatsAppDataStore {
         let limit = req.limit.unwrap_or(20) as i64;
         let pattern = format!("%{}%", req.query.replace('%', "\\%").replace('_', "\\_"));
 
-        // Build the query dynamically depending on optional filters.
-        // Each branch binds to a local `rows` variable so `stmt` is dropped
-        // before the result is returned (fixes E0597 borrow lifetimes).
+        // Match against both `body` and `sender` so person-name queries like
+        // "what did Alice say" surface Alice's messages even when "Alice"
+        // does not appear in any message body. Branches are kept explicit so
+        // the bind indices stay readable; each `pattern` bind is duplicated
+        // because rusqlite does not resolve same-named placeholders for us.
         let msgs: Vec<WhatsAppMessage> = match (&req.account_id, &req.chat_id) {
             (Some(acct), Some(chat_id)) => {
                 let mut stmt = conn.prepare(
@@ -372,7 +435,7 @@ impl WhatsAppDataStore {
                      FROM wa_messages
                      WHERE account_id = ?1
                        AND chat_id    = ?2
-                       AND body LIKE ?3 ESCAPE '\\'
+                       AND (body LIKE ?3 ESCAPE '\\' OR sender LIKE ?3 ESCAPE '\\')
                      ORDER BY timestamp DESC
                      LIMIT ?4",
                 )?;
@@ -388,7 +451,7 @@ impl WhatsAppDataStore {
                             body, timestamp, message_type, source
                      FROM wa_messages
                      WHERE account_id = ?1
-                       AND body LIKE ?2 ESCAPE '\\'
+                       AND (body LIKE ?2 ESCAPE '\\' OR sender LIKE ?2 ESCAPE '\\')
                      ORDER BY timestamp DESC
                      LIMIT ?3",
                 )?;
@@ -404,7 +467,7 @@ impl WhatsAppDataStore {
                             body, timestamp, message_type, source
                      FROM wa_messages
                      WHERE chat_id = ?1
-                       AND body LIKE ?2 ESCAPE '\\'
+                       AND (body LIKE ?2 ESCAPE '\\' OR sender LIKE ?2 ESCAPE '\\')
                      ORDER BY timestamp DESC
                      LIMIT ?3",
                 )?;
@@ -419,7 +482,7 @@ impl WhatsAppDataStore {
                     "SELECT account_id, chat_id, message_id, sender, sender_jid, from_me,
                             body, timestamp, message_type, source
                      FROM wa_messages
-                     WHERE body LIKE ?1 ESCAPE '\\'
+                     WHERE body LIKE ?1 ESCAPE '\\' OR sender LIKE ?1 ESCAPE '\\'
                      ORDER BY timestamp DESC
                      LIMIT ?2",
                 )?;
@@ -464,6 +527,10 @@ fn map_message_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WhatsAppMessage>
         source: row.get(9)?,
     })
 }
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod store_tests;
 
 #[cfg(test)]
 mod tests {
@@ -609,6 +676,59 @@ mod tests {
         let results = store.search_messages(&req).unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].body.contains("umbrella"));
+    }
+
+    #[test]
+    fn search_messages_matches_sender_name() {
+        // Person-name queries ("what did Alice say") only return rows when
+        // search also looks at the `sender` column, because the sender's own
+        // name almost never appears in the message body.
+        let (store, _tmp) = make_store();
+        let mut chats = HashMap::new();
+        chats.insert(
+            "chat-alice@c.us".to_string(),
+            ChatMeta {
+                name: Some("Alice Q".to_string()),
+            },
+        );
+        store.upsert_chats("acct1", &chats).unwrap();
+
+        let msgs = vec![
+            IngestMessage {
+                message_id: "alice-1".to_string(),
+                chat_id: "chat-alice@c.us".to_string(),
+                sender: Some("Alice".to_string()),
+                sender_jid: Some("alice@c.us".to_string()),
+                from_me: Some(false),
+                // Body has no "Alice" — match must come from the sender column.
+                body: Some("running 5 minutes late".to_string()),
+                timestamp: Some(1_700_001_000),
+                message_type: None,
+                source: Some("cdp-dom".to_string()),
+            },
+            IngestMessage {
+                message_id: "me-1".to_string(),
+                chat_id: "chat-alice@c.us".to_string(),
+                sender: Some("me".to_string()),
+                sender_jid: None,
+                from_me: Some(true),
+                body: Some("no problem".to_string()),
+                timestamp: Some(1_700_001_100),
+                message_type: None,
+                source: Some("cdp-dom".to_string()),
+            },
+        ];
+        store.upsert_messages("acct1", &msgs).unwrap();
+
+        let req = SearchMessagesRequest {
+            query: "Alice".to_string(),
+            chat_id: None,
+            account_id: None,
+            limit: None,
+        };
+        let results = store.search_messages(&req).unwrap();
+        assert_eq!(results.len(), 1, "expected sender-name match: {results:?}");
+        assert_eq!(results[0].sender, "Alice");
     }
 
     #[test]

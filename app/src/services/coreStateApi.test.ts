@@ -15,7 +15,7 @@ function makeSnapshotResult(overrides: Record<string, unknown> = {}) {
     currentUser: null,
     onboardingCompleted: false,
     analyticsEnabled: true,
-    localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
+    localState: { encryptionKey: null, onboardingTasks: null },
     runtime: { screenIntelligence: {}, localAi: {}, autocomplete: {}, service: {} },
     ...overrides,
   };
@@ -67,13 +67,21 @@ describe('coreStateApi.fetchCoreAppSnapshot', () => {
     mockCallCoreRpc.mockReset();
   });
 
-  it('calls the correct RPC method', async () => {
+  it('calls the correct RPC method with the slow-snapshot timeout override (#2156)', async () => {
     mockCallCoreRpc.mockResolvedValueOnce({ result: makeSnapshotResult() });
 
-    const { fetchCoreAppSnapshot } = await import('./coreStateApi');
+    const { fetchCoreAppSnapshot, SNAPSHOT_TIMEOUT_MS } = await import('./coreStateApi');
     await fetchCoreAppSnapshot();
 
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.app_state_snapshot' });
+    // The first-launch snapshot legitimately runs past the global 30s default
+    // on slow M-series machines; verify the longer-but-still-bounded budget
+    // is threaded through to callCoreRpc instead of relying on the default.
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.app_state_snapshot',
+      timeoutMs: SNAPSHOT_TIMEOUT_MS,
+    });
+    expect(SNAPSHOT_TIMEOUT_MS).toBeGreaterThan(30_000);
+    expect(SNAPSHOT_TIMEOUT_MS).toBeLessThanOrEqual(10 * 60 * 1_000);
   });
 
   it('returns the inner result from the RPC envelope', async () => {
@@ -105,7 +113,7 @@ describe('coreStateApi.updateCoreLocalState', () => {
     mockCallCoreRpc.mockResolvedValueOnce({});
 
     const { updateCoreLocalState } = await import('./coreStateApi');
-    const params = { encryptionKey: 'key-123', primaryWalletAddress: '0xABCD' };
+    const params = { encryptionKey: 'key-123' };
     await updateCoreLocalState(params);
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
@@ -126,18 +134,10 @@ describe('coreStateApi.updateCoreLocalState', () => {
     mockCallCoreRpc.mockResolvedValueOnce({});
 
     const { updateCoreLocalState } = await import('./coreStateApi');
-    await updateCoreLocalState({
-      encryptionKey: null,
-      primaryWalletAddress: null,
-      onboardingTasks: null,
-    });
+    await updateCoreLocalState({ encryptionKey: null, onboardingTasks: null });
 
     const call = mockCallCoreRpc.mock.calls[0][0] as { params: unknown };
-    expect(call.params).toEqual({
-      encryptionKey: null,
-      primaryWalletAddress: null,
-      onboardingTasks: null,
-    });
+    expect(call.params).toEqual({ encryptionKey: null, onboardingTasks: null });
   });
 
   it('propagates rejection from callCoreRpc', async () => {

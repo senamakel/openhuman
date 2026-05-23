@@ -35,9 +35,10 @@
 //! collision.
 
 use crate::openhuman::agent::harness::definition::{
-    AgentDefinition, DefinitionSource, PromptBuilder, PromptSource,
+    AgentDefinition, AgentTier, DefinitionSource, PromptBuilder, PromptSource, SubagentEntry,
 };
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 
 /// A single built-in agent: its id plus the metadata TOML and a
 /// function-driven prompt builder.
@@ -78,6 +79,16 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::integrations_agent::prompt::build,
     },
     BuiltinAgent {
+        id: "crypto_agent",
+        toml: include_str!("crypto_agent/agent.toml"),
+        prompt_fn: super::crypto_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "markets_agent",
+        toml: include_str!("markets_agent/agent.toml"),
+        prompt_fn: super::markets_agent::prompt::build,
+    },
+    BuiltinAgent {
         id: "tools_agent",
         toml: include_str!("tools_agent/agent.toml"),
         prompt_fn: super::tools_agent::prompt::build,
@@ -86,6 +97,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "tool_maker",
         toml: include_str!("tool_maker/agent.toml"),
         prompt_fn: super::tool_maker::prompt::build,
+    },
+    BuiltinAgent {
+        id: "skill_creator",
+        toml: include_str!("skill_creator/agent.toml"),
+        prompt_fn: super::skill_creator::prompt::build,
     },
     BuiltinAgent {
         id: "researcher",
@@ -140,7 +156,92 @@ pub const BUILTINS: &[BuiltinAgent] = &[
 /// baked into the binary and therefore must always be valid. Unit tests
 /// below keep that invariant honest.
 pub fn load_builtins() -> Result<Vec<AgentDefinition>> {
-    BUILTINS.iter().map(parse_builtin).collect()
+    let defs: Vec<AgentDefinition> = BUILTINS.iter().map(parse_builtin).collect::<Result<_>>()?;
+    validate_tier_hierarchy(&defs)
+        .context("built-in agents violate the spawn-hierarchy contract")?;
+    Ok(defs)
+}
+
+/// Validate the cross-agent spawn-hierarchy contract documented on
+/// [`AgentTier`].
+///
+/// Rules enforced here:
+///
+/// * `Chat` agents MUST NOT list another `Chat` agent in `subagents`.
+/// * `Reasoning` agents MUST NOT list another `Reasoning` agent in
+///   `subagents`.
+/// * `Worker` agents MUST NOT list any [`SubagentEntry::AgentId`]
+///   entries. (Skill wildcards are allowed: they expand to the generic
+///   `integrations_agent`, which is itself a `Worker`, and the call
+///   happens via a single delegation tool rather than recursive spawn.)
+///
+/// Skill-wildcard entries (`{ skills = "*" }`) are intentionally
+/// untouched: they collapse to one `delegate_to_integrations_agent`
+/// tool whose target is a `Worker` and whose use sites are well
+/// understood. Mis-tiering of the `integrations_agent` itself is still
+/// caught because it appears as a normal entry elsewhere.
+///
+/// Called from [`load_builtins`] for the bundled archetype set and from
+/// [`crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::load`]
+/// after workspace-local TOML overrides are merged, so custom user
+/// agents that violate the contract fail the boot rather than crashing
+/// at spawn time.
+pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
+    let tier_by_id: HashMap<&str, AgentTier> =
+        defs.iter().map(|d| (d.id.as_str(), d.agent_tier)).collect();
+
+    for def in defs {
+        for entry in &def.subagents {
+            let child_id = match entry {
+                SubagentEntry::AgentId(id) => id.as_str(),
+                // Skill wildcards always route to `integrations_agent`
+                // (a Worker) via a single collapsed delegation tool —
+                // not subject to the tier-mismatch rule.
+                SubagentEntry::Skills(_) => continue,
+            };
+
+            // Worker leaves: no spawn surface at all.
+            if def.agent_tier == AgentTier::Worker {
+                anyhow::bail!(
+                    "agent `{parent}` is a `worker` tier and must not list `{child}` (or any \
+                     agent) in its subagents — workers are leaf executors. Either remove the \
+                     entry or re-tier `{parent}` as `chat` / `reasoning`.",
+                    parent = def.id,
+                    child = child_id,
+                );
+            }
+
+            let Some(child_tier) = tier_by_id.get(child_id).copied() else {
+                // Unknown id — that's a separate `subagents` integrity
+                // concern (covered by existing tests / runtime spawn
+                // resolution); don't mask it as a tier error.
+                continue;
+            };
+
+            // Same-tier delegation is forbidden for chat and reasoning.
+            // (Chat→Chat would defeat the whole point of the fast tier;
+            // Reasoning→Reasoning produces a depth-blowing recursion of
+            // slow models.)
+            match (def.agent_tier, child_tier) {
+                (AgentTier::Chat, AgentTier::Chat) => anyhow::bail!(
+                    "agent `{parent}` (chat) lists `{child}` (chat) in subagents — the chat tier \
+                     is a leaf in its own dimension. Hand off to a `reasoning` or `worker` agent \
+                     instead.",
+                    parent = def.id,
+                    child = child_id,
+                ),
+                (AgentTier::Reasoning, AgentTier::Reasoning) => anyhow::bail!(
+                    "agent `{parent}` (reasoning) lists `{child}` (reasoning) in subagents — \
+                     reasoning agents compose downward into workers, not into each other.",
+                    parent = def.id,
+                    child = child_id,
+                ),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Parse a single [`BuiltinAgent`] triple into a finished [`AgentDefinition`].
@@ -177,7 +278,7 @@ mod tests {
     fn all_builtins_parse() {
         let defs = load_builtins().expect("built-in TOML must parse");
         assert_eq!(defs.len(), BUILTINS.len());
-        assert_eq!(defs.len(), 15, "expected 15 built-in agents");
+        assert_eq!(defs.len(), 18, "expected 18 built-in agents");
     }
 
     #[test]
@@ -296,12 +397,25 @@ mod tests {
     }
 
     #[test]
-    fn orchestrator_has_reasoning_hint_and_named_tools() {
+    fn orchestrator_has_chat_hint_and_named_tools() {
         let def = find("orchestrator");
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "reasoning"));
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "chat"));
         match def.tools {
             ToolScope::Named(tools) => {
-                assert!(tools.iter().any(|t| t == "spawn_subagent"));
+                // spawn_subagent was removed in #1141; spawn_worker_thread is the replacement
+                assert!(
+                    tools.iter().any(|t| t == "spawn_worker_thread"),
+                    "orchestrator must have spawn_worker_thread"
+                );
+                assert!(
+                    !tools.iter().any(|t| t == "spawn_subagent"),
+                    "spawn_subagent must not appear — removed in #1141"
+                );
+                // consolidated memory_tree* → single memory_tree with mode dispatch
+                assert!(
+                    tools.iter().any(|t| t == "memory_tree"),
+                    "orchestrator must have memory_tree"
+                );
                 assert!(!tools.iter().any(|t| t == "shell"));
                 assert!(!tools.iter().any(|t| t == "file_write"));
             }
@@ -324,6 +438,25 @@ mod tests {
         assert_eq!(def.sandbox_mode, SandboxMode::Sandboxed);
         assert_eq!(def.max_iterations, 2);
         assert!(!def.omit_safety_preamble);
+    }
+
+    #[test]
+    fn skill_creator_is_sandboxed_and_has_node_tools() {
+        let def = find("skill_creator");
+        assert_eq!(def.sandbox_mode, SandboxMode::Sandboxed);
+        assert_eq!(def.max_iterations, 10);
+        assert!(!def.omit_safety_preamble);
+        match &def.tools {
+            ToolScope::Named(names) => {
+                for required in ["node_exec", "npm_exec", "apply_patch", "update_memory_md"] {
+                    assert!(
+                        names.iter().any(|name| name == required),
+                        "skill_creator tool list missing `{required}`"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("skill_creator must have named tool allowlist"),
+        }
     }
 
     #[test]
@@ -484,6 +617,277 @@ mod tests {
         }
     }
 
+    /// Crypto Agent (#1397) is the dedicated specialist for wallet
+    /// actions and market operations. It must have a *narrow* tool
+    /// allowlist (no shell, no file_write, no broad HTTP), MUST keep
+    /// the safety preamble on (financial-risk gate), and MUST require
+    /// quote/confirm-before-execute via `ask_user_clarification`.
+    #[test]
+    fn crypto_agent_has_narrow_wallet_market_tools_and_safety_on() {
+        let def = find("crypto_agent");
+        // Hint must be agentic — the agent reasons about quotes vs.
+        // executes across multiple tool calls per turn.
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        assert_eq!(def.sandbox_mode, SandboxMode::None);
+        // Financial-risk agent — global safety preamble stays ON.
+        assert!(
+            !def.omit_safety_preamble,
+            "crypto_agent must keep the global safety preamble — financial-risk gate"
+        );
+        match &def.tools {
+            ToolScope::Named(tools) => {
+                // Wallet read surface.
+                for required in [
+                    "wallet_status",
+                    "wallet_balances",
+                    "wallet_network_defaults",
+                    "wallet_supported_assets",
+                    "wallet_chain_status",
+                    "wallet_encode_erc20_transfer",
+                ] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "crypto_agent needs read tool `{required}`"
+                    );
+                }
+                // Quote / prepare surface.
+                for required in [
+                    "wallet_prepare_transfer",
+                    "wallet_prepare_swap",
+                    "wallet_prepare_contract_call",
+                ] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "crypto_agent needs prepare tool `{required}`"
+                    );
+                }
+                // Execute surface — gated by the prepared blob from a
+                // matching prepare_* call in the same turn.
+                assert!(
+                    tools.iter().any(|t| t == "wallet_execute_prepared"),
+                    "crypto_agent needs wallet_execute_prepared"
+                );
+                // Confirmation gate — MUST be present so the prompt's
+                // "confirm before execute" rule is mechanically enforceable.
+                assert!(
+                    tools.iter().any(|t| t == "ask_user_clarification"),
+                    "crypto_agent needs ask_user_clarification to gate write ops"
+                );
+                // Market grounding + context helpers. Pin the full set so a
+                // TOML edit that silently drops `stock_quote`,
+                // `stock_exchange_rate`, `memory_recall`, or `current_time`
+                // gets caught here — the agent's quote-before-execute
+                // discipline and "ground in user preferences before re-asking"
+                // behaviour both depend on these being present.
+                for required in [
+                    "stock_quote",
+                    "stock_exchange_rate",
+                    "stock_crypto_series",
+                    "memory_recall",
+                    "current_time",
+                ] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "crypto_agent needs supporting tool `{required}`"
+                    );
+                }
+                // Hard exclusions — no broad-surface or write-anywhere tools.
+                // Includes the orchestrator-level delegate_* tools so a future
+                // TOML edit can't accidentally hand crypto writes to the
+                // generic integrations or code-execution paths.
+                for forbidden in [
+                    "shell",
+                    "file_write",
+                    "curl",
+                    "http_request",
+                    "composio_execute",
+                    "composio_list_tools",
+                    "spawn_subagent",
+                    "spawn_worker_thread",
+                    "delegate_to_integrations_agent",
+                    "delegate_run_code",
+                    "delegate_research",
+                    "delegate_plan",
+                ] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "crypto_agent must NOT have `{forbidden}` — keeps blast radius bounded"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("crypto_agent must have a Named tool scope"),
+        }
+        // Keep iteration cap tight — quote → confirm → execute is a
+        // 3-step loop, not a research crawl.
+        assert!(
+            def.max_iterations <= 10,
+            "crypto_agent max_iterations must stay tight (got {})",
+            def.max_iterations
+        );
+        assert!(def.omit_identity);
+        assert!(def.omit_memory_context);
+        assert!(def.omit_skills_catalog);
+    }
+
+    /// Routing: the orchestrator must list `crypto_agent` in its
+    /// `subagents` so a `delegate_do_crypto` tool is synthesised at
+    /// agent-build time. Without this entry the orchestrator can't
+    /// route crypto-shaped requests to the specialist.
+    #[test]
+    fn orchestrator_subagents_include_crypto_agent() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+        let def = find("orchestrator");
+        let listed = def.subagents.iter().any(|e| match e {
+            SubagentEntry::AgentId(id) => id == "crypto_agent",
+            _ => false,
+        });
+        assert!(
+            listed,
+            "orchestrator.subagents must list `crypto_agent` so the \
+             routing layer can synthesise `delegate_do_crypto`"
+        );
+    }
+
+    #[test]
+    fn markets_agent_has_narrow_prediction_market_tools_and_safety_on() {
+        let def = find("markets_agent");
+        // Hint must be agentic — the agent reasons about market shape vs.
+        // executes across multiple tool calls per turn.
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        assert_eq!(def.sandbox_mode, SandboxMode::None);
+        // Financial-side-effect agent — global safety preamble stays ON.
+        assert!(
+            !def.omit_safety_preamble,
+            "markets_agent must keep the global safety preamble — financial-risk gate"
+        );
+        match &def.tools {
+            ToolScope::Named(tools) => {
+                // Prediction-market venues.
+                for required in ["polymarket", "kalshi"] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "markets_agent needs venue tool `{required}`"
+                    );
+                }
+                // Confirmation gate — MUST be present so the prompt's
+                // "confirm before execute" rule is mechanically enforceable.
+                assert!(
+                    tools.iter().any(|t| t == "ask_user_clarification"),
+                    "markets_agent needs ask_user_clarification to gate write ops"
+                );
+                // Context helpers. Pin the full set so a TOML edit that
+                // silently drops `memory_recall` or `current_time` gets
+                // caught here — the agent's "ground in user preferences"
+                // and "as of <when>" framing depend on these.
+                for required in ["memory_recall", "current_time"] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "markets_agent needs supporting tool `{required}`"
+                    );
+                }
+                // Hard exclusions — no broad-surface tools, no wallet
+                // primitives (those belong to crypto_agent), no
+                // delegation tools (markets_agent is a worker leaf).
+                for forbidden in [
+                    "shell",
+                    "file_write",
+                    "curl",
+                    "http_request",
+                    "composio_execute",
+                    "composio_list_tools",
+                    "spawn_subagent",
+                    "spawn_worker_thread",
+                    "delegate_to_integrations_agent",
+                    "delegate_run_code",
+                    "delegate_research",
+                    "delegate_plan",
+                    "wallet_execute_prepared",
+                    "wallet_prepare_transfer",
+                    "wallet_prepare_swap",
+                ] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "markets_agent must NOT have `{forbidden}` — keeps blast radius bounded"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("markets_agent must have a Named tool scope"),
+        }
+        // Keep iteration cap tight — browse → propose → confirm → execute
+        // is a short loop, not a research crawl.
+        assert!(
+            def.max_iterations <= 10,
+            "markets_agent max_iterations must stay tight (got {})",
+            def.max_iterations
+        );
+        assert!(def.omit_identity);
+        assert!(def.omit_memory_context);
+        assert!(def.omit_skills_catalog);
+        // Delegate name must be the stable, chat-friendly slug — the
+        // orchestrator surfaces it as `delegate_do_prediction_markets`.
+        assert_eq!(
+            def.delegate_name.as_deref(),
+            Some("do_prediction_markets"),
+            "markets_agent must keep its `do_prediction_markets` delegate name stable"
+        );
+    }
+
+    /// Routing: the orchestrator must list `markets_agent` in its
+    /// `subagents` so a `delegate_do_prediction_markets` tool is
+    /// synthesised at agent-build time. Without this entry the
+    /// orchestrator can't route Polymarket / Kalshi requests to the
+    /// specialist and they fall back into the generalist tools_agent
+    /// wildcard.
+    #[test]
+    fn orchestrator_subagents_include_markets_agent() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+        let def = find("orchestrator");
+        let listed = def.subagents.iter().any(|e| match e {
+            SubagentEntry::AgentId(id) => id == "markets_agent",
+            _ => false,
+        });
+        assert!(
+            listed,
+            "orchestrator.subagents must list `markets_agent` so the \
+             routing layer can synthesise `delegate_do_prediction_markets`"
+        );
+    }
+
+    /// `tools_agent` must explicitly disallow `polymarket` and `kalshi`
+    /// so the prediction-market venues route ONLY through
+    /// `markets_agent` (`delegate_do_prediction_markets`). Without this
+    /// the wildcard inventory would also surface them as raw tools to
+    /// the generalist, bypassing the venue-aware approval-gate prompt.
+    #[test]
+    fn tools_agent_disallows_prediction_market_tools() {
+        let def = find("tools_agent");
+        assert!(
+            def.disallowed_tools.iter().any(|t| t == "polymarket"),
+            "tools_agent.disallowed_tools must contain `polymarket` so the \
+             venue routes through markets_agent exclusively"
+        );
+        assert!(
+            def.disallowed_tools.iter().any(|t| t == "kalshi"),
+            "tools_agent.disallowed_tools must contain `kalshi` so the \
+             venue routes through markets_agent exclusively"
+        );
+    }
+
+    #[test]
+    fn orchestrator_subagents_include_skill_creator() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+        let def = find("orchestrator");
+        let listed = def.subagents.iter().any(|e| match e {
+            SubagentEntry::AgentId(id) => id == "skill_creator",
+            _ => false,
+        });
+        assert!(
+            listed,
+            "orchestrator.subagents must list `skill_creator` so the \
+             routing layer can synthesise `create_skill`"
+        );
+    }
+
     #[test]
     fn welcome_has_onboarding_and_memory_tools() {
         let def = find("welcome");
@@ -524,5 +928,107 @@ mod tests {
         assert!(!def.omit_memory_context);
         assert!(def.omit_identity);
         assert_eq!(def.max_iterations, 12);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Spawn-hierarchy contract
+    // ─────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn orchestrator_is_chat_tier() {
+        assert_eq!(find("orchestrator").agent_tier, AgentTier::Chat);
+    }
+
+    #[test]
+    fn planner_is_reasoning_tier() {
+        assert_eq!(find("planner").agent_tier, AgentTier::Reasoning);
+    }
+
+    #[test]
+    fn other_builtins_default_to_worker_tier() {
+        for def in load_builtins().unwrap() {
+            if def.id == "orchestrator" || def.id == "planner" {
+                continue;
+            }
+            assert_eq!(
+                def.agent_tier,
+                AgentTier::Worker,
+                "{} should default to worker tier (only orchestrator/planner are non-worker today)",
+                def.id
+            );
+        }
+    }
+
+    #[test]
+    fn builtins_pass_tier_validation() {
+        // load_builtins() already calls validate_tier_hierarchy; this
+        // just makes the contract a named invariant in the test suite.
+        let defs = load_builtins().expect("built-ins must pass tier validation");
+        validate_tier_hierarchy(&defs).expect("explicit re-check must pass");
+    }
+
+    #[test]
+    fn rejects_chat_to_chat_delegation() {
+        let mut defs = load_builtins().unwrap();
+        // Add a synthetic second chat agent and have the orchestrator
+        // try to delegate to it.
+        let mut bad_chat = find("orchestrator");
+        bad_chat.id = "second_orchestrator".to_string();
+        defs.push(bad_chat);
+        let orch = defs.iter_mut().find(|d| d.id == "orchestrator").unwrap();
+        orch.subagents
+            .push(SubagentEntry::AgentId("second_orchestrator".into()));
+
+        let err = validate_tier_hierarchy(&defs).expect_err("chat→chat must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("chat") && msg.contains("leaf"),
+            "error should call out chat-tier leaf rule, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn rejects_reasoning_to_reasoning_delegation() {
+        let mut defs = load_builtins().unwrap();
+        let mut bad_reasoning = find("planner");
+        bad_reasoning.id = "second_planner".to_string();
+        defs.push(bad_reasoning);
+        let planner = defs.iter_mut().find(|d| d.id == "planner").unwrap();
+        planner
+            .subagents
+            .push(SubagentEntry::AgentId("second_planner".into()));
+
+        let err = validate_tier_hierarchy(&defs).expect_err("reasoning→reasoning must be rejected");
+        assert!(err.to_string().contains("reasoning"));
+    }
+
+    #[test]
+    fn rejects_worker_with_subagents() {
+        let mut defs = load_builtins().unwrap();
+        let researcher = defs.iter_mut().find(|d| d.id == "researcher").unwrap();
+        researcher
+            .subagents
+            .push(SubagentEntry::AgentId("critic".into()));
+
+        let err = validate_tier_hierarchy(&defs)
+            .expect_err("worker with declared subagents must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("worker") && msg.contains("leaf"),
+            "error should call out worker leaf rule, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn allows_skill_wildcards_on_any_non_worker_tier() {
+        // Skills wildcards collapse to delegate_to_integrations_agent
+        // and must not be policed by the tier check (it'd be a false
+        // positive — they fan out to a worker anyway).
+        let mut defs = load_builtins().unwrap();
+        let planner = defs.iter_mut().find(|d| d.id == "planner").unwrap();
+        planner.subagents.push(SubagentEntry::Skills(
+            crate::openhuman::agent::harness::definition::SkillsWildcard { skills: "*".into() },
+        ));
+        validate_tier_hierarchy(&defs).expect("skill wildcards on reasoning tier must validate");
     }
 }

@@ -15,15 +15,65 @@ use crate::openhuman::agent::harness::definition::{
 };
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::agent::memory_loader::{DefaultMemoryLoader, MemoryLoader};
+use crate::openhuman::agent_tool_policy::{ToolPolicyEngine, ToolPolicySession};
 use crate::openhuman::config::{Config, ContextConfig};
 use crate::openhuman::context::prompt::SystemPromptBuilder;
-use crate::openhuman::context::{ContextManager, ProviderSummarizer};
+use crate::openhuman::context::{ContextManager, ProviderSummarizer, SegmentRecapSummarizer};
+use crate::openhuman::inference::provider::{self, Provider};
 use crate::openhuman::memory::{self, Memory};
-use crate::openhuman::providers::{self, Provider};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool, ToolSpec};
 use anyhow::Result;
 use std::sync::Arc;
+
+/// Drop entries with duplicate `name` fields, first occurrence wins.
+///
+/// Anthropic (and other strict providers) rejects a chat/completions
+/// request that lists two tools with the same name — OpenHuman's own
+/// backend and OpenAI silently accept duplicates, which hid the
+/// underlying collision (researcher sub-agent's `delegate_name =
+/// "research"` shadowing a same-named skill tool) until #1710's
+/// per-role routing started sending the same tool list to Anthropic.
+///
+/// Called from every place that materialises the visible tool spec
+/// list — initial build, post-composio refresh, scope-filter change —
+/// so the request the provider sees is always name-unique regardless
+/// of which path produced it.
+pub(crate) fn dedup_visible_tool_specs(specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut deduped: Vec<ToolSpec> = Vec::with_capacity(specs.len());
+    let mut dropped: Vec<String> = Vec::new();
+    for spec in specs {
+        if seen.insert(spec.name.clone()) {
+            deduped.push(spec);
+        } else {
+            dropped.push(spec.name);
+        }
+    }
+    if !dropped.is_empty() {
+        log::warn!(
+            "[agent] dropped {} duplicate tool spec(s) before sending to provider: {:?}",
+            dropped.len(),
+            dropped
+        );
+    }
+    deduped
+}
+
+pub(super) fn visible_tool_specs_for_policy(
+    tool_specs: &[ToolSpec],
+    visible_names: &std::collections::HashSet<String>,
+    tool_policy: &ToolPolicySession,
+) -> Vec<ToolSpec> {
+    tool_specs
+        .iter()
+        .filter(|spec| {
+            (visible_names.is_empty() || visible_names.contains(&spec.name))
+                && tool_policy.is_allowed(&spec.name)
+        })
+        .cloned()
+        .collect()
+}
 
 impl AgentBuilder {
     /// Creates a new `AgentBuilder` with default values.
@@ -45,6 +95,7 @@ impl AgentBuilder {
             auto_save: None,
             post_turn_hooks: Vec::new(),
             learning_enabled: false,
+            explicit_preferences_enabled: true,
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
@@ -52,6 +103,9 @@ impl AgentBuilder {
             omit_profile: None,
             omit_memory_md: None,
             payload_summarizer: None,
+            tool_policy: None,
+            archivist_hook: None,
+            unified_compaction_enabled: true,
         }
     }
 
@@ -170,6 +224,16 @@ impl AgentBuilder {
         self
     }
 
+    /// Enables or disables explicit-preference injection.
+    ///
+    /// When `true` (the default), preferences stored via `remember_preference`
+    /// are fetched from the `user_profile` namespace and injected into the
+    /// system prompt on every turn, independent of `learning_enabled`.
+    pub fn explicit_preferences_enabled(mut self, enabled: bool) -> Self {
+        self.explicit_preferences_enabled = enabled;
+        self
+    }
+
     /// Sets the event-bus `session_id` and `channel` used to tag
     /// `DomainEvent`s emitted by this agent.
     ///
@@ -279,6 +343,51 @@ impl AgentBuilder {
         self
     }
 
+    /// Installs pre-execution policy middleware for tool calls.
+    ///
+    /// The default policy allows all calls. Custom policies can deny a call
+    /// before `Tool::execute_with_options` runs.
+    pub fn tool_policy(
+        mut self,
+        policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
+    ) -> Self {
+        self.tool_policy = Some(policy);
+        self
+    }
+
+    /// Attach the production [`ArchivistHook`] instance so the session
+    /// turn loop can call [`ArchivistHook::flush_open_segment`] at
+    /// session-wind-down time, guaranteeing the trailing open segment is
+    /// always finalized with an LLM recap + embedding.
+    ///
+    /// Set from `build_session_agent_inner` when
+    /// `config.learning.episodic_capture_enabled` is `true` and a
+    /// SQLite connection is available. Callers that construct an `Agent`
+    /// directly (tests, CLI) can leave this `None` — flush is a no-op
+    /// when the hook is absent.
+    pub fn archivist_hook(
+        mut self,
+        hook: Option<Arc<crate::openhuman::agent::harness::archivist::ArchivistHook>>,
+    ) -> Self {
+        self.archivist_hook = hook;
+        self
+    }
+
+    /// Phase 1.5 — gate the unified compaction path.
+    ///
+    /// When `true` (the default) and an archivist hook is wired in via
+    /// [`Self::archivist_hook`], the session's `ContextManager` summarizer is
+    /// wrapped with a [`SegmentRecapSummarizer`] that routes autocompaction
+    /// through the archivist's rolling recap (one LLM summarizer, soft-fallback
+    /// to [`ProviderSummarizer`] when the recap is unavailable).
+    ///
+    /// When `false` the `ProviderSummarizer` is used directly and Phase 1.5 is
+    /// completely absent from the hot path — behaviour is identical to today's.
+    pub fn unified_compaction_enabled(mut self, enabled: bool) -> Self {
+        self.unified_compaction_enabled = enabled;
+        self
+    }
+
     /// Validates the configuration and constructs a new `Agent` instance.
     ///
     /// This method is responsible for wiring together the provided components,
@@ -291,27 +400,49 @@ impl AgentBuilder {
         let tool_specs: Vec<ToolSpec> = tools.iter().map(|tool| tool.spec()).collect();
 
         let visible_names = self.visible_tool_names.unwrap_or_default();
+        let config = self.config.clone().unwrap_or_default();
+        let event_session_id = self
+            .event_session_id
+            .clone()
+            .unwrap_or_else(|| "standalone".to_string());
+        let event_channel = self
+            .event_channel
+            .clone()
+            .unwrap_or_else(|| "internal".to_string());
+        let agent_definition_name = self
+            .agent_definition_name
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
+        let tool_policy_session = ToolPolicyEngine::build_session(
+            &agent_definition_name,
+            &event_channel,
+            "session",
+            &config.channel_permissions,
+            &tools,
+            &visible_names,
+        );
 
         // Build the filtered spec list that the main agent sends to the
-        // provider. When the filter is empty every tool is visible
-        // (backward compat). When populated, only allowlisted tools
-        // appear in the function-calling schema so the LLM literally
-        // cannot call skill tools directly — it must use spawn_subagent.
-        let visible_tool_specs: Vec<ToolSpec> = if visible_names.is_empty() {
-            tool_specs.clone()
-        } else {
-            tool_specs
-                .iter()
-                .filter(|spec| visible_names.contains(&spec.name))
-                .cloned()
-                .collect()
-        };
+        // provider. The explicit visible-tool allowlist and the resolved
+        // channel permission policy must stay aligned so prompt-visible
+        // tools cannot exceed the runtime execution boundary.
+        let visible_tool_specs_unfiltered =
+            visible_tool_specs_for_policy(&tool_specs, &visible_names, &tool_policy_session);
+
+        // Dedupe by tool name. Anthropic (and other strict providers)
+        // rejects a chat/completions request that lists two tools with
+        // the same name — OpenHuman's own backend and OpenAI silently
+        // accept duplicates, which hid this bug until #1710's per-role
+        // routing started sending the same tool list to Anthropic.
+        let visible_tool_specs: Vec<ToolSpec> =
+            dedup_visible_tool_specs(visible_tool_specs_unfiltered);
 
         log::info!(
-            "[agent] tool spec filter: total={} visible={} (filter_active={})",
+            "[agent] tool spec filter: total={} visible={} (filter_active={} policy_restricted={})",
             tool_specs.len(),
             visible_tool_specs.len(),
-            !visible_names.is_empty()
+            !visible_names.is_empty(),
+            tool_policy_session.has_restrictions()
         );
 
         // Pull the provider out of the builder once. We store it on
@@ -335,7 +466,52 @@ impl AgentBuilder {
         // summarizer — every concern that touches "what's in the
         // model's context window" routes through this single handle.
         let context_config = self.context_config.unwrap_or_default();
-        let summarizer = Arc::new(ProviderSummarizer::new(provider.clone()));
+
+        // Phase 1.5 — unified compaction.
+        //
+        // When `unified_compaction_enabled` is true AND an archivist hook
+        // is wired in, wrap the inner `ProviderSummarizer` with a
+        // `SegmentRecapSummarizer`. The outer type:
+        //   1. Tries the rolling segment recap from the open segment.
+        //   2. Falls back to the inner `ProviderSummarizer` if unavailable.
+        //
+        // With the flag off OR no archivist, the plain `ProviderSummarizer`
+        // is used and Phase 1.5 is completely absent from the hot path
+        // — behaviour is identical to Phase 1.
+        let inner_summarizer: Arc<dyn crate::openhuman::context::Summarizer> =
+            Arc::new(ProviderSummarizer::new(provider.clone()));
+        let session_id_for_recap = self
+            .event_session_id
+            .clone()
+            .unwrap_or_else(|| "standalone".to_string());
+        let summarizer: Arc<dyn crate::openhuman::context::Summarizer> =
+            if self.unified_compaction_enabled {
+                if let Some(ref archivist) = self.archivist_hook {
+                    log::debug!(
+                        "[agent::builder] unified_compaction_enabled=true — \
+                         wrapping summarizer with SegmentRecapSummarizer \
+                         session_id={session_id_for_recap}"
+                    );
+                    Arc::new(SegmentRecapSummarizer::new(
+                        Arc::clone(archivist),
+                        session_id_for_recap,
+                        inner_summarizer,
+                    ))
+                } else {
+                    log::debug!(
+                        "[agent::builder] unified_compaction_enabled=true but \
+                         no archivist hook — using ProviderSummarizer"
+                    );
+                    inner_summarizer
+                }
+            } else {
+                log::debug!(
+                    "[agent::builder] unified_compaction_enabled=false — \
+                     using ProviderSummarizer (Phase 1.5 disabled)"
+                );
+                inner_summarizer
+            };
+
         let context = ContextManager::new(
             &context_config,
             summarizer,
@@ -349,6 +525,7 @@ impl AgentBuilder {
             tool_specs: Arc::new(tool_specs),
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
+            tool_policy_session,
             memory: self
                 .memory
                 .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
@@ -358,7 +535,7 @@ impl AgentBuilder {
             memory_loader: self
                 .memory_loader
                 .unwrap_or_else(|| Box::new(DefaultMemoryLoader::default())),
-            config: self.config.unwrap_or_default(),
+            config,
             model_name,
             temperature: self.temperature.unwrap_or(0.7),
             workspace_dir: self
@@ -372,22 +549,23 @@ impl AgentBuilder {
             last_tree_prefetch_at: None,
             post_turn_hooks: self.post_turn_hooks,
             learning_enabled: self.learning_enabled,
-            event_session_id: self
-                .event_session_id
-                .unwrap_or_else(|| "standalone".to_string()),
-            event_channel: self.event_channel.unwrap_or_else(|| "internal".to_string()),
-            agent_definition_name: self
-                .agent_definition_name
-                .clone()
-                .unwrap_or_else(|| "main".to_string()),
+            explicit_preferences_enabled: self.explicit_preferences_enabled,
+            event_session_id,
+            event_channel,
+            agent_definition_name: agent_definition_name.clone(),
+            // Canonical registry id — captured here at build time
+            // before any caller can call `set_agent_definition_name`
+            // and clobber the transcript-facing name. Used by
+            // `refresh_delegation_tools` to re-resolve the agent's
+            // `subagents` declaration against the global registry.
+            agent_definition_id: agent_definition_name.clone(),
             session_transcript_path: None,
             session_key: {
                 let unix_ts = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_secs())
                     .unwrap_or(0);
-                let agent_id = self.agent_definition_name.as_deref().unwrap_or("main");
-                let sanitized: String = agent_id
+                let sanitized: String = agent_definition_name
                     .chars()
                     .map(|c| {
                         if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
@@ -404,13 +582,20 @@ impl AgentBuilder {
             context,
             on_progress: None,
             connected_integrations: Vec::new(),
-            composio_client: None,
+            connected_integrations_initialized: false,
+            integration_runtime_config: None,
             // Default to `true` (omit) so legacy / custom agents built
             // without a definition stay lean. Opt-in agents thread their
             // `omit_profile = false` through the builder.
             omit_profile: self.omit_profile.unwrap_or(true),
             omit_memory_md: self.omit_memory_md.unwrap_or(true),
             payload_summarizer: self.payload_summarizer,
+            tool_policy: self.tool_policy.unwrap_or_else(|| {
+                Arc::new(crate::openhuman::agent::tool_policy::AllowAllToolPolicy)
+            }),
+            last_seen_integrations_hash: 0,
+            archivist_hook: self.archivist_hook,
+            synthesized_tool_names: std::collections::HashSet::new(),
         })
     }
 }
@@ -462,7 +647,7 @@ impl Agent {
     ///   legacy behaviour).
     ///
     /// The welcome agent uses this entry point when routed from the
-    /// Tauri web channel (see `channels::providers::web::build_session_agent`).
+    /// Tauri web channel (see `channels::provider::web::build_session_agent`).
     pub fn from_config_for_agent(config: &Config, agent_id: &str) -> Result<Self> {
         // Look up the target definition up front so we can fail fast
         // with a clear error instead of building half an agent and then
@@ -534,7 +719,7 @@ impl Agent {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), None)
+        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), None, None)
     }
 
     /// Same as [`Self::from_config_for_agent`] but also appends a
@@ -542,7 +727,7 @@ impl Agent {
     /// [`SystemPromptBuilder`], seeded with the `source_chunks` snapshot
     /// from the spawning subconscious reflection (#623).
     ///
-    /// Used by `channels::providers::web::build_session_agent` when a
+    /// Used by `channels::provider::web::build_session_agent` when a
     /// chat thread's seed message metadata flags
     /// `origin == "subconscious_reflection"` — the orchestrator then
     /// has the same memory context the reflection-LLM had, so the user's
@@ -565,6 +750,49 @@ impl Agent {
             agent_id,
             target_def.as_ref(),
             Some(reflection_chunks),
+            None,
+        )
+    }
+
+    /// Construct a session agent with optional reflection memory chunks and an
+    /// additional profile prompt section. Used by the web channel when the user
+    /// selects a persistent agent profile for the thread.
+    pub fn from_config_for_agent_with_profile(
+        config: &Config,
+        agent_id: &str,
+        reflection_chunks: Option<Vec<crate::openhuman::subconscious::SourceChunk>>,
+        profile_prompt_suffix: Option<String>,
+    ) -> Result<Self> {
+        let target_def: Option<crate::openhuman::agent::harness::definition::AgentDefinition> =
+            match AgentDefinitionRegistry::global() {
+                Some(reg) => match reg.get(agent_id) {
+                    Some(def) => Some(def.clone()),
+                    None if agent_id == "orchestrator" => None,
+                    None => {
+                        return Err(anyhow::anyhow!(
+                            "agent definition '{}' not found in registry",
+                            agent_id
+                        ));
+                    }
+                },
+                None => {
+                    if agent_id != "orchestrator" {
+                        return Err(anyhow::anyhow!(
+                            "AgentDefinitionRegistry is not initialised — cannot \
+                         resolve agent '{}'. Call AgentDefinitionRegistry::init_global \
+                         at startup.",
+                            agent_id
+                        ));
+                    }
+                    None
+                }
+            };
+        Self::build_session_agent_inner(
+            config,
+            agent_id,
+            target_def.as_ref(),
+            reflection_chunks,
+            profile_prompt_suffix,
         )
     }
 
@@ -584,6 +812,7 @@ impl Agent {
         agent_id: &str,
         target_def: Option<&crate::openhuman::agent::harness::definition::AgentDefinition>,
         reflection_chunks: Option<Vec<crate::openhuman::subconscious::SourceChunk>>,
+        profile_prompt_suffix: Option<String>,
     ) -> Result<Self> {
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> =
             Arc::from(host_runtime::create_runtime(&config.runtime)?);
@@ -591,9 +820,16 @@ impl Agent {
             &config.autonomy,
             &config.workspace_dir,
         ));
+        // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
+        let audit = crate::openhuman::security::get_or_create_workspace_audit_logger(
+            crate::openhuman::config::AuditConfig::default(),
+            config.workspace_dir.clone(),
+        )?;
 
-        let memory: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage_and_routes(
+        let local_embedding = config.workload_local_model("embeddings");
+        let memory: Arc<dyn Memory> = Arc::from(memory::create_memory_with_local_ai(
             &config.memory,
+            local_embedding.as_deref(),
             &config.embedding_routes,
             Some(&config.storage.provider.config),
             &config.workspace_dir,
@@ -603,6 +839,7 @@ impl Agent {
             Arc::new(config.clone()),
             &security,
             runtime,
+            audit,
             memory.clone(),
             &config.browser,
             &config.http_request,
@@ -644,25 +881,72 @@ impl Agent {
             }
         }
 
-        let model_name = config
-            .default_model
-            .as_deref()
-            .unwrap_or(crate::openhuman::config::DEFAULT_MODEL)
-            .to_string();
-
-        let provider_runtime_options = providers::ProviderRuntimeOptions {
+        // Route the main agent's chat through the unified per-workload
+        // factory so the user's "Reasoning" routing in the AI settings
+        // panel (e.g. `reasoning_provider = "anthropic:claude-..."`)
+        // actually takes effect. The factory returns a (Provider, model)
+        // tuple — the resolved model wins over the legacy `default_model`
+        // fallback so explicit picks like `anthropic:claude-sonnet-4-5`
+        // actually use claude-sonnet-4-5 end to end (sending the abstract
+        // "reasoning-v1" tier name to Anthropic would 404).
+        //
+        // When `reasoning_provider` is unset or `"cloud"`, the factory
+        // resolves to the primary cloud (OpenHuman by default), so the
+        // baseline behaviour is identical to the legacy
+        // `create_intelligent_routing_provider` path.
+        //
+        // What we deliberately lose for now: the ReliableProvider retry
+        // wrapper, model_routes translation, and intelligent local/cloud
+        // task hinting that the legacy router added on top of the raw
+        // backend. Those are valuable but orthogonal — they can be layered
+        // back on top of the factory's output in a follow-up without
+        // re-introducing the routing bypass.
+        let _ = provider::ProviderRuntimeOptions {
             auth_profile_override: None,
             openhuman_dir: config.config_path.parent().map(std::path::PathBuf::from),
             secrets_encrypt: config.secrets.encrypt,
             reasoning_enabled: config.runtime.reasoning_enabled,
         };
-
-        let provider: Box<dyn Provider> = providers::create_intelligent_routing_provider(
-            config.api_url.as_deref(),
-            config.api_key.as_deref(),
-            config,
-            &provider_runtime_options,
-        )?;
+        // Explicit `hint:<role>` and known-tier model strings route to the
+        // matching workload (so a subagent declaring `hint:reasoning` still
+        // gets the user's `reasoning_provider`). Everything else — including
+        // the orchestrator/lead, which has no specialised hint — falls
+        // through to the `chat` workload, so `config.chat_provider` (the
+        // "Chat" routing row, "Direct conversational back-and-forth") drives
+        // the user-facing chat turn.
+        // Only the explicit `hint:<role>` form routes to a specialised
+        // workload — legacy tier literals like `reasoning-v1` (which the
+        // bootstrap historically pinned as `default_model` for everyone)
+        // fall through to `chat`. This is what makes
+        // `config.chat_provider` actually drive the orchestrator's chat
+        // turn for the install base; without it, every existing user's
+        // `default_model = "reasoning-v1"` would silently route the main
+        // chat to the `reasoning` workload regardless of their
+        // `chat_provider` selection. Subagents still set their own role
+        // through `ModelSpec::Hint(...)` in the subagent runner.
+        let provider_role = match config.default_model.as_deref().map(str::trim) {
+            Some("hint:agentic") => "agentic",
+            Some("hint:coding") => "coding",
+            Some("hint:summarization") => "summarization",
+            Some("hint:reasoning") => "reasoning",
+            _ => "chat",
+        };
+        let (provider, mut model_name): (Box<dyn Provider>, String) =
+            crate::openhuman::inference::provider::create_chat_provider(provider_role, config)?;
+        let target_agent_id = target_def
+            .map(|def| def.id.as_str())
+            .unwrap_or("orchestrator");
+        let target_is_lead = target_def
+            .map(|def| !def.subagents.is_empty())
+            .unwrap_or(true);
+        if let Some(pinned_model) = config.configured_agent_model(target_agent_id, target_is_lead) {
+            log::debug!(
+                "[session-builder] agent_id={} using config-level model pin model={}",
+                target_agent_id,
+                pinned_model
+            );
+            model_name = pinned_model.to_string();
+        }
 
         // Dispatcher selection is deferred until after the tool list is
         // finalised (orchestrator tools are appended below). We capture
@@ -712,21 +996,28 @@ impl Agent {
                     def.omit_skills_catalog,
                 ),
                 PromptSource::File { path } => {
-                    let workspace_path = config
-                        .workspace_dir
-                        .join("agent")
-                        .join("prompts")
-                        .join(path);
+                    let prompt_root = config.workspace_dir.join("agent").join("prompts");
+                    let workspace_path = prompt_root.join(path);
                     let body_text = if workspace_path.is_file() {
-                        std::fs::read_to_string(&workspace_path).unwrap_or_else(|e| {
-                            log::warn!(
-                                "[agent::builder] failed to read prompt {}: {e} — using empty body",
-                                workspace_path.display()
-                            );
-                            String::new()
-                        })
+                        match crate::openhuman::security::validate_path_within_root(&workspace_path, &prompt_root) {
+                            Ok(resolved) => {
+                                std::fs::read_to_string(&resolved).unwrap_or_else(|e| {
+                                    log::warn!(
+                                        "[agent::builder] failed to read prompt {}: {e} — using empty body",
+                                        workspace_path.display()
+                                    );
+                                    String::new()
+                                })
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "[agent::builder] prompt path rejected: {e} — using empty body"
+                                );
+                                String::new()
+                            }
+                        }
                     } else {
-                        log::warn!(
+                        log::debug!(
                             "[agent::builder] prompt file {} not found — using empty body",
                             path
                         );
@@ -762,8 +1053,27 @@ impl Agent {
                 .add_section(Box::new(
                     crate::openhuman::learning::UserProfileSection::new(memory.clone()),
                 ));
+            // NOTE: MemoryAccessSection is added after tool-filtering so we can
+            // gate it on retrieval-tool visibility — see below.
             log::info!(
                 "[learning] prompt sections registered (user_reflections, learned_context, user_profile)"
+            );
+        }
+
+        // Explicit-preferences injection — independent of the full learning
+        // subsystem.  When `explicit_preferences_enabled` is true (the default)
+        // and the full learning subsystem is NOT already wiring UserProfileSection,
+        // we add it here so pinned preferences written by `remember_preference`
+        // reach every session prompt.  The `fetch_learned_context` gate is
+        // widened by `explicit_preferences_enabled` on the Agent (see
+        // `session/turn.rs`) so the data is actually fetched and populated.
+        if config.learning.explicit_preferences_enabled && !config.learning.enabled {
+            prompt_builder = prompt_builder.add_section(Box::new(
+                crate::openhuman::learning::UserProfileSection::new(memory.clone()),
+            ));
+            log::info!(
+                "[learning] explicit-preference UserProfileSection registered \
+                 (learning.enabled=false, explicit_preferences_enabled=true)"
             );
         }
 
@@ -784,6 +1094,18 @@ impl Agent {
                 prompt_builder = prompt_builder.with_reflection_context(chunks);
             }
         }
+        if let Some(suffix) = profile_prompt_suffix
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        {
+            log::debug!(
+                "[agent:builder] profile prompt section injected suffix_chars={}",
+                suffix.chars().count()
+            );
+            prompt_builder = prompt_builder.add_section(Box::new(
+                crate::openhuman::agent::profiles::AgentProfilePromptSection::new(suffix),
+            ));
+        }
 
         // Build post-turn hooks when learning is enabled
         let mut post_turn_hooks: Vec<Arc<dyn crate::openhuman::agent::hooks::PostTurnHook>> =
@@ -797,20 +1119,22 @@ impl Agent {
                 let full_config = Arc::new(config.clone());
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
-                let reflection_provider: Option<Arc<dyn crate::openhuman::providers::Provider>> =
-                    if config.learning.reflection_source
-                        == crate::openhuman::config::ReflectionSource::Cloud
-                    {
-                        Some(Arc::from(providers::create_routed_provider(
-                            config.api_url.as_deref(),
-                            config.api_key.as_deref(),
-                            &config.reliability,
-                            &config.model_routes,
-                            &model_name,
-                        )?))
-                    } else {
-                        None
-                    };
+                let reflection_provider: Option<
+                    Arc<dyn crate::openhuman::inference::provider::Provider>,
+                > = if config.learning.reflection_source
+                    == crate::openhuman::config::ReflectionSource::Cloud
+                {
+                    Some(Arc::from(provider::create_routed_provider(
+                        config.inference_url.as_deref(),
+                        config.api_url.as_deref(),
+                        config.api_key.as_deref(),
+                        &config.reliability,
+                        &config.model_routes,
+                        &model_name,
+                    )?))
+                } else {
+                    None
+                };
                 post_turn_hooks.push(Arc::new(crate::openhuman::learning::ReflectionHook::new(
                     config.learning.clone(),
                     full_config.clone(),
@@ -838,7 +1162,71 @@ impl Agent {
                 )));
                 log::info!("[learning] tool_tracker hook registered");
             }
+
+            if config.learning.tool_memory_capture_enabled {
+                post_turn_hooks.push(Arc::new(
+                    crate::openhuman::memory::ToolMemoryCaptureHook::new(memory.clone(), true),
+                ));
+                log::info!("[learning] tool_memory_capture hook registered");
+            }
+
+            if config.learning.tool_memory_capture_enabled {
+                post_turn_hooks.push(Arc::new(
+                    crate::openhuman::agent_experience::AgentExperienceCaptureHook::new(
+                        memory.clone(),
+                        true,
+                    ),
+                ));
+                log::info!("[learning] agent_experience_capture hook registered");
+            }
         }
+
+        // ── ArchivistHook — register independently of learning.enabled ──────
+        //
+        // Episodic capture (FTS5 index, segment lifecycle, LLM recap, embedding)
+        // is the system-of-record for chat turns and must stay active even when
+        // the inference stack (`reflection`, `stability_detector`) is disabled.
+        // Gated only on `config.learning.episodic_capture_enabled` (default: true)
+        // and on the memory backend exposing a SQLite connection.
+        let archivist_hook_arc: Option<
+            Arc<crate::openhuman::agent::harness::archivist::ArchivistHook>,
+        > = if config.learning.episodic_capture_enabled {
+            match memory.sqlite_conn() {
+                Some(conn) => {
+                    let hook = Arc::new(
+                        crate::openhuman::agent::harness::archivist::ArchivistHook::new(conn, true)
+                            .with_config(config.clone()),
+                    );
+                    post_turn_hooks
+                        .push(Arc::clone(&hook)
+                            as Arc<dyn crate::openhuman::agent::hooks::PostTurnHook>);
+                    log::info!(
+                        "[archivist] episodic capture hook registered (learning.enabled={})",
+                        config.learning.enabled
+                    );
+                    Some(hook)
+                }
+                None => {
+                    log::warn!(
+                        "[archivist] no SQLite connection available from memory backend — \
+                         episodic capture disabled"
+                    );
+                    None
+                }
+            }
+        } else {
+            log::info!(
+                "[archivist] episodic_capture_enabled=false — archivist hook not registered"
+            );
+            None
+        };
+
+        // Best-effort prewarm from the shared Composio cache. This avoids
+        // building the session with a knowingly stale `&[]` integration view
+        // and then paying a repair pass on turn 1 just to recover the real
+        // delegation surface.
+        let prewarmed_integrations = crate::openhuman::composio::cached_active_integrations(config);
+        let prewarmed_integrations_slice = prewarmed_integrations.as_deref().unwrap_or(&[]);
 
         // Resolve the per-agent delegation tool set and visible-tool
         // whitelist from the target definition (when we have one) or
@@ -846,8 +1234,10 @@ impl Agent {
         //
         // For an agent with `subagents = [...]` in its TOML (today:
         // orchestrator), `collect_orchestrator_tools` synthesises one
-        // `ArchetypeDelegationTool` per named sub-agent plus one
-        // `SkillDelegationTool` per connected Composio toolkit.
+        // `ArchetypeDelegationTool` per named sub-agent plus a single
+        // collapsed `SkillDelegationTool`
+        // (`delegate_to_integrations_agent`) whose `toolkit` argument
+        // selects among the connected Composio toolkits (#1335).
         //
         // For an agent without `subagents` (today: welcome, critic,
         // archivist, etc.), no delegation tools are synthesised — the
@@ -856,12 +1246,12 @@ impl Agent {
         // filter.
         //
         // This builder is synchronous and sits on the CLI / REPL /
-        // Tauri-web code path. It does not have access to the async
-        // Composio fetcher, so we pass an empty slice of connected
-        // integrations here — the skill-wildcard expansion therefore
-        // produces zero delegation tools. That is correct behaviour:
-        // callers that need live integration expansion go through the
-        // bus-based `channels::runtime::dispatch` path instead.
+        // Tauri-web code path. It still opportunistically reuses the
+        // process-wide Composio cache when one is already warm, which
+        // lets the session start with the right `delegate_<toolkit>`
+        // surface and prompt block without paying a turn-1 fetch. On a
+        // cold cache we still fall back to the empty slice and let the
+        // first turn repair the session state if needed.
         let (delegation_tools, filter_from_scope): (
             Vec<Box<dyn Tool>>,
             Option<std::collections::HashSet<String>>,
@@ -870,7 +1260,11 @@ impl Agent {
             crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global(),
         ) {
             (Some(def), Some(reg)) => {
-                let synthed = tools::orchestrator_tools::collect_orchestrator_tools(def, reg, &[]);
+                let synthed = tools::orchestrator_tools::collect_orchestrator_tools(
+                    def,
+                    reg,
+                    prewarmed_integrations_slice,
+                );
                 let filter: Option<std::collections::HashSet<String>> = match &def.tools {
                     ToolScope::Named(names) => {
                         let mut set: std::collections::HashSet<String> =
@@ -890,9 +1284,11 @@ impl Agent {
                 // callers that invoke the old `from_config` on a
                 // pre-startup or test registry state.
                 let synthed = match reg.get("orchestrator") {
-                    Some(orch_def) => {
-                        tools::orchestrator_tools::collect_orchestrator_tools(orch_def, reg, &[])
-                    }
+                    Some(orch_def) => tools::orchestrator_tools::collect_orchestrator_tools(
+                        orch_def,
+                        reg,
+                        prewarmed_integrations_slice,
+                    ),
                     None => {
                         log::debug!(
                             "[agent::builder] orchestrator definition not in registry — \
@@ -928,16 +1324,70 @@ impl Agent {
                 .map(|t| t.name().to_string())
                 .collect(),
         };
+
+        // Phase 4 (#566): add the MemoryAccessSection bias instruction only
+        // when at least one retrieval tool is actually loaded AND survives
+        // filtering. We require both because:
+        //   - the tool may be filtered out by the agent's scope config
+        //   - the tool may not be registered at all on this agent (tool
+        //     listing is build-time configurable)
+        // An empty `visible` set means "no filter" (wildcard / orchestrator
+        // path); in that case any registered retrieval tool is reachable.
+        if config.learning.enabled {
+            let recall_tools = ["memory_recall", "memory_search"];
+            let has_retrieval = recall_tools.iter().any(|name| {
+                let registered = tools.iter().any(|t| t.name() == *name)
+                    || delegation_tools.iter().any(|t| t.name() == *name);
+                let allowed_by_filter = visible.is_empty() || visible.contains(*name);
+                registered && allowed_by_filter
+            });
+            if has_retrieval {
+                prompt_builder = prompt_builder
+                    .add_section(Box::new(crate::openhuman::learning::MemoryAccessSection));
+                log::debug!("[learning] memory_access prompt section registered");
+            } else {
+                log::debug!(
+                    "[learning] skipping MemoryAccessSection — neither memory_recall nor \
+                     memory_search is registered+visible for agent={agent_id}"
+                );
+            }
+        }
+
         // De-duplicate: some synthesised tool names may collide with
         // already-registered tools (unlikely for `delegate_*` names but
         // cheap to guard against).
         let existing_names: std::collections::HashSet<String> =
             tools.iter().map(|t| t.name().to_string()).collect();
-        tools.extend(
-            delegation_tools
-                .into_iter()
-                .filter(|t| !existing_names.contains(t.name())),
-        );
+        let inserted_delegation_tools: Vec<Box<dyn Tool>> = delegation_tools
+            .into_iter()
+            .filter(|t| !existing_names.contains(t.name()))
+            .collect();
+        let synthesized_tool_names: std::collections::HashSet<String> = inserted_delegation_tools
+            .iter()
+            .map(|t| t.name().to_string())
+            .collect();
+        tools.extend(inserted_delegation_tools);
+
+        // Pre-fetch Critical + High priority tool-scoped memory rules so they
+        // pin into the (compression-resistant) system prompt for the whole
+        // session. Done here — after the tool list is finalised — so we only
+        // fetch rules for tools this agent can actually use.  Skipped when
+        // `learning.enabled` is false (no new rules are written in that mode,
+        // and users who opt out of learning expect no stored rules to surface)
+        // or when the runtime cannot host a synchronous bridge (single-threaded
+        // test harnesses).
+        if config.learning.enabled && config.learning.tool_memory_capture_enabled {
+            let agent_tool_names: Vec<String> =
+                tools.iter().map(|t| t.name().to_string()).collect();
+            let pinned = prefetch_tool_memory_rules_blocking(memory.clone(), &agent_tool_names);
+            if !pinned.is_empty() {
+                log::info!(
+                    "[memory::tool_memory] pinning {} tool-scoped rule(s) into system prompt",
+                    pinned.len()
+                );
+                prompt_builder = prompt_builder.with_tool_memory_rules(pinned);
+            }
+        }
 
         // Build the P-Format registry AFTER the tool list is finalised
         // (including orchestrator tools) so every tool gets a signature
@@ -1095,12 +1545,14 @@ impl Agent {
             .memory(memory)
             .tool_dispatcher(tool_dispatcher)
             .memory_loader(Box::new(
-                DefaultMemoryLoader::new(5, config.memory.min_relevance_score).with_max_chars(
-                    config
-                        .agent
-                        .resolved_memory_limits()
-                        .max_memory_context_chars,
-                ),
+                DefaultMemoryLoader::new(5, config.memory.min_relevance_score)
+                    .with_max_chars(
+                        config
+                            .agent
+                            .resolved_memory_limits()
+                            .max_memory_context_chars,
+                    )
+                    .with_workspace_dir(config.workspace_dir.clone()),
             ))
             .prompt_builder(prompt_builder)
             .config(config.agent.clone())
@@ -1112,12 +1564,148 @@ impl Agent {
             .auto_save(config.memory.auto_save)
             .post_turn_hooks(post_turn_hooks)
             .learning_enabled(config.learning.enabled)
+            .explicit_preferences_enabled(config.learning.explicit_preferences_enabled)
             .agent_definition_name(agent_id.to_string())
             .omit_profile(effective_omit_profile)
             .omit_memory_md(effective_omit_memory_md);
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
-        builder.build()
+        builder = builder.archivist_hook(archivist_hook_arc);
+        builder = builder.unified_compaction_enabled(config.learning.unified_compaction_enabled);
+        let mut agent = builder.build()?;
+        let connected_integrations_initialized = prewarmed_integrations.is_some();
+        agent.connected_integrations = prewarmed_integrations.unwrap_or_default();
+        agent.connected_integrations_initialized = connected_integrations_initialized;
+        agent.integration_runtime_config = Some(config.clone());
+        agent.last_seen_integrations_hash =
+            crate::openhuman::composio::connected_set_hash(&agent.connected_integrations);
+        agent.synthesized_tool_names = synthesized_tool_names;
+        Ok(agent)
+    }
+}
+
+/// (#1400) Best-effort synchronous prefetch of eager tool-scoped rules.
+///
+/// `from_config_*` is sync but typically runs inside a multi-threaded
+/// Tokio runtime (the agent harness path from the channels runtime).
+/// We use `block_in_place` + the current runtime handle to call the
+/// async store API without restructuring the whole session builder.
+///
+/// Returns an empty `Vec` (rather than erroring) when:
+///   - no Tokio runtime is active (e.g. a sync CLI bootstrap),
+///   - the runtime is single-threaded (`block_in_place` would panic),
+///   - or the underlying `rules_for_prompt` call returns an error
+///     (e.g. the memory backend isn't ready yet).
+///
+/// Critical / High rules captured later in the session are still
+/// available via the `memory_tool_rules_for_prompt` RPC; this prefetch
+/// merely seeds the rules that exist at session start.
+fn prefetch_tool_memory_rules_blocking(
+    memory: Arc<dyn Memory>,
+    tool_names: &[String],
+) -> Vec<crate::openhuman::memory::ToolMemoryRule> {
+    let Ok(handle) = tokio::runtime::Handle::try_current() else {
+        return Vec::new();
+    };
+    if handle.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
+        return Vec::new();
+    }
+    let tool_names = tool_names.to_vec();
+    tokio::task::block_in_place(|| {
+        handle.block_on(async move {
+            let store = crate::openhuman::memory::ToolMemoryStore::new(memory);
+            match store.rules_for_prompt(&tool_names).await {
+                Ok(grouped) => {
+                    let mut flat: Vec<_> = grouped.into_values().flatten().collect();
+                    flat.sort_by(|a, b| {
+                        b.priority
+                            .cmp(&a.priority)
+                            .then_with(|| a.tool_name.cmp(&b.tool_name))
+                            .then_with(|| a.rule.cmp(&b.rule))
+                    });
+                    flat
+                }
+                Err(err) => {
+                    log::warn!("[memory::tool_memory] prefetch failed: {err}");
+                    Vec::new()
+                }
+            }
+        })
+    })
+}
+
+#[cfg(test)]
+mod dedup_tests {
+    use super::dedup_visible_tool_specs;
+    use crate::openhuman::tools::ToolSpec;
+    use serde_json::json;
+
+    fn spec(name: &str) -> ToolSpec {
+        ToolSpec {
+            name: name.to_string(),
+            description: format!("description for {name}"),
+            parameters: json!({}),
+        }
+    }
+
+    #[test]
+    fn drops_duplicates_first_wins() {
+        // Real-world collision: researcher's `delegate_name = "research"`
+        // synthesises a delegate tool that shadows a same-named skill.
+        // Anthropic 400s on duplicate tool names; the dedup helper must
+        // keep the *first* occurrence so registration order semantics
+        // are preserved (the underlying tool dispatch lookup-by-name
+        // still resolves the right tool).
+        let specs = vec![
+            spec("research"), // skill
+            spec("plan"),
+            spec("research"), // delegate, dropped
+            spec("run_code"),
+            spec("plan"), // dropped
+        ];
+
+        let deduped = dedup_visible_tool_specs(specs);
+
+        let names: Vec<&str> = deduped.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["research", "plan", "run_code"]);
+    }
+
+    #[test]
+    fn passes_through_when_no_duplicates() {
+        let specs = vec![spec("a"), spec("b"), spec("c")];
+        let deduped = dedup_visible_tool_specs(specs);
+        assert_eq!(deduped.len(), 3);
+        assert_eq!(deduped[0].name, "a");
+        assert_eq!(deduped[1].name, "b");
+        assert_eq!(deduped[2].name, "c");
+    }
+
+    #[test]
+    fn handles_empty_input() {
+        let deduped = dedup_visible_tool_specs(Vec::<ToolSpec>::new());
+        assert!(deduped.is_empty());
+    }
+
+    #[test]
+    fn preserves_full_spec_content_for_kept_entries() {
+        // Description + parameters must survive the dedup pass intact —
+        // the LLM uses both for tool-call decisions, and corrupting them
+        // would silently degrade function-calling quality.
+        let mut spec_a = spec("alpha");
+        spec_a.description = "first alpha — should win".to_string();
+        spec_a.parameters = json!({"type": "object", "required": ["x"]});
+
+        let mut spec_a_dup = spec("alpha");
+        spec_a_dup.description = "second alpha — should be dropped".to_string();
+
+        let deduped = dedup_visible_tool_specs(vec![spec_a.clone(), spec_a_dup]);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(deduped[0].description, "first alpha — should win");
+        assert_eq!(
+            deduped[0].parameters,
+            json!({"type": "object", "required": ["x"]})
+        );
     }
 }

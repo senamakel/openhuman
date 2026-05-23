@@ -37,7 +37,7 @@ use crate::openhuman::config::TEST_ENV_LOCK as ENV_LOCK;
 
 #[test]
 fn env_flag_enabled_recognizes_truthy_forms() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let key = "OPENHUMAN_TEST_FLAG_A";
     for truthy in ["1", "true", "TRUE", "yes", "YES"] {
         unsafe {
@@ -61,7 +61,7 @@ fn env_flag_enabled_recognizes_truthy_forms() {
 
 #[test]
 fn core_rpc_url_from_env_returns_default_when_unset() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
         std::env::remove_var("OPENHUMAN_CORE_RPC_URL");
     }
@@ -70,7 +70,7 @@ fn core_rpc_url_from_env_returns_default_when_unset() {
 
 #[test]
 fn core_rpc_url_from_env_uses_override_when_set() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
         std::env::set_var("OPENHUMAN_CORE_RPC_URL", "http://1.2.3.4:9999/rpc");
     }
@@ -112,11 +112,33 @@ fn config_openhuman_dir_returns_config_path_parent() {
     assert_eq!(config_openhuman_dir(&cfg), PathBuf::from("/tmp/xyz"));
 }
 
+#[cfg(windows)]
+#[test]
+fn reset_local_data_remove_error_explains_windows_file_locks() {
+    let err = std::io::Error::from_raw_os_error(32);
+    let msg =
+        reset_local_data_remove_error(std::path::Path::new("C:\\Users\\me\\.openhuman"), &err);
+
+    assert!(msg.contains("locked by another OpenHuman window or process"));
+    assert!(msg.contains("Close all OpenHuman windows and try again"));
+}
+
+#[cfg(windows)]
+#[test]
+fn reset_local_data_remove_error_explains_windows_lock_violation() {
+    let err = std::io::Error::from_raw_os_error(33);
+    let msg =
+        reset_local_data_remove_error(std::path::Path::new("C:\\Users\\me\\.openhuman"), &err);
+
+    assert!(msg.contains("locked by another OpenHuman window or process"));
+    assert!(msg.contains("Close all OpenHuman windows and try again"));
+}
+
 // ── get_runtime_flags / set_browser_allow_all ─────────────────
 
 #[test]
 fn get_runtime_flags_reads_env_overrides() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
         std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL");
     }
@@ -127,20 +149,115 @@ fn get_runtime_flags_reads_env_overrides() {
 }
 
 #[test]
-fn set_browser_allow_all_toggles_env_var() {
-    let _g = ENV_LOCK.lock().unwrap();
-    let before = std::env::var("OPENHUMAN_BROWSER_ALLOW_ALL").ok();
+fn set_browser_allow_all_rejects_enable_without_operator_override() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
-    let _ = set_browser_allow_all(true);
-    assert!(env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL"));
+    unsafe {
+        std::env::remove_var(BROWSER_ALLOW_ALL_ENV);
+        std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV);
+    }
 
-    let _ = set_browser_allow_all(false);
-    assert!(!env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL"));
+    let err = set_browser_allow_all(true).expect_err("runtime enable should require override");
+    assert!(
+        err.contains("Refusing to enable OPENHUMAN_BROWSER_ALLOW_ALL via RPC"),
+        "unexpected error: {err}"
+    );
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
 
     unsafe {
         match before {
-            Some(v) => std::env::set_var("OPENHUMAN_BROWSER_ALLOW_ALL", v),
-            None => std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL"),
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
+        }
+    }
+}
+
+#[test]
+fn set_browser_allow_all_toggles_env_var_when_operator_override_is_set() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
+
+    unsafe {
+        std::env::remove_var(BROWSER_ALLOW_ALL_ENV);
+        std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, "1");
+    }
+
+    let enable_outcome = set_browser_allow_all(true).expect("override should allow runtime enable");
+    assert_eq!(enable_outcome.logs.len(), 1);
+    let enable_log = &enable_outcome.logs[0];
+    assert!(
+        enable_log.contains("[SECURITY]"),
+        "enable log should be audit-tagged: {enable_log}"
+    );
+    assert!(
+        enable_log.contains("enabled"),
+        "enable log should mention enabled state: {enable_log}"
+    );
+    assert!(enable_outcome.value.browser_allow_all);
+    assert!(env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
+
+    let disable_outcome = set_browser_allow_all(false).expect("runtime disable should always work");
+    assert_eq!(disable_outcome.logs.len(), 1);
+    let disable_log = &disable_outcome.logs[0];
+    assert!(
+        disable_log.contains("[SECURITY]"),
+        "disable log should be audit-tagged: {disable_log}"
+    );
+    assert!(
+        disable_log.contains("disabled"),
+        "disable log should mention disabled state: {disable_log}"
+    );
+    assert!(!disable_outcome.value.browser_allow_all);
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
+
+    unsafe {
+        match before {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
+        }
+    }
+}
+
+#[test]
+fn set_browser_allow_all_disable_does_not_require_operator_override() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
+
+    unsafe {
+        std::env::set_var(BROWSER_ALLOW_ALL_ENV, "1");
+        std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV);
+    }
+
+    let disable_outcome =
+        set_browser_allow_all(false).expect("runtime disable should not require override");
+    assert!(
+        disable_outcome.logs[0].contains("[SECURITY]"),
+        "disable log should be audit-tagged: {:?}",
+        disable_outcome.logs
+    );
+    assert!(!disable_outcome.value.browser_allow_all);
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
+
+    unsafe {
+        match before {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
         }
     }
 }
@@ -220,9 +337,12 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
     let mut cfg = tmp_config(&tmp);
     let patch = ModelSettingsPatch {
         api_url: Some("https://api.example.test".into()),
+        inference_url: None,
         api_key: None,
         default_model: Some("gpt-4o".into()),
         default_temperature: Some(0.25),
+        model_routes: None,
+        ..Default::default()
     };
     let outcome = apply_model_settings(&mut cfg, patch).await.expect("apply");
     assert_eq!(cfg.api_url.as_deref(), Some("https://api.example.test"));
@@ -235,19 +355,245 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
 }
 
 #[tokio::test]
+async fn apply_model_settings_stores_api_key_and_clears_when_empty() {
+    // #1342: custom OpenAI-compatible providers — api_key must round-trip
+    // through `apply_model_settings` and clear when an empty string is sent.
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let set = ModelSettingsPatch {
+        api_url: Some("https://llm.example.test/v1".into()),
+        inference_url: None,
+        api_key: Some("  sk-test-1234  ".into()),
+        default_model: Some("gpt-4o-mini".into()),
+        default_temperature: None,
+        model_routes: None,
+        ..Default::default()
+    };
+    let _ = apply_model_settings(&mut cfg, set).await.expect("set");
+    assert_eq!(cfg.api_key.as_deref(), Some("sk-test-1234"));
+
+    let clear = ModelSettingsPatch {
+        api_url: None,
+        inference_url: None,
+        api_key: Some("".into()),
+        default_model: None,
+        default_temperature: None,
+        model_routes: None,
+        ..Default::default()
+    };
+    let _ = apply_model_settings(&mut cfg, clear).await.expect("clear");
+    assert!(cfg.api_key.is_none());
+    // Other fields must not be disturbed by a key-only clear.
+    assert_eq!(cfg.api_url.as_deref(), Some("https://llm.example.test/v1"));
+    assert_eq!(cfg.default_model.as_deref(), Some("gpt-4o-mini"));
+}
+
+#[tokio::test]
+async fn apply_model_settings_replaces_model_routes_when_some_and_keeps_when_none() {
+    // #1342: switching providers writes role->model routes; switching back to
+    // OpenHuman sends an empty vec to wipe them. Omitting the field leaves
+    // existing routes alone.
+    use crate::openhuman::config::ModelRouteConfig;
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let set_routes = ModelSettingsPatch {
+        api_url: None,
+        inference_url: None,
+        api_key: None,
+        default_model: None,
+        default_temperature: None,
+        model_routes: Some(vec![
+            ModelRouteConfig {
+                hint: "reasoning".into(),
+                model: "o1".into(),
+            },
+            ModelRouteConfig {
+                hint: "agentic".into(),
+                model: "gpt-4o".into(),
+            },
+        ]),
+        ..Default::default()
+    };
+    let _ = apply_model_settings(&mut cfg, set_routes)
+        .await
+        .expect("set");
+    assert_eq!(cfg.model_routes.len(), 2);
+    assert_eq!(cfg.model_routes[0].hint, "reasoning");
+
+    // None — leave routes alone.
+    let touch_other = ModelSettingsPatch {
+        api_url: Some("https://x.test/v1".into()),
+        inference_url: None,
+        api_key: None,
+        default_model: None,
+        default_temperature: None,
+        model_routes: None,
+        ..Default::default()
+    };
+    let _ = apply_model_settings(&mut cfg, touch_other)
+        .await
+        .expect("touch");
+    assert_eq!(cfg.model_routes.len(), 2);
+    assert_eq!(cfg.api_url.as_deref(), Some("https://x.test/v1"));
+
+    // Empty vec — clear.
+    let clear_routes = ModelSettingsPatch {
+        api_url: None,
+        inference_url: None,
+        api_key: None,
+        default_model: None,
+        default_temperature: None,
+        model_routes: Some(vec![]),
+        ..Default::default()
+    };
+    let _ = apply_model_settings(&mut cfg, clear_routes)
+        .await
+        .expect("clear");
+    assert!(cfg.model_routes.is_empty());
+}
+
+#[tokio::test]
 async fn apply_model_settings_empty_strings_clear_optional_fields() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     cfg.default_model = Some("prev-model".into());
     let patch = ModelSettingsPatch {
         api_url: Some("".into()),
+        inference_url: None,
         api_key: None,
         default_model: Some("".into()),
         default_temperature: None,
+        model_routes: None,
+        ..Default::default()
     };
     let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
     assert!(cfg.api_url.is_none());
     assert!(cfg.default_model.is_none());
+}
+
+#[tokio::test]
+async fn apply_model_settings_preserves_existing_reserved_slug_cloud_providers() {
+    // Sentry TAURI-RUST-5 regression. The migration
+    // `unify_ai_provider_settings` seeds an "openhuman"-slug entry into
+    // `cloud_providers`. The frontend echoes the full cloud_providers
+    // list back on every settings save, but the schema handlers filter
+    // out reserved-slug entries before passing them through. Without
+    // this preservation step the filtered patch would silently delete
+    // the built-in entry — losing the `primary_cloud` referent and
+    // breaking inference routing.
+    use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    // Simulate the post-migration state: a built-in "openhuman" entry plus
+    // a user-added custom provider.
+    cfg.cloud_providers = vec![
+        CloudProviderCreds {
+            id: "openhuman-builtin".into(),
+            slug: "openhuman".into(),
+            label: "OpenHuman".into(),
+            endpoint: "https://api.tinyhumans.ai".into(),
+            auth_style: AuthStyle::OpenhumanJwt,
+            default_model: Some("reasoning-v1".into()),
+            ..Default::default()
+        },
+        CloudProviderCreds {
+            id: "myopenai-1".into(),
+            slug: "myopenai".into(),
+            label: "My OpenAI".into(),
+            endpoint: "https://api.openai.com".into(),
+            auth_style: AuthStyle::Bearer,
+            default_model: Some("gpt-4o".into()),
+            ..Default::default()
+        },
+    ];
+
+    // The patch arrives from the schema handler with the "openhuman"
+    // entry already filtered out (the schema handler drops reserved
+    // slugs silently). Only the user's custom provider is present, with
+    // the user's edit applied.
+    let patch = ModelSettingsPatch {
+        cloud_providers: Some(vec![CloudProviderCreds {
+            id: "myopenai-1".into(),
+            slug: "myopenai".into(),
+            label: "My OpenAI (edited)".into(),
+            endpoint: "https://api.openai.com/v1".into(),
+            auth_style: AuthStyle::Bearer,
+            default_model: Some("gpt-4o-mini".into()),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
+
+    // The user's edit is applied.
+    let myopenai = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "myopenai")
+        .expect("myopenai entry survives");
+    assert_eq!(myopenai.label, "My OpenAI (edited)");
+    assert_eq!(myopenai.default_model.as_deref(), Some("gpt-4o-mini"));
+
+    // And the built-in "openhuman" entry is still there.
+    let openhuman = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "openhuman")
+        .expect("openhuman built-in must be preserved across saves");
+    assert_eq!(openhuman.id, "openhuman-builtin");
+    assert_eq!(openhuman.endpoint, "https://api.tinyhumans.ai");
+}
+
+#[tokio::test]
+async fn apply_model_settings_does_not_double_add_reserved_entries() {
+    // Defensive: if a caller bypasses the schema handler (CLI / tests) and
+    // includes a reserved-slug entry in the patch, the preservation logic
+    // must not double-add it.
+    use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.cloud_providers = vec![CloudProviderCreds {
+        id: "openhuman-stored".into(),
+        slug: "openhuman".into(),
+        label: "OpenHuman (stored)".into(),
+        endpoint: "https://api.tinyhumans.ai".into(),
+        auth_style: AuthStyle::OpenhumanJwt,
+        default_model: Some("reasoning-v1".into()),
+        ..Default::default()
+    }];
+
+    let patch = ModelSettingsPatch {
+        cloud_providers: Some(vec![CloudProviderCreds {
+            id: "openhuman-from-patch".into(),
+            slug: "openhuman".into(),
+            label: "OpenHuman (from patch)".into(),
+            endpoint: "https://api.tinyhumans.ai".into(),
+            auth_style: AuthStyle::OpenhumanJwt,
+            default_model: Some("reasoning-v1".into()),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
+
+    // Exactly one "openhuman" entry survives; the patch's version wins
+    // (since it was already in `providers` before preservation ran).
+    let count = cfg
+        .cloud_providers
+        .iter()
+        .filter(|e| e.slug == "openhuman")
+        .count();
+    assert_eq!(count, 1, "no duplicate reserved-slug entries");
+    let entry = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "openhuman")
+        .unwrap();
+    assert_eq!(entry.id, "openhuman-from-patch");
 }
 
 #[tokio::test]
@@ -341,6 +687,62 @@ async fn apply_browser_settings_updates_enabled_flag() {
 }
 
 #[tokio::test]
+async fn apply_local_ai_settings_updates_lm_studio_provider_fields() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.local_ai.model_id = "old-default".into();
+    cfg.local_ai.chat_model_id = "old-chat".into();
+
+    let patch = LocalAiSettingsPatch {
+        runtime_enabled: Some(true),
+        opt_in_confirmed: Some(true),
+        provider: Some("lm-studio".into()),
+        base_url: Some(" http://localhost:1234/v1/ ".into()),
+        model_id: Some(" local-default ".into()),
+        chat_model_id: Some(" local-chat ".into()),
+        usage_embeddings: Some(true),
+        usage_heartbeat: Some(true),
+        usage_learning_reflection: Some(false),
+        usage_subconscious: Some(true),
+    };
+
+    let outcome = apply_local_ai_settings(&mut cfg, patch)
+        .await
+        .expect("apply local ai");
+
+    assert!(cfg.local_ai.runtime_enabled);
+    assert!(cfg.local_ai.opt_in_confirmed);
+    assert_eq!(cfg.local_ai.provider, "lm_studio");
+    assert_eq!(
+        cfg.local_ai.base_url.as_deref(),
+        Some("http://localhost:1234/v1/")
+    );
+    assert_eq!(cfg.local_ai.model_id, "local-default");
+    assert_eq!(cfg.local_ai.chat_model_id, "local-chat");
+    assert!(cfg.local_ai.usage.embeddings);
+    assert!(cfg.local_ai.usage.heartbeat);
+    assert!(!cfg.local_ai.usage.learning_reflection);
+    assert!(cfg.local_ai.usage.subconscious);
+    assert_eq!(outcome.value["config"]["local_ai"]["provider"], "lm_studio");
+
+    let clear_and_fallback = LocalAiSettingsPatch {
+        provider: Some("unknown-provider".into()),
+        base_url: Some("   ".into()),
+        model_id: Some("   ".into()),
+        chat_model_id: Some("".into()),
+        ..LocalAiSettingsPatch::default()
+    };
+    apply_local_ai_settings(&mut cfg, clear_and_fallback)
+        .await
+        .expect("clear local ai");
+
+    assert_eq!(cfg.local_ai.provider, "ollama");
+    assert!(cfg.local_ai.base_url.is_none());
+    assert_eq!(cfg.local_ai.model_id, "");
+    assert_eq!(cfg.local_ai.chat_model_id, "");
+}
+
+#[tokio::test]
 async fn apply_analytics_settings_updates_enabled() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
@@ -413,7 +815,7 @@ async fn get_config_snapshot_wraps_snapshot_in_rpc_outcome() {
 
 #[tokio::test]
 async fn load_and_apply_dictation_settings_rejects_invalid_activation_mode() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -435,7 +837,7 @@ async fn load_and_apply_dictation_settings_rejects_invalid_activation_mode() {
 
 #[tokio::test]
 async fn load_and_apply_voice_server_settings_rejects_invalid_activation_mode() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -460,7 +862,7 @@ async fn load_and_apply_voice_server_settings_rejects_invalid_activation_mode() 
 
 #[tokio::test]
 async fn load_and_apply_dictation_settings_accepts_valid_modes() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -486,7 +888,7 @@ async fn load_and_apply_dictation_settings_accepts_valid_modes() {
 
 #[tokio::test]
 async fn load_and_apply_voice_server_settings_accepts_valid_modes_and_clamps() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -519,7 +921,7 @@ async fn load_and_apply_voice_server_settings_accepts_valid_modes_and_clamps() {
 
 #[tokio::test]
 async fn get_dictation_settings_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -535,7 +937,7 @@ async fn get_dictation_settings_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn get_voice_server_settings_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -550,7 +952,7 @@ async fn get_voice_server_settings_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn get_onboarding_completed_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -565,7 +967,7 @@ async fn get_onboarding_completed_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn load_and_resolve_api_url_returns_api_url_in_response() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -579,7 +981,7 @@ async fn load_and_resolve_api_url_returns_api_url_in_response() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_resolve_rejects_invalid_and_defaults() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -601,7 +1003,7 @@ async fn workspace_onboarding_flag_resolve_rejects_invalid_and_defaults() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_set_rejects_invalid_names() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -619,7 +1021,7 @@ async fn workspace_onboarding_flag_set_rejects_invalid_names() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_set_round_trip() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -637,4 +1039,92 @@ async fn workspace_onboarding_flag_set_round_trip() {
     unsafe {
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
+}
+
+#[tokio::test]
+async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    let set = ModelSettingsPatch {
+        inference_url: Some(" https://llm.example.test/v1 ".into()),
+        primary_cloud: Some(" provider-a ".into()),
+        reasoning_provider: Some(" provider-reasoning ".into()),
+        agentic_provider: Some(" provider-agentic ".into()),
+        coding_provider: Some(" provider-coding ".into()),
+        memory_provider: Some(" provider-memory ".into()),
+        embeddings_provider: Some(" provider-embed ".into()),
+        heartbeat_provider: Some(" provider-heartbeat ".into()),
+        learning_provider: Some(" provider-learning ".into()),
+        subconscious_provider: Some(" provider-sub ".into()),
+        ..Default::default()
+    };
+    apply_model_settings(&mut cfg, set)
+        .await
+        .expect("set providers");
+    assert_eq!(
+        cfg.inference_url.as_deref(),
+        Some("https://llm.example.test/v1")
+    );
+    assert_eq!(cfg.primary_cloud.as_deref(), Some("provider-a"));
+    assert_eq!(
+        cfg.reasoning_provider.as_deref(),
+        Some("provider-reasoning")
+    );
+    assert_eq!(cfg.subconscious_provider.as_deref(), Some("provider-sub"));
+
+    let clear = ModelSettingsPatch {
+        inference_url: Some("   ".into()),
+        primary_cloud: Some("".into()),
+        reasoning_provider: Some(" ".into()),
+        agentic_provider: Some(" ".into()),
+        coding_provider: Some(" ".into()),
+        memory_provider: Some(" ".into()),
+        embeddings_provider: Some(" ".into()),
+        heartbeat_provider: Some(" ".into()),
+        learning_provider: Some(" ".into()),
+        subconscious_provider: Some(" ".into()),
+        ..Default::default()
+    };
+    apply_model_settings(&mut cfg, clear)
+        .await
+        .expect("clear providers");
+    assert!(cfg.inference_url.is_none());
+    assert!(cfg.primary_cloud.is_none());
+    assert!(cfg.reasoning_provider.is_none());
+    assert!(cfg.agentic_provider.is_none());
+    assert!(cfg.coding_provider.is_none());
+    assert!(cfg.memory_provider.is_none());
+    assert!(cfg.embeddings_provider.is_none());
+    assert!(cfg.heartbeat_provider.is_none());
+    assert!(cfg.learning_provider.is_none());
+    assert!(cfg.subconscious_provider.is_none());
+}
+
+#[tokio::test]
+async fn apply_screen_intelligence_settings_clamps_baseline_fps() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    apply_screen_intelligence_settings(
+        &mut cfg,
+        ScreenIntelligenceSettingsPatch {
+            baseline_fps: Some(99.0),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("high clamp");
+    assert!((cfg.screen_intelligence.baseline_fps - 30.0).abs() < f32::EPSILON);
+
+    apply_screen_intelligence_settings(
+        &mut cfg,
+        ScreenIntelligenceSettingsPatch {
+            baseline_fps: Some(0.01),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("low clamp");
+    assert!((cfg.screen_intelligence.baseline_fps - 0.2).abs() < f32::EPSILON);
 }

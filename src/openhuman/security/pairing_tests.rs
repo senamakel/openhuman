@@ -5,27 +5,27 @@ use tokio::test;
 
 #[test]
 async fn new_guard_generates_code_when_no_tokens() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     assert!(guard.pairing_code().is_some());
     assert!(!guard.is_paired());
 }
 
 #[test]
 async fn new_guard_no_code_when_tokens_exist() {
-    let guard = PairingGuard::new(true, &["zc_existing".into()]);
+    let (guard, _) = PairingGuard::new(true, &["zc_existing".into()]);
     assert!(guard.pairing_code().is_none());
     assert!(guard.is_paired());
 }
 
 #[test]
 async fn new_guard_no_code_when_pairing_disabled() {
-    let guard = PairingGuard::new(false, &[]);
+    let (guard, _) = PairingGuard::new(false, &[]);
     assert!(guard.pairing_code().is_none());
 }
 
 #[test]
 async fn try_pair_correct_code() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     let code = guard.pairing_code().unwrap().to_string();
     let token = guard.try_pair(&code).await.unwrap();
     assert!(token.is_some());
@@ -35,7 +35,7 @@ async fn try_pair_correct_code() {
 
 #[test]
 async fn try_pair_wrong_code() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     let result = guard.try_pair("000000").await.unwrap();
     // Might succeed if code happens to be 000000, but extremely unlikely
     // Just check it returns Ok(None) normally
@@ -44,14 +44,14 @@ async fn try_pair_wrong_code() {
 
 #[test]
 async fn try_pair_empty_code() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     assert!(guard.try_pair("").await.unwrap().is_none());
 }
 
 #[test]
 async fn is_authenticated_with_valid_token() {
     // Pass plaintext token — PairingGuard hashes it on load
-    let guard = PairingGuard::new(true, &["zc_valid".into()]);
+    let (guard, _) = PairingGuard::new(true, &["zc_valid".into()]);
     assert!(guard.is_authenticated("zc_valid"));
 }
 
@@ -59,26 +59,45 @@ async fn is_authenticated_with_valid_token() {
 async fn is_authenticated_with_prehashed_token() {
     // Pass an already-hashed token (64 hex chars)
     let hashed = hash_token("zc_valid");
-    let guard = PairingGuard::new(true, &[hashed]);
+    let (guard, _) = PairingGuard::new(true, &[hashed]);
     assert!(guard.is_authenticated("zc_valid"));
 }
 
 #[test]
 async fn is_authenticated_with_invalid_token() {
-    let guard = PairingGuard::new(true, &["zc_valid".into()]);
+    let (guard, _) = PairingGuard::new(true, &["zc_valid".into()]);
     assert!(!guard.is_authenticated("zc_invalid"));
 }
 
 #[test]
-async fn is_authenticated_when_pairing_disabled() {
-    let guard = PairingGuard::new(false, &[]);
-    assert!(guard.is_authenticated("anything"));
-    assert!(guard.is_authenticated(""));
+async fn empty_token_rejected_when_require_pairing_false() {
+    let (guard, _) = PairingGuard::new(false, &[]);
+    assert!(!guard.is_authenticated(""));
+    assert!(!guard.is_authenticated("   "));
+}
+
+#[test]
+async fn empty_token_rejected_when_require_pairing_true() {
+    let (guard, _) = PairingGuard::new(true, &["zc_valid".into()]);
+    assert!(!guard.is_authenticated(""));
+}
+
+#[test]
+async fn is_authenticated_rejects_unknown_when_pairing_disabled_and_no_tokens() {
+    let (guard, _) = PairingGuard::new(false, &[]);
+    assert!(!guard.is_authenticated("anything"));
+}
+
+#[test]
+async fn is_authenticated_honors_configured_tokens_when_pairing_disabled() {
+    let (guard, _) = PairingGuard::new(false, &["zc_dev".into()]);
+    assert!(guard.is_authenticated("zc_dev"));
+    assert!(!guard.is_authenticated("zc_other"));
 }
 
 #[test]
 async fn tokens_returns_hashes() {
-    let guard = PairingGuard::new(true, &["zc_a".into(), "zc_b".into()]);
+    let (guard, _) = PairingGuard::new(true, &["zc_a".into(), "zc_b".into()]);
     let tokens = guard.tokens();
     assert_eq!(tokens.len(), 2);
     // Tokens should be stored as 64-char hex hashes, not plaintext
@@ -91,7 +110,7 @@ async fn tokens_returns_hashes() {
 
 #[test]
 async fn pair_then_authenticate() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     let code = guard.pairing_code().unwrap().to_string();
     let token = guard.try_pair(&code).await.unwrap().unwrap();
     assert!(guard.is_authenticated(&token));
@@ -144,6 +163,54 @@ async fn zero_zero_is_public() {
 async fn real_ip_is_public() {
     assert!(is_public_bind("192.168.1.100"));
     assert!(is_public_bind("10.0.0.1"));
+}
+
+// ── Core RPC bind token ──────────────────────────────────
+
+#[test]
+async fn public_bind_without_env_token_auto_generates() {
+    let tmp = std::env::temp_dir().join(format!("pairing-bind-test-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let token = ensure_core_rpc_token_for_bind("0.0.0.0", &tmp, None)
+        .expect("public bind should auto-generate a token")
+        .expect("public bind should return Some(token)");
+    assert_eq!(token.len(), 64);
+    assert!(token.chars().all(|c| c.is_ascii_hexdigit()));
+    let from_disk = std::fs::read_to_string(tmp.join("core.token")).unwrap();
+    assert_eq!(from_disk, token);
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+#[test]
+async fn public_bind_rejects_explicit_empty_env_token() {
+    let tmp = std::env::temp_dir().join(format!("pairing-bind-empty-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let err = ensure_core_rpc_token_for_bind("0.0.0.0", &tmp, Some("   "))
+        .expect_err("empty env token on public bind must fail");
+    assert!(matches!(err, CoreBindTokenError::EmptyEnvToken { .. }));
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+#[test]
+async fn loopback_bind_without_env_token_returns_none() {
+    let tmp = std::env::temp_dir().join(format!("pairing-bind-loopback-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let token = ensure_core_rpc_token_for_bind("127.0.0.1", &tmp, None).unwrap();
+    assert!(token.is_none());
+    assert!(!tmp.join("core.token").exists());
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+#[test]
+async fn public_bind_uses_nonempty_env_token_without_writing_file() {
+    let tmp = std::env::temp_dir().join(format!("pairing-bind-env-token-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let token = ensure_core_rpc_token_for_bind("0.0.0.0", &tmp, Some("  abc123  "))
+        .unwrap()
+        .expect("env token should be returned");
+    assert_eq!(token, "abc123");
+    assert!(!tmp.join("core.token").exists());
+    std::fs::remove_dir_all(&tmp).ok();
 }
 
 // ── constant_time_eq ─────────────────────────────────────
@@ -203,7 +270,7 @@ async fn generate_token_has_prefix_and_hex_payload() {
 
 #[test]
 async fn brute_force_lockout_after_max_attempts() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     // Exhaust all attempts with wrong codes
     for i in 0..MAX_PAIR_ATTEMPTS {
         let result = guard.try_pair(&format!("wrong_{i}")).await;
@@ -225,7 +292,7 @@ async fn brute_force_lockout_after_max_attempts() {
 
 #[test]
 async fn correct_code_resets_failed_attempts() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     let code = guard.pairing_code().unwrap().to_string();
     // Fail a few times
     for _ in 0..3 {
@@ -238,7 +305,7 @@ async fn correct_code_resets_failed_attempts() {
 
 #[test]
 async fn lockout_returns_remaining_seconds() {
-    let guard = PairingGuard::new(true, &[]);
+    let (guard, _) = PairingGuard::new(true, &[]);
     for _ in 0..MAX_PAIR_ATTEMPTS {
         let _ = guard.try_pair("wrong").await;
     }

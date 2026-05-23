@@ -68,9 +68,18 @@ let primed = false;
  * Mark `userScopedStorage` as primed with the boot-time active user id.
  *
  * Called once by `main.tsx` after `getActiveUserIdFromCore()` returns.
- * Pass `null` for "no user logged in yet" — storage reads/writes then
- * fall through as no-ops until a real id is supplied later via
- * `setActiveUserId`.
+ * Pass `null` for "core couldn't tell us who's active" — most commonly:
+ *
+ *   1. fresh device with no local `~/.openhuman/active_user.toml`
+ *   2. cloud-mode boot where the local Rust core isn't running at all
+ *   3. transient `getActiveUserIdFromCore` failure (`.catch(() => prime(null))`)
+ *
+ * In any of those cases we **fall back** to whatever `OPENHUMAN_ACTIVE_USER_ID`
+ * already has in plain `localStorage` from a prior `setActiveUserId` write
+ * rather than wiping it. Without this fallback, `handleIdentityFlip`'s
+ * `setActiveUserId(X) → restartApp` cycle is reset on every reload (because
+ * the next boot's `prime(null)` removes X again), trapping cloud-mode users
+ * in an infinite picker → snapshot → flip → reload loop.
  *
  * Safe to call before `setActiveUserId` for an initial seed; subsequent
  * `primeActiveUserId(...)` calls have no effect (the gate is one-shot).
@@ -78,15 +87,16 @@ let primed = false;
 export function primeActiveUserId(id: string | null): void {
   if (primed) return;
   primed = true;
-  activeUserId = id;
-  try {
-    if (id) {
+  if (id) {
+    activeUserId = id;
+    try {
       localStorage.setItem(ACTIVE_USER_KEY, id);
-    } else {
-      localStorage.removeItem(ACTIVE_USER_KEY);
+    } catch {
+      // localStorage may be unavailable; in-memory ref still drives reads
     }
-  } catch {
-    // localStorage may be unavailable; in-memory ref still drives reads
+  } else {
+    // Don't wipe — keep whatever a prior session wrote.
+    activeUserId = safeGetActiveUserIdSync();
   }
   activeUserIdResolve();
 }
@@ -169,6 +179,66 @@ function namespacedKey(key: string): string | null {
   return `${activeUserId}:${key}`;
 }
 
+const SENSITIVE_PERSIST_KEYS = new Set(['sessionToken', 'token', 'accessToken', 'refreshToken']);
+
+function redactSensitivePersistValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitivePersistValue);
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (SENSITIVE_PERSIST_KEYS.has(key)) {
+      continue;
+    }
+    next[key] = redactSensitivePersistValue(child);
+  }
+  return next;
+}
+
+function sanitizePersistBlob(value: string): string {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return value;
+    }
+
+    let changed = false;
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(parsed)) {
+      if (SENSITIVE_PERSIST_KEYS.has(key)) {
+        changed = true;
+        continue;
+      }
+
+      if (typeof child === 'string') {
+        try {
+          const nested = JSON.parse(child);
+          const redacted = redactSensitivePersistValue(nested);
+          const nextChild = JSON.stringify(redacted);
+          sanitized[key] = nextChild;
+          changed ||= nextChild !== child;
+          continue;
+        } catch {
+          // redux-persist stores many slice fields as JSON strings, but plain
+          // strings are valid too; leave non-JSON strings untouched.
+        }
+      }
+
+      const redacted = redactSensitivePersistValue(child);
+      sanitized[key] = redacted;
+      changed ||= redacted !== child;
+    }
+
+    return changed ? JSON.stringify(sanitized) : value;
+  } catch {
+    return value;
+  }
+}
+
 /**
  * `Storage`-shaped object compatible with redux-persist's storage contract.
  * Methods return promises because redux-persist treats storage as async.
@@ -189,7 +259,7 @@ export const userScopedStorage = {
     const ns = namespacedKey(key);
     if (!ns) return;
     try {
-      localStorage.setItem(ns, value);
+      localStorage.setItem(ns, sanitizePersistBlob(value));
     } catch {
       // ignore quota / unavailable
     }

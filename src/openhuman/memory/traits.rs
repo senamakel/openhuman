@@ -5,7 +5,10 @@
 //! types used for representing and organizing memories.
 
 use async_trait::async_trait;
+use parking_lot::Mutex;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Represents a single stored memory entry with associated metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,15 +59,35 @@ impl std::fmt::Display for MemoryCategory {
 
 /// Optional filters for `Memory::recall`.
 ///
-/// All fields default to `None`. `namespace = None` uses the backend's legacy
-/// default namespace (`GLOBAL_NAMESPACE`). Pass `Some("namespace")` to scope
-/// the semantic query to a specific namespace.
+/// All fields default to `None` / `false`. `namespace = None` uses the
+/// backend's legacy default namespace (`GLOBAL_NAMESPACE`). Pass
+/// `Some("namespace")` to scope the semantic query to a specific namespace.
+///
+/// ## Cross-session recall (#1505)
+///
+/// `cross_session = true` asks the backend to surface conversational
+/// (episodic) hits from OTHER sessions belonging to the same workspace,
+/// alongside any current-session hits when `session_id` is also set. This
+/// is what lets a fresh chat recover context the user shared in a prior
+/// chat without waiting for the transcript-ingest threshold to fire.
+///
+/// User scope is enforced by the SQLite database living at
+/// `<workspace>/memory/...` — one workspace == one user — so `cross_session`
+/// can never cross a user/workspace boundary. When `session_id` is `Some`,
+/// the matching session is excluded from the cross-session sweep (its
+/// entries are already pulled via the same-session episodic path) so the
+/// caller doesn't double-count the current chat's history.
 #[derive(Debug, Default, Clone)]
 pub struct RecallOpts<'a> {
     pub namespace: Option<&'a str>,
     pub category: Option<MemoryCategory>,
     pub session_id: Option<&'a str>,
     pub min_score: Option<f64>,
+    /// When `true`, include conversational hits from other sessions in
+    /// the same workspace alongside the namespace recall. Defaults to
+    /// `false` so existing callers see no behavior change. See struct
+    /// docs for scope-safety details.
+    pub cross_session: bool,
 }
 
 /// Summary row returned by `Memory::namespace_summaries`, used for
@@ -107,6 +130,28 @@ pub trait Memory: Send + Sync {
         opts: RecallOpts<'_>,
     ) -> anyhow::Result<Vec<MemoryEntry>>;
 
+    /// Recall documents in `namespace` semantically relevant to `query`, keeping
+    /// only those whose *vector* similarity to the query is at least
+    /// `min_vector_similarity`. Returns `(key, content)` pairs, most-relevant
+    /// first — the key lets callers act on the matched entry (e.g. overwrite a
+    /// contradicting preference by its topic).
+    ///
+    /// Unlike [`Self::recall`] (which ranks on a combined keyword + vector +
+    /// freshness score), this gates on the vector component alone, so an
+    /// unrelated query surfaces nothing — the behaviour Lane-B situational
+    /// preferences need. Default returns empty so keyword-only and mock backends
+    /// opt out; the unified store overrides it.
+    async fn recall_relevant_by_vector(
+        &self,
+        namespace: &str,
+        query: &str,
+        limit: usize,
+        min_vector_similarity: f64,
+    ) -> anyhow::Result<Vec<(String, String)>> {
+        let _ = (namespace, query, limit, min_vector_similarity);
+        Ok(Vec::new())
+    }
+
     /// Retrieves a specific memory entry by exact (namespace, key).
     async fn get(&self, namespace: &str, key: &str) -> anyhow::Result<Option<MemoryEntry>>;
 
@@ -131,6 +176,17 @@ pub trait Memory: Send + Sync {
 
     /// Performs a health check on the underlying storage system.
     async fn health_check(&self) -> bool;
+
+    /// Return the shared SQLite connection when the backend is `UnifiedMemory`.
+    ///
+    /// Used by subsystems (e.g. `ArchivistHook`) that need direct SQLite
+    /// access for FTS5 / segment writes without going through the async
+    /// `Memory` trait.
+    ///
+    /// Default: `None`. Only `UnifiedMemory` overrides this.
+    fn sqlite_conn(&self) -> Option<Arc<Mutex<Connection>>> {
+        None
+    }
 }
 
 #[cfg(test)]

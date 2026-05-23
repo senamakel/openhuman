@@ -12,11 +12,50 @@ use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
+use crate::openhuman::composio::providers::profile::{is_self_identity_any_toolkit, IdentityKind};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree::score::extract::EntityKind;
 use crate::openhuman::memory::tree::score::resolver::CanonicalEntity;
 use crate::openhuman::memory::tree::score::signals::ScoreSignals;
 use crate::openhuman::memory::tree::store::with_connection;
+
+/// Map a memory-tree `EntityKind` to the Composio identity-registry
+/// [`IdentityKind`] used for self-matching, or `None` for kinds that
+/// don't represent identity (Url, Hashtag, Topic, Org, Loc, ...). `Person`
+/// is intentionally omitted — display-name matches are weak and would
+/// false-positive any contact with a similar name.
+fn entity_kind_to_identity_kind(k: EntityKind) -> Option<IdentityKind> {
+    Some(match k {
+        EntityKind::Email => IdentityKind::Email,
+        EntityKind::Handle => IdentityKind::Handle,
+        _ => return None,
+    })
+}
+
+/// Resolve `is_user` for one canonical entity — true iff the surface
+/// matches a self-handle of a matchable kind in the identity registry.
+fn entity_is_user(entity: &CanonicalEntity) -> bool {
+    let Some(kind) = entity_kind_to_identity_kind(entity.kind) else {
+        return false;
+    };
+    is_self_identity_any_toolkit(kind, &entity.surface)
+}
+
+/// Same as [`entity_is_user`] but for the summary-index path where only
+/// the canonical id (`"<kind>:<value>"`) is in scope. Returns `false` if
+/// the id is malformed or the kind isn't matchable.
+fn canonical_id_is_user(canonical_id: &str) -> bool {
+    let Some((kind_str, value)) = canonical_id.split_once(':') else {
+        return false;
+    };
+    let Ok(kind) = EntityKind::parse(kind_str) else {
+        return false;
+    };
+    let Some(idk) = entity_kind_to_identity_kind(kind) else {
+        return false;
+    };
+    is_self_identity_any_toolkit(idk, value)
+}
 
 /// Serialized per-chunk score rationale. Mirrors the `mem_tree_score` row.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -142,12 +181,13 @@ pub fn index_entity(
     timestamp_ms: i64,
     tree_id: Option<&str>,
 ) -> Result<()> {
+    let is_user = entity_is_user(entity);
     with_connection(config, |conn| {
         conn.execute(
             "INSERT OR REPLACE INTO mem_tree_entity_index (
                 entity_id, node_id, node_kind, entity_kind, surface,
-                score, timestamp_ms, tree_id
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                score, timestamp_ms, tree_id, is_user
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 entity.canonical_id,
                 node_id,
@@ -157,6 +197,7 @@ pub fn index_entity(
                 entity.score,
                 timestamp_ms,
                 tree_id,
+                is_user as i32,
             ],
         )?;
         Ok(())
@@ -181,8 +222,8 @@ pub fn index_entities(
             let mut stmt = tx.prepare(
                 "INSERT OR REPLACE INTO mem_tree_entity_index (
                     entity_id, node_id, node_kind, entity_kind, surface,
-                    score, timestamp_ms, tree_id
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    score, timestamp_ms, tree_id, is_user
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             )?;
             for e in entities {
                 stmt.execute(params![
@@ -194,6 +235,7 @@ pub fn index_entities(
                     e.score,
                     timestamp_ms,
                     tree_id,
+                    entity_is_user(e) as i32,
                 ])?;
             }
         }
@@ -250,8 +292,8 @@ pub(crate) fn index_summary_entity_ids_tx(
     let mut stmt = tx.prepare(
         "INSERT OR REPLACE INTO mem_tree_entity_index (
             entity_id, node_id, node_kind, entity_kind, surface,
-            score, timestamp_ms, tree_id
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            score, timestamp_ms, tree_id, is_user
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
     for canonical_id in entity_ids {
         // Canonical ids follow Phase 2's "<kind>:<value>" convention.
@@ -277,6 +319,7 @@ pub(crate) fn index_summary_entity_ids_tx(
             score,
             timestamp_ms,
             tree_id,
+            canonical_id_is_user(canonical_id) as i32,
         ])?;
     }
     Ok(entity_ids.len())
@@ -296,8 +339,8 @@ pub(crate) fn index_entities_tx(
     let mut stmt = tx.prepare(
         "INSERT OR REPLACE INTO mem_tree_entity_index (
             entity_id, node_id, node_kind, entity_kind, surface,
-            score, timestamp_ms, tree_id
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            score, timestamp_ms, tree_id, is_user
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
     for e in entities {
         stmt.execute(params![
@@ -309,6 +352,7 @@ pub(crate) fn index_entities_tx(
             e.score,
             timestamp_ms,
             tree_id,
+            entity_is_user(e) as i32,
         ])?;
     }
     Ok(entities.len())
@@ -325,6 +369,12 @@ pub struct EntityHit {
     pub score: f32,
     pub timestamp_ms: i64,
     pub tree_id: Option<String>,
+    /// #1365: true when the canonical id matched the Composio identity
+    /// registry at index time (e.g. `email:cyrus@example.com` matches the
+    /// user's Gmail). Subconscious filters/weights by this flag so
+    /// first-person reflections only quote first-person sources.
+    #[serde(default)]
+    pub is_user: bool,
 }
 
 /// Find all nodes indexed against `entity_id`, newest first.
@@ -339,7 +389,7 @@ pub fn lookup_entity(
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT entity_id, node_id, node_kind, entity_kind, surface,
-                    score, timestamp_ms, tree_id
+                    score, timestamp_ms, tree_id, is_user
              FROM mem_tree_entity_index
              WHERE entity_id = ?1
              ORDER BY timestamp_ms DESC
@@ -355,6 +405,7 @@ pub fn lookup_entity(
                         e.into(),
                     )
                 })?;
+                let is_user_int: i32 = row.get(8)?;
                 Ok(EntityHit {
                     entity_id: row.get(0)?,
                     node_id: row.get(1)?,
@@ -364,6 +415,7 @@ pub fn lookup_entity(
                     score: row.get(5)?,
                     timestamp_ms: row.get(6)?,
                     tree_id: row.get(7)?,
+                    is_user: is_user_int != 0,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;

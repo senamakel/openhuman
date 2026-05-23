@@ -79,6 +79,9 @@ fn all_variants_have_correct_domain() {
                 event_name: "telegram:message".into(),
                 channel: "telegram".into(),
                 message: "hi".into(),
+                sender: None,
+                reply_target: None,
+                thread_ts: None,
                 raw_data: serde_json::Value::Null,
             },
             "channel",
@@ -177,7 +180,7 @@ fn all_variants_have_correct_domain() {
         (
             DomainEvent::SkillLoaded {
                 skill_id: "s".into(),
-                runtime: "quickjs".into(),
+                runtime: "nodejs".into(),
             },
             "skill",
         ),
@@ -307,6 +310,13 @@ fn all_variants_have_correct_domain() {
             },
             "composio",
         ),
+        (
+            DomainEvent::ComposioConfigChanged {
+                mode: "direct".into(),
+                api_key_set: true,
+            },
+            "composio",
+        ),
         // Triage
         (
             DomainEvent::TriggerEvaluated {
@@ -414,6 +424,37 @@ fn all_variants_have_correct_domain() {
                 component: "c".into(),
             },
             "system",
+        ),
+        // Memory tree
+        (
+            DomainEvent::DocumentCanonicalized {
+                source_id: "gmail:abc".into(),
+                source_kind: "email".into(),
+                chunks_written: 3,
+                chunk_ids: vec!["c1".into(), "c2".into(), "c3".into()],
+                canonicalized_at: 1_700_000_000.0,
+                body_preview: Some("Thanks,\nAlice".into()),
+            },
+            "memory",
+        ),
+        // Learning
+        (
+            DomainEvent::CacheRebuilt {
+                added: 2,
+                evicted: 1,
+                kept: 5,
+                total_size: 7,
+                rebuilt_at: 1_700_000_000.0,
+            },
+            "learning",
+        ),
+        // Auth
+        (
+            DomainEvent::SessionExpired {
+                source: "test".into(),
+                reason: "401".into(),
+            },
+            "auth",
         ),
     ];
 

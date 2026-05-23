@@ -1,146 +1,51 @@
 // @ts-nocheck
 /**
- * End-to-end: core JSON-RPC skill runtime (UI WebView → HTTP POST to sidecar) plus Skills UI smoke.
- * Mirrors the Rust integration test `json_rpc_skills_runtime_start_tools_call_stop` (tests/json_rpc_e2e.rs).
+ * Skill discovery end-to-end (UI shell + core JSON-RPC).
  *
- * JSON-RPC `result` shapes match that test: `skills_start` → `SkillSnapshot` (e.g. `status`, `skill_id`);
- * `skills_call_tool` → `ToolResult` (`content[]`); `skills_stop` → `{ success, skill_id }`. Not wrapped in `{ skill }` / `{ result }`.
- *
- * Issue #68 also asks for model→agent→tool→conversation; that path is environment- and LLM-dependent.
- * This spec validates the **skill runtime + RPC + Skills shell** deterministically; full chat tool-calls belong
- * in agent integration tests when the mock/backend can return structured tool_calls.
+ * The QuickJS/rquickjs skill execution runtime was removed (RC-7).
+ * This spec validates:
+ *   1. The app lands on a logged-in shell.
+ *   2. Core RPC (core.ping) is reachable over the same JSON-RPC URL the UI uses.
+ *   3. The Skills UI surface renders and shows the skills catalog.
  */
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  dumpAccessibilityTree,
-  textExists,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
-import { supportsExecuteScript } from '../helpers/platform';
-import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
-import {
-  E2E_RUNTIME_SKILL_ID,
-  removeSeededEchoSkill,
-  seedMinimalEchoSkill,
-} from '../helpers/skill-e2e-runtime';
-import { clearRequestLog, getRequestLog, startMockServer, stopMockServer } from '../mock-server';
+import { dumpAccessibilityTree, textExists } from '../helpers/element-helpers';
+import { resetApp } from '../helpers/reset-app';
+import { navigateToSkills } from '../helpers/shared-flows';
+import { getRequestLog, startMockServer, stopMockServer } from '../mock-server';
 
-function stepLog(message: string, context?: unknown): void {
-  const stamp = new Date().toISOString();
-  if (context === undefined) {
-    console.log(`[SkillExecutionE2E][${stamp}] ${message}`);
-    return;
-  }
-  console.log(`[SkillExecutionE2E][${stamp}] ${message}`, JSON.stringify(context, null, 2));
-}
+const USER_ID = 'e2e-skill-execution';
 
-describe('Skill execution (UI + core RPC)', () => {
+describe('Skill discovery (UI + core RPC)', () => {
   before(async () => {
-    stepLog('Seeding minimal echo skill on disk');
-    await seedMinimalEchoSkill();
     await startMockServer();
     await waitForApp();
-    clearRequestLog();
+    await resetApp(USER_ID);
   });
 
   after(async () => {
     await stopMockServer();
-    await removeSeededEchoSkill();
   });
 
-  it('authenticates and reaches a logged-in shell', async () => {
-    await triggerAuthDeepLinkBypass('e2e-skill-execution-token');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[SkillExecutionE2E]');
+  it('lands the user on a logged-in shell', async () => {
     const atHome =
-      (await textExists('Message OpenHuman')) ||
-      (await textExists('Good morning')) ||
-      (await textExists('Upgrade to Premium'));
+      (await textExists('Ask your assistant anything')) ||
+      (await textExists('Your device is connected'));
     expect(atHome).toBe(true);
   });
 
-  it('core.ping responds over the same JSON-RPC URL as the UI', async () => {
+  it('core.ping responds over the same JSON-RPC URL the UI uses', async () => {
     const ping = await callOpenhumanRpc('core.ping', {});
-    if (!ping.ok) {
-      stepLog('core.ping failed', ping);
-    }
     expect(ping.ok).toBe(true);
   });
 
-  it('runs start → list_tools → call_tool → stop for the seeded echo skill', async () => {
-    const start = await callOpenhumanRpc('openhuman.skills_start', {
-      skill_id: E2E_RUNTIME_SKILL_ID,
-    });
-    if (!start.ok) {
-      stepLog('skills_start failed', start);
-      stepLog('Request log (mock API):', getRequestLog());
-    }
-    expect(start.ok).toBe(true);
-    const status = start.result?.status;
-    expect(status === 'running' || status === 'initializing').toBe(true);
-
-    await browser.pause(800);
-
-    const tools = await callOpenhumanRpc('openhuman.skills_list_tools', {
-      skill_id: E2E_RUNTIME_SKILL_ID,
-    });
-    expect(tools.ok).toBe(true);
-    const toolNames = (tools.result?.tools || []).map((t: { name?: string }) => t.name);
-    expect(toolNames.includes('echo')).toBe(true);
-
-    const call = await callOpenhumanRpc('openhuman.skills_call_tool', {
-      skill_id: E2E_RUNTIME_SKILL_ID,
-      tool_name: 'echo',
-      arguments: { message: 'hello from e2e skill execution' },
-    });
-    expect(call.ok).toBe(true);
-    const content = call.result?.content || [];
-    const echoed = content.some(
-      (c: { text?: string }) =>
-        typeof c?.text === 'string' && c.text.includes('hello from e2e skill execution')
-    );
-    expect(echoed).toBe(true);
-
-    const stop = await callOpenhumanRpc('openhuman.skills_stop', {
-      skill_id: E2E_RUNTIME_SKILL_ID,
-    });
-    expect(stop.ok).toBe(true);
-    expect(stop.result?.success === true).toBe(true);
-  });
-
-  it('skills_set_setup_complete + skills_status without start (OAuth persistence path)', async () => {
-    try {
-      const set = await callOpenhumanRpc('openhuman.skills_set_setup_complete', {
-        skill_id: E2E_RUNTIME_SKILL_ID,
-        complete: true,
-      });
-      expect(set.ok).toBe(true);
-
-      const st = await callOpenhumanRpc('openhuman.skills_status', {
-        skill_id: E2E_RUNTIME_SKILL_ID,
-      });
-      expect(st.ok).toBe(true);
-      expect(st.result?.setup_complete === true).toBe(true);
-    } finally {
-      await callOpenhumanRpc('openhuman.skills_set_setup_complete', {
-        skill_id: E2E_RUNTIME_SKILL_ID,
-        complete: false,
-      });
-    }
-  });
-
-  it('Skills page loads (UI surface for installed tools)', async () => {
+  it('Skills UI surface shows installed tools', async () => {
     await navigateToSkills();
     await browser.pause(2_000);
-    if (supportsExecuteScript()) {
-      const hash = await browser.execute(() => window.location.hash);
-      expect(String(hash)).toContain('/skills');
-    }
+
+    const hash = await browser.execute(() => window.location.hash);
+    expect(String(hash)).toContain('/skills');
 
     const visible =
       (await textExists('Skills')) ||
@@ -149,14 +54,9 @@ describe('Skill execution (UI + core RPC)', () => {
       (await textExists('Telegram')) ||
       (await textExists('Notion'));
     if (!visible) {
-      stepLog('Skills markers missing');
       await dumpAccessibilityTree();
-      stepLog('Request log:', getRequestLog());
+      console.error('[SkillExecutionE2E] request log:', getRequestLog());
     }
     expect(visible).toBe(true);
-  });
-
-  it.skip('(future) agent chat issues model tool_calls to echo — needs LLM + mock tool_calls', async () => {
-    // Tracked under #68: drive Conversations with a prompt that forces tool use and assert echo in thread.
   });
 });

@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::openhuman::config::UpdateRestartStrategy;
+
 /// Summary of an available update from GitHub Releases.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
@@ -52,6 +54,8 @@ pub struct UpdateRunResult {
     /// True when a self-restart was published. The process will exit
     /// shortly after the RPC response is returned.
     pub restart_requested: bool,
+    /// The configured post-stage restart contract.
+    pub restart_strategy: UpdateRestartStrategy,
     /// Human-readable summary suitable for logs / surface text.
     pub message: String,
 }
@@ -65,6 +69,8 @@ pub struct UpdateApplyResult {
     pub staged_path: String,
     /// Whether a restart is required to complete the update.
     pub restart_required: bool,
+    /// The configured post-stage restart contract.
+    pub restart_strategy: UpdateRestartStrategy,
 }
 
 /// Subset of the GitHub Releases API response we care about.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { useT } from '../../lib/i18n/I18nContext';
 import { type AccountProvider, type ProviderDescriptor, PROVIDERS } from '../../types/accounts';
 import { ProviderIcon } from './providerIcons';
 
@@ -12,6 +13,7 @@ interface AddAccountModalProps {
 }
 
 const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccountModalProps) => {
+  const { t } = useT();
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -31,20 +33,26 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
 
   return (
     <div
+      data-testid="add-account-modal"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="add-account-modal-title"
       onClick={onClose}>
       <div
-        className="w-[420px] max-w-[90vw] rounded-2xl bg-white p-6 shadow-strong"
+        className="w-[420px] max-w-[90vw] rounded-2xl bg-white dark:bg-neutral-900 p-6 shadow-strong"
         onClick={e => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-stone-900">Add account</h2>
+          <h2
+            id="add-account-modal-title"
+            className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+            {t('accounts.addModal.title')}
+          </h2>
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            className="rounded p-1 text-stone-500 hover:bg-stone-100"
-            aria-label="Close">
+            className="rounded p-1 text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60"
+            aria-label={t('common.close')}>
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -58,17 +66,20 @@ const AddAccountModal = ({ open, onClose, onPick, connectedProviders }: AddAccou
 
         <div className="space-y-1">
           {available.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-stone-200 p-6 text-center text-sm text-stone-500">
-              You've connected every supported app.
+            <div className="rounded-lg border border-dashed border-stone-200 dark:border-neutral-800 p-6 text-center text-sm text-stone-500 dark:text-neutral-400">
+              {t('accounts.addModal.allConnected')}
             </div>
           ) : (
             available.map(p => (
               <button
                 key={p.id}
+                data-testid={`add-account-provider-${p.id}`}
                 onClick={() => onPick(p)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-stone-100">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-stone-100 dark:hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-800/60">
                 <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
-                <span className="text-sm font-medium text-stone-900">{p.label}</span>
+                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                  {p.label}
+                </span>
               </button>
             ))
           )}

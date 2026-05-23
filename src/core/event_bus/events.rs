@@ -92,10 +92,22 @@ pub enum DomainEvent {
 
     // ── Channels ────────────────────────────────────────────────────────
     /// An inbound channel message from the transport layer, ready for processing.
+    ///
+    /// `sender`, `reply_target`, and `thread_ts` are carried alongside
+    /// `channel` so the agent loop can derive per-sender conversation keys
+    /// the same way `channels::context::conversation_history_key` does for
+    /// other inbound paths — keying on `channel` alone collapses distinct
+    /// senders inside a shared channel into one cached session.
     ChannelInboundMessage {
         event_name: String,
         channel: String,
         message: String,
+        #[doc = "Originating user/account id within the channel. `None` for legacy publishers that don't surface it."]
+        sender: Option<String>,
+        #[doc = "Direct-message peer or group thread the reply should go to. `None` when the channel does not distinguish."]
+        reply_target: Option<String>,
+        #[doc = "Slack/Discord thread anchor when the message is in-thread. `None` for top-level messages."]
+        thread_ts: Option<String>,
         raw_data: serde_json::Value,
     },
     /// A message was received on a channel.
@@ -202,6 +214,34 @@ pub enum DomainEvent {
         elapsed_ms: u64,
     },
 
+    // ── Approval ────────────────────────────────────────────────────────
+    /// Agent attempted a tool call that produces an external side
+    /// effect; awaiting user approval. Published by `ApprovalGate`
+    /// before parking the tool-call future. Issue #1339.
+    ApprovalRequested {
+        /// Unique id used to correlate the decision back to the
+        /// parked future.
+        request_id: String,
+        /// Tool name being gated (e.g. `"composio"`, `"pushover"`).
+        tool_name: String,
+        /// Short human-readable summary of the action, redacted of
+        /// PII/secrets/message bodies (counts/shape only).
+        action_summary: String,
+        /// Redacted JSON arguments — also stripped of raw user content.
+        args_redacted: serde_json::Value,
+        /// Session id binding the request to the current core launch
+        /// so stale approvals cannot be replayed after restart.
+        session_id: String,
+    },
+    /// User decided a pending approval. Published by `approval_decide`
+    /// RPC handler after the gate's parked future resolves.
+    ApprovalDecided {
+        request_id: String,
+        tool_name: String,
+        /// `"approve_once"`, `"approve_always_for_tool"`, or `"deny"`.
+        decision: String,
+    },
+
     // ── Webhooks ────────────────────────────────────────────────────────
     /// An incoming webhook request from the transport layer, ready for routing.
     WebhookIncomingRequest {
@@ -269,6 +309,19 @@ pub enum DomainEvent {
         error: Option<String>,
         cost_usd: f64,
         elapsed_ms: u64,
+    },
+    /// The user changed the Composio routing configuration — either the
+    /// mode (`"backend"` ↔ `"direct"`) flipped, or the direct-mode API
+    /// key was stored / cleared. Subscribers should treat any cached
+    /// tenant-scoped Composio state (connections, toolkit allowlists,
+    /// tool catalogues) as stale and re-fetch on next access. Published
+    /// by `composio_set_api_key` / `composio_clear_api_key`.
+    ComposioConfigChanged {
+        /// New routing mode after the change (`"backend"` or `"direct"`).
+        mode: String,
+        /// Whether a direct-mode API key is now present in the encrypted
+        /// store. The key itself is never carried on the event.
+        api_key_set: bool,
     },
 
     // ── Triage ──────────────────────────────────────────────────────────
@@ -378,6 +431,93 @@ pub enum DomainEvent {
         session_token: String,
     },
 
+
+    // ── Memory tree ─────────────────────────────────────────────────────
+    /// A document (chat batch, email thread, or standalone document) was
+    /// fully canonicalised and its chunks written to the memory tree.
+    ///
+    /// Emitted by `memory::tree::ingest::persist()` after the chunk upsert
+    /// and extract-job enqueue complete. Subscribers (Phase 2 producers such
+    /// as the email-signature parser) react to this to inspect the
+    /// canonicalised content.
+    DocumentCanonicalized {
+        /// The source identifier passed to the ingest call (e.g. `"gmail:abc"`,
+        /// `"conversations:agent"`).
+        source_id: String,
+        /// Kind of content — `"chat"`, `"email"`, `"document"`.
+        source_kind: String,
+        /// Number of chunks written to `vector_chunks` in this ingest.
+        chunks_written: usize,
+        /// IDs of the chunks that were written.
+        chunk_ids: Vec<String>,
+        /// Wall-clock seconds since epoch when canonicalisation completed.
+        canonicalized_at: f64,
+        /// Last ≤ 2 048 characters of the canonicalised markdown body.
+        ///
+        /// Populated for `email` and `document` sources so that lightweight
+        /// subscribers (e.g. the email-signature parser) can inspect trailing
+        /// content without hitting disk. `None` for `chat` sources where the
+        /// content is conversational and doesn't contain signature-style structure.
+        body_preview: Option<String>,
+    },
+
+    // ── Learning ─────────────────────────────────────────────────────────
+    /// The stability detector finished a full cache rebuild cycle.
+    ///
+    /// Emitted by `learning::stability_detector` (Phase 3) after writing
+    /// the new snapshot to `user_profile_facets`. Subscribers (Phase 4
+    /// `profile_md_renderer`) react to re-render the `PROFILE.md` managed
+    /// blocks.
+    CacheRebuilt {
+        /// Number of facets added in this cycle.
+        added: usize,
+        /// Number of facets evicted (below τ_evict threshold) in this cycle.
+        evicted: usize,
+        /// Number of facets unchanged / carried over.
+        kept: usize,
+        /// Total facets in the cache after the rebuild.
+        total_size: usize,
+        /// Wall-clock seconds since epoch when the rebuild completed.
+        rebuilt_at: f64,
+    },
+
+    // ── Desktop Companion ──────────────────────────────────────────────
+    /// A desktop companion session was started.
+    CompanionSessionStarted { session_id: String, ttl_secs: u64 },
+    /// The companion transitioned to a new state.
+    CompanionStateChanged {
+        session_id: String,
+        state: String,
+        previous_state: String,
+    },
+    /// A desktop companion session ended.
+    CompanionSessionEnded {
+        session_id: String,
+        reason: String,
+        turn_count: usize,
+    },
+
+    // ── MCP Clients ─────────────────────────────────────────────────────
+    /// A new MCP server was installed from the Smithery registry.
+    McpServerInstalled {
+        server_id: String,
+        qualified_name: String,
+    },
+    /// An MCP server subprocess connected and completed the initialize handshake.
+    McpServerConnected { server_id: String, tool_count: u32 },
+    /// An MCP server subprocess was disconnected or terminated.
+    McpServerDisconnected {
+        server_id: String,
+        reason: Option<String>,
+    },
+    /// An MCP client tool was invoked.
+    McpClientToolExecuted {
+        server_id: String,
+        tool_name: String,
+        success: bool,
+        elapsed_ms: u64,
+    },
+
     // ── System lifecycle ────────────────────────────────────────────────
     /// A system component started up.
     SystemStartup { component: String },
@@ -397,6 +537,19 @@ pub enum DomainEvent {
     },
     /// A component restart was observed.
     HealthRestarted { component: String },
+
+    // ── Auth ────────────────────────────────────────────────────────────
+    /// The local app session is no longer valid — typically detected when
+    /// the backend returns 401 to an LLM inference call or a JSON-RPC
+    /// method. Subscribers tear down the session and pause background
+    /// LLM-bound work until the user signs back in.
+    ///
+    /// `source` is a short slug (e.g. `"llm_provider.openhuman_backend"`,
+    /// `"jsonrpc.invoke_method"`) so subscribers and logs can attribute
+    /// the trigger. `reason` is the sanitized error message that caused
+    /// detection (already redacted by the call site) — surfaced to logs,
+    /// never to Sentry or the UI verbatim.
+    SessionExpired { source: String, reason: String },
 }
 
 impl DomainEvent {
@@ -414,7 +567,10 @@ impl DomainEvent {
             | Self::MemoryRecalled { .. }
             | Self::MemorySyncRequested { .. }
             | Self::MemoryIngestionStarted { .. }
-            | Self::MemoryIngestionCompleted { .. } => "memory",
+            | Self::MemoryIngestionCompleted { .. }
+            | Self::DocumentCanonicalized { .. } => "memory",
+
+            Self::CacheRebuilt { .. } => "learning",
 
             Self::ChannelInboundMessage { .. }
             | Self::ChannelMessageReceived { .. }
@@ -445,7 +601,8 @@ impl DomainEvent {
             Self::ComposioTriggerReceived { .. }
             | Self::ComposioConnectionCreated { .. }
             | Self::ComposioConnectionDeleted { .. }
-            | Self::ComposioActionExecuted { .. } => "composio",
+            | Self::ComposioActionExecuted { .. }
+            | Self::ComposioConfigChanged { .. } => "composio",
 
             Self::TriggerEvaluated { .. }
             | Self::TriggerEscalated { .. }
@@ -464,12 +621,25 @@ impl DomainEvent {
             | Self::DeviceTunnelFrame { .. }
             | Self::DeviceTunnelRegistered { .. } => "device",
 
+            Self::CompanionSessionStarted { .. }
+            | Self::CompanionStateChanged { .. }
+            | Self::CompanionSessionEnded { .. } => "companion",
+
             Self::SystemStartup { .. }
             | Self::SystemShutdown { .. }
             | Self::SystemRestartRequested { .. }
             | Self::SystemShutdownRequested { .. }
             | Self::HealthChanged { .. }
             | Self::HealthRestarted { .. } => "system",
+
+            Self::SessionExpired { .. } => "auth",
+
+            Self::ApprovalRequested { .. } | Self::ApprovalDecided { .. } => "approval",
+
+            Self::McpServerInstalled { .. }
+            | Self::McpServerConnected { .. }
+            | Self::McpServerDisconnected { .. }
+            | Self::McpClientToolExecuted { .. } => "mcp_client",
         }
     }
 }

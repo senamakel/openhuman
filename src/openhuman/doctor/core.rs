@@ -72,6 +72,7 @@ pub fn run(config: &Config) -> Result<DoctorReport> {
     check_workspace(config, &mut items);
     check_daemon_state(config, &mut items);
     check_environment(&mut items);
+    check_memory_tree_db(config, &mut items);
 
     let errors = items
         .iter()
@@ -123,7 +124,7 @@ pub struct ModelProbeReport {
 }
 
 fn doctor_model_targets() -> Vec<String> {
-    crate::openhuman::providers::list_providers()
+    crate::openhuman::inference::provider::list_providers()
         .into_iter()
         .map(|provider| provider.name.to_string())
         .collect()
@@ -509,17 +510,20 @@ fn available_disk_space_mb_windows(path: &Path) -> Option<u64> {
     // PowerShell is ubiquitous on supported Windows; `Get-PSDrive` needs no admin
     // and returns free bytes as a single integer line.
     let script = format!("(Get-PSDrive -Name {letter} -ErrorAction Stop).Free");
-    let output = std::process::Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            &script,
-        ])
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        &script,
+    ]);
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -729,12 +733,17 @@ fn check_command_available(
     cat: &'static str,
     items: &mut Vec<DiagnosticItem>,
 ) {
-    match std::process::Command::new(cmd)
+    let mut child_cmd = std::process::Command::new(cmd);
+    child_cmd
         .args(args)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()
+        .stderr(std::process::Stdio::piped());
+    #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
+        child_cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    match child_cmd.output() {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout)
                 .lines()
@@ -758,6 +767,70 @@ fn check_command_available(
             items.push(DiagnosticItem::warn(
                 cat,
                 format!("{cmd} not available ({err})"),
+            ));
+        }
+    }
+}
+
+// ── Memory-tree DB health ────────────────────────────────────────
+
+/// Probe the memory-tree SQLite database and push a [`DiagnosticItem`].
+///
+/// - If the DB directory / file does not exist yet: `Warn` (not yet created).
+/// - If a stale `.db-shm` file is present alongside the DB: `Warn`.
+/// - If we can open the DB and run a basic probe query: `Ok`.
+/// - If the probe fails: `Error`.
+fn check_memory_tree_db(config: &Config, items: &mut Vec<DiagnosticItem>) {
+    let cat = "memory_tree_db";
+    let db_path = config.workspace_dir.join("memory_tree").join("chunks.db");
+
+    // ── Stale side-files (checked even when chunks.db is absent) ────
+    let base_name = db_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned();
+    let shm = db_path.with_file_name(format!("{base_name}-shm"));
+    let wal = db_path.with_file_name(format!("{base_name}-wal"));
+    for sidecar in [&shm, &wal] {
+        if sidecar.exists() {
+            items.push(DiagnosticItem::warn(
+                cat,
+                format!(
+                    "stale SQLite side-file present (may indicate unclean shutdown): {}",
+                    sidecar.display()
+                ),
+            ));
+        }
+    }
+
+    // ── File existence ──────────────────────────────────────────────
+    if !db_path.exists() {
+        items.push(DiagnosticItem::warn(
+            cat,
+            format!(
+                "DB not yet created (first ingest will initialise it): {}",
+                db_path.display()
+            ),
+        ));
+        return;
+    }
+
+    // ── Probe connection ─────────────────────────────────────────────
+    match crate::openhuman::memory::tree::store::with_connection(config, |conn| {
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM mem_tree_chunks", [], |r| r.get(0))?;
+        Ok(n)
+    }) {
+        Ok(count) => {
+            items.push(DiagnosticItem::ok(
+                cat,
+                format!("DB accessible at {} ({count} chunks)", db_path.display()),
+            ));
+        }
+        Err(err) => {
+            items.push(DiagnosticItem::error(
+                cat,
+                format!("DB probe failed at {}: {err:#}", db_path.display()),
             ));
         }
     }

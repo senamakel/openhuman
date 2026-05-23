@@ -3,6 +3,7 @@
 //! This module coordinates the routing of incoming requests to either the
 //! core subsystem or the OpenHuman domain-specific handlers.
 
+use crate::core::legacy_aliases::resolve_legacy;
 use crate::core::rpc_log;
 use crate::core::types::{AppState, InvocationResult};
 use serde_json::{json, Map, Value};
@@ -35,6 +36,25 @@ pub async fn dispatch(
         method,
         rpc_log::redact_params_for_log(&params)
     );
+
+    // Tier 0: Rewrite legacy method names to their canonical form before
+    // any subsystem lookup. Symmetric with the frontend's
+    // `normalizeRpcMethod` (`app/src/services/rpcMethods.ts`): the
+    // frontend rewrites outgoing names for clients that just updated, the
+    // core rewrites incoming names for clients that haven't yet. See
+    // `crate::core::legacy_aliases` for the shared table.
+    let resolved = resolve_legacy(method);
+    if resolved != method {
+        // Per-rewrite log at debug to keep the dispatcher hot path quiet
+        // at scale (per graycyrus review on PR #1544). Aggregate
+        // visibility belongs in the observability layer, not here.
+        log::debug!(
+            "[rpc-legacy-alias] rewrite method={} -> canonical={}",
+            method,
+            resolved
+        );
+    }
+    let method = resolved;
 
     // Tier 1: Internal core methods.
     // These are handled directly within the core module and don't require
@@ -76,15 +96,72 @@ pub async fn dispatch(
 fn try_core_dispatch(
     state: &AppState,
     method: &str,
-    _params: serde_json::Value,
+    params: serde_json::Value,
 ) -> Option<Result<InvocationResult, String>> {
     match method {
         "core.ping" => Some(InvocationResult::ok(json!({ "ok": true }))),
         "core.version" => Some(InvocationResult::ok(
             json!({ "version": state.core_version }),
         )),
+        "core.events_subscribe_token" => Some(handle_events_subscribe_token(params)),
         _ => None,
     }
+}
+
+/// Mint a single-shot bind token for the SSE `/events` stream.
+///
+/// Browser `EventSource` cannot attach an `Authorization` header, so an
+/// authenticated holder of the per-process RPC bearer first asks for a
+/// short-lived token here (this RPC is gated by the same bearer-token
+/// middleware as the rest of `/rpc`) and then opens
+/// `/events?client_id=<id>&token=<bind>`. The `/events` handler removes
+/// the token from the store on first use, so a leaked URL cannot be
+/// replayed by a second subscriber.
+fn handle_events_subscribe_token(params: serde_json::Value) -> Result<InvocationResult, String> {
+    let obj = params.as_object();
+    let client_id = obj
+        .and_then(|m| m.get("client_id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            log::warn!(
+                "[events-bind] reject mint: missing or empty client_id (param_keys={:?})",
+                obj.map(|m| m.keys().collect::<Vec<_>>())
+            );
+            "missing or empty 'client_id' parameter".to_string()
+        })?;
+    let ttl = obj
+        .and_then(|m| m.get("ttl_secs"))
+        .and_then(|v| v.as_u64())
+        .map(std::time::Duration::from_secs);
+
+    let issued =
+        crate::core::event_bind_tokens::issue(client_id.to_string(), ttl).ok_or_else(|| {
+            log::warn!(
+                "[events-bind] reject mint: store at capacity (client_id_len={} ttl_secs={:?})",
+                client_id.len(),
+                ttl.map(|d| d.as_secs())
+            );
+            "events bind-token store at capacity; try again shortly".to_string()
+        })?;
+
+    let ttl_remaining_secs = issued
+        .valid_until
+        .checked_duration_since(std::time::Instant::now())
+        .unwrap_or_default()
+        .as_secs();
+
+    log::debug!(
+        "[events-bind] minted token for client_id_len={} ttl_secs={}",
+        client_id.len(),
+        ttl_remaining_secs
+    );
+
+    InvocationResult::ok(json!({
+        "token": issued.token,
+        "ttl_secs": ttl_remaining_secs,
+    }))
 }
 
 async fn try_registry_dispatch(
@@ -161,6 +238,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dispatch_rewrites_legacy_alias_before_lookup() {
+        // `openhuman.ping` is a legacy alias for `core.ping` in the shared
+        // alias table. Going through the dispatcher must rewrite it and
+        // route successfully to Tier 1 instead of falling through to the
+        // unknown-method error path.
+        let out = dispatch(test_state(), "openhuman.ping", json!({}))
+            .await
+            .expect("legacy alias openhuman.ping must resolve to core.ping");
+        assert_eq!(out, json!({ "ok": true }));
+    }
+
+    #[tokio::test]
     async fn dispatch_unknown_method_returns_error() {
         let err = dispatch(test_state(), "does.not.exist", json!({}))
             .await
@@ -215,5 +304,29 @@ mod tests {
             .expect("core.version must produce InvocationResult");
         assert_eq!(result.value, json!({ "version": "0.0.0-abc" }));
         assert!(result.logs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn dispatch_legacy_ping_rewrites_and_succeeds() {
+        let out = dispatch(test_state(), "openhuman.ping", json!({}))
+            .await
+            .expect("openhuman.ping should be rewritten to core.ping and succeed");
+        assert_eq!(out, json!({ "ok": true }));
+    }
+
+    #[tokio::test]
+    async fn dispatch_legacy_alias_routes_to_registry() {
+        // openhuman.get_analytics_settings should rewrite to openhuman.config_get_analytics_settings.
+        // This is a read-only call and should succeed if the registry is wired up.
+        let out = dispatch(test_state(), "openhuman.get_analytics_settings", json!({}))
+            .await
+            .expect("openhuman.get_analytics_settings should be rewritten and succeed");
+
+        // The registry-wrapped payload has a "result" field.
+        assert!(
+            out.get("enabled").is_some() || out.get("result").is_some(),
+            "Payload should have 'enabled' or 'result', got: {}",
+            out
+        );
     }
 }

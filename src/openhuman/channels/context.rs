@@ -1,7 +1,7 @@
 //! Shared channel runtime state and memory helpers.
 
+use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::memory::Memory;
-use crate::openhuman::providers::{ChatMessage, Provider};
 use crate::openhuman::tools::Tool;
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::collections::HashMap;
@@ -59,8 +59,10 @@ pub(crate) struct ChannelRuntimeContext {
     pub(crate) provider_cache: ProviderCacheMap,
     pub(crate) route_overrides: RouteSelectionMap,
     pub(crate) api_url: Option<String>,
+    pub(crate) inference_url: Option<String>,
     pub(crate) reliability: Arc<crate::openhuman::config::ReliabilityConfig>,
-    pub(crate) provider_runtime_options: crate::openhuman::providers::ProviderRuntimeOptions,
+    pub(crate) provider_runtime_options:
+        crate::openhuman::inference::provider::ProviderRuntimeOptions,
     pub(crate) workspace_dir: Arc<PathBuf>,
     pub(crate) message_timeout_secs: u64,
     pub(crate) multimodal: crate::openhuman::config::MultimodalConfig,
@@ -206,8 +208,8 @@ pub(crate) async fn build_memory_context(
 mod tests {
     use super::*;
     use crate::openhuman::channels::traits;
+    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry};
-    use crate::openhuman::providers::Provider;
     use crate::openhuman::tools::{Tool, ToolResult};
     use async_trait::async_trait;
 
@@ -341,9 +343,10 @@ mod tests {
             provider_cache: Arc::new(Mutex::new(HashMap::new())),
             route_overrides: Arc::new(Mutex::new(HashMap::new())),
             api_url: None,
+            inference_url: None,
             reliability: Arc::new(crate::openhuman::config::ReliabilityConfig::default()),
-            provider_runtime_options: crate::openhuman::providers::ProviderRuntimeOptions::default(
-            ),
+            provider_runtime_options:
+                crate::openhuman::inference::provider::ProviderRuntimeOptions::default(),
             workspace_dir: Arc::new(PathBuf::from("/tmp")),
             message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
             multimodal: crate::openhuman::config::MultimodalConfig::default(),
@@ -385,12 +388,12 @@ mod tests {
         let ctx = runtime_context();
         let sender = "discord_alice_reply_thread:thread-1";
         let mut history = Vec::new();
-        history.push(crate::openhuman::providers::ChatMessage::user("short"));
-        history.extend(
-            (0..20).map(|idx| {
-                crate::openhuman::providers::ChatMessage::assistant("x".repeat(700 + idx))
-            }),
-        );
+        history.push(crate::openhuman::inference::provider::ChatMessage::user(
+            "short",
+        ));
+        history.extend((0..20).map(|idx| {
+            crate::openhuman::inference::provider::ChatMessage::assistant("x".repeat(700 + idx))
+        }));
         ctx.conversation_histories
             .lock()
             .unwrap()

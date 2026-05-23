@@ -44,6 +44,8 @@ const log = debugFactory('core-state');
 
 const POLL_MS = 2000;
 const MAX_BOOTSTRAP_RETRIES = 5;
+const SUPPRESS_POLL_WARNING_AT = MAX_BOOTSTRAP_RETRIES + 1;
+const BACKOFF_POLL_MS = 10_000;
 
 /** Extract only non-sensitive fields from an RPC/fetch error. */
 function sanitizeError(error: unknown): { message?: string; code?: string; status?: number } {
@@ -61,6 +63,57 @@ function sanitizeError(error: unknown): { message?: string; code?: string; statu
   return { message: String(error) };
 }
 
+export function coreStatePollFailureWarningMessage(failureCount: number): string | null {
+  if (failureCount <= 0) {
+    return null;
+  }
+  if (failureCount === 1) {
+    return `[core-state] bootstrap poll failed (attempt ${failureCount}/${MAX_BOOTSTRAP_RETRIES}):`;
+  }
+  if (failureCount === SUPPRESS_POLL_WARNING_AT) {
+    return '[core-state] bootstrap budget exhausted; continuing with backoff. Suppressing further warnings until recovery:';
+  }
+  return null;
+}
+
+export function coreStatePollFailureDebugMessage(failureCount: number): string | null {
+  if (failureCount <= 0) {
+    return null;
+  }
+  if (failureCount < MAX_BOOTSTRAP_RETRIES) {
+    return `refresh failed during bootstrap retry ${failureCount}/${MAX_BOOTSTRAP_RETRIES}; nextAction=retrying`;
+  }
+  if (failureCount === MAX_BOOTSTRAP_RETRIES) {
+    return `refresh failed during bootstrap retry ${failureCount}/${MAX_BOOTSTRAP_RETRIES}; nextAction=marking-ready-with-fallback`;
+  }
+  return `refresh failed after ${failureCount} consecutive poll failures; bootstrapRetryLimit=${MAX_BOOTSTRAP_RETRIES}; nextAction=continuing-background-polling-with-warnings-suppressed`;
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const [, payload] = token.split('.');
+  if (!payload) return null;
+
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const decoded = window.atob(padded);
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isPlausibleSessionToken(token: unknown): token is string {
+  if (typeof token !== 'string') return false;
+  if (token.trim() !== token || token.length === 0) return false;
+  if (token.split('.').length !== 3) return false;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return false;
+
+  return payload.exp * 1000 > Date.now();
+}
+
 interface CoreStateContextValue extends CoreState {
   refresh: () => Promise<void>;
   refreshTeams: () => Promise<void>;
@@ -70,18 +123,17 @@ interface CoreStateContextValue extends CoreState {
   setMeetAutoOrchestratorHandoff: (enabled: boolean) => Promise<void>;
   setOnboardingCompletedFlag: (value: boolean) => Promise<void>;
   setEncryptionKey: (value: string | null) => Promise<void>;
-  setPrimaryWalletAddress: (value: string | null) => Promise<void>;
   /**
    * Shallow-merge `patch` into `state.snapshot`. Top-level keys in `patch`
    * REPLACE the existing value — they are not deep-merged.
    *
    * This means passing a nested object (e.g. `{ localState: { encryptionKey: 'x' } }`)
-   * will CLOBBER sibling fields on that object (`primaryWalletAddress`,
-   * `onboardingTasks`). Only flat top-level fields are safe to patch directly:
+   * will CLOBBER sibling fields on that object (`onboardingTasks`). Only flat
+   * top-level fields are safe to patch directly:
    * `currentUser`, `onboardingCompleted`, `chatOnboardingCompleted`,
    * `analyticsEnabled`, `sessionToken`. For nested-object updates, use the
-   * dedicated setter (`setEncryptionKey`, `setPrimaryWalletAddress`,
-   * `setOnboardingTasks`) which preserves siblings.
+   * dedicated setter (`setEncryptionKey`, `setOnboardingTasks`) which
+   * preserves siblings.
    */
   patchSnapshot: (patch: Partial<CoreAppSnapshot>) => void;
   setOnboardingTasks: (value: CoreOnboardingTasks | null) => Promise<void>;
@@ -147,7 +199,6 @@ function normalizeSnapshot(
     meetAutoOrchestratorHandoff: result.meetAutoOrchestratorHandoff ?? false,
     localState: {
       encryptionKey: result.localState.encryptionKey ?? null,
-      primaryWalletAddress: result.localState.primaryWalletAddress ?? null,
       onboardingTasks: result.localState.onboardingTasks ?? null,
     },
     runtime: {
@@ -178,7 +229,12 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const logoutGuardUntilRef = useRef(0);
   const bootstrapFailCountRef = useRef(0);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const isMountedRef = useRef(true);
   const commitState = useCallback((updater: (previous: CoreState) => CoreState) => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     setState(previous => {
       const next = updater(previous);
       setCoreStateSnapshot(next);
@@ -186,9 +242,21 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     });
   }, []);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      snapshotRequestIdRef.current += 1;
+      teamsRequestIdRef.current += 1;
+    };
+  }, []);
+
   const refreshCore = useCallback(async () => {
     const requestId = ++snapshotRequestIdRef.current;
     const snapshot = normalizeSnapshot(await fetchCoreAppSnapshot());
+    if (!isMountedRef.current) {
+      return;
+    }
     if (!snapshot.sessionToken) {
       logoutGuardUntilRef.current = 0;
     }
@@ -371,16 +439,14 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         if (!cancelled) {
           bootstrapFailCountRef.current += 1;
           const safe = sanitizeError(error);
-          log(
-            'refresh failed attempt=%d/%d error=%O',
-            bootstrapFailCountRef.current,
-            MAX_BOOTSTRAP_RETRIES,
-            safe
-          );
-          console.warn(
-            `[core-state] poll failed (attempt ${bootstrapFailCountRef.current}/${MAX_BOOTSTRAP_RETRIES}):`,
-            safe
-          );
+          const debugMessage = coreStatePollFailureDebugMessage(bootstrapFailCountRef.current);
+          if (debugMessage) {
+            log('%s error=%O', debugMessage, safe);
+          }
+          const warningMessage = coreStatePollFailureWarningMessage(bootstrapFailCountRef.current);
+          if (warningMessage) {
+            console.warn(warningMessage, safe);
+          }
           if (bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES) {
             commitState(previous => {
               if (previous.isBootstrapping) {
@@ -408,12 +474,14 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     void load();
     let timeoutId: number | null = null;
     const scheduleNext = () => {
+      const delay =
+        bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES ? BACKOFF_POLL_MS : POLL_MS;
       timeoutId = window.setTimeout(async () => {
         await doRefresh();
         if (!cancelled) {
           scheduleNext();
         }
-      }, POLL_MS);
+      }, delay);
     };
     scheduleNext();
 
@@ -429,24 +497,12 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     const onSessionTokenUpdated = (event: Event) => {
       const customEvent = event as CustomEvent<{ sessionToken?: string | null }>;
       const token = customEvent.detail?.sessionToken;
-      if (!token) {
+      if (!isPlausibleSessionToken(token)) {
         return;
       }
 
       snapshotRequestIdRef.current += 1;
       logoutGuardUntilRef.current = 0;
-
-      memoryTokenRef.current = token;
-      commitState(previous => ({
-        ...previous,
-        isBootstrapping: false,
-        isReady: true,
-        snapshot: {
-          ...previous.snapshot,
-          auth: { ...previous.snapshot.auth, isAuthenticated: true },
-          sessionToken: token,
-        },
-      }));
 
       void refresh().catch(err => {
         log('refresh failed after deep-link session update: %O', sanitizeError(err));
@@ -517,7 +573,15 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const updateLocalState = useCallback(
     async (params: Parameters<typeof updateCoreLocalState>[0]) => {
       await updateCoreLocalState(params);
-      await refresh();
+      // The follow-up refresh is best-effort cache reconciliation, not part
+      // of the write contract — sibling helpers (setAnalyticsEnabled,
+      // setMeetAutoOrchestratorHandoff, …) already swallow here. An
+      // un-caught `app_state_snapshot` timeout used to bubble out of
+      // `setEncryptionKey` / `setOnboardingTasks` callers as an unhandled
+      // rejection → OPENHUMAN-REACT-Z/Y. The next poll tick will reconcile.
+      await refresh().catch(err => {
+        log('refresh failed after updateLocalState: %O', sanitizeError(err));
+      });
     },
     [refresh]
   );
@@ -538,13 +602,38 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       // restartApp call here was redundant and skipped the persist purge,
       // letting redux-persist rehydrate the prior user's slices on launch
       // (#900). Restart now happens inside handleIdentityFlip after purge.
-      await refresh();
+      // Swallow refresh failures here so a cold-boot `app_state_snapshot`
+      // timeout post-login doesn't surface as an unhandled rejection
+      // (OPENHUMAN-REACT-Z/Y) — the polling loop reconciles within
+      // `POLL_MS`.
+      await refresh().catch(err => {
+        log('refresh failed after session store: %O', sanitizeError(err));
+      });
       await refreshTeams().catch(err => {
         log('refreshTeams failed after session store: %O', sanitizeError(err));
       });
     },
     [refresh, refreshTeams]
   );
+
+  const lastReauthAtRef = useRef(0);
+  const suppressReauthUntilRef = useRef(0);
+
+  // Listen for deep-link auth suppression signals so that an in-flight
+  // `auth_store_session` call (OAuth deep link) does not race with the
+  // `core-rpc-auth-expired` handler and clear the session mid-delivery.
+  // See issue #2377.
+  useEffect(() => {
+    const onSuppressReauth = (event: Event) => {
+      const until = (event as CustomEvent<{ until: number }>).detail?.until ?? 0;
+      suppressReauthUntilRef.current = until;
+      log('[CoreState] suppress-reauth updated until=%d', until);
+    };
+    window.addEventListener('core-state:suppress-reauth', onSuppressReauth as EventListener);
+    return () => {
+      window.removeEventListener('core-state:suppress-reauth', onSuppressReauth as EventListener);
+    };
+  }, []);
 
   const clearSession = useCallback(async () => {
     logoutGuardUntilRef.current = Date.now() + 5_000;
@@ -570,6 +659,73 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     });
   }, [commitState, refresh]);
 
+  // Listen for two flavours of session expiry, both routed through the
+  // same debounced `clearSession`:
+  //
+  // 1. `core-rpc-auth-expired` — emitted by `coreRpcClient` when an
+  //    individual RPC call returns 401 (usage pill, upsell banner,
+  //    threads poll, …). Multiple parallel chains can fire it in the
+  //    same frame after a token expires; the 10s debounce coalesces
+  //    them so `clearSession` only runs once.
+  // 2. `openhuman:session-expired` — emitted by `socketService` when
+  //    the core pushes `auth:session_expired` over Socket.IO (the
+  //    OpenHuman backend provider's `api_error` published
+  //    `DomainEvent::SessionExpired`, or `jsonrpc::invoke_method`
+  //    detected a 401 on a server-side method call). Without this, the
+  //    UI keeps showing a logged-in shell until the next refresh()
+  //    discovers the missing token — confusing, and a security smell
+  //    on shared devices.
+  //
+  // Depends on `clearSession` so the listener always closes over the
+  // latest closure; `clearSession`'s own deps are stable `useCallback`s,
+  // so re-registers are rare.
+  useEffect(() => {
+    const runReauth = (method: string, source: string) => {
+      const now = Date.now();
+      if (now < suppressReauthUntilRef.current) {
+        log(
+          '[CoreState] auth-expired suppressed during deep-link auth delivery (method=%s source=%s)',
+          method,
+          source
+        );
+        return;
+      }
+      if (now - lastReauthAtRef.current < 10_000) {
+        log('auth-expired debounced (method=%s source=%s)', method, source);
+        return;
+      }
+      lastReauthAtRef.current = now;
+      log('auth-expired: clearing session (method=%s source=%s)', method, source);
+      void clearSession().catch(err => {
+        log('clearSession failed after auth-expired: %O', sanitizeError(err));
+      });
+    };
+
+    const onRpcExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ method?: string; source?: string }>).detail;
+      runReauth(detail?.method ?? 'unknown', detail?.source ?? 'core-rpc-auth-expired');
+    };
+
+    const onSocketExpired = (event: Event) => {
+      const source =
+        event instanceof CustomEvent &&
+        event.detail &&
+        typeof event.detail === 'object' &&
+        'source' in event.detail &&
+        typeof (event.detail as { source?: unknown }).source === 'string'
+          ? (event.detail as { source: string }).source
+          : 'unknown';
+      runReauth('socket.session_expired', source);
+    };
+
+    window.addEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
+    window.addEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+    return () => {
+      window.removeEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
+      window.removeEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+    };
+  }, [clearSession]);
+
   const patchSnapshot = useCallback(
     (patch: Partial<CoreAppSnapshot>) => {
       commitState(previous => ({ ...previous, snapshot: { ...previous.snapshot, ...patch } }));
@@ -589,7 +745,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       setMeetAutoOrchestratorHandoff,
       setOnboardingCompletedFlag,
       setEncryptionKey: value => updateLocalState({ encryptionKey: value }),
-      setPrimaryWalletAddress: value => updateLocalState({ primaryWalletAddress: value }),
       setOnboardingTasks: value => updateLocalState({ onboardingTasks: value }),
       storeSessionToken,
       clearSession,

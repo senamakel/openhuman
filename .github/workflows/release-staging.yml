@@ -1,7 +1,17 @@
 ---
 name: Release Staging
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description:
+          Skip the entire pretest phase (unit/rust plus E2E) and continue
+          directly to the desktop/docker staging build. Use only when the
+          required pretest signal is already known and you need to unblock a
+          staging cut.
+        required: false
+        type: boolean
+        default: false
 permissions:
   # `contents: write` is required for the patch bump commit and the
   # `v<version>-staging` tag push performed by `prepare-build` below.
@@ -15,11 +25,22 @@ concurrency:
 #
 #   prepare-build
 #        │
-#   build-desktop          (delegated to .github/workflows/build-desktop.yml)
+#        ├── pretest-tests   (reusable test-reusable.yml — unit + rust;
+#        │                    optional when `skip_e2e` is true)
+#        ├── pretest-e2e     (reusable e2e-reusable.yml — all 3 OS, full suite;
+#        │                    optional when `skip_e2e` is true)
+#        │
+#        ├── build-desktop      (delegated to .github/workflows/build-desktop.yml)
+#        ├── build-docker       (build only — no GHCR push on staging)
 #        │
 #   record-sentry-deploy
 #        │
 #   cleanup-failed-staging (on failure)
+#
+# The pretest jobs are a hard gate — `build-desktop` and `build-docker`
+# only start once unit/rust/E2E have all passed across every target. This
+# guarantees we never produce a staging tag whose installers were built
+# against unproven code.
 #
 # The actual desktop build / Sentry / artifact-upload pipeline lives in
 # `.github/workflows/build-desktop.yml` and is shared with
@@ -66,20 +87,24 @@ jobs:
           exit 1
       - name: Generate GitHub App token
         id: app-token
-        uses: tibdex/github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
-          app_id: ${{ secrets.XGITHUB_APP_ID }}
-          private_key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.XGITHUB_APP_ID }}
+          private-key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24.x
+          package-manager-cache: false
       - name: Configure Git
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -101,6 +126,14 @@ jobs:
         run: node scripts/release/bump-version.js patch
       - name: Verify version sync
         run: node scripts/release/verify-version-sync.js "${{ steps.bump.outputs.version }}"
+      - name: Refresh Cargo.lock files
+        # Cargo.toml [package].version is bumped above but the matching
+        # entries in both Cargo.lock files are not — without this step the
+        # lockfiles stay pinned to the previous version and the next local
+        # `cargo` invocation rewrites them, leaving an uncommitted diff.
+        run: |
+          cargo update --workspace --manifest-path Cargo.toml
+          cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
       - name: Compute staging tag
         id: tagname
         env:
@@ -126,7 +159,7 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version }}
           TAG: ${{ steps.tagname.outputs.tag }}
         run: |
-          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml
+          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
           git commit -m "chore(staging): v${VERSION}"
           git push origin main
           git tag -a "$TAG" -m "Staging cut $TAG"
@@ -156,11 +189,42 @@ jobs:
           echo "base_url=https://staging-api.tinyhumans.ai/" >> "$GITHUB_OUTPUT"
 
   # =========================================================================
+  # Phase 1b: Pretest gate — run the full test + E2E suite across every
+  # target OS exactly once on the staging commit before any build job
+  # spins up. A failure here aborts the matrix (and `cleanup-failed-staging`
+  # deletes the tag) without burning four signed Tauri builds first.
+  # =========================================================================
+  pretest-tests:
+    name: Pretest — unit + rust
+    needs: [prepare-build]
+    if: ${{ !inputs.skip_e2e }}
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      ref: ${{ needs.prepare-build.outputs.build_ref }}
+  pretest-e2e:
+    name: Pretest — E2E (all OS, full suite)
+    needs: [prepare-build]
+    if: ${{ !inputs.skip_e2e }}
+    uses: ./.github/workflows/e2e-reusable.yml
+    with:
+      ref: ${{ needs.prepare-build.outputs.build_ref }}
+      run_linux: true
+      run_macos: true
+      run_windows: true
+      full: true
+
+  # =========================================================================
   # Phase 2: Build desktop artifacts (delegated to reusable workflow)
   # =========================================================================
   build-desktop:
     name: Build desktop matrix
-    needs: [prepare-build]
+    needs: [prepare-build, pretest-tests, pretest-e2e]
+    if: >-
+      always()
+      && (needs.pretest-tests.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
+      && (needs.pretest-e2e.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))
     uses: ./.github/workflows/build-desktop.yml
     secrets: inherit
     with:
@@ -182,12 +246,60 @@ jobs:
       # No publish-updater-manifest job in staging — producing .sig artifacts
       # would just leave them stranded in the Actions artifact tree.
       with_updater: false
-      # Standalone openhuman-core CLI is shipped via the production GHCR
-      # docker image (build-docker in release-production.yml) and via
-      # brew / homebrew packages updated manually — the staging Actions
-      # artifact had no real consumer. Set `build_sidecar: true` here to
-      # re-enable the matrix-built CLI artifact + its Sentry DIF upload.
+      # Standalone openhuman-core CLI ships from the production cut only:
+      # `build-docker` pushes `ghcr.io/tinyhumansai/openhuman-core` and
+      # `build-cli-linux` attaches Linux x86_64 / aarch64 tarballs to the
+      # GitHub Release (see release-production.yml). Staging does not
+      # publish either surface — the matrix-built sidecar artifact had no
+      # real consumer. Set `build_sidecar: true` to re-enable a per-platform
+      # CLI Actions artifact + its Sentry DIF upload for QA spot-checks.
       build_sidecar: false
+      skip_pretests: ${{ inputs.skip_e2e }}
+
+  # =========================================================================
+  # Phase 2b: Build the openhuman-core Docker image without pushing.
+  # Mirrors the production `build-docker` job so a Dockerfile regression
+  # surfaces on the staging cut — no GHCR push, no `:staging-*` tag
+  # pollution. `deploy-smoke.yml` already covers the build path on PRs
+  # that touch Dockerfile / src; this is the equivalent gate at the
+  # staging-tag boundary so a green staging cut means the next prod
+  # promotion's GHCR push will succeed too.
+  # =========================================================================
+  build-docker:
+    name: "Docker: build (no push)"
+    needs: [prepare-build, pretest-tests, pretest-e2e]
+    if: >-
+      always()
+      && (needs.pretest-tests.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
+      && (needs.pretest-e2e.result == 'success'
+          || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - name: Checkout build ref
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare-build.outputs.build_ref }}
+          fetch-depth: 1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          platforms: linux/amd64
+          tags: openhuman-core:staging-${{ needs.prepare-build.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.prepare-build.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare-build.outputs.version }}
+            org.opencontainers.image.title=openhuman-core
+          cache-from: type=gha,scope=release-staging
+          cache-to: type=gha,scope=release-staging,mode=max
 
   # =========================================================================
   # Phase 3: Record a single Sentry deploy marker once the matrix is
@@ -202,9 +314,10 @@ jobs:
     name: Record Sentry deploy marker
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, build-desktop]
+    needs: [prepare-build, build-desktop, build-docker]
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_URL: ${{ vars.SENTRY_URL }}
     steps:
       - name: Install sentry-cli
         if: env.SENTRY_AUTH_TOKEN != ''
@@ -214,6 +327,7 @@ jobs:
         if: env.SENTRY_AUTH_TOKEN != ''
         shell: bash
         env:
+          SENTRY_URL: ${{ vars.SENTRY_URL }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           # Marker lives on the React project's release; events from all
           # surfaces share the same `openhuman@<version>+<short_sha>` release
@@ -240,14 +354,17 @@ jobs:
     name: Remove staging tag if build failed
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, build-desktop]
+    needs: [prepare-build, pretest-tests, pretest-e2e, build-desktop, build-docker]
     if: >-
       always()
       && needs.prepare-build.result == 'success'
-      && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled')
+      && (needs.pretest-tests.result == 'failure' || needs.pretest-tests.result == 'cancelled'
+          || needs.pretest-e2e.result == 'failure' || needs.pretest-e2e.result == 'cancelled'
+          || needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
+          || needs.build-docker.result == 'failure' || needs.build-docker.result == 'cancelled')
     steps:
       - name: Delete remote staging tag
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;

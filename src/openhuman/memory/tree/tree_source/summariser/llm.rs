@@ -42,6 +42,7 @@ use std::sync::Arc;
 
 use super::inert::InertSummariser;
 use super::{Summariser, SummaryContext, SummaryInput, SummaryOutput};
+use crate::openhuman::learning::extract::summary_facets::{self, StructuredSummary};
 use crate::openhuman::memory::tree::chat::{ChatPrompt, ChatProvider};
 use crate::openhuman::memory::tree::types::approx_token_count;
 
@@ -78,12 +79,22 @@ pub struct LlmSummariserConfig {
     /// Model identifier (e.g. `summarization-v1` for cloud, `qwen2.5:0.5b`
     /// or `llama3.1:8b` for local Ollama). Diagnostic / log only.
     pub model: String,
+    /// When `true` (the default), the summariser appends a structured facet
+    /// extraction request to the prompt and parses the resulting JSON block.
+    /// Discovered facets are routed to the learning candidate buffer.
+    /// Set to `false` to restore the plain-text-only behaviour for A/B testing
+    /// or debugging.
+    pub structured_facet_extraction: bool,
+    /// Optional configured output language for generated prose summaries.
+    pub output_language: Option<String>,
 }
 
 impl Default for LlmSummariserConfig {
     fn default() -> Self {
         Self {
             model: "qwen2.5:0.5b".to_string(),
+            structured_facet_extraction: true,
+            output_language: None,
         }
     }
 }
@@ -108,9 +119,16 @@ impl LlmSummariser {
     }
 
     /// Build the chat prompt sent to the provider for a given seal.
+    ///
+    /// When `structured_facet_extraction` is enabled the system prompt includes
+    /// an instruction to emit a fenced `json` block after the prose summary.
     fn build_prompt(&self, prompt_body: &str, budget: u32) -> ChatPrompt {
         ChatPrompt {
-            system: system_prompt(budget),
+            system: system_prompt(
+                budget,
+                self.cfg.structured_facet_extraction,
+                self.cfg.output_language.as_deref(),
+            ),
             user: prompt_body.to_string(),
             temperature: 0.0,
             kind: "memory_tree::summarise",
@@ -193,7 +211,46 @@ impl Summariser for LlmSummariser {
             }
         };
 
-        let (content, token_count) = clamp_to_budget(raw.trim(), effective_budget);
+        // When structured_facet_extraction is enabled, attempt to split the response
+        // into a prose summary and an optional JSON block. On parse failure, the
+        // prose is used as-is and zero facets are emitted (fail-soft).
+        let summary_text: &str;
+
+        if self.cfg.structured_facet_extraction {
+            let (prose, maybe_structured) = split_structured_response(raw.trim());
+            summary_text = prose;
+            match maybe_structured {
+                Some(Ok(parsed)) => {
+                    tracing::debug!(
+                        "[learning::extract::summary] source_id={} facets_emitted={}",
+                        ctx.tree_id,
+                        parsed.facets.len()
+                    );
+                    summary_facets::route_facets_to_buffer(&parsed, ctx.tree_id);
+                }
+                Some(Err(e)) => {
+                    log::warn!(
+                        "[tree_source::summariser::llm] structured facet parse failed \
+                         tree_id={} level={}: {e:#} — using raw prose, emitting 0 facets",
+                        ctx.tree_id,
+                        ctx.target_level
+                    );
+                }
+                None => {
+                    // No JSON block present — normal for content with no clear signals.
+                    tracing::debug!(
+                        "[tree_source::summariser::llm] no structured JSON block in response \
+                         tree_id={} level={}",
+                        ctx.tree_id,
+                        ctx.target_level
+                    );
+                }
+            }
+        } else {
+            summary_text = raw.trim();
+        }
+
+        let (content, token_count) = clamp_to_budget(summary_text, effective_budget);
         log::debug!(
             "[tree_source::summariser::llm] sealed tree_id={} level={} inputs={} tokens={}",
             ctx.tree_id,
@@ -235,19 +292,98 @@ fn build_user_prompt(inputs: &[SummaryInput], per_input_cap_tokens: u32) -> Stri
     out
 }
 
-/// System prompt. Length isn't templated in — empirically, telling
-/// instruction-tuned models "stay under N tokens" makes them produce
-/// curt, generic output even when the input has plenty of substance.
-/// Output is clamped post-generation by [`clamp_to_budget`] in the
-/// caller, so we don't need the model to self-police length.
-fn system_prompt(_budget: u32) -> String {
-    "You are a precise summariser. Summarise the user-provided contributions into a \
+/// System prompt.
+///
+/// When `structured_facets` is `true`, appends instructions for the model to
+/// emit a fenced `json` block after the prose summary containing any clearly
+/// evidenced facets.
+///
+/// Length isn't templated in — empirically, telling instruction-tuned models
+/// "stay under N tokens" makes them produce curt, generic output even when the
+/// input has plenty of substance. Output is clamped post-generation by
+/// [`clamp_to_budget`] in the caller.
+fn system_prompt(_budget: u32, structured_facets: bool, output_language: Option<&str>) -> String {
+    let base = "You are a precise summariser. Summarise the user-provided contributions into a \
      single cohesive passage that preserves concrete facts, decisions, \
      and temporal ordering. Do not invent facts.\n\
      \n\
-     Return only the summary text. No commentary, no preamble, no headings, \
-     no markdown wrappers, no JSON — just the prose summary."
-        .to_string()
+     Return the summary text first.";
+    let language_directive = crate::openhuman::config::output_language_directive(output_language)
+        .map(|directive| format!("\n\n{directive}"))
+        .unwrap_or_default();
+
+    if !structured_facets {
+        return format!(
+            "{base}{language_directive} No commentary, no preamble, no headings, \
+             no markdown wrappers, no JSON — just the prose summary."
+        );
+    }
+
+    format!(
+        "{base}{language_directive}\n\
+         \n\
+         After the summary, output a JSON object as the second part of your response, \
+         fenced in a ```json block:\n\
+         \n\
+         ```json\n\
+         {{\n\
+           \"summary\": \"<the summary text you just produced>\",\n\
+           \"facets\": [\n\
+             {{\n\
+               \"class\": \"style|identity|tooling|veto|goal\",\n\
+               \"key\": \"<canonical slug>\",\n\
+               \"value\": \"<detected value>\",\n\
+               \"evidence_chunks\": [\"<chunk_id>\", \"...\"],\n\
+               \"confidence\": 0.0,\n\
+               \"cue_family\": \"explicit|structural|behavioral\"\n\
+             }}\n\
+           ]\n\
+         }}\n\
+         ```\n\
+         \n\
+         Rules:\n\
+         - Only include facets that are clearly evidenced in the content above.\n\
+         - Each facet must cite at least one chunk_id from this batch (the id in brackets \
+           before each contribution, e.g. [chunk-abc]).\n\
+         - Use canonical keys: verbosity, format, name, timezone, role, package_manager, \
+           lang, framework, runtime, etc.\n\
+         - Cap the facets array at 8 items per call. Skip the array entirely (emit \
+           facets: []) if no clear evidence.\n\
+         - No commentary outside the prose summary and the JSON block."
+    )
+}
+
+/// Split a raw LLM response that may contain a trailing fenced `json` block.
+///
+/// Returns `(prose, Option<parse_result>)` where:
+/// - `prose` is the text before the ` ```json ` fence (trimmed), or the full
+///   raw text when no fence is present.
+/// - The second element is `None` when no fence was found, or
+///   `Some(Ok(StructuredSummary))` / `Some(Err(…))` on parse success/failure.
+fn split_structured_response(raw: &str) -> (&str, Option<anyhow::Result<StructuredSummary>>) {
+    // Look for the opening ` ```json ` fence.
+    const OPEN_FENCE: &str = "```json";
+    const CLOSE_FENCE: &str = "```";
+
+    let Some(fence_start) = raw.find(OPEN_FENCE) else {
+        return (raw, None);
+    };
+
+    let prose = raw[..fence_start].trim();
+    let after_open = &raw[fence_start + OPEN_FENCE.len()..];
+
+    // Find the closing fence.
+    let json_str = if let Some(close_pos) = after_open.find(CLOSE_FENCE) {
+        after_open[..close_pos].trim()
+    } else {
+        // No closing fence — treat everything after the open as JSON.
+        after_open.trim()
+    };
+
+    let result = serde_json::from_str::<StructuredSummary>(json_str)
+        .map_err(|e| anyhow::anyhow!("structured summary JSON parse error: {e}"));
+
+    (prose, Some(result))
 }
 
 /// Truncate to the caller's token budget using the same ~4 chars/token
@@ -346,16 +482,80 @@ mod tests {
 
     #[test]
     fn system_prompt_describes_plain_text_output() {
-        // Budget is no longer templated into the prompt — models
-        // produced overly curt output when told to "stay under N tokens".
-        // The clamp in `clamp_to_budget` handles enforcement instead.
-        let p = system_prompt(4096);
+        // When structured_facets is disabled, the prompt asks for plain prose.
+        let p = system_prompt(4096, false, None);
         assert!(!p.contains("4096"));
         assert!(!p.contains("Stay well under"));
-        // Output is plain prose, not JSON.
         assert!(!p.contains("\"summary\""));
         assert!(p.to_lowercase().contains("no commentary"));
         assert!(p.to_lowercase().contains("no json"));
+    }
+
+    #[test]
+    fn extends_prompt_when_flag_enabled() {
+        let p = system_prompt(4096, true, None);
+        // When structured_facets is true, the prompt should contain the JSON fence instruction.
+        assert!(
+            p.contains("```json"),
+            "should contain JSON fence instruction"
+        );
+        assert!(p.contains("\"facets\""), "should mention the facets array");
+        assert!(
+            p.contains("evidence_chunks"),
+            "should mention evidence_chunks"
+        );
+        assert!(
+            p.contains("canonical keys"),
+            "should specify canonical keys"
+        );
+    }
+
+    #[test]
+    fn system_prompt_includes_output_language_directive() {
+        let p = system_prompt(4096, true, Some("zh-CN"));
+        assert!(p.contains("Simplified Chinese"));
+        assert!(p.contains("Keep JSON keys"));
+        assert!(p.contains("\"summary\""));
+    }
+
+    #[test]
+    fn parses_well_formed_response() {
+        let raw = "The user prefers pnpm.\n\n\
+                   ```json\n\
+                   {\"summary\": \"The user prefers pnpm.\", \"facets\": [\
+                   {\"class\": \"tooling\", \"key\": \"package_manager\", \
+                   \"value\": \"pnpm\", \"evidence_chunks\": [\"c1\"], \
+                   \"confidence\": 0.9, \"cue_family\": \"explicit\"}\
+                   ]}\n\
+                   ```";
+        let (prose, maybe) = split_structured_response(raw);
+        assert!(
+            prose.contains("prefers pnpm"),
+            "prose should precede the JSON block"
+        );
+        let parsed = maybe
+            .expect("should find JSON block")
+            .expect("should parse");
+        assert_eq!(parsed.facets.len(), 1);
+        assert_eq!(parsed.facets[0].key, "package_manager");
+    }
+
+    #[test]
+    fn gracefully_falls_back_on_invalid_json() {
+        let raw = "Summary text.\n\n```json\nnot valid json\n```";
+        let (prose, maybe) = split_structured_response(raw);
+        assert!(prose.contains("Summary"), "prose should be extracted");
+        let result = maybe.expect("fence found");
+        assert!(result.is_err(), "invalid JSON should produce Err");
+    }
+
+    #[test]
+    fn respects_disabled_flag() {
+        let p = system_prompt(4096, false, None);
+        assert!(
+            !p.contains("```json"),
+            "disabled flag must omit JSON instruction"
+        );
     }
 
     #[test]
@@ -409,13 +609,22 @@ mod tests {
         }
     }
 
+    /// Helper config with structured facet extraction disabled for legacy tests.
+    fn no_facets_cfg() -> LlmSummariserConfig {
+        LlmSummariserConfig {
+            model: "qwen2.5:0.5b".into(),
+            structured_facet_extraction: false,
+            output_language: None,
+        }
+    }
+
     #[tokio::test]
     async fn empty_inputs_yield_empty_summary_without_provider_call() {
         // All inputs are blank → prompt body is empty → the summariser
         // short-circuits and returns an empty output without invoking the
         // chat provider.
         let provider = std::sync::Arc::new(StubProvider::ok("never returned"));
-        let s = LlmSummariser::new(LlmSummariserConfig::default(), provider.clone());
+        let s = LlmSummariser::new(no_facets_cfg(), provider.clone());
         let inputs = vec![sample_input("a", "   "), sample_input("b", "")];
         let out = s.summarise(&inputs, &test_ctx()).await.unwrap();
         assert!(out.content.is_empty());
@@ -433,7 +642,7 @@ mod tests {
         // InertSummariser's concatenate+truncate behaviour (content
         // present, entities empty).
         let provider = std::sync::Arc::new(StubProvider::err("simulated"));
-        let s = LlmSummariser::new(LlmSummariserConfig::default(), provider);
+        let s = LlmSummariser::new(no_facets_cfg(), provider);
         let inputs = vec![sample_input("a", "alice decided to ship friday")];
         let out = s.summarise(&inputs, &test_ctx()).await.unwrap();
         assert!(out.content.contains("alice decided to ship"));
@@ -446,7 +655,7 @@ mod tests {
         // Provider returns plain text; summariser uses it verbatim
         // (after trim) and clamps to the budget.
         let provider = std::sync::Arc::new(StubProvider::ok("alice decided to ship friday\n"));
-        let s = LlmSummariser::new(LlmSummariserConfig::default(), provider.clone());
+        let s = LlmSummariser::new(no_facets_cfg(), provider.clone());
         let inputs = vec![sample_input("a", "alice ships friday")];
         let out = s.summarise(&inputs, &test_ctx()).await.unwrap();
         assert_eq!(out.content, "alice decided to ship friday");
@@ -457,14 +666,18 @@ mod tests {
     #[test]
     fn build_prompt_carries_body_and_kind_tag() {
         let provider = std::sync::Arc::new(StubProvider::ok("hi"));
+        // With structured_facet_extraction disabled, expect plain-text prompt.
         let s = LlmSummariser::new(
             LlmSummariserConfig {
                 model: "llama3.1:8b".into(),
+                structured_facet_extraction: false,
+                output_language: Some("zh-CN".into()),
             },
             provider,
         );
         let prompt = s.build_prompt("body", 2048);
         assert!(prompt.system.to_lowercase().contains("no commentary"));
+        assert!(prompt.system.contains("Simplified Chinese"));
         assert!(!prompt.system.contains("\"summary\""));
         assert_eq!(prompt.user, "body");
         assert_eq!(prompt.temperature, 0.0);

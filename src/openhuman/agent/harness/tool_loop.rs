@@ -3,7 +3,7 @@ use crate::openhuman::agent::multimodal;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::stop_hooks::{current_stop_hooks, StopDecision, TurnState};
 use crate::openhuman::approval::{ApprovalManager, ApprovalRequest, ApprovalResponse};
-use crate::openhuman::providers::{
+use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, Provider, ProviderCapabilityError, ProviderDelta,
 };
 use crate::openhuman::tools::traits::ToolScope;
@@ -17,6 +17,9 @@ use super::credentials::scrub_credentials;
 use super::parse::{build_native_assistant_history, parse_structured_tool_calls, parse_tool_calls};
 use super::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
+use crate::openhuman::inference::model_context::context_window_for_model;
+
+use super::token_budget::trim_chat_messages_to_budget;
 
 /// Minimum characters per chunk when relaying LLM text to a streaming draft.
 const STREAM_CHUNK_MIN_CHARS: usize = 80;
@@ -87,10 +90,11 @@ pub(crate) async fn agent_turn(
 ///
 /// * `extra_tools` — per-turn synthesised tools to splice alongside the
 ///   persistent `tools_registry`. The agent-dispatch path uses this to
-///   surface delegation tools (`research`, `delegate_gmail`, …) that
-///   are synthesised fresh per turn from the active agent's
-///   `subagents` field and the current Composio integration list, and
-///   therefore are not registered in the global startup-time registry.
+///   surface delegation tools (`research`, `plan`,
+///   `delegate_to_integrations_agent`, …) that are synthesised fresh
+///   per turn from the active agent's `subagents` field and the
+///   current Composio integration list, and therefore are not
+///   registered in the global startup-time registry.
 ///
 /// The combined tool list seen by the LLM this turn is
 /// `tools_registry.iter().chain(extra_tools.iter())`, further narrowed
@@ -129,12 +133,20 @@ pub(crate) async fn run_tool_call_loop(
         }
     };
 
-    let tool_specs: Vec<crate::openhuman::tools::ToolSpec> = tools_registry
+    // Filter to visible tools, then dedup by name before sending to the
+    // provider. Registry tools may collide with per-turn synthesised
+    // extra_tools (e.g. an `ArchetypeDelegationTool` whose
+    // `delegate_name = "research"` shadowing a same-named skill). Some
+    // providers (Anthropic, OpenHuman cloud after the uniqueness-enforcement
+    // rollout) 400 on duplicate tool names — see TAURI-RUST-4.
+    let filtered_specs: Vec<crate::openhuman::tools::ToolSpec> = tools_registry
         .iter()
         .chain(extra_tools.iter())
         .filter(|tool| is_visible(tool.name()))
         .map(|tool| tool.spec())
         .collect();
+    let tool_specs =
+        crate::openhuman::agent::harness::session::dedup_visible_tool_specs(filtered_specs);
     let use_native_tools = provider.supports_native_tools() && !tool_specs.is_empty();
 
     log::debug!(
@@ -152,7 +164,9 @@ pub(crate) async fn run_tool_call_loop(
             .join(", ")
     );
 
-    let mut context_guard = ContextGuard::new();
+    let mut context_guard = context_window_for_model(model)
+        .map(ContextGuard::with_context_window)
+        .unwrap_or_else(ContextGuard::new);
     let mut turn_cost = TurnCost::new();
 
     // Announce turn start to progress subscribers (if any). We use
@@ -232,6 +246,28 @@ pub(crate) async fn run_tool_call_loop(
                     ],
                 );
                 anyhow::bail!(msg);
+            }
+        }
+
+        if let Some(context_window) = context_window_for_model(model) {
+            let budget_outcome = trim_chat_messages_to_budget(history, context_window);
+            if budget_outcome.trimmed {
+                log::warn!(
+                    "[agent_loop] pre-dispatch history trimmed model={} context_window={} original_tokens={} final_tokens={} messages_removed={}",
+                    model,
+                    context_window,
+                    budget_outcome.original_tokens,
+                    budget_outcome.final_tokens,
+                    budget_outcome.messages_removed
+                );
+            } else {
+                tracing::debug!(
+                    iteration,
+                    model,
+                    context_window,
+                    estimated_tokens = budget_outcome.final_tokens,
+                    "[agent_loop] pre-dispatch token budget ok"
+                );
             }
         }
 
@@ -408,16 +444,43 @@ pub(crate) async fn run_tool_call_loop(
                     )
                 }
                 Err(e) => {
-                    crate::core::observability::report_error(
+                    // Transient upstream failures (rate-limit, gateway 5xx, "no
+                    // healthy upstream", etc.) are already classified + retried
+                    // by reliable.rs and produce an aggregate Sentry event only
+                    // when every provider/model is exhausted. Reporting each
+                    // per-iteration provider_chat error here duplicates the
+                    // signal and floods Sentry — see OPENHUMAN-TAURI-3Y/3Z
+                    // (~46 events combined) and the underlying TAURI-2E/84/T
+                    // (~3300 events from raw per-attempt 429/503/504 reports).
+                    let transient = crate::openhuman::inference::provider::reliable::is_rate_limited(
                         &e,
-                        "agent",
-                        "provider_chat",
-                        &[
-                            ("provider", provider_name),
-                            ("model", model),
-                            ("iteration", &(iteration + 1).to_string()),
-                        ],
-                    );
+                    )
+                        || crate::openhuman::inference::provider::reliable::is_upstream_unhealthy(
+                            &e,
+                        );
+                    if transient {
+                        tracing::warn!(
+                            domain = "agent",
+                            operation = "provider_chat",
+                            provider = provider_name,
+                            model = model,
+                            iteration = iteration + 1,
+                            error = %format!("{e:#}"),
+                            "[agent] transient provider_chat failure — retried upstream; \
+                             aggregated all-providers-exhausted will report if applicable"
+                        );
+                    } else {
+                        crate::core::observability::report_error_or_expected(
+                            &e,
+                            "agent",
+                            "provider_chat",
+                            &[
+                                ("provider", provider_name),
+                                ("model", model),
+                                ("iteration", &(iteration + 1).to_string()),
+                            ],
+                        );
+                    }
                     return Err(e);
                 }
             };
@@ -617,6 +680,63 @@ pub(crate) async fn run_tool_call_loop(
                 }
             }
 
+            // ── External-effect approval gate (#1339, #2135) ──
+            // Tools whose `external_effect()` returns true route
+            // through the process-global `ApprovalGate` so the UI
+            // can prompt the user before `execute()` runs. The gate
+            // is `None` when supervised mode is disabled or in test
+            // envs — behavior matches the pre-#1339 path.
+            //
+            // `approval_request_id` carries the persisted row id
+            // forward so we can stamp the terminal execution
+            // outcome onto the same `pending_approvals` row after
+            // the tool finishes (issue #2135). `None` means the
+            // tool was either not gated (no supervised gate, not
+            // external-effect), was session-allowlist-shortcutted,
+            // or was denied — none of which produce an audit row
+            // that needs an "after" entry.
+            let mut approval_request_id: Option<String> = None;
+            let mut approval_gate_for_audit: Option<
+                std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+            > = None;
+            if let Some(tool) = tool_opt {
+                if tool.external_effect_with_args(&call.arguments) {
+                    if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                        let summary = crate::openhuman::approval::summarize_action(
+                            &call.name,
+                            &call.arguments,
+                        );
+                        let redacted = crate::openhuman::approval::redact_args(&call.arguments);
+                        let (outcome, request_id) =
+                            gate.intercept_audited(&call.name, &summary, redacted).await;
+                        match outcome {
+                            crate::openhuman::approval::GateOutcome::Allow => {
+                                approval_request_id = request_id;
+                                if approval_request_id.is_some() {
+                                    approval_gate_for_audit = Some(gate);
+                                }
+                            }
+                            crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                                tracing::warn!(
+                                    iteration,
+                                    tool = call.name.as_str(),
+                                    reason = %reason,
+                                    "[agent_loop] approval gate denied tool call"
+                                );
+                                emit_failed_completion(&reason).await;
+                                individual_results.push(reason.clone());
+                                let _ = writeln!(
+                                    tool_results,
+                                    "<tool_result name=\"{}\">\n{reason}\n</tool_result>",
+                                    call.name
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+
             let result = if let Some(tool) = tool_opt {
                 let tool_deadline =
                     crate::openhuman::tool_timeout::tool_execution_timeout_duration();
@@ -790,6 +910,29 @@ pub(crate) async fn run_tool_call_loop(
                         log::warn!("[agent_loop] progress sink closed while emitting ToolCallCompleted: {e}");
                     }
                 }
+                // ── Approval audit after-action row (#2135) ────
+                // Stamp the terminal status onto the same
+                // `pending_approvals` row the gate created before
+                // execution, so the audit trail carries both the
+                // before (approval) and after (executed_at +
+                // outcome). Best-effort: a write failure here is
+                // logged but not propagated to the agent.
+                if let (Some(gate), Some(req_id)) = (
+                    approval_gate_for_audit.as_ref(),
+                    approval_request_id.as_ref(),
+                ) {
+                    let exec_outcome = if success {
+                        crate::openhuman::approval::ExecutionOutcome::Success
+                    } else {
+                        crate::openhuman::approval::ExecutionOutcome::Failure
+                    };
+                    let err_text = if success {
+                        None
+                    } else {
+                        Some(result_text.as_str())
+                    };
+                    gate.record_execution(req_id, exec_outcome, err_text);
+                }
                 result_text
             } else {
                 tracing::warn!(
@@ -828,7 +971,18 @@ pub(crate) async fn run_tool_call_loop(
         }
     }
 
-    anyhow::bail!("Agent exceeded maximum tool iterations ({max_iterations})")
+    // Return the typed `AgentError::MaxIterationsExceeded` variant (boxed
+    // through `anyhow::Error`) so downstream wrappers — notably
+    // `Agent::run_single` in `harness/session/runtime.rs` — can downcast and
+    // suppress Sentry emission for this deterministic agent-state outcome
+    // (OPENHUMAN-TAURI-99 / -98). The `Display` text is preserved verbatim so
+    // any caller that already inspects the string (UI chat surface, tests)
+    // continues to work.
+    Err(anyhow::Error::new(
+        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+            max: max_iterations,
+        },
+    ))
 }
 
 #[cfg(test)]

@@ -1,10 +1,12 @@
 import debug from 'debug';
 import { useEffect, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 
 import { subscribeChatEvents } from '../../services/chatService';
+import { selectEffectiveMascotVoiceId } from '../../store/mascotSlice';
 import type { MascotFace } from './Mascot';
 import { lerpViseme, VISEMES, type VisemeShape } from './Mascot/visemes';
-import { type PlaybackHandle, playBase64Audio } from './voice/audioPlayer';
+import { type PlaybackHandle, playBase64Audio, swallowAudioStop } from './voice/audioPlayer';
 import {
   proceduralVisemes,
   synthesizeSpeech,
@@ -111,6 +113,15 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
   const speakRef = useRef(speakReplies);
   speakRef.current = speakReplies;
 
+  // Effective mascot voice id: resolves the manual override, the
+  // locale-default toggle, and the build-time fallback into a single
+  // string (see `selectEffectiveMascotVoiceId`). Mirrored into a ref so
+  // the inner `startTtsPlayback` closure always reads the latest value
+  // without having to re-create the callback on every re-render.
+  const effectiveMascotVoiceId = useSelector(selectEffectiveMascotVoiceId);
+  const mascotVoiceIdRef = useRef<string>(effectiveMascotVoiceId);
+  mascotVoiceIdRef.current = effectiveMascotVoiceId;
+
   const [face, setFace] = useState<MascotFace>('idle');
   const targetRef = useRef<VisemeShape>(VISEMES.REST);
   const lastDeltaAtRef = useRef(0);
@@ -187,8 +198,15 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       onError: () => {
         // Bump seq to invalidate any in-flight startTtsPlayback awaiters.
         playbackSeqRef.current++;
-        playbackRef.current?.stop();
+        const orphan = playbackRef.current;
         playbackRef.current = null;
+        if (orphan) {
+          orphan.stop();
+          // We're early-returning instead of awaiting `orphan.ended`, so the
+          // stop()-sentinel rejection has no handler — attach one explicitly
+          // or it surfaces as an unhandledrejection in Sentry (#1472).
+          orphan.ended.catch(swallowAudioStop);
+        }
         visemeFramesRef.current = [];
         holdThenIdle('concerned');
       },
@@ -198,16 +216,24 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       clearAckTimer();
       // Same — invalidate in-flight callbacks before tearing down.
       playbackSeqRef.current++;
-      playbackRef.current?.stop();
+      const orphan = playbackRef.current;
       playbackRef.current = null;
+      if (orphan) {
+        orphan.stop();
+        orphan.ended.catch(swallowAudioStop);
+      }
     };
   }, []);
 
   async function startTtsPlayback(text: string): Promise<void> {
     // Cancel any in-flight playback so its handle.ended callback can't reset
     // state belonging to the new run.
-    playbackRef.current?.stop();
+    const prev = playbackRef.current;
     playbackRef.current = null;
+    if (prev) {
+      prev.stop();
+      prev.ended.catch(swallowAudioStop);
+    }
     visemeFramesRef.current = [];
     visemeCursorRef.current = 0;
     clearAckTimer();
@@ -219,7 +245,11 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       setFace('thinking');
       let tts;
       try {
-        tts = await synthesizeSpeech(text);
+        // Always pass the effective voice id — the selector already
+        // resolves manual override / locale default / build-time
+        // fallback to a single string, so `synthesizeSpeech` doesn't
+        // need its own fallback branch here.
+        tts = await synthesizeSpeech(text, { voiceId: mascotVoiceIdRef.current });
       } catch (err) {
         // Voice path unavailable — degrade cleanly to text-only behavior.
         if (isStillCurrent()) degraded = true;
@@ -252,6 +282,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       const handle = await playBase64Audio(tts.audio_base64, tts.audio_mime ?? 'audio/mpeg');
       if (!isStillCurrent()) {
         handle.stop();
+        handle.ended.catch(swallowAudioStop);
         return;
       }
       if (frames.length === 0) {
@@ -277,8 +308,10 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       );
       try {
         await handle.ended;
-      } catch {
-        // Promise rejects when stop() is called — fall through to cleanup.
+      } catch (err) {
+        // Stop sentinel is expected when a newer turn cancels playback —
+        // rethrow anything else so real decoder errors aren't masked.
+        swallowAudioStop(err);
       }
     } finally {
       if (isStillCurrent()) {

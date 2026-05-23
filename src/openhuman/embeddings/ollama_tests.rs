@@ -58,6 +58,53 @@ fn trailing_slash_stripped() {
 }
 
 #[test]
+fn base_url_edge_cases_build_embed_url() {
+    let cases = [
+        ("http://host:11434/", "http://host:11434/api/embed"),
+        ("http://[::1]:11434", "http://[::1]:11434/api/embed"),
+        ("http://host", "http://host/api/embed"),
+    ];
+
+    for (base_url, expected) in cases {
+        let p = OllamaEmbedding::try_new(base_url, "m", 1).unwrap();
+        assert_eq!(p.embed_url().unwrap(), expected);
+    }
+}
+
+#[test]
+fn rejects_api_endpoint_base_urls() {
+    for base_url in [
+        "http://host:11434/v1",
+        "http://host:11434/api",
+        "http://host:11434/api/embed",
+        "http://host:11434/v1/chat/completions",
+        "http://host:11434/chat/completions",
+    ] {
+        let err = OllamaEmbedding::try_new(base_url, "m", 1).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Ollama server root"),
+            "should reject pre-suffixed base URL {base_url}: {msg}"
+        );
+    }
+}
+
+#[test]
+fn rejects_credentialed_base_urls() {
+    let err = OllamaEmbedding::try_new("http://user:pass@host:11434", "m", 1).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("without credentials"), "msg: {msg}");
+}
+
+#[test]
+fn rejects_virtual_local_model_ids() {
+    let err = OllamaEmbedding::try_new("http://host:11434", "local-v1", 768).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("local-*"), "msg: {msg}");
+    assert!(msg.contains(DEFAULT_OLLAMA_MODEL), "msg: {msg}");
+}
+
+#[test]
 fn model_trimmed() {
     let p = OllamaEmbedding::new("", "  nomic-embed-text  ", 768);
     assert_eq!(p.model, "nomic-embed-text");
@@ -66,7 +113,7 @@ fn model_trimmed() {
 #[test]
 fn embed_url_format() {
     let p = OllamaEmbedding::default();
-    assert_eq!(p.embed_url(), "http://localhost:11434/api/embed");
+    assert_eq!(p.embed_url().unwrap(), "http://localhost:11434/api/embed");
 }
 
 #[test]
@@ -74,7 +121,9 @@ fn accessor_methods() {
     let p = OllamaEmbedding::new("http://x:1", "m", 42);
     assert_eq!(p.base_url(), "http://x:1");
     assert_eq!(p.model(), "m");
+    assert_eq!(p.model_id(), "m");
     assert_eq!(p.dimensions(), 42);
+    assert_eq!(p.signature(), "provider=ollama;model=m;dims=42");
 }
 
 // ── embed — empty / whitespace ──────────────────────────
@@ -275,6 +324,66 @@ async fn embed_connection_refused() {
         err.to_string().contains("is Ollama running"),
         "should mention Ollama: {}",
         err
+    );
+}
+
+// OPENHUMAN-TAURI-{GP,MA,KM,GX} wire shapes — currently routed through
+// `report_error_or_expected` (Sentry classifier ladder) by this PR. The ladder
+// matches GP (LocalAiCapabilityUnavailable) today; MA/KM/GX still fall through
+// to capture because `observability::expected_error_kind` has no matcher arm
+// for "ollama model not found" / "ollama daemon unreachable". Those matcher
+// arms are blocked behind PR #2063 + #2188 merging (both touch
+// `src/core/observability.rs`) and will land in the follow-up classifier
+// batch. Tests below lock the CURRENT state so the follow-up flips them.
+
+#[test]
+fn ma_wire_shape_current_state_unclassified() {
+    let msg = r#"ollama embed failed with status 404 Not Found: {"error":"model \"bge-m3\" not found, try pulling it first"}"#;
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        None,
+        "MA — matcher arm pending follow-up classifier batch (post #2063 + #2188 merge)"
+    );
+}
+
+#[test]
+fn km_wire_shape_current_state_unclassified() {
+    let msg = r#"ollama embed failed with status 404 Not Found: {"error":"model \"nomic-embed-text:latest\" not found, try pulling it first"}"#;
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        None,
+        "KM — matcher arm pending follow-up classifier batch"
+    );
+}
+
+#[test]
+fn gp_wire_shape_classifies() {
+    let msg =
+        "Vision is disabled for this RAM tier. Switch to the 4-8 GB tier or above to enable it.";
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        Some(crate::core::observability::ExpectedErrorKind::LocalAiCapabilityUnavailable),
+        "GP — LocalAiCapabilityUnavailable matcher must catch this; closed by this PR"
+    );
+}
+
+#[test]
+fn gx_wire_shape_current_state_unclassified() {
+    let msg = "ollama embeddings opted-in but daemon unreachable at http://localhost:11434; falling back to cloud embeddings for this session";
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        None,
+        "GX — matcher arm pending follow-up classifier batch"
+    );
+}
+
+#[test]
+fn ollama_parse_error_wire_shape_stays_unexpected() {
+    let msg = "ollama embed response parse failed: invalid type: expected sequence";
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        None,
+        "real parse bugs must still reach Sentry"
     );
 }
 

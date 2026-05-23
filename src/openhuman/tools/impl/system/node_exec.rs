@@ -4,7 +4,7 @@
 //! Sibling to [`crate::openhuman::tools::impl::system::shell::ShellTool`]: same
 //! security gates, same env hygiene, but the command is pinned to the `node`
 //! binary resolved by
-//! [`crate::openhuman::node_runtime::NodeBootstrap`].
+//! [`crate::openhuman::javascript::NodeBootstrap`].
 //!
 //! Two input modes:
 //!
@@ -22,7 +22,7 @@
 //! `PATH`. Subsequent calls reuse the cached install.
 
 use crate::openhuman::agent::host_runtime::RuntimeAdapter;
-use crate::openhuman::node_runtime::NodeBootstrap;
+use crate::openhuman::javascript::NodeBootstrap;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
@@ -40,7 +40,28 @@ const MAX_OUTPUT_BYTES: usize = 1_048_576;
 /// into spawned node processes. `PATH` gets a prepend of the managed bin
 /// dir before being forwarded.
 const SAFE_ENV_VARS: &[&str] = &[
-    "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
+    "HOME",
+    "TERM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "USER",
+    "SHELL",
+    "TMPDIR",
+    // Windows process creation and child command lookup need these after env_clear().
+    // PATH is rebuilt separately with the managed Node bin dir prepended.
+    "SystemRoot",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
 ];
 
 /// `node_exec` — execute JavaScript through the resolved Node.js runtime.
@@ -223,11 +244,17 @@ impl Tool for NodeExecTool {
                 let mut stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
                 if stdout.len() > MAX_OUTPUT_BYTES {
-                    stdout.truncate(stdout.floor_char_boundary(MAX_OUTPUT_BYTES));
+                    stdout.truncate(crate::openhuman::util::floor_char_boundary(
+                        &stdout,
+                        MAX_OUTPUT_BYTES,
+                    ));
                     stdout.push_str("\n... [stdout truncated at 1MB]");
                 }
                 if stderr.len() > MAX_OUTPUT_BYTES {
-                    stderr.truncate(stderr.floor_char_boundary(MAX_OUTPUT_BYTES));
+                    stderr.truncate(crate::openhuman::util::floor_char_boundary(
+                        &stderr,
+                        MAX_OUTPUT_BYTES,
+                    ));
                     stderr.push_str("\n... [stderr truncated at 1MB]");
                 }
 
@@ -348,5 +375,15 @@ mod tests {
         let ws = std::path::Path::new("/ws");
         let resolved = resolve_script_path(ws, "scripts/run.js").unwrap();
         assert_eq!(resolved, std::path::Path::new("/ws/scripts/run.js"));
+    }
+
+    #[test]
+    fn safe_env_vars_include_windows_process_essentials() {
+        for var in ["SystemRoot", "COMSPEC", "PATHEXT", "TEMP", "USERPROFILE"] {
+            assert!(
+                SAFE_ENV_VARS.contains(&var),
+                "{var} must be forwarded for Windows child processes"
+            );
+        }
     }
 }

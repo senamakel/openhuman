@@ -111,7 +111,7 @@ async function setupLayout() {
       onboardingCompleted: false,
       chatOnboardingCompleted: false,
       analyticsEnabled: false,
-      localState: { encryptionKey: null, primaryWalletAddress: null, onboardingTasks: null },
+      localState: { encryptionKey: null, onboardingTasks: null },
       runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
     },
     isBootstrapping: false,
@@ -227,5 +227,22 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
 
     // Navigation should still proceed even when the flag cannot be written.
     expect(screen.getByTestId('home-page')).toBeInTheDocument();
+  });
+
+  it('still completes onboarding when persisting onboarding tasks fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { mockSetOnboardingCompletedFlag, mockSetOnboardingTasks } = await setupLayout();
+    mockSetOnboardingTasks.mockRejectedValueOnce(
+      new Error('Core RPC openhuman.app_state_snapshot timed out after 30000ms')
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('complete-btn'));
+    });
+
+    expect(mockSetOnboardingCompletedFlag).toHaveBeenCalledWith(true);
+    expect(screen.getByTestId('home-page')).toBeInTheDocument();
+
+    warnSpy.mockRestore();
   });
 });

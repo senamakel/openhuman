@@ -14,7 +14,9 @@ use std::sync::Arc;
 use anyhow::Context;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::providers::{self, Provider, ProviderRuntimeOptions, INFERENCE_BACKEND_ID};
+use crate::openhuman::inference::provider::{
+    self, Provider, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
+};
 
 /// The concrete provider + metadata that [`crate::openhuman::agent::triage::evaluator::run_triage`]
 /// should use for this particular triage turn.
@@ -54,10 +56,89 @@ pub async fn resolve_provider_with_config(config: &Config) -> anyhow::Result<Res
     build_remote_provider(config)
 }
 
+/// Build the local-arm provider for the tiered fallback chain (issue
+/// #1257). Returns `None` when local AI is disabled or no chat model
+/// is configured — callers (`evaluator::run_triage`) skip straight to
+/// `Deferred` in that case.
+///
+/// The returned provider is a thin `OpenAiCompatibleProvider` pointed
+/// at the configured local inference base (Ollama by default,
+/// overridable via `OPENHUMAN_LOCAL_INFERENCE_URL`). It mirrors the
+/// wiring `routing::factory::new_provider` uses for the local arm of
+/// `IntelligentRoutingProvider` so the same model that serves
+/// lightweight chat also serves the triage fallback.
+pub fn build_local_provider_with_config(config: &Config) -> Option<ResolvedProvider> {
+    use crate::openhuman::inference::provider::compatible::{AuthStyle, OpenAiCompatibleProvider};
+
+    let local_cfg = &config.local_ai;
+    if !local_cfg.runtime_enabled {
+        tracing::debug!("[triage::routing] local arm disabled (runtime_enabled=false)");
+        return None;
+    }
+    if local_cfg.chat_model_id.trim().is_empty() {
+        tracing::debug!("[triage::routing] local arm skipped (no chat_model_id configured)");
+        return None;
+    }
+
+    let override_base = std::env::var("OPENHUMAN_LOCAL_INFERENCE_URL")
+        .ok()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty());
+    let provider_kind = local_cfg.provider.trim().to_ascii_lowercase();
+    let use_openai_compat = override_base.is_some()
+        || matches!(
+            provider_kind.as_str(),
+            "llamacpp" | "llama-server" | "custom_openai"
+        );
+
+    let (label, base) = if use_openai_compat {
+        let base = override_base
+            .or_else(|| local_cfg.base_url.clone())
+            .unwrap_or_else(|| "http://127.0.0.1:8080/v1".to_string());
+        let label = if provider_kind == "custom_openai" {
+            "custom_openai"
+        } else {
+            "llamacpp"
+        };
+        (label, base)
+    } else {
+        let ollama_base = crate::openhuman::inference::local::ollama_base_url();
+        ("ollama", format!("{ollama_base}/v1"))
+    };
+
+    let local_api_key = local_cfg
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|key| !key.is_empty());
+    let auth_style = if local_api_key.is_some() {
+        AuthStyle::Bearer
+    } else {
+        AuthStyle::None
+    };
+    let provider: Arc<dyn Provider> = Arc::new(OpenAiCompatibleProvider::new(
+        label,
+        &base,
+        local_api_key,
+        auth_style,
+    ));
+    tracing::debug!(
+        provider = %label,
+        model = %local_cfg.chat_model_id,
+        "[triage::routing] resolved local fallback provider"
+    );
+    Some(ResolvedProvider {
+        provider,
+        provider_name: label.to_string(),
+        model: local_cfg.chat_model_id.clone(),
+        used_local: true,
+    })
+}
+
 // ── Provider builder ────────────────────────────────────────────────────
 
 /// Build the default remote routed backend provider. Same wiring as
-/// `local_ai::ops::agent_chat_simple` uses so we stay consistent with
+/// `inference::local::ops::agent_chat_simple` uses so we stay consistent with
 /// the existing direct-chat path.
 fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
     let default_model = config
@@ -70,7 +151,8 @@ fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
         secrets_encrypt: config.secrets.encrypt,
         reasoning_enabled: config.runtime.reasoning_enabled,
     };
-    let provider_box = providers::create_routed_provider_with_options(
+    let provider_box = provider::create_routed_provider_with_options(
+        config.inference_url.as_deref(),
         config.api_url.as_deref(),
         config.api_key.as_deref(),
         &config.reliability,

@@ -31,8 +31,8 @@ use crate::openhuman::channels::whatsapp_web::WhatsAppWebChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
 use crate::openhuman::context::channels_prompt::build_system_prompt;
+use crate::openhuman::inference::provider::{self, Provider};
 use crate::openhuman::memory::{self, Memory};
-use crate::openhuman::providers::{self, Provider};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools;
 use anyhow::Result;
@@ -54,20 +54,94 @@ pub async fn start_channels(config: Config) -> Result<()> {
     // a thin tokio task that ticks every minute and dispatches into
     // any provider whose `sync_interval_secs` has elapsed for an
     // active Composio connection. Safe to call here even though
-    // `bootstrap_skill_runtime` may also start it — `start_periodic_sync`
+    // `bootstrap_core_runtime` may also start it — `start_periodic_sync`
     // is intentionally cheap and the loop body no-ops when there are
     // no connections.
     crate::openhuman::composio::start_periodic_sync();
     // Native request handlers. Re-registering is safe (latest wins) so
-    // this is idempotent even if `bootstrap_skill_runtime` also runs.
+    // this is idempotent even if `bootstrap_core_runtime` also runs.
     // Must happen before `run_message_dispatch_loop` begins, because
     // channel dispatch calls `request_native_global("agent.run_turn", …)`
     // for every inbound message.
     crate::openhuman::agent::bus::register_agent_handlers();
+    // Phase 2 learning producers: email-signature subscriber reacts to
+    // DocumentCanonicalized events and emits Identity candidates into the buffer.
+    // The handle is intentionally leaked into a static so the subscription stays
+    // alive for the lifetime of the process (same pattern as TracingSubscriber).
+    {
+        use crate::core::event_bus::SubscriptionHandle;
+        use std::sync::OnceLock;
+        static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
+        EMAIL_SIG_HANDLE.get_or_init(|| {
+            crate::openhuman::learning::extract::signature::register_email_signature_subscriber()
+        });
+    }
+
+    // Phase 3 learning: register the event-driven rebuild trigger.
+    // The stability detector is wired up only when the global memory client is
+    // already initialised (it may not be in the channel runtime path — the
+    // client is initialised later in `start_channels`).
+    {
+        use crate::core::event_bus::SubscriptionHandle;
+        use std::sync::OnceLock;
+        static REBUILD_TRIGGER_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
+        REBUILD_TRIGGER_HANDLE.get_or_init(|| {
+            if let Some(client) = crate::openhuman::memory::global::client_if_ready() {
+                use crate::openhuman::learning::cache::FacetCache;
+                use crate::openhuman::learning::scheduler::register_event_trigger;
+                use crate::openhuman::learning::StabilityDetector;
+                use std::sync::Arc;
+                let cache = FacetCache::new(client.profile_conn());
+                let detector = Arc::new(StabilityDetector::new(cache));
+                // Also spawn the periodic rebuild loop (30-minute cadence).
+                let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+                // Leak the sender so the loop never receives a shutdown signal
+                // until the process exits. This matches the pattern used by
+                // other always-on background tasks.
+                Box::leak(Box::new(shutdown_tx));
+                crate::openhuman::learning::scheduler::spawn_rebuild_loop(
+                    Arc::clone(&detector),
+                    crate::openhuman::learning::scheduler::DEFAULT_REBUILD_INTERVAL,
+                    shutdown_rx,
+                );
+                register_event_trigger(detector)
+            } else {
+                tracing::debug!("[learning::scheduler] memory client not ready at channel startup, skipping event-trigger registration");
+                None
+            }
+        });
+    }
+
+    // Phase 4 learning: register the ProfileMdRenderer subscriber.
+    // Subscribes to CacheRebuilt events and re-renders the five cache-derived
+    // PROFILE.md blocks (style, identity, tooling, vetoes, goals).
+    {
+        use crate::core::event_bus::SubscriptionHandle;
+        use std::sync::OnceLock;
+        static PROFILE_MD_RENDERER_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
+        PROFILE_MD_RENDERER_HANDLE.get_or_init(|| {
+            if let Some(client) = crate::openhuman::memory::global::client_if_ready() {
+                use crate::openhuman::learning::cache::FacetCache;
+                use crate::openhuman::learning::ProfileMdRenderer;
+                use std::sync::Arc;
+                let cache = Arc::new(FacetCache::new(client.profile_conn()));
+                let renderer =
+                    Arc::new(ProfileMdRenderer::new(cache, config.workspace_dir.clone()));
+                ProfileMdRenderer::subscribe(renderer)
+            } else {
+                tracing::debug!(
+                    "[learning::profile_md_renderer] memory client not ready at startup, \
+                     skipping ProfileMdRenderer registration"
+                );
+                None
+            }
+        });
+    }
+
     tracing::debug!("[event_bus] global singleton initialized in start_channels");
 
     // Initialise the sub-agent definition registry from this workspace.
-    // Idempotent — `bootstrap_skill_runtime` may also call it.
+    // Idempotent — `bootstrap_core_runtime` may also call it.
     if let Err(err) = crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(
         &config.workspace_dir,
     ) {
@@ -77,16 +151,17 @@ pub async fn start_channels(config: Config) -> Result<()> {
         );
     }
     // Note: WebhookRequestSubscriber and ChannelInboundSubscriber are registered
-    // in bootstrap_skill_runtime() (src/core/jsonrpc.rs) to avoid double-registration
+    // in bootstrap_core_runtime() (src/core/jsonrpc.rs) to avoid double-registration
     // when both startup paths run in the same process.
 
-    let provider_runtime_options = providers::ProviderRuntimeOptions {
+    let provider_runtime_options = provider::ProviderRuntimeOptions {
         auth_profile_override: None,
         openhuman_dir: config.config_path.parent().map(std::path::PathBuf::from),
         secrets_encrypt: config.secrets.encrypt,
         reasoning_enabled: config.runtime.reasoning_enabled,
     };
-    let provider: Arc<dyn Provider> = Arc::from(providers::create_intelligent_routing_provider(
+    let provider: Arc<dyn Provider> = Arc::from(provider::create_intelligent_routing_provider(
+        config.inference_url.as_deref(),
         config.api_url.as_deref(),
         config.api_key.as_deref(),
         &config,
@@ -105,13 +180,26 @@ pub async fn start_channels(config: Config) -> Result<()> {
         &config.autonomy,
         &config.workspace_dir,
     ));
+    // Phase 1 of #1401: audit logger is wired with defaults so emission paths
+    // are exercised at runtime. A follow-up promotes `SecurityConfig` (and
+    // therefore the `audit` knob) onto the runtime `Config` schema so users
+    // can override `enabled`, `log_path`, and `max_size_mb` via TOML. The
+    // logger is workspace-scoped and shared, so concurrent sessions append to
+    // one `audit.log` without racing on rotation.
+    let audit = crate::openhuman::security::get_or_create_workspace_audit_logger(
+        crate::openhuman::config::AuditConfig::default(),
+        config.workspace_dir.clone(),
+    )?;
     let model = config
         .default_model
         .clone()
         .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.into());
     let temperature = config.default_temperature;
-    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage(
+    let local_embedding = config.workload_local_model("embeddings");
+    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_local_ai(
         &config.memory,
+        local_embedding.as_deref(),
+        &[],
         Some(&config.storage.provider.config),
         &config.workspace_dir,
     )?);
@@ -121,6 +209,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         Arc::new(config.clone()),
         &security,
         runtime,
+        audit,
         Arc::clone(&mem),
         &config.browser,
         &config.http_request,
@@ -485,6 +574,17 @@ pub async fn start_channels(config: Config) -> Result<()> {
             config.channels_config.active_channel.clone(),
         ),
     ));
+    let _telegram_remote_handle = if channels_by_name.contains_key("telegram") {
+        let handle = bus.subscribe(Arc::new(
+            crate::openhuman::channels::providers::telegram::TelegramRemoteSubscriber::new(
+                config.workspace_dir.clone(),
+            ),
+        ));
+        tracing::debug!("[telegram-remote] registered TelegramRemoteSubscriber");
+        Some(handle)
+    } else {
+        None
+    };
     // Register the tree summarizer event subscriber for observability logging.
     let _tree_summarizer_handle = bus.subscribe(Arc::new(
         crate::openhuman::tree_summarizer::bus::TreeSummarizerEventSubscriber::new(),
@@ -494,7 +594,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
 
     println!("  🚦 In-flight message limit: {max_in_flight_messages}");
 
-    let provider_name = providers::INFERENCE_BACKEND_ID.to_string();
+    let provider_name = provider::INFERENCE_BACKEND_ID.to_string();
     let mut provider_cache_seed: HashMap<String, Arc<dyn Provider>> = HashMap::new();
     provider_cache_seed.insert(provider_name.clone(), Arc::clone(&provider));
     let message_timeout_secs =
@@ -516,6 +616,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         provider_cache: Arc::new(Mutex::new(provider_cache_seed)),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: config.api_url.clone(),
+        inference_url: config.inference_url.clone(),
         reliability: Arc::new(config.reliability.clone()),
         provider_runtime_options,
         workspace_dir: Arc::new(config.workspace_dir.clone()),

@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use reqwest::header::AUTHORIZATION;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -10,10 +10,79 @@ use std::time::Duration;
 
 use super::jwt::bearer_authorization_value;
 
+/// Typed errors surfaced by `authed_json` for expected backend states that
+/// callers should recover from in-flow rather than funnel into Sentry.
+#[derive(Debug, thiserror::Error)]
+pub enum BackendApiError {
+    /// Edit / delete of a channel message returned 404. Happens when the
+    /// user deletes the message on the provider side (Telegram, Discord,
+    /// Slack, …) but our local `StreamingState` still has the id, or when
+    /// the backend GC'd the relay row before we got around to editing it.
+    /// Callers should clear stale state and skip the retry. Targets
+    /// `OPENHUMAN-TAURI-2Y` (~454 events on `/channels/telegram/messages/<id>`).
+    #[error("message not found on {provider}: {message_id}")]
+    MessageNotFound {
+        /// Channel provider segment (e.g. `"telegram"`, `"discord"`).
+        provider: String,
+        /// Provider-specific message id from the URL.
+        message_id: String,
+    },
+}
+
+/// Extract `(provider, message_id)` from a backend channel path of the
+/// shape `…/channels/<provider>/messages/<id>`. Returns `None` for paths
+/// that do not contain this four-segment subsequence.
+///
+/// Handles both the canonical four-segment form and paths with an arbitrary
+/// base-path prefix (e.g. `/api/v1/channels/telegram/messages/1103`) via a
+/// sliding window so that `BACKEND_URL` variants with path prefixes do not
+/// silently fall through to `report_error` (OPENHUMAN-TAURI-R7).
+fn parse_message_path(path: &str) -> Option<(&str, &str)> {
+    let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    // Fast path: exact four-segment canonical form /channels/<p>/messages/<id>
+    if segments.len() == 4 && segments[0] == "channels" && segments[2] == "messages" {
+        return Some((segments[1], segments[3]));
+    }
+    // Sliding window: handles base-path prefixes like /api/v1/channels/<p>/messages/<id>
+    for window in segments.windows(4) {
+        if window[0] == "channels" && window[2] == "messages" {
+            return Some((window[1], window[3]));
+        }
+    }
+    None
+}
+
+const CLIENT_VERSION_HEADER_MAX_LEN: usize = 64;
+
+fn sanitize_client_version(raw: &str) -> Option<String> {
+    let sanitized: String = raw
+        .trim()
+        .chars()
+        .filter(|c| matches!(c, '0'..='9' | 'A'..='Z' | 'a'..='z' | '.' | '_' | '+' | '-'))
+        .take(CLIENT_VERSION_HEADER_MAX_LEN)
+        .collect();
+
+    if sanitized.is_empty() {
+        None
+    } else {
+        Some(sanitized)
+    }
+}
+
 fn build_backend_reqwest_client() -> Result<Client> {
-    // Force rustls for consistent cross-platform TLS behavior.
-    Client::builder()
-        .use_rustls_tls()
+    let mut default_headers = HeaderMap::new();
+    if let Some(version) = sanitize_client_version(env!("CARGO_PKG_VERSION")) {
+        default_headers.insert(
+            HeaderName::from_static("x-core-version"),
+            HeaderValue::from_str(&version).context("invalid x-core-version header value")?,
+        );
+    }
+
+    // Platform-appropriate TLS backend: Windows → schannel (honors the OS
+    // cert store, required for corporate TLS-inspection proxies); macOS /
+    // Linux → rustls. See [`crate::openhuman::tls::tls_client_builder`].
+    crate::openhuman::tls::tls_client_builder()
+        .default_headers(default_headers)
         .http1_only()
         .timeout(Duration::from_secs(120))
         .connect_timeout(Duration::from_secs(15))
@@ -177,8 +246,22 @@ pub struct BackendOAuthClient {
 
 impl BackendOAuthClient {
     /// Creates a new `BackendOAuthClient` with the given API base URL.
+    ///
+    /// Any path, query, or fragment in `api_base` is stripped so that
+    /// `Url::join` always resolves root-relative REST paths correctly.
+    /// This guards against callers who pass a full LLM completions URL
+    /// (e.g. `https://host/v1/chat/completions`) instead of just the origin:
+    /// without stripping, `join("teams/me/usage")` would produce the wrong
+    /// path `/v1/chat/teams/me/usage` via RFC 3986 relative resolution.
     pub fn new(api_base: &str) -> Result<Self> {
-        let base = Url::parse(api_base.trim()).context("Invalid API base URL")?;
+        let mut base = Url::parse(api_base.trim()).context("Invalid API base URL")?;
+        anyhow::ensure!(
+            matches!(base.scheme(), "http" | "https") && base.host_str().is_some(),
+            "API base URL must be an absolute http(s) URL with host"
+        );
+        base.set_path("");
+        base.set_query(None);
+        base.set_fragment(None);
         let client = build_backend_reqwest_client()?;
         Ok(Self { client, base })
     }
@@ -383,16 +466,42 @@ impl BackendOAuthClient {
         }
 
         let response = request.send().await.map_err(|e| {
-            crate::core::observability::report_error(
-                e.to_string().as_str(),
-                "backend_api",
-                "authed_json",
-                &[
-                    ("method", method.as_str()),
-                    ("path", url.path()),
-                    ("failure", "transport"),
-                ],
-            );
+            // Walk the error source chain so transient markers hidden in nested
+            // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify
+            // correctly. The top-level `e.to_string()` often only carries the
+            // outermost wrapper, e.g. "error sending request for url (...)".
+            let mut error_message = e.to_string();
+            let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&e);
+            while let Some(s) = src {
+                error_message.push_str(" → ");
+                error_message.push_str(&s.to_string());
+                src = s.source();
+            }
+            if crate::core::observability::contains_transient_transport_phrase(&error_message) {
+                tracing::warn!(
+                    domain = "backend_api",
+                    operation = "authed_json",
+                    method = method.as_str(),
+                    path = url.path(),
+                    failure = "transport",
+                    error = %error_message,
+                    "[backend_api] transient transport failure on {} {}: {}",
+                    method.as_str(),
+                    url.path(),
+                    error_message,
+                );
+            } else {
+                crate::core::observability::report_error(
+                    error_message.as_str(),
+                    "backend_api",
+                    "authed_json",
+                    &[
+                        ("method", method.as_str()),
+                        ("path", url.path()),
+                        ("failure", "transport"),
+                    ],
+                );
+            }
             anyhow::Error::new(e).context(format!(
                 "backend request {} {}",
                 method.as_str(),
@@ -403,23 +512,105 @@ impl BackendOAuthClient {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
         if !status.is_success() {
-            let status_str = status.as_u16().to_string();
-            crate::core::observability::report_error(
-                format!(
-                    "{} {} failed ({status}): {text}",
+            let status_code = status.as_u16();
+            let status_str = status_code.to_string();
+
+            // 404 on `/channels/<provider>/messages/<id>` is an expected
+            // state (user deleted the message provider-side, or backend
+            // GC'd the relay row) — not a code bug. Surface a typed
+            // `BackendApiError::MessageNotFound` so callers (`bus.rs`
+            // streaming/thinking/delete/final paths) can clear stale
+            // ids and skip retry, without funneling the 404 into
+            // `report_error`. Targets `OPENHUMAN-TAURI-2Y` (~454 events).
+            if status_code == 404 {
+                if let Some((provider, message_id)) = parse_message_path(url.path()) {
+                    tracing::info!(
+                        domain = "backend_api",
+                        operation = "authed_json",
+                        provider = provider,
+                        message_id = message_id,
+                        "[backend_api] message-not-found 404 on {} {} — surfacing typed error",
+                        method.as_str(),
+                        url.path(),
+                    );
+                    return Err(anyhow::Error::new(BackendApiError::MessageNotFound {
+                        provider: provider.to_string(),
+                        message_id: message_id.to_string(),
+                    }));
+                }
+                // Defense-in-depth: PATCH/DELETE 404s on any channel-message path that
+                // parse_message_path could not parse (e.g. exotic URL variant with extra
+                // segments). Still an expected backend state — suppress the Sentry event
+                // without propagating a typed error. Targets OPENHUMAN-TAURI-R7.
+                if (method == Method::PATCH || method == Method::DELETE)
+                    && url.path().contains("/channels/")
+                    && url.path().contains("/messages/")
+                {
+                    tracing::debug!(
+                        domain = "backend_api",
+                        operation = "authed_json",
+                        "[backend_api] channel-message 404 on {} {} — path not matched by \
+                         parse_message_path, suppressing Sentry (TAURI-R7 defense-in-depth)",
+                        method.as_str(),
+                        url.path(),
+                    );
+                    anyhow::bail!(
+                        "channel message not found (404) on {} {}",
+                        method.as_str(),
+                        url.path(),
+                    );
+                }
+            }
+
+            // These are transient infrastructure errors (proxy/CDN/backend
+            // temporarily unavailable). They are not code bugs and callers already
+            // implement retry/disable logic, so skip Sentry to avoid noise.
+            let is_transient_infra =
+                crate::core::observability::is_transient_http_status_code(status_code);
+            let is_budget_exhausted = status_code == 400
+                && crate::openhuman::inference::provider::is_budget_exhausted_message(&text);
+            if is_budget_exhausted {
+                tracing::info!(
+                    method = method.as_str(),
+                    path = url.path(),
+                    status = status_code,
+                    failure = "non_2xx",
+                    kind = "budget",
+                    "[backend_api] budget-exhausted 400 on {} {} — not reporting to Sentry",
                     method.as_str(),
-                    url.path()
-                )
-                .as_str(),
-                "backend_api",
-                "authed_json",
-                &[
-                    ("method", method.as_str()),
-                    ("path", url.path()),
-                    ("status", status_str.as_str()),
-                    ("failure", "non_2xx"),
-                ],
-            );
+                    url.path(),
+                );
+            } else if is_transient_infra {
+                tracing::warn!(
+                    domain = "backend_api",
+                    operation = "authed_json",
+                    method = method.as_str(),
+                    path = url.path(),
+                    status = status_code,
+                    failure = "non_2xx",
+                    "[backend_api] transient {status} on {} {} — not reporting to Sentry",
+                    method.as_str(),
+                    url.path(),
+                );
+            } else {
+                crate::core::observability::report_error(
+                    format!(
+                        "{} {} failed ({status}); response_body_len={}",
+                        method.as_str(),
+                        url.path(),
+                        text.len()
+                    )
+                    .as_str(),
+                    "backend_api",
+                    "authed_json",
+                    &[
+                        ("method", method.as_str()),
+                        ("path", url.path()),
+                        ("status", status_str.as_str()),
+                        ("failure", "non_2xx"),
+                    ],
+                );
+            }
             anyhow::bail!(
                 "{} {} failed ({status}): {text}",
                 method.as_str(),
@@ -659,28 +850,6 @@ impl BackendOAuthClient {
             Method::POST,
             &format!("channels/{encoded}/reactions"),
             Some(reaction_body),
-        )
-        .await
-    }
-
-    /// Searches for GIFs using the Tenor integration.
-    pub async fn search_tenor_gifs(
-        &self,
-        bearer_jwt: &str,
-        query: &str,
-        limit: Option<u32>,
-    ) -> Result<Value> {
-        anyhow::ensure!(!query.trim().is_empty(), "query is required");
-        let body = serde_json::json!({
-            "query": query.trim(),
-            "limit": limit.unwrap_or(5),
-            "contentFilter": "medium",
-        });
-        self.authed_json(
-            bearer_jwt,
-            Method::POST,
-            "agent-integrations/tenor/search",
-            Some(body),
         )
         .await
     }

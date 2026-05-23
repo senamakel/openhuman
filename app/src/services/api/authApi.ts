@@ -1,4 +1,5 @@
 import { getBackendUrl } from '../backendUrl';
+import { getClientVersionHeaders } from '../clientVersionHeaders';
 import { callCoreRpc } from '../coreRpcClient';
 
 const EMAIL_MAGIC_LINK_TIMEOUT_MS = 15_000;
@@ -20,9 +21,10 @@ export async function sendEmailMagicLink(
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const versionHeaders = await getClientVersionHeaders();
     const response = await fetch(`${backendUrl}/auth/email/send-link`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...versionHeaders },
       body: JSON.stringify({ email, frontendRedirectUri }),
       signal: controller.signal,
     });

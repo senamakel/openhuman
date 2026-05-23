@@ -1,6 +1,6 @@
 # Release Manual Smoke Checklist
 
-Run this checklist on every release-cut. Sign-off lives in the release PR description (paste the checklist with checked items + the sign-off block at the bottom). Owns OS-level surfaces that drivers cannot assert — everything else is automated under WDIO, Vitest, or Rust integration tests (see [`TESTING-STRATEGY.md`](./TESTING-STRATEGY.md)).
+Run this checklist on every release-cut. Sign-off lives in the release PR description (paste the checklist with checked items + the sign-off block at the bottom). Owns OS-level surfaces that drivers cannot assert — everything else is automated under WDIO, Vitest, or Rust integration tests (see [Testing Strategy](../gitbooks/developing/testing-strategy.md)).
 
 This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-MATRIX.md`](./TEST-COVERAGE-MATRIX.md). If a feature has neither automated coverage nor an entry on this checklist, treat it as untested and open a coverage gap.
 
@@ -13,12 +13,17 @@ This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-M
 3. Tick each box only after you have verified the expected outcome with your own eyes.
 4. Paste the completed checklist + sign-off block into the release PR description.
 5. Any item that is genuinely not applicable for this release: mark `N/A` with a one-line reason; do not silently skip.
+6. If `release-staging.yml` was dispatched with `skip_e2e=true`, record the reason and link the most recent relevant green pretest evidence in the PR notes (unit/rust and E2E as applicable). That override is for operator recovery, not the default release path.
 
 ---
 
 ## Per-release smoke
 
 Applies to every release, all platforms.
+
+### Public installer script
+
+- [ ] **`scripts/install.sh` downloads the latest asset on a proxy/VPN network** — From a clean checkout, run `bash scripts/install.sh --dry-run --verbose`, then run the public `curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash` flow on one macOS or Linux host. Expected: release metadata resolves, the asset downloads successfully, and transient GitHub/CDN HTTP/2 failures retry over HTTP/1.1 instead of surfacing `curl: (16) Error in the HTTP2 framing layer`.
 
 ### macOS
 
@@ -42,13 +47,16 @@ Applies to every release, all platforms.
 ### Linux
 
 - [ ] **`.deb` and/or `.AppImage` install on a clean Ubuntu 22.04** — `sudo dpkg -i openhuman_*.deb` or `chmod +x openhuman-*.AppImage && ./openhuman-*.AppImage`. Expected: no missing-dependency errors; app launches.
+- [ ] **`.AppImage` launches on a clean Ubuntu 24.04 host without a sibling extracted tree** — Run the downloaded AppImage directly from an empty directory. Expected: no `Interpreter not found!` error; `sharun` finds its bundled dynamic linker and the app reaches the first window.
 - [ ] **OS-native notification toasts fire** — Trigger a notification from inside the app (e.g. memory captured, agent finished). Expected: a libnotify-style toast appears outside the app window. (CI Linux sees only Xvfb; this surface verifies on a real desktop.)
+- [ ] **Headless supervisor update stages without self-exit** — On a Linux service deployment with `[update] restart_strategy = "supervisor"` and `rpc_mutations_enabled = false`, stage a new core binary through the documented operator flow. Expected: the running process stays up until the supervisor restart, the staged binary is present on disk, and `systemctl restart openhuman` (or equivalent) picks up the new version.
 
 ### Cross-platform
 
 - [ ] **First launch flow completes for a brand-new user** — Fresh OS user account, no `~/.openhuman` directory. Walk through onboarding to first agent reply. Expected: no crashes, no permission deadlocks, no stale-config errors.
 - [ ] **Auto-update download + relaunch succeeds** — Install the previous release, point the updater feed at this release, trigger an update check. Expected: download completes, relaunch installs the new binary, version string in `Settings > About` matches the release tag.
 - [ ] **Logging out + logging back in preserves nothing private** — Sign out, sign in as a different user. Expected: no leaked memory, threads, or skill state from the previous session (regression watch — see #900).
+- [ ] **`memory_tree` migrates WAL→TRUNCATE on upgrade with memory intact** — Install a previous (WAL-era) build, use it enough to populate memory so a `chunks.db-wal`/`-shm` pair exists under `~/.openhuman/.../workspace/memory_tree/`, then upgrade to this build. Expected on first launch: `PRAGMA journal_mode` on `chunks.db` reports `truncate`, the `-wal`/`-shm` side-files are gone, previously-captured memories still surface in recall, and no `Failed to initialize memory_tree schema` errors appear.
 
 ---
 
@@ -58,7 +66,7 @@ Applies to every release, all platforms.
 
 ### 0.52.x — current
 
-- [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [`RELEASE_POLICY.md`](./RELEASE_POLICY.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
+- [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [Release Policy](../gitbooks/developing/release-policy.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
 - [ ] **Gmail connect succeeds on a fresh install from `releases/latest`** — Per release-policy step 4. Expected: token exchange completes, inbox lists in-app.
 
 ---

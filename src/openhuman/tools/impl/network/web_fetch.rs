@@ -6,7 +6,7 @@
 //! the agent reaches for when researching: returns the response body
 //! as text, capped, with a tiny preamble (status + final URL).
 
-use super::url_guard::{normalize_allowed_domains, validate_url};
+use super::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -109,7 +109,7 @@ impl Tool for WebFetchTool {
             ));
         }
 
-        let url = match validate_url(raw_url, &self.allowed_domains) {
+        let url = match validate_url_with_dns_check(raw_url, &self.allowed_domains).await {
             Ok(u) => u,
             Err(e) => return Ok(ToolResult::error(format!("URL rejected: {e}"))),
         };
@@ -154,10 +154,7 @@ impl Tool for WebFetchTool {
         }
 
         let (snippet, truncated) = if body.len() > max_bytes {
-            let mut cut = max_bytes;
-            while cut > 0 && !body.is_char_boundary(cut) {
-                cut -= 1;
-            }
+            let cut = crate::openhuman::util::floor_char_boundary(&body, max_bytes);
             (&body[..cut], true)
         } else {
             (body.as_str(), false)
@@ -214,5 +211,16 @@ mod tests {
         let tool = WebFetchTool::new(test_security(), vec!["example.com".into()], None, None);
         let result = tool.execute(json!({ "url": "not-a-url" })).await.unwrap();
         assert!(result.is_error);
+    }
+
+    #[test]
+    fn test_web_fetch_truncation_utf8() {
+        // Mock body with multi-byte char exactly at budget
+        let body = "Hello 🦀 World"; // 🦀 is at index 6-9
+        let max_bytes = 8;
+        // Should truncate at index 6
+        let cut = crate::openhuman::util::floor_char_boundary(body, max_bytes);
+        assert_eq!(cut, 6);
+        assert_eq!(&body[..cut], "Hello ");
     }
 }

@@ -26,6 +26,8 @@ vi.mock('../../services/api/threadApi', () => ({
     updateMessage: vi.fn(),
     deleteThread: vi.fn(),
     purge: vi.fn(),
+    getTaskBoard: vi.fn(),
+    putTaskBoard: vi.fn(),
   },
 }));
 
@@ -78,6 +80,27 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
   });
 
   describe('dedupe', () => {
+    it('stores task board updates from socket events', () => {
+      const listeners = renderProvider();
+      const board = {
+        threadId: 'thread-board',
+        updatedAt: '2026-05-04T10:00:05Z',
+        cards: [
+          { id: 'task-1', title: 'Plan', status: 'todo' as const, order: 0, updatedAt: 'now' },
+        ],
+      };
+
+      act(() => {
+        listeners.onTaskBoardUpdated?.({
+          thread_id: 'thread-board',
+          request_id: 'req-board',
+          task_board: board,
+        });
+      });
+
+      expect(store.getState().chatRuntime.taskBoardByThread['thread-board']).toEqual(board);
+    });
+
     it('drops duplicate tool_call events with the same thread/request/round/tool', () => {
       const listeners = renderProvider();
 
@@ -293,7 +316,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onSegment?.({
           thread_id: 't-complete',
           request_id: 'r-complete',
-          full_response: 'Part one.',
+          full_response: 'Part one.\n\n',
           segment_index: 0,
           segment_total: 2,
         });
@@ -322,6 +345,125 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
 
       await waitFor(() => expect(mockRefetchSnapshot).toHaveBeenCalledTimes(1));
       expect(threadApi.appendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reconcile when all segments arrived even if full_response differs (trim/joiner)', async () => {
+      // Regression: the server's segmenter trims each segment and joins with
+      // "\n\n", while chat_done.full_response is the raw LLM text. A strict
+      // byte-equality check used to fire reconciliation on every multi-segment
+      // turn — once we have all expected segment_index values, delivery is
+      // complete regardless of full_response content.
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onSegment?.({
+          thread_id: 't-trim',
+          request_id: 'r-trim',
+          full_response: 'Hello.',
+          segment_index: 0,
+          segment_total: 2,
+        });
+        listeners.onSegment?.({
+          thread_id: 't-trim',
+          request_id: 'r-trim',
+          full_response: 'World.',
+          segment_index: 1,
+          segment_total: 2,
+        });
+      });
+
+      await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(2));
+
+      act(() => {
+        listeners.onDone?.({
+          thread_id: 't-trim',
+          request_id: 'r-trim',
+          // Raw LLM output: leading/trailing whitespace + paragraph break.
+          // segments.join('') === 'Hello.World.' !== full_response, but
+          // delivery is still complete.
+          full_response: '\nHello.\n\nWorld.\n',
+          rounds_used: 1,
+          total_input_tokens: 10,
+          total_output_tokens: 20,
+          segment_total: 2,
+        });
+      });
+
+      await waitFor(() => expect(mockRefetchSnapshot).toHaveBeenCalledTimes(1));
+      expect(threadApi.appendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('reconciles when a segment is missing', async () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onSegment?.({
+          thread_id: 't-missing',
+          request_id: 'r-missing',
+          full_response: 'Part one.',
+          segment_index: 0,
+          segment_total: 2,
+        });
+        // segment_index 1 never arrives.
+      });
+
+      await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(1));
+
+      act(() => {
+        listeners.onDone?.({
+          thread_id: 't-missing',
+          request_id: 'r-missing',
+          full_response: 'Part one.\n\nPart two.',
+          rounds_used: 1,
+          total_input_tokens: 10,
+          total_output_tokens: 20,
+          segment_total: 2,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          't-missing',
+          expect.objectContaining({ content: 'Part one.\n\nPart two.', sender: 'agent' })
+        )
+      );
+      expect(threadApi.appendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('expires stale segment delivery state before chat_done reconciliation', async () => {
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+      const listeners = renderProvider();
+
+      try {
+        act(() => {
+          listeners.onSegment?.({
+            thread_id: 't-stale',
+            request_id: 'r-stale',
+            full_response: 'Stale segment.',
+            segment_index: 0,
+            segment_total: 1,
+          });
+        });
+
+        await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(1));
+        nowSpy.mockReturnValue(1_000 + 5 * 60 * 1000 + 1);
+
+        act(() => {
+          listeners.onDone?.({
+            thread_id: 't-stale',
+            request_id: 'r-stale',
+            full_response: 'Stale segment.',
+            rounds_used: 1,
+            total_input_tokens: 10,
+            total_output_tokens: 20,
+            segment_total: 1,
+          });
+        });
+
+        await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(2));
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
 
     it('accumulates text_delta chunks within the same request_id', () => {
@@ -660,6 +802,194 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       // than synthesising a partial subagent row from incomplete data.
       const timeline = store.getState().chatRuntime.toolTimelineByThread[threadId] ?? [];
       expect(timeline).toHaveLength(0);
+    });
+  });
+
+  // Regression: on Windows users report being "locked out" of the composer
+  // after sleep/wake or a network flap — the in-flight turn's `chat_done`
+  // never arrives on the new socket, so `activeThreadId` and the
+  // `started`/`streaming` lifecycle stay set and the textarea remains
+  // disabled. The reconcile effect releases them on disconnect so the
+  // composer becomes typeable again immediately.
+  describe('socket-disconnect reconciliation (#WindowsLockout)', () => {
+    it('clears activeThreadId and in-flight lifecycle when the socket drops mid-turn', async () => {
+      const threadId = 't-disconnect';
+      renderProvider();
+
+      await act(async () => {
+        const { setActiveThread } = await import('../../store/threadSlice');
+        const { beginInferenceTurn, setInferenceStatusForThread } =
+          await import('../../store/chatRuntimeSlice');
+        store.dispatch(setActiveThread(threadId));
+        store.dispatch(beginInferenceTurn({ threadId }));
+        store.dispatch(
+          setInferenceStatusForThread({
+            threadId,
+            status: { phase: 'thinking', iteration: 1, maxIterations: 10 },
+          })
+        );
+      });
+
+      expect(store.getState().thread.activeThreadId).toBe(threadId);
+      expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[threadId]).toBe('started');
+
+      await act(async () => {
+        store.dispatch(setStatusForUser({ userId: '__pending__', status: 'disconnected' }));
+      });
+
+      await waitFor(() => {
+        expect(store.getState().thread.activeThreadId).toBeNull();
+        expect(
+          store.getState().chatRuntime.inferenceTurnLifecycleByThread[threadId]
+        ).toBeUndefined();
+        expect(store.getState().chatRuntime.inferenceStatusByThread[threadId]).toBeUndefined();
+      });
+    });
+
+    it('preserves streamingAssistant text so the partial reply stays visible after disconnect', async () => {
+      const threadId = 't-disconnect-streaming';
+      renderProvider();
+
+      await act(async () => {
+        const { setActiveThread } = await import('../../store/threadSlice');
+        const { beginInferenceTurn, setStreamingAssistantForThread } =
+          await import('../../store/chatRuntimeSlice');
+        store.dispatch(setActiveThread(threadId));
+        store.dispatch(beginInferenceTurn({ threadId }));
+        store.dispatch(
+          setStreamingAssistantForThread({
+            threadId,
+            streaming: { requestId: 'req-1', content: 'Hello there, partial', thinking: '' },
+          })
+        );
+      });
+
+      await act(async () => {
+        store.dispatch(setStatusForUser({ userId: '__pending__', status: 'disconnected' }));
+      });
+
+      await waitFor(() => {
+        expect(store.getState().thread.activeThreadId).toBeNull();
+      });
+      expect(store.getState().chatRuntime.streamingAssistantByThread[threadId]).toMatchObject({
+        content: 'Hello there, partial',
+      });
+    });
+  });
+
+  // Error classifier full set — Batch-5 coverage (#1506, pr#1566).
+  //
+  // For the generic 'inference' error type the raw server message is
+  // replaced with USER_FACING_AGENT_ERROR_MESSAGE.  For all classified
+  // types (rate_limited, auth_error, budget_exhausted, context_overflow,
+  // timeout, network, tool_error, provider_error, model_unavailable) the
+  // server already provides a user-friendly message, which is forwarded
+  // directly.  'cancelled' produces no bubble at all.
+  describe('inference error classifier — full type set', () => {
+    const USER_FACING_FALLBACK =
+      'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord">Report on Discord</openhuman-link>';
+
+    it.each([
+      ['rate_limited', 'You have been rate limited. Please try again later.'],
+      ['auth_error', 'Authentication failed. Please reconnect your account.'],
+      ['budget_exhausted', 'Your usage budget has been exhausted.'],
+      ['context_overflow', 'The conversation is too long. Please start a new thread.'],
+      ['timeout', 'The request timed out. Please try again.'],
+      ['network', 'A network error occurred. Please check your connection.'],
+      ['tool_error', 'A tool call failed during this request.'],
+      ['provider_error', 'The AI provider returned an error.'],
+      ['model_unavailable', 'The selected model is currently unavailable.'],
+    ] as const)('forwards server message for error_type %s', async (error_type, serverMessage) => {
+      const listeners = renderProvider();
+      const threadId = `t-${error_type}`;
+
+      act(() => {
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          message: serverMessage,
+          error_type,
+          round: 0,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          threadId,
+          expect.objectContaining({ content: serverMessage, sender: 'agent' })
+        )
+      );
+    });
+
+    it('replaces raw internal message with user-facing constant for inference type', async () => {
+      const listeners = renderProvider();
+      const threadId = 't-raw-inference';
+
+      act(() => {
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          message: 'internal panic: channel closed unexpectedly at line 42',
+          error_type: 'inference',
+          round: 0,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          threadId,
+          expect.objectContaining({ content: USER_FACING_FALLBACK, sender: 'agent' })
+        )
+      );
+      // The raw server string must NOT leak through.
+      expect(threadApi.appendMessage).not.toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({ content: expect.stringContaining('channel closed unexpectedly') })
+      );
+    });
+
+    it('produces no error bubble for cancelled turns', async () => {
+      const listeners = renderProvider();
+      const threadId = 't-cancelled';
+
+      act(() => {
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          message: 'request cancelled by user',
+          error_type: 'cancelled',
+          round: 0,
+        });
+      });
+
+      // Give a tick for any async work to complete.
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(threadApi.appendMessage).not.toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({ sender: 'agent' })
+      );
+    });
+
+    it('falls back to USER_FACING constant when inference error has empty message', async () => {
+      const listeners = renderProvider();
+      const threadId = 't-empty-msg';
+
+      act(() => {
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          message: '',
+          error_type: 'network',
+          round: 0,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          threadId,
+          expect.objectContaining({ content: USER_FACING_FALLBACK, sender: 'agent' })
+        )
+      );
     });
   });
 });

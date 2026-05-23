@@ -2,23 +2,34 @@
 //!
 //! Converts text into numerical vectors for semantic search. Providers:
 //!
-//! - **Ollama** (default): Delegates to a local Ollama server — handles model
-//!   management, quantization, and GPU acceleration out of the box.
+//! - **Cloud** (default): Routes through the OpenHuman backend's
+//!   `POST /openai/v1/embeddings` (Voyage-backed). The recommended path —
+//!   works on a fresh install without requiring a local Ollama daemon.
+//! - **Ollama**: Local Ollama server. Opt-in for offline-only setups
+//!   (set `memory.embedding_provider = "ollama"` or enable
+//!   `local_ai.usage.embeddings`).
 //! - **OpenAI**: Cloud-based embeddings via the OpenAI API or compatible endpoints.
 //! - **Noop**: A fallback provider for keyword-only search.
 
+pub mod cloud;
 mod factory;
 pub mod noop;
 pub mod ollama;
 pub mod openai;
 mod provider_trait;
+pub mod rate_limit;
 pub mod store;
 
-pub use factory::{create_embedding_provider, default_local_embedding_provider};
+pub use cloud::{
+    OpenHumanCloudEmbedding, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
+};
+pub use factory::{
+    create_embedding_provider, default_embedding_provider, default_local_embedding_provider,
+};
 pub use noop::NoopEmbedding;
 pub use ollama::{OllamaEmbedding, DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 pub use openai::OpenAiEmbedding;
-pub use provider_trait::EmbeddingProvider;
+pub use provider_trait::{format_embedding_signature, EmbeddingProvider};
 pub use store::{bytes_to_vec, cosine_similarity, vec_to_bytes, SearchResult, VectorStore};
 
 #[cfg(test)]
@@ -31,7 +42,9 @@ mod tests {
     fn noop_name_and_dims() {
         let p = NoopEmbedding;
         assert_eq!(p.name(), "none");
+        assert_eq!(p.model_id(), "none");
         assert_eq!(p.dimensions(), 0);
+        assert_eq!(p.signature(), "provider=none;model=none;dims=0");
     }
 
     #[tokio::test]
@@ -62,13 +75,16 @@ mod tests {
     fn factory_ollama() {
         let p = create_embedding_provider("ollama", DEFAULT_OLLAMA_MODEL, 768).unwrap();
         assert_eq!(p.name(), "ollama");
+        assert_eq!(p.model_id(), DEFAULT_OLLAMA_MODEL);
         assert_eq!(p.dimensions(), 768);
+        assert_eq!(p.signature(), "provider=ollama;model=bge-m3;dims=768");
     }
 
     #[test]
     fn factory_openai() {
         let p = create_embedding_provider("openai", "text-embedding-3-small", 1536).unwrap();
         assert_eq!(p.name(), "openai");
+        assert_eq!(p.model_id(), "text-embedding-3-small");
         assert_eq!(p.dimensions(), 1536);
     }
 
@@ -125,7 +141,26 @@ mod tests {
             .contains("fastembed"));
     }
 
+    #[test]
+    fn factory_cloud() {
+        let p = create_embedding_provider(
+            "cloud",
+            DEFAULT_CLOUD_EMBEDDING_MODEL,
+            DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+        )
+        .unwrap();
+        assert_eq!(p.name(), "cloud");
+        assert_eq!(p.dimensions(), DEFAULT_CLOUD_EMBEDDING_DIMENSIONS);
+    }
+
     // ── Default provider ─────────────────────────────────────
+
+    #[test]
+    fn default_provider_uses_cloud() {
+        let p = default_embedding_provider();
+        assert_eq!(p.name(), "cloud");
+        assert_eq!(p.dimensions(), DEFAULT_CLOUD_EMBEDDING_DIMENSIONS);
+    }
 
     #[test]
     fn default_local_provider_uses_ollama() {

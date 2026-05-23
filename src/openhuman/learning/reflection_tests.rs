@@ -106,6 +106,8 @@ fn reflective_turn() -> TurnContext {
         }],
         turn_duration_ms: 2200,
         session_id: Some("session-1".into()),
+        agent_id: None,
+        entrypoint: None,
         iteration_count: 2,
     }
 }
@@ -201,6 +203,19 @@ fn build_reflection_prompt_includes_tool_calls_and_truncation() {
 }
 
 #[test]
+fn build_reflection_prompt_includes_output_language_directive() {
+    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+    let mut config = Config::default();
+    config.output_language = Some("zh-CN".into());
+    let hook = ReflectionHook::new(reflection_config(), Arc::new(config), memory, None);
+
+    let prompt = hook.build_reflection_prompt(&reflective_turn());
+    assert!(prompt.contains("Simplified Chinese"));
+    assert!(prompt.contains("Keep JSON keys"));
+    assert!(prompt.contains("\"observations\""));
+}
+
+#[test]
 fn session_key_and_counter_management_work() {
     let hook = ReflectionHook::new(
         reflection_config(),
@@ -288,7 +303,7 @@ async fn persist_reflection_writes_to_dedicated_namespace_and_category() {
 
 #[tokio::test]
 async fn on_turn_complete_dedupes_reflections_across_heuristic_and_llm_paths() {
-    use crate::openhuman::providers::Provider;
+    use crate::openhuman::inference::provider::Provider;
     use async_trait::async_trait;
 
     // Stub provider returning a reflection LLM response whose
@@ -331,6 +346,8 @@ async fn on_turn_complete_dedupes_reflections_across_heuristic_and_llm_paths() {
         tool_calls: Vec::new(),
         turn_duration_ms: 50,
         session_id: Some("dedupe".into()),
+        agent_id: None,
+        entrypoint: None,
         iteration_count: 1,
     };
     hook.on_turn_complete(&turn).await.unwrap();
@@ -404,6 +421,8 @@ async fn on_turn_complete_persists_heuristic_reflection_even_when_complexity_low
         tool_calls: Vec::new(),
         turn_duration_ms: 10,
         session_id: Some("s".into()),
+        agent_id: None,
+        entrypoint: None,
         iteration_count: 1,
     };
     // The LLM path is gated off by complexity, so the call returns Ok
@@ -437,5 +456,85 @@ async fn on_turn_complete_rolls_back_counter_when_reflection_call_fails() {
             .copied()
             .unwrap_or_default(),
         0
+    );
+}
+
+#[tokio::test]
+async fn on_turn_complete_emits_candidates_to_buffer_for_heuristic_cues() {
+    use crate::openhuman::learning::candidate::{self, FacetClass};
+
+    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+    // Use local reflection source with complexity gated high so only the heuristic
+    // fast-path runs (no LLM round-trip needed).
+    let mut cfg = reflection_config();
+    cfg.min_turn_complexity = 99;
+    cfg.reflection_source = ReflectionSource::Local;
+    let hook = ReflectionHook::new(cfg, Arc::new(Config::default()), memory, None);
+
+    // Snapshot the buffer before the call.
+    let before = candidate::global().len();
+
+    let turn = TurnContext {
+        user_message: "Going forward I want concise replies only.".into(),
+        assistant_response: "ok".into(),
+        tool_calls: Vec::new(),
+        turn_duration_ms: 10,
+        session_id: Some("buffer-test".into()),
+        agent_id: None,
+        entrypoint: None,
+        iteration_count: 1,
+    };
+    hook.on_turn_complete(&turn).await.unwrap();
+
+    let after = candidate::global().peek();
+    let new_candidates: Vec<_> = after.into_iter().skip(before).collect();
+
+    assert!(
+        !new_candidates.is_empty(),
+        "on_turn_complete should push at least one candidate to the buffer for heuristic cues"
+    );
+    assert!(
+        new_candidates.iter().any(|c| c.class == FacetClass::Goal),
+        "heuristic cues should produce Goal candidates"
+    );
+}
+
+#[tokio::test]
+async fn on_turn_complete_emits_style_candidates_from_llm_preferences() {
+    use crate::openhuman::inference::provider::Provider;
+    use crate::openhuman::learning::candidate::{self, FacetClass};
+
+    struct StubPrefProvider;
+    #[async_trait]
+    impl Provider for StubPrefProvider {
+        async fn chat_with_system(
+            &self,
+            _system_prompt: Option<&str>,
+            _message: &str,
+            _model: &str,
+            _temperature: f64,
+        ) -> anyhow::Result<String> {
+            Ok(r#"{"observations":[],"patterns":[],"user_preferences":["verbosity=terse"],"user_reflections":[]}"#.into())
+        }
+    }
+
+    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+    let hook = ReflectionHook::new(
+        reflection_config(),
+        Arc::new(Config::default()),
+        memory,
+        Some(Arc::new(StubPrefProvider)),
+    );
+
+    let before = candidate::global().len();
+    hook.on_turn_complete(&reflective_turn()).await.unwrap();
+    let all = candidate::global().peek();
+    let new_candidates: Vec<_> = all.into_iter().skip(before).collect();
+
+    assert!(
+        new_candidates
+            .iter()
+            .any(|c| c.class == FacetClass::Style && c.key == "verbosity"),
+        "user_preferences with key=value format should produce a Style candidate"
     );
 }

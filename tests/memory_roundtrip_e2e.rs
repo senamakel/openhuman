@@ -16,9 +16,10 @@ use std::sync::{Mutex, OnceLock};
 use tempfile::tempdir;
 
 use openhuman_core::openhuman::memory::ops::{
-    clear_namespace, doc_put, memory_recall_memories, ClearNamespaceParams, PutDocParams,
+    clear_namespace, doc_put, memory_recall_context, memory_recall_memories, ClearNamespaceParams,
+    PutDocParams,
 };
-use openhuman_core::openhuman::memory::rpc_models::RecallMemoriesRequest;
+use openhuman_core::openhuman::memory::rpc_models::{RecallContextRequest, RecallMemoriesRequest};
 
 // ── Env isolation ────────────────────────────────────────────────────
 
@@ -91,6 +92,15 @@ fn recall_request() -> RecallMemoriesRequest {
     }
 }
 
+fn recall_context_request() -> RecallContextRequest {
+    RecallContextRequest {
+        namespace: NS.to_string(),
+        include_references: Some(true),
+        limit: Some(10),
+        max_chunks: None,
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 /// 8.1.1 store + 8.1.2 recall — the happy-path round-trip.
@@ -122,9 +132,38 @@ async fn doc_put_then_recall_memories_returns_canary() {
     );
 }
 
+/// `recall_context` should surface the same document as an LLM-ready prompt
+/// block, not only in the raw memory list view.
+#[tokio::test]
+async fn doc_put_then_recall_context_renders_llm_context_message() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let workspace_path = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace_path).expect("create workspace dir");
+    let _ws = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace_path);
+
+    doc_put(put_params()).await.expect("doc_put rpc");
+
+    let recall_outcome = memory_recall_context(recall_context_request())
+        .await
+        .expect("memory_recall_context rpc");
+    let llm_context = recall_outcome
+        .value
+        .data
+        .as_ref()
+        .and_then(|data| data.llm_context_message.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        llm_context.contains(CONTENT) || llm_context.contains(KEY),
+        "llm context should reference the canary content/key — got {llm_context}"
+    );
+}
+
 /// 8.1.3 forget — clear_namespace must scrub the namespace so subsequent
 /// recalls do not see the canary content. Failure-path / edge-case assertion
-/// required by docs/TESTING-STRATEGY.md.
+/// required by gitbooks/developing/testing-strategy.md.
 #[tokio::test]
 async fn clear_namespace_removes_canary_from_recall() {
     let _lock = env_lock();

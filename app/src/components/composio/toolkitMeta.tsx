@@ -227,7 +227,7 @@ const PLATFORM_KEYWORDS = [
 
 function GenericIntegrationIcon() {
   return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-600 shadow-sm ring-1 ring-black/5">
+    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 shadow-sm ring-1 ring-black/5">
       <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true" fill="none">
         <path
           d="M8 8h8v8H8zM5 12h3m8 0h3M12 5v3m0 8v3"
@@ -250,7 +250,7 @@ function ComposioLogoBadge({ slug, name }: { slug: string; name: string }) {
   }
 
   return (
-    <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-black/5">
+    <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-neutral-900 shadow-sm ring-1 ring-black/5">
       <img
         src={logoUrl}
         alt={`${name} logo`}
@@ -322,6 +322,16 @@ export const KNOWN_COMPOSIO_TOOLKITS = Object.freeze(
   MANAGED_COMPOSIO_TOOLKITS.map(entry => entry.slug)
 );
 
+function descriptionForToolkit(key: string, name: string, category: SkillCategory): string {
+  if (key === 'instagram') {
+    return (
+      'Connect Instagram Business or Creator accounts (personal accounts are not supported). ' +
+      'If Meta shows “Too Many Requests” (HTTP 429), wait a few minutes before retrying.'
+    );
+  }
+  return defaultDescription(name, category);
+}
+
 export function composioToolkitMeta(slug: string): ComposioToolkitMeta {
   const key = canonicalizeComposioToolkitSlug(slug);
   const name = MANAGED_TOOLKIT_NAME_BY_SLUG.get(key) ?? prettifyUnknownSlug(key);
@@ -329,7 +339,7 @@ export function composioToolkitMeta(slug: string): ComposioToolkitMeta {
   return {
     slug: key,
     name,
-    description: defaultDescription(name, category),
+    description: descriptionForToolkit(key, name, category),
     category,
     icon: <ComposioLogoBadge slug={key} name={name} />,
     logoUrl: composioLogoUrl(key),

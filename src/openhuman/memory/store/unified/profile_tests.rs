@@ -2,6 +2,257 @@
 
 use super::*;
 
+// ── Migration test ────────────────────────────────────────────────────────────
+
+/// Verify that `migrate_profile_schema` adds Phase 3 columns to a database
+/// that was created with the pre-Phase-3 schema (missing state/stability/…).
+#[test]
+fn migrate_adds_new_columns_to_existing_db() {
+    // Create the pre-Phase-3 schema manually (only original columns).
+    let pre_phase3_sql = r#"
+        CREATE TABLE IF NOT EXISTS user_profile (
+            facet_id TEXT PRIMARY KEY,
+            facet_type TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            evidence_count INTEGER NOT NULL DEFAULT 1,
+            source_segment_ids TEXT,
+            first_seen_at REAL NOT NULL,
+            last_seen_at REAL NOT NULL,
+            UNIQUE(facet_type, key)
+        );
+    "#;
+    let raw_conn = Connection::open_in_memory().unwrap();
+    raw_conn.execute_batch(pre_phase3_sql).unwrap();
+    let conn = Arc::new(Mutex::new(raw_conn));
+
+    // Insert a row using the old schema.
+    {
+        let c = conn.lock();
+        c.execute(
+            "INSERT INTO user_profile
+             (facet_id, facet_type, key, value, confidence, evidence_count,
+              first_seen_at, last_seen_at)
+             VALUES ('f-old', 'preference', 'theme', 'dark', 0.8, 1, 1000.0, 1000.0)",
+            [],
+        )
+        .unwrap();
+    }
+
+    // Run the migration — should succeed without panicking.
+    migrate_profile_schema(&conn);
+
+    // The new columns must be present and readable.
+    let facets = profile_load_all(&conn).unwrap();
+    assert_eq!(facets.len(), 1);
+    let f = &facets[0];
+    assert_eq!(f.key, "theme");
+    // Defaults applied by ALTER TABLE … DEFAULT.
+    assert_eq!(f.state, FacetState::Active);
+    assert!((f.stability - 0.0).abs() < f64::EPSILON);
+    assert_eq!(f.user_state, UserState::Auto);
+    assert!(f.evidence_refs.is_empty());
+}
+
+/// Running migrate twice is idempotent (no panic on duplicate column).
+#[test]
+fn migrate_is_idempotent() {
+    let conn = setup_db();
+    // First call — columns already exist in PROFILE_INIT_SQL.
+    migrate_profile_schema(&conn);
+    // Second call — must not panic.
+    migrate_profile_schema(&conn);
+}
+
+// ── New column round-trip ─────────────────────────────────────────────────────
+
+#[test]
+fn profile_upsert_full_persists_phase3_fields() {
+    use crate::openhuman::learning::candidate::EvidenceRef;
+    let conn = setup_db();
+    let facet = ProfileFacet {
+        facet_id: "f-full".into(),
+        facet_type: FacetType::Preference,
+        key: "style/verbosity".into(),
+        value: "terse".into(),
+        confidence: 0.9,
+        evidence_count: 3,
+        source_segment_ids: None,
+        first_seen_at: 1000.0,
+        last_seen_at: 1200.0,
+        state: FacetState::Active,
+        stability: 1.8,
+        user_state: UserState::Auto,
+        evidence_refs: vec![EvidenceRef::Episodic { episodic_id: 42 }],
+        class: Some("style".into()),
+        cue_families: None,
+    };
+    profile_upsert_full(&conn, &facet).unwrap();
+
+    let loaded = profile_load_all(&conn).unwrap();
+    assert_eq!(loaded.len(), 1);
+    let f = &loaded[0];
+    assert_eq!(f.key, "style/verbosity");
+    assert_eq!(f.state, FacetState::Active);
+    assert!((f.stability - 1.8).abs() < 1e-9);
+    assert_eq!(f.user_state, UserState::Auto);
+    assert_eq!(f.evidence_refs.len(), 1);
+    assert_eq!(
+        f.evidence_refs[0],
+        EvidenceRef::Episodic { episodic_id: 42 }
+    );
+}
+
+#[test]
+fn profile_select_active_filters_by_state() {
+    let conn = setup_db();
+
+    let active = ProfileFacet {
+        facet_id: "f-active".into(),
+        facet_type: FacetType::Preference,
+        key: "style/tone".into(),
+        value: "formal".into(),
+        confidence: 0.85,
+        evidence_count: 2,
+        source_segment_ids: None,
+        first_seen_at: 1000.0,
+        last_seen_at: 1100.0,
+        state: FacetState::Active,
+        stability: 1.6,
+        user_state: UserState::Auto,
+        evidence_refs: vec![],
+        class: Some("style".into()),
+        cue_families: None,
+    };
+    let provisional = ProfileFacet {
+        facet_id: "f-prov".into(),
+        facet_type: FacetType::Preference,
+        key: "style/length".into(),
+        value: "short".into(),
+        confidence: 0.6,
+        evidence_count: 1,
+        source_segment_ids: None,
+        first_seen_at: 1000.0,
+        last_seen_at: 1000.0,
+        state: FacetState::Provisional,
+        stability: 0.8,
+        user_state: UserState::Auto,
+        evidence_refs: vec![],
+        class: Some("style".into()),
+        cue_families: None,
+    };
+    profile_upsert_full(&conn, &active).unwrap();
+    profile_upsert_full(&conn, &provisional).unwrap();
+
+    let actives = profile_select_active(&conn).unwrap();
+    assert_eq!(actives.len(), 1);
+    assert_eq!(actives[0].key, "style/tone");
+}
+
+#[test]
+fn profile_count_by_class_groups_keys() {
+    let conn = setup_db();
+    for (id, key) in [
+        ("f1", "style/verbosity"),
+        ("f2", "style/tone"),
+        ("f3", "identity/name"),
+        ("f4", "no_slash"),
+    ] {
+        let f = ProfileFacet {
+            facet_id: id.into(),
+            facet_type: FacetType::Preference,
+            key: key.into(),
+            value: "v".into(),
+            confidence: 0.8,
+            evidence_count: 1,
+            source_segment_ids: None,
+            first_seen_at: 1000.0,
+            last_seen_at: 1000.0,
+            state: FacetState::Active,
+            stability: 1.6,
+            user_state: UserState::Auto,
+            evidence_refs: vec![],
+            class: None,
+            cue_families: None,
+        };
+        profile_upsert_full(&conn, &f).unwrap();
+    }
+
+    let counts = profile_count_by_class(&conn).unwrap();
+    assert_eq!(counts.get("style"), Some(&2));
+    assert_eq!(counts.get("identity"), Some(&1));
+    assert_eq!(counts.get("_other"), Some(&1));
+}
+
+#[test]
+fn profile_set_user_state_persists() {
+    let conn = setup_db();
+    profile_upsert(
+        &conn,
+        "f-us",
+        &FacetType::Preference,
+        "tool/editor",
+        "neovim",
+        0.8,
+        None,
+        1000.0,
+    )
+    .unwrap();
+    let updated = profile_set_user_state(&conn, "tool/editor", UserState::Pinned).unwrap();
+    assert!(updated);
+    let f = profile_get_by_key(&conn, "tool/editor").unwrap().unwrap();
+    assert_eq!(f.user_state, UserState::Pinned);
+}
+
+#[test]
+fn profile_delete_below_threshold_removes_dropped_only() {
+    let conn = setup_db();
+
+    let dropped_low = ProfileFacet {
+        facet_id: "f-drop".into(),
+        facet_type: FacetType::Preference,
+        key: "style/dropped".into(),
+        value: "x".into(),
+        confidence: 0.3,
+        evidence_count: 1,
+        source_segment_ids: None,
+        first_seen_at: 1000.0,
+        last_seen_at: 1000.0,
+        state: FacetState::Dropped,
+        stability: 0.1,
+        user_state: UserState::Auto,
+        evidence_refs: vec![],
+        class: Some("style".into()),
+        cue_families: None,
+    };
+    let active_low = ProfileFacet {
+        facet_id: "f-act".into(),
+        facet_type: FacetType::Preference,
+        key: "style/active".into(),
+        value: "y".into(),
+        confidence: 0.9,
+        evidence_count: 5,
+        source_segment_ids: None,
+        first_seen_at: 1000.0,
+        last_seen_at: 1000.0,
+        state: FacetState::Active,
+        stability: 0.1,
+        user_state: UserState::Auto,
+        evidence_refs: vec![],
+        class: Some("style".into()),
+        cue_families: None,
+    };
+    profile_upsert_full(&conn, &dropped_low).unwrap();
+    profile_upsert_full(&conn, &active_low).unwrap();
+
+    let deleted = profile_delete_below_threshold(&conn, 0.3).unwrap();
+    assert_eq!(deleted, 1); // Only the Dropped one.
+    let all = profile_load_all(&conn).unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].key, "style/active");
+}
+
 fn setup_db() -> Arc<Mutex<Connection>> {
     let conn = Connection::open_in_memory().unwrap();
     conn.execute_batch(PROFILE_INIT_SQL).unwrap();
@@ -94,6 +345,12 @@ fn render_profile_context_formats_correctly() {
             source_segment_ids: None,
             first_seen_at: 1000.0,
             last_seen_at: 1002.0,
+            state: FacetState::Active,
+            stability: 0.0,
+            user_state: UserState::Auto,
+            evidence_refs: vec![],
+            class: None,
+            cue_families: None,
         },
         ProfileFacet {
             facet_id: "f-2".into(),
@@ -105,6 +362,12 @@ fn render_profile_context_formats_correctly() {
             source_segment_ids: None,
             first_seen_at: 1000.0,
             last_seen_at: 1000.0,
+            state: FacetState::Active,
+            stability: 0.0,
+            user_state: UserState::Auto,
+            evidence_refs: vec![],
+            class: None,
+            cue_families: None,
         },
     ];
 
@@ -339,5 +602,162 @@ fn render_profile_context_groups_by_type() {
     assert_ne!(
         pref_pos, role_pos,
         "Preference and Role sections should be at different positions"
+    );
+}
+
+#[test]
+fn fresh_db_has_phase3_indexes() {
+    let conn = setup_db();
+    let c = conn.lock();
+    let indexes: Vec<String> = c
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'user_profile'",
+        )
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        indexes.contains(&"idx_profile_state_stability".to_string()),
+        "Missing idx_profile_state_stability; found: {indexes:?}"
+    );
+    assert!(
+        indexes.contains(&"idx_profile_key".to_string()),
+        "Missing idx_profile_key; found: {indexes:?}"
+    );
+    assert!(
+        indexes.contains(&"idx_profile_state_user_stability".to_string()),
+        "Missing idx_profile_state_user_stability; found: {indexes:?}"
+    );
+    assert!(
+        indexes.contains(&"idx_profile_type".to_string()),
+        "Missing idx_profile_type; found: {indexes:?}"
+    );
+}
+
+#[test]
+fn phase3_indexes_applied_to_existing_db() {
+    use super::super::profile::{PHASE3_COLUMNS_SQL, PHASE3_INDEXES_SQL};
+    use rusqlite::Connection;
+
+    let pre_phase3_sql = "
+        CREATE TABLE IF NOT EXISTS user_profile (
+            facet_id TEXT PRIMARY KEY,
+            facet_type TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            evidence_count INTEGER NOT NULL DEFAULT 1,
+            source_segment_ids TEXT,
+            first_seen_at REAL NOT NULL,
+            last_seen_at REAL NOT NULL,
+            UNIQUE(facet_type, key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_profile_type ON user_profile(facet_type);
+    ";
+    let raw_conn = Connection::open_in_memory().unwrap();
+    raw_conn.execute_batch(pre_phase3_sql).unwrap();
+
+    for sql in PHASE3_COLUMNS_SQL {
+        let _ = raw_conn.execute(sql, []);
+    }
+    for sql in PHASE3_INDEXES_SQL {
+        raw_conn.execute_batch(sql).unwrap();
+    }
+
+    let indexes: Vec<String> = raw_conn
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'user_profile'",
+        )
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(indexes.contains(&"idx_profile_state_stability".to_string()));
+    assert!(indexes.contains(&"idx_profile_key".to_string()));
+    assert!(indexes.contains(&"idx_profile_state_user_stability".to_string()));
+}
+
+#[test]
+fn phase3_indexes_idempotent() {
+    use super::super::profile::PHASE3_INDEXES_SQL;
+    let conn = setup_db();
+    let c = conn.lock();
+    for sql in PHASE3_INDEXES_SQL {
+        c.execute_batch(sql).unwrap();
+    }
+    for sql in PHASE3_INDEXES_SQL {
+        c.execute_batch(sql).unwrap();
+    }
+}
+
+/// Verify that the real `UnifiedMemory::new` bootstrap path applies Phase 3
+/// indexes when opened over a pre-Phase-3 database file (the exact scenario
+/// that caused the original crash in initialization ordering).
+#[test]
+fn unified_memory_new_applies_phase3_indexes_to_existing_db() {
+    use super::super::UnifiedMemory;
+    use crate::openhuman::embeddings::NoopEmbedding;
+    use rusqlite::Connection;
+    use std::sync::Arc;
+
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = dir.path();
+
+    // Seed a pre-Phase-3 database at the path UnifiedMemory::new will open.
+    let memory_dir = workspace.join("memory");
+    std::fs::create_dir_all(&memory_dir).unwrap();
+    let db_path = memory_dir.join("memory.db");
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS user_profile (
+                facet_id TEXT PRIMARY KEY,
+                facet_type TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                confidence REAL NOT NULL DEFAULT 0.5,
+                evidence_count INTEGER NOT NULL DEFAULT 1,
+                source_segment_ids TEXT,
+                first_seen_at REAL NOT NULL,
+                last_seen_at REAL NOT NULL,
+                UNIQUE(facet_type, key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_profile_type ON user_profile(facet_type);",
+        )
+        .unwrap();
+    }
+
+    // Call the real bootstrap path — must not fail on a pre-Phase-3 DB.
+    let mem = UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None)
+        .expect("UnifiedMemory::new must succeed on a pre-Phase-3 database");
+
+    // The Phase 3 indexes must exist after initialization.
+    let conn = mem.conn.lock();
+    let indexes: Vec<String> = conn
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'user_profile'",
+        )
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        indexes.contains(&"idx_profile_state_stability".to_string()),
+        "Missing idx_profile_state_stability; found: {indexes:?}"
+    );
+    assert!(
+        indexes.contains(&"idx_profile_key".to_string()),
+        "Missing idx_profile_key; found: {indexes:?}"
+    );
+    assert!(
+        indexes.contains(&"idx_profile_state_user_stability".to_string()),
+        "Missing idx_profile_state_user_stability; found: {indexes:?}"
     );
 }

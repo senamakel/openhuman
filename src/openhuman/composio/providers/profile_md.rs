@@ -1,23 +1,27 @@
-//! `PROFILE.md` markdown bridge — mirrors the per-toolkit identity
-//! fragments we already persist into the `user_profile` facet table
-//! into a managed block inside `{workspace_dir}/PROFILE.md` so the
-//! agent prompt loader (`agent/prompts/mod.rs::UserFilesSection`)
-//! picks them up on the next turn.
+//! `PROFILE.md` markdown bridge — mirrors managed facet blocks into
+//! `{workspace_dir}/PROFILE.md` so the agent prompt loader
+//! (`agent/prompts/mod.rs::UserFilesSection`) picks them up on the next
+//! turn.
 //!
-//! The block lives between the markers
+//! ## Block convention
+//!
+//! Each managed section lives between a pair of HTML comment markers:
 //!
 //! ```md
-//! <!-- openhuman:connected-accounts:start -->
-//! ...
-//! <!-- openhuman:connected-accounts:end -->
+//! <!-- openhuman:<block_name>:start -->
+//! ## <Section Heading>
+//!
+//! <body_markdown>
+//!
+//! <!-- openhuman:<block_name>:end -->
 //! ```
 //!
-//! Anything outside the markers is left untouched, so a profile authored
-//! by the LinkedIn onboarding pipeline or hand-edited by the user is
-//! preserved across reconnects.
+//! Anything outside the markers is left untouched, so user-authored prose
+//! or hand-edited bullets are preserved across provider reconnects or
+//! cache rebuilds.
 //!
-//! All operations are best-effort and log on failure rather than
-//! propagating, matching the existing PII-discipline pattern in
+//! All operations are best-effort — errors are logged rather than
+//! propagated, matching the PII-discipline pattern used in
 //! `on_connection_created`.
 
 use super::ProviderUserProfile;
@@ -25,17 +29,31 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const BLOCK_START: &str = "<!-- openhuman:connected-accounts:start -->";
-const BLOCK_END: &str = "<!-- openhuman:connected-accounts:end -->";
-const SECTION_HEADING: &str = "## Connected Accounts";
+// ── Legacy connected-accounts constants (kept for internal helpers) ───────────
+
+const CA_BLOCK: &str = "connected-accounts";
+const CA_HEADING: &str = "## Connected Accounts";
 const FILE_HEADER: &str = "# User Profile\n";
 
+/// All managed block names, in the order they are appended when a new
+/// `PROFILE.md` is created.
+pub const BLOCKS: &[&str] = &[
+    "connected-accounts", // written by provider path (merge_provider_into_profile_md)
+    "style",
+    "identity",
+    "tooling",
+    "vetoes",
+    "goals",
+];
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
 /// Upsert the per-toolkit bullet for `profile` inside the managed
-/// Connected Accounts block of `{workspace_dir}/PROFILE.md`.
+/// `connected-accounts` block of `{workspace_dir}/PROFILE.md`.
 ///
-/// Creates the file with a `# User Profile` header if it does not
-/// exist. Idempotent — re-connecting the same toolkit replaces the
-/// existing bullet rather than duplicating it.
+/// Creates the file with a `# User Profile` header if it does not exist.
+/// Idempotent — re-connecting the same toolkit replaces the existing
+/// bullet rather than duplicating it.
 pub fn merge_provider_into_profile_md(
     workspace_dir: &Path,
     profile: &ProviderUserProfile,
@@ -45,9 +63,7 @@ pub fn merge_provider_into_profile_md(
         return Ok(());
     }
     // Require a real connection_id so the bullet keys match what the
-    // disconnect path (`composio_delete_connection`) will look up. A
-    // synthetic "default" fallback would orphan bullets when the
-    // connection is removed.
+    // disconnect path (`composio_delete_connection`) will look up.
     let identifier = profile
         .connection_id
         .as_deref()
@@ -64,9 +80,8 @@ pub fn merge_provider_into_profile_md(
         }
     };
 
-    let bullet = match render_bullet(&toolkit, &identifier, profile) {
+    let bullet = match render_provider_bullet(&toolkit, &identifier, profile) {
         Some(b) => b,
-        // No non-empty fields — nothing worth writing.
         None => return Ok(()),
     };
 
@@ -80,7 +95,7 @@ pub fn merge_provider_into_profile_md(
         Err(e) => return Err(e),
     };
 
-    let updated = upsert_bullet(&existing, &toolkit, &identifier, &bullet);
+    let updated = upsert_provider_bullet(&existing, &toolkit, &identifier, &bullet);
     fs::write(&path, updated)?;
     tracing::debug!(
         target_file = "PROFILE.md",
@@ -92,9 +107,8 @@ pub fn merge_provider_into_profile_md(
 }
 
 /// Remove the per-toolkit bullet for `(source, identifier)` from the
-/// managed Connected Accounts block. If the block becomes empty as a
-/// result, the whole block is dropped. Missing file or missing block
-/// are no-ops.
+/// managed Connected Accounts block. If the block becomes empty the whole
+/// block is dropped. Missing file or missing block are no-ops.
 pub fn remove_provider_from_profile_md(
     workspace_dir: &Path,
     source: &str,
@@ -111,7 +125,7 @@ pub fn remove_provider_from_profile_md(
     if toolkit.is_empty() || identifier.is_empty() {
         return Ok(());
     }
-    let updated = remove_bullet(&existing, &toolkit, &identifier);
+    let updated = remove_provider_bullet(&existing, &toolkit, &identifier);
     if updated != existing {
         fs::write(&path, updated)?;
         tracing::debug!(
@@ -124,11 +138,56 @@ pub fn remove_provider_from_profile_md(
     Ok(())
 }
 
-// ── Internals ────────────────────────────────────────────────────────
+/// Upsert a generic managed block.
+///
+/// * `block_name` — one of [`BLOCKS`] (e.g. `"style"`, `"identity"`).
+/// * `section_heading` — heading rendered inside the block (e.g. `"## Style"`).
+/// * `body_markdown` — pre-rendered content (bullets, prose). Must not
+///   contain the block markers themselves.
+///
+/// Creates `PROFILE.md` if it does not exist. If the block is absent it is
+/// appended at the end of the file. If the block exists its body is replaced
+/// in-place — content outside the markers is left byte-for-byte untouched.
+///
+/// An empty `body_markdown` renders a `*(no entries yet)*` placeholder
+/// instead of deleting the block; this preserves the block's position for the
+/// next write.
+///
+/// Idempotent: calling with the same inputs twice produces the same file.
+pub fn replace_managed_block(
+    workspace_dir: &Path,
+    block_name: &str,
+    section_heading: &str,
+    body_markdown: String,
+) -> io::Result<()> {
+    let path = workspace_dir.join("PROFILE.md");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
 
-/// Build the markdown bullet for one provider connection. Returns
-/// `None` if the profile carries no usable fields.
-fn render_bullet(toolkit: &str, identifier: &str, profile: &ProviderUserProfile) -> Option<String> {
+    let existing = match fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e),
+    };
+
+    let updated = upsert_block(&existing, block_name, section_heading, &body_markdown);
+    fs::write(&path, updated)?;
+    tracing::debug!(
+        block_name = %block_name,
+        "[composio:profile_md] replaced managed block '{}' in PROFILE.md",
+        block_name
+    );
+    Ok(())
+}
+
+// ── Connected-accounts internals ──────────────────────────────────────────────
+
+fn render_provider_bullet(
+    toolkit: &str,
+    identifier: &str,
+    profile: &ProviderUserProfile,
+) -> Option<String> {
     let mut fields: Vec<String> = Vec::new();
     if let Some(v) = profile.display_name.as_deref().map(sanitize) {
         if !v.is_empty() {
@@ -153,8 +212,6 @@ fn render_bullet(toolkit: &str, identifier: &str, profile: &ProviderUserProfile)
     if fields.is_empty() {
         return None;
     }
-    // Stable per-(toolkit,identifier) marker so we can locate this
-    // bullet on later upserts even if the rendered text changes.
     let marker = bullet_marker(toolkit, identifier);
     Some(format!(
         "- {marker} **{title}** ({identifier}): {fields}",
@@ -168,10 +225,12 @@ fn bullet_marker(toolkit: &str, identifier: &str) -> String {
     format!("<!-- acct:{toolkit}:{identifier} -->")
 }
 
-/// Insert or replace `bullet` inside the managed block.
-fn upsert_bullet(existing: &str, toolkit: &str, identifier: &str, bullet: &str) -> String {
+/// Insert or replace `bullet` inside the connected-accounts managed block.
+fn upsert_provider_bullet(existing: &str, toolkit: &str, identifier: &str, bullet: &str) -> String {
     let marker = bullet_marker(toolkit, identifier);
-    let (prefix, block_body, suffix) = split_block(existing);
+    let start_tag = block_start(CA_BLOCK);
+    let end_tag = block_end(CA_BLOCK);
+    let (prefix, block_body, suffix) = split_any_block(existing, &start_tag, &end_tag);
 
     let mut lines: Vec<String> = block_body
         .lines()
@@ -187,20 +246,21 @@ fn upsert_bullet(existing: &str, toolkit: &str, identifier: &str, bullet: &str) 
     bullets.sort();
 
     let block = format!(
-        "{BLOCK_START}\n{SECTION_HEADING}\n\n{body}\n{BLOCK_END}",
+        "{start_tag}\n{CA_HEADING}\n\n{body}\n{end_tag}",
         body = bullets.join("\n")
     );
 
     assemble(&prefix, &block, &suffix)
 }
 
-/// Remove the bullet matching `(toolkit, identifier)` from the managed
-/// block. Drops the block entirely if no bullets remain.
-fn remove_bullet(existing: &str, toolkit: &str, identifier: &str) -> String {
+/// Remove the bullet matching `(toolkit, identifier)` from the connected-
+/// accounts managed block. Drops the block entirely if no bullets remain.
+fn remove_provider_bullet(existing: &str, toolkit: &str, identifier: &str) -> String {
     let marker = bullet_marker(toolkit, identifier);
-    let (prefix, block_body, suffix) = split_block(existing);
+    let start_tag = block_start(CA_BLOCK);
+    let end_tag = block_end(CA_BLOCK);
+    let (prefix, block_body, suffix) = split_any_block(existing, &start_tag, &end_tag);
     if block_body.is_empty() && prefix == existing {
-        // No managed block present.
         return existing.to_string();
     }
     let bullets: Vec<String> = block_body
@@ -209,27 +269,70 @@ fn remove_bullet(existing: &str, toolkit: &str, identifier: &str) -> String {
         .map(|l| l.to_string())
         .collect();
     if bullets.is_empty() {
-        // Drop the entire block.
         return assemble(&prefix, "", &suffix);
     }
     let block = format!(
-        "{BLOCK_START}\n{SECTION_HEADING}\n\n{body}\n{BLOCK_END}",
+        "{start_tag}\n{CA_HEADING}\n\n{body}\n{end_tag}",
         body = bullets.join("\n")
     );
     assemble(&prefix, &block, &suffix)
 }
 
-/// Split the file into `(prefix, block_body, suffix)` around the
-/// managed block. Bytes outside the markers are returned verbatim so
-/// the caller can preserve user-authored whitespace, indentation, and
-/// trailing newlines exactly. If no block is present, `prefix` is the
-/// full file and `block_body` / `suffix` are empty.
-fn split_block(existing: &str) -> (String, String, String) {
-    if let (Some(start), Some(end)) = (existing.find(BLOCK_START), existing.find(BLOCK_END)) {
+// ── Generic managed-block helpers ─────────────────────────────────────────────
+
+/// Build the start marker for `block_name`.
+pub fn block_start(block_name: &str) -> String {
+    format!("<!-- openhuman:{block_name}:start -->")
+}
+
+/// Build the end marker for `block_name`.
+pub fn block_end(block_name: &str) -> String {
+    format!("<!-- openhuman:{block_name}:end -->")
+}
+
+/// Insert or replace a generic managed block in `existing`.
+///
+/// If the block is absent it is appended. If it exists its body (between the
+/// markers) is replaced. Content outside the markers is returned unchanged.
+fn upsert_block(
+    existing: &str,
+    block_name: &str,
+    section_heading: &str,
+    body_markdown: &str,
+) -> String {
+    let start_tag = block_start(block_name);
+    let end_tag = block_end(block_name);
+
+    let body = if body_markdown.trim().is_empty() {
+        "*(no entries yet)*".to_string()
+    } else {
+        body_markdown.to_string()
+    };
+
+    let block = format!("{start_tag}\n{section_heading}\n\n{body}\n\n{end_tag}");
+
+    let (prefix, _old_body, suffix) = split_any_block(existing, &start_tag, &end_tag);
+
+    if prefix == existing {
+        // Block was absent — append.
+        assemble(existing, &block, "")
+    } else {
+        assemble(&prefix, &block, &suffix)
+    }
+}
+
+/// Split `existing` around the markers `[start_tag, end_tag]`.
+///
+/// Returns `(prefix, block_body, suffix)`.  If no block is present,
+/// `prefix` is the full string and `block_body` / `suffix` are empty.
+/// `block_body` is the content *between* the markers (excluding the
+/// markers themselves).
+fn split_any_block(existing: &str, start_tag: &str, end_tag: &str) -> (String, String, String) {
+    if let (Some(start), Some(end)) = (existing.find(start_tag), existing.find(end_tag)) {
         if end > start {
             let prefix = existing[..start].to_string();
-            let body = existing[start + BLOCK_START.len()..end].to_string();
-            let suffix_start = end + BLOCK_END.len();
+            let body = existing[start + start_tag.len()..end].to_string();
+            let suffix_start = end + end_tag.len();
             let suffix = existing[suffix_start..].to_string();
             return (prefix, body, suffix);
         }
@@ -237,25 +340,19 @@ fn split_block(existing: &str) -> (String, String, String) {
     (existing.to_string(), String::new(), String::new())
 }
 
-/// Assemble `prefix + block + suffix`, preserving the user-authored
-/// bytes in `prefix` and `suffix` verbatim. We only normalize the
-/// newline separators *immediately adjacent* to the managed block —
-/// the bytes we own — to keep one blank line on each boundary.
+/// Assemble `prefix + block + suffix`, normalising the newlines immediately
+/// adjacent to the managed block while leaving the user's bytes elsewhere
+/// untouched.
 fn assemble(prefix: &str, block: &str, suffix: &str) -> String {
     if block.is_empty() {
-        // Removing the block entirely. Strip the newlines we previously
-        // added on each side of the block, but leave the rest of the
-        // user's content untouched.
+        // Removing the block entirely.
         let p = prefix.trim_end_matches('\n');
         let s = suffix.trim_start_matches('\n');
         let mut out = String::with_capacity(p.len() + s.len() + 2);
         out.push_str(p);
         if !p.is_empty() {
-            // Keep one trailing newline on the prefix.
             out.push('\n');
             if !s.is_empty() {
-                // Plus a blank-line separator before whatever the user
-                // had after the block.
                 out.push('\n');
             }
         }
@@ -268,33 +365,34 @@ fn assemble(prefix: &str, block: &str, suffix: &str) -> String {
 
     let mut out = String::new();
     if prefix.trim().is_empty() {
-        // Empty / whitespace-only file → seed with a friendly header so
-        // the agent prompt loader has a sensible top of the file.
+        // Seed with a header on first creation.
         out.push_str(FILE_HEADER);
         out.push('\n');
     } else {
-        // Preserve user prefix bytes verbatim, then ensure exactly one
-        // blank line before the block.
         let p = prefix.trim_end_matches('\n');
         out.push_str(p);
         out.push_str("\n\n");
     }
     out.push_str(block);
-    // The block string we emit doesn't include a trailing newline.
     if suffix.is_empty() {
         out.push('\n');
     } else {
-        // Drop any newlines we previously inserted between block and
-        // suffix; preserve the rest of the user's bytes.
         let s = suffix.trim_start_matches('\n');
-        out.push_str("\n\n");
-        out.push_str(s);
-        if !out.ends_with('\n') {
+        if s.is_empty() {
+            // Suffix was only whitespace — end with single newline, no blank line.
             out.push('\n');
+        } else {
+            out.push_str("\n\n");
+            out.push_str(s);
+            if !out.ends_with('\n') {
+                out.push('\n');
+            }
         }
     }
     out
 }
+
+// ── Token / string helpers ────────────────────────────────────────────────────
 
 fn normalize_token(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
@@ -322,10 +420,14 @@ fn sanitize(raw: &str) -> String {
     replaced.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    // ── merge_provider_into_profile_md (legacy API, unchanged) ───────────────
 
     fn sample(toolkit: &str, conn: &str) -> ProviderUserProfile {
         ProviderUserProfile {
@@ -346,12 +448,14 @@ mod tests {
         merge_provider_into_profile_md(tmp.path(), &sample("gmail", "c-1")).unwrap();
         let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
         assert!(body.starts_with("# User Profile"), "body was:\n{body}");
-        assert!(body.contains(BLOCK_START));
-        assert!(body.contains(SECTION_HEADING));
+        let start = block_start(CA_BLOCK);
+        let end = block_end(CA_BLOCK);
+        assert!(body.contains(&start));
+        assert!(body.contains(CA_HEADING));
         assert!(body.contains("**Gmail** (c-1):"));
         assert!(body.contains("jane@example.com"));
         assert!(body.contains("@janedoe"));
-        assert!(body.contains(BLOCK_END));
+        assert!(body.contains(&end));
     }
 
     #[test]
@@ -376,8 +480,10 @@ mod tests {
         let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
         assert!(body.contains("acct:gmail:c-1"));
         assert!(body.contains("acct:twitter:c-2"));
-        assert_eq!(body.matches(BLOCK_START).count(), 1);
-        assert_eq!(body.matches(BLOCK_END).count(), 1);
+        let start = block_start(CA_BLOCK);
+        let end = block_end(CA_BLOCK);
+        assert_eq!(body.matches(&start).count(), 1);
+        assert_eq!(body.matches(&end).count(), 1);
     }
 
     #[test]
@@ -431,8 +537,10 @@ mod tests {
         merge_provider_into_profile_md(tmp.path(), &sample("gmail", "c-1")).unwrap();
         remove_provider_from_profile_md(tmp.path(), "gmail", "c-1").unwrap();
         let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
-        assert!(!body.contains(BLOCK_START), "block remained:\n{body}");
-        assert!(!body.contains(BLOCK_END));
+        let start = block_start(CA_BLOCK);
+        let end = block_end(CA_BLOCK);
+        assert!(!body.contains(&start), "block remained:\n{body}");
+        assert!(!body.contains(&end));
         assert!(body.starts_with("# User Profile"));
     }
 
@@ -457,8 +565,6 @@ mod tests {
             extras: serde_json::Value::Null,
         };
         merge_provider_into_profile_md(tmp.path(), &p).unwrap();
-        // No file written — without a connection_id we'd orphan the
-        // bullet at disconnect time.
         assert!(!tmp.path().join("PROFILE.md").exists());
     }
 
@@ -466,23 +572,20 @@ mod tests {
     fn preserves_indentation_and_blank_lines_around_block() {
         let tmp = TempDir::new().unwrap();
         let path = tmp.path().join("PROFILE.md");
-        // User-authored content on both sides of where the block will
-        // land, with intentional blank lines and trailing whitespace.
         let original = "# User Profile\n\n    indented bio line\n\n## Notes\n- alpha\n- beta\n\n";
         fs::write(&path, original).unwrap();
         merge_provider_into_profile_md(tmp.path(), &sample("gmail", "c-1")).unwrap();
         let body = fs::read_to_string(&path).unwrap();
-        // User content unchanged byte-for-byte.
         assert!(body.contains("    indented bio line"));
         assert!(body.contains("## Notes\n- alpha\n- beta"));
-        // Block landed somewhere.
-        assert!(body.contains(BLOCK_START) && body.contains(BLOCK_END));
-        // Now remove and verify the user content is still intact.
+        let start = block_start(CA_BLOCK);
+        let end = block_end(CA_BLOCK);
+        assert!(body.contains(&start) && body.contains(&end));
         remove_provider_from_profile_md(tmp.path(), "gmail", "c-1").unwrap();
         let after = fs::read_to_string(&path).unwrap();
         assert!(after.contains("    indented bio line"));
         assert!(after.contains("## Notes\n- alpha\n- beta"));
-        assert!(!after.contains(BLOCK_START));
+        assert!(!after.contains(&start));
     }
 
     #[test]
@@ -490,5 +593,126 @@ mod tests {
         assert_eq!(sanitize("foo\nbar"), "foo bar");
         assert_eq!(sanitize("a | b"), "a / b");
         assert_eq!(sanitize("  multi   space  "), "multi space");
+    }
+
+    // ── replace_managed_block ─────────────────────────────────────────────────
+
+    #[test]
+    fn replace_managed_block_creates_file_if_missing() {
+        let tmp = TempDir::new().unwrap();
+        replace_managed_block(
+            tmp.path(),
+            "style",
+            "## Style",
+            "- **verbosity**: terse".into(),
+        )
+        .unwrap();
+        let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        assert!(body.contains("# User Profile"), "missing header:\n{body}");
+        assert!(body.contains(&block_start("style")));
+        assert!(body.contains("## Style"));
+        assert!(body.contains("- **verbosity**: terse"));
+        assert!(body.contains(&block_end("style")));
+    }
+
+    #[test]
+    fn replace_managed_block_appends_block_when_absent() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("PROFILE.md");
+        fs::write(&path, "# User Profile\n\nSome existing text.\n").unwrap();
+        replace_managed_block(
+            tmp.path(),
+            "identity",
+            "## Identity",
+            "- **name**: Alice".into(),
+        )
+        .unwrap();
+        let body = fs::read_to_string(&path).unwrap();
+        // Existing content preserved.
+        assert!(body.contains("Some existing text."));
+        // New block appended.
+        assert!(body.contains(&block_start("identity")));
+        assert!(body.contains("## Identity"));
+        assert!(body.contains("- **name**: Alice"));
+    }
+
+    #[test]
+    fn replace_managed_block_replaces_body_in_place() {
+        let tmp = TempDir::new().unwrap();
+        replace_managed_block(
+            tmp.path(),
+            "style",
+            "## Style",
+            "- **verbosity**: verbose".into(),
+        )
+        .unwrap();
+        replace_managed_block(
+            tmp.path(),
+            "style",
+            "## Style",
+            "- **verbosity**: terse".into(),
+        )
+        .unwrap();
+        let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        assert!(body.contains("terse"));
+        assert!(!body.contains("verbose"));
+        // Only one start marker.
+        assert_eq!(body.matches(&block_start("style")).count(), 1);
+    }
+
+    #[test]
+    fn replace_managed_block_preserves_other_blocks_and_user_text() {
+        let tmp = TempDir::new().unwrap();
+        // Write two blocks.
+        replace_managed_block(
+            tmp.path(),
+            "style",
+            "## Style",
+            "- **verbosity**: terse".into(),
+        )
+        .unwrap();
+        replace_managed_block(
+            tmp.path(),
+            "identity",
+            "## Identity",
+            "- **name**: Bob".into(),
+        )
+        .unwrap();
+        // Update only style.
+        replace_managed_block(
+            tmp.path(),
+            "style",
+            "## Style",
+            "- **verbosity**: verbose".into(),
+        )
+        .unwrap();
+        let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        // Identity block untouched.
+        assert!(body.contains("- **name**: Bob"));
+        // Style updated.
+        assert!(body.contains("verbose"));
+        assert!(!body.contains("terse"));
+    }
+
+    #[test]
+    fn replace_managed_block_empty_body_renders_placeholder() {
+        let tmp = TempDir::new().unwrap();
+        replace_managed_block(tmp.path(), "goals", "## Goals", String::new()).unwrap();
+        let body = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        assert!(body.contains("*(no entries yet)*"));
+        // Block markers still present.
+        assert!(body.contains(&block_start("goals")));
+        assert!(body.contains(&block_end("goals")));
+    }
+
+    #[test]
+    fn replace_managed_block_idempotent_on_repeat_invocation() {
+        let tmp = TempDir::new().unwrap();
+        let content = "- **verbosity**: terse".to_string();
+        replace_managed_block(tmp.path(), "style", "## Style", content.clone()).unwrap();
+        let body1 = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        replace_managed_block(tmp.path(), "style", "## Style", content).unwrap();
+        let body2 = fs::read_to_string(tmp.path().join("PROFILE.md")).unwrap();
+        assert_eq!(body1, body2, "second write should be idempotent");
     }
 }

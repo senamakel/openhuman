@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::providers::traits::Provider;
+use crate::openhuman::inference::provider::traits::Provider;
 use crate::openhuman::tree_summarizer::store;
 use crate::openhuman::tree_summarizer::types::{
     derive_node_ids, derive_parent_id, estimate_tokens, level_from_node_id, NodeLevel, TreeNode,
@@ -408,7 +408,8 @@ async fn summarize_to_limit(
             char_limit
         );
         // Truncate at a char boundary
-        let truncated = &response[..response.floor_char_boundary(char_limit)];
+        let truncated =
+            &response[..crate::openhuman::util::floor_char_boundary(&response, char_limit)];
         truncated.to_string()
     } else {
         response

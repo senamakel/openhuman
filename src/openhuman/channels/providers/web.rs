@@ -2,13 +2,14 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tokio::sync::{broadcast, Mutex};
 use uuid::Uuid;
 
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::socketio::{SubagentProgressDetail, WebChannelEvent};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::openhuman::agent::profiles::{AgentProfile, AgentProfileStore, DEFAULT_PROFILE_ID};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
@@ -33,21 +34,46 @@ pub fn publish_web_channel_event(event: WebChannelEvent) {
     let _ = EVENT_BUS.send(event);
 }
 
+/// All inputs that the cached `SessionEntry`'s `Agent` was built from,
+/// captured at build time. The cache-hit predicate is a single
+/// `entry.fingerprint == current_fingerprint` comparison — pulling the
+/// fields into a named struct (instead of inlining four `&&`s) makes
+/// the predicate testable in isolation and makes "what invalidates the
+/// cache?" answerable in one place.
+///
+/// Adding a new dimension that should force a rebuild = add a field
+/// here and populate it both at insert time and at the call-site
+/// fingerprint construction.
+#[derive(PartialEq, Debug, Clone)]
+struct SessionCacheFingerprint {
+    /// Per-message `model_override` (clients can override the model
+    /// for an individual chat call).
+    model_override: Option<String>,
+    /// Per-message `temperature` override (same channel as
+    /// `model_override`).
+    temperature: Option<f64>,
+    /// Which agent definition was used to build `agent`. Without this
+    /// the cache hit short-circuited the welcome→orchestrator routing
+    /// fix — the very first turn picked welcome, welcome called
+    /// `complete_onboarding(complete)`, the flag flipped, but the next
+    /// turn read the cached welcome agent instead of invoking
+    /// `build_session_agent` to re-resolve the target.
+    target_agent_id: String,
+    /// Bound provider string at build time for the selected workload
+    /// role (`chat`, `reasoning`, `agentic`, `coding`, `summarization`).
+    ///
+    /// Web-chat sessions cache a fully constructed `Agent`, which in
+    /// turn holds a concrete provider instance chosen up front by the
+    /// session builder. If the bound provider string changes in
+    /// Settings, the cache must invalidate so the next turn rebuilds
+    /// against the updated provider rather than silently reusing the
+    /// stale instance.
+    provider_binding: String,
+}
+
 struct SessionEntry {
     agent: Agent,
-    model_override: Option<String>,
-    temperature: Option<f64>,
-    /// Which agent definition was used to build `agent`. Recorded so
-    /// that the cache hit predicate in `run_chat_task` can detect
-    /// when the routing decision (welcome vs orchestrator) flips
-    /// between turns and rebuild instead of reusing a stale agent.
-    /// Without this field the cache hit short-circuited the routing
-    /// fix from Commit 8 — the very first turn picked welcome,
-    /// welcome called `complete_onboarding(complete)`, the flag
-    /// flipped, but the next turn read the cached welcome agent
-    /// instead of invoking `build_session_agent` to re-resolve the
-    /// target.
-    target_agent_id: String,
+    fingerprint: SessionCacheFingerprint,
 }
 
 /// Decide which agent definition this turn should run with.
@@ -61,11 +87,15 @@ struct SessionEntry {
 /// agent calls `complete_onboarding(complete)` and the flag flips
 /// to `true`, the very next chat turn observes the new value here
 /// and the cache miss + rebuild routes to orchestrator.
-fn pick_target_agent_id(config: &Config) -> &'static str {
-    if config.chat_onboarding_completed {
-        "orchestrator"
+fn pick_target_agent_id(config: &Config, profile: &AgentProfile) -> String {
+    if profile.id == DEFAULT_PROFILE_ID {
+        if config.chat_onboarding_completed {
+            "orchestrator".to_string()
+        } else {
+            "welcome".to_string()
+        }
     } else {
-        "welcome"
+        profile.agent_id.clone()
     }
 }
 
@@ -101,8 +131,17 @@ static BUDGET_ERROR_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     ]
 });
 
-fn key_for(client_id: &str, thread_id: &str) -> String {
-    format!("{client_id}::{thread_id}")
+/// Key for the per-thread runtime maps (`THREAD_SESSIONS`, `IN_FLIGHT`).
+///
+/// Keyed by `thread_id` ALONE — the stable, persistent identity of a
+/// conversation — NOT by the Socket.IO `client_id`, which is regenerated on
+/// every reconnect. Keying these maps by `client_id` previously orphaned a
+/// thread's cached session (conversation amnesia) and its in-flight task handle
+/// (Cancel became a no-op) whenever the socket reconnected with a new id. Event
+/// delivery still routes by `client_id` (the live socket); only the
+/// thread-owned runtime state keys off `thread_id`.
+fn key_for(thread_id: &str) -> String {
+    thread_id.to_string()
 }
 
 fn event_session_id_for(client_id: &str, thread_id: &str) -> String {
@@ -130,6 +169,278 @@ fn generic_inference_error_user_message() -> &'static str {
     "Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path=\"community/discord\">Report on Discord</openhuman-link>"
 }
 
+/// Pull the structured provider error message out of a raw error string.
+///
+/// Provider error chains from OpenAI/Anthropic/OpenRouter/etc. arrive looking
+/// like `custom_openai API error (404 Not Found): {"error":{"message":"...","type":"..."}}`.
+/// We extract the `error.message` value so the UI can show the *real* reason
+/// — e.g. "Project ... does not have access to model `gpt-5.5`" — instead of
+/// a generic apology.
+///
+/// Returns `None` for transport-level failures (DNS, TLS, connect refused)
+/// where there is no provider body to quote — those have no actionable
+/// detail and the raw error text can leak internal infrastructure URLs,
+/// which the chat surface deliberately does not expose to end users.
+fn extract_provider_error_detail(err: &str) -> Option<String> {
+    const MAX_DETAIL_CHARS: usize = 300;
+
+    // Find the first `"message"` JSON field anywhere in the error chain.
+    let key = "\"message\"";
+    let idx = err.find(key)?;
+    let after_key = &err[idx + key.len()..];
+    // Skip whitespace and the colon to the opening quote of the value.
+    let after_colon = after_key.trim_start_matches(|c: char| c != '"');
+    let stripped = after_colon.strip_prefix('"')?;
+
+    // Manual unescape — handle `\"` and `\\` only; everything else passes
+    // through. Sufficient for OpenAI/Anthropic/etc. error bodies.
+    let mut out = String::new();
+    let mut chars = stripped.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                let trimmed = out.trim();
+                if trimmed.is_empty() {
+                    return None;
+                }
+                let sanitized = crate::openhuman::inference::provider::sanitize_api_error(trimmed);
+                return Some(crate::openhuman::util::truncate_with_ellipsis(
+                    &sanitized,
+                    MAX_DETAIL_CHARS,
+                ));
+            }
+            '\\' => {
+                if let Some(esc) = chars.next() {
+                    match esc {
+                        '"' => out.push('"'),
+                        '\\' => out.push('\\'),
+                        'n' => out.push('\n'),
+                        't' => out.push('\t'),
+                        other => out.push(other),
+                    }
+                }
+            }
+            other => out.push(other),
+        }
+    }
+
+    None
+}
+
+/// Append the upstream provider detail to a user-facing message, if a useful
+/// one can be extracted. Keeps the friendly summary first and the verbatim
+/// provider reason below as a quotable block.
+fn with_provider_detail(summary: &str, err: &str) -> String {
+    match extract_provider_error_detail(err) {
+        Some(detail) => format!("{summary}\n\n> {detail}"),
+        None => summary.to_string(),
+    }
+}
+
+/// Extract a Retry-After / retry_after seconds hint from a free-form
+/// error string. Mirrors the typed [`crate::openhuman::inference::
+/// provider::reliable::parse_retry_after_ms`] helper but operates on
+/// the already-flattened `String` that reaches the channel-classifier
+/// layer.
+///
+/// Returns `Some(n)` when a non-negative integer or fractional value
+/// follows one of the canonical headers; fractional values are
+/// rounded up so the user is never told to retry sooner than the
+/// upstream actually allows.
+fn parse_retry_after_secs_from_str(err: &str) -> Option<u64> {
+    // Normalise quoted JSON-key wrappers ("retry_after": 30) by
+    // stripping double quotes before scanning for prefixes
+    // (CodeRabbit review on #2371). A serialised provider body like
+    // `{"retry_after": 30}` would otherwise miss every prefix and
+    // the user would lose the retry hint the provider supplied.
+    let normalized = err.to_ascii_lowercase().replace('"', "");
+    for prefix in &[
+        "retry-after:",
+        "retry_after:",
+        "retry-after ",
+        "retry_after ",
+    ] {
+        if let Some(pos) = normalized.find(prefix) {
+            let after = &normalized[pos + prefix.len()..];
+            let num_str: String = after
+                .trim()
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            if let Ok(secs) = num_str.parse::<f64>() {
+                if secs.is_finite() && secs >= 0.0 {
+                    return Some(secs.ceil() as u64);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Format the retry-after hint as a short user-friendly suffix
+/// (`" Try again in 30 seconds."`). Returns an empty string when no
+/// hint is available so callers can `format!("{summary}{hint}")`
+/// without branching on `Option`.
+fn retry_after_hint(secs: Option<u64>) -> String {
+    match secs {
+        Some(0) => " You can retry immediately.".to_string(),
+        Some(1) => " Try again in 1 second.".to_string(),
+        Some(n) if n < 90 => format!(" Try again in {n} seconds."),
+        Some(n) => {
+            // Round UP — never tell the user to retry sooner than
+            // the upstream actually allows. 90–119s used to render
+            // as "about 1 minutes" both because of integer flooring
+            // and missing singular/plural handling (CodeRabbit
+            // review on #2371).
+            let mins = (n / 60) + u64::from(n % 60 != 0);
+            let unit = if mins == 1 { "minute" } else { "minutes" };
+            format!(" Try again in about {mins} {unit}.")
+        }
+        None => String::new(),
+    }
+}
+
+/// Detect the SecurityPolicy global hourly action-budget signal
+/// emitted by the built-in tools (`web_fetch`, `curl`, `http_request`,
+/// `polymarket`, `composio`, etc.) — see `src/openhuman/security/
+/// policy.rs::SecurityPolicy::is_rate_limited`.
+///
+/// We match the canonical English strings those tools emit. This is
+/// load-bearing for issue #2364: before this check ran, any string
+/// containing "rate limit" was misclassified as a provider 429 and
+/// the user saw the generic "You're being rate-limited" copy, which
+/// hides that the cap is OpenHuman's own per-hour safety budget,
+/// not the upstream LLM provider.
+fn is_action_budget_exhausted(err_lower: &str) -> bool {
+    err_lower.contains("rate limit exceeded: action budget exhausted")
+        || err_lower.contains("rate limit exceeded: too many actions in the last hour")
+        || err_lower.contains("action blocked: rate limit exceeded")
+}
+
+fn classify_inference_error(err: &str) -> (&'static str, String) {
+    let lower = err.to_lowercase();
+    // Order matters: the SecurityPolicy hourly cap and the
+    // agent-loop max-iterations error both surface as strings that
+    // contain "rate limit" / "iteration", so they MUST be checked
+    // before the generic provider-429 branch — otherwise users see
+    // a confusing "your AI provider is rate-limiting you" message
+    // for limits OpenHuman itself enforced (issue #2364).
+    if is_action_budget_exhausted(&lower) {
+        (
+            "action_budget_exceeded",
+            with_provider_detail(
+                "You've hit OpenHuman's per-hour action budget — this is a local safety cap, \
+                 not your AI provider. The window decays gradually; you can keep chatting in \
+                 this thread and tool-heavy steps will resume as the budget refills.",
+                err,
+            ),
+        )
+    } else if crate::openhuman::agent::error::is_max_iterations_error(err) {
+        (
+            "max_iterations",
+            with_provider_detail(
+                "The agent ran the maximum number of tool steps for one turn without \
+                 finishing. This usually means a tool kept failing (often a rate limit on a \
+                 web fetch). You can retry the same question in this thread once the \
+                 underlying limit clears.",
+                err,
+            ),
+        )
+    } else if lower.contains("rate limit") || lower.contains("429") {
+        let retry = parse_retry_after_secs_from_str(err);
+        let summary = format!(
+            "Your AI provider is rate-limiting requests. This is a transient upstream \
+             limit, not a thread-level block — you can retry in this thread.{}",
+            retry_after_hint(retry)
+        );
+        ("rate_limited", with_provider_detail(summary.as_str(), err))
+    } else if lower.contains("timeout") || lower.contains("timed out") {
+        (
+            "timeout",
+            with_provider_detail(
+                "The request timed out. Please check your connection and try again.",
+                err,
+            ),
+        )
+    } else if lower.contains("401") || lower.contains("unauthorized") || lower.contains("api key") {
+        (
+            "auth_error",
+            with_provider_detail(
+                "There's an authentication issue with the AI provider. Please check your API key in settings.",
+                err,
+            ),
+        )
+    } else if lower.contains("402")
+        || lower.contains("payment required")
+        || lower.contains("insufficient balance")
+    {
+        (
+            "budget_exhausted",
+            with_provider_detail("Insufficient credits. Please top up to continue.", err),
+        )
+    } else if lower.contains("500")
+        || lower.contains("internal server")
+        || lower.contains("service unavailable")
+        || lower.contains("503")
+    {
+        (
+            "provider_error",
+            with_provider_detail(
+                "The AI provider is temporarily unavailable. Please try again later.",
+                err,
+            ),
+        )
+    } else if lower.contains("context")
+        && (lower.contains("length")
+            || lower.contains("limit")
+            || lower.contains("exceed")
+            || lower.contains("token"))
+    {
+        (
+            "context_overflow",
+            with_provider_detail(
+                "The conversation is too long. Please start a new chat.",
+                err,
+            ),
+        )
+    } else if crate::openhuman::inference::provider::is_provider_config_rejection_message(err) {
+        // #2079 / #2076 / #2202: an OpenHuman abstract tier alias leaked to
+        // a custom provider, a stale model pin, or a model-specific
+        // temperature constraint. Checked BEFORE the generic
+        // model-unavailable arm so config-rejection bodies that also
+        // contain "model"/"does not exist"/"does not have access" get the
+        // specific "Settings → LLM" remediation instead of the generic
+        // copy. Shared predicate keeps this in lockstep with the
+        // Sentry-demotion classifier.
+        (
+            "model_unavailable",
+            with_provider_detail(
+                "Your AI provider rejected the request's model or temperature setting. \
+                 Check your model and routing in Settings → LLM.",
+                err,
+            ),
+        )
+    } else if lower.contains("model")
+        && (lower.contains("not found")
+            || lower.contains("unavailable")
+            || lower.contains("does not exist")
+            || lower.contains("does not have access"))
+    {
+        (
+            "model_unavailable",
+            with_provider_detail(
+                "The selected model isn't available on your provider. Check your model settings.",
+                err,
+            ),
+        )
+    } else {
+        (
+            "inference",
+            with_provider_detail(generic_inference_error_user_message(), err),
+        )
+    }
+}
+
 fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     match action {
         PromptEnforcementAction::Allow => "Message accepted.",
@@ -154,6 +465,8 @@ pub async fn start_chat(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
+    profile_id: Option<String>,
+    locale: Option<String>,
 ) -> Result<String, String> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
@@ -203,7 +516,7 @@ pub async fn start_chat(
         return Err(prompt_guard_user_message(prompt_decision.action).to_string());
     }
 
-    let map_key = key_for(&client_id, &thread_id);
+    let map_key = key_for(&thread_id);
 
     {
         let mut in_flight = IN_FLIGHT.lock().await;
@@ -231,6 +544,7 @@ pub async fn start_chat(
                 tool_call_id: None,
                 citations: None,
                 subagent: None,
+                task_board: None,
             });
         }
     }
@@ -249,6 +563,8 @@ pub async fn start_chat(
             &user_message,
             model_override,
             temperature,
+            profile_id,
+            locale,
         )
         .await;
 
@@ -280,25 +596,56 @@ pub async fn start_chat(
                     "run_chat_task failed client_id={} thread_id={} request_id={} error={}",
                     client_id_task, thread_id_task, request_id_task, err
                 );
-                crate::core::observability::report_error(
-                    detailed.as_str(),
-                    "web_channel",
-                    "run_chat_task",
-                    &[
-                        ("channel", "web"),
-                        ("error_type", "inference"),
-                        ("thread_id", thread_id_task.as_str()),
-                        ("request_id", request_id_task.as_str()),
-                    ],
-                );
+                let (classified_type, classified_message) = classify_inference_error(&err);
+                let classified_type_string = classified_type.to_string();
+                // Max-tool-iterations cap is a deterministic agent-state
+                // outcome surfaced to the user via the existing
+                // `WebChannelEvent::chat_error` event below. Skip the
+                // Sentry funnel entirely for that variant
+                // (OPENHUMAN-TAURI-98). Substring match is required here
+                // because the typed `AgentError` was flattened to a
+                // `String` at the native-bus boundary.
+                //
+                // Other errors flow through `report_error_or_expected`
+                // so transport-level transient failures (DNS/TCP/TLS
+                // handshake, ISP blocks — OPENHUMAN-TAURI-32 for the RU
+                // user who couldn't reach api.tinyhumans.ai at all) get
+                // logged as warn-level breadcrumbs instead of error
+                // events. Sentry has no signal to act on those — no
+                // status, no trace, no payload — and every retry
+                // exhaustion produces another noisy event.
+                if crate::openhuman::agent::error::is_max_iterations_error(&detailed) {
+                    log::info!(
+                        target: "web_channel",
+                        "[web_channel.run_chat_task] suppressed Sentry emission for max-iteration \
+                         cap client_id={} thread_id={} request_id={} error_type={} message={}",
+                        client_id_task,
+                        thread_id_task,
+                        request_id_task,
+                        classified_type,
+                        detailed
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        detailed.as_str(),
+                        "web_channel",
+                        "run_chat_task",
+                        &[
+                            ("channel", "web"),
+                            ("error_type", classified_type),
+                            ("thread_id", thread_id_task.as_str()),
+                            ("request_id", request_id_task.as_str()),
+                        ],
+                    );
+                }
                 publish_web_channel_event(WebChannelEvent {
                     event: "chat_error".to_string(),
                     client_id: client_id_task.clone(),
                     thread_id: thread_id_task.clone(),
                     request_id: request_id_task.clone(),
                     full_response: None,
-                    message: Some(generic_inference_error_user_message().to_string()),
-                    error_type: Some("inference".to_string()),
+                    message: Some(classified_message),
+                    error_type: Some(classified_type_string),
                     tool_name: None,
                     skill_id: None,
                     args: None,
@@ -313,6 +660,7 @@ pub async fn start_chat(
                     tool_call_id: None,
                     citations: None,
                     subagent: None,
+                    task_board: None,
                 });
             }
         }
@@ -361,6 +709,19 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
     }
 }
 
+/// Snapshot the IN_FLIGHT map for the test-support introspection RPC.
+///
+/// Returned as `(map_key, request_id)` pairs. Not intended for any
+/// production caller — release builds reach this via the bearer-gated
+/// `/rpc` endpoint only, and the per-launch token file is debug-only.
+pub async fn in_flight_entries_for_test() -> Vec<(String, String)> {
+    let guard = IN_FLIGHT.lock().await;
+    guard
+        .iter()
+        .map(|(k, v)| (k.clone(), v.request_id.clone()))
+        .collect()
+}
+
 pub async fn cancel_chat(client_id: &str, thread_id: &str) -> Result<Option<String>, String> {
     let client_id = client_id.trim();
     let thread_id = thread_id.trim();
@@ -372,7 +733,7 @@ pub async fn cancel_chat(client_id: &str, thread_id: &str) -> Result<Option<Stri
         return Err("thread_id is required".to_string());
     }
 
-    let map_key = key_for(client_id, thread_id);
+    let map_key = key_for(thread_id);
     let mut removed_request_id: Option<String> = None;
 
     {
@@ -406,6 +767,7 @@ pub async fn cancel_chat(client_id: &str, thread_id: &str) -> Result<Option<Stri
             tool_call_id: None,
             citations: None,
             subagent: None,
+            task_board: None,
         });
     }
 
@@ -419,6 +781,8 @@ async fn run_chat_task(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
+    profile_id: Option<String>,
+    locale: Option<String>,
 ) -> Result<WebChatTaskResult, String> {
     #[cfg(test)]
     {
@@ -435,16 +799,29 @@ async fn run_chat_task(
     }
 
     let config = config_rpc::load_config_with_timeout().await?;
-    let map_key = key_for(client_id, thread_id);
-    let model_override = normalize_model_override(model_override);
-
+    let (_profiles_state, profile) =
+        AgentProfileStore::new(config.workspace_dir.clone()).resolve(profile_id.as_deref())?;
+    let map_key = key_for(thread_id);
+    let model_override = normalize_model_override(profile.model_override.clone())
+        .or_else(|| normalize_model_override(model_override));
+    let temperature = profile.temperature.or(temperature);
     // Compute the routing decision up front so the cache lookup can
     // detect when it has changed. Without this, a turn that flips
     // `chat_onboarding_completed` (welcome agent calling
     // `complete_onboarding(complete)`) would still serve the next
     // turn from the cached welcome agent — the cache hit predicate
     // didn't know about the routing decision before Commit 13.
-    let target_agent_id = pick_target_agent_id(&config).to_string();
+    let target_agent_id = pick_target_agent_id(&config, &profile);
+    let provider_role = provider_role_for_model_override(model_override.as_deref());
+    let current_fp = SessionCacheFingerprint {
+        model_override: model_override.clone(),
+        temperature,
+        target_agent_id: target_agent_id.clone(),
+        provider_binding: crate::openhuman::inference::provider::provider_for_role(
+            provider_role,
+            &config,
+        ),
+    };
 
     let prior = {
         let mut sessions = THREAD_SESSIONS.lock().await;
@@ -452,11 +829,7 @@ async fn run_chat_task(
     };
 
     let (mut agent, was_built_fresh) = match prior {
-        Some(entry)
-            if entry.model_override == model_override
-                && entry.temperature == temperature
-                && entry.target_agent_id == target_agent_id =>
-        {
+        Some(entry) if entry.fingerprint == current_fp => {
             log::info!(
                 "[web-channel] reusing cached session agent id={} for client={} thread={}",
                 target_agent_id,
@@ -467,9 +840,13 @@ async fn run_chat_task(
         }
         Some(prior_entry) => {
             log::info!(
-                "[web-channel] cache miss — rebuilding session agent (was id={}, now id={}) for client={} thread={}",
-                prior_entry.target_agent_id,
+                "[web-channel] cache miss — rebuilding session agent \
+                 (was id={}, now id={}; prior_provider_binding={}, now={}) \
+                 for client={} thread={}",
+                prior_entry.fingerprint.target_agent_id,
                 target_agent_id,
+                prior_entry.fingerprint.provider_binding,
+                current_fp.provider_binding,
                 client_id,
                 thread_id
             );
@@ -478,8 +855,11 @@ async fn run_chat_task(
                     &config,
                     client_id,
                     thread_id,
+                    &target_agent_id,
+                    &profile,
                     model_override.clone(),
                     temperature,
+                    locale.as_deref(),
                 )?,
                 true,
             )
@@ -489,8 +869,11 @@ async fn run_chat_task(
                 &config,
                 client_id,
                 thread_id,
+                &target_agent_id,
+                &profile,
                 model_override.clone(),
                 temperature,
+                locale.as_deref(),
             )?,
             true,
         ),
@@ -561,7 +944,7 @@ async fn run_chat_task(
     // `thread_context::current_thread_id()` and forwards it on
     // `/openai/v1/chat/completions` so the backend can group
     // InferenceLog entries and reuse the KV cache for this thread.
-    let result = match crate::openhuman::providers::thread_context::with_thread_id(
+    let result = match crate::openhuman::inference::provider::thread_context::with_thread_id(
         thread_id.to_string(),
         agent.run_single(message),
     )
@@ -602,9 +985,7 @@ async fn run_chat_task(
             map_key,
             SessionEntry {
                 agent,
-                model_override,
-                temperature,
-                target_agent_id,
+                fingerprint: current_fp,
             },
         );
     }
@@ -749,6 +1130,7 @@ fn spawn_progress_bridge(
                         tool_call_id: None,
                         citations: None,
                         subagent: None,
+                        task_board: None,
                     });
                 }
                 AgentProgress::IterationStarted {
@@ -778,6 +1160,7 @@ fn spawn_progress_bridge(
                         tool_call_id: None,
                         citations: None,
                         subagent: None,
+                        task_board: None,
                     });
                 }
                 AgentProgress::ToolCallStarted {
@@ -980,6 +1363,25 @@ fn spawn_progress_bridge(
                         ..Default::default()
                     });
                 }
+                AgentProgress::TaskBoardUpdated { board } => {
+                    log::debug!(
+                        "[web_channel][bridge] task_board_updated client_id={} thread_id={} request_id={} cards={}",
+                        client_id,
+                        thread_id,
+                        request_id,
+                        board.cards.len()
+                    );
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "task_board_updated".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        task_board: Some(serde_json::to_value(board).unwrap_or_else(
+                            |_| serde_json::json!({ "threadId": thread_id, "cards": [] }),
+                        )),
+                        ..Default::default()
+                    });
+                }
                 AgentProgress::TextDelta { delta, iteration } => {
                     publish_web_channel_event(WebChannelEvent {
                         event: "text_delta".to_string(),
@@ -1071,17 +1473,31 @@ fn normalize_model_override(model_override: Option<String>) -> Option<String> {
         .filter(|model| !model.is_empty())
 }
 
+fn provider_role_for_model_override(model_override: Option<&str>) -> &'static str {
+    match model_override.map(str::trim) {
+        Some("hint:agentic") | Some("agentic-v1") => "agentic",
+        Some("hint:coding") | Some("coding-v1") => "coding",
+        Some("hint:summarization") | Some("summarization-v1") => "summarization",
+        Some("hint:reasoning") => "reasoning",
+        _ => "chat",
+    }
+}
+
 fn build_session_agent(
     config: &Config,
     client_id: &str,
     thread_id: &str,
+    target_agent_id: &str,
+    profile: &AgentProfile,
     model_override: Option<String>,
     temperature: Option<f64>,
+    locale: Option<&str>,
 ) -> Result<Agent, String> {
     let mut effective = config.clone();
     if let Some(model) = model_override {
         effective.default_model = Some(model);
     }
+    let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
     if let Some(temp) = temperature {
         effective.default_temperature = temp;
     }
@@ -1110,15 +1526,11 @@ fn build_session_agent(
     // `run_chat_task` via `config_rpc::load_config_with_timeout`, so
     // both flags reflect the current persisted state — no cache to
     // invalidate.
-    let target_agent_id = if effective.chat_onboarding_completed {
-        "orchestrator"
-    } else {
-        "welcome"
-    };
-
     log::info!(
-        "[web-channel] routing chat turn to '{}' (chat_onboarding_completed={}, ui_onboarding_completed={}, client_id={}, thread_id={})",
+        "[web-channel] routing chat turn to '{}' via profile '{}' provider_role='{}' (chat_onboarding_completed={}, ui_onboarding_completed={}, client_id={}, thread_id={})",
         target_agent_id,
+        profile.id,
+        provider_role,
         effective.chat_onboarding_completed,
         effective.onboarding_completed,
         client_id,
@@ -1132,20 +1544,60 @@ fn build_session_agent(
     // regular threads this is a no-op (chunks=None, normal path).
     let reflection_chunks = load_reflection_chunks_for_thread(&effective.workspace_dir, thread_id);
 
-    let agent_result = match reflection_chunks {
-        Some(chunks) if !chunks.is_empty() => {
-            log::info!(
-                "[web-channel] thread={} spawned from reflection — injecting {} memory chunks into system prompt",
-                thread_id,
-                chunks.len()
-            );
-            Agent::from_config_for_agent_with_reflection_chunks(&effective, target_agent_id, chunks)
-        }
-        _ => Agent::from_config_for_agent(&effective, target_agent_id),
-    };
+    if let Some(chunks) = reflection_chunks
+        .as_ref()
+        .filter(|chunks| !chunks.is_empty())
+    {
+        log::info!(
+            "[web-channel] thread={} spawned from reflection — injecting {} memory chunks into system prompt",
+            thread_id,
+            chunks.len()
+        );
+    }
+
+    // Compose the locale-directive (e.g. "Respond in Arabic") with the
+    // profile's own suffix so the agent always reads the user's
+    // preferred reply language alongside any profile-level rules. The
+    // directive is emitted only for non-English locales — English
+    // matches the agent's default, so injecting it would just be noise
+    // for the LLM and a regression risk for cached/seeded transcripts.
+    let locale_directive = locale.and_then(locale_reply_directive);
+    let composed_suffix = compose_system_prompt_suffix(
+        locale_directive.as_deref(),
+        profile.system_prompt_suffix.as_deref(),
+    );
+    if let Some(s) = locale_directive.as_deref() {
+        log::info!(
+            "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",
+            client_id,
+            thread_id,
+            locale.unwrap_or(""),
+            s
+        );
+    }
+
+    let agent_result = Agent::from_config_for_agent_with_profile(
+        &effective,
+        target_agent_id,
+        reflection_chunks,
+        composed_suffix,
+    );
 
     agent_result
         .map(|mut agent| {
+            if let Some(allowed_tools) = profile
+                .allowed_tools
+                .as_ref()
+                .filter(|tools| !tools.is_empty())
+            {
+                agent.set_visible_tool_names(
+                    allowed_tools
+                        .iter()
+                        .map(|tool| tool.trim().to_string())
+                        .filter(|tool| !tool.is_empty())
+                        .collect::<HashSet<_>>(),
+                );
+            }
             agent.set_event_context(event_session_id_for(client_id, thread_id), "web_channel");
             // Scope session transcripts per thread so each conversation
             // gets its own transcript file instead of sharing one by
@@ -1208,6 +1660,13 @@ struct WebChatParams {
     message: String,
     model_override: Option<String>,
     temperature: Option<f64>,
+    profile_id: Option<String>,
+    /// BCP-47 locale of the frontend UI (e.g. `ar`, `zh-CN`). When set
+    /// and not English, the system prompt is augmented to ask the
+    /// agent to reply in that language. `None` keeps the agent's
+    /// default language (English) so existing integrations don't
+    /// silently change behaviour.
+    locale: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1222,8 +1681,19 @@ pub async fn channel_web_chat(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
+    profile_id: Option<String>,
+    locale: Option<String>,
 ) -> Result<RpcOutcome<Value>, String> {
-    let request_id = start_chat(client_id, thread_id, message, model_override, temperature).await?;
+    let request_id = start_chat(
+        client_id,
+        thread_id,
+        message,
+        model_override,
+        temperature,
+        profile_id,
+        locale,
+    )
+    .await?;
 
     Ok(RpcOutcome::single_log(
         json!({
@@ -1282,6 +1752,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("message", "User message."),
                 optional_string("model_override", "Optional model override."),
                 optional_f64("temperature", "Optional temperature override."),
+                optional_string("profile_id", "Optional agent profile id."),
+                optional_string(
+                    "locale",
+                    "Optional BCP-47 UI locale (e.g. 'ar', 'zh-CN'). Drives the \"reply in this language\" system-prompt directive.",
+                ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
         },
@@ -1320,10 +1795,59 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 &p.message,
                 p.model_override,
                 p.temperature,
+                p.profile_id,
+                p.locale,
             )
             .await?,
         )
     })
+}
+
+/// Map a frontend BCP-47 locale tag to a system-prompt directive
+/// instructing the agent to reply in that language. Returns `None`
+/// for English (the agent's default — adding "Respond in English"
+/// is a no-op for the LLM but risks invalidating cached prefixes)
+/// and for unknown tags so the agent falls through to its default
+/// behaviour instead of seeing a half-built directive.
+pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
+    let language = match locale.trim() {
+        // Keep this table in lockstep with `Locale` in
+        // `app/src/lib/i18n/types.ts` — every locale the frontend can
+        // ship should resolve to a language name here.
+        "ar" => "Arabic",
+        "bn" => "Bengali",
+        "es" => "Spanish",
+        "fr" => "French",
+        "hi" => "Hindi",
+        "id" => "Indonesian",
+        "it" => "Italian",
+        "pt" => "Portuguese",
+        "ru" => "Russian",
+        "zh-CN" | "zh" => "Simplified Chinese",
+        // English (and any unrecognised tag) → no directive.
+        _ => return None,
+    };
+    Some(format!(
+        "User language: the user's interface is set to {language}. \
+         Respond in {language} unless the user explicitly asks for a different language. \
+         Keep proper nouns, code, and command names untranslated."
+    ))
+}
+
+/// Stitch the locale directive (if any) onto the profile's own
+/// system-prompt suffix. The directive comes first so it shows up
+/// near the top of the appended block — easier for the LLM to honour
+/// than language guidance buried after profile-specific rules.
+pub(crate) fn compose_system_prompt_suffix(
+    locale_directive: Option<&str>,
+    profile_suffix: Option<&str>,
+) -> Option<String> {
+    match (locale_directive, profile_suffix) {
+        (None, None) => None,
+        (Some(d), None) => Some(d.to_string()),
+        (None, Some(p)) => Some(p.to_string()),
+        (Some(d), Some(p)) => Some(format!("{d}\n\n{p}")),
+    }
 }
 
 fn handle_cancel(params: Map<String, Value>) -> ControllerFuture {

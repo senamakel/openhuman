@@ -9,15 +9,146 @@ vi.mock('../../coreCommandClient', () => ({
 const { creditsApi, normalizeCouponRedeemResult, normalizeRedeemedCoupon, normalizeTeamUsage } =
   await import('../creditsApi');
 
-describe('creditsApi coupon helpers', () => {
-  beforeEach(() => {
-    mockCallCoreCommand.mockReset();
-  });
-
+describe('normalizeCouponRedeemResult', () => {
   it('normalizes redeem payloads from backend data shape', () => {
     expect(
       normalizeCouponRedeemResult({ couponCode: 'SAVE-2026', amount_usd: '4.5', pending: 0 })
     ).toEqual({ couponCode: 'SAVE-2026', amountUsd: 4.5, pending: false });
+  });
+
+  it('returns safe defaults for empty object', () => {
+    expect(normalizeCouponRedeemResult({})).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: false,
+    });
+  });
+
+  it('returns safe defaults for null/undefined/non-object inputs', () => {
+    const expected = { couponCode: '', amountUsd: 0, pending: false };
+    expect(normalizeCouponRedeemResult(null)).toEqual(expected);
+    expect(normalizeCouponRedeemResult(undefined)).toEqual(expected);
+    expect(normalizeCouponRedeemResult('not an object')).toEqual(expected);
+    expect(normalizeCouponRedeemResult(123)).toEqual(expected);
+    expect(normalizeCouponRedeemResult([])).toEqual(expected);
+  });
+
+  it('unwraps nested { data: ... } envelopes', () => {
+    expect(
+      normalizeCouponRedeemResult({
+        data: { couponCode: 'NESTED-20', amountUsd: 20, pending: true },
+      })
+    ).toEqual({ couponCode: 'NESTED-20', amountUsd: 20, pending: true });
+  });
+
+  it('ignores data field if it is not an object', () => {
+    expect(
+      normalizeCouponRedeemResult({ data: 'not an object', couponCode: 'TOP-LEVEL', amountUsd: 15 })
+    ).toEqual({ couponCode: 'TOP-LEVEL', amountUsd: 15, pending: false });
+  });
+
+  it('falls back to code if couponCode is missing or invalid', () => {
+    expect(normalizeCouponRedeemResult({ code: 'CODE-ONLY', amountUsd: 10 })).toEqual({
+      couponCode: 'CODE-ONLY',
+      amountUsd: 10,
+      pending: false,
+    });
+
+    // couponCode exists but is empty/whitespace, should fall back to code
+    expect(
+      normalizeCouponRedeemResult({ couponCode: '   ', code: 'FALLBACK', amountUsd: 10 })
+    ).toEqual({ couponCode: 'FALLBACK', amountUsd: 10, pending: false });
+
+    // couponCode exists but is not a string
+    expect(
+      normalizeCouponRedeemResult({ couponCode: 123, code: 'FALLBACK2', amountUsd: 10 })
+    ).toEqual({ couponCode: 'FALLBACK2', amountUsd: 10, pending: false });
+  });
+
+  it('trims whitespace from coupon codes', () => {
+    expect(normalizeCouponRedeemResult({ couponCode: '  SPACEY  ', amountUsd: 5 })).toEqual({
+      couponCode: 'SPACEY',
+      amountUsd: 5,
+      pending: false,
+    });
+
+    expect(normalizeCouponRedeemResult({ code: '  SPACEY-CODE  ', amountUsd: 5 })).toEqual({
+      couponCode: 'SPACEY-CODE',
+      amountUsd: 5,
+      pending: false,
+    });
+  });
+
+  it('normalizes amountUsd vs amount_usd', () => {
+    expect(normalizeCouponRedeemResult({ amountUsd: 5.5 })).toEqual({
+      couponCode: '',
+      amountUsd: 5.5,
+      pending: false,
+    });
+
+    expect(normalizeCouponRedeemResult({ amount_usd: 6.5 })).toEqual({
+      couponCode: '',
+      amountUsd: 6.5,
+      pending: false,
+    });
+
+    // Valid string amounts
+    expect(normalizeCouponRedeemResult({ amountUsd: '7.5' })).toEqual({
+      couponCode: '',
+      amountUsd: 7.5,
+      pending: false,
+    });
+
+    // amountUsd should take precedence over amount_usd if both exist
+    expect(normalizeCouponRedeemResult({ amountUsd: 8.5, amount_usd: 9.5 })).toEqual({
+      couponCode: '',
+      amountUsd: 8.5,
+      pending: false,
+    });
+  });
+
+  it('handles truthy/falsy values for pending', () => {
+    expect(normalizeCouponRedeemResult({ pending: true })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: true,
+    });
+
+    expect(normalizeCouponRedeemResult({ pending: 1 })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: true,
+    });
+
+    expect(normalizeCouponRedeemResult({ pending: 'yes' })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: true,
+    });
+
+    expect(normalizeCouponRedeemResult({ pending: false })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: false,
+    });
+
+    expect(normalizeCouponRedeemResult({ pending: 0 })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: false,
+    });
+
+    expect(normalizeCouponRedeemResult({ pending: null })).toEqual({
+      couponCode: '',
+      amountUsd: 0,
+      pending: false,
+    });
+  });
+});
+
+describe('creditsApi coupon helpers', () => {
+  beforeEach(() => {
+    mockCallCoreCommand.mockReset();
   });
 
   it('normalizes redeemed coupon rows', () => {
@@ -39,6 +170,67 @@ describe('creditsApi coupon helpers', () => {
       fulfilled: false,
       fulfilledAt: null,
     });
+  });
+
+  it('normalizes redeemed coupon handles null/undefined/empty object safely', () => {
+    const expectedDefaults = {
+      code: '',
+      amountUsd: 0,
+      redeemedAt: null,
+      activationType: 'IMMEDIATE',
+      fulfilled: false,
+      fulfilledAt: null,
+      activationCondition: null,
+    };
+    expect(normalizeRedeemedCoupon(null)).toEqual(expectedDefaults);
+    expect(normalizeRedeemedCoupon(undefined)).toEqual(expectedDefaults);
+    expect(normalizeRedeemedCoupon({})).toEqual(expectedDefaults);
+  });
+
+  it('normalizes redeemed coupon falls back to couponCode if code is absent or empty', () => {
+    expect(normalizeRedeemedCoupon({ couponCode: 'FALLBACK-CODE' }).code).toBe('FALLBACK-CODE');
+    expect(normalizeRedeemedCoupon({ code: '  ', couponCode: 'FALLBACK-CODE' }).code).toBe(
+      'FALLBACK-CODE'
+    );
+  });
+
+  it('normalizes redeemed coupon handles camelCase variants of fields', () => {
+    expect(
+      normalizeRedeemedCoupon({
+        code: 'CAMEL',
+        amountUsd: 10,
+        redeemedAt: '2026-04-10T12:00:00.000Z',
+        activationType: 'MANUAL',
+        fulfilledAt: '2026-04-10T12:05:00.000Z',
+        activationCondition: 'SOME_CONDITION',
+      })
+    ).toEqual({
+      code: 'CAMEL',
+      amountUsd: 10,
+      redeemedAt: '2026-04-10T12:00:00.000Z',
+      activationType: 'MANUAL',
+      fulfilled: false,
+      fulfilledAt: '2026-04-10T12:05:00.000Z',
+      activationCondition: 'SOME_CONDITION',
+    });
+  });
+
+  it('normalizes redeemed coupon coerces fulfilled to boolean', () => {
+    expect(normalizeRedeemedCoupon({ fulfilled: 1 }).fulfilled).toBe(true);
+    expect(normalizeRedeemedCoupon({ fulfilled: 'yes' }).fulfilled).toBe(true);
+    expect(normalizeRedeemedCoupon({ fulfilled: 0 }).fulfilled).toBe(false);
+    expect(normalizeRedeemedCoupon({ fulfilled: '' }).fulfilled).toBe(false);
+  });
+
+  it('normalizes redeemed coupon handles empty strings as null for nullable string fields', () => {
+    const result = normalizeRedeemedCoupon({
+      redeemedAt: '   ',
+      fulfilledAt: '',
+      activationCondition: ' ',
+    });
+    expect(result.redeemedAt).toBeNull();
+    expect(result.fulfilledAt).toBeNull();
+    expect(result.activationCondition).toBeNull();
   });
 
   it('redeemCoupon unwraps and normalizes the core RPC payload', async () => {
@@ -105,58 +297,59 @@ describe('creditsApi coupon helpers', () => {
 });
 
 describe('normalizeTeamUsage', () => {
-  it('passes through well-formed camelCase fields', () => {
+  it('passes through well-formed payload', () => {
     const input = {
       remainingUsd: 12.5,
       cycleBudgetUsd: 25,
-      cycleLimit5hr: 3.2,
-      cycleLimit7day: 18,
-      fiveHourCapUsd: 5,
-      fiveHourResetsAt: '2026-04-09T18:00:00Z',
+      cycleSpentUsd: 12.5,
       cycleStartDate: '2026-04-07T00:00:00Z',
       cycleEndsAt: '2026-04-14T00:00:00Z',
-      bypassCycleLimit: false,
+      plan: {
+        plan: 'BASIC',
+        name: 'Basic',
+        marginPercent: 25,
+        payAsYouGoMarginPercent: 50,
+        discountVsPayAsYouGoPercent: 50,
+      },
+      insights: {
+        period: { startDate: '2026-04-07T00:00:00Z', endDate: '2026-04-14T00:00:00Z' },
+        totals: {
+          inferenceUsd: 8,
+          integrationsUsd: 4.5,
+          totalUsd: 12.5,
+          inferenceCalls: 120,
+          integrationCalls: 7,
+        },
+        dailySeries: [{ date: '2026-04-08', inferenceUsd: 3, integrationsUsd: 1, totalUsd: 4 }],
+        topModels: [{ model: 'sonnet-4-6', provider: 'anthropic', spentUsd: 6, calls: 80 }],
+        topIntegrations: [{ provider: 'gmail', action: 'send', spentUsd: 2, calls: 3 }],
+      },
     };
     expect(normalizeTeamUsage(input)).toEqual(input);
-  });
-
-  it('maps snake_case backend fields to camelCase', () => {
-    const result = normalizeTeamUsage({
-      remaining_usd: 10,
-      cycle_budget_usd: 20,
-      five_hour_spend_usd: 2.5,
-      cycle_limit_7day: 15,
-      five_hour_cap_usd: 5,
-      five_hour_resets_at: '2026-04-09T18:00:00Z',
-      cycle_start_date: '2026-04-07T00:00:00Z',
-      cycle_ends_at: '2026-04-14T00:00:00Z',
-      bypass_cycle_limit: true,
-    });
-    expect(result.remainingUsd).toBe(10);
-    expect(result.cycleBudgetUsd).toBe(20);
-    expect(result.cycleLimit5hr).toBe(2.5);
-    expect(result.cycleLimit7day).toBe(15);
-    expect(result.fiveHourCapUsd).toBe(5);
-    expect(result.fiveHourResetsAt).toBe('2026-04-09T18:00:00Z');
-    expect(result.bypassCycleLimit).toBe(true);
-  });
-
-  it('maps legacy fiveHourSpendUsd to cycleLimit5hr', () => {
-    const result = normalizeTeamUsage({ fiveHourSpendUsd: 4.0 });
-    expect(result.cycleLimit5hr).toBe(4.0);
   });
 
   it('returns safe defaults for empty object', () => {
     const result = normalizeTeamUsage({});
     expect(result.remainingUsd).toBe(0);
     expect(result.cycleBudgetUsd).toBe(0);
-    expect(result.cycleLimit5hr).toBe(0);
-    expect(result.cycleLimit7day).toBe(0);
-    expect(result.fiveHourCapUsd).toBe(0);
-    expect(result.fiveHourResetsAt).toBeNull();
-    expect(result.bypassCycleLimit).toBe(false);
+    expect(result.cycleSpentUsd).toBe(0);
+    expect(result.plan.plan).toBe('FREE');
+    expect(result.plan.discountVsPayAsYouGoPercent).toBe(0);
+    expect(result.insights.totals.totalUsd).toBe(0);
+    expect(result.insights.dailySeries).toEqual([]);
+    expect(result.insights.topModels).toEqual([]);
+    expect(result.insights.topIntegrations).toEqual([]);
     expect(typeof result.cycleStartDate).toBe('string');
     expect(typeof result.cycleEndsAt).toBe('string');
+  });
+
+  it('handles invalid payload types gracefully', () => {
+    expect(() => normalizeTeamUsage('string payload')).not.toThrow();
+    expect(() => normalizeTeamUsage(12345)).not.toThrow();
+    expect(() => normalizeTeamUsage(true)).not.toThrow();
+    expect(() => normalizeTeamUsage([])).not.toThrow();
+    expect(normalizeTeamUsage('string payload').remainingUsd).toBe(0);
+    expect(normalizeTeamUsage(['a', 'b']).remainingUsd).toBe(0);
   });
 
   it('does not crash on null or undefined input', () => {
@@ -164,16 +357,71 @@ describe('normalizeTeamUsage', () => {
     expect(() => normalizeTeamUsage(undefined)).not.toThrow();
     const result = normalizeTeamUsage(null);
     expect(result.remainingUsd).toBe(0);
-    expect(result.cycleLimit5hr).toBe(0);
+    expect(result.insights.totals.totalUsd).toBe(0);
   });
 
   it('getTeamUsage normalizes the RPC response', async () => {
-    mockCallCoreCommand.mockResolvedValueOnce({ remaining_usd: 8, cycle_budget_usd: 25 });
+    mockCallCoreCommand.mockResolvedValueOnce({
+      remainingUsd: 8,
+      cycleBudgetUsd: 25,
+      cycleSpentUsd: 17,
+      cycleStartDate: '2026-04-07T00:00:00Z',
+      cycleEndsAt: '2026-04-14T00:00:00Z',
+    });
 
     const result = await creditsApi.getTeamUsage();
     expect(result.remainingUsd).toBe(8);
     expect(result.cycleBudgetUsd).toBe(25);
-    expect(result.cycleLimit5hr).toBe(0);
+    expect(result.cycleSpentUsd).toBe(17);
     expect(mockCallCoreCommand).toHaveBeenCalledWith('openhuman.team_get_usage');
+  });
+
+  it('normalizes insights sub-rows with missing fields to safe defaults', () => {
+    const result = normalizeTeamUsage({
+      insights: {
+        period: { startDate: '2026-05-01', endDate: '2026-05-31' },
+        totals: {},
+        // Rows with missing optional fields — exercises normalizeDailyPoint,
+        // normalizeModelRow, and normalizeIntegrationRow default branches.
+        dailySeries: [{ date: '2026-05-01' }],
+        topModels: [{ provider: 'anthropic' }],
+        topIntegrations: [{ provider: 'gmail' }],
+      },
+    });
+
+    expect(result.insights.dailySeries).toHaveLength(1);
+    expect(result.insights.dailySeries[0].inferenceUsd).toBe(0);
+    expect(result.insights.dailySeries[0].integrationsUsd).toBe(0);
+    expect(result.insights.dailySeries[0].totalUsd).toBe(0);
+
+    expect(result.insights.topModels).toHaveLength(1);
+    expect(result.insights.topModels[0].model).toBe('');
+    expect(result.insights.topModels[0].provider).toBe('anthropic');
+    expect(result.insights.topModels[0].spentUsd).toBe(0);
+    expect(result.insights.topModels[0].calls).toBe(0);
+
+    expect(result.insights.topIntegrations).toHaveLength(1);
+    expect(result.insights.topIntegrations[0].action).toBe('');
+    expect(result.insights.topIntegrations[0].spentUsd).toBe(0);
+    expect(result.insights.topIntegrations[0].calls).toBe(0);
+  });
+
+  it('normalizes plan summary with missing fields to safe defaults', () => {
+    const result = normalizeTeamUsage({ plan: { name: 'Custom' } });
+    expect(result.plan.plan).toBe('FREE');
+    expect(result.plan.name).toBe('Custom');
+    expect(result.plan.marginPercent).toBe(0);
+    expect(result.plan.payAsYouGoMarginPercent).toBe(0);
+    expect(result.plan.discountVsPayAsYouGoPercent).toBe(0);
+  });
+
+  it('normalizes insights period using cycle dates as fallback when period is absent', () => {
+    const result = normalizeTeamUsage({
+      cycleStartDate: '2026-05-01T00:00:00Z',
+      cycleEndsAt: '2026-05-31T00:00:00Z',
+      insights: { totals: {}, dailySeries: [], topModels: [], topIntegrations: [] },
+    });
+    expect(result.insights.period.startDate).toBe('2026-05-01T00:00:00Z');
+    expect(result.insights.period.endDate).toBe('2026-05-31T00:00:00Z');
   });
 });

@@ -11,7 +11,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { randomBytes } from '@noble/ciphers/webcrypto';
-import { x25519 } from '@noble/curves/ed25519';
+import { x25519 } from '@noble/curves/ed25519.js';
 import debug from 'debug';
 
 const cryptoLog = debug('crypto');

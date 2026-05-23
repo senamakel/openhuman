@@ -26,6 +26,14 @@ const initialState: ChannelConnectionsState = {
     telegram: makeEmptyChannelModes(),
     discord: makeEmptyChannelModes(),
     web: makeEmptyChannelModes(),
+    // Required by `ChannelType` after #2048 widened the union. Empty
+    // entries keep the `Record<ChannelType, …>` total — runtime state
+    // populates them when the user wires up credentials.
+    lark: makeEmptyChannelModes(),
+    dingtalk: makeEmptyChannelModes(),
+    // MCP Servers tab is a virtual channel — no auth-mode connections,
+    // but must be present to satisfy Record<ChannelType, …>.
+    mcp: makeEmptyChannelModes(),
   },
 };
 
@@ -55,6 +63,16 @@ const channelConnectionsSlice = createSlice({
       state.connections.telegram = makeEmptyChannelModes();
       state.connections.discord = makeEmptyChannelModes();
       state.connections.web = makeEmptyChannelModes();
+      // After #2048 widened ChannelType, redux-persist rehydrated states
+      // from before the channels existed wouldn't have these keys; without
+      // explicit initialisation here, the first `upsertChannelConnection`
+      // for either channel would crash on `state.connections[channel]`
+      // being undefined. Pin them by default so the migration is total.
+      state.connections.lark = makeEmptyChannelModes();
+      state.connections.dingtalk = makeEmptyChannelModes();
+      // MCP virtual channel must be present in persisted states migrated from
+      // before PR #2276 or the Record<ChannelType,…> shape is incomplete.
+      state.connections.mcp = makeEmptyChannelModes();
       state.defaultMessagingChannel = 'telegram';
       state.migrationCompleted = true;
       state.schemaVersion = SCHEMA_VERSION;
@@ -113,6 +131,34 @@ const channelConnectionsSlice = createSlice({
       });
     },
 
+    /**
+     * Cancel any sibling auth modes on the same channel that are still in
+     * the `connecting` state, except the one explicitly started. Fixes #2128
+     * where starting a second OAuth method on a channel left the previous
+     * method's badge pinned at `Connecting` forever. Cancelled rows transition
+     * to `disconnected` (not `error`) so the UI doesn't surface a misleading
+     * failure message — the user explicitly switched methods.
+     */
+    clearOtherPendingForChannel(
+      state,
+      action: PayloadAction<{ channel: ChannelType; exceptAuthMode: ChannelAuthMode }>
+    ) {
+      const { channel, exceptAuthMode } = action.payload;
+      const modes = state.connections[channel];
+      if (!modes) return;
+      for (const mode of Object.keys(modes) as ChannelAuthMode[]) {
+        if (mode === exceptAuthMode) continue;
+        const existing = modes[mode];
+        if (existing?.status !== 'connecting') continue;
+        modes[mode] = touchConnection(existing, {
+          channel,
+          authMode: mode,
+          status: 'disconnected',
+          lastError: undefined,
+        });
+      }
+    },
+
     resetChannelConnectionsState() {
       return initialState;
     },
@@ -128,6 +174,7 @@ export const {
   upsertChannelConnection,
   setChannelConnectionStatus,
   disconnectChannelConnection,
+  clearOtherPendingForChannel,
   resetChannelConnectionsState,
 } = channelConnectionsSlice.actions;
 

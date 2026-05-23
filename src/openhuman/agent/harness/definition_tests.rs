@@ -19,11 +19,13 @@ fn make_def(id: &str) -> AgentDefinition {
         skill_filter: None,
         extra_tools: vec![],
         max_iterations: 8,
+        max_result_chars: None,
         timeout_secs: None,
         sandbox_mode: SandboxMode::None,
         background: false,
         subagents: vec![],
         delegate_name: None,
+        agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,
         source: DefinitionSource::Builtin,
     }
 }

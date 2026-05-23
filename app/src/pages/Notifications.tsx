@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import NotificationBody from '../components/notifications/NotificationBody';
 import NotificationCenter from '../components/notifications/NotificationCenter';
+import { useT } from '../lib/i18n/I18nContext';
 import { resolveSystemRoute } from '../lib/notificationRouter';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -13,29 +15,42 @@ import {
   selectUnreadCount,
 } from '../store/notificationSlice';
 
-const CATEGORY_LABEL: Record<NotificationCategory, string> = {
-  messages: 'Messages',
-  agents: 'Agents',
-  skills: 'Skills',
-  system: 'System',
-};
-
-function formatTime(ts: number): string {
+function formatTime(ts: number, t: (key: string) => string): string {
   const delta = Date.now() - ts;
   const min = Math.floor(delta / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
+  if (min < 1) return t('notifications.justNow');
+  if (min < 60) return t('notifications.minAgo').replace('{n}', String(min));
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t('notifications.hrAgo').replace('{n}', String(hr));
   const d = Math.floor(hr / 24);
-  return `${d}d ago`;
+  return t('notifications.dayAgo').replace('{n}', String(d));
 }
 
 const Notifications = () => {
+  const { t } = useT();
   const items = useAppSelector(s => s.notifications.items);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const unread = useMemo(() => selectUnreadCount(items), [items]);
+
+  const categoryLabel = (category: NotificationCategory): string => {
+    switch (category) {
+      case 'messages':
+        return t('notifications.category.messages');
+      case 'agents':
+        return t('notifications.category.agents');
+      case 'skills':
+        return t('notifications.category.skills');
+      case 'system':
+        return t('notifications.category.system');
+      case 'meetings':
+        return t('notifications.category.meetings');
+      case 'reminders':
+        return t('notifications.category.reminders');
+      case 'important':
+        return t('notifications.category.important');
+    }
+  };
 
   const handleClick = (item: NotificationItem) => {
     if (!item.read) dispatch(markRead({ id: item.id }));
@@ -47,7 +62,7 @@ const Notifications = () => {
       {/* Integration notifications — from connected accounts, scored by local AI */}
       <div
         data-testid="integration-notifications-section"
-        className="max-w-2xl mx-auto bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden min-h-[200px]">
+        className="max-w-2xl mx-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden min-h-[200px]">
         <NotificationCenter />
       </div>
 
@@ -55,11 +70,13 @@ const Notifications = () => {
       <div
         data-testid="system-events-section"
         className="max-w-2xl mx-auto bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-neutral-800 px-4 py-3">
           <div>
-            <h1 className="text-lg font-semibold text-stone-900">System Events</h1>
-            <p className="text-xs text-stone-500">
-              {unread > 0 ? `${unread} unread` : 'All caught up'}
+            <h1 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+              {t('alerts.title')}
+            </h1>
+            <p className="text-xs text-stone-500 dark:text-neutral-400">
+              {unread > 0 ? `${unread} ${t('alerts.unread')}` : t('alerts.empty')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -67,30 +84,49 @@ const Notifications = () => {
               type="button"
               onClick={() => dispatch(markAllRead())}
               disabled={unread === 0}
-              className="text-xs font-medium text-stone-600 hover:text-stone-900 disabled:opacity-40 disabled:cursor-not-allowed">
-              Mark all read
+              className="text-xs font-medium text-stone-600 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed">
+              {t('alerts.markAllRead')}
             </button>
             <button
               type="button"
               onClick={() => dispatch(clearAll())}
               disabled={items.length === 0}
-              className="text-xs font-medium text-stone-600 hover:text-stone-900 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear
+              className="text-xs font-medium text-stone-600 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed">
+              {t('common.clear')}
             </button>
           </div>
         </div>
 
         {items.length === 0 ? (
-          <div className="px-6 py-16 text-center text-sm text-stone-500">No notifications yet.</div>
+          <div className="px-6 py-16 text-center text-sm text-stone-500 dark:text-neutral-400">
+            {t('alerts.empty')}
+          </div>
         ) : (
-          <ul className="divide-y divide-stone-100">
+          <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
             {items.map(item => (
               <li key={item.id} data-testid="notification-item">
-                <button
-                  type="button"
+                {/* `role="button"` instead of a real `<button>` — the row body
+                    contains `NotificationLinkPill` (also a `<button>`), and
+                    nested interactive elements break keyboard / screen-reader
+                    behaviour (HTML spec disallows it). */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleClick(item)}
-                  className={`w-full text-left px-4 py-3 hover:bg-stone-50 transition-colors ${
-                    item.read ? 'bg-white' : 'bg-primary-50/30'
+                  onKeyDown={e => {
+                    // Ignore bubbled keydown from inner controls (e.g. the
+                    // link pill). Without this, pressing Enter/Space on a
+                    // focused pill would also activate the row.
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleClick(item);
+                    }
+                  }}
+                  className={`w-full text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-neutral-800/60 transition-colors ${
+                    item.read
+                      ? 'bg-white dark:bg-neutral-900'
+                      : 'bg-primary-50/30 dark:bg-primary-900/20'
                   }`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -98,23 +134,27 @@ const Notifications = () => {
                         {!item.read && (
                           <span
                             className="w-2 h-2 rounded-full bg-primary-500"
-                            aria-label="unread"
+                            aria-label={t('alerts.unread')}
                           />
                         )}
-                        <span className="text-xs uppercase tracking-wide text-stone-400">
-                          {CATEGORY_LABEL[item.category]}
+                        <span className="text-xs uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                          {categoryLabel(item.category)}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-stone-900 truncate">
+                      <p className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100 truncate">
                         {item.title}
                       </p>
-                      <p className="mt-0.5 text-sm text-stone-600 line-clamp-2">{item.body}</p>
+                      <p
+                        data-testid="notification-item-body"
+                        className="mt-0.5 text-sm text-stone-600 dark:text-neutral-300 line-clamp-2">
+                        <NotificationBody body={item.body} />
+                      </p>
                     </div>
-                    <span className="text-[11px] text-stone-400 whitespace-nowrap">
-                      {formatTime(item.timestamp)}
+                    <span className="text-[11px] text-stone-400 dark:text-neutral-500 whitespace-nowrap">
+                      {formatTime(item.timestamp, t)}
                     </span>
                   </div>
-                </button>
+                </div>
               </li>
             ))}
           </ul>

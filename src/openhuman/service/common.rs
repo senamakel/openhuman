@@ -5,6 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub(crate) const SERVICE_LABEL: &str = "com.openhuman.core";
 pub(crate) const LEGACY_SERVICE_LABEL: &str = "com.openhuman.daemon";
 pub(crate) const LEGACY_APP_LABEL: &str = "com.openhuman.app";
@@ -102,7 +105,19 @@ pub(crate) fn xml_escape(input: &str) -> String {
         .replace('\'', "&apos;")
 }
 
+/// Suppress conhost allocation for Windows command spawns. Without this,
+/// every `schtasks /Query` polled by service status checks flashes a
+/// console — visible to users (#1475 follow-up to #731 + #1338).
+#[cfg(windows)]
+fn no_window(cmd: &mut Command) {
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+}
+
+#[cfg(not(windows))]
+fn no_window(_cmd: &mut Command) {}
+
 pub(crate) fn run_checked(cmd: &mut Command) -> Result<()> {
+    no_window(cmd);
     let status = cmd.status()?;
     if !status.success() {
         anyhow::bail!("command failed with status {status}");
@@ -111,6 +126,7 @@ pub(crate) fn run_checked(cmd: &mut Command) -> Result<()> {
 }
 
 pub(crate) fn run_capture(cmd: &mut Command) -> Result<String> {
+    no_window(cmd);
     let output = cmd.output()?;
     if !output.status.success() {
         anyhow::bail!("command failed with status {}", output.status);
@@ -120,6 +136,7 @@ pub(crate) fn run_capture(cmd: &mut Command) -> Result<String> {
 }
 
 pub(crate) fn run_best_effort(cmd: &mut Command) {
+    no_window(cmd);
     match cmd.stdout(Stdio::null()).stderr(Stdio::null()).status() {
         Ok(status) => {
             if !status.success() {
@@ -133,6 +150,7 @@ pub(crate) fn run_best_effort(cmd: &mut Command) {
 }
 
 pub(crate) fn run_check_silent(cmd: &mut Command) -> bool {
+    no_window(cmd);
     cmd.stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()

@@ -13,6 +13,7 @@
 import { callCoreRpc } from '../../services/coreRpcClient';
 import type {
   ComposioActiveTriggersResponse,
+  ComposioAgentReadyToolkitsResponse,
   ComposioAuthorizeResponse,
   ComposioAvailableTriggersResponse,
   ComposioConnectionsResponse,
@@ -54,6 +55,24 @@ export async function listToolkits(): Promise<ComposioToolkitsResponse> {
   return unwrapCliEnvelope<ComposioToolkitsResponse>(raw);
 }
 
+/**
+ * Fetch the slugs of toolkits that have an agent-ready curated
+ * catalog on the core side. The response is sorted alphabetically
+ * and is safe to cache once per session — the set only changes
+ * with core releases.
+ *
+ * Used by the Skills grid (issue #2283) to label connected
+ * toolkits without a catalog as "preview / coming soon" so users
+ * don't trigger the max-iterations failure that uncurated
+ * connections cause.
+ */
+export async function listAgentReadyToolkits(): Promise<ComposioAgentReadyToolkitsResponse> {
+  const raw = await callCoreRpc<unknown>({
+    method: 'openhuman.composio_list_agent_ready_toolkits',
+  });
+  return unwrapCliEnvelope<ComposioAgentReadyToolkitsResponse>(raw);
+}
+
 export async function listConnections(): Promise<ComposioConnectionsResponse> {
   const raw = await callCoreRpc<unknown>({ method: 'openhuman.composio_list_connections' });
   return unwrapCliEnvelope<ComposioConnectionsResponse>(raw);
@@ -73,11 +92,17 @@ export async function listTools(toolkits?: string[]): Promise<ComposioToolsRespo
  * Begin an OAuth handoff for `toolkit`. The returned `connectUrl`
  * must be opened in a browser for the user to complete the flow.
  * The core publishes a `ComposioConnectionCreated` event on success.
+ *
+ * `extraParams` is merged into the backend request body. Required for
+ * toolkits that need additional fields (e.g. `whatsapp` needs `waba_id`).
  */
-export async function authorize(toolkit: string): Promise<ComposioAuthorizeResponse> {
+export async function authorize(
+  toolkit: string,
+  extraParams?: Record<string, string>
+): Promise<ComposioAuthorizeResponse> {
   const raw = await callCoreRpc<unknown>({
     method: 'openhuman.composio_authorize',
-    params: { toolkit },
+    params: extraParams ? { toolkit, extra_params: extraParams } : { toolkit },
   });
   return unwrapCliEnvelope<ComposioAuthorizeResponse>(raw);
 }

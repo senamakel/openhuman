@@ -29,7 +29,7 @@ use std::sync::{Arc, RwLock};
 
 /// Register a web-only proactive message subscriber on the global event
 /// bus. Guarded by `std::sync::Once` so it is safe to call from both
-/// `bootstrap_skill_runtime` (desktop/JSON-RPC) and domain-level
+/// `bootstrap_core_runtime` (desktop/JSON-RPC) and domain-level
 /// startup — only the first call takes effect.
 pub fn register_web_only_proactive_subscriber() {
     use std::sync::Once;
@@ -140,6 +140,7 @@ impl EventHandler for ProactiveMessageSubscriber {
             tool_call_id: None,
             citations: None,
             subagent: None,
+            task_board: None,
         });
 
         // 2. If an active external channel is configured, deliver there too.
@@ -162,7 +163,71 @@ impl EventHandler for ProactiveMessageSubscriber {
                     channel = %key,
                     "[proactive] delivering to active external channel"
                 );
-                match ch.send(&SendMessage::new(message, "")).await {
+
+                // ── External-effect approval gate (#1339, #2135) ─
+                // Proactive sends to Telegram/Discord/Slack/etc.
+                // are outbound writes — route through the gate
+                // before handing off to the channel implementation.
+                // Web delivery above is internal and exempt. When
+                // the gate persists an approval row, we keep its
+                // `request_id` so we can record the delivery
+                // outcome after `ch.send` returns (issue #2135).
+                let mut approval_request_id: Option<String> = None;
+                let mut approval_gate_for_audit: Option<
+                    std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+                > = None;
+                if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                    let summary = format!(
+                        "proactive-send to {key} ({} chars)",
+                        message.chars().count()
+                    );
+                    let redacted = serde_json::json!({
+                        "channel": key,
+                        "source": source.to_string(),
+                        "message_chars": message.chars().count(),
+                    });
+                    let (outcome, request_id) = gate
+                        .intercept_audited("channels.proactive_send", &summary, redacted)
+                        .await;
+                    match outcome {
+                        crate::openhuman::approval::GateOutcome::Allow => {
+                            approval_request_id = request_id;
+                            if approval_request_id.is_some() {
+                                approval_gate_for_audit = Some(gate);
+                            }
+                        }
+                        crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                            tracing::warn!(
+                                source = %source,
+                                channel = %key,
+                                reason = %reason,
+                                "[proactive] approval gate denied external delivery"
+                            );
+                            return;
+                        }
+                    }
+                }
+
+                let send_result = ch.send(&SendMessage::new(message, "")).await;
+                // Record the terminal status on the approval audit
+                // row before we log the outcome — best-effort, see
+                // #2135. `record_execution` itself logs write
+                // errors so we don't pile on here.
+                if let (Some(gate), Some(req_id)) = (
+                    approval_gate_for_audit.as_ref(),
+                    approval_request_id.as_ref(),
+                ) {
+                    let (exec_outcome, err_text) = match &send_result {
+                        Ok(()) => (crate::openhuman::approval::ExecutionOutcome::Success, None),
+                        Err(e) => (
+                            crate::openhuman::approval::ExecutionOutcome::Failure,
+                            Some(e.to_string()),
+                        ),
+                    };
+                    gate.record_execution(req_id, exec_outcome, err_text.as_deref());
+                }
+
+                match send_result {
                     Ok(()) => {
                         tracing::debug!(
                             source = %source,

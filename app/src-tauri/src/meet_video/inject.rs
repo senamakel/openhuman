@@ -41,10 +41,11 @@ use crate::cdp::CdpConn;
 pub async fn install_camera_bridge_post_reload(
     cdp: &mut CdpConn,
     session: &str,
+    frame_bus_port: u16,
 ) -> Result<(), String> {
-    let js = super::build_camera_bridge_js();
+    let js = super::build_camera_bridge_js(frame_bus_port);
     log::info!(
-        "[meet-camera] inject session={session} bridge_chars={}",
+        "[meet-camera] inject session={session} bridge_chars={} frame_bus_port={frame_bus_port}",
         js.chars().count()
     );
     let res = cdp
@@ -98,6 +99,114 @@ pub async fn confirm_bridge_alive(cdp: &mut CdpConn, session: &str) {
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
     log::warn!("[meet-camera] bridge readiness probe timed out");
+}
+
+/// Spawn a background loop that polls `__openhumanCameraBridgeInfo()`
+/// over a freshly-attached CDP session every `interval`, computing the
+/// per-interval delta in `remoteFrameCount` (effective FPS) and
+/// `droppedOutOfOrder` (race incidents). Logs every tick so a tail
+/// gives a live timeline of producer/consumer health.
+///
+/// Lives only when `OPENHUMAN_DEV_MEET_CAMERA_DIAG=1`; otherwise no-op.
+/// Self-terminates when the CDP connection closes (e.g. the meet
+/// window was destroyed).
+pub fn spawn_diagnostics_poller(meet_url: String) {
+    let enabled = std::env::var("OPENHUMAN_DEV_MEET_CAMERA_DIAG")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if !enabled {
+        return;
+    }
+    log::info!(
+        "[meet-camera-diag] poller starting meet_url_chars={}",
+        meet_url.chars().count()
+    );
+    tauri::async_runtime::spawn(async move {
+        // Allow the bridge time to install before the first poll.
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let (mut cdp, session) =
+            match crate::cdp::connect_and_attach_matching(|t| t.url.starts_with(&meet_url)).await {
+                Ok(pair) => pair,
+                Err(err) => {
+                    log::warn!("[meet-camera-diag] cdp attach failed: {err}");
+                    return;
+                }
+            };
+        let mut last_frames: u64 = 0;
+        let mut last_dropped: u64 = 0;
+        let mut tick = 0u64;
+        loop {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            tick += 1;
+            let res = cdp
+                .call(
+                    "Runtime.evaluate",
+                    json!({
+                        "expression": "(typeof window.__openhumanCameraBridgeInfo === 'function') \
+                                       ? JSON.stringify(window.__openhumanCameraBridgeInfo()) \
+                                       : null",
+                        "returnByValue": true,
+                    }),
+                    Some(&session),
+                )
+                .await;
+            let raw = match res {
+                Ok(v) => v
+                    .get("result")
+                    .and_then(|r| r.get("value"))
+                    .and_then(|x| x.as_str().map(|s| s.to_string())),
+                Err(err) => {
+                    // CDP closed (window gone) → exit cleanly.
+                    log::info!("[meet-camera-diag] cdp poll err — exiting: {err}");
+                    return;
+                }
+            };
+            let Some(raw) = raw else {
+                log::warn!("[meet-camera-diag] tick={tick} bridge info missing");
+                continue;
+            };
+            let parsed: Value = match serde_json::from_str(&raw) {
+                Ok(v) => v,
+                Err(_) => {
+                    log::warn!("[meet-camera-diag] tick={tick} parse fail raw={raw}");
+                    continue;
+                }
+            };
+            let frames = parsed
+                .get("remoteFrameCount")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
+            let dropped = parsed
+                .get("droppedOutOfOrder")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
+            let ws_state = parsed
+                .get("wsState")
+                .and_then(|x| x.as_str())
+                .unwrap_or("?");
+            let frame = parsed.get("frame").and_then(|x| x.as_u64()).unwrap_or(0);
+            let fresh_ms = parsed.get("remoteFreshMs").and_then(|x| x.as_u64());
+            let mood = parsed
+                .get("currentMood")
+                .and_then(|x| x.as_str())
+                .unwrap_or("?");
+            let port = parsed
+                .get("frameBusPort")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0);
+            let delta_frames = frames.saturating_sub(last_frames);
+            let delta_dropped = dropped.saturating_sub(last_dropped);
+            let fps = (delta_frames as f32) / 2.0;
+            log::info!(
+                "[meet-camera-diag] tick={tick} ws={ws_state} port={port} \
+                 frames_total={frames} fps_2s={fps:.1} \
+                 dropped_total={dropped} new_dropped={delta_dropped} \
+                 fresh_ms={fresh_ms:?} bridge_frame={frame} mood={mood}"
+            );
+            last_frames = frames;
+            last_dropped = dropped;
+        }
+    });
 }
 
 /// Host-side mood control. Future hookup: the meet-agent state machine

@@ -1,32 +1,88 @@
 /**
  * Analytics & Sentry service
  *
- * Initializes Sentry for the React frontend with auto-send semantics:
- * captured errors are sanitized in `beforeSend` and forwarded to Sentry,
- * gated only by user analytics consent.
+ * Initializes Sentry for error reporting and Google Analytics 4 for anonymous
+ * usage tracking. Both are gated on user analytics consent and skipped in dev.
  *
- * Privacy guarantees enforced in `beforeSend`:
+ * Sentry privacy guarantees enforced in `beforeSend`:
  *   - No breadcrumbs, requests, extras, or arbitrary contexts (only OS /
  *     browser / device metadata kept)
  *   - No frame-level locals or source-context snippets
  *   - No PII — `user` is reduced to a stable anonymous id (or omitted)
  *   - `sendDefaultPii: false` (no IP, no cookies)
  *   - All breadcrumb-producing integrations disabled
+ *
+ * GA4 privacy guarantees:
+ *   - Only page views and feature-engagement events from the allowlist are sent
+ *   - No user content, messages, credentials, or PII is ever included
+ *   - Ad personalization signals are disabled
+ *   - Skipped when `IS_DEV` is true or `GA_MEASUREMENT_ID` is not set
  */
 import * as Sentry from '@sentry/react';
+import ReactGA from 'react-ga4';
 
 import { getCoreStateSnapshot } from '../lib/coreState/store';
 import {
   APP_ENVIRONMENT,
+  GA_MEASUREMENT_ID,
   IS_DEV,
   SENTRY_DSN,
   SENTRY_RELEASE,
   SENTRY_SMOKE_TEST,
 } from '../utils/config';
+import { CoreRpcError } from './coreRpcClient';
+
+// ---------------------------------------------------------------------------
+// GA4 — module-level state
+// ---------------------------------------------------------------------------
+
+/** Set to `true` after `ReactGA.initialize()` succeeds. */
+let gaInitialized = false;
+
+/**
+ * Shadow of the user's analytics consent state for GA operations that need to
+ * check it without async reads. Kept in sync by `syncAnalyticsConsent`.
+ * Default: `false` (deny until explicitly allowed).
+ */
+let gaEnabled = false;
+
+/**
+ * Allowlist of event names that may be sent to GA4.
+ *
+ * Keeping an explicit allowlist prevents accidentally forwarding internal
+ * debug names or future ad-hoc calls that could carry sensitive information.
+ * Any `trackEvent` call with a name not in this set is dropped and a warning
+ * is logged.
+ */
+export const GA_ALLOWED_EVENTS = new Set([
+  'app_open',
+  'onboarding_start',
+  'onboarding_step_complete',
+  'onboarding_complete',
+  'account_connect_start',
+  'account_connect_success',
+  'chat_message_sent',
+  'skill_install',
+  'skill_uninstall',
+]);
 
 /** Check if the current user has opted into analytics. */
 export function isAnalyticsEnabled(): boolean {
   return getCoreStateSnapshot().snapshot.analyticsEnabled;
+}
+
+/**
+ * Cross-realm-safe check for a `CoreRpcError` with `kind === 'timeout'`.
+ * `instanceof` can fail across module scopes (test harness, dynamic import,
+ * Vitest module isolation), so also accept a duck-typed match on `name`
+ * and `kind`. Used by the Sentry `beforeSend` filter to drop the
+ * OPENHUMAN-REACT-15/11/10/12/Z/Y family at the source.
+ */
+function isCoreRpcTimeoutError(err: unknown): boolean {
+  if (err instanceof CoreRpcError) return err.kind === 'timeout';
+  if (typeof err !== 'object' || err === null) return false;
+  const candidate = err as { name?: unknown; kind?: unknown };
+  return candidate.name === 'CoreRpcError' && candidate.kind === 'timeout';
 }
 
 export function initSentry(): void {
@@ -53,10 +109,30 @@ export function initSentry(): void {
       Sentry.dedupeIntegration(),
       Sentry.browserApiErrorsIntegration(),
       Sentry.globalHandlersIntegration(),
+      // #1403: production events were missing `os.name` / `browser.name` /
+      // `device.family` because Sentry derives those by parsing the
+      // User-Agent header server-side, and `defaultIntegrations: false`
+      // (above) drops the integration that attaches `event.request.headers`.
+      // Re-include it explicitly so platform context comes back. `beforeSend`
+      // narrows what survives from the request envelope (headers only, UA
+      // only) to keep this aligned with the privacy contract.
+      Sentry.httpContextIntegration(),
     ],
     sendDefaultPii: false,
 
-    beforeSend(event) {
+    beforeSend(event, hint) {
+      // Drop noisy local-AbortController RPC timeouts at the source so a
+      // missed `.catch()` at a future call site cannot regress the
+      // OPENHUMAN-REACT-15/11/10/12/Z/Y family. Sister to the Rust-side
+      // `is_session_expired_event` filter / loopback classifier in PR #2063.
+      // Cross-realm-safe: also accept a non-instanceof match on the
+      // class name + kind (test harness can construct CoreRpcError in a
+      // different module scope).
+      const original = hint?.originalException as unknown;
+      if (isCoreRpcTimeoutError(original)) {
+        return null;
+      }
+
       // Always allow the smoke-test event through so pipeline validation works
       // even when the user hasn't opted into analytics yet on first boot.
       const isSmokeTest = event.message === 'react-sentry-smoke-test';
@@ -74,7 +150,12 @@ export function initSentry(): void {
 
       // Strip anything that could carry Redux / localStorage / request bodies.
       event.breadcrumbs = [];
-      delete event.request;
+      // Keep only the User-Agent header so Sentry's server-side relay can
+      // populate `os` / `browser` / `device` contexts (#1403). Drop URL,
+      // query string, cookies, and request body — anything that could leak
+      // user content or session state.
+      const ua = (event.request?.headers as Record<string, string> | undefined)?.['User-Agent'];
+      event.request = ua ? { headers: { 'User-Agent': ua } } : undefined;
       delete event.extra;
       event.contexts = {
         os: event.contexts?.os,
@@ -137,13 +218,106 @@ export function initSentry(): void {
  * `beforeSend` reads `isAnalyticsEnabled()` on every event, so toggling
  * consent takes effect immediately for new errors. Flush pending events
  * on opt-out so anything already in flight respects the previous state.
+ *
+ * Also updates the module-level `gaEnabled` flag so `trackPageView` and
+ * `trackEvent` respect the new consent state without reinitializing GA.
  */
 export function syncAnalyticsConsent(enabled: boolean): void {
   const client = Sentry.getClient();
-  if (!client) return;
-  if (!enabled) {
+  if (client && !enabled) {
     void Sentry.flush(2000);
   }
+
+  // Update the GA consent shadow. Ad-personalization is already disabled
+  // unconditionally in initGA() — no need to re-set it on every toggle.
+  gaEnabled = enabled;
+  if (gaInitialized) {
+    console.debug(`[analytics] GA consent updated: enabled=${enabled}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GA4 — public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Initialize Google Analytics 4.
+ *
+ * No-ops when:
+ *   - `GA_MEASUREMENT_ID` is empty/unset
+ *   - `IS_DEV` is true (dev builds never send analytics)
+ *   - Already initialized (idempotent)
+ */
+export function initGA(): void {
+  if (gaInitialized) return;
+  if (IS_DEV) {
+    console.debug('[analytics] GA skipped in dev build');
+    return;
+  }
+  if (!GA_MEASUREMENT_ID) {
+    console.debug('[analytics] GA skipped — VITE_GA_MEASUREMENT_ID not set');
+    return;
+  }
+
+  try {
+    ReactGA.initialize(GA_MEASUREMENT_ID, {
+      gaOptions: {
+        // Disable automatic page view so we send them manually from AppShell.
+        send_page_view: false,
+      },
+    });
+    // Disable ad personalization signals unconditionally — this is a privacy
+    // tool, not an advertising platform.
+    ReactGA.set({ allow_ad_personalization_signals: false });
+    gaInitialized = true;
+    // Sync enabled state from the current consent snapshot now that GA is up.
+    gaEnabled = isAnalyticsEnabled();
+    console.debug('[analytics] GA initialized', { measurementId: GA_MEASUREMENT_ID });
+  } catch (err) {
+    console.warn('[analytics] GA initialization failed:', err);
+  }
+}
+
+/**
+ * Send an anonymous page view if analytics consent is on and GA is initialized.
+ *
+ * @param path - The route pathname (e.g. `/home`, `/settings`). Never include
+ *   query strings or hash fragments that could contain user content.
+ */
+export function trackPageView(path: string): void {
+  if (!gaInitialized || !gaEnabled) return;
+  console.debug('[analytics] trackPageView', { path });
+  ReactGA.send({ hitType: 'pageview', page: path });
+}
+
+/**
+ * Send an anonymous feature-engagement event if analytics consent is on.
+ *
+ * Event names must appear in `GA_ALLOWED_EVENTS`. Calls with unlisted names
+ * are dropped and a console warning is emitted — this prevents accidental
+ * exfiltration of internal or sensitive event names.
+ *
+ * Params must contain only non-sensitive metadata (strings, numbers, booleans).
+ * Never pass user content, credentials, message text, or PII.
+ *
+ * @param eventName - An allowlisted event name.
+ * @param params    - Optional key/value metadata attached to the event.
+ */
+export function trackEvent(
+  eventName: string,
+  params?: Record<string, string | number | boolean>
+): void {
+  if (!gaInitialized || !gaEnabled) return;
+
+  if (!GA_ALLOWED_EVENTS.has(eventName)) {
+    console.warn(
+      `[analytics] trackEvent dropped — '${eventName}' is not in GA_ALLOWED_EVENTS allowlist`
+    );
+    return;
+  }
+
+  console.debug('[analytics] trackEvent', { eventName, params });
+  ReactGA.event(eventName, params);
 }
 
 /**

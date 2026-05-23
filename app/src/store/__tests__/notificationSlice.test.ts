@@ -1,3 +1,4 @@
+import { REHYDRATE } from 'redux-persist';
 import { describe, expect, it } from 'vitest';
 
 import reducer, {
@@ -75,5 +76,32 @@ describe('notificationSlice', () => {
     }
     expect(s.items).toHaveLength(200);
     expect(s.items[0].id).toBe('209');
+  });
+
+  describe('REHYDRATE', () => {
+    const rehydrate = (key: string, payload?: unknown) => ({ type: REHYDRATE, key, payload });
+
+    it('ignores REHYDRATE for a different persist key', () => {
+      const initial = reducer(undefined, setPreference({ category: 'meetings', enabled: false }));
+      const s = reducer(initial, rehydrate('other', { preferences: { meetings: true } }));
+      expect(s.preferences.meetings).toBe(false);
+    });
+
+    it('backfills missing preference keys on rehydration for the notifications key', () => {
+      const s = reducer(
+        undefined,
+        rehydrate('notifications', { preferences: { messages: false } })
+      );
+      expect(s.preferences.messages).toBe(false);
+      expect(s.preferences.meetings).toBe(true);
+      expect(s.preferences.reminders).toBe(true);
+      expect(s.preferences.important).toBe(true);
+    });
+
+    it('skips backfill when rehydrated payload has no preferences', () => {
+      const initial = reducer(undefined, setPreference({ category: 'meetings', enabled: false }));
+      const s = reducer(initial, rehydrate('notifications', {}));
+      expect(s.preferences.meetings).toBe(false);
+    });
   });
 });

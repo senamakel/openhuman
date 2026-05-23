@@ -4,6 +4,7 @@ use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::traits::ToolResult;
 
 pub(crate) async fn dispatch_subagent(
@@ -11,6 +12,7 @@ pub(crate) async fn dispatch_subagent(
     tool_name: &str,
     prompt: &str,
     skill_filter: Option<&str>,
+    model_override: Option<&str>,
 ) -> anyhow::Result<ToolResult> {
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,
@@ -45,6 +47,20 @@ pub(crate) async fn dispatch_subagent(
         prompt_chars: prompt.chars().count(),
     });
 
+    // Also send to the per-request progress sink so the web channel bridge
+    // emits `subagent_spawned` to the frontend (same pattern as spawn_subagent.rs).
+    if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+        let _ = progress
+            .send(AgentProgress::SubagentSpawned {
+                agent_id: definition.id.clone(),
+                task_id: task_id.clone(),
+                mode: "typed".to_string(),
+                dedicated_thread: false,
+                prompt_chars: prompt.chars().count(),
+            })
+            .await;
+    }
+
     log::info!(
         "[agent] delegating to {} via {} (skill_filter={}) prompt_chars={}",
         agent_id,
@@ -54,9 +70,10 @@ pub(crate) async fn dispatch_subagent(
     );
 
     // Propagate the per-call toolkit scope into the subagent runner so
-    // that `SkillDelegationTool`s can narrow `integrations_agent` to a single
-    // Composio toolkit (e.g. `delegate_gmail` → integrations_agent +
-    // toolkit="gmail"). Earlier code plumbed this through
+    // that the collapsed `SkillDelegationTool` can narrow
+    // `integrations_agent` to a single Composio toolkit (e.g.
+    // `delegate_to_integrations_agent { toolkit: "gmail" }` →
+    // integrations_agent + toolkit="gmail"). Earlier code plumbed this through
     // `skill_filter_override` (which matches `{skill}__` QuickJS-style
     // names), but Composio actions are named `GMAIL_*` / `NOTION_*` —
     // so the filter excluded every Composio tool instead of narrowing
@@ -66,6 +83,7 @@ pub(crate) async fn dispatch_subagent(
         skill_filter_override: None,
         toolkit_override: skill_filter.map(str::to_string),
         context: None,
+        model_override: model_override.map(str::to_string),
         task_id: Some(task_id.clone()),
         worker_thread_id: None,
     };
@@ -127,6 +145,7 @@ mod tests {
             "__definitely_not_a_real_agent__",
             "test_tool",
             "irrelevant prompt",
+            None,
             None,
         )
         .await

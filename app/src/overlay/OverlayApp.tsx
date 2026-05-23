@@ -23,7 +23,7 @@
  *
  * There is **no** demo loop — the overlay is entirely event-driven.
  */
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import {
   currentMonitor,
   getCurrentWindow,
@@ -31,11 +31,12 @@ import {
   LogicalSize,
 } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { type Socket } from 'socket.io-client';
 
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
-import { callCoreRpc } from '../services/coreRpcClient';
-import { CORE_RPC_URL } from '../utils/config';
+import { useT } from '../lib/i18n/I18nContext';
+import { callCoreRpc, getCoreHttpBaseUrl } from '../services/coreRpcClient';
+import { connectCoreSocket } from '../services/coreSocket';
 
 const OVERLAY_IDLE_WIDTH = 50;
 const OVERLAY_IDLE_HEIGHT = 50;
@@ -58,7 +59,7 @@ let lastPollDebugTs = 0;
 
 // ── State model ──────────────────────────────────────────────────────────
 
-type OverlayMode = 'idle' | 'stt' | 'attention';
+type OverlayMode = 'idle' | 'stt' | 'attention' | 'companion';
 type BubbleTone = 'neutral' | 'accent' | 'success';
 
 interface OverlayBubble {
@@ -88,6 +89,39 @@ interface OverlayAttentionPayload {
   source?: string;
 }
 
+interface CompanionStateChangedPayload {
+  session_id?: string;
+  state?: string;
+  previous_state?: string;
+  message?: string;
+}
+
+/**
+ * Convert companion state to a localized, user-friendly bubble label.
+ *
+ * Takes the translate function as an argument (rather than calling `useT`
+ * directly) so the helper stays a pure function and is unit-testable
+ * without rendering a React tree. The default branch wraps the raw state
+ * string \u2014 it's a fallback for unknown states and not expected in practice.
+ */
+export function companionStateLabel(state: string, t: (key: string) => string): string {
+  const inner = (() => {
+    switch (state) {
+      case 'listening':
+        return t('overlay.companion.listening');
+      case 'thinking':
+        return t('overlay.companion.thinking');
+      case 'speaking':
+        return t('overlay.companion.speaking');
+      case 'pointing':
+        return t('overlay.companion.pointing');
+      default:
+        return state;
+    }
+  })();
+  return `\u201C${inner}\u201D`;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function bubbleToneClass(tone: BubbleTone) {
@@ -102,19 +136,10 @@ function bubbleToneClass(tone: BubbleTone) {
 }
 
 /** Resolve the core process base URL (without /rpc suffix) for Socket.IO.
- *  Mirrors `useDictationHotkey.resolveCoreSocketUrl`. */
+ *  Mirrors `useDictationHotkey.resolveCoreSocketUrl`. Delegates to
+ *  `getCoreHttpBaseUrl` so cloud-mode overrides flow through. */
 async function resolveCoreSocketUrl(): Promise<string> {
-  let rpcUrl = CORE_RPC_URL;
-  if (isTauri()) {
-    try {
-      const url = await invoke<string>('core_rpc_url');
-      if (url) rpcUrl = String(url);
-    } catch {
-      // fall through to default
-    }
-  }
-  const trimmed = rpcUrl.trim().replace(/\/+$/, '');
-  return trimmed.endsWith('/rpc') ? trimmed.slice(0, -4) : trimmed;
+  return getCoreHttpBaseUrl();
 }
 
 // ── Bubble chip with typewriter animation ────────────────────────────────
@@ -160,6 +185,7 @@ function OverlayBubbleChip({ bubble }: { bubble: OverlayBubble }) {
 // ── Main overlay root ────────────────────────────────────────────────────
 
 export default function OverlayApp() {
+  const { t } = useT();
   const [mode, setMode] = useState<OverlayMode>('idle');
   const [bubble, setBubble] = useState<OverlayBubble | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -283,6 +309,41 @@ export default function OverlayApp() {
     [scheduleDismiss]
   );
 
+  // ── Companion state changes ──────────────────────────────────────────────
+  const handleCompanionStateChanged = useCallback(
+    (payload: CompanionStateChangedPayload) => {
+      const state = payload?.state ?? 'idle';
+      console.debug(`[overlay] companion:state_changed state=${state}`);
+
+      if (state === 'idle') {
+        scheduleDismiss(0);
+        return;
+      }
+      if (state === 'error') {
+        setMode('companion');
+        const trimmed = payload?.message?.trim();
+        setBubble({
+          id: `companion-error-${Date.now()}`,
+          text: trimmed ? `\u201C${trimmed}\u201D` : `\u201C${t('overlay.companion.error')}\u201D`,
+          tone: 'neutral',
+          compact: true,
+        });
+        scheduleDismiss(DEFAULT_ATTENTION_TTL_MS);
+        return;
+      }
+
+      clearDismissTimer();
+      setMode('companion');
+      setBubble({
+        id: `companion-${state}-${Date.now()}`,
+        text: companionStateLabel(state, t),
+        tone: state === 'speaking' ? 'success' : 'accent',
+        compact: true,
+      });
+    },
+    [clearDismissTimer, scheduleDismiss, t]
+  );
+
   // ── Socket.IO subscription lifecycle ───────────────────────────────────
   useEffect(() => {
     let socket: Socket | null = null;
@@ -290,18 +351,14 @@ export default function OverlayApp() {
 
     const connect = async () => {
       try {
-        const baseUrl = await resolveCoreSocketUrl();
-        if (disposed) return;
-
-        console.debug(`[overlay] connecting to core socket at ${baseUrl}`);
-        socket = io(baseUrl, {
-          path: '/socket.io/',
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionDelay: 2000,
-          reconnectionAttempts: Infinity,
-          forceNew: true,
+        /* c8 ignore start — thin call site over the tested `connectCoreSocket` helper */
+        console.debug('[overlay] connecting to core socket');
+        socket = await connectCoreSocket({
+          getBaseUrl: resolveCoreSocketUrl,
+          isDisposed: () => disposed,
         });
+        if (!socket) return;
+        /* c8 ignore stop */
 
         socket.on('connect', () => {
           console.debug('[overlay] socket connected', socket?.id);
@@ -322,6 +379,7 @@ export default function OverlayApp() {
         socket.on('dictation:toggle', handleDictationToggle);
         socket.on('dictation:transcription', handleDictationTranscription);
         socket.on('overlay:attention', handleAttention);
+        socket.on('companion:state_changed', handleCompanionStateChanged);
 
         socket.connect();
       } catch (err) {
@@ -339,7 +397,13 @@ export default function OverlayApp() {
       }
       clearDismissTimer();
     };
-  }, [clearDismissTimer, handleAttention, handleDictationToggle, handleDictationTranscription]);
+  }, [
+    clearDismissTimer,
+    handleAttention,
+    handleCompanionStateChanged,
+    handleDictationToggle,
+    handleDictationTranscription,
+  ]);
 
   // ── Poll voice server status as fallback sync ─────────────────────────
   // Socket events are the primary state driver, but if an event is missed
@@ -626,10 +690,12 @@ export default function OverlayApp() {
             type="button"
             aria-label={
               mode === 'stt'
-                ? 'Voice input active'
+                ? t('overlay.ariaVoiceActive')
                 : mode === 'attention'
-                  ? 'Attention message'
-                  : 'OpenHuman overlay'
+                  ? t('overlay.ariaAttention')
+                  : mode === 'companion'
+                    ? t('overlay.ariaCompanion')
+                    : t('overlay.ariaOrb')
             }
             onMouseDown={handleDragStart}
             onMouseMove={handleMouseMove}
@@ -643,7 +709,7 @@ export default function OverlayApp() {
             }}
             className={`group relative flex cursor-grab items-center justify-center overflow-hidden rounded-full border transition-all duration-200 active:cursor-grabbing ${orbClassName} ${orbSizeClassName}`}
             style={orbStyle}
-            title="Drag to move · Double-click to reset position">
+            title={t('overlay.orbTitle')}>
             <div
               className={`pointer-events-none opacity-95 transition-transform duration-300 group-hover:scale-105 ${orbCanvasClassName}`}>
               <RotatingTetrahedronCanvas inverted={tetrahedronInverted} />

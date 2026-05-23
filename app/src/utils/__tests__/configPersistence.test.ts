@@ -5,25 +5,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  clearStoredCoreMode,
+  clearStoredCoreToken,
   clearStoredRpcUrl,
   getDefaultRpcUrl,
+  getStoredCoreMode,
+  getStoredCoreToken,
   getStoredRpcUrl,
+  isAllowedCloudRpcUrl,
+  isLocalOrPrivateNetworkHost,
   isValidRpcUrl,
   normalizeRpcUrl,
+  peekStoredRpcUrl,
+  redactRpcUrlForLog,
+  storeCoreMode,
+  storeCoreToken,
   storeRpcUrl,
 } from '../configPersistence';
 
 const STORAGE_KEY = 'openhuman_core_rpc_url';
+const TOKEN_STORAGE_KEY = 'openhuman_core_rpc_token';
+const MODE_STORAGE_KEY = 'openhuman_core_mode';
 
 describe('configPersistence', () => {
   beforeEach(() => {
     // Clear localStorage before each test
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(MODE_STORAGE_KEY);
   });
 
   afterEach(() => {
     // Clean up after each test
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(MODE_STORAGE_KEY);
   });
 
   describe('getStoredRpcUrl', () => {
@@ -127,7 +143,7 @@ describe('configPersistence', () => {
 
     it('removes trailing slashes', () => {
       expect(normalizeRpcUrl('http://localhost:7788/rpc/')).toBe('http://localhost:7788/rpc');
-      expect(normalizeRpcUrl('http://localhost:7788/')).toBe('http://localhost:7788');
+      expect(normalizeRpcUrl('http://localhost:7788/')).toBe('http://localhost:7788/rpc');
     });
 
     it('handles multiple trailing slashes', () => {
@@ -136,6 +152,28 @@ describe('configPersistence', () => {
 
     it('preserves URL without trailing slash', () => {
       expect(normalizeRpcUrl('http://localhost:7788/rpc')).toBe('http://localhost:7788/rpc');
+    });
+
+    it('preserves query and hash values when normalizing paths', () => {
+      expect(normalizeRpcUrl('https://host.example?next=/')).toBe(
+        'https://host.example/rpc?next=/'
+      );
+      expect(normalizeRpcUrl('https://host.example/#/')).toBe('https://host.example/rpc#/');
+      expect(normalizeRpcUrl('https://host.example/rpc/?next=/#/')).toBe(
+        'https://host.example/rpc?next=/#/'
+      );
+    });
+  });
+
+  describe('redactRpcUrlForLog', () => {
+    it('removes credentials, query, and hash values before logging', () => {
+      expect(redactRpcUrlForLog('https://user:pass@host.example/rpc?token=secret#/token')).toBe(
+        'https://host.example/rpc'
+      );
+    });
+
+    it('returns a sentinel for malformed URLs', () => {
+      expect(redactRpcUrlForLog('not a url')).toBe('[invalid-url]');
     });
   });
 
@@ -192,9 +230,62 @@ describe('configPersistence', () => {
     });
   });
 
+  describe('isLocalOrPrivateNetworkHost', () => {
+    it('allows localhost and loopback addresses', () => {
+      expect(isLocalOrPrivateNetworkHost('localhost')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('app.localhost')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('127.0.0.1')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('::1')).toBe(true);
+    });
+
+    it('allows RFC1918, link-local, and Tailscale/CGNAT IPv4 addresses', () => {
+      expect(isLocalOrPrivateNetworkHost('10.0.0.8')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('172.16.0.1')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('172.31.255.255')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('192.168.1.100')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('169.254.10.20')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('100.64.0.1')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('100.116.244.64')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('100.127.255.254')).toBe(true);
+    });
+
+    it('allows private IPv6 ranges', () => {
+      expect(isLocalOrPrivateNetworkHost('fc00::1')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('fd12:3456::1')).toBe(true);
+      expect(isLocalOrPrivateNetworkHost('fe80::1')).toBe(true);
+    });
+
+    it('rejects public hosts and invalid IPv4 addresses', () => {
+      expect(isLocalOrPrivateNetworkHost('example.com')).toBe(false);
+      expect(isLocalOrPrivateNetworkHost('8.8.8.8')).toBe(false);
+      expect(isLocalOrPrivateNetworkHost('100.128.0.1')).toBe(false);
+      expect(isLocalOrPrivateNetworkHost('256.1.1.1')).toBe(false);
+    });
+  });
+
+  describe('isAllowedCloudRpcUrl', () => {
+    it('allows HTTPS cloud URLs on public hosts', () => {
+      expect(isAllowedCloudRpcUrl('https://core.example.com/rpc')).toBe(true);
+    });
+
+    it('allows HTTP only for local and private-network core URLs', () => {
+      expect(isAllowedCloudRpcUrl('http://127.0.0.1:7788/rpc')).toBe(true);
+      expect(isAllowedCloudRpcUrl('http://192.168.1.100:7788/rpc')).toBe(true);
+      expect(isAllowedCloudRpcUrl('http://100.116.244.64:7788/rpc')).toBe(true);
+    });
+
+    it('rejects public HTTP cloud URLs', () => {
+      expect(isAllowedCloudRpcUrl('http://core.example.com/rpc')).toBe(false);
+      expect(isAllowedCloudRpcUrl('http://8.8.8.8:7788/rpc')).toBe(false);
+    });
+  });
+
   describe('normalizeRpcUrl — edge cases', () => {
-    it('does not add /rpc suffix when missing (normalizeRpcUrl only strips, not appends)', () => {
-      expect(normalizeRpcUrl('http://127.0.0.1:7788')).toBe('http://127.0.0.1:7788');
+    it('adds /rpc suffix when given a core base URL', () => {
+      expect(normalizeRpcUrl('http://127.0.0.1:7788')).toBe('http://127.0.0.1:7788/rpc');
+      expect(normalizeRpcUrl('https://example.trycloudflare.com/')).toBe(
+        'https://example.trycloudflare.com/rpc'
+      );
     });
 
     it('does not double-add /rpc — leaves existing /rpc alone', () => {
@@ -220,6 +311,19 @@ describe('configPersistence', () => {
   });
 
   describe('storeRpcUrl + getStoredRpcUrl — round-trip', () => {
+    it('stores normalized base core URLs as RPC endpoints', () => {
+      storeRpcUrl('https://remote.example.com');
+      expect(localStorage.getItem(STORAGE_KEY)).toBe('https://remote.example.com/rpc');
+      expect(getStoredRpcUrl()).toBe('https://remote.example.com/rpc');
+      expect(peekStoredRpcUrl()).toBe('https://remote.example.com/rpc');
+    });
+
+    it('normalizes previously persisted base core URLs on read', () => {
+      localStorage.setItem(STORAGE_KEY, 'https://old.example.com/');
+      expect(getStoredRpcUrl()).toBe('https://old.example.com/rpc');
+      expect(peekStoredRpcUrl()).toBe('https://old.example.com/rpc');
+    });
+
     it('round-trips an HTTPS URL', () => {
       storeRpcUrl('https://remote.example.com/rpc');
       expect(getStoredRpcUrl()).toBe('https://remote.example.com/rpc');
@@ -261,6 +365,128 @@ describe('configPersistence', () => {
         expect(getStoredRpcUrl()).toBe('http://127.0.0.1:7788/rpc');
       } finally {
         getItemSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('getStoredCoreToken / storeCoreToken / clearStoredCoreToken', () => {
+    it('returns null when no token is stored', () => {
+      expect(getStoredCoreToken()).toBeNull();
+    });
+
+    it('returns the stored token', () => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, 'abc-123');
+      expect(getStoredCoreToken()).toBe('abc-123');
+    });
+
+    it('trims whitespace around the stored token', () => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, '   xyz   ');
+      expect(getStoredCoreToken()).toBe('xyz');
+    });
+
+    it('treats whitespace-only / empty stored values as null', () => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, '   ');
+      expect(getStoredCoreToken()).toBeNull();
+      localStorage.setItem(TOKEN_STORAGE_KEY, '');
+      expect(getStoredCoreToken()).toBeNull();
+    });
+
+    it('storeCoreToken persists trimmed value', () => {
+      storeCoreToken('  hello  ');
+      expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBe('hello');
+    });
+
+    it('storeCoreToken with empty string clears the stored value', () => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, 'something');
+      storeCoreToken('');
+      expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    });
+
+    it('clearStoredCoreToken removes the value', () => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, 'something');
+      clearStoredCoreToken();
+      expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    });
+
+    it('returns null when localStorage is unavailable', () => {
+      const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('blocked');
+      });
+      try {
+        expect(getStoredCoreToken()).toBeNull();
+      } finally {
+        getItemSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('peekStoredRpcUrl', () => {
+    it('returns null when nothing is stored', () => {
+      expect(peekStoredRpcUrl()).toBeNull();
+    });
+
+    it('returns the stored value (trimmed) — even when it equals the build-time default', () => {
+      // Regression: legacy `getStoredRpcUrl !== CORE_RPC_URL` check threw away
+      // user-explicit URLs that happened to equal the default, silently
+      // routing cloud-mode RPC back to the local sidecar.
+      localStorage.setItem(STORAGE_KEY, '  http://127.0.0.1:7788/rpc  ');
+      expect(peekStoredRpcUrl()).toBe('http://127.0.0.1:7788/rpc');
+    });
+  });
+
+  describe('getStoredCoreMode / storeCoreMode / clearStoredCoreMode', () => {
+    it('returns null by default', () => {
+      expect(getStoredCoreMode()).toBeNull();
+    });
+
+    it('round-trips local and cloud markers', () => {
+      storeCoreMode('local');
+      expect(getStoredCoreMode()).toBe('local');
+      storeCoreMode('cloud');
+      expect(getStoredCoreMode()).toBe('cloud');
+    });
+
+    it('treats unrecognised stored values as null', () => {
+      localStorage.setItem(MODE_STORAGE_KEY, 'gibberish');
+      expect(getStoredCoreMode()).toBeNull();
+    });
+
+    it('clearStoredCoreMode removes the marker', () => {
+      storeCoreMode('cloud');
+      clearStoredCoreMode();
+      expect(getStoredCoreMode()).toBeNull();
+    });
+
+    it('logs the mode string directly, not an object wrapper', () => {
+      const spy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+      try {
+        storeCoreMode('cloud');
+        const calls = spy.mock.calls.flat();
+        // Must NOT log an object like { mode } — that renders as [object Object]
+        const hasObjectArg = calls.some(arg => typeof arg === 'object' && arg !== null);
+        expect(hasObjectArg).toBe(false);
+        const modeArg = calls.find(arg => typeof arg === 'string' && arg === 'cloud');
+        expect(modeArg).toBe('cloud');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('falls back to the E2E default local mode when no marker has been written', async () => {
+      vi.resetModules();
+      vi.doMock('../config', () => ({
+        CORE_RPC_URL: 'http://127.0.0.1:7788/rpc',
+        E2E_DEFAULT_CORE_MODE: 'local',
+      }));
+
+      try {
+        localStorage.removeItem(MODE_STORAGE_KEY);
+        const mod = await import('../configPersistence');
+
+        expect(mod.getStoredCoreMode()).toBe('local');
+      } finally {
+        vi.doUnmock('../config');
+        vi.resetModules();
       }
     });
   });

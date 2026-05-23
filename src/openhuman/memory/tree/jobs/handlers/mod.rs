@@ -18,7 +18,8 @@ use crate::openhuman::memory::tree::content_store::{
 use crate::openhuman::memory::tree::jobs::store;
 use crate::openhuman::memory::tree::jobs::types::{
     AppendBufferPayload, AppendTarget, DigestDailyPayload, ExtractChunkPayload, FlushStalePayload,
-    Job, JobKind, JobOutcome, NewJob, NodeRef, SealPayload, TopicRoutePayload,
+    Job, JobKind, JobOutcome, NewJob, NodeRef, ReembedBackfillPayload, SealPayload,
+    TopicRoutePayload,
 };
 use crate::openhuman::memory::tree::score;
 use crate::openhuman::memory::tree::score::embed::{build_embedder_from_config, pack_checked};
@@ -26,10 +27,15 @@ use crate::openhuman::memory::tree::score::extract::build_summary_extractor;
 use crate::openhuman::memory::tree::score::store as score_store;
 use crate::openhuman::memory::tree::store as chunk_store;
 use crate::openhuman::memory::tree::tree_global::digest::{self, DigestOutcome};
+use crate::openhuman::memory::tree::tree_source::store as summary_store;
 use crate::openhuman::memory::tree::tree_source::{
     build_summariser, get_or_create_source_tree, LabelStrategy, LeafRef,
 };
 use crate::openhuman::memory::tree::tree_topic::curator;
+
+/// Default age for L0 flush_stale when the caller doesn't override.
+/// 1 hour means low-volume sources get summaries within a working session.
+const L0_DEFAULT_FLUSH_AGE_SECS: i64 = 60 * 60;
 
 /// Dispatch a claimed job to the matching per-kind handler.
 ///
@@ -45,6 +51,7 @@ pub async fn handle_job(config: &Config, job: &Job) -> Result<JobOutcome> {
         JobKind::TopicRoute => handle_topic_route(config, job).await,
         JobKind::DigestDaily => handle_digest_daily(config, job).await,
         JobKind::FlushStale => handle_flush_stale(config, job).await,
+        JobKind::ReembedBackfill => handle_reembed_backfill(config, job).await,
     }
 }
 
@@ -74,7 +81,7 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
 
     let scoring_cfg = score::ScoringConfig::from_config(config);
     let result = score::score_chunk(&chunk_with_body, &scoring_cfg).await?;
-    let packed_embedding = if result.kept {
+    let chunk_embedding: Option<Vec<f32>> = if result.kept {
         let embedder =
             build_embedder_from_config(config).context("build embedder in extract handler")?;
         // Reuse the body already read — avoid a second disk read.
@@ -82,10 +89,13 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
             .embed(&body)
             .await
             .with_context(|| format!("embed chunk_id={} in extract handler", chunk.id))?;
-        Some(
-            pack_checked(&vector)
-                .with_context(|| format!("pack embedding for chunk_id={}", chunk.id))?,
-        )
+        // Preserve the pre-cutover dimension guard (the job fails fast on a
+        // misconfigured embedder) even though #1574 no longer persists the
+        // packed blob to the legacy `mem_tree_chunks.embedding` column —
+        // the vector now goes to the per-model sidecar instead.
+        pack_checked(&vector)
+            .with_context(|| format!("validate embedding dims for chunk_id={}", chunk.id))?;
+        Some(vector)
     } else {
         None
     };
@@ -117,6 +127,9 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
         None
     };
 
+    // #1574: resolve the active embedding signature once (probe-stable,
+    // config-derived) so the sidecar write below is keyed correctly.
+    let active_sig = chunk_store::tree_active_signature(config);
     let (did_enqueue_source, did_enqueue_route) = chunk_store::with_connection(config, |conn| {
         let tx = conn.unchecked_transaction()?;
         score::persist_score_tx(
@@ -129,15 +142,24 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
         if result.kept {
             tx.execute(
                 "UPDATE mem_tree_chunks
-                        SET embedding = ?1,
-                            lifecycle_status = ?2
-                      WHERE id = ?3",
-                rusqlite::params![
-                    packed_embedding,
-                    chunk_store::CHUNK_STATUS_ADMITTED,
-                    chunk.id,
-                ],
+                        SET lifecycle_status = ?1
+                      WHERE id = ?2",
+                rusqlite::params![chunk_store::CHUNK_STATUS_ADMITTED, chunk.id],
             )?;
+            // #1574 write-side cutover: persist the embedding to the
+            // per-model `mem_tree_chunk_embeddings` sidecar at the active
+            // signature, inside THIS tx so it commits atomically with the
+            // lifecycle / score / job-enqueue writes. The legacy
+            // `mem_tree_chunks.embedding` column is no longer written
+            // (left intact for the §7 one-shot migration to read).
+            if let Some(emb) = chunk_embedding.as_deref() {
+                chunk_store::set_chunk_embedding_for_signature_tx(
+                    &tx,
+                    &chunk.id,
+                    &active_sig,
+                    emb,
+                )?;
+            }
         } else {
             tx.execute(
                 "UPDATE mem_tree_chunks
@@ -506,9 +528,12 @@ async fn handle_digest_daily(config: &Config, job: &Job) -> Result<JobOutcome> {
 async fn handle_flush_stale(config: &Config, job: &Job) -> Result<JobOutcome> {
     let payload: FlushStalePayload =
         serde_json::from_str(&job.payload_json).context("parse FlushStale payload")?;
-    let age_secs = payload
-        .max_age_secs
-        .unwrap_or(crate::openhuman::memory::tree::tree_source::types::DEFAULT_FLUSH_AGE_SECS);
+    // When the caller didn't specify a max age, use a short window for L0
+    // so low-volume sources (daily cron, single documents) get timely
+    // summaries instead of waiting 7 days.  The longer general-purpose
+    // default is preserved in types::DEFAULT_FLUSH_AGE_SECS for callers
+    // that set max_age_secs explicitly.
+    let age_secs = payload.max_age_secs.unwrap_or(L0_DEFAULT_FLUSH_AGE_SECS);
     let cutoff = chrono::Utc::now() - chrono::Duration::seconds(age_secs);
     let buffers =
         crate::openhuman::memory::tree::tree_source::store::list_stale_buffers(config, cutoff)?;
@@ -523,6 +548,232 @@ async fn handle_flush_stale(config: &Config, job: &Job) -> Result<JobOutcome> {
         }
     }
     Ok(JobOutcome::Done)
+}
+
+/// Texts per `ReembedBackfill` run. Bounded so one run holds the global
+/// single-LLM-slot (the job is `is_llm_bound`) for a predictable spell —
+/// the laptop-RAM safety the local-LLM-load rule requires. The chain
+/// self-continues via `Defer` until no rows remain.
+const REEMBED_BACKFILL_BATCH: usize = 16;
+/// Delay before the deferred chain revisits this same job row.
+const REEMBED_BACKFILL_REVISIT_MS: i64 = 750;
+
+/// #1574 §6: re-embed a bounded batch of chunks/summaries that lack a
+/// vector at the **active** signature, then `Defer` to revisit until the
+/// space is fully covered. Sources: the §7 dim-mismatch slice and any
+/// embedder switch (post-switch every prior row is missing at the new
+/// signature). One chain per signature (dedupe key); self-continues via
+/// `Defer` (reschedules this row — no re-enqueue, no dedupe race).
+///
+/// Per-row read/embed failures are logged and skipped, never fail the
+/// chain — one unreadable row must not strand the rest of memory.
+async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcome> {
+    let payload: ReembedBackfillPayload =
+        serde_json::from_str(&job.payload_json).context("parse ReembedBackfill payload")?;
+    let active_sig = chunk_store::tree_active_signature(config);
+    if active_sig != payload.signature {
+        // The embedder changed since this chain started; a fresh chain for
+        // the new signature supersedes it. Finish this stale one.
+        log::info!(
+            "[memory_tree::jobs] reembed_backfill: stale signature (job sig={}, active={active_sig}); finishing",
+            payload.signature
+        );
+        return Ok(JobOutcome::Done);
+    }
+
+    // Phase 1 (short read): up to BATCH ids lacking a sidecar vector at the
+    // active signature — chunks first, then summaries to fill the batch.
+    let (chunk_ids, summary_ids): (Vec<String>, Vec<String>) =
+        chunk_store::with_connection(config, |conn| {
+            let chunks: Vec<String> = {
+                let mut stmt = conn.prepare(
+                    // The second NOT EXISTS — `mem_tree_chunk_reembed_skipped` —
+                    // is the runaway-loop fix (#1574 §6): without it, rows whose
+                    // body file is missing on disk (or whose embed failed
+                    // terminally) keep matching the worklist on every batch
+                    // because the failure path only LOG-skipped, never wrote
+                    // anything persistent. The handler below now marks such
+                    // rows in `mem_tree_chunk_reembed_skipped` so they're
+                    // excluded here on the next batch and the chain can
+                    // actually reach "fully covered".
+                    "SELECT id FROM mem_tree_chunks c
+                      WHERE NOT EXISTS (
+                          SELECT 1 FROM mem_tree_chunk_embeddings e
+                           WHERE e.chunk_id = c.id AND e.model_signature = ?1)
+                        AND NOT EXISTS (
+                          SELECT 1 FROM mem_tree_chunk_reembed_skipped s
+                           WHERE s.chunk_id = c.id AND s.model_signature = ?1)
+                      LIMIT ?2",
+                )?;
+                let ids = stmt
+                    .query_map(
+                        rusqlite::params![active_sig, REEMBED_BACKFILL_BATCH as i64],
+                        |r| r.get::<_, String>(0),
+                    )?
+                    .collect::<rusqlite::Result<Vec<String>>>()?;
+                ids
+            };
+            let remaining = REEMBED_BACKFILL_BATCH.saturating_sub(chunks.len());
+            let summaries: Vec<String> = if remaining == 0 {
+                Vec::new()
+            } else {
+                let mut stmt = conn.prepare(
+                    // Summary-side counterpart of the runaway-loop fix; see
+                    // the chunks worklist above for the full rationale.
+                    "SELECT id FROM mem_tree_summaries s
+                      WHERE s.deleted = 0
+                        AND NOT EXISTS (
+                          SELECT 1 FROM mem_tree_summary_embeddings e
+                           WHERE e.summary_id = s.id AND e.model_signature = ?1)
+                        AND NOT EXISTS (
+                          SELECT 1 FROM mem_tree_summary_reembed_skipped sk
+                           WHERE sk.summary_id = s.id AND sk.model_signature = ?1)
+                      LIMIT ?2",
+                )?;
+                let ids = stmt
+                    .query_map(rusqlite::params![active_sig, remaining as i64], |r| {
+                        r.get::<_, String>(0)
+                    })?
+                    .collect::<rusqlite::Result<Vec<String>>>()?;
+                ids
+            };
+            Ok((chunks, summaries))
+        })?;
+
+    if chunk_ids.is_empty() && summary_ids.is_empty() {
+        crate::openhuman::memory::tree::jobs::set_backfill_in_progress(false);
+        log::info!(
+            "[memory_tree::jobs] reembed_backfill: sig={active_sig} fully covered; chain complete"
+        );
+        return Ok(JobOutcome::Done);
+    }
+    crate::openhuman::memory::tree::jobs::set_backfill_in_progress(true);
+
+    // Phase 2 (no tx held): embed each row's stored source text. Per-row
+    // errors are skipped (logged) so a single bad row can't strand memory.
+    //
+    // #1574 §6 fix: terminal failures (body file missing on disk, embed
+    // wrong dim, embed unrecoverable error) are *persistently* tombstoned
+    // via `mark_chunk_reembed_skipped` / `mark_summary_reembed_skipped`.
+    // The worklist queries above exclude these tombstones, so a single
+    // unembeddable row is attempted at most ONCE per signature instead of
+    // re-selected on every batch forever (the original bug: 16 orphans
+    // generating ~128k warns across ~8k defers, observed in the wild).
+    // The mark itself is best-effort — if its own SQLite write fails the
+    // row will be retried on a later batch, which is the desired fallback.
+    let embedder =
+        build_embedder_from_config(config).context("build embedder in reembed_backfill")?;
+    let mut chunk_vecs: Vec<(String, Vec<f32>)> = Vec::new();
+    for id in &chunk_ids {
+        match content_read::read_chunk_body(config, id) {
+            Ok(body) => match embedder.embed(&body).await {
+                Ok(v) if pack_checked(&v).is_ok() => chunk_vecs.push((id.clone(), v)),
+                Ok(_) => {
+                    log::warn!(
+                        "[memory_tree::jobs] reembed_backfill: chunk {id} embed wrong dim, skipping (sig={active_sig})"
+                    );
+                    let _ = chunk_store::mark_chunk_reembed_skipped(
+                        config,
+                        id,
+                        &active_sig,
+                        "embed wrong dim",
+                    );
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[memory_tree::jobs] reembed_backfill: chunk {id} embed failed: {e}; skipping (sig={active_sig})"
+                    );
+                    let _ = chunk_store::mark_chunk_reembed_skipped(
+                        config,
+                        id,
+                        &active_sig,
+                        &format!("embed failed: {e}"),
+                    );
+                }
+            },
+            Err(e) => {
+                log::warn!(
+                    "[memory_tree::jobs] reembed_backfill: chunk {id} body read failed: {e}; skipping (sig={active_sig})"
+                );
+                let _ = chunk_store::mark_chunk_reembed_skipped(
+                    config,
+                    id,
+                    &active_sig,
+                    &format!("body read failed: {e}"),
+                );
+            }
+        }
+    }
+    let mut summary_vecs: Vec<(String, Vec<f32>)> = Vec::new();
+    for id in &summary_ids {
+        match content_read::read_summary_body(config, id) {
+            Ok(body) => match embedder.embed(&body).await {
+                Ok(v) if pack_checked(&v).is_ok() => summary_vecs.push((id.clone(), v)),
+                Ok(_) => {
+                    log::warn!(
+                        "[memory_tree::jobs] reembed_backfill: summary {id} embed wrong dim, skipping (sig={active_sig})"
+                    );
+                    let _ = summary_store::mark_summary_reembed_skipped(
+                        config,
+                        id,
+                        &active_sig,
+                        "embed wrong dim",
+                    );
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[memory_tree::jobs] reembed_backfill: summary {id} embed failed: {e}; skipping (sig={active_sig})"
+                    );
+                    let _ = summary_store::mark_summary_reembed_skipped(
+                        config,
+                        id,
+                        &active_sig,
+                        &format!("embed failed: {e}"),
+                    );
+                }
+            },
+            Err(e) => {
+                log::warn!(
+                    "[memory_tree::jobs] reembed_backfill: summary {id} body read failed: {e}; skipping (sig={active_sig})"
+                );
+                let _ = summary_store::mark_summary_reembed_skipped(
+                    config,
+                    id,
+                    &active_sig,
+                    &format!("body read failed: {e}"),
+                );
+            }
+        }
+    }
+
+    // Phase 3 (one short tx): persist all collected vectors to the sidecar.
+    chunk_store::with_connection(config, |conn| {
+        let tx = conn.unchecked_transaction()?;
+        for (id, v) in &chunk_vecs {
+            chunk_store::set_chunk_embedding_for_signature_tx(&tx, id, &active_sig, v)?;
+        }
+        for (id, v) in &summary_vecs {
+            crate::openhuman::memory::tree::tree_source::store::set_summary_embedding_for_signature_tx(
+                &tx, id, &active_sig, v,
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    })?;
+
+    log::info!(
+        "[memory_tree::jobs] reembed_backfill: sig={active_sig} embedded chunks={} summaries={} (scanned c={} s={}); revisiting",
+        chunk_vecs.len(),
+        summary_vecs.len(),
+        chunk_ids.len(),
+        summary_ids.len()
+    );
+    // More rows may remain (this batch was bounded). Reschedule THIS row —
+    // no re-enqueue, so the per-signature dedupe key stays valid.
+    Ok(JobOutcome::Defer {
+        until_ms: chrono::Utc::now().timestamp_millis() + REEMBED_BACKFILL_REVISIT_MS,
+        reason: "#1574 §6 re-embed backfill: batch done, more pending".to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -879,5 +1130,317 @@ mod tests {
 
         // No new jobs should have been enqueued (buffer didn't cross gate).
         assert_eq!(count_total(&cfg).unwrap(), pre);
+    }
+
+    /// #1574 §6: a chunk with content but no sidecar vector at the active
+    /// signature (the post-switch / dim-mismatch state) is re-embedded by
+    /// `handle_reembed_backfill`; the chain `Defer`s while work remains and
+    /// returns `Done` once the space is covered; a stale-signature job
+    /// finishes immediately without touching anything.
+    ///
+    /// (The process-global `backfill_in_progress` flag is intentionally not
+    /// asserted here — it is shared across parallel tests and set widely by
+    /// the §7 trigger, so asserting it would be flaky. The handler's
+    /// deterministic effects are what this test pins.)
+    #[tokio::test]
+    async fn reembed_backfill_repopulates_then_completes() {
+        use crate::openhuman::memory::tree::store::{
+            get_chunk_embedding_for_signature, tree_active_signature, upsert_chunks,
+            upsert_staged_chunks_tx,
+        };
+        use crate::openhuman::memory::tree::types::{
+            chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+        };
+
+        let (_tmp, cfg) = test_config();
+        let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let chunk = Chunk {
+            id: chunk_id(SourceKind::Chat, "slack:#eng", 0, "reembed-seed"),
+            content: "memory content about the phoenix migration project".into(),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: "slack:#eng".into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://x")),
+            },
+            token_count: 12,
+            seq_in_source: 0,
+            created_at: ts,
+            partial_message: false,
+        };
+        upsert_chunks(&cfg, &[chunk.clone()]).unwrap();
+        // Stage the body to disk so `read_chunk_body` succeeds in the handler.
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).unwrap();
+        let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let sig = tree_active_signature(&cfg);
+        assert!(
+            get_chunk_embedding_for_signature(&cfg, &chunk.id, &sig)
+                .unwrap()
+                .is_none(),
+            "precondition: no sidecar vector at the active signature"
+        );
+
+        // Work present → re-embed + write sidecar, Defer to revisit.
+        let job = mk_running_job(
+            JobKind::ReembedBackfill,
+            serde_json::to_string(&ReembedBackfillPayload {
+                signature: sig.clone(),
+            })
+            .unwrap(),
+        );
+        let out = handle_reembed_backfill(&cfg, &job).await.unwrap();
+        assert!(
+            matches!(out, JobOutcome::Defer { .. }),
+            "work present must Defer (self-continue), got {out:?}"
+        );
+        assert!(
+            get_chunk_embedding_for_signature(&cfg, &chunk.id, &sig)
+                .unwrap()
+                .is_some(),
+            "chunk re-embedded into the sidecar at the active signature"
+        );
+
+        // Nothing left → Done.
+        let out2 = handle_reembed_backfill(&cfg, &job).await.unwrap();
+        assert_eq!(out2, JobOutcome::Done, "covered space must complete");
+
+        // Stale signature (embedder changed since enqueue) → finishes
+        // immediately, no work, no panic.
+        let stale = mk_running_job(
+            JobKind::ReembedBackfill,
+            serde_json::to_string(&ReembedBackfillPayload {
+                signature: "provider=other;model=x;dims=1".into(),
+            })
+            .unwrap(),
+        );
+        assert_eq!(
+            handle_reembed_backfill(&cfg, &stale).await.unwrap(),
+            JobOutcome::Done
+        );
+    }
+
+    /// #1574 §6 regression gate: a terminal-failure chunk (its body file is
+    /// missing on disk, despite the metadata row staying staged) is
+    /// persistently tombstoned by `mark_chunk_reembed_skipped` on the first
+    /// pass, then excluded from the next batch's worklist so the chain
+    /// terminates (`Done`) instead of looping forever. Without this guard
+    /// the §6 runaway-loop fix would silently regress — the same 16 orphans
+    /// → ~8k defers → ~128k warns symptom observed in the wild before the
+    /// fix landed (see PR body and store.rs:1195).
+    ///
+    /// What the test pins:
+    ///   1. Tombstone row is written for the failing chunk (exactly one).
+    ///   2. The next-batch worklist `NOT EXISTS … reembed_skipped` clause
+    ///      excludes the tombstoned row — the handler returns `Done`.
+    ///   3. The `ensure_reembed_backfill` migration probe agrees the space
+    ///      is covered (or the chain would re-arm on every config save).
+    #[tokio::test]
+    async fn reembed_backfill_tombstones_orphan_and_terminates() {
+        use crate::openhuman::memory::tree::store::{
+            get_chunk_content_path, get_chunk_embedding_for_signature, tree_active_signature,
+            upsert_chunks, upsert_staged_chunks_tx,
+        };
+        use crate::openhuman::memory::tree::types::{
+            chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+        };
+
+        let (_tmp, cfg) = test_config();
+        let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let chunk = Chunk {
+            id: chunk_id(SourceKind::Chat, "slack:#eng", 0, "orphan-seed"),
+            content: "memory content about the orphaned phoenix project".into(),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: "slack:#eng".into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://x")),
+            },
+            token_count: 12,
+            seq_in_source: 0,
+            created_at: ts,
+            partial_message: false,
+        };
+        upsert_chunks(&cfg, &[chunk.clone()]).unwrap();
+
+        // Stage the body file + metadata, then DELETE the body file from
+        // disk while leaving the staged DB rows intact. Reproduces the
+        // in-wild failure mode: chunk row + path hash both present, but
+        // the body content was lost (user moved workspace dirs, partial
+        // backup restore, manual file cleanup). `stage_chunks` returns
+        // paths relative to `content_root`; resolve absolute before unlink.
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).unwrap();
+        let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+        let staged_rel = get_chunk_content_path(&cfg, &chunk.id)
+            .unwrap()
+            .expect("staged body path");
+        let body_abs = content_root.join(&staged_rel);
+        std::fs::remove_file(&body_abs).unwrap();
+
+        let sig = tree_active_signature(&cfg);
+        let job = mk_running_job(
+            JobKind::ReembedBackfill,
+            serde_json::to_string(&ReembedBackfillPayload {
+                signature: sig.clone(),
+            })
+            .unwrap(),
+        );
+
+        // Pass 1: worklist picks up the orphan, body read fails, tombstone
+        // written, `Defer` to revisit (the handler doesn't distinguish
+        // "all rows tombstoned" from "more rows pending" inside this batch).
+        let out1 = handle_reembed_backfill(&cfg, &job).await.unwrap();
+        assert!(
+            matches!(out1, JobOutcome::Defer { .. }),
+            "first pass should Defer after failing to read body, got {out1:?}"
+        );
+        assert!(
+            get_chunk_embedding_for_signature(&cfg, &chunk.id, &sig)
+                .unwrap()
+                .is_none(),
+            "orphan chunk must not have a sidecar vector after failure"
+        );
+
+        // (1) Tombstone row exists for exactly this (chunk, sig).
+        let tombstone_count: i64 = with_connection(&cfg, |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM mem_tree_chunk_reembed_skipped
+                  WHERE chunk_id = ?1 AND model_signature = ?2",
+                params![chunk.id, sig],
+                |r| r.get(0),
+            )?)
+        })
+        .unwrap();
+        assert_eq!(
+            tombstone_count, 1,
+            "orphan chunk must be tombstoned exactly once"
+        );
+
+        // (2) Pass 2: worklist NOT EXISTS clause excludes the tombstoned
+        // row; both worklists empty; chain completes.
+        let out2 = handle_reembed_backfill(&cfg, &job).await.unwrap();
+        assert_eq!(
+            out2,
+            JobOutcome::Done,
+            "tombstoned-only state must complete the chain"
+        );
+
+        // (3) Migration probe in `ensure_reembed_backfill` must agree the
+        // space is covered, otherwise the chain re-arms on every config
+        // save and we're back to the original infinite-loop bug.
+        let probe_uncovered: bool = with_connection(&cfg, |conn| {
+            Ok(conn.query_row(
+                "SELECT EXISTS(
+                     SELECT 1 FROM mem_tree_chunks c
+                      WHERE NOT EXISTS (SELECT 1 FROM mem_tree_chunk_embeddings e
+                                         WHERE e.chunk_id = c.id AND e.model_signature = ?1)
+                        AND NOT EXISTS (SELECT 1 FROM mem_tree_chunk_reembed_skipped sk
+                                         WHERE sk.chunk_id = c.id AND sk.model_signature = ?1))
+                   OR EXISTS(
+                     SELECT 1 FROM mem_tree_summaries s
+                      WHERE s.deleted = 0
+                        AND NOT EXISTS (SELECT 1 FROM mem_tree_summary_embeddings e
+                                         WHERE e.summary_id = s.id AND e.model_signature = ?1)
+                        AND NOT EXISTS (SELECT 1 FROM mem_tree_summary_reembed_skipped sk
+                                         WHERE sk.summary_id = s.id AND sk.model_signature = ?1))",
+                params![sig],
+                |r| r.get(0),
+            )?)
+        })
+        .unwrap();
+        assert!(
+            !probe_uncovered,
+            "after tombstoning the only orphan, the ensure_reembed_backfill probe must report covered"
+        );
+    }
+
+    /// #1574 §4: `ensure_reembed_backfill` (the switch-path trigger) enqueues
+    /// exactly one chain when there is uncovered work, is idempotent on
+    /// re-call (per-signature dedupe), and enqueues nothing for an
+    /// empty/covered space.
+    #[tokio::test]
+    async fn ensure_reembed_backfill_enqueues_only_when_uncovered() {
+        use crate::openhuman::memory::tree::jobs::ensure_reembed_backfill;
+        use crate::openhuman::memory::tree::store::{upsert_chunks, upsert_staged_chunks_tx};
+        use crate::openhuman::memory::tree::types::{
+            chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+        };
+
+        // Empty space → nothing to do → no job.
+        let (_t0, empty_cfg) = test_config();
+        ensure_reembed_backfill(&empty_cfg);
+        assert_eq!(
+            count_jobs_of_kind(&empty_cfg, "reembed_backfill"),
+            0,
+            "empty/covered space must not enqueue a backfill"
+        );
+
+        // Chunk with content but no sidecar vector → exactly one chain.
+        let (_t1, cfg) = test_config();
+        let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let chunk = Chunk {
+            id: chunk_id(SourceKind::Chat, "slack:#eng", 0, "ensure-seed"),
+            content: "memory content needing a re-embed".into(),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: "slack:#eng".into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://x")),
+            },
+            token_count: 12,
+            seq_in_source: 0,
+            created_at: ts,
+            partial_message: false,
+        };
+        upsert_chunks(&cfg, &[chunk.clone()]).unwrap();
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).unwrap();
+        let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        ensure_reembed_backfill(&cfg);
+        assert_eq!(
+            count_jobs_of_kind(&cfg, "reembed_backfill"),
+            1,
+            "uncovered work must enqueue exactly one backfill chain"
+        );
+        // Idempotent — re-call must not create a second chain (dedupe by sig).
+        ensure_reembed_backfill(&cfg);
+        assert_eq!(
+            count_jobs_of_kind(&cfg, "reembed_backfill"),
+            1,
+            "re-call must dedupe to a single chain per signature"
+        );
     }
 }

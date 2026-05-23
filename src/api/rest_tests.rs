@@ -1,6 +1,17 @@
-use super::key_bytes_from_string;
+use super::{
+    key_bytes_from_string, parse_message_path, sanitize_client_version, BackendApiError,
+    BackendOAuthClient,
+};
+use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::routing::{get, post};
+use axum::{Json, Router};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use reqwest::Method;
+use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
+use tokio::net::TcpListener;
 
 #[test]
 fn decodes_base64url_no_pad() {
@@ -44,4 +55,413 @@ fn trims_whitespace() {
 fn rejects_wrong_length() {
     let err = key_bytes_from_string("tooshort").unwrap_err();
     assert!(err.to_string().contains("must decode to 32 raw bytes"));
+}
+
+use super::user_id_from_profile_payload;
+
+#[test]
+fn extracts_id_from_root() {
+    let payload1 = json!({ "id": "123" });
+    let payload2 = json!({ "_id": "456" });
+    let payload3 = json!({ "userId": "789" });
+
+    assert_eq!(user_id_from_profile_payload(&payload1).unwrap(), "123");
+    assert_eq!(user_id_from_profile_payload(&payload2).unwrap(), "456");
+    assert_eq!(user_id_from_profile_payload(&payload3).unwrap(), "789");
+}
+
+#[test]
+fn extracts_id_from_data_nested() {
+    let payload = json!({
+        "data": { "id": "abc" }
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "abc");
+}
+
+#[test]
+fn extracts_id_from_user_nested() {
+    let payload = json!({
+        "user": { "id": "def" }
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "def");
+}
+
+#[test]
+fn extracts_id_from_data_user_nested() {
+    let payload = json!({
+        "data": {
+            "user": { "userId": "ghi" }
+        }
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "ghi");
+}
+
+#[test]
+fn ignores_whitespace_only_ids() {
+    let payload = json!({
+        "data": {
+            "id": "   ",
+            "_id": "real_id"
+        }
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "real_id");
+}
+
+#[test]
+fn trims_extracted_ids() {
+    let payload = json!({
+        "id": "  padded_id  "
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "padded_id");
+}
+
+#[test]
+fn rejects_non_string_ids() {
+    let payload = json!({
+        "id": 123,
+        "_id": ["not_a_string"],
+        "userId": "valid_id"
+    });
+    assert_eq!(user_id_from_profile_payload(&payload).unwrap(), "valid_id");
+}
+
+#[test]
+fn returns_none_for_missing_ids() {
+    let payload = json!({
+        "data": { "name": "alice" }
+    });
+    assert!(user_id_from_profile_payload(&payload).is_none());
+}
+
+#[test]
+fn returns_none_for_non_object_payload() {
+    let payload = json!("just a string");
+    assert!(user_id_from_profile_payload(&payload).is_none());
+}
+
+#[test]
+fn sanitize_client_version_strips_invalid_chars_and_clamps_length() {
+    let raw = format!(" 1.2.3 (desktop)+build!?{} ", "a".repeat(80));
+    let sanitized = sanitize_client_version(&raw).unwrap();
+    assert_eq!(sanitized, format!("1.2.3desktop+build{}", "a".repeat(46)));
+    assert_eq!(sanitized.len(), 64);
+}
+
+#[derive(Clone, Default)]
+struct CapturedHeaders {
+    entries: Arc<Mutex<Vec<HeaderMap>>>,
+}
+
+impl CapturedHeaders {
+    fn push(&self, headers: &HeaderMap) {
+        self.entries.lock().unwrap().push(headers.clone());
+    }
+
+    fn take(&self) -> Vec<HeaderMap> {
+        self.entries.lock().unwrap().clone()
+    }
+}
+
+async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
+    async fn capture_consume(
+        State(captured): State<CapturedHeaders>,
+        headers: HeaderMap,
+    ) -> Json<Value> {
+        captured.push(&headers);
+        Json(json!({
+            "success": true,
+            "data": { "jwtToken": "mock-jwt-token" }
+        }))
+    }
+
+    async fn capture_probe(
+        State(captured): State<CapturedHeaders>,
+        headers: HeaderMap,
+    ) -> Json<Value> {
+        captured.push(&headers);
+        Json(json!({ "ok": true }))
+    }
+
+    let captured = CapturedHeaders::default();
+    let app = Router::new()
+        .route(
+            "/telegram/login-tokens/{token}/consume",
+            post(capture_consume),
+        )
+        .route("/probe", get(capture_probe))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    (format!("http://{addr}"), captured)
+}
+
+#[tokio::test]
+async fn backend_client_sends_x_core_version_on_auth_requests() {
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let jwt = client.consume_login_token("test-token").await.unwrap();
+    assert_eq!(jwt, "mock-jwt-token");
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    let version = request_headers
+        .get("x-core-version")
+        .and_then(|value| value.to_str().ok())
+        .unwrap();
+    assert_eq!(
+        version,
+        sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
+    );
+}
+
+// Regression: OPENHUMAN-TAURI-8K / Sentry issue 7473650958.
+// When config.api_url is a full LLM completions URL (e.g. /v1/chat/completions),
+// Url::join used to produce wrong paths like /v1/chat/teams/me/usage instead of
+// /teams/me/usage — BackendOAuthClient::new must strip the path to prevent this.
+#[test]
+fn new_strips_path_from_completions_url() {
+    let client = BackendOAuthClient::new("https://api.tinyhumans.ai/v1/chat/completions").unwrap();
+    let url = client.url_for("/teams/me/usage").unwrap();
+    assert_eq!(url.path(), "/teams/me/usage");
+}
+
+#[test]
+fn new_strips_path_from_openai_style_url() {
+    let client = BackendOAuthClient::new("https://api.openai.com/v1/chat/completions").unwrap();
+    let url = client.url_for("/teams/me/usage").unwrap();
+    assert_eq!(url.path(), "/teams/me/usage");
+    assert_eq!(url.host_str(), Some("api.openai.com"));
+}
+
+#[test]
+fn new_works_with_bare_origin() {
+    let client = BackendOAuthClient::new("https://api.tinyhumans.ai").unwrap();
+    let url = client.url_for("/teams/me/usage").unwrap();
+    assert_eq!(url.path(), "/teams/me/usage");
+}
+
+#[test]
+fn new_works_with_trailing_slash() {
+    let client = BackendOAuthClient::new("https://api.tinyhumans.ai/").unwrap();
+    let url = client.url_for("/teams/me/usage").unwrap();
+    assert_eq!(url.path(), "/teams/me/usage");
+}
+
+#[tokio::test]
+async fn backend_raw_client_inherits_x_core_version_default_header() {
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+    let url = client.url_for("/probe").unwrap();
+
+    let response = client.raw_client().get(url).send().await.unwrap();
+    assert!(response.status().is_success());
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    let version = request_headers
+        .get("x-core-version")
+        .and_then(|value| value.to_str().ok())
+        .unwrap();
+    assert_eq!(
+        version,
+        sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
+    );
+}
+
+#[tokio::test]
+async fn authed_json_surfaces_message_not_found_on_404() {
+    let app = Router::new()
+        .route(
+            "/channels/telegram/messages/1103",
+            post(|| async { (axum::http::StatusCode::NOT_FOUND, "Not Found") }),
+        )
+        .route(
+            "/channels/discord/messages/abc",
+            post(|| async { (axum::http::StatusCode::NOT_FOUND, "Not Found") }),
+        );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let base_url = format!("http://{addr}");
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    // Telegram path — matches OPENHUMAN-TAURI-2Y shape.
+    let err = client
+        .authed_json(
+            "mock-jwt",
+            Method::POST,
+            "/channels/telegram/messages/1103",
+            None,
+        )
+        .await
+        .unwrap_err();
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::MessageNotFound {
+        provider,
+        message_id,
+    } = typed;
+    assert_eq!(provider, "telegram");
+    assert_eq!(message_id, "1103");
+
+    // Discord path — proves the helper is provider-agnostic.
+    let err = client
+        .authed_json(
+            "mock-jwt",
+            Method::POST,
+            "/channels/discord/messages/abc",
+            None,
+        )
+        .await
+        .unwrap_err();
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::MessageNotFound {
+        provider,
+        message_id,
+    } = typed;
+    assert_eq!(provider, "discord");
+    assert_eq!(message_id, "abc");
+}
+
+#[tokio::test]
+async fn authed_json_404_outside_messages_path_still_reports() {
+    // 404 on a non-`/channels/<provider>/messages/<id>` path should NOT be
+    // demoted to MessageNotFound — it's a real backend bug or routing
+    // mistake and must keep its Sentry signal.
+    let app = Router::new().route(
+        "/auth/profile",
+        get(|| async { (axum::http::StatusCode::NOT_FOUND, "Not Found") }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let base_url = format!("http://{addr}");
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let err = client
+        .authed_json("mock-jwt", Method::GET, "/auth/profile", None)
+        .await
+        .unwrap_err();
+    assert!(
+        err.downcast_ref::<BackendApiError>().is_none(),
+        "non-channel-message 404 must not be classified as MessageNotFound"
+    );
+}
+
+// ── parse_message_path unit tests (TAURI-R7 regression guard) ───────────────
+
+#[test]
+fn parse_message_path_canonical_form() {
+    assert_eq!(
+        parse_message_path("/channels/telegram/messages/1103"),
+        Some(("telegram", "1103"))
+    );
+}
+
+#[test]
+fn parse_message_path_discord_provider() {
+    assert_eq!(
+        parse_message_path("/channels/discord/messages/abc"),
+        Some(("discord", "abc"))
+    );
+}
+
+#[test]
+fn parse_message_path_base_path_prefix() {
+    // TAURI-R7 root cause: BACKEND_URL with a path prefix adds segments,
+    // breaking the strict 4-segment check. The sliding window must handle it.
+    assert_eq!(
+        parse_message_path("/api/v1/channels/telegram/messages/1103"),
+        Some(("telegram", "1103"))
+    );
+}
+
+#[test]
+fn parse_message_path_double_prefix() {
+    assert_eq!(
+        parse_message_path("/v2/api/channels/discord/messages/abc"),
+        Some(("discord", "abc"))
+    );
+}
+
+#[test]
+fn parse_message_path_trailing_slash() {
+    assert_eq!(
+        parse_message_path("/channels/telegram/messages/1103/"),
+        Some(("telegram", "1103"))
+    );
+}
+
+#[test]
+fn parse_message_path_percent_encoded_slug() {
+    // Channel slugs with percent-encoded characters must pass through verbatim.
+    assert_eq!(
+        parse_message_path("/channels/telegram%3Abot/messages/1103"),
+        Some(("telegram%3Abot", "1103"))
+    );
+}
+
+#[test]
+fn parse_message_path_non_message_path_returns_none() {
+    assert_eq!(parse_message_path("/channels/telegram/typing"), None);
+    assert_eq!(parse_message_path("/channels/telegram"), None);
+    assert_eq!(parse_message_path("/auth/profile"), None);
+    assert_eq!(parse_message_path("/"), None);
+    assert_eq!(parse_message_path(""), None);
+}
+
+// ── authed_json defense-in-depth: PATCH 404 with base-path prefix ───────────
+
+#[tokio::test]
+async fn authed_json_patch_404_with_base_path_prefix_does_not_report() {
+    // Regression for TAURI-R7: if the resolved URL has a base-path prefix,
+    // authed_json must still suppress the 404 (either via parse_message_path
+    // sliding-window match → MessageNotFound, or via the defense-in-depth
+    // inline check) — NOT call report_error.
+    //
+    // Since BackendOAuthClient strips the base path in `new()`, the path
+    // passed to authed_json is always joined against the stripped base. We
+    // verify that a PATCH 404 returns an error without panicking and that
+    // it is NOT classified as a code bug (no BackendApiError::MessageNotFound
+    // wrapping for the generic bail! path, but no Sentry event either).
+    let app = axum::Router::new().route(
+        "/channels/telegram/messages/9999",
+        axum::routing::any(|| async { (axum::http::StatusCode::NOT_FOUND, "Not Found") }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let base_url = format!("http://{addr}");
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    // Standard path — must be classified as MessageNotFound (sliding-window parse).
+    let err = client
+        .authed_json(
+            "mock-jwt",
+            Method::PATCH,
+            "/channels/telegram/messages/9999",
+            None,
+        )
+        .await
+        .unwrap_err();
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::MessageNotFound {
+        provider,
+        message_id,
+    } = typed;
+    assert_eq!(provider, "telegram");
+    assert_eq!(message_id, "9999");
 }

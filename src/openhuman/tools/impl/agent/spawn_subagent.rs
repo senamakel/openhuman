@@ -122,13 +122,17 @@ impl Tool for SpawnSubagentTool {
                     "type": "string",
                     "description": "Optional context blob from prior task results. Rendered as a `[Context]` block before the prompt."
                 },
+                "model": {
+                    "type": "string",
+                    "description": "Optional exact model id for this spawn only. Keeps the parent provider/routing, but pins the child agent to this model instead of the agent definition's default."
+                },
                 "toolkit": {
                     "type": "string",
                     "description": "Composio toolkit slug to scope this spawn to — e.g. `gmail`, `notion`, `slack`. REQUIRED when `agent_id = \"integrations_agent\"`. Narrows the sub-agent's visible Composio actions AND its Connected Integrations prompt section to only that toolkit's catalogue, so the sub-agent's context window only carries the platform it was asked to operate on. Must match a currently-connected integration (see the Delegation Guide)."
                 },
                 "dedicated_thread": {
                     "type": "boolean",
-                    "description": "Default `false`. Set `true` ONLY for long, complex sub-tasks where the parent thread should not be flooded with sub-agent output. The sub-agent's prompt and final summary land in a fresh worker-labeled thread the user can open from the thread list, and the parent receives a compact reference (worker thread id + brief summary) instead of the full transcript. Worker threads cannot themselves spawn another worker (sub-agents never see this tool), so this is a one-level-deep escape hatch."
+                    "description": "Temporarily disabled (see tinyhumansai/openhuman#1624). Passing `true` causes this tool to return an explicit error. Omit the field or pass `false` until the worker-thread UI surface lands."
                 }
             }
         })
@@ -160,16 +164,37 @@ impl Tool for SpawnSubagentTool {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
+        let model_override = args
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
         let toolkit_override = args
             .get("toolkit")
             .and_then(|v| v.as_str())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
 
-        let dedicated_thread = args
+        // Worker-thread spawning is temporarily disabled until a proper UI
+        // showcase lands (see tinyhumansai/openhuman#1624). Return an
+        // explicit error when callers request a dedicated thread so the
+        // behaviour is observable rather than silently downgraded.
+        let dedicated_thread_requested = args
             .get("dedicated_thread")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        if dedicated_thread_requested {
+            log::debug!(
+                "[spawn_subagent] dedicated_thread requested but temporarily \
+                 disabled (see tinyhumansai/openhuman#1624); rejecting call"
+            );
+            return Ok(ToolResult::error(
+                "spawn_subagent: `dedicated_thread` is temporarily disabled \
+                 (see tinyhumansai/openhuman#1624); retry without it.",
+            ));
+        }
+        let dedicated_thread = false;
 
         // ── Validation ─────────────────────────────────────────────────
         if agent_id.is_empty() {
@@ -327,13 +352,27 @@ impl Tool for SpawnSubagentTool {
                             //      doesn't render this as a failed tool call.
                             // The model still reads the explanation and produces
                             // an appropriate user-facing response.
-                            return Ok(ToolResult::success(format!(
-                                "Integration '{tk}' is available but the user has not \
-                                 authorized it yet. Do NOT retry this spawn. Tell the user \
-                                 the integration is available and ask them to authorize \
-                                 '{tk}' in Connections → Integrations before retrying the \
-                                 original request."
-                            )));
+                            //
+                            // Split (#2365) into 4 cases driven by the upstream
+                            // status field on the most-informative connection
+                            // row, instead of the legacy generic
+                            // "not authorized yet" copy. Before this split,
+                            // an OAuth-in-progress / expired / failed Gmail
+                            // surfaced the same "you need to connect Gmail"
+                            // message — which Settings UI contradicted (it
+                            // shows the connection as initiated/expired), so
+                            // users concluded the agent was confused.
+                            tracing::debug!(
+                                target: "spawn_subagent",
+                                toolkit = %ci.toolkit,
+                                non_active_status = ?ci.non_active_status,
+                                "[spawn_subagent] integrations_agent gate: toolkit not connected — emitting status-specific message"
+                            );
+                            let message = describe_unconnected_state(
+                                &ci.toolkit,
+                                ci.non_active_status.as_deref(),
+                            );
+                            return Ok(ToolResult::success(message));
                         }
                         Some(_) => {
                             tracing::debug!(
@@ -383,6 +422,7 @@ impl Tool for SpawnSubagentTool {
             skill_filter_override: None,
             toolkit_override,
             context,
+            model_override,
             task_id: Some(task_id.clone()),
             worker_thread_id: None,
         };
@@ -605,6 +645,84 @@ fn render_worker_thread_result(
     )
 }
 
+/// Build the user-facing explanation for an allowlisted-but-not-active
+/// integration during an `integrations_agent` spawn (#2365).
+///
+/// The single message that previously covered every cause ("available
+/// but the user has not authorized it yet") looked confused to users
+/// who had Gmail showing in Settings (because Settings reflects the
+/// FE's optimistic post-OAuth view, while the spawn gate reads the
+/// backend's authoritative status). We now pivot on the upstream
+/// connection status:
+///
+/// - `INITIATED` / `INITIALIZING` / `PENDING` — OAuth in progress;
+///   ask the user to finish the flow in their browser.
+/// - `EXPIRED` — token rolled over; reconnect.
+/// - `FAILED` / `ERROR` — handshake didn't land; reconnect.
+/// - any other non-active status — quote the upstream verbatim.
+/// - `None` — no connection row at all (truly disconnected).
+///
+/// Returns text the model reads literally; the orchestrator paraphrases
+/// it into a user-facing reply. Keep the *intent* stable across
+/// rewordings — the "Settings → Connections → {toolkit}" path is
+/// load-bearing for the UI navigation tests.
+pub(crate) fn describe_unconnected_state(toolkit: &str, status: Option<&str>) -> String {
+    // Keep the original (trimmed) status separately so the
+    // unknown-status branch can quote it verbatim — CodeRabbit
+    // review on #2373: matching on the uppercased value AND
+    // formatting with that uppercased value broke the
+    // "quote upstream status verbatim" contract for mixed/lowercase
+    // wire shapes.
+    let trimmed = status.map(str::trim).filter(|s| !s.is_empty());
+    let upper = trimmed.map(|s| s.to_ascii_uppercase());
+    match upper.as_deref() {
+        Some("INITIATED") | Some("INITIALIZING") | Some("PENDING") => format!(
+            "Integration '{toolkit}' has an OAuth flow in progress but it hasn't reached \
+             ACTIVE yet. Do NOT retry this spawn. Tell the user the authorization is \
+             pending and ask them to finish the browser OAuth flow (Settings → \
+             Connections → '{toolkit}') before retrying. If they already closed the \
+             browser tab, they can restart the connection from the same Settings page."
+        ),
+        Some("EXPIRED") => format!(
+            "Integration '{toolkit}' is connected but the OAuth token has expired. \
+             Do NOT retry this spawn. Tell the user the connection expired and ask \
+             them to reconnect '{toolkit}' at Settings → Connections → '{toolkit}' \
+             before retrying the original request."
+        ),
+        Some("FAILED") | Some("ERROR") => {
+            // Quote the actual upstream label (FAILED / ERROR) instead of
+            // hard-coding "FAILED" — triage cross-references backend logs
+            // and a misquoted `ERROR` row showing up as "FAILED" wastes
+            // their time. graycyrus review on #2373.
+            let raw = trimmed.unwrap_or("");
+            format!(
+                "Integration '{toolkit}' has a previous OAuth attempt in a `{raw}` state. \
+                 Do NOT retry this spawn. Tell the user the connection failed and ask them \
+                 to reconnect '{toolkit}' at Settings → Connections → '{toolkit}' before \
+                 retrying the original request."
+            )
+        }
+        Some(_) => {
+            // Quote the *original* upstream status, not its uppercased
+            // form — preserves "DeauthRequired" / "needs_relink"-style
+            // mixed-case wire values for triage.
+            let raw = trimmed.unwrap_or("");
+            format!(
+                "Integration '{toolkit}' has a connection row but its status is `{raw}`, \
+                 which is not yet usable. Do NOT retry this spawn. Tell the user the \
+                 connection is in an unusable state and ask them to reconnect '{toolkit}' \
+                 at Settings → Connections → '{toolkit}'."
+            )
+        }
+        _ => format!(
+            "Integration '{toolkit}' is available but the user has not authorized it \
+             yet. Do NOT retry this spawn. Tell the user the integration is available \
+             and ask them to authorize '{toolkit}' in Settings → Connections → \
+             '{toolkit}' before retrying the original request."
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -652,6 +770,20 @@ mod tests {
             .get("required")
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter().all(|s| s.as_str() != Some("dedicated_thread")))
+            .unwrap_or(true));
+    }
+
+    #[test]
+    fn parameters_schema_advertises_optional_model_override() {
+        let tool = SpawnSubagentTool;
+        let schema = tool.parameters_schema();
+        let props = schema.get("properties").expect("schema has properties");
+        let model = props.get("model").expect("model override advertised");
+        assert_eq!(model.get("type").and_then(|v| v.as_str()), Some("string"));
+        assert!(schema
+            .get("required")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().all(|s| s.as_str() != Some("model")))
             .unwrap_or(true));
     }
 
@@ -767,5 +899,210 @@ mod tests {
         let out = result.output();
         // Should list at least one valid built-in.
         assert!(out.contains("code_executor") || out.contains("researcher"));
+    }
+
+    #[test]
+    fn classify_subagent_failure_reframes_upstream_provider_outages() {
+        let msg = SpawnSubagentTool::classify_subagent_failure(
+            "provider call failed: all providers/models failed: upstream unavailable",
+        );
+        assert!(msg.contains("upstream inference unavailable"));
+        assert!(msg.contains("NOT a Composio/integration auth issue"));
+    }
+
+    #[tokio::test]
+    async fn dedicated_thread_flag_is_rejected_explicitly() {
+        let tool = SpawnSubagentTool;
+        let result = tool
+            .execute(json!({
+                "agent_id": "researcher",
+                "prompt": "find x",
+                "dedicated_thread": true,
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        assert!(result.output().contains("temporarily disabled"));
+    }
+
+    #[tokio::test]
+    async fn legacy_archetype_alias_is_accepted_for_lookup() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let tool = SpawnSubagentTool;
+        let result = tool
+            .execute(json!({
+                "archetype": "totally_made_up",
+                "prompt": "x",
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        assert!(result
+            .output()
+            .contains("unknown agent_id 'totally_made_up'"));
+    }
+
+    #[tokio::test]
+    async fn integrations_agent_requires_toolkit_argument() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let tool = SpawnSubagentTool;
+        let result = tool
+            .execute(json!({
+                "agent_id": "integrations_agent",
+                "prompt": "check gmail",
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        let out = result.output();
+        assert!(out.contains("`toolkit` argument is required"));
+        assert!(out.contains("currently-connected toolkits"));
+    }
+
+    #[tokio::test]
+    async fn integrations_agent_rejects_toolkit_outside_allowlist() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let tool = SpawnSubagentTool;
+        let toolkit = "totally_not_a_real_toolkit_slug";
+        let result = tool
+            .execute(json!({
+                "agent_id": "integrations_agent",
+                "prompt": "check gmail",
+                "toolkit": toolkit,
+            }))
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        let out = result.output();
+        assert!(out.contains(&format!(
+            "toolkit '{toolkit}' is not in the backend allowlist"
+        )));
+        assert!(out.contains("Valid toolkits"));
+    }
+
+    // ── #2365: describe_unconnected_state per upstream status ───────
+
+    #[test]
+    fn describe_unconnected_state_initiated_says_oauth_in_progress() {
+        let msg = describe_unconnected_state("gmail", Some("INITIATED"));
+        assert!(
+            msg.contains("OAuth flow in progress"),
+            "INITIATED must surface the in-progress wording: {msg}"
+        );
+        assert!(msg.contains("Settings → Connections → 'gmail'"));
+        // The legacy "not authorized yet" copy must NOT leak into the
+        // pending-OAuth branch — that was the user-perception bug
+        // from #2365 (Settings UI showed Gmail connected, agent said
+        // "not authorized").
+        assert!(
+            !msg.contains("has not authorized it yet"),
+            "INITIATED must not borrow the truly-disconnected copy: {msg}"
+        );
+    }
+
+    #[test]
+    fn describe_unconnected_state_pending_and_initializing_are_aliased() {
+        for status in ["PENDING", "INITIALIZING"] {
+            let msg = describe_unconnected_state("gmail", Some(status));
+            assert!(
+                msg.contains("OAuth flow in progress"),
+                "{status} must hit the in-progress branch: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn describe_unconnected_state_expired_says_reconnect() {
+        let msg = describe_unconnected_state("gmail", Some("EXPIRED"));
+        assert!(msg.contains("OAuth token has expired"));
+        assert!(msg.contains("reconnect 'gmail'"));
+        assert!(!msg.contains("OAuth flow in progress"));
+    }
+
+    #[test]
+    fn describe_unconnected_state_failed_and_error_route_to_reconnect() {
+        for status in ["FAILED", "ERROR"] {
+            let msg = describe_unconnected_state("gmail", Some(status));
+            let expected = format!("`{status}` state");
+            assert!(
+                msg.contains(&expected),
+                "{status} must be quoted verbatim, not collapsed to a single label: {msg}"
+            );
+            assert!(msg.contains("reconnect 'gmail'"));
+        }
+    }
+
+    #[test]
+    fn describe_unconnected_state_failed_and_error_preserve_original_casing() {
+        // Mixed-case wire values must round-trip through the FAILED /
+        // ERROR branch with their original casing intact — that's the
+        // whole point of graycyrus' review feedback.
+        let lower_failed = describe_unconnected_state("gmail", Some("failed"));
+        assert!(
+            lower_failed.contains("`failed` state"),
+            "lowercase `failed` must be quoted verbatim: {lower_failed}"
+        );
+        let mixed_error = describe_unconnected_state("gmail", Some("Error"));
+        assert!(
+            mixed_error.contains("`Error` state"),
+            "mixed-case `Error` must be quoted verbatim: {mixed_error}"
+        );
+    }
+
+    #[test]
+    fn describe_unconnected_state_quotes_unknown_status_verbatim() {
+        // Pin three shapes (uppercase / mixed / snake_case) so the
+        // verbatim-quoting contract can't silently drift back to
+        // echoing the matched (uppercased) value — that was the
+        // CodeRabbit finding on #2373.
+        for raw in ["DEAUTH_REQUIRED", "needs_relink", "PartialAuthRequired"] {
+            let msg = describe_unconnected_state("gmail", Some(raw));
+            let expected = format!("`{raw}`");
+            assert!(
+                msg.contains(&expected),
+                "unknown status `{raw}` must be quoted verbatim (not its uppercased form): {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn describe_unconnected_state_quotes_unknown_status_after_trimming_whitespace() {
+        // Whitespace-only / blank statuses must NOT hit the
+        // unknown-status branch — they collapse to the
+        // truly-disconnected legacy copy via the `filter(|s|
+        // !s.is_empty())` guard in `describe_unconnected_state`.
+        let blank = describe_unconnected_state("gmail", Some("   "));
+        assert!(
+            blank.contains("has not authorized it yet"),
+            "whitespace-only status must collapse to legacy None branch: {blank}"
+        );
+        // A real status with surrounding whitespace is quoted with
+        // the whitespace trimmed (not preserved verbatim — triage
+        // would not want padded backticks).
+        let padded = describe_unconnected_state("gmail", Some("  DeauthRequired  "));
+        assert!(
+            padded.contains("`DeauthRequired`"),
+            "trimmed status must be quoted in original casing: {padded}"
+        );
+    }
+
+    #[test]
+    fn describe_unconnected_state_none_is_truly_disconnected() {
+        let msg = describe_unconnected_state("gmail", None);
+        assert!(
+            msg.contains("has not authorized it yet"),
+            "None must hit the legacy never-connected copy: {msg}"
+        );
+        assert!(msg.contains("Settings → Connections → 'gmail'"));
+    }
+
+    #[test]
+    fn describe_unconnected_state_status_match_is_case_insensitive() {
+        // The status string flows in from Composio's wire format; we
+        // can't assume casing. The classifier must normalise.
+        let initiated = describe_unconnected_state("gmail", Some("initiated"));
+        assert!(initiated.contains("OAuth flow in progress"));
+        let expired = describe_unconnected_state("gmail", Some("Expired"));
+        assert!(expired.contains("OAuth token has expired"));
     }
 }

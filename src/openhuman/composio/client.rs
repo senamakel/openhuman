@@ -10,9 +10,10 @@
 //! this domain can be filtered in one shot.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::openhuman::integrations::IntegrationClient;
 
@@ -22,6 +23,15 @@ use super::types::{
     ComposioDisableTriggerResponse, ComposioEnableTriggerResponse, ComposioExecuteResponse,
     ComposioGithubReposResponse, ComposioToolkitsResponse, ComposioToolsResponse,
 };
+
+const POST_OAUTH_ACTION_RETRY_DELAY: Duration = Duration::from_secs(10);
+/// Literal error fragments Composio's gateway emits during the post-OAuth
+/// readiness gap. Matching is case-insensitive and substring-based so
+/// trailing punctuation or wrapper text from the gateway does not silently
+/// disable the retry.
+const POST_OAUTH_AUTH_ERROR_STRINGS: &[&str] = &["connection error, try to authenticate"];
+const AUTHORIZE_OAUTH_SCOPES_FIELD: &str = "oauth_scopes";
+const GMAIL_REQUIRED_OAUTH_SCOPES: &[&str] = &["https://www.googleapis.com/auth/gmail.readonly"];
 
 /// High-level client for all backend-proxied Composio operations.
 #[derive(Clone)]
@@ -65,13 +75,40 @@ impl ComposioClient {
     /// `POST /agent-integrations/composio/authorize` — begin an OAuth
     /// handoff for `toolkit` and return the hosted `connectUrl` the user
     /// must open in a browser.
-    pub async fn authorize(&self, toolkit: &str) -> Result<ComposioAuthorizeResponse> {
+    ///
+    /// `extra_params` is an optional JSON object whose key/value pairs are
+    /// merged into the request body. Some toolkits (e.g. `whatsapp`) require
+    /// additional fields (e.g. `waba_id`) that Composio will reject the
+    /// authorization without.
+    pub async fn authorize(
+        &self,
+        toolkit: &str,
+        extra_params: Option<serde_json::Value>,
+    ) -> Result<ComposioAuthorizeResponse> {
         let toolkit = toolkit.trim();
         if toolkit.is_empty() {
             anyhow::bail!("composio.authorize: toolkit must not be empty");
         }
-        tracing::debug!(toolkit = %toolkit, "[composio] authorize");
-        let body = json!({ "toolkit": toolkit });
+        tracing::debug!(toolkit = %toolkit, has_extra_params = extra_params.is_some(), "[composio] authorize");
+        let mut body = serde_json::json!({ "toolkit": toolkit });
+        if let Some(extra) = extra_params {
+            const RESERVED: &[&str] = &["toolkit", "toolkit_version", "auth", "client_id"];
+            let extra_obj = extra.as_object().ok_or_else(|| {
+                anyhow::anyhow!("composio.authorize: extra_params must be a JSON object")
+            })?;
+            let obj = body.as_object_mut().ok_or_else(|| {
+                anyhow::anyhow!("composio.authorize: internal payload must be an object")
+            })?;
+            for (k, v) in extra_obj {
+                if RESERVED.contains(&k.as_str()) {
+                    anyhow::bail!(
+                        "composio.authorize: extra_params cannot override reserved key '{k}'"
+                    );
+                }
+                obj.insert(k.clone(), v.clone());
+            }
+        }
+        merge_required_oauth_scopes(&mut body, toolkit)?;
         self.inner
             .post::<ComposioAuthorizeResponse>("/agent-integrations/composio/authorize", &body)
             .await
@@ -131,11 +168,131 @@ impl ComposioClient {
         if tool.is_empty() {
             anyhow::bail!("composio.execute_tool: tool slug must not be empty");
         }
-        let arguments = arguments.unwrap_or(serde_json::Value::Object(Default::default()));
+        // PR #1827 routes all execute-side argument normalization
+        // (including the bare-date → RFC 3339 fix #1802 brought to
+        // `normalize_calendar_query_args` on `main`) through the
+        // centralized `prepare_execute_arguments` helper. The helper
+        // covers the same calendar query case and is the shared entry
+        // point for `composio_execute`, per-action tools, and direct-
+        // mode dispatch.
+        let arguments = super::execute_prepare::prepare_execute_arguments(tool, arguments)
+            .map_err(anyhow::Error::msg)?;
         tracing::debug!(tool = %tool, "[composio] execute_tool");
         let body = json!({ "tool": tool, "arguments": arguments });
+        let mut resp = self
+            .execute_tool_with_post_oauth_retry(tool, &body, POST_OAUTH_ACTION_RETRY_DELAY)
+            .await?;
+        if !resp.successful {
+            if let Some(ref err) = resp.error {
+                resp.error = Some(super::error_mapping::format_provider_error(tool, err));
+            }
+        }
+        Ok(resp)
+    }
+
+    /// `POST /agent-integrations/composio/execute` — single, non-retrying
+    /// HTTP round-trip. Use this when the caller owns the retry loop
+    /// (e.g. `auth_retry`) to avoid double-retry. In particular,
+    /// [`super::auth_retry::execute_with_auth_retry`] uses this entry
+    /// point so its `must retry exactly once` contract still holds
+    /// after PR #1707 introduced the inner retry.
+    pub(crate) async fn execute_tool_once(
+        &self,
+        tool: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> Result<ComposioExecuteResponse> {
+        let tool = tool.trim();
+        if tool.is_empty() {
+            anyhow::bail!("composio.execute_tool_once: tool slug must not be empty");
+        }
+        let arguments = super::execute_prepare::prepare_execute_arguments(tool, arguments)
+            .map_err(anyhow::Error::msg)?;
+        tracing::debug!(tool = %tool, "[composio] execute_tool_once (no built-in retry)");
+        let body = json!({ "tool": tool, "arguments": arguments });
+        let result = self.post_execute_tool(&body).await;
+        match &result {
+            Ok(resp) => tracing::debug!(
+                tool = %tool,
+                successful = resp.successful,
+                has_error = resp.error.is_some(),
+                "[composio] execute_tool_once completed"
+            ),
+            Err(err) => tracing::error!(
+                tool = %tool,
+                error = %err,
+                "[composio] execute_tool_once failed"
+            ),
+        }
+        result.map_err(|e| {
+            anyhow::Error::msg(super::error_mapping::remap_transport_error(
+                tool,
+                &e.to_string(),
+            ))
+        })
+    }
+
+    pub(super) async fn execute_tool_with_post_oauth_retry(
+        &self,
+        tool: &str,
+        body: &serde_json::Value,
+        retry_delay: Duration,
+    ) -> Result<ComposioExecuteResponse> {
+        tracing::debug!(
+            tool = %tool,
+            retry_delay_ms = retry_delay.as_millis() as u64,
+            attempt = 1u8,
+            "[composio] execute_tool_with_post_oauth_retry attempt"
+        );
+        let first = self.post_execute_tool(body).await?;
+        let should_retry = is_post_oauth_auth_readiness_error(&first);
+        tracing::debug!(
+            tool = %tool,
+            attempt = 1u8,
+            successful = first.successful,
+            has_error = first.error.is_some(),
+            should_retry,
+            "[composio] execute_tool_with_post_oauth_retry branch decision"
+        );
+        if !should_retry {
+            return Ok(first);
+        }
+
+        tracing::warn!(
+            tool = %tool,
+            retry_delay_ms = retry_delay.as_millis() as u64,
+            "[composio] action returned post-OAuth auth-readiness error; retrying once"
+        );
+        if !retry_delay.is_zero() {
+            tokio::time::sleep(retry_delay).await;
+        }
+        tracing::debug!(
+            tool = %tool,
+            retry_delay_ms = retry_delay.as_millis() as u64,
+            attempt = 2u8,
+            "[composio] execute_tool_with_post_oauth_retry retry dispatch"
+        );
+        let retry = self.post_execute_tool(body).await;
+        match &retry {
+            Ok(resp) => tracing::debug!(
+                tool = %tool,
+                attempt = 2u8,
+                successful = resp.successful,
+                has_error = resp.error.is_some(),
+                "[composio] execute_tool_with_post_oauth_retry retry completed"
+            ),
+            Err(err) => tracing::debug!(
+                tool = %tool,
+                attempt = 2u8,
+                error = %err,
+                "[composio] execute_tool_with_post_oauth_retry retry failed"
+            ),
+        }
+        retry
+    }
+
+    async fn post_execute_tool(&self, body: &serde_json::Value) -> Result<ComposioExecuteResponse> {
         self.inner
-            .post::<ComposioExecuteResponse>("/agent-integrations/composio/execute", &body)
+            .post::<ComposioExecuteResponse>("/agent-integrations/composio/execute", body)
             .await
     }
 
@@ -288,7 +445,7 @@ impl ComposioClient {
             error: Option<String>,
         }
 
-        let url = format!("{}{}", self.inner.backend_url, path);
+        let url = crate::api::config::api_url(&self.inner.backend_url, path);
         tracing::debug!("[composio] DELETE {}", url);
 
         // Build a fresh lightweight reqwest client for this DELETE.
@@ -298,11 +455,10 @@ impl ComposioClient {
         // from `IntegrationClient`, which we intentionally avoid so the
         // public surface of that type doesn't widen for one caller.
         //
-        // Mirror the TLS settings of the shared client
-        // (`use_rustls_tls + http1_only`) so this path has the same
-        // connection behaviour as the other backend calls.
-        let http_client = reqwest::Client::builder()
-            .use_rustls_tls()
+        // Mirror the TLS settings of the shared client so this path has the
+        // same connection behaviour as the other backend calls.
+        // Platform-appropriate TLS backend — see [`crate::openhuman::tls`].
+        let http_client = crate::openhuman::tls::tls_client_builder()
             .http1_only()
             .timeout(std::time::Duration::from_secs(60))
             .connect_timeout(std::time::Duration::from_secs(15))
@@ -333,7 +489,11 @@ impl ComposioClient {
                 logged_body
             );
             let status_str = status.as_u16().to_string();
-            crate::core::observability::report_error(
+            // Mirrors the integrations post()/get() sites — see
+            // OPENHUMAN-TAURI-BC. 4xx user-input / auth-state shapes
+            // demote via the observability classifier; 5xx and
+            // non-transient 4xx still surface as actionable events.
+            crate::core::observability::report_error_or_expected(
                 format!("Backend returned {status} for DELETE {url}: {detail}").as_str(),
                 "composio",
                 "delete",
@@ -351,7 +511,13 @@ impl ComposioClient {
             let msg = envelope
                 .error
                 .unwrap_or_else(|| "unknown backend error".into());
-            crate::core::observability::report_error(
+            // Mirrors the integrations envelope-error sites — route through
+            // the observability classifier so user-state envelope failures
+            // (composio "Toolkit X is not enabled" / "Trigger type …
+            // not found" / "Missing required fields: …" — OPENHUMAN-TAURI-3R
+            // / -3S / -34 / -97) demote to a breadcrumb instead of firing
+            // a Sentry event. Genuine backend bugs still surface.
+            crate::core::observability::report_error_or_expected(
                 msg.as_str(),
                 "composio",
                 "delete",
@@ -365,16 +531,456 @@ impl ComposioClient {
     }
 }
 
-/// Build a [`ComposioClient`] from the root config.
+fn is_post_oauth_auth_readiness_error(resp: &ComposioExecuteResponse) -> bool {
+    if resp.successful {
+        return false;
+    }
+    let Some(error) = resp.error.as_deref() else {
+        return false;
+    };
+    let normalized = error.trim().to_ascii_lowercase();
+    POST_OAUTH_AUTH_ERROR_STRINGS
+        .iter()
+        .any(|needle| normalized.contains(needle))
+}
+
+fn required_oauth_scopes_for_toolkit(toolkit: &str) -> &'static [&'static str] {
+    match toolkit.trim().to_ascii_lowercase().as_str() {
+        // GMAIL_NEW_GMAIL_MESSAGE and the native Gmail sync path need read access
+        // to messages. Without this hint fresh OAuth handoffs can complete with a
+        // profile-only Google token and trigger enable fails with 403 insufficient
+        // authentication scopes (#2186).
+        "gmail" => GMAIL_REQUIRED_OAUTH_SCOPES,
+        _ => &[],
+    }
+}
+
+fn merge_required_oauth_scopes(body: &mut Value, toolkit: &str) -> anyhow::Result<()> {
+    let required = required_oauth_scopes_for_toolkit(toolkit);
+    if required.is_empty() {
+        return Ok(());
+    }
+
+    let obj = body
+        .as_object_mut()
+        .ok_or_else(|| anyhow::anyhow!("composio.authorize: internal payload must be an object"))?;
+    match obj.get_mut(AUTHORIZE_OAUTH_SCOPES_FIELD) {
+        Some(existing) => append_missing_oauth_scopes(existing, required)?,
+        None => {
+            obj.insert(AUTHORIZE_OAUTH_SCOPES_FIELD.to_string(), json!(required));
+        }
+    }
+    Ok(())
+}
+
+fn append_missing_oauth_scopes(value: &mut Value, required: &[&str]) -> anyhow::Result<()> {
+    let mut scopes = match value {
+        Value::Null => Vec::new(),
+        Value::String(raw) => raw
+            .split(|ch: char| ch == ',' || ch.is_whitespace())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string)
+            .collect(),
+        Value::Array(items) => {
+            let mut out = Vec::with_capacity(items.len() + required.len());
+            for item in items {
+                let Some(scope) = item.as_str() else {
+                    anyhow::bail!(
+                        "composio.authorize: {AUTHORIZE_OAUTH_SCOPES_FIELD} entries must be strings"
+                    );
+                };
+                let scope = scope.trim();
+                if !scope.is_empty() {
+                    out.push(scope.to_string());
+                }
+            }
+            out
+        }
+        _ => {
+            anyhow::bail!(
+                "composio.authorize: {AUTHORIZE_OAUTH_SCOPES_FIELD} must be a string or array"
+            );
+        }
+    };
+
+    for scope in required {
+        if !scopes.iter().any(|existing| existing == scope) {
+            scopes.push((*scope).to_string());
+        }
+    }
+    *value = json!(scopes);
+    Ok(())
+}
+
+/// Backend-mode [`ComposioClient`] constructor. **Internal to the
+/// composio module** — external callers should use
+/// [`create_composio_client`] (factory) or
+/// [`crate::openhuman::agent::harness::subagent_runner::user_is_signed_in_to_composio`]
+/// (probe) instead.
+///
+/// Direct exposure leaked through several call sites during the early
+/// direct-mode rollout (#1710), where the backend-only nature caused
+/// direct-mode users to false-negative the "signed in" check (the
+/// agent-tool registration gate, slack sync RPC, `tools.composio_execute`
+/// controller, and heartbeat calendar collector all silently dropped
+/// direct-mode users). Locking down here prevents future regressions —
+/// any new probe or execution path is forced through the mode-aware
+/// surface.
 ///
 /// Composio is **always enabled** — there are no configuration flags
 /// gating it. The backend URL and auth token come from the shared
 /// core defaults (`config.api_url` plus the app-session JWT) via
 /// [`crate::openhuman::integrations::build_client`]. The only reason
-/// this returns `None` is that the user isn't signed in yet.
-pub fn build_composio_client(config: &crate::openhuman::config::Config) -> Option<ComposioClient> {
+/// this returns `None` is that the user isn't signed in to the backend
+/// (no JWT). Direct-mode availability is orthogonal — see
+/// [`create_composio_client`].
+pub(super) fn build_composio_client(
+    config: &crate::openhuman::config::Config,
+) -> Option<ComposioClient> {
     let inner = crate::openhuman::integrations::build_client(config)?;
     Some(ComposioClient::new(inner))
+}
+
+// ── Direct-mode factory ─────────────────────────────────────────────
+//
+// Mirrors `src/openhuman/embeddings/factory.rs` so anyone reading both
+// can pattern-match between domains: string-matched mode, explicit error
+// on unknown mode, explicit error when `direct` is selected without an
+// API key.
+
+use crate::openhuman::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
+
+// Re-declare the mode strings as local consts so they can be used as
+// pattern arms in the `match` below. `use` imports of `pub const &str`
+// values get treated as fresh variable bindings in pattern position
+// (Rust's pattern grammar accepts only path-qualified constants), so
+// pulling them in here resolves to the same `&'static str` values
+// without the "unreachable pattern" warning chain.
+const MODE_BACKEND_PAT: &str = COMPOSIO_MODE_BACKEND;
+const MODE_DIRECT_PAT: &str = COMPOSIO_MODE_DIRECT;
+
+/// Tagged variant returned by [`create_composio_client`].
+///
+/// `Backend` wraps the existing backend-proxied [`ComposioClient`]
+/// (calls `api.tinyhumans.ai/agent-integrations/composio/*`).
+///
+/// `Direct` wraps the existing direct-mode HTTP wrapper from
+/// `tools/impl/network/composio.rs` that calls
+/// `https://backend.composio.dev/api/v{2,3}` with `x-api-key`. The
+/// direct client does not currently cover every endpoint the
+/// backend-proxied path exposes (no per-toolkit allowlist, no
+/// HMAC-verified trigger fan-out, no `/agent-integrations/pricing`),
+/// so most existing call-sites continue to use `Backend` for now.
+/// Direct-mode integration of the full surface (especially trigger
+/// webhooks) is a follow-up.
+pub enum ComposioClientKind {
+    Backend(ComposioClient),
+    /// Held inside an `Arc` so the variant stays cheap to clone — this
+    /// matches the rest of the tool registry which juggles
+    /// `Arc<dyn Tool>` for the same direct-mode tool elsewhere.
+    Direct(Arc<crate::openhuman::tools::ComposioTool>),
+}
+
+impl ComposioClientKind {
+    /// Returns `"backend"` or `"direct"` — handy for logging and tests.
+    pub fn mode(&self) -> &'static str {
+        match self {
+            ComposioClientKind::Backend(_) => COMPOSIO_MODE_BACKEND,
+            ComposioClientKind::Direct(_) => COMPOSIO_MODE_DIRECT,
+        }
+    }
+}
+
+/// Construct a [`ComposioClientKind`] from the root config.
+///
+/// Supported `config.composio.mode` values:
+///
+/// - `"backend"` (default) — backend-proxied; identical to
+///   [`build_composio_client`]. Returns
+///   `Err("no backend session")` when the user is not signed in.
+/// - `"direct"` — BYO key against `backend.composio.dev`. Requires a
+///   stored Composio API key under the
+///   [`crate::openhuman::credentials::COMPOSIO_DIRECT_PROVIDER`]
+///   slot **or** an `api_key` value in `config.composio.api_key`. The
+///   stored key takes precedence so the encrypted keychain remains the
+///   source of truth — `config.toml` is a fallback for power users.
+///
+/// Any other mode string is rejected with an explicit error so a typo
+/// in `config.toml` fails loud instead of silently downgrading.
+pub fn create_composio_client(
+    config: &crate::openhuman::config::Config,
+) -> anyhow::Result<ComposioClientKind> {
+    let mode = config.composio.mode.trim();
+    tracing::debug!(mode = %mode, "[composio-factory] resolving client");
+
+    match mode {
+        // Empty string is treated as the default for forward compatibility
+        // with hand-edited configs that omit the field — `serde(default)`
+        // already gives us "backend" for missing fields, but a literal
+        // empty string in TOML would otherwise be rejected.
+        "" | MODE_BACKEND_PAT => {
+            let client = build_composio_client(config).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "composio backend mode unavailable: no backend session token. \
+                     Sign in first (auth_store_session)."
+                )
+            })?;
+            tracing::debug!("[composio-factory] resolved backend variant");
+            Ok(ComposioClientKind::Backend(client))
+        }
+        MODE_DIRECT_PAT => {
+            // Prefer keychain-stored key; fall back to `config.toml`.
+            let stored = crate::openhuman::credentials::get_composio_api_key(config)
+                .map_err(|e| anyhow::anyhow!("failed to read stored composio api key: {e}"))?;
+            let api_key = stored
+                .or_else(|| {
+                    config
+                        .composio
+                        .api_key
+                        .as_ref()
+                        .map(|k| k.trim().to_string())
+                        .filter(|k| !k.is_empty())
+                })
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "composio direct mode selected but no api key is configured \
+                         (set via composio.set_api_key RPC or config.composio.api_key)"
+                    )
+                })?;
+
+            // The direct client takes a `SecurityPolicy` for `Tool::execute`
+            // gating, but the factory's job is only to materialize a *client*
+            // — it does not actually invoke `execute()` itself, so the
+            // default policy is sufficient here. Callers that go through
+            // the `Tool` surface re-acquire the live policy from their own
+            // context.
+            let security = Arc::new(crate::openhuman::security::SecurityPolicy::default());
+            let tool = crate::openhuman::tools::ComposioTool::new(
+                &api_key,
+                Some(config.composio.entity_id.as_str()),
+                security,
+            );
+            tracing::debug!(
+                key_len = api_key.len(),
+                "[composio-factory] resolved direct variant (key redacted)"
+            );
+            Ok(ComposioClientKind::Direct(Arc::new(tool)))
+        }
+        unknown => {
+            tracing::warn!(mode = %unknown, "[composio-factory] unknown composio mode");
+            Err(anyhow::anyhow!(
+                "unknown composio mode: \"{unknown}\". Supported: \"backend\", \"direct\""
+            ))
+        }
+    }
+}
+
+// ── Direct-mode response reshapers ──────────────────────────────────
+//
+// The direct-mode `ComposioTool` (in `tools/impl/network/composio.rs`)
+// speaks `backend.composio.dev/api/v3/*` natively. The helpers below
+// reshape those v3 responses into the same envelopes the
+// backend-proxied [`ComposioClient`] returns, so callers in `ops.rs` /
+// `tools.rs` don't have to branch on mode for downstream concerns
+// (event-bus shape, log format, frontend type contract).
+//
+// All three helpers live next to the factory so anyone touching the
+// direct-mode plumbing can see the full envelope-translation surface
+// in one place.
+
+use super::types::ComposioConnection;
+
+/// Direct-mode counterpart to [`ComposioClient::authorize`]. Calls
+/// Composio v3 `/connected_accounts/link` via
+/// [`crate::openhuman::tools::ComposioTool::get_connection_url`] and
+/// reshapes the response into the [`ComposioAuthorizeResponse`] the
+/// backend-proxied path emits.
+///
+/// The v3 endpoint returns a redirect URL but does NOT (currently)
+/// surface a stable `connection_id` in the same call — the connection
+/// row is created lazily when the user completes OAuth on Composio's
+/// hosted page. To preserve the response contract the frontend already
+/// consumes, we emit an empty `connection_id` for now. The 5 s
+/// `list_connections` poll (now live in direct mode too — see
+/// [`direct_list_connections`]) is what ultimately surfaces the new
+/// row to the UI.
+pub(super) async fn direct_authorize(
+    direct: &Arc<crate::openhuman::tools::ComposioTool>,
+    toolkit: &str,
+    entity_id: &str,
+) -> anyhow::Result<ComposioAuthorizeResponse> {
+    let toolkit = toolkit.trim();
+    if toolkit.is_empty() {
+        anyhow::bail!("composio direct authorize: toolkit must not be empty");
+    }
+    let entity_id = entity_id.trim();
+    let entity_id = if entity_id.is_empty() {
+        "default"
+    } else {
+        entity_id
+    };
+    tracing::debug!(
+        toolkit = %toolkit,
+        entity_id = %entity_id,
+        "[composio-direct] authorize: requesting hosted connect URL"
+    );
+    let connect_url = direct
+        .get_connection_url(Some(toolkit), None, entity_id)
+        .await?;
+    tracing::debug!(
+        toolkit = %toolkit,
+        url_len = connect_url.len(),
+        "[composio-direct] authorize: got connect url (redacted)"
+    );
+    Ok(ComposioAuthorizeResponse {
+        connect_url,
+        // No stable connection id in the v3 link response — see fn-level
+        // doc. The frontend uses `connectUrl` to open the browser and
+        // `listConnections` polling to detect the resulting row.
+        connection_id: String::new(),
+    })
+}
+
+/// Direct-mode counterpart to [`ComposioClient::execute_tool`]. Mirrors
+/// the v3 `/tools/{slug}/execute` envelope into [`ComposioExecuteResponse`]
+/// so the caller doesn't branch on mode for the
+/// `ComposioActionExecuted` event-bus payload or the
+/// markdown-vs-JSON-body preference.
+///
+/// Direct mode runs without the backend's billing margin, so `cost_usd`
+/// is reported as `0.0`. The backend's `markdownFormatted` field is
+/// likewise specific to the backend-proxied path and remains `None` for
+/// direct callers, which fall back to the raw JSON envelope.
+pub async fn direct_execute(
+    direct: &Arc<crate::openhuman::tools::ComposioTool>,
+    tool: &str,
+    arguments: Option<serde_json::Value>,
+    entity_id: &str,
+) -> anyhow::Result<ComposioExecuteResponse> {
+    let tool = tool.trim();
+    if tool.is_empty() {
+        anyhow::bail!("composio direct_execute: tool slug must not be empty");
+    }
+    let params = arguments.unwrap_or_else(|| serde_json::Value::Object(Default::default()));
+    let entity_id = entity_id.trim();
+    let entity_id_opt = (!entity_id.is_empty()).then_some(entity_id);
+    tracing::debug!(
+        tool = %tool,
+        has_entity = entity_id_opt.is_some(),
+        "[composio-direct] execute: invoking v3 /tools/{{slug}}/execute"
+    );
+    let raw = direct
+        .execute_action(tool, params, entity_id_opt, None)
+        .await?;
+    // v3 surfaces `successful` + `data` + `error` at the top level. If
+    // none are present, treat the call as success so callers see the
+    // raw payload instead of an empty error envelope.
+    let successful = raw
+        .get("successful")
+        .and_then(serde_json::Value::as_bool)
+        .or_else(|| raw.get("success").and_then(serde_json::Value::as_bool))
+        .unwrap_or(true);
+    let error = raw
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let data = raw.get("data").cloned().unwrap_or(raw);
+    Ok(ComposioExecuteResponse {
+        data,
+        successful,
+        error,
+        cost_usd: 0.0,
+        markdown_formatted: None,
+    })
+}
+
+/// Direct-mode counterpart to [`ComposioClient::list_connections`].
+///
+/// Calls Composio v3 `/connected_accounts` (via
+/// [`crate::openhuman::tools::ComposioTool::list_connected_accounts`])
+/// and maps each item to the canonical [`ComposioConnection`] so the
+/// existing frontend type contract and the 5 s UI poll keep working
+/// unchanged.
+///
+/// Toolkit slug, status, and `created_at` are extracted defensively —
+/// missing or unparseable fields fall back to empty strings / `None`
+/// rather than dropping the row. The status filter applied downstream
+/// (`ComposioConnection::is_active`) treats empty status as inactive,
+/// so a malformed row will simply not be presented as connected — the
+/// fail-safe shape the user expects.
+pub async fn direct_list_connections(
+    direct: &Arc<crate::openhuman::tools::ComposioTool>,
+) -> anyhow::Result<ComposioConnectionsResponse> {
+    tracing::debug!("[composio-direct] list_connections: GET v3 /connected_accounts");
+    let items = direct.list_connected_accounts().await?;
+    let connections: Vec<ComposioConnection> = items
+        .into_iter()
+        .filter_map(|item| {
+            let id = item.id.trim().to_string();
+            if id.is_empty() {
+                return None;
+            }
+            let toolkit = item.toolkit_slug().unwrap_or_default();
+            let status = item.status.clone().unwrap_or_default();
+            Some(ComposioConnection {
+                id,
+                toolkit,
+                status,
+                created_at: item.created_at.clone(),
+            })
+        })
+        .collect();
+    tracing::debug!(
+        count = connections.len(),
+        "[composio-direct] list_connections: mapped v3 connected accounts"
+    );
+    Ok(ComposioConnectionsResponse { connections })
+}
+
+/// Direct-mode counterpart to [`ComposioClient::list_tools`]. Calls
+/// Composio v3 `/tools?toolkits=<csv>` via
+/// [`crate::openhuman::tools::ComposioTool::list_tool_schemas_v3`] and
+/// reshapes each item into the same [`ComposioToolSchema`] envelope the
+/// backend-proxied path returns.
+///
+/// `toolkits` may be empty (full direct-tenant catalogue) or scoped to
+/// the user's connected toolkits (preferred — keeps response size bounded
+/// and skips schemas the agent can't actually call). `composio_list_tools`'s
+/// direct branch passes `direct_list_connections`'s active set.
+///
+/// Schemas surfaced here are tenant-agnostic — Composio's action
+/// definitions are the same across tenants, so direct-mode users get
+/// the same model-callable shape backend-mode does. Downstream curated-
+/// whitelist filtering (`evaluate_tool_visibility` / `find_curated`)
+/// still applies at the `ops::composio_list_tools` layer.
+pub(super) async fn direct_list_tools(
+    direct: &Arc<crate::openhuman::tools::ComposioTool>,
+    toolkits: &[String],
+) -> anyhow::Result<ComposioToolsResponse> {
+    let toolkit_refs: Vec<&str> = toolkits.iter().map(|s| s.as_str()).collect();
+    tracing::debug!(
+        toolkits = toolkit_refs.len(),
+        "[composio-direct] list_tools: GET v3 /tools"
+    );
+    let items = direct.list_tool_schemas_v3(&toolkit_refs).await?;
+    let tools: Vec<super::types::ComposioToolSchema> = items
+        .into_iter()
+        .filter(|item| !item.slug.is_empty())
+        .map(|item| super::types::ComposioToolSchema {
+            kind: "function".to_string(),
+            function: super::types::ComposioToolFunction {
+                name: item.slug,
+                description: item.description,
+                parameters: item.input_parameters,
+            },
+        })
+        .collect();
+    tracing::debug!(
+        count = tools.len(),
+        "[composio-direct] list_tools: mapped v3 tool schemas"
+    );
+    Ok(ComposioToolsResponse { tools })
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ import { HashRouter as Router, useLocation, useNavigate } from 'react-router-dom
 import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
+import AppBackground from './components/AppBackground';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
 import BootCheckGate from './components/BootCheckGate/BootCheckGate';
 import BottomTabBar from './components/BottomTabBar';
@@ -13,20 +14,37 @@ import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
-import MeshGradient from './components/MeshGradient';
 import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import GlobalUpsellBanner from './components/upsell/GlobalUpsellBanner';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
+import { MascotFrameProducer } from './features/meet/MascotFrameProducer';
+import { I18nProvider } from './lib/i18n/I18nContext';
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // import { isWelcomeLocked } from './lib/coreState/store';
-import { startNativeNotificationsService } from './lib/nativeNotifications';
+import {
+  startNativeNotificationsService,
+  stopNativeNotificationsService,
+} from './lib/nativeNotifications';
 import { getIsIOS } from './lib/platform';
-import { startWebviewNotificationsService } from './lib/webviewNotifications';
+import {
+  startWebviewNotificationsService,
+  stopWebviewNotificationsService,
+} from './lib/webviewNotifications';
 import ChatRuntimeProvider from './providers/ChatRuntimeProvider';
 import CoreStateProvider, { useCoreState } from './providers/CoreStateProvider';
 import SocketProvider from './providers/SocketProvider';
-import { startWebviewAccountService } from './services/webviewAccountService';
+import ThemeProvider from './providers/ThemeProvider';
+import { trackPageView } from './services/analytics';
+import { startCoreHealthMonitor, stopCoreHealthMonitor } from './services/coreHealthMonitor';
+import {
+  startInternetStatusListener,
+  stopInternetStatusListener,
+} from './services/internetStatusListener';
+import {
+  startWebviewAccountService,
+  stopWebviewAccountService,
+} from './services/webviewAccountService';
 import { persistor, store } from './store';
 // [#1123] useAppDispatch commented out — welcome-agent onboarding replaced by Joyride walkthrough
 import { useAppSelector } from './store/hooks';
@@ -44,6 +62,22 @@ import { DEV_FORCE_ONBOARDING } from './utils/config';
 startWebviewAccountService();
 startWebviewNotificationsService();
 startNativeNotificationsService();
+// Connectivity status (#1527): wire navigator.onLine + start core sidecar
+// health poll. Both idempotent via internal `started` guards.
+startInternetStatusListener();
+startCoreHealthMonitor();
+
+export function stopBootServicesForHmr(): void {
+  stopWebviewAccountService();
+  stopWebviewNotificationsService();
+  stopNativeNotificationsService();
+  stopInternetStatusListener();
+  stopCoreHealthMonitor();
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(stopBootServicesForHmr);
+}
 
 function App() {
   const onIOS = getIsIOS();
@@ -64,24 +98,28 @@ function App() {
       )}>
       <Provider store={store}>
         <PersistGate loading={<PersistRehydrationScreen />} persistor={persistor}>
-          <BootCheckGate>
-            <CoreStateProvider>
-              {socketWrapped(
-                <ChatRuntimeProvider>
-                  <Router>
-                    <CommandProvider>
-                      <ServiceBlockingGate>
-                        <AppShell />
-                        {!onIOS && <DictationHotkeyManager />}
-                        {!onIOS && <LocalAIDownloadSnackbar />}
-                        {!onIOS && <AppUpdatePrompt />}
-                      </ServiceBlockingGate>
-                    </CommandProvider>
-                  </Router>
-                </ChatRuntimeProvider>
-              )}
-            </CoreStateProvider>
-          </BootCheckGate>
+          <ThemeProvider>
+            <I18nProvider>
+              <BootCheckGate>
+                <CoreStateProvider>
+                  {socketWrapped(
+                    <ChatRuntimeProvider>
+                      <Router>
+                        <CommandProvider>
+                          <ServiceBlockingGate>
+                            <AppShell />
+                            {!onIOS && <DictationHotkeyManager />}
+                            {!onIOS && <LocalAIDownloadSnackbar />}
+                            {!onIOS && <AppUpdatePrompt />}
+                          </ServiceBlockingGate>
+                        </CommandProvider>
+                      </Router>
+                    </ChatRuntimeProvider>,
+                  )}
+                </CoreStateProvider>
+              </BootCheckGate>
+            </I18nProvider>
+          </ThemeProvider>
         </PersistGate>
       </Provider>
     </Sentry.ErrorBoundary>
@@ -151,6 +189,11 @@ function AppShellDesktop() {
     navigate,
   ]);
 
+  // Track route changes as anonymous page views.
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+
   // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
   // After the welcome agent calls `complete_onboarding` and
   // `chat_onboarding_completed` flips false→true, discard the transient
@@ -201,8 +244,8 @@ function AppShellDesktop() {
 
   return (
     <div className="relative h-screen flex flex-col overflow-hidden">
-      <MeshGradient />
-      <div className="app-dotted-canvas relative z-10 flex-1 flex flex-col overflow-hidden">
+      <AppBackground />
+      <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
         <div
           className={`flex-1 overflow-y-auto ${
             // [#1123] welcomeLocked removed — welcome-agent onboarding replaced by Joyride walkthrough
@@ -214,6 +257,11 @@ function AppShellDesktop() {
         {!onOnboardingRoute && <BottomTabBar />}
       </div>
       <OpenhumanLinkModal />
+      {/* Hidden Remotion-driven producer for the Meet camera. Mounts a
+          640×480 JPEG frame stream to the Rust frame bus while a meet
+          call is active; idle no-op otherwise. See
+          features/meet/MascotFrameProducer.tsx. */}
+      <MascotFrameProducer />
       {/* Post-onboarding Joyride walkthrough — mounted here (outside routes) so
           it persists across tab navigations. Joyride targets span Home + BottomTabBar
           tabs so it must stay mounted while the user moves between routes. */}

@@ -24,13 +24,15 @@ use super::tool_prep::{
 };
 use super::types::{SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
-use crate::openhuman::agent::harness::with_current_sandbox_mode;
+use crate::openhuman::agent::harness::{
+    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
+};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
+use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, ToolCall};
 use crate::openhuman::memory::conversations::ConversationMessage;
-use crate::openhuman::providers::{ChatMessage, ChatRequest, Provider, ToolCall};
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 /// Prompt suffix injected into every typed sub-agent run.
@@ -73,14 +75,116 @@ fn append_subagent_role_contract(base_prompt: String, agent_id: &str) -> String 
     prompt
 }
 
+/// Resolve a sub-agent's `(provider, model)` based on its declarative
+/// `[model]` spec.
+///
+///   - inline `model` override — highest precedence for one call.
+///   - config-level pin — `[orchestrator] model` or `[teams.*]`
+///     `lead_model` / `agent_model`, when present.
+///   - `Inherit` — use the parent's provider AND model. Literally
+///     "do what the parent does".
+///   - `Hint(workload)` — build a fresh provider via the per-workload
+///     factory (e.g. `integrations_agent`'s `[model] hint = "agentic"`
+///     resolves to whatever `agentic_provider` is routed to in
+///     AI Settings). The factory returns the *exact* model id for that
+///     workload — the OpenHuman backend and every third-party provider
+///     accept exact model names, so there's no `{hint}-v1` synthesis
+///     anywhere on this path.
+///   - `Exact(name)` — escape hatch: use the parent's provider with
+///     this model name overriding the parent's. Callers are expected
+///     to know the model is valid for the parent's provider; the enum
+///     is the wrong place to encode provider switching, which belongs
+///     to `Hint` + AI-settings routing.
+///
+/// `config` is `None` when the live `Config::load_or_init()` failed
+/// (rare — transient I/O). Both `None` config and factory build errors
+/// fall back to `(parent_provider, parent_model)` so a config glitch
+/// can't sink sub-agent execution entirely.
+///
+/// The async part (config load) is hoisted out of the caller so this
+/// helper stays sync and can be exercised by a focused unit test
+/// without spinning up a `tokio::test` runtime per case.
+pub(super) fn resolve_subagent_provider(
+    spec: &crate::openhuman::agent::harness::definition::ModelSpec,
+    agent_id: &str,
+    config: Option<&crate::openhuman::config::Config>,
+    parent_provider: std::sync::Arc<dyn Provider>,
+    parent_model: String,
+    is_team_lead: bool,
+    model_override: Option<&str>,
+) -> (std::sync::Arc<dyn Provider>, String) {
+    use crate::openhuman::agent::harness::definition::ModelSpec;
+    if let Some(model) = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    {
+        log::debug!(
+            "[subagent_runner] agent_id={} using inline model override model={}",
+            agent_id,
+            model
+        );
+        return (parent_provider, model.to_string());
+    }
+
+    if let Some(model) = config.and_then(|cfg| cfg.configured_agent_model(agent_id, is_team_lead)) {
+        log::debug!(
+            "[subagent_runner] agent_id={} using config-level model pin model={}",
+            agent_id,
+            model
+        );
+        return (parent_provider, model.to_string());
+    }
+
+    match spec {
+        ModelSpec::Hint(workload) => match config {
+            Some(cfg) => {
+                match crate::openhuman::inference::provider::create_chat_provider(workload, cfg) {
+                    Ok((p, m)) => {
+                        log::info!(
+                        "[subagent_runner] role={} agent_id={} resolved via workload factory model={}",
+                        workload, agent_id, m
+                    );
+                        (std::sync::Arc::from(p), m)
+                    }
+                    Err(e) => {
+                        log::warn!(
+                        "[subagent_runner] workload '{}' provider build failed ({}) for agent_id={} — \
+                         falling back to parent provider + parent model '{}'",
+                        workload, e, agent_id, parent_model
+                    );
+                        (parent_provider, parent_model)
+                    }
+                }
+            }
+            None => {
+                log::warn!(
+                    "[subagent_runner] config load failed for workload '{}' (agent_id={}) — \
+                     falling back to parent provider + parent model '{}'",
+                    workload,
+                    agent_id,
+                    parent_model
+                );
+                (parent_provider, parent_model)
+            }
+        },
+        ModelSpec::Inherit => (parent_provider, parent_model),
+        ModelSpec::Exact(name) => (parent_provider, name.clone()),
+    }
+}
+
 /// Lazy resolver that lets `integrations_agent` recover when the model
 /// calls a Composio action slug that exists in the bound toolkit's full
 /// catalogue but was filtered out of the up-front fuzzy top-K. On a
 /// match we build the [`ComposioActionTool`] on demand so the call
 /// dispatches normally instead of dead-ending in
 /// `Error: tool '...' is not available`.
+///
+/// Holds an [`Arc<Config>`] rather than a pre-baked
+/// [`crate::openhuman::composio::ComposioClient`] so the live
+/// `composio.mode` toggle is honoured per execute — see
+/// [`crate::openhuman::composio::ComposioActionTool`] and issue #1710.
 struct LazyToolkitResolver {
-    client: crate::openhuman::composio::ComposioClient,
+    config: std::sync::Arc<crate::openhuman::config::Config>,
     actions: Vec<crate::openhuman::context::prompt::ConnectedIntegrationTool>,
 }
 
@@ -89,7 +193,7 @@ impl LazyToolkitResolver {
         let action = self.actions.iter().find(|a| a.name == name)?;
         Some(Box::new(
             crate::openhuman::composio::ComposioActionTool::new(
-                self.client.clone(),
+                self.config.clone(),
                 action.name.clone(),
                 action.description.clone(),
                 action.parameters.clone(),
@@ -125,10 +229,29 @@ pub async fn run_subagent(
         .clone()
         .unwrap_or_else(|| format!("sub-{}", uuid::Uuid::new_v4()));
     let started = Instant::now();
+    let current_depth = current_spawn_depth();
+    let attempted_depth = current_depth.saturating_add(1);
+
+    if attempted_depth > MAX_SPAWN_DEPTH {
+        tracing::warn!(
+            agent_id = %definition.id,
+            task_id = %task_id,
+            current_depth,
+            attempted_depth,
+            max_depth = MAX_SPAWN_DEPTH,
+            "[subagent_runner] spawn depth exceeded"
+        );
+        return Err(SubagentRunError::SpawnDepthExceeded {
+            attempted_depth,
+            max_depth: MAX_SPAWN_DEPTH,
+        });
+    }
 
     tracing::info!(
         agent_id = %definition.id,
         task_id = %task_id,
+        spawn_depth = attempted_depth,
+        max_spawn_depth = MAX_SPAWN_DEPTH,
         prompt_chars = task_prompt.chars().count(),
         skill_filter = ?options.skill_filter_override.as_deref().or(definition.skill_filter.as_deref()),
         "[subagent_runner] dispatching"
@@ -139,14 +262,56 @@ pub async fn run_subagent(
     // want to gate on it (e.g. `composio_execute` rejecting
     // Write/Admin slugs under `ReadOnly`) read it via
     // `current_sandbox_mode()`; tools that don't care just ignore it.
-    let outcome = with_current_sandbox_mode(definition.sandbox_mode, async {
-        run_typed_mode(definition, task_prompt, &options, &parent, &task_id).await
+    // Box-pin the inner future so the large `run_typed_mode` state machine
+    // lives on the heap. Two stacked `task_local::scope` wrappers
+    // (`with_spawn_depth` + `with_current_sandbox_mode`) plus the deeply
+    // nested provider/tool loop inside `run_typed_mode` are otherwise large
+    // enough — under `cargo-llvm-cov` instrumentation in particular — to
+    // overflow tokio's 2 MiB per-thread test stack. See #2234 CI failure.
+    let mut outcome = with_spawn_depth(attempted_depth, async {
+        with_current_sandbox_mode(definition.sandbox_mode, async {
+            Box::pin(run_typed_mode(
+                definition,
+                task_prompt,
+                &options,
+                &parent,
+                &task_id,
+            ))
+            .await
+        })
+        .await
     })
     .await?;
+
+    // Truncate result to the definition's cap if set.
+    // Use char-count (not byte-length) to avoid panicking on multi-byte
+    // UTF-8 sequences at the truncation boundary.
+    if let Some(cap) = definition.max_result_chars {
+        let original_chars = outcome.output.chars().count();
+        if original_chars > cap {
+            tracing::debug!(
+                agent_id = %definition.id,
+                original_chars,
+                cap,
+                "[subagent_runner] truncating oversized result to max_result_chars cap"
+            );
+            // Find the byte offset of the cap-th character boundary so
+            // `truncate` never lands mid-codepoint.
+            let byte_offset = outcome
+                .output
+                .char_indices()
+                .nth(cap)
+                .map(|(i, _)| i)
+                .unwrap_or(outcome.output.len());
+            outcome.output.truncate(byte_offset);
+            outcome.output.push_str("\n[...truncated]");
+        }
+    }
 
     tracing::info!(
         agent_id = %definition.id,
         task_id = %task_id,
+        spawn_depth = attempted_depth,
         elapsed_ms = outcome.elapsed.as_millis() as u64,
         iterations = outcome.iterations,
         output_chars = outcome.output.chars().count(),
@@ -160,6 +325,44 @@ pub async fn run_subagent(
 // ─────────────────────────────────────────────────────────────────────────────
 // Typed mode — narrow prompt, filtered tools, cheaper model
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Deduplicate assembled tool specs by name, keeping the first occurrence.
+///
+/// The sub-agent's `filtered_specs` is a `Vec` assembled from
+/// `parent.all_tool_specs` indices plus dynamic tools, so a delegation tool can
+/// shadow a same-named skill/integration tool (common for the wide-set
+/// `tools_agent`), leaving two specs with the same name. Strict providers reject
+/// such a request with `400 "Tool names must be unique."` The main-agent path
+/// dedups via [`session::builder::dedup_visible_tool_specs`]; this separate
+/// sub-agent assembly must do the same.
+///
+/// First occurrence wins so registration-order semantics are preserved (tool
+/// dispatch still resolves by name). Dropped duplicates are logged at `debug`
+/// (diagnostic instrumentation, per the repo Rust logging guideline).
+///
+/// Extracted as a free function so the regression suite can exercise the dedup
+/// without standing up the full `run_typed_mode` plumbing.
+fn dedup_tool_specs_by_name(agent_id: &str, specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
+    let mut seen: HashSet<String> = HashSet::with_capacity(specs.len());
+    let mut deduped: Vec<ToolSpec> = Vec::with_capacity(specs.len());
+    let mut dropped: Vec<String> = Vec::new();
+    for spec in specs {
+        if seen.insert(spec.name.clone()) {
+            deduped.push(spec);
+        } else {
+            dropped.push(spec.name);
+        }
+    }
+    if !dropped.is_empty() {
+        tracing::debug!(
+            agent_id = %agent_id,
+            "[subagent_runner] dropped {} duplicate tool spec(s) before sending to provider: {:?}",
+            dropped.len(),
+            dropped
+        );
+    }
+    deduped
+}
 
 /// Execute a sub-agent in "Typed" mode.
 ///
@@ -175,8 +378,20 @@ async fn run_typed_mode(
 ) -> Result<SubagentRunOutcome, SubagentRunError> {
     let started = Instant::now();
 
-    // ── Resolve model + temperature ────────────────────────────────────
-    let model = definition.model.resolve(&parent.model_name);
+    // Resolve provider + model. See `resolve_subagent_provider` for the
+    // semantics of each ModelSpec variant. `Config::load_or_init()` is
+    // async so the load is hoisted out of the helper — the helper itself
+    // is sync and unit-tested.
+    let config_loaded = crate::openhuman::config::Config::load_or_init().await;
+    let (subagent_provider, model) = resolve_subagent_provider(
+        &definition.model,
+        &definition.id,
+        config_loaded.as_ref().ok(),
+        parent.provider.clone(),
+        parent.model_name.clone(),
+        !definition.subagents.is_empty(),
+        options.model_override.as_deref(),
+    );
     let temperature = definition.temperature;
 
     // Archetype prompt loading is deferred until AFTER tool filtering so
@@ -204,7 +419,26 @@ async fn run_typed_mode(
     // signed-in user, backend unreachable, …) so offline / not-signed-
     // in behaviour is unchanged.
     let live_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> = {
-        if parent.composio_client.is_none() {
+        // Mode-aware "is the user able to call composio at all?" probe.
+        // `create_composio_client` returns `Ok(_)` whenever the user has
+        // EITHER a backend session token (backend mode) OR a stored
+        // direct-mode API key — so a direct-mode user with only a key
+        // in the keychain is now correctly recognised as "signed in"
+        // for the spawn-time refresh path (#1710 Wave 2). Pre-fix this
+        // gate read `parent.composio_client.is_none()`, which was only
+        // ever populated in backend mode and silently skipped the live
+        // refresh for direct-mode users.
+        //
+        // We resolve here purely as a probe — the client itself is
+        // dropped immediately. Per-action dispatch below (and inside
+        // `ComposioActionTool::execute`) re-resolves through the
+        // factory so the live `composio.mode` toggle keeps winning.
+        let probe_config = crate::openhuman::config::Config::load_or_init().await.ok();
+        let signed_in = probe_config
+            .as_ref()
+            .map(user_is_signed_in_to_composio)
+            .unwrap_or(false);
+        if !signed_in {
             parent.connected_integrations.clone()
         } else {
             match crate::openhuman::config::Config::load_or_init().await {
@@ -367,7 +601,53 @@ async fn run_typed_mode(
         // `composio_execute` whenever they were declared in the TOML,
         // making the TOML changes look like no-ops.
 
-        if let (Some(tk), Some(client)) = (toolkit_filter, parent.composio_client.as_ref()) {
+        if let Some(tk) = toolkit_filter {
+            // Load a fresh `Arc<Config>` for the dynamic
+            // `ComposioActionTool`s registered below. Pre-Wave-2 this
+            // path was gated on `parent.composio_client.as_ref()` —
+            // backend-only by construction, so direct-mode users were
+            // silently dropped here even after they'd connected the
+            // toolkit on `app.composio.dev`. Resolving the client
+            // through the mode-aware factory closes that gap and keeps
+            // the registration in lockstep with `ComposioActionTool`'s
+            // per-call dispatch (#1710).
+            let arc_config = match crate::openhuman::config::Config::load_or_init().await {
+                Ok(c) => std::sync::Arc::new(c),
+                Err(e) => {
+                    tracing::warn!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        error = %e,
+                        "[subagent_runner:typed] config load failed; dynamic composio tools won't be registered"
+                    );
+                    return Err(SubagentRunError::Provider(anyhow::anyhow!(
+                        "subagent_runner: config load failed building integrations_agent for toolkit `{tk}`: {e}"
+                    )));
+                }
+            };
+
+            // Resolve the live client kind for the catalogue refresh
+            // path. Backend mode keeps the existing
+            // `fetch_toolkit_actions` round-trip. Direct mode mirrors
+            // the `ComposioListToolsTool` short-circuit — the backend
+            // toolkit allowlist isn't authoritative for a personal
+            // Composio tenant, so we fall back to the parent's cached
+            // catalogue rather than emit a misleading "couldn't fetch"
+            // surface (#1710 Wave 2).
+            use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
+            let client_kind = match create_composio_client(arc_config.as_ref()) {
+                Ok(k) => Some(k),
+                Err(e) => {
+                    tracing::warn!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        error = %e,
+                        "[subagent_runner:typed] composio factory failed; dynamic per-action tools fall back to cached catalogue"
+                    );
+                    None
+                }
+            };
+
             // The spawn_subagent pre-flight already verified the
             // toolkit is in the allowlist AND has an active
             // connection, so the matching entry must be present and
@@ -388,26 +668,50 @@ async fn run_typed_mode(
                 // per-toolkit endpoint returns a full catalogue. Falling
                 // back to the cached list preserves the previous
                 // behaviour on network failure.
-                let fresh_actions = match crate::openhuman::composio::fetch_toolkit_actions(
-                    client, tk,
-                )
-                .await
-                {
-                    Ok(actions) if !actions.is_empty() => actions,
-                    Ok(_) => {
-                        tracing::debug!(
+                let fresh_actions = match &client_kind {
+                    Some(ComposioClientKind::Backend(client)) => {
+                        match crate::openhuman::composio::fetch_toolkit_actions(client, tk).await {
+                            Ok(actions) if !actions.is_empty() => actions,
+                            Ok(_) => {
+                                tracing::debug!(
+                                    agent_id = %definition.id,
+                                    toolkit = %tk,
+                                    "[subagent_runner:typed] fresh list_tools returned empty; falling back to cached catalogue"
+                                );
+                                cached_integration.tools.clone()
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    agent_id = %definition.id,
+                                    toolkit = %tk,
+                                    error = %e,
+                                    "[subagent_runner:typed] fresh list_tools failed; falling back to cached catalogue"
+                                );
+                                cached_integration.tools.clone()
+                            }
+                        }
+                    }
+                    Some(ComposioClientKind::Direct(_)) => {
+                        // Direct mode has no backend-allowlist catalogue
+                        // refresh path — the personal Composio tenant
+                        // governs availability. Mirror the
+                        // `ComposioListToolsTool` direct-mode short-
+                        // circuit and fall back to the cached catalogue
+                        // bulk-fetched at session start (#1710 Wave 2).
+                        tracing::info!(
                             agent_id = %definition.id,
                             toolkit = %tk,
-                            "[subagent_runner:typed] fresh list_tools returned empty; falling back to cached catalogue"
+                            cached_actions = cached_integration.tools.len(),
+                            "[composio-direct] subagent_runner:typed: direct mode active — using cached catalogue, skipping backend list_tools refresh"
                         );
                         cached_integration.tools.clone()
                     }
-                    Err(e) => {
-                        tracing::warn!(
+                    None => {
+                        tracing::debug!(
                             agent_id = %definition.id,
                             toolkit = %tk,
-                            error = %e,
-                            "[subagent_runner:typed] fresh list_tools failed; falling back to cached catalogue"
+                            cached_actions = cached_integration.tools.len(),
+                            "[subagent_runner:typed] composio client unavailable; using cached catalogue"
                         );
                         cached_integration.tools.clone()
                     }
@@ -416,7 +720,17 @@ async fn run_typed_mode(
                     toolkit: cached_integration.toolkit.clone(),
                     description: cached_integration.description.clone(),
                     tools: fresh_actions,
+                    // Inherit the cached gated set: this spawn path only
+                    // refreshes the *visible* (callable) actions from the
+                    // backend; the gated/unlock-hint surface is computed
+                    // by `fetch_connected_integrations_uncached` against
+                    // the user pref and doesn't change per-spawn.
+                    gated_tools: cached_integration.gated_tools.clone(),
                     connected: cached_integration.connected,
+                    // Inherit the cached non-active status — this spawn
+                    // path only fires on connected toolkits, but keep the
+                    // field consistent with the source row for #2365.
+                    non_active_status: cached_integration.non_active_status.clone(),
                 };
                 let integration = &integration;
                 // Fuzzy-filter the toolkit's actions against the task prompt
@@ -471,7 +785,7 @@ async fn run_typed_mode(
                 for action in selected {
                     dynamic_tools.push(Box::new(
                         crate::openhuman::composio::ComposioActionTool::new(
-                            client.clone(),
+                            arc_config.clone(),
                             action.name.clone(),
                             action.description.clone(),
                             action.parameters.clone(),
@@ -490,7 +804,7 @@ async fn run_typed_mode(
                 // existing fuzzy filter exists only to keep schemas out
                 // of the system prompt, not to gate execution.
                 lazy_resolver = Some(LazyToolkitResolver {
-                    client: client.clone(),
+                    config: arc_config.clone(),
                     actions: integration.tools.clone(),
                 });
             } else {
@@ -500,11 +814,6 @@ async fn run_typed_mode(
                     "[subagent_runner:typed] toolkit not found among parent's connected integrations; sub-agent will have no callable actions (spawn_subagent pre-flight should have caught this)"
                 );
             }
-        } else if toolkit_filter.is_some() {
-            tracing::warn!(
-                agent_id = %definition.id,
-                "[subagent_runner:typed] toolkit requested but composio client is unavailable on parent context"
-            );
         }
     }
 
@@ -557,20 +866,41 @@ async fn run_typed_mode(
         None
     };
 
-    let mut filtered_specs: Vec<ToolSpec> = allowed_indices
-        .iter()
-        .map(|&i| parent.all_tool_specs[i].clone())
-        .collect();
+    // Build provider-visible tool schemas in EXECUTION-PRECEDENCE order:
+    // `dynamic_tools` (extra_tools at runtime) before parent specs, because
+    // the inner loop's name lookup (see end of this fn) resolves
+    // `extra_tools` first and only falls back to `parent_tools`. Aligning
+    // the dedup order with the runtime lookup order guarantees the schema
+    // the model sees and the tool that actually executes describe the same
+    // behaviour. (CodeRabbit review on PR #2446.)
+    let mut filtered_specs: Vec<ToolSpec> = dynamic_tools.iter().map(|t| t.spec()).collect();
+    filtered_specs.extend(
+        allowed_indices
+            .iter()
+            .map(|&i| parent.all_tool_specs[i].clone()),
+    );
     let mut allowed_names: HashSet<String> = allowed_indices
         .iter()
         .map(|&i| parent.all_tools[i].name().to_string())
         .collect();
-    // Append dynamic tool specs / names so they're discoverable by the
-    // provider (native tool-calling) and by the inner loop's allowlist.
+    // Dynamic tool names must also be in the allowlist so the inner loop
+    // accepts model tool_calls that reference them.
     for tool in &dynamic_tools {
-        filtered_specs.push(tool.spec());
         allowed_names.insert(tool.name().to_string());
     }
+    // Dedup by name: first occurrence wins. Dynamic Composio action tools
+    // can share a name with an inherited parent-registry spec when the
+    // agent's AllowedAll scope includes a same-named skill tool. Some
+    // providers (Anthropic, OpenHuman cloud after the uniqueness-enforcement
+    // rollout) 400 on duplicate tool names — see TAURI-RUST-4. Because
+    // `filtered_specs` is in execution order (dynamic first), the kept
+    // schema matches what the runtime will actually dispatch.
+    let filtered_specs =
+        crate::openhuman::agent::harness::session::dedup_visible_tool_specs(filtered_specs);
+
+    // Dedup by tool name before the specs reach the provider (see
+    // `dedup_tool_specs_by_name` for why duplicates appear here).
+    let filtered_specs = dedup_tool_specs_by_name(&definition.id, filtered_specs);
 
     tracing::debug!(
         agent_id = %definition.id,
@@ -730,7 +1060,7 @@ async fn run_typed_mode(
 
     let mut context_parts: Vec<&str> = Vec::new();
     if !definition.omit_memory_context {
-        if let Some(ref mem_ctx) = parent.memory_context {
+        if let Some(ref mem_ctx) = *parent.memory_context {
             context_parts.push(mem_ctx);
         }
     }
@@ -759,7 +1089,7 @@ async fn run_typed_mode(
     // provider response), mirroring the main-agent turn loop in
     // `session/turn.rs`. No post-loop write needed here.
     let (output, iterations, _agg_usage) = run_inner_loop(
-        parent.provider.as_ref(),
+        subagent_provider.as_ref(),
         &mut history,
         &parent.all_tools,
         dynamic_tools,
@@ -963,7 +1293,7 @@ async fn run_inner_loop(
             output_tokens: usage.output_tokens,
             cached_input_tokens: usage.cached_input_tokens,
             charged_amount_usd: usage.charged_amount_usd,
-            thread_id: crate::openhuman::providers::thread_context::current_thread_id(),
+            thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
         };
         if let Err(err) = transcript::write_transcript(&path, history, &meta, None) {
             tracing::debug!(
@@ -1203,17 +1533,94 @@ async fn run_inner_loop(
             {
                 let args = parse_tool_arguments(&call.arguments);
                 let timeout = crate::openhuman::tool_timeout::tool_execution_timeout_duration();
-                match tokio::time::timeout(timeout, tool.execute(args)).await {
-                    Ok(Ok(result)) => {
-                        let raw = result.output();
-                        if result.is_error {
-                            format!("Error: {raw}")
-                        } else {
-                            raw
+                // ── External-effect approval gate (#1339, #2135) ─
+                // Subagents share the same gate as the parent loop;
+                // see `tool_loop.rs` for the rationale.
+                //
+                // When the call is allowed and persisted, we keep
+                // hold of the `request_id` so we can stamp the
+                // terminal execution outcome onto the same audit
+                // row (issue #2135).
+                let mut approval_request_id: Option<String> = None;
+                let mut approval_gate_for_audit: Option<
+                    std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+                > = None;
+                let gate_denial: Option<String> = if tool.external_effect_with_args(&args) {
+                    if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                        let summary =
+                            crate::openhuman::approval::summarize_action(&call.name, &args);
+                        let redacted = crate::openhuman::approval::redact_args(&args);
+                        let (outcome, request_id) =
+                            gate.intercept_audited(&call.name, &summary, redacted).await;
+                        match outcome {
+                            crate::openhuman::approval::GateOutcome::Allow => {
+                                approval_request_id = request_id;
+                                if approval_request_id.is_some() {
+                                    approval_gate_for_audit = Some(gate);
+                                }
+                                None
+                            }
+                            crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                                tracing::warn!(
+                                    tool = call.name.as_str(),
+                                    reason = %reason,
+                                    "[subagent_runner] approval gate denied tool call"
+                                );
+                                Some(reason)
+                            }
                         }
+                    } else {
+                        None
                     }
-                    Ok(Err(err)) => format!("Error executing {}: {err}", call.name),
-                    Err(_) => format!("Error: tool '{}' timed out", call.name),
+                } else {
+                    None
+                };
+
+                if let Some(reason) = gate_denial {
+                    // Prefix as Error so the downstream `call_success`
+                    // computation (`!result_text.starts_with("Error")`)
+                    // marks the denial as a failed tool call in
+                    // progress events and tool_result blocks.
+                    // (CodeRabbit review on PR #2149.)
+                    format!("Error: {reason}")
+                } else {
+                    let (raw, exec_success) =
+                        match tokio::time::timeout(timeout, tool.execute(args)).await {
+                            Ok(Ok(result)) => {
+                                let raw = result.output();
+                                if result.is_error {
+                                    (format!("Error: {raw}"), false)
+                                } else {
+                                    (raw, true)
+                                }
+                            }
+                            Ok(Err(err)) => {
+                                (format!("Error executing {}: {err}", call.name), false)
+                            }
+                            Err(_) => (format!("Error: tool '{}' timed out", call.name), false),
+                        };
+                    // Stamp the terminal status onto the
+                    // pending_approvals audit row — best-effort,
+                    // failures don't propagate to the agent (#2135).
+                    // Success comes from the structured execute result,
+                    // not from parsing `raw.starts_with("Error")` — a
+                    // legitimate success payload can start with "Error"
+                    // (search hits, copied logs), which would otherwise
+                    // persist a false Failure (CodeRabbit review on #2367).
+                    if let (Some(gate), Some(req_id)) = (
+                        approval_gate_for_audit.as_ref(),
+                        approval_request_id.as_ref(),
+                    ) {
+                        let success = exec_success;
+                        let exec_outcome = if success {
+                            crate::openhuman::approval::ExecutionOutcome::Success
+                        } else {
+                            crate::openhuman::approval::ExecutionOutcome::Failure
+                        };
+                        let err_text = if success { None } else { Some(raw.as_str()) };
+                        gate.record_execution(req_id, exec_outcome, err_text);
+                    }
+                    raw
                 }
             } else {
                 format!("Unknown tool: {}", call.name)
@@ -1358,6 +1765,30 @@ fn parse_tool_arguments(arguments: &str) -> serde_json::Value {
         .unwrap_or_else(|_| serde_json::Value::Object(Default::default()))
 }
 
+/// Probe whether the user can call Composio at all under the current
+/// config. Returns `true` when the mode-aware factory can build EITHER
+/// a backend-mode client (legacy JWT-driven path) OR a direct-mode
+/// client (BYO Composio API key). The resolved client is dropped
+/// immediately — this is purely a "signed-in vs not" check used by the
+/// spawn-time refresh path. Per-action dispatch resolves a fresh client
+/// elsewhere via [`create_composio_client`] so the live `composio.mode`
+/// toggle keeps winning.
+///
+/// Extracted as a free function so the regression suite can exercise
+/// the same probe the runner uses without spinning up the full
+/// `run_typed_mode` plumbing.
+pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::Config) -> bool {
+    crate::openhuman::composio::client::create_composio_client(config).is_ok()
+}
+
 #[cfg(test)]
 #[path = "ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "ops_dedup_tests.rs"]
+mod dedup_tests;
+
+#[cfg(test)]
+#[path = "ops_truncation_tests.rs"]
+mod truncation_tests;

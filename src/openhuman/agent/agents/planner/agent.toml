@@ -4,11 +4,18 @@ delegate_name = "plan"
 when_to_use = "Architect — break a complex task into a small DAG of subtasks with explicit acceptance criteria. Reads memory and searches the web to ground plans in real context. Read-only; produces JSON, not code."
 temperature = 0.4
 max_iterations = 8
+max_result_chars = 8000
 sandbox_mode = "read_only"
 omit_identity = true
 omit_memory_context = false
 omit_safety_preamble = true
 omit_skills_catalog = true
+
+# Spawn hierarchy: this is the deep-thinking tier (reasoning model hint).
+# The planner produces a DAG of leaf tasks for downstream workers; it
+# must NOT delegate to another `reasoning` agent. The loader rejects
+# any same-tier entry added to a future `subagents` list.
+agent_tier = "reasoning"
 
 [model]
 hint = "reasoning"

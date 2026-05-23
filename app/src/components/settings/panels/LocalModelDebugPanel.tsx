@@ -1,5 +1,7 @@
+import debug from 'debug';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useT } from '../../../lib/i18n/I18nContext';
 import {
   formatBytes,
   formatEta,
@@ -14,53 +16,54 @@ import {
   type LocalAiSpeechResult,
   type LocalAiStatus,
   type LocalAiTtsResult,
+  type OllamaConnectionTestResult,
   openhumanLocalAiAssetsStatus,
   openhumanLocalAiDiagnostics,
-  openhumanLocalAiDownload,
-  openhumanLocalAiDownloadAllAssets,
   openhumanLocalAiDownloadAsset,
   openhumanLocalAiDownloadsProgress,
   openhumanLocalAiEmbed,
   openhumanLocalAiPrompt,
-  openhumanLocalAiSetOllamaPath,
   openhumanLocalAiStatus,
   openhumanLocalAiSummarize,
+  openhumanLocalAiTestConnection,
   openhumanLocalAiTranscribe,
   openhumanLocalAiTts,
   openhumanLocalAiVisionPrompt,
+  openhumanUpdateLocalAiSettings,
 } from '../../../utils/tauriCommands';
+import { openhumanGetConfig } from '../../../utils/tauriCommands/config';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
-import CustomModelSection from './local-model/CustomModelSection';
 import ModelDownloadSection from './local-model/ModelDownloadSection';
 import ModelStatusSection from './local-model/ModelStatusSection';
+
+const log = debug('openhuman:local-model-debug');
 
 const statusTone = (state: string): string => {
   switch (state) {
     case 'ready':
-      return 'text-green-600';
+      return 'text-green-600 dark:text-green-300';
     case 'downloading':
     case 'installing':
     case 'loading':
-      return 'text-primary-600';
+      return 'text-primary-600 dark:text-primary-300';
     case 'degraded':
-      return 'text-amber-700';
+      return 'text-amber-700 dark:text-amber-300';
     case 'disabled':
-      return 'text-stone-500';
+      return 'text-stone-500 dark:text-neutral-400';
     default:
-      return 'text-stone-700';
+      return 'text-stone-700 dark:text-neutral-200';
   }
 };
 
 const LocalModelDebugPanel = () => {
+  const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
   const [status, setStatus] = useState<LocalAiStatus | null>(null);
   const [assets, setAssets] = useState<LocalAiAssetsStatus | null>(null);
   const [downloads, setDownloads] = useState<LocalAiDownloadsProgress | null>(null);
   const [statusError, setStatusError] = useState<string>('');
-  const [isTriggeringDownload, setIsTriggeringDownload] = useState(false);
-  const [bootstrapMessage, setBootstrapMessage] = useState<string>('');
   const [assetDownloadBusy, setAssetDownloadBusy] = useState<Record<string, boolean>>({});
 
   const [summaryInput, setSummaryInput] = useState('');
@@ -96,8 +99,14 @@ const LocalModelDebugPanel = () => {
   const [diagnosticsError, setDiagnosticsError] = useState('');
 
   const [showErrorDetail, setShowErrorDetail] = useState(false);
-  const [ollamaPathInput, setOllamaPathInput] = useState('');
-  const [isSettingPath, setIsSettingPath] = useState(false);
+
+  const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
+  const [ollamaBaseUrlInput, setOllamaBaseUrlInput] = useState(DEFAULT_OLLAMA_URL);
+  const [savedOllamaBaseUrl, setSavedOllamaBaseUrl] = useState(DEFAULT_OLLAMA_URL);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] =
+    useState<OllamaConnectionTestResult | null>(null);
+  const [isSavingUrl, setIsSavingUrl] = useState(false);
 
   const progress = useMemo(() => {
     const downloadProgress = progressFromDownloads(downloads);
@@ -105,6 +114,7 @@ const LocalModelDebugPanel = () => {
     return progressFromStatus(status);
   }, [downloads, status]);
 
+  const runtimeEnabled = status?.state !== 'disabled';
   const currentState = downloads?.state ?? status?.state;
   const isInstalling = currentState === 'installing';
   const isIndeterminateDownload =
@@ -144,37 +154,39 @@ const LocalModelDebugPanel = () => {
   };
 
   useEffect(() => {
-    void loadStatus();
-    const timer = setInterval(() => {
+    const initialLoad = window.setTimeout(() => {
+      void loadStatus();
+    }, 0);
+    const timer = window.setInterval(() => {
       void loadStatus();
     }, 1500);
-    return () => clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(timer);
+    };
   }, []);
 
-  const triggerDownload = async (force: boolean) => {
-    setIsTriggeringDownload(true);
-    setStatusError('');
-    setBootstrapMessage('');
-    try {
-      await openhumanLocalAiDownload(force);
-      await openhumanLocalAiDownloadAllAssets(force);
-      const freshStatus = await openhumanLocalAiStatus();
-      setStatus(freshStatus.result);
-      if (freshStatus.result?.state === 'ready') {
-        setBootstrapMessage(force ? 'Re-bootstrap complete' : 'Models verified');
+  useEffect(() => {
+    const seedSavedUrl = async () => {
+      try {
+        const configResponse = await openhumanGetConfig();
+        const localAi = configResponse.result?.config?.local_ai as
+          | Record<string, unknown>
+          | undefined;
+        const saved = localAi?.base_url as string | undefined | null;
+        if (saved && saved.trim()) {
+          setOllamaBaseUrlInput(saved.trim());
+          setSavedOllamaBaseUrl(saved.trim());
+        }
+      } catch {
+        // Non-critical — stay on default.
       }
-      setTimeout(() => setBootstrapMessage(''), 3000);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to trigger local model bootstrap';
-      setStatusError(message);
-    } finally {
-      setIsTriggeringDownload(false);
-    }
-  };
+    };
+    void seedSavedUrl();
+  }, []);
 
   const runSummaryTest = async () => {
-    if (!summaryInput.trim()) return;
+    if (!runtimeEnabled || !summaryInput.trim()) return;
     setIsSummaryLoading(true);
     setSummaryOutput('');
     setStatusError('');
@@ -190,7 +202,7 @@ const LocalModelDebugPanel = () => {
   };
 
   const runPromptTest = async () => {
-    if (!promptInput.trim()) return;
+    if (!runtimeEnabled || !promptInput.trim()) return;
     setIsPromptLoading(true);
     setPromptOutput('');
     setPromptError('');
@@ -206,7 +218,7 @@ const LocalModelDebugPanel = () => {
   };
 
   const runVisionTest = async () => {
-    if (!visionPromptInput.trim() || !visionImageInput.trim()) return;
+    if (!runtimeEnabled || !visionPromptInput.trim() || !visionImageInput.trim()) return;
     setIsVisionLoading(true);
     setVisionOutput('');
     setStatusError('');
@@ -226,7 +238,7 @@ const LocalModelDebugPanel = () => {
   };
 
   const runEmbeddingTest = async () => {
-    if (!embeddingInput.trim()) return;
+    if (!runtimeEnabled || !embeddingInput.trim()) return;
     setIsEmbeddingLoading(true);
     setEmbeddingOutput(null);
     setStatusError('');
@@ -246,7 +258,7 @@ const LocalModelDebugPanel = () => {
   };
 
   const runTranscribeTest = async () => {
-    if (!audioPathInput.trim()) return;
+    if (!runtimeEnabled || !audioPathInput.trim()) return;
     setIsTranscribeLoading(true);
     setTranscribeOutput(null);
     setStatusError('');
@@ -262,7 +274,7 @@ const LocalModelDebugPanel = () => {
   };
 
   const runTtsTest = async () => {
-    if (!ttsInput.trim()) return;
+    if (!runtimeEnabled || !ttsInput.trim()) return;
     setIsTtsLoading(true);
     setTtsOutput(null);
     setStatusError('');
@@ -283,6 +295,7 @@ const LocalModelDebugPanel = () => {
   const triggerAssetDownload = async (
     capability: 'chat' | 'vision' | 'embedding' | 'stt' | 'tts'
   ) => {
+    if (!runtimeEnabled) return;
     setAssetDownloadBusy(prev => ({ ...prev, [capability]: true }));
     setStatusError('');
     try {
@@ -296,38 +309,18 @@ const LocalModelDebugPanel = () => {
     }
   };
 
-  const handleSetOllamaPath = async () => {
-    setIsSettingPath(true);
-    setStatusError('');
-    try {
-      await openhumanLocalAiSetOllamaPath(ollamaPathInput);
-      await loadStatus();
-    } catch (err) {
-      setStatusError(err instanceof Error ? err.message : 'Failed to set Ollama path');
-    } finally {
-      setIsSettingPath(false);
-    }
-  };
-
-  const handleClearOllamaPath = async () => {
-    setOllamaPathInput('');
-    setIsSettingPath(true);
-    try {
-      await openhumanLocalAiSetOllamaPath('');
-      await loadStatus();
-    } catch (err) {
-      setStatusError(err instanceof Error ? err.message : 'Failed to clear Ollama path');
-    } finally {
-      setIsSettingPath(false);
-    }
-  };
-
   const handleRunDiagnostics = async () => {
     setIsDiagnosticsLoading(true);
     setDiagnosticsError('');
     try {
       const result = await openhumanLocalAiDiagnostics();
       setDiagnostics(result);
+      if (result.ollama_base_url) {
+        const reported = result.ollama_base_url;
+        // Only overwrite the input if the user hasn't made unsaved edits.
+        setOllamaBaseUrlInput(prev => (prev === savedOllamaBaseUrl ? reported : prev));
+        setSavedOllamaBaseUrl(reported);
+      }
     } catch (err) {
       setDiagnosticsError(err instanceof Error ? err.message : 'Diagnostics failed');
     } finally {
@@ -335,10 +328,59 @@ const LocalModelDebugPanel = () => {
     }
   };
 
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setConnectionTestResult(null);
+    try {
+      const result = await openhumanLocalAiTestConnection(ollamaBaseUrlInput);
+      log('[local_ai:ui] test_connection result: reachable=%o', result.reachable);
+      setConnectionTestResult(result);
+    } catch (err) {
+      setConnectionTestResult({
+        reachable: false,
+        error: err instanceof Error ? err.message : 'Connection test failed',
+        models_count: null,
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const handleSaveOllamaBaseUrl = async () => {
+    setIsSavingUrl(true);
+    try {
+      await openhumanUpdateLocalAiSettings({ base_url: ollamaBaseUrlInput });
+      log(
+        '[local_ai:ui] saved ollama base_url=%s',
+        ollamaBaseUrlInput.replace(/\/\/[^@]*@/, '//***@')
+      );
+      setSavedOllamaBaseUrl(ollamaBaseUrlInput);
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Failed to save URL');
+    } finally {
+      setIsSavingUrl(false);
+    }
+  };
+
+  const handleResetOllamaBaseUrl = async () => {
+    setOllamaBaseUrlInput(DEFAULT_OLLAMA_URL);
+    setConnectionTestResult(null);
+    setIsSavingUrl(true);
+    try {
+      await openhumanUpdateLocalAiSettings({ base_url: null });
+      log('[local_ai:ui] reset ollama base_url to default');
+      setSavedOllamaBaseUrl(DEFAULT_OLLAMA_URL);
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Failed to reset URL');
+    } finally {
+      setIsSavingUrl(false);
+    }
+  };
+
   return (
     <div>
       <SettingsHeader
-        title="Local Model Debug"
+        title={t('localModel.debugTitle')}
         showBackButton={true}
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}
@@ -352,32 +394,43 @@ const LocalModelDebugPanel = () => {
           isDiagnosticsLoading={isDiagnosticsLoading}
           diagnosticsError={diagnosticsError}
           statusError={statusError}
-          isTriggeringDownload={isTriggeringDownload}
-          bootstrapMessage={bootstrapMessage}
+          isTriggeringDownload={false}
+          bootstrapMessage=""
           progress={progress}
           isIndeterminateDownload={isIndeterminateDownload}
           isInstalling={isInstalling}
           isInstallError={isInstallError}
           showErrorDetail={showErrorDetail}
-          ollamaPathInput={ollamaPathInput}
-          isSettingPath={isSettingPath}
+          ollamaPathInput=""
+          isSettingPath={false}
           downloadedText={downloadedText}
           speedText={speedText}
           etaText={etaText}
           statusTone={statusTone}
+          runtimeEnabled={runtimeEnabled}
+          ollamaBaseUrlInput={ollamaBaseUrlInput}
+          isTestingConnection={isTestingConnection}
+          connectionTestResult={connectionTestResult}
+          isSavingUrl={isSavingUrl}
+          savedOllamaBaseUrl={savedOllamaBaseUrl}
           onRefreshStatus={() => void loadStatus()}
-          onTriggerDownload={force => void triggerDownload(force)}
-          onSetOllamaPath={() => void handleSetOllamaPath()}
-          onClearOllamaPath={() => void handleClearOllamaPath()}
-          onSetOllamaPathInput={setOllamaPathInput}
+          onTriggerDownload={() => {}}
+          onSetOllamaPath={() => {}}
+          onClearOllamaPath={() => {}}
+          onSetOllamaPathInput={() => {}}
           onToggleErrorDetail={() => setShowErrorDetail(v => !v)}
           onRunDiagnostics={() => void handleRunDiagnostics()}
+          onSetOllamaBaseUrlInput={setOllamaBaseUrlInput}
+          onTestConnection={() => void handleTestConnection()}
+          onSaveOllamaBaseUrl={() => void handleSaveOllamaBaseUrl()}
+          onResetOllamaBaseUrl={() => void handleResetOllamaBaseUrl()}
         />
 
         <ModelDownloadSection
           assets={assets}
           assetDownloadBusy={assetDownloadBusy}
           statusTone={statusTone}
+          runtimeEnabled={runtimeEnabled}
           onTriggerAssetDownload={capability => void triggerAssetDownload(capability)}
           summaryInput={summaryInput}
           summaryOutput={summaryOutput}
@@ -417,8 +470,6 @@ const LocalModelDebugPanel = () => {
           onSetTtsOutputPath={setTtsOutputPath}
           onRunTtsTest={() => void runTtsTest()}
         />
-
-        <CustomModelSection />
       </div>
     </div>
   );

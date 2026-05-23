@@ -24,6 +24,16 @@ vi.mock('../../../../utils/config', () => ({
   get APP_ENVIRONMENT() {
     return hoisted.appEnvironment;
   },
+  // Pulled transitively via `resetWalkthrough` → configPersistence.
+  CORE_RPC_URL: 'http://127.0.0.1:7788/rpc',
+  BACKEND_URL: 'http://localhost:5005',
+  // Required by coreModeSlice (pulled transitively via renderWithProviders).
+  E2E_DEFAULT_CORE_MODE: '',
+}));
+
+vi.mock('../../../walkthrough/AppWalkthrough', () => ({
+  resetWalkthrough: vi.fn(),
+  setWalkthroughPending: vi.fn(),
 }));
 
 vi.mock('../../hooks/useSettingsNavigation', () => ({
@@ -38,6 +48,75 @@ async function importPanel() {
   const mod = await import('../DeveloperOptionsPanel');
   return mod.default;
 }
+
+describe('DeveloperOptionsPanel — CoreModeBadge', () => {
+  beforeEach(() => {
+    hoisted.invoke.mockReset();
+    hoisted.invoke.mockResolvedValue(null);
+    hoisted.isTauri.mockReset();
+    hoisted.isTauri.mockReturnValue(true);
+    hoisted.appEnvironment = 'production';
+  });
+
+  test('shows "Local" pill when coreMode is local', async () => {
+    vi.resetModules();
+    const Panel = await importPanel();
+    renderWithProviders(<Panel />, { preloadedState: { coreMode: { mode: { kind: 'local' } } } });
+    expect(screen.getByText('Local')).toBeInTheDocument();
+    expect(screen.getByText(/Embedded core sidecar/i)).toBeInTheDocument();
+  });
+
+  test('shows "Cloud" pill plus URL and masked token tail when coreMode is cloud', async () => {
+    vi.resetModules();
+    const Panel = await importPanel();
+    renderWithProviders(<Panel />, {
+      preloadedState: {
+        coreMode: {
+          mode: { kind: 'cloud', url: 'https://core.example.com/rpc', token: 'abc1234' },
+        },
+      },
+    });
+    expect(screen.getByText('Cloud')).toBeInTheDocument();
+    expect(screen.getByText('https://core.example.com/rpc')).toBeInTheDocument();
+    expect(screen.getByText('••••••1234')).toBeInTheDocument();
+  });
+
+  test('flags missing token in cloud mode', async () => {
+    vi.resetModules();
+    const Panel = await importPanel();
+    renderWithProviders(<Panel />, {
+      preloadedState: {
+        coreMode: { mode: { kind: 'cloud', url: 'https://core.example.com/rpc' } },
+      },
+    });
+    expect(screen.getByText(/not set — RPC will 401/i)).toBeInTheDocument();
+  });
+
+  test('shows "not set" warning when coreMode is unset', async () => {
+    vi.resetModules();
+    const Panel = await importPanel();
+    renderWithProviders(<Panel />, { preloadedState: { coreMode: { mode: { kind: 'unset' } } } });
+    expect(screen.getByText(/Core mode: not set/i)).toBeInTheDocument();
+  });
+
+  test('localizes developer menu destinations', async () => {
+    hoisted.isTauri.mockReturnValue(false);
+    vi.resetModules();
+    const Panel = await importPanel();
+    const { I18nProvider } = await import('../../../../lib/i18n/I18nContext');
+    renderWithProviders(
+      <I18nProvider>
+        <Panel />
+      </I18nProvider>,
+      { preloadedState: { locale: { current: 'zh-CN' } } }
+    );
+
+    expect(screen.getByText('AI 配置')).toBeInTheDocument();
+    expect(screen.getByText('屏幕感知')).toBeInTheDocument();
+    expect(screen.getByText('消息渠道')).toBeInTheDocument();
+    expect(screen.getByText('配置 Telegram/Discord 认证模式和默认渠道路由')).toBeInTheDocument();
+  });
+});
 
 describe('DeveloperOptionsPanel — Sentry test row', () => {
   beforeEach(() => {

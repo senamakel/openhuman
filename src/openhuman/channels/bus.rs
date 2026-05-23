@@ -39,6 +39,9 @@ impl EventHandler for ChannelInboundSubscriber {
             event_name: _,
             channel,
             message,
+            sender,
+            reply_target,
+            thread_ts,
             raw_data: _,
         } = event
         else {
@@ -46,19 +49,34 @@ impl EventHandler for ChannelInboundSubscriber {
         };
 
         tracing::info!(
-            "[channel-inbound] received message from channel='{}' len={}",
+            "[channel-inbound] received message from channel='{}' sender={} len={}",
             channel,
+            sender.as_deref().unwrap_or("<unknown>"),
             message.len()
         );
 
-        let thread_id = format!("channel:{}", channel);
+        // Mirror `channels::context::conversation_history_key`: the inbound
+        // path must key on `(channel, sender, reply_target, thread_ts)` —
+        // not channel alone — or distinct participants in a shared
+        // Discord / Slack channel get collapsed into one cached agent
+        // session, and the second sender resumes the first's in-flight
+        // state (including any prepared wallet quote).
+        //
+        // Legacy publishers that don't fill in `sender` fall back to the
+        // old channel-only key so existing single-DM flows keep working.
+        let thread_id = derive_inbound_thread_id(
+            channel,
+            sender.as_deref(),
+            reply_target.as_deref(),
+            thread_ts.as_deref(),
+        );
         let client_id = "inbound".to_string();
 
         let mut event_rx =
             crate::openhuman::channels::providers::web::subscribe_web_channel_events();
 
         let request_id = match crate::openhuman::channels::providers::web::start_chat(
-            &client_id, &thread_id, message, None, None,
+            &client_id, &thread_id, message, None, None, None, None,
         )
         .await
         {
@@ -438,6 +456,18 @@ async fn flush_streaming_edit(channel: &str, state: &mut StreamingState) {
             }
             Err(err) => {
                 state.edit_failures += 1;
+                if let Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) =
+                    err.downcast_ref::<crate::api::rest::BackendApiError>()
+                {
+                    tracing::info!(
+                        "[channel-inbound][stream] edit channel='{}' msg_id={} — message gone provider-side (404), clearing stale id and disabling further edits",
+                        channel,
+                        message_id,
+                    );
+                    state.message_id = None;
+                    state.edit_disabled = true;
+                    return;
+                }
                 tracing::warn!(
                     "[channel-inbound][stream] edit failed channel='{}' msg_id={} err={} (failures={}/{})",
                     channel,
@@ -545,16 +575,28 @@ async fn flush_thinking_message(channel: &str, state: &mut StreamingState) {
         return;
     };
 
-    if let Some(ref msg_id) = state.thinking_message_id {
+    if let Some(msg_id) = state.thinking_message_id.clone() {
         // Edit existing thinking message with updated content.
         let body = json!({ "text": text });
-        if let Err(err) = client.send_channel_edit(channel, msg_id, &jwt, body).await {
-            tracing::debug!(
-                "[channel-inbound][thinking] edit failed channel='{}' msg_id={} err={}",
-                channel,
-                msg_id,
-                err,
-            );
+        if let Err(err) = client.send_channel_edit(channel, &msg_id, &jwt, body).await {
+            if let Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) =
+                err.downcast_ref::<crate::api::rest::BackendApiError>()
+            {
+                tracing::info!(
+                    "[channel-inbound][thinking] edit channel='{}' msg_id={} — thinking msg gone provider-side (404), clearing id and disabling further thinking edits",
+                    channel,
+                    msg_id,
+                );
+                state.thinking_message_id = None;
+                state.thinking_edit_disabled = true;
+            } else {
+                tracing::debug!(
+                    "[channel-inbound][thinking] edit failed channel='{}' msg_id={} err={}",
+                    channel,
+                    msg_id,
+                    err,
+                );
+            }
         }
     } else {
         // Send initial thinking message.
@@ -694,12 +736,22 @@ async fn delete_channel_message(channel: &str, message_id: &str) {
             );
         }
         Err(err) => {
-            tracing::warn!(
-                "[channel-inbound] failed to delete ephemeral msg channel='{}' msg_id={} err={}",
-                channel,
-                message_id,
-                err,
-            );
+            if let Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) =
+                err.downcast_ref::<crate::api::rest::BackendApiError>()
+            {
+                tracing::info!(
+                    "[channel-inbound] delete channel='{}' msg_id={} — message already gone provider-side (404), nothing to clean up",
+                    channel,
+                    message_id,
+                );
+            } else {
+                tracing::warn!(
+                    "[channel-inbound] failed to delete ephemeral msg channel='{}' msg_id={} err={}",
+                    channel,
+                    message_id,
+                    err,
+                );
+            }
         }
     }
 }
@@ -742,15 +794,26 @@ async fn finalize_channel_reply(channel: &str, state: &mut StreamingState, final
                         );
                     }
                     Err(err) => {
-                        tracing::warn!(
-                            "[channel-inbound] final edit failed channel='{}' msg_id={} err={} — deleting orphan draft and sending fresh atomic reply so user still sees the canonical response",
-                            channel,
-                            message_id,
-                            err,
-                        );
-                        let orphan = message_id.clone();
-                        delete_channel_message(channel, &orphan).await;
-                        send_channel_reply(channel, final_text).await;
+                        if let Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) =
+                            err.downcast_ref::<crate::api::rest::BackendApiError>()
+                        {
+                            tracing::info!(
+                                "[channel-inbound] final edit channel='{}' msg_id={} — draft already gone provider-side (404), sending fresh atomic reply",
+                                channel,
+                                message_id,
+                            );
+                            send_channel_reply(channel, final_text).await;
+                        } else {
+                            tracing::warn!(
+                                "[channel-inbound] final edit failed channel='{}' msg_id={} err={} — deleting orphan draft and sending fresh atomic reply so user still sees the canonical response",
+                                channel,
+                                message_id,
+                                err,
+                            );
+                            let orphan = message_id.clone();
+                            delete_channel_message(channel, &orphan).await;
+                            send_channel_reply(channel, final_text).await;
+                        }
                     }
                 }
             } else {
@@ -805,7 +868,7 @@ async fn build_channel_client() -> Option<(crate::api::rest::BackendOAuthClient,
             return None;
         }
     };
-    let api_url = crate::api::config::effective_api_url(&config.api_url);
+    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
     let jwt = match crate::api::jwt::get_session_token(&config) {
         Ok(Some(t)) => t,
         Ok(None) => {
@@ -836,7 +899,7 @@ async fn send_channel_reply(channel: &str, text: &str) {
         }
     };
 
-    let api_url = crate::api::config::effective_api_url(&config.api_url);
+    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
     let jwt = match crate::api::jwt::get_session_token(&config) {
         Ok(Some(t)) => t,
         Ok(None) => {
@@ -873,6 +936,137 @@ async fn send_channel_reply(channel: &str, text: &str) {
                 e
             );
         }
+    }
+}
+
+/// Per-sender thread-id derivation for inbound channel messages.
+///
+/// Matches the shape `channels::context::conversation_history_key` builds
+/// for the canonical channel paths so the inbound bus handler does not
+/// re-introduce a session-collapse where distinct participants in a
+/// shared channel share a cached agent session.
+///
+/// Layout: `channel:<channel>[/<sender>][/<reply_target>][#thread:<ts>]`.
+/// Each optional segment is appended only when the publisher surfaced
+/// that field; legacy callers that pass only `channel` fall back to the
+/// historical `channel:<channel>` key so single-DM flows keep working.
+pub(crate) fn derive_inbound_thread_id(
+    channel: &str,
+    sender: Option<&str>,
+    reply_target: Option<&str>,
+    thread_ts: Option<&str>,
+) -> String {
+    let mut key = format!("channel:{channel}");
+    let clean = |s: &str| -> Option<String> {
+        let t = s.trim();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t.to_string())
+        }
+    };
+    if let Some(s) = sender.and_then(clean) {
+        key.push('/');
+        key.push_str(&s);
+    }
+    if let Some(r) = reply_target.and_then(clean) {
+        key.push('/');
+        key.push_str(&r);
+    }
+    // Telegram threads its messages by `thread_ts` for transport routing
+    // but should not split memory/history per message — match the
+    // `conversation_history_key` carve-out and skip the thread suffix
+    // there. The socket layer addresses Telegram with raw channel ids
+    // like `tg:123` as well as the literal `telegram` slug, so the
+    // carve-out keys off whichever provider prefix the channel string
+    // exposes, not the full id.
+    if !channel_is_telegram(channel) {
+        if let Some(t) = thread_ts.and_then(clean) {
+            key.push_str("#thread:");
+            key.push_str(&t);
+        }
+    }
+    key
+}
+
+/// True for any inbound channel string that addresses Telegram, whether
+/// the publisher uses the canonical slug (`"telegram"`) or the raw
+/// provider-prefixed form the socket layer emits (`"tg:<chat_id>"`,
+/// `"telegram:<chat_id>"`).
+fn channel_is_telegram(channel: &str) -> bool {
+    if channel == "telegram" || channel == "tg" {
+        return true;
+    }
+    let provider = channel.split(':').next().unwrap_or("");
+    matches!(provider, "telegram" | "tg")
+}
+
+#[cfg(test)]
+mod inbound_thread_id_tests {
+    use super::derive_inbound_thread_id;
+
+    #[test]
+    fn legacy_channel_only_keeps_old_shape() {
+        // Publishers that don't pass sender must still produce a stable
+        // key so existing single-DM flows are unchanged.
+        assert_eq!(
+            derive_inbound_thread_id("telegram", None, None, None),
+            "channel:telegram"
+        );
+    }
+
+    #[test]
+    fn distinct_senders_get_distinct_keys() {
+        let a = derive_inbound_thread_id("discord", Some("alice"), Some("#general"), None);
+        let b = derive_inbound_thread_id("discord", Some("bob"), Some("#general"), None);
+        assert_ne!(a, b, "two senders in same channel must not collapse");
+    }
+
+    #[test]
+    fn slack_thread_anchor_splits_subthreads() {
+        let parent = derive_inbound_thread_id("slack", Some("u1"), Some("C1"), None);
+        let thread = derive_inbound_thread_id("slack", Some("u1"), Some("C1"), Some("1700.001"));
+        assert_ne!(parent, thread);
+    }
+
+    #[test]
+    fn telegram_ignores_thread_ts() {
+        // Telegram uses thread_ts for transport routing only; memory key
+        // must stay stable across thread_ts updates inside the same DM.
+        let a = derive_inbound_thread_id("telegram", Some("u1"), Some("c1"), Some("100"));
+        let b = derive_inbound_thread_id("telegram", Some("u1"), Some("c1"), Some("200"));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn telegram_chat_id_shape_still_ignores_thread_ts() {
+        // Regression: in production the socket layer addresses Telegram
+        // with raw chat ids like `tg:123` and `telegram:123` (matching
+        // the `<provider>:message` event name shape). The thread_ts
+        // carve-out must recognise both, not only the literal slug.
+        for channel in ["tg:123", "telegram:123", "tg", "telegram"] {
+            let a = derive_inbound_thread_id(channel, Some("u1"), Some("c1"), Some("100"));
+            let b = derive_inbound_thread_id(channel, Some("u1"), Some("c1"), Some("200"));
+            assert_eq!(
+                a, b,
+                "channel '{channel}' should ignore thread_ts (telegram provider)"
+            );
+        }
+    }
+
+    #[test]
+    fn non_telegram_channel_id_shape_still_splits_on_thread_ts() {
+        // Inverse: a `slack:<workspace>` style channel must continue to
+        // honour thread_ts so Slack subthreads stay distinct.
+        let a = derive_inbound_thread_id("slack:T1", Some("u1"), Some("c1"), Some("100"));
+        let b = derive_inbound_thread_id("slack:T1", Some("u1"), Some("c1"), Some("200"));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn empty_optional_fields_are_skipped() {
+        let only_sender = derive_inbound_thread_id("discord", Some("alice"), Some("   "), None);
+        assert_eq!(only_sender, "channel:discord/alice");
     }
 }
 

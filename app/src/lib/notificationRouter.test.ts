@@ -41,7 +41,7 @@ describe('resolveIntegrationRoute', () => {
     expect(resolveIntegrationRoute(n)).toBe('/chat?account=abc');
   });
 
-  it.each(['gmail', 'slack', 'whatsapp', 'telegram', 'discord', 'linkedin'])(
+  it.each(['gmail', 'slack', 'whatsapp', 'wechat', 'telegram', 'discord', 'linkedin'])(
     'routes %s provider to /chat',
     provider => {
       expect(resolveIntegrationRoute(makeIntegration({ provider }))).toBe('/chat');
@@ -84,6 +84,18 @@ describe('resolveSystemRoute', () => {
 
   it('routes system category to /home', () => {
     expect(resolveSystemRoute(makeSystem({ category: 'system' }))).toBe('/home');
+  });
+
+  it('routes meetings category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'meetings' }))).toBe('/notifications');
+  });
+
+  it('routes reminders category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'reminders' }))).toBe('/notifications');
+  });
+
+  it('routes important category to /notifications', () => {
+    expect(resolveSystemRoute(makeSystem({ category: 'important' }))).toBe('/notifications');
   });
 
   it('prefers deepLink over category default', () => {

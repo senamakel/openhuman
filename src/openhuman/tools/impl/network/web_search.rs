@@ -1,14 +1,15 @@
 use crate::openhuman::integrations::parallel::{SearchResponse, SearchResultItem};
-use crate::openhuman::integrations::IntegrationClient;
+use crate::openhuman::integrations::{IntegrationClient, SeltzSearchTool};
 use crate::openhuman::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
-use serde_json::json;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 /// Web search tool backed by the server-side Parallel integration proxy.
 pub struct WebSearchTool {
     client: Option<Arc<IntegrationClient>>,
+    direct_search: Option<SeltzSearchTool>,
     max_results: usize,
     timeout_secs: u64,
 }
@@ -21,9 +22,15 @@ impl WebSearchTool {
     ) -> Self {
         Self {
             client,
+            direct_search: None,
             max_results: max_results.clamp(1, 10),
             timeout_secs: timeout_secs.max(1),
         }
+    }
+
+    pub fn with_direct_search(mut self, direct_search: Option<SeltzSearchTool>) -> Self {
+        self.direct_search = direct_search;
+        self
     }
 
     fn parse_parallel_results(
@@ -61,11 +68,7 @@ impl WebSearchTool {
             if let Some(first) = result.excerpts.first() {
                 let excerpt = first.trim();
                 if !excerpt.is_empty() {
-                    let truncated = if let Some((idx, _)) = excerpt.char_indices().nth(500) {
-                        format!("{}...", &excerpt[..idx])
-                    } else {
-                        excerpt.to_string()
-                    };
+                    let truncated = crate::openhuman::util::truncate_with_ellipsis(excerpt, 500);
                     lines.push(format!("   {}", truncated));
                 }
             }
@@ -95,11 +98,7 @@ impl WebSearchTool {
             if let Some(first) = r.excerpts.first() {
                 let excerpt = first.trim();
                 if !excerpt.is_empty() {
-                    let truncated = if let Some((idx, _)) = excerpt.char_indices().nth(500) {
-                        format!("{}…", &excerpt[..idx])
-                    } else {
-                        excerpt.to_string()
-                    };
+                    let truncated = crate::openhuman::util::truncate_with_suffix(excerpt, 500, "…");
                     out.push_str(&format!("> {truncated}\n"));
                 }
             }
@@ -115,7 +114,7 @@ impl Tool for WebSearchTool {
     }
 
     fn description(&self) -> &str {
-        "Search the web for information via the backend search proxy. Returns relevant search results with titles, URLs, and descriptions."
+        "Search the web for information via a configured direct search API or the backend search proxy. Returns relevant search results with titles, URLs, and descriptions."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -153,6 +152,23 @@ impl Tool for WebSearchTool {
         if query.trim().is_empty() {
             anyhow::bail!("Search query cannot be empty");
         }
+        let query = query.trim().to_string();
+
+        if let Some(direct_search) = &self.direct_search {
+            tracing::debug!(
+                query_len = query.chars().count(),
+                max_results = self.max_results,
+                timeout_secs = self.timeout_secs,
+                "[web_search] direct Seltz search"
+            );
+            let mut normalized_args = args;
+            if let Some(obj) = normalized_args.as_object_mut() {
+                obj.insert("query".to_string(), Value::String(query.clone()));
+            }
+            return direct_search
+                .execute_with_options(normalized_args, options)
+                .await;
+        }
 
         let client = self.client.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
@@ -176,8 +192,8 @@ impl Tool for WebSearchTool {
         // per-mode deadlines drive timing on the upstream side.
         let _ = self.timeout_secs;
         let body = json!({
-            "objective": query,
-            "searchQueries": [query],
+            "objective": query.clone(),
+            "searchQueries": [query.clone()],
             "mode": "fast",
             "excerpts": {
                 "maxResults": self.max_results,
@@ -189,9 +205,9 @@ impl Tool for WebSearchTool {
             .post::<SearchResponse>("/agent-integrations/parallel/search", &body)
             .await?;
 
-        let mut result = ToolResult::success(self.parse_parallel_results(&resp.results, query)?);
+        let mut result = ToolResult::success(self.parse_parallel_results(&resp.results, &query)?);
         if options.prefer_markdown {
-            result.markdown_formatted = Some(self.render_results_markdown(&resp.results, query));
+            result.markdown_formatted = Some(self.render_results_markdown(&resp.results, &query));
         }
         Ok(result)
     }
@@ -200,7 +216,7 @@ impl Tool for WebSearchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{extract::State, routing::post, Json, Router};
+    use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
     use serde_json::Value;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -311,6 +327,25 @@ mod tests {
         assert!(excerpt_line.trim().len() <= 503);
     }
 
+    #[test]
+    fn test_web_search_truncation_utf8() {
+        let excerpt = "🦀".repeat(600);
+        let results = vec![SearchResultItem {
+            title: "T".into(),
+            url: "https://t.com".into(),
+            publish_date: None,
+            excerpts: vec![excerpt],
+        }];
+        let result = tool().parse_parallel_results(&results, "q").unwrap();
+        assert!(result.contains("..."));
+        // Should have 500 crabs + "..."
+        let excerpt_line = result.lines().find(|l| l.contains('🦀')).unwrap();
+        assert_eq!(
+            excerpt_line.trim().chars().filter(|c| *c == '🦀').count(),
+            500
+        );
+    }
+
     #[tokio::test]
     async fn test_execute_missing_query() {
         let result = tool().execute(json!({})).await;
@@ -385,5 +420,62 @@ mod tests {
         assert!(result
             .output()
             .contains("Rendered excerpt from backend search."));
+    }
+
+    #[tokio::test]
+    async fn test_execute_uses_direct_search_api_when_configured() {
+        #[derive(Clone)]
+        struct MockState {
+            called: Arc<AtomicBool>,
+        }
+
+        let state = MockState {
+            called: Arc::new(AtomicBool::new(false)),
+        };
+        let called = Arc::clone(&state.called);
+        let app = Router::new()
+            .route(
+                "/search",
+                post(
+                    |State(state): State<MockState>,
+                     headers: HeaderMap,
+                     Json(body): Json<Value>| async move {
+                        state.called.store(true, Ordering::SeqCst);
+                        assert_eq!(
+                            headers.get("x-api-key").and_then(|v| v.to_str().ok()),
+                            Some("test-key")
+                        );
+                        assert_eq!(body["query"], "direct search");
+                        Json(json!({
+                            "documents": [
+                                {
+                                    "url": "https://example.com/direct",
+                                    "title": "Direct Search Result",
+                                    "content": "Rendered excerpt from direct search.",
+                                    "published_date": "2026-04-21"
+                                }
+                            ]
+                        }))
+                    },
+                ),
+            )
+            .with_state(state);
+
+        let base_url = start_mock_backend(app).await;
+        let result = WebSearchTool::new(None, 5, 15)
+            .with_direct_search(Some(SeltzSearchTool::new(
+                Some("test-key".into()),
+                Some(base_url),
+                5,
+                15,
+            )))
+            .execute(json!({"query": "direct search"}))
+            .await
+            .expect("execute() should return rendered direct search results");
+
+        assert!(called.load(Ordering::SeqCst));
+        assert!(result.output().contains("via Seltz"));
+        assert!(result.output().contains("Direct Search Result"));
+        assert!(result.output().contains("https://example.com/direct"));
     }
 }

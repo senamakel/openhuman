@@ -3,7 +3,7 @@
 //! Reads `~/Library/Messages/chat.db` on macOS (read-only) and emits one
 //! `openhuman.memory_doc_ingest` JSON-RPC call per `(chat_identifier, day)`
 //! group — matching the convention codified in
-//! `docs/webview-integration-playbook.md` and used by the WhatsApp scanner.
+//! `gitbooks/developing/webview-integration.md` and used by the WhatsApp scanner.
 //!
 //! Unlike the webview scanners this needs no CEF / CDP / DOM / IDB — iMessage
 //! persists everything in a local SQLite file. One tick is enough; no
@@ -152,7 +152,15 @@ async fn run_scanner<R: Runtime>(app: AppHandle<R>, account_id: String) {
                 }
             }
             Err(e) => {
-                log::warn!("[imessage] tick failed err={}", e);
+                let msg = e.to_string();
+                // Cloud-mode users have no local core sidecar, so the local
+                // RPC token is never initialized — every tick would otherwise
+                // spam WARN. Drop those to debug; everything else stays loud.
+                if msg.contains("core RPC token is not initialized") {
+                    log::debug!("[imessage] local core not running — skipping tick");
+                } else {
+                    log::warn!("[imessage] tick failed err={}", msg);
+                }
             }
         }
 

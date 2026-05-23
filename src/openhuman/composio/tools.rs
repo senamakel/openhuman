@@ -15,26 +15,35 @@
 //! | `composio_list_tools`         | Discover available action slugs + their JSON schemas        |
 //! | `composio_execute`            | Run a Composio action with `{tool, arguments}`              |
 //!
+//! Scope elevation (read/write/admin) is deliberately NOT an agent tool;
+//! the user must toggle it themselves in the Connections UI.
+//!
 //! The agent loop is expected to chain `composio_list_tools` →
 //! `composio_execute` when it needs to use a new action. The full schema
 //! is returned in `composio_list_tools`'s output so the model can pick
 //! the right slug and supply valid arguments without a separate round
 //! trip.
 
+use std::collections::{BTreeSet, HashSet};
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::openhuman::agent::harness::current_sandbox_mode;
 use crate::openhuman::agent::harness::definition::SandboxMode;
+use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::config::Config;
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult,
 };
 
-use super::client::ComposioClient;
+use super::client::{create_composio_client, direct_list_connections, ComposioClientKind};
 use super::providers::{
     catalog_for_toolkit, classify_unknown, find_curated, get_provider, load_user_scope_or_default,
     toolkit_from_slug, ToolScope, UserScopePref,
 };
+use super::types::ComposioToolsResponse;
 
 /// Decision returned by [`evaluate_tool_visibility`].
 enum ToolDecision {
@@ -114,7 +123,7 @@ async fn evaluate_tool_visibility(slug: &str) -> ToolDecision {
 /// is direct against entries the caller has already lowercased.
 fn retain_connected_tools(
     resp: &mut super::types::ComposioToolsResponse,
-    connected: &std::collections::HashSet<String>,
+    connected: &HashSet<String>,
 ) -> usize {
     let before = resp.tools.len();
     resp.tools.retain(|t| {
@@ -123,6 +132,55 @@ fn retain_connected_tools(
             .unwrap_or(false)
     });
     before - resp.tools.len()
+}
+
+fn normalized_scope_toolkits(
+    requested: Option<&[String]>,
+    connected: Option<&HashSet<String>>,
+) -> Vec<String> {
+    let mut out = BTreeSet::new();
+    if let Some(requested) = requested {
+        for toolkit in requested {
+            let normalized = toolkit.trim().to_ascii_lowercase();
+            if !normalized.is_empty() {
+                out.insert(normalized);
+            }
+        }
+    } else if let Some(connected) = connected {
+        out.extend(connected.iter().filter(|t| !t.is_empty()).cloned());
+    }
+    out.into_iter().collect()
+}
+
+fn uncatalogued_toolkits(toolkits: &[String]) -> Vec<String> {
+    toolkits
+        .iter()
+        .filter(|toolkit| {
+            get_provider(toolkit)
+                .and_then(|provider| provider.curated_tools())
+                .or_else(|| catalog_for_toolkit(toolkit))
+                .is_none()
+        })
+        .cloned()
+        .collect()
+}
+
+fn empty_uncurated_toolkits_message(toolkits: &[String]) -> Option<String> {
+    let unsupported = uncatalogued_toolkits(toolkits);
+    if unsupported.is_empty() {
+        return None;
+    }
+    let names = unsupported
+        .iter()
+        .map(|toolkit| format!("`{toolkit}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "composio_list_tools: no agent-ready actions are available for toolkit(s) {names}. \
+         These integrations can be connected, but OpenHuman does not yet ship curated agent \
+         tool catalogs for them. Use a supported toolkit such as Google Drive or Google Sheets \
+         for now, or try again after catalog support lands."
+    ))
 }
 
 /// Filter a freshly-fetched [`super::types::ComposioToolsResponse`] in
@@ -252,28 +310,47 @@ fn render_tools_markdown(resp: &super::types::ComposioToolsResponse) -> String {
     out
 }
 
+// `execute_direct` was previously defined locally here; it now lives
+// in `super::client::direct_execute` so the ops.rs RPC handler and the
+// agent-tool path share a single direct-mode envelope reshaper.
+// See `direct_execute`'s rustdoc for the v3 → ComposioExecuteResponse
+// translation contract.
+
 /// Format a user-facing error message for a scope-blocked execution.
+///
+/// Embeds the unlock path in the error itself so the agent reads the
+/// instruction straight off the tool response — same policy-in-data
+/// approach as the `gated_tools` surface. Only ONE path: the user
+/// toggles the scope in the Connections UI. The agent has no tool to
+/// flip scopes (see the note above the removed `ComposioEnableScopeTool`
+/// for why) — it can only describe the gate and point at the UI.
 fn scope_error_message(slug: &str, scope: ToolScope, pref: UserScopePref) -> String {
+    let toolkit = toolkit_from_slug(slug).unwrap_or_default();
+    let scope_str = scope.as_str();
     format!(
-        "composio_execute: action `{slug}` is classified `{}` and is disabled in your \
-         current scope preferences (read={}, write={}, admin={}). Update the toolkit's \
-         scope preference (composio_set_user_scopes) to enable this category.",
-        scope.as_str(),
-        pref.read,
-        pref.write,
-        pref.admin,
+        "composio_execute: action `{slug}` is classified `{scope_str}` and is \
+         disabled in the user's current scope preferences for `{toolkit}` \
+         (read={}, write={}, admin={}). Tell the user this action requires the \
+         `{scope_str}` scope and they can enable it themselves in \
+         **Connections → {toolkit} → {scope_str}**. Do not claim you can flip \
+         it — you cannot.",
+        pref.read, pref.write, pref.admin,
     )
 }
 
 // ── composio_list_toolkits ──────────────────────────────────────────
 
 pub struct ComposioListToolkitsTool {
-    client: ComposioClient,
+    /// Held instead of a pre-baked `ComposioClient` so the
+    /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
+    /// honoured on every call (see [`ComposioExecuteTool`] doc for the
+    /// bug this guards against — #1710).
+    config: Arc<Config>,
 }
 
 impl ComposioListToolkitsTool {
-    pub fn new(client: ComposioClient) -> Self {
-        Self { client }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -301,7 +378,50 @@ impl Tool for ComposioListToolkitsTool {
     }
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
         tracing::debug!("[composio] tool list_toolkits.execute");
-        match self.client.list_toolkits().await {
+        // Mirror the mode-aware pattern in
+        // `ops::composio_list_toolkits`. In direct mode there is no
+        // server-side allowlist; the user's personal Composio account
+        // governs availability, so we return an empty toolkits list
+        // with an explanatory log instead of silently routing through
+        // the backend tinyhumans tenant (#1710).
+        // [#1710 Wave 4] Reload config fresh per execute so a mid-session
+        // `composio.mode` toggle takes effect at the very next tool call.
+        // Anchor the reload to this tool's original config path rather
+        // than re-resolving process-global `OPENHUMAN_WORKSPACE`; the
+        // tool is scoped to the user/workspace it was created for.
+        let live_config =
+            match config_rpc::reload_config_snapshot_with_timeout(self.config.as_ref()).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(error = %e, "[composio] tool: load_config failed");
+                    return Ok(ToolResult::error(format!(
+                        "composio: failed to load live config: {e}"
+                    )));
+                }
+            };
+        let client = match create_composio_client(&live_config) {
+            Ok(ComposioClientKind::Backend(client)) => {
+                tracing::debug!("[composio] list_toolkits.execute: backend variant");
+                client
+            }
+            Ok(ComposioClientKind::Direct(_)) => {
+                tracing::info!(
+                    "[composio-direct] list_toolkits.execute: direct mode active — \
+                     returning empty toolkits list. Users manage available toolkits \
+                     via app.composio.dev."
+                );
+                let resp = super::types::ComposioToolkitsResponse::default();
+                return Ok(ToolResult::success(
+                    serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
+                ));
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "composio_list_toolkits failed: {e}"
+                )));
+            }
+        };
+        match client.list_toolkits().await {
             Ok(resp) => Ok(ToolResult::success(
                 serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
             )),
@@ -315,12 +435,15 @@ impl Tool for ComposioListToolkitsTool {
 // ── composio_list_connections ───────────────────────────────────────
 
 pub struct ComposioListConnectionsTool {
-    client: ComposioClient,
+    /// Held instead of a pre-baked `ComposioClient` so the
+    /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
+    /// honoured on every call (#1710).
+    config: Arc<Config>,
 }
 
 impl ComposioListConnectionsTool {
-    pub fn new(client: ComposioClient) -> Self {
-        Self { client }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -347,36 +470,90 @@ impl Tool for ComposioListConnectionsTool {
     }
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
         tracing::debug!("[composio] tool list_connections.execute");
-        match self.client.list_connections().await {
-            Ok(mut resp) => {
-                // Filter server-side-indistinguishable states here —
-                // callers should only ever see integrations the user
-                // can actually act on. Matches the same ACTIVE /
-                // CONNECTED allowlist used by
-                // `fetch_connected_integrations_uncached` so the tool
-                // output and the prompt's Delegation Guide agree on
-                // what counts as "connected".
-                resp.connections.retain(|c| c.is_active());
-                Ok(ToolResult::success(
-                    serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
-                ))
+        // Mirror `ops::composio_list_connections`: route through the mode-aware
+        // factory so the agent sees the correct tenant's connections in both
+        // backend and direct mode. Before this fix, direct mode returned an
+        // empty list regardless of the user's actual Composio connections,
+        // which caused the agent to incorrectly conclude that no integrations
+        // were linked and prompt unnecessary re-authorization (#1710).
+        // [#1710 Wave 4] Reload config fresh per execute so a mid-session
+        // `composio.mode` toggle takes effect at the very next tool call.
+        // Anchor the reload to this tool's original config path rather
+        // than re-resolving process-global `OPENHUMAN_WORKSPACE`; the
+        // tool is scoped to the user/workspace it was created for.
+        let live_config = match config_rpc::reload_config_snapshot_with_timeout(
+            self.config.as_ref(),
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "[composio] list_connections.execute: load_config failed");
+                return Ok(ToolResult::error(format!(
+                    "composio_list_connections: failed to load live config: {e}"
+                )));
             }
-            Err(e) => Ok(ToolResult::error(format!(
-                "composio_list_connections failed: {e}"
-            ))),
-        }
+        };
+        let mut resp = match create_composio_client(&live_config) {
+            Ok(ComposioClientKind::Backend(client)) => {
+                tracing::debug!("[composio] list_connections.execute: backend variant");
+                client.list_connections().await.map_err(|e| {
+                    anyhow::anyhow!("composio_list_connections (backend) failed: {e}")
+                })?
+            }
+            Ok(ComposioClientKind::Direct(direct)) => {
+                tracing::debug!("[composio-direct] list_connections.execute: direct variant");
+                direct_list_connections(&direct).await.map_err(|e| {
+                    // [#1166 / Sentry TAURI-RUST-X9] Symmetric error
+                    // routing with `ops.rs::composio_list_connections`.
+                    // The agent-tool path can also fire 401s when a
+                    // direct-mode user has a bad API key — without this
+                    // hook the failure escapes the classifier and lands
+                    // as an unclassified Sentry event. Render WITH the
+                    // `[composio-direct]` anchor BEFORE reporting so the
+                    // classifier arm in `is_provider_user_state_message`
+                    // (gated on that prefix) actually fires.
+                    let rendered = format!(
+                        "[composio-direct] composio_list_connections (direct) failed: {e:#}"
+                    );
+                    super::ops::report_composio_op_error("list_connections", &rendered);
+                    anyhow::anyhow!("{rendered}")
+                })?
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "composio_list_connections failed: {e}"
+                )));
+            }
+        };
+        // Filter server-side-indistinguishable states — callers should only
+        // see integrations the user can actually act on. Matches the same
+        // ACTIVE/CONNECTED allowlist used by `fetch_connected_integrations_uncached`
+        // so the tool output and the prompt's Delegation Guide agree on what
+        // counts as "connected".
+        resp.connections.retain(|c| c.is_active());
+        tracing::debug!(
+            count = resp.connections.len(),
+            "[composio] list_connections.execute: returning active connections"
+        );
+        Ok(ToolResult::success(
+            serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
+        ))
     }
 }
 
 // ── composio_authorize ──────────────────────────────────────────────
 
 pub struct ComposioAuthorizeTool {
-    client: ComposioClient,
+    /// Held instead of a pre-baked `ComposioClient` so the
+    /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
+    /// honoured on every call (#1710).
+    config: Arc<Config>,
 }
 
 impl ComposioAuthorizeTool {
-    pub fn new(client: ComposioClient) -> Self {
-        Self { client }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -422,7 +599,50 @@ impl Tool for ComposioAuthorizeTool {
             ));
         }
         tracing::debug!(toolkit = %toolkit, "[composio] tool authorize.execute");
-        match self.client.authorize(&toolkit).await {
+        // Resolve per call so a live mode toggle is honoured. In
+        // direct mode the OAuth handoff is performed by the user's
+        // personal Composio tenant via app.composio.dev rather than
+        // the backend's `/agent-integrations/composio/authorize`
+        // route, so we refuse this verb explicitly instead of
+        // silently routing through the wrong tenant.
+        // [#1710 Wave 4] Reload config fresh per execute so a mid-session
+        // `composio.mode` toggle takes effect at the very next tool call.
+        // Anchor the reload to this tool's original config path rather
+        // than re-resolving process-global `OPENHUMAN_WORKSPACE`; the
+        // tool is scoped to the user/workspace it was created for.
+        let live_config =
+            match config_rpc::reload_config_snapshot_with_timeout(self.config.as_ref()).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(error = %e, "[composio] tool: load_config failed");
+                    return Ok(ToolResult::error(format!(
+                        "composio: failed to load live config: {e}"
+                    )));
+                }
+            };
+        let client = match create_composio_client(&live_config) {
+            Ok(ComposioClientKind::Backend(client)) => {
+                tracing::debug!("[composio] authorize.execute: backend variant");
+                client
+            }
+            Ok(ComposioClientKind::Direct(_)) => {
+                tracing::info!(
+                    toolkit = %toolkit,
+                    "[composio-direct] authorize.execute: direct mode active — \
+                     refusing backend OAuth handoff. Connect this toolkit via \
+                     app.composio.dev for the personal Composio tenant."
+                );
+                return Ok(ToolResult::error(format!(
+                    "composio_authorize: direct mode is active. Connect `{toolkit}` \
+                     through your personal Composio account at app.composio.dev \
+                     instead of the backend OAuth flow."
+                )));
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!("composio_authorize failed: {e}")));
+            }
+        };
+        match client.authorize(&toolkit, None).await {
             Ok(resp) => {
                 crate::core::event_bus::publish_global(
                     crate::core::event_bus::DomainEvent::ComposioConnectionCreated {
@@ -444,12 +664,18 @@ impl Tool for ComposioAuthorizeTool {
 // ── composio_list_tools ─────────────────────────────────────────────
 
 pub struct ComposioListToolsTool {
-    client: ComposioClient,
+    /// Held instead of a pre-baked `ComposioClient` so the
+    /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
+    /// honoured on every call. Resolving the client per call mirrors
+    /// [`crate::openhuman::composio::ops::composio_execute`] and avoids
+    /// the staged-routing bug (#1710) where a long-lived backend client
+    /// would survive a user switch into `direct` mode.
+    config: Arc<Config>,
 }
 
 impl ComposioListToolsTool {
-    pub fn new(client: ComposioClient) -> Self {
-        Self { client }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -518,18 +744,71 @@ impl Tool for ComposioListToolsTool {
             prefer_markdown = options.prefer_markdown,
             "[composio] tool list_tools.execute"
         );
-        match self.client.list_tools(toolkits.as_deref()).await {
+
+        // Resolve the client through the mode-aware factory so a
+        // direct-mode user does not silently get the backend
+        // tinyhumans-tenant tool list. In direct mode we return an
+        // empty `tools` array with an explanatory log, mirroring the
+        // ops.rs `composio_list_toolkits` / `composio_list_connections`
+        // pattern. Surfacing the empty list explicitly is correct
+        // fail-mode: the alternative — falling through to the backend
+        // path — is exactly the bug we're closing (#1710).
+        // [#1710 Wave 4] Reload config fresh per execute so a mid-session
+        // `composio.mode` toggle takes effect at the very next tool call.
+        // Anchor the reload to this tool's original config path rather
+        // than re-resolving process-global `OPENHUMAN_WORKSPACE`; the
+        // tool is scoped to the user/workspace it was created for.
+        let live_config =
+            match config_rpc::reload_config_snapshot_with_timeout(self.config.as_ref()).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(error = %e, "[composio] tool: load_config failed");
+                    return Ok(ToolResult::error(format!(
+                        "composio: failed to load live config: {e}"
+                    )));
+                }
+            };
+        let client = match create_composio_client(&live_config) {
+            Ok(ComposioClientKind::Backend(client)) => {
+                tracing::debug!("[composio] list_tools.execute: backend variant");
+                client
+            }
+            Ok(ComposioClientKind::Direct(_)) => {
+                tracing::info!(
+                    "[composio-direct] list_tools.execute: direct mode active — \
+                     returning empty tools list. Discovery is delegated to the user's \
+                     personal Composio account; backend-tenant tools are intentionally \
+                     NOT surfaced in direct mode."
+                );
+                let resp = ComposioToolsResponse::default();
+                let mut result = ToolResult::success(
+                    serde_json::to_string(&resp).unwrap_or_else(|_| "{}".into()),
+                );
+                if options.prefer_markdown {
+                    result.markdown_formatted = Some(render_tools_markdown(&resp));
+                }
+                return Ok(result);
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "composio_list_tools failed: {e}"
+                )));
+            }
+        };
+
+        match client.list_tools(toolkits.as_deref()).await {
             Ok(mut resp) => {
                 filter_list_tools_response(&mut resp).await;
+                let mut connected_toolkits: Option<HashSet<String>> = None;
 
                 if !include_unconnected {
                     // Restrict to toolkits with an ACTIVE / CONNECTED
                     // account. Mirrors the same status allowlist used by
                     // composio_list_connections so this view and the
                     // prompt's Delegation Guide stay in sync.
-                    match self.client.list_connections().await {
+                    match client.list_connections().await {
                         Ok(conns) => {
-                            let connected: std::collections::HashSet<String> = conns
+                            let connected: HashSet<String> = conns
                                 .connections
                                 .iter()
                                 .filter(|c| c.is_active())
@@ -543,6 +822,7 @@ impl Tool for ComposioListToolsTool {
                                 kept = resp.tools.len(),
                                 "[composio] list_tools restricted to connected toolkits"
                             );
+                            connected_toolkits = Some(connected);
                         }
                         Err(e) => {
                             // Soft-fail: surface the issue to the agent
@@ -554,6 +834,18 @@ impl Tool for ComposioListToolsTool {
                                  include_unconnected=true to skip this check): {e}"
                             )));
                         }
+                    }
+                }
+
+                if resp.tools.is_empty() {
+                    let scoped_toolkits =
+                        normalized_scope_toolkits(toolkits.as_deref(), connected_toolkits.as_ref());
+                    if let Some(message) = empty_uncurated_toolkits_message(&scoped_toolkits) {
+                        tracing::debug!(
+                            toolkits = ?scoped_toolkits,
+                            "[composio] list_tools empty for uncurated toolkit scope"
+                        );
+                        return Ok(ToolResult::error(message));
                     }
                 }
 
@@ -579,12 +871,28 @@ impl Tool for ComposioListToolsTool {
 // ── composio_execute ────────────────────────────────────────────────
 
 pub struct ComposioExecuteTool {
-    client: ComposioClient,
+    /// Held instead of a pre-baked `ComposioClient` so the
+    /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
+    /// honoured on every call.
+    ///
+    /// The earlier shape stored a backend-bound `ComposioClient` baked
+    /// at agent boot. When the user toggled
+    /// `composio.mode = "direct"` mid-session the
+    /// `ComposioConfigChanged` event invalidated caches, but this tool's
+    /// pre-baked client kept routing executions through
+    /// `staging-api.tinyhumans.ai/agent-integrations/composio/execute`
+    /// — silently bypassing the direct-mode user's personal Composio
+    /// tenant. Resolving the client per call via
+    /// [`create_composio_client`] keeps dispatch in lockstep with the
+    /// live config, matching
+    /// [`crate::openhuman::composio::ops::composio_execute`]. See
+    /// issue #1710.
+    config: Arc<Config>,
 }
 
 impl ComposioExecuteTool {
-    pub fn new(client: ComposioClient) -> Self {
-        Self { client }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -637,7 +945,33 @@ impl Tool for ComposioExecuteTool {
             ));
         }
         let arguments = args.get("arguments").cloned();
-        tracing::debug!(tool = %tool, "[composio] tool execute.execute");
+        let connection_id = args
+            .get("connection_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        // INFO-level entry log — visible without bumping log level. Logs
+        // ARG KEYS only by default so traces don't leak email bodies / PII;
+        // the full arg JSON goes through a paired DEBUG log below for deep
+        // debugging. Together these let `grep "[composio][execute]"` show
+        // the full agent→backend audit trail at default verbosity.
+        let arg_keys: Vec<&str> = arguments
+            .as_ref()
+            .and_then(|v| v.as_object())
+            .map(|obj| obj.keys().map(|k| k.as_str()).collect())
+            .unwrap_or_default();
+        tracing::info!(
+            tool = %tool,
+            connection_id = %connection_id,
+            arg_keys = ?arg_keys,
+            "[composio][execute] >> dispatch"
+        );
+        if let Some(ref args_json) = arguments {
+            tracing::debug!(
+                tool = %tool,
+                args = %args_json,
+                "[composio][execute] >> full args (DEBUG)"
+            );
+        }
 
         // Agent-level sandbox gate (issue #685) — applies on top of the
         // user's scope preference below. When the currently-executing
@@ -696,11 +1030,77 @@ impl Tool for ComposioExecuteTool {
             }
         }
 
+        // Inject `timeZone` / `singleEvents` defaults for Google
+        // Calendar list slugs so the host's IANA zone reaches the API
+        // regardless of how the model built the args (issue #1714).
+        // No-op for every other slug; respects caller-supplied values.
+        let iana = super::googlecalendar_args::current_iana_timezone();
+        tracing::debug!(
+            target: "composio",
+            slug = %tool,
+            iana = %iana,
+            "[composio][dispatcher] applying calendar query defaults pre-dispatch"
+        );
+        let arguments =
+            super::googlecalendar_args::apply_calendar_query_defaults(&tool, arguments, &iana);
+
+        // Resolve the client through the mode-aware factory on every
+        // call so a direct-mode toggle takes effect immediately
+        // (#1710). The pre-baked-client variant of this code routed all
+        // executions through the backend tinyhumans tenant regardless
+        // of mode — silently breaking direct mode for tool execution.
+        // [#1710 Wave 4] Reload config fresh per execute so a mid-session
+        // `composio.mode` toggle takes effect at the very next tool call.
+        // Anchor the reload to this tool's original config path rather
+        // than re-resolving process-global `OPENHUMAN_WORKSPACE`; the
+        // tool is scoped to the user/workspace it was created for.
+        let live_config = match config_rpc::reload_config_snapshot_with_timeout(
+            self.config.as_ref(),
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "[composio] tool execute.execute: load_config failed");
+                return Ok(ToolResult::error(format!(
+                    "composio_execute: failed to load live config: {e}"
+                )));
+            }
+        };
+        let kind = match create_composio_client(&live_config) {
+            Ok(kind) => kind,
+            Err(e) => {
+                tracing::warn!(error = %e, "[composio] tool execute.execute: factory failed");
+                return Ok(ToolResult::error(format!("composio_execute failed: {e}")));
+            }
+        };
+
         let started = std::time::Instant::now();
-        let res = self.client.execute_tool(&tool, arguments).await;
+        // Centralized prepare → retry → error-mapping pipeline (#1797),
+        // mode-aware over the backend/direct split (#1710).
+        let res = super::execute_dispatch::execute_composio_action_kind(
+            kind,
+            &tool,
+            arguments,
+            &live_config.composio.entity_id,
+        )
+        .await;
         let elapsed_ms = started.elapsed().as_millis() as u64;
         match res {
-            Ok(mut resp) => {
+            Ok(resp) => {
+                tracing::info!(
+                    tool = %tool,
+                    successful = resp.successful,
+                    error = ?resp.error,
+                    elapsed_ms,
+                    cost_usd = resp.cost_usd,
+                    "[composio][execute] << result"
+                );
+                tracing::debug!(
+                    tool = %tool,
+                    response = ?resp,
+                    "[composio][execute] << full response (DEBUG)"
+                );
                 crate::core::event_bus::publish_global(
                     crate::core::event_bus::DomainEvent::ComposioActionExecuted {
                         tool: tool.clone(),
@@ -731,6 +1131,12 @@ impl Tool for ComposioExecuteTool {
                 Ok(ToolResult::success(body))
             }
             Err(e) => {
+                tracing::warn!(
+                    tool = %tool,
+                    error = %e,
+                    elapsed_ms,
+                    "[composio][execute] << dispatch error"
+                );
                 crate::core::event_bus::publish_global(
                     crate::core::event_bus::DomainEvent::ComposioActionExecuted {
                         tool: tool.clone(),
@@ -740,11 +1146,26 @@ impl Tool for ComposioExecuteTool {
                         elapsed_ms,
                     },
                 );
-                Ok(ToolResult::error(format!("composio_execute failed: {e}")))
+                Ok(ToolResult::error(e))
             }
         }
     }
 }
+
+// NOTE: A `composio_enable_scope` agent-callable meta-tool used to live
+// here. It was removed deliberately: scope elevation is a
+// security-sensitive, cross-session state change that unlocks
+// destructive actions, and putting that flip behind LLM-mediated
+// "user consent" both (a) made the safety contract depend on model
+// behavior — the weakest place for it — and (b) was a soft gate the
+// model could route around (e.g. trash-via-label). The user must
+// toggle scopes themselves in **Connections → {toolkit} → {scope}
+// row**; the agent only describes the gated capability and points at
+// that UI path.
+//
+// Two surfaces name this policy; keep them in sync:
+//   - `GatedIntegrationTool.unlock_paths` populated in `composio::ops`
+//   - `scope_error_message` returned from `composio_execute` blocks
 
 // ── Bulk registration helper ────────────────────────────────────────
 
@@ -752,18 +1173,36 @@ impl Tool for ComposioExecuteTool {
 /// client is available and composio is enabled. Returns an empty vec
 /// otherwise so callers can always `.extend(...)` unconditionally.
 pub fn all_composio_agent_tools(config: &crate::openhuman::config::Config) -> Vec<Box<dyn Tool>> {
-    let Some(client) = super::client::build_composio_client(config) else {
-        tracing::debug!("[composio] agent tools not registered — disabled or missing credentials");
+    // Registration gate: ask the mode-aware probe "can this user call
+    // composio at all?" — true when EITHER a backend session token OR a
+    // stored/inline direct-mode API key is present. The pre-fix path
+    // called `build_composio_client(...).is_none()`, which is
+    // backend-only and silently dropped the 5 generic agent tools for
+    // direct-mode users (#1710). Per-action dispatch inside each tool
+    // re-resolves through the factory so the live `composio.mode`
+    // toggle keeps winning.
+    if !crate::openhuman::agent::harness::subagent_runner::user_is_signed_in_to_composio(config) {
+        tracing::debug!(
+            "[composio] agent tools not registered — user is not signed in to composio \
+             (no backend session and no direct API key)"
+        );
         return Vec::new();
-    };
-    // `ComposioClient` is `Clone` (the inner `IntegrationClient` is Arc'd),
-    // so each tool gets a cheap clone of the handle directly.
+    }
+    // All five tools resolve their client per call through the
+    // mode-aware factory; they only need a handle to the live root
+    // config to do so. Sharing one `Arc<Config>` keeps the registration
+    // cheap (no repeated `Config::clone` walks) and ensures every tool
+    // sees the same live snapshot.
+    let config_arc = Arc::new(config.clone());
     let tools: Vec<Box<dyn Tool>> = vec![
-        Box::new(ComposioListToolkitsTool::new(client.clone())),
-        Box::new(ComposioListConnectionsTool::new(client.clone())),
-        Box::new(ComposioAuthorizeTool::new(client.clone())),
-        Box::new(ComposioListToolsTool::new(client.clone())),
-        Box::new(ComposioExecuteTool::new(client)),
+        Box::new(ComposioListToolkitsTool::new(config_arc.clone())),
+        Box::new(ComposioListConnectionsTool::new(config_arc.clone())),
+        Box::new(ComposioAuthorizeTool::new(config_arc.clone())),
+        Box::new(ComposioListToolsTool::new(config_arc.clone())),
+        Box::new(ComposioExecuteTool::new(config_arc)),
+        // Pref-elevation is intentionally NOT an agent-callable tool;
+        // the user must flip it themselves in the Connections UI.
+        // See the long comment above the (removed) ComposioEnableScopeTool.
     ];
     tracing::debug!(count = tools.len(), "[composio] agent tools registered");
     tools

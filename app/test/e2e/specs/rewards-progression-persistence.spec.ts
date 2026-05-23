@@ -227,9 +227,7 @@ describe('Rewards progression & persistence', () => {
   });
 
   it('12.2.4 — stalled rewards endpoint past timeout shows recoverable error with retry affordance', async () => {
-    stepLog(
-      'priming rewardsDelayMs=20000 — response arrives after the 15s app-side timeout'
-    );
+    stepLog('priming rewardsDelayMs=20000 — response arrives after the 15s app-side timeout');
     resetMockBehavior();
     setMockBehavior('rewardsDelayMs', '20000');
 
@@ -246,7 +244,7 @@ describe('Rewards progression & persistence', () => {
     if (!sawError) {
       stepLog('WARN: "Sync unavailable" not seen — checking for any error marker');
     }
-    expect(sawError || await textExists('Retrying')).toBe(true);
+    expect(sawError || (await textExists('Retrying'))).toBe(true);
 
     // The retry button must be present so the user can recover without restart.
     const hasRetry = await textExists('Retrying');

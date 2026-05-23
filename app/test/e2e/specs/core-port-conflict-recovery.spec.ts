@@ -43,10 +43,7 @@ function stepLog(message: string, context?: unknown): void {
     console.log(`[CorePortConflictE2E][${stamp}] ${message}`);
     return;
   }
-  console.log(
-    `[CorePortConflictE2E][${stamp}] ${message}`,
-    JSON.stringify(context, null, 2)
-  );
+  console.log(`[CorePortConflictE2E][${stamp}] ${message}`, JSON.stringify(context, null, 2));
 }
 
 async function waitForHome(timeout = 25_000): Promise<boolean> {
@@ -73,12 +70,7 @@ async function bindPort(port: number): Promise<() => Promise<void>> {
     const server = net.createServer();
     server.listen(port, '127.0.0.1', () => {
       stepLog(`pre-bound port ${port} to simulate conflict`);
-      resolve(
-        () =>
-          new Promise<void>((res, rej) =>
-            server.close(err => (err ? rej(err) : res()))
-          )
-      );
+      resolve(() => new Promise<void>((res, rej) => server.close(err => (err ? rej(err) : res()))));
     });
     server.on('error', reject);
   });

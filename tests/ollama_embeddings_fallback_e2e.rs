@@ -227,5 +227,8 @@ async fn local_embeddings_disabled_custom_config_untouched() {
 
     assert_eq!(provider, "openai");
     assert_eq!(model, "text-embedding-3-small");
-    assert_eq!(dims, 1536, "custom cloud dimensions must pass through unchanged");
+    assert_eq!(
+        dims, 1536,
+        "custom cloud dimensions must pass through unchanged"
+    );
 }

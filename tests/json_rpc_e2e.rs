@@ -6754,4 +6754,3 @@ async fn json_rpc_stale_auth_profile_lock_auto_recovered() {
     mock_join.abort();
     rpc_join.abort();
 }
-

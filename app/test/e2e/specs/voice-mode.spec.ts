@@ -30,13 +30,19 @@ import {
   clickText,
   dumpAccessibilityTree,
   textExists,
-  waitForText,
+  waitForText as _waitForText,
   waitForWebView,
   waitForWindowVisible,
 } from '../helpers/element-helpers';
 import { supportsExecuteScript } from '../helpers/platform';
 import { completeOnboardingIfVisible } from '../helpers/shared-flows';
-import { clearRequestLog, getRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
+import {
+  clearRequestLog,
+  getRequestLog,
+  setMockBehavior,
+  startMockServer,
+  stopMockServer,
+} from '../mock-server';
 
 async function waitForRequest(method, urlFragment, timeout = 15_000) {
   const deadline = Date.now() + timeout;
@@ -331,16 +337,14 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
   async function mockGetUserMediaError(domExceptionName: string): Promise<void> {
     await browser.execute((name: string) => {
       // Store the real implementation so the test can restore it.
-      (window as any).__e2e_gum_original =
-        navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+      (window as any).__e2e_gum_original = navigator.mediaDevices?.getUserMedia?.bind(
+        navigator.mediaDevices
+      );
       // Replace with a function that rejects with the requested DOMException.
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
         configurable: true,
         value: () => {
-          const err = new DOMException(
-            `[E2E mock] getUserMedia blocked (${name})`,
-            name
-          );
+          const err = new DOMException(`[E2E mock] getUserMedia blocked (${name})`, name);
           return Promise.reject(err);
         },
       });
@@ -386,7 +390,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
     if (!supportsExecuteScript()) return '';
     return (await browser.execute(() => {
       const el = document.querySelector('[data-chat-send-error-code]');
-      return el ? (el as HTMLElement).textContent ?? '' : '';
+      return el ? ((el as HTMLElement).textContent ?? '') : '';
     })) as string;
   }
 
@@ -410,7 +414,10 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
     const hasPushToTalk = await textExists('Push to Talk');
     if (!hasPushToTalk) {
       const tree = await dumpAccessibilityTree();
-      console.log('[HumanTabE2E:6.1] Push-to-Talk not found. Accessibility tree:\n', tree.slice(0, 4_000));
+      console.log(
+        '[HumanTabE2E:6.1] Push-to-Talk not found. Accessibility tree:\n',
+        tree.slice(0, 4_000)
+      );
     }
     expect(hasPushToTalk).toBe(true);
 
@@ -462,13 +469,13 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
       view.setUint32(4, 36 + dataBytes, true);
       writeAscii(8, 'WAVE');
       writeAscii(12, 'fmt ');
-      view.setUint32(16, 16, true);          // chunk size
-      view.setUint16(20, 1, true);           // PCM
-      view.setUint16(22, 1, true);           // mono
+      view.setUint32(16, 16, true); // chunk size
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // mono
       view.setUint32(24, sampleRate, true);
       view.setUint32(28, sampleRate * 2, true); // byte rate
-      view.setUint16(32, 2, true);           // block align
-      view.setUint16(34, 16, true);          // bits per sample
+      view.setUint16(32, 2, true); // block align
+      view.setUint16(34, 16, true); // bits per sample
       writeAscii(36, 'data');
       view.setUint32(40, dataBytes, true);
       // Samples are already zeroed.
@@ -526,7 +533,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
       // the test harness either. Skip with explanation.
       console.log(
         '[HumanTabE2E:6.3] SKIP — Mac2 driver does not support browser.execute() in WKWebView. ' +
-        'Permission-denied path requires JS mocking of navigator.mediaDevices.getUserMedia.'
+          'Permission-denied path requires JS mocking of navigator.mediaDevices.getUserMedia.'
       );
       return;
     }
@@ -539,9 +546,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
     try {
       // Click the "Start recording" button (aria-label on the <button> in MicComposer).
       const clicked = await browser.execute(() => {
-        const btn = document.querySelector<HTMLButtonElement>(
-          '[aria-label="Start recording"]'
-        );
+        const btn = document.querySelector<HTMLButtonElement>('[aria-label="Start recording"]');
         if (!btn) return false;
         btn.click();
         return true;
@@ -552,17 +557,21 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
         // mounted yet — wait for the Tap-and-speak label and retry once.
         await browser.pause(1_500);
         const retried = await browser.execute(() => {
-          const btn = document.querySelector<HTMLButtonElement>(
-            '[aria-label="Start recording"]'
-          );
-          if (btn) { btn.click(); return true; }
+          const btn = document.querySelector<HTMLButtonElement>('[aria-label="Start recording"]');
+          if (btn) {
+            btn.click();
+            return true;
+          }
           return false;
         });
         if (!retried) {
           // Dump the tree for diagnosis and skip the assertion — the page
           // didn't mount in time, not a voice-error-mapping regression.
           const tree = await dumpAccessibilityTree();
-          console.log('[HumanTabE2E:6.3] Start-recording button not found. Tree:\n', tree.slice(0, 4_000));
+          console.log(
+            '[HumanTabE2E:6.3] Start-recording button not found. Tree:\n',
+            tree.slice(0, 4_000)
+          );
           return;
         }
       }
@@ -585,7 +594,8 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
       // gets actionable feedback — not a generic "Something went wrong".
       const msg = await getSendErrorMessage();
       const lowerMsg = msg.toLowerCase();
-      const isActionable = lowerMsg.includes('permission') ||
+      const isActionable =
+        lowerMsg.includes('permission') ||
         lowerMsg.includes('denied') ||
         lowerMsg.includes('microphone');
       if (!isActionable) {
@@ -621,7 +631,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
     if (!supportsExecuteScript()) {
       console.log(
         '[HumanTabE2E:6.4] SKIP — Mac2 driver does not support browser.execute(). ' +
-        'No-device path requires either natural headless failure or JS mock of getUserMedia.'
+          'No-device path requires either natural headless failure or JS mock of getUserMedia.'
       );
       return;
     }
@@ -650,9 +660,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
 
     try {
       const clicked = await browser.execute(() => {
-        const btn = document.querySelector<HTMLButtonElement>(
-          '[aria-label="Start recording"]'
-        );
+        const btn = document.querySelector<HTMLButtonElement>('[aria-label="Start recording"]');
         if (!btn) return false;
         btn.click();
         return true;
@@ -661,15 +669,19 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
       if (!clicked) {
         await browser.pause(1_500);
         const retried = await browser.execute(() => {
-          const btn = document.querySelector<HTMLButtonElement>(
-            '[aria-label="Start recording"]'
-          );
-          if (btn) { btn.click(); return true; }
+          const btn = document.querySelector<HTMLButtonElement>('[aria-label="Start recording"]');
+          if (btn) {
+            btn.click();
+            return true;
+          }
           return false;
         });
         if (!retried) {
           const tree = await dumpAccessibilityTree();
-          console.log('[HumanTabE2E:6.4] Start-recording button not found. Tree:\n', tree.slice(0, 4_000));
+          console.log(
+            '[HumanTabE2E:6.4] Start-recording button not found. Tree:\n',
+            tree.slice(0, 4_000)
+          );
           return;
         }
       }
@@ -690,7 +702,8 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
       // The message must mention the hardware absence specifically.
       const msg = await getSendErrorMessage();
       const lowerMsg = msg.toLowerCase();
-      const isSpecific = lowerMsg.includes('microphone') ||
+      const isSpecific =
+        lowerMsg.includes('microphone') ||
         lowerMsg.includes('unavailable') ||
         lowerMsg.includes('device') ||
         lowerMsg.includes('access') ||
@@ -724,7 +737,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
     if (!supportsExecuteScript()) {
       console.log(
         '[HumanTabE2E:6.5] SKIP — Mac2 driver does not support browser.execute(). ' +
-        'Beep-placeholder guard requires JS thread inspection.'
+          'Beep-placeholder guard requires JS thread inspection.'
       );
       return;
     }
@@ -744,9 +757,7 @@ describe('Voice mode — Human tab capture & error mapping (#1610)', () => {
 
       // Tap the mic button.
       await browser.execute(() => {
-        const btn = document.querySelector<HTMLButtonElement>(
-          '[aria-label="Start recording"]'
-        );
+        const btn = document.querySelector<HTMLButtonElement>('[aria-label="Start recording"]');
         btn?.click();
       });
 

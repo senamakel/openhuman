@@ -167,9 +167,7 @@ impl ComposioExecuteState {
     }
 }
 
-async fn mock_current_user(
-    headers: HeaderMap,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+async fn mock_current_user(headers: HeaderMap) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let auth = headers
         .get(AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
@@ -257,10 +255,7 @@ encrypt = false
     // json_rpc_e2e.rs). Without this, auth_store_session hits the real backend.
     write_cfg(&openhuman_dir.join("users").join("local"), &cfg);
     // Post-login user-scoped directory.
-    write_cfg(
-        &openhuman_dir.join("users").join("composio-e2e-user"),
-        &cfg,
-    );
+    write_cfg(&openhuman_dir.join("users").join("composio-e2e-user"), &cfg);
 }
 
 async fn post_json_rpc(rpc_base: &str, id: i64, method: &str, params: Value) -> Value {
@@ -525,7 +520,9 @@ async fn revoked_token_surfaces_without_retry() {
             .or_else(|| exec["error"].as_str())
             .unwrap_or("");
         assert!(
-            err_msg.contains("revoked") || err_msg.contains("invalid_grant") || err_msg.contains("composio"),
+            err_msg.contains("revoked")
+                || err_msg.contains("invalid_grant")
+                || err_msg.contains("composio"),
             "RPC error should reference the revoked-token message; got: {err_msg}"
         );
     } else {
@@ -541,10 +538,7 @@ async fn revoked_token_surfaces_without_retry() {
             !successful,
             "revoked-token error must NOT be reported as successful; got: {result}"
         );
-        let error_text = result
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let error_text = result.get("error").and_then(Value::as_str).unwrap_or("");
         assert!(
             error_text.contains("revoked")
                 || error_text.contains("invalid_grant")

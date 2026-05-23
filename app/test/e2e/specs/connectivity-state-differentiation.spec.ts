@@ -40,11 +40,8 @@
  * Tracked in issue #1527.
  */
 import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
+import { textExists as _textExists, waitForText as _waitForText } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
-import {
-  textExists,
-  waitForText,
-} from '../helpers/element-helpers';
 import {
   getMockServerPort,
   resetMockBehavior,
@@ -66,7 +63,7 @@ const USER_ID = 'e2e-connectivity-state-differentiation';
  * app.connectionIndicator.coreOffline  → "Core offline"
  * app.connectionIndicator.offline      → "Offline"
  */
-const STATUS_TEXT = {
+const _STATUS_TEXT = {
   internetOffline: 'Your device is offline right now',
   coreUnreachable: "The OpenHuman core isn't responding",
   // Full value ends with "… your agent will be available again shortly."
@@ -78,7 +75,7 @@ const STATUS_TEXT = {
 } as const;
 
 /** Timeout for connectivity state changes to propagate to the UI. */
-const CONNECTIVITY_SETTLE_MS = 12_000;
+const _CONNECTIVITY_SETTLE_MS = 12_000;
 
 function stepLog(message: string): void {
   console.log(`[ConnectivityDiffE2E][${new Date().toISOString()}] ${message}`);
@@ -89,7 +86,7 @@ function stepLog(message: string): void {
  * disconnect all Socket.IO clients. Returns the number of sessions
  * disconnected, or -1 on failure.
  */
-async function adminDisconnectSockets(): Promise<number> {
+async function _adminDisconnectSockets(): Promise<number> {
   const port = getMockServerPort();
   stepLog(`Posting to /__admin/socket/disconnect on mock port ${String(port)}`);
   try {
@@ -112,7 +109,7 @@ async function adminDisconnectSockets(): Promise<number> {
  * Simulate device-offline inside the WebView by dispatching the native
  * 'offline' DOM event. The connectivity slice listens on window.
  */
-async function simulateDeviceOffline(): Promise<void> {
+async function _simulateDeviceOffline(): Promise<void> {
   await browser.execute(() => {
     window.dispatchEvent(new Event('offline'));
   });

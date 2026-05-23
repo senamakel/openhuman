@@ -252,6 +252,62 @@ describe('AIPanel', () => {
     expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument();
   });
 
+  it('renders Rotate/Clear controls when an OpenAI-compat key is configured', async () => {
+    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValueOnce({
+      baseUrl: 'http://127.0.0.1:7788/v1',
+      has_api_key: true,
+    });
+    renderWithProviders(<AIPanel />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Rotate key' })).toBeInTheDocument()
+    );
+    expect(screen.getByRole('button', { name: 'Clear key' })).toBeInTheDocument();
+    expect(screen.getByText('Key configured')).toBeInTheDocument();
+  });
+
+  it('falls back to the localized "Unavailable" base URL when resolution fails', async () => {
+    vi.mocked(loadOpenAICompatEndpointStatus).mockRejectedValueOnce(new Error('boom'));
+    renderWithProviders(<AIPanel />);
+
+    await waitFor(() => expect(screen.getByDisplayValue('Unavailable')).toBeInTheDocument());
+  });
+
+  it('clears the OpenAI-compat key when the Clear button is clicked', async () => {
+    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValueOnce({
+      baseUrl: 'http://127.0.0.1:7788/v1',
+      has_api_key: true,
+    });
+    renderWithProviders(<AIPanel />);
+
+    const clearBtn = await screen.findByRole('button', { name: 'Clear key' });
+    fireEvent.click(clearBtn);
+
+    await waitFor(() => expect(clearOpenAICompatEndpointKey).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument()
+    );
+  });
+
+  it('persists a new OpenAI-compat key via the Set key dialog', async () => {
+    renderWithProviders(<AIPanel />);
+
+    const setBtn = await screen.findByRole('button', { name: 'Set key' });
+    fireEvent.click(setBtn);
+
+    const input = await screen.findByLabelText(/API Key/i);
+    fireEvent.change(input, { target: { value: 'sk-test-12345' } });
+    const submit = screen.getByRole('button', { name: /^Save$/ });
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(setOpenAICompatEndpointKey).toHaveBeenCalledWith('sk-test-12345')
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Rotate key' })).toBeInTheDocument()
+    );
+  });
+
   it('renders the OpenHuman primary card after load', async () => {
     renderWithProviders(<AIPanel />);
     // The OpenHuman label now appears in multiple places (provider card,

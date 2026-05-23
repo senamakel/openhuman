@@ -121,7 +121,9 @@ async function connectTelegramChannel(): Promise<boolean> {
       );
       return false;
     }
-    console.log(`${LOG_PREFIX} connectTelegramChannel: connected (restartRequired=${result.restartRequired})`);
+    console.log(
+      `${LOG_PREFIX} connectTelegramChannel: connected (restartRequired=${result.restartRequired})`
+    );
     return true;
   } catch (err) {
     console.warn(`${LOG_PREFIX} connectTelegramChannel: threw — ${err}`);
@@ -279,9 +281,7 @@ describe('Harness — Cross-channel bridge flow', () => {
           },
         ],
       },
-      {
-        content: `I created a daily 9am standup reminder for you. ${CANARY_CRON}`,
-      },
+      { content: `I created a daily 9am standup reminder for you. ${CANARY_CRON}` },
     ];
     setMockBehavior('llmForcedResponses', JSON.stringify(FORCED));
     setMockBehavior('llmStreamChunkDelayMs', '10');
@@ -305,7 +305,9 @@ describe('Harness — Cross-channel bridge flow', () => {
       try {
         await tgInject(update);
       } catch (err) {
-        console.warn(`${LOG_PREFIX} CB1: tgInject failed — ${err}. TODO(channels): WS-A not merged.`);
+        console.warn(
+          `${LOG_PREFIX} CB1: tgInject failed — ${err}. TODO(channels): WS-A not merged.`
+        );
       }
 
       // (b) Wait for the outbound Telegram reply containing the confirmation.
@@ -325,7 +327,9 @@ describe('Harness — Cross-channel bridge flow', () => {
     } else {
       // Telegram not connected — skip inbound/outbound assertions and exercise
       // only the LLM forced-response queue via the web chat path.
-      console.warn(`${LOG_PREFIX} CB1: skipping Telegram injection (not connected). Running web-chat fallback.`);
+      console.warn(
+        `${LOG_PREFIX} CB1: skipping Telegram injection (not connected). Running web-chat fallback.`
+      );
       await navigateChatAndSend('set up a daily standup reminder at 9am');
       await browser.waitUntil(async () => await textExists(CANARY_CRON), {
         timeout: 60_000,
@@ -426,7 +430,9 @@ describe('Harness — Cross-channel bridge flow', () => {
       try {
         await tgInject(update);
       } catch (err) {
-        console.warn(`${LOG_PREFIX} CB2: tgInject failed — ${err}. TODO(channels): WS-A not merged.`);
+        console.warn(
+          `${LOG_PREFIX} CB2: tgInject failed — ${err}. TODO(channels): WS-A not merged.`
+        );
       }
 
       // Wait for outbound Telegram reply containing a subject line.
@@ -446,15 +452,17 @@ describe('Harness — Cross-channel bridge flow', () => {
       }
     } else {
       // Fallback: drive through the web chat.
-      console.warn(`${LOG_PREFIX} CB2: skipping Telegram injection (not connected). Running web-chat fallback.`);
+      console.warn(
+        `${LOG_PREFIX} CB2: skipping Telegram injection (not connected). Running web-chat fallback.`
+      );
       await navigateChatAndSend('check my gmail inbox');
       await browser.waitUntil(async () => await textExists(CANARY_GMAIL), {
         timeout: 60_000,
         timeoutMsg: `CB2: gmail-reply canary "${CANARY_GMAIL}" never appeared`,
       });
-      expect(
-        await waitForAssistantReplyContaining('OKR Review', { logPrefix: LOG_PREFIX })
-      ).toBe(true);
+      expect(await waitForAssistantReplyContaining('OKR Review', { logPrefix: LOG_PREFIX })).toBe(
+        true
+      );
     }
 
     // Composio execute: best-effort — assert if the log captured it.
@@ -526,13 +534,15 @@ describe('Harness — Cross-channel bridge flow', () => {
       try {
         await tgInject(update);
       } catch (err) {
-        console.warn(`${LOG_PREFIX} CB3: tgInject failed — ${err}. TODO(channels): WS-A not merged.`);
+        console.warn(
+          `${LOG_PREFIX} CB3: tgInject failed — ${err}. TODO(channels): WS-A not merged.`
+        );
       }
 
       // Wait for outbound Telegram reply containing the Atlas token.
       const tgReply = await tryWaitForTelegramReply(TEST_CHAT_ID, 'Atlas', 20_000);
       if (tgReply) {
-        const replyText = String((tgReply.text ?? tgReply.body) ?? '');
+        const replyText = String(tgReply.text ?? tgReply.body ?? '');
         console.log(`${LOG_PREFIX} CB3: Telegram reply: "${replyText.slice(0, 120)}"`);
         expect(replyText.includes('Atlas') || replyText.length > 0).toBe(true);
       } else {
@@ -543,15 +553,17 @@ describe('Harness — Cross-channel bridge flow', () => {
       }
     } else {
       // Fallback: web chat.
-      console.warn(`${LOG_PREFIX} CB3: skipping Telegram injection (not connected). Running web-chat fallback.`);
+      console.warn(
+        `${LOG_PREFIX} CB3: skipping Telegram injection (not connected). Running web-chat fallback.`
+      );
       await navigateChatAndSend('remember what we discussed about Atlas?');
       await browser.waitUntil(async () => await textExists(ATLAS_CANARY), {
         timeout: 60_000,
         timeoutMsg: `CB3: memory-recall canary "${ATLAS_CANARY}" never appeared`,
       });
-      expect(
-        await waitForAssistantReplyContaining(ATLAS_TOKEN, { logPrefix: LOG_PREFIX })
-      ).toBe(true);
+      expect(await waitForAssistantReplyContaining(ATLAS_TOKEN, { logPrefix: LOG_PREFIX })).toBe(
+        true
+      );
     }
 
     // LLM log: memory_recall tool name should appear in one of the LLM requests
@@ -597,10 +609,7 @@ describe('Harness — Cross-channel bridge flow', () => {
     const CANARY_CHANNEL = 'canary-cb4-channel-summary';
 
     const KEYWORD_RULES = [
-      {
-        keyword: 'Telegram today',
-        content: `${CHANNEL_SUMMARY} ${CANARY_CHANNEL}`,
-      },
+      { keyword: 'Telegram today', content: `${CHANNEL_SUMMARY} ${CANARY_CHANNEL}` },
     ];
     setMockBehavior('llmKeywordRules', JSON.stringify(KEYWORD_RULES));
     setMockBehavior('llmStreamChunkDelayMs', '10');
@@ -616,9 +625,9 @@ describe('Harness — Cross-channel bridge flow', () => {
     console.log(`${LOG_PREFIX} CB4: canary visible`);
 
     // Assert the full summary phrase is in the UI reply.
-    expect(
-      await waitForAssistantReplyContaining('Telegram today', { logPrefix: LOG_PREFIX })
-    ).toBe(true);
+    expect(await waitForAssistantReplyContaining('Telegram today', { logPrefix: LOG_PREFIX })).toBe(
+      true
+    );
 
     // LLM log: at least 1 completions request.
     const log = getRequestLog() as Array<{ method: string; url: string }>;
@@ -659,11 +668,7 @@ describe('Harness — Cross-channel bridge flow', () => {
     // creates a NEW thread so it results in a fresh LLM call — the forced
     // response will be consumed for that call.
     const TG_CANARY = 'canary-cb5-telegram-reply';
-    const TELEGRAM_FORCED = [
-      {
-        content: `Telegram ping received — pong! ${TG_CANARY}`,
-      },
-    ];
+    const TELEGRAM_FORCED = [{ content: `Telegram ping received — pong! ${TG_CANARY}` }];
 
     // We set up the Telegram forced response AFTER kicking off the web chat
     // stream, to avoid consuming it before the web chat turn starts.
@@ -732,7 +737,10 @@ describe('Harness — Cross-channel bridge flow', () => {
 
     // (a) Web chat assertion: the full streaming reply arrived intact.
     expect(
-      await waitForAssistantReplyContaining('web reply', { logPrefix: LOG_PREFIX, timeoutMs: 5_000 })
+      await waitForAssistantReplyContaining('web reply', {
+        logPrefix: LOG_PREFIX,
+        timeoutMs: 5_000,
+      })
     ).toBe(true);
 
     // (b) Telegram reply assertion (only when connected).
@@ -741,9 +749,7 @@ describe('Harness — Cross-channel bridge flow', () => {
       // web chat stream or running concurrently depending on core scheduling.
       const tgReply = await tryWaitForTelegramReply(TEST_CHAT_ID, 'pong', 20_000);
       if (tgReply) {
-        console.log(
-          `${LOG_PREFIX} CB5: Telegram reply confirmed — concurrent processing works`
-        );
+        console.log(`${LOG_PREFIX} CB5: Telegram reply confirmed — concurrent processing works`);
       } else {
         // TODO(channels): If the core serialises agent runs globally (not per-thread),
         // the Telegram turn may be queued until the web chat stream finishes.

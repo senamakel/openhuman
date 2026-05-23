@@ -39,15 +39,6 @@ import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { resetApp } from '../helpers/reset-app';
 import {
-  clearRequestLog,
-  getRequestLog,
-  resetMockBehavior,
-  resetTelegramMock,
-  setMockBehavior,
-  startMockServer,
-  stopMockServer,
-} from '../mock-server';
-import {
   assertNoTelegramReply,
   buildTelegramUpdate,
   connectTelegramBot,
@@ -56,6 +47,15 @@ import {
   injectTelegramUpdate,
   waitForTelegramReply,
 } from '../helpers/telegram';
+import {
+  clearRequestLog,
+  getRequestLog,
+  resetMockBehavior,
+  resetTelegramMock,
+  setMockBehavior,
+  startMockServer,
+  stopMockServer,
+} from '../mock-server';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -190,9 +190,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     console.log(`${LOG_PREFIX} C.1: telegram auth_modes = ${JSON.stringify(authModes)}`);
 
     const hasBotToken = authModes.some(
-      (m: unknown) =>
-        (m as Record<string, unknown>).mode === 'bot_token' ||
-        m === 'bot_token'
+      (m: unknown) => (m as Record<string, unknown>).mode === 'bot_token' || m === 'bot_token'
     );
     expect(hasBotToken).toBe(true);
   });
@@ -205,9 +203,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     this.timeout(30_000);
     console.log(`${LOG_PREFIX} C.2: calling channels_describe`);
 
-    const out = await callOpenhumanRpc('openhuman.channels_describe', {
-      channel: 'telegram',
-    });
+    const out = await callOpenhumanRpc('openhuman.channels_describe', { channel: 'telegram' });
     console.log(`${LOG_PREFIX} C.2: result = ${JSON.stringify(out).slice(0, 800)}`);
 
     expect(out.ok).toBe(true);
@@ -226,9 +222,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     expect(def.id ?? (def as Record<string, unknown>).channel_id).toBe('telegram');
 
     // Auth modes array must include bot_token.
-    const authModes: unknown[] = Array.isArray(def.auth_modes)
-      ? (def.auth_modes as unknown[])
-      : [];
+    const authModes: unknown[] = Array.isArray(def.auth_modes) ? (def.auth_modes as unknown[]) : [];
     const hasBotToken = authModes.some(
       (m: unknown) => (m as Record<string, unknown>).mode === 'bot_token'
     );
@@ -248,7 +242,9 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     );
     expect(hasBotTokenField).toBe(true);
 
-    console.log(`${LOG_PREFIX} C.2: description validated — auth_modes=${authModes.length}, bot_token field present=${hasBotTokenField}`);
+    console.log(
+      `${LOG_PREFIX} C.2: description validated — auth_modes=${authModes.length}, bot_token field present=${hasBotTokenField}`
+    );
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -326,9 +322,13 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
       // Status may be null (no entry) or connected=false.
       const isDisconnected = status === null || status.connected === false;
       expect(isDisconnected).toBe(true);
-      console.log(`${LOG_PREFIX} C.4: pass — connect rejected, status=${status?.connected ?? 'null'}`);
+      console.log(
+        `${LOG_PREFIX} C.4: pass — connect rejected, status=${status?.connected ?? 'null'}`
+      );
     } else {
-      console.log(`${LOG_PREFIX} C.4: pass — connect returned non-error status despite empty token (behavior may differ by version)`);
+      console.log(
+        `${LOG_PREFIX} C.4: pass — connect returned non-error status despite empty token (behavior may differ by version)`
+      );
     }
   });
 
@@ -351,18 +351,14 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     console.log(`${LOG_PREFIX} C.5: setting up inbound message round-trip`);
 
     // First ensure the bot is connected (writes credentials + TOML config).
-    await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Configure the mock LLM to respond deterministically.
     setMockBehavior(
       'llmForcedResponses',
       JSON.stringify([
         {
-          content:
-            'Hello Alice! I received your message and I am responding via Telegram.',
+          content: 'Hello Alice! I received your message and I am responding via Telegram.',
           finish_reason: 'stop',
         },
       ])
@@ -446,10 +442,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     console.log(`${LOG_PREFIX} C.6: connecting with allowlist excluding Bob`);
 
     // Connect with Alice in the allowlist — Bob is excluded.
-    await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Inject a message from Bob (not in the allowlist).
     const update = buildTelegramUpdate({
@@ -552,10 +545,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     await injectTelegramUpdate(updateNoMention);
     console.log(`${LOG_PREFIX} C.7: no-mention update injected — asserting no reply`);
 
-    const noReply = await assertNoTelegramReply({
-      chatId: CHAT_ID_GROUP,
-      timeoutMs: 8_000,
-    });
+    const noReply = await assertNoTelegramReply({ chatId: CHAT_ID_GROUP, timeoutMs: 8_000 });
     expect(noReply).toBe(true);
     console.log(`${LOG_PREFIX} C.7: no-mention case passed — bot correctly silent`);
 
@@ -566,10 +556,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     setMockBehavior(
       'llmForcedResponses',
       JSON.stringify([
-        {
-          content: 'Hi group! You mentioned me so I am responding.',
-          finish_reason: 'stop',
-        },
+        { content: 'Hi group! You mentioned me so I am responding.', finish_reason: 'stop' },
       ])
     );
 
@@ -586,10 +573,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     console.log(`${LOG_PREFIX} C.7: @mention update injected — waiting for reply`);
 
     try {
-      const reply = await waitForTelegramReply({
-        chatId: CHAT_ID_GROUP,
-        timeoutMs: 25_000,
-      });
+      const reply = await waitForTelegramReply({ chatId: CHAT_ID_GROUP, timeoutMs: 25_000 });
       console.log(`${LOG_PREFIX} C.7: pass — @mention triggered reply: ${JSON.stringify(reply)}`);
       expect(reply).toBeDefined();
     } catch (err) {
@@ -678,10 +662,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     this.timeout(60_000);
     console.log(`${LOG_PREFIX} C.10: setting up /status command scenario`);
 
-    await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Wait for listener.
     const listenerDeadline = Date.now() + 30_000;

@@ -150,52 +150,44 @@ fn telegram_api_url() {
 
 // ── OPENHUMAN_TELEGRAM_API_BASE override tests ──────────────────────────────
 //
-// These three cases are exercised in a single sequential test function to avoid
-// parallel mutation of the process environment.  `std::env::set_var` is not
-// thread-safe when combined with concurrent reads; bundling the cases in one
-// `#[test]` fn ensures the test runner executes them serially without requiring
-// the `serial_test` crate (which is not a dependency).
+// Exercises `resolve_api_base` directly as a pure function so the test does
+// not mutate `std::env`. Mutating env here races with other parallel tests in
+// this module that construct `TelegramChannel::new()` and expect the default
+// api.telegram.org base.
 #[test]
-fn telegram_api_base_env_override_sequential() {
-    const ENV_KEY: &str = "OPENHUMAN_TELEGRAM_API_BASE";
-    const TOKEN: &str = "tok:123";
+fn telegram_api_base_default_when_unset() {
+    use super::super::channel_core::resolve_api_base;
+    assert_eq!(resolve_api_base(None), "https://api.telegram.org");
+    assert_eq!(
+        resolve_api_base(Some("".to_string())),
+        "https://api.telegram.org"
+    );
+    assert_eq!(
+        resolve_api_base(Some("   ".to_string())),
+        "https://api.telegram.org"
+    );
+}
 
-    // --- Case 1: default (env var unset) ---
-    // Remove any pre-existing value from the parent environment before testing.
-    unsafe { std::env::remove_var(ENV_KEY) };
-    {
-        let ch = TelegramChannel::new(TOKEN.into(), vec![], false);
-        assert_eq!(
-            ch.api_url("getMe"),
-            format!("https://api.telegram.org/bot{TOKEN}/getMe"),
-            "Case 1: api_url() must use https://api.telegram.org when env var is unset"
-        );
-    }
+#[test]
+fn telegram_api_base_custom_value() {
+    use super::super::channel_core::resolve_api_base;
+    assert_eq!(
+        resolve_api_base(Some("http://127.0.0.1:18473".to_string())),
+        "http://127.0.0.1:18473"
+    );
+}
 
-    // --- Case 2: custom base URL ---
-    unsafe { std::env::set_var(ENV_KEY, "http://127.0.0.1:18473") };
-    {
-        let ch = TelegramChannel::new(TOKEN.into(), vec![], false);
-        assert_eq!(
-            ch.api_url("getMe"),
-            format!("http://127.0.0.1:18473/bot{TOKEN}/getMe"),
-            "Case 2: api_url() must use the custom base URL from OPENHUMAN_TELEGRAM_API_BASE"
-        );
-    }
-
-    // --- Case 3: trailing slash is stripped ---
-    unsafe { std::env::set_var(ENV_KEY, "http://127.0.0.1:18473/") };
-    {
-        let ch = TelegramChannel::new(TOKEN.into(), vec![], false);
-        assert_eq!(
-            ch.api_url("sendMessage"),
-            format!("http://127.0.0.1:18473/bot{TOKEN}/sendMessage"),
-            "Case 3: trailing slash in OPENHUMAN_TELEGRAM_API_BASE must be stripped"
-        );
-    }
-
-    // Restore: remove the var so other tests (and child processes) are unaffected.
-    unsafe { std::env::remove_var(ENV_KEY) };
+#[test]
+fn telegram_api_base_trailing_slash_stripped() {
+    use super::super::channel_core::resolve_api_base;
+    assert_eq!(
+        resolve_api_base(Some("http://127.0.0.1:18473/".to_string())),
+        "http://127.0.0.1:18473"
+    );
+    assert_eq!(
+        resolve_api_base(Some("http://example.com///".to_string())),
+        "http://example.com"
+    );
 }
 
 #[test]

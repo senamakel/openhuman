@@ -18,13 +18,12 @@
  *   channels_disconnect -> { channel, authMode }
  *   channels_status   -> { channel? }   -> entries: ChannelStatusEntry[]
  */
-
-import { callOpenhumanRpc } from './core-rpc';
 import {
   getTelegramSentMessages as adminGetSentMessages,
   injectTelegramUpdate as adminInjectUpdate,
   resetTelegramMock as adminReset,
 } from '../mock-server';
+import { callOpenhumanRpc } from './core-rpc';
 
 const LOG_PREFIX = '[TelegramChannel]';
 
@@ -67,12 +66,7 @@ export interface TelegramUpdate {
   update_id: number;
   message: {
     message_id: number;
-    from: {
-      id: number;
-      is_bot: boolean;
-      first_name: string;
-      username?: string;
-    };
+    from: { id: number; is_bot: boolean; first_name: string; username?: string };
     chat: {
       id: number;
       type: 'private' | 'group' | 'supergroup' | 'channel';
@@ -108,9 +102,7 @@ export interface SentMessage {
 export async function connectTelegramBot(
   opts: TelegramConnectOptions
 ): Promise<TelegramConnectResult> {
-  const credentials: Record<string, unknown> = {
-    bot_token: opts.botToken,
-  };
+  const credentials: Record<string, unknown> = { bot_token: opts.botToken };
   if (opts.allowedUsers !== undefined) {
     credentials.allowed_users = opts.allowedUsers;
   }
@@ -184,9 +176,7 @@ export async function disconnectTelegramBot(): Promise<boolean> {
 export async function getTelegramChannelStatus(): Promise<TelegramStatusEntry | null> {
   console.log(`${LOG_PREFIX} getTelegramChannelStatus: calling channels_status`);
 
-  const out = await callOpenhumanRpc('openhuman.channels_status', {
-    channel: 'telegram',
-  });
+  const out = await callOpenhumanRpc('openhuman.channels_status', { channel: 'telegram' });
 
   if (!out.ok) {
     console.warn(`${LOG_PREFIX} getTelegramChannelStatus: RPC failed — ${JSON.stringify(out)}`);
@@ -245,12 +235,7 @@ export function buildTelegramUpdate(opts: {
     update_id: opts.updateId,
     message: {
       message_id: opts.updateId * 10, // stable across retries
-      from: {
-        id: opts.userId,
-        is_bot: false,
-        first_name: opts.username,
-        username: opts.username,
-      },
+      from: { id: opts.userId, is_bot: false, first_name: opts.username, username: opts.username },
       chat: {
         id: opts.chatId,
         type: chatType,

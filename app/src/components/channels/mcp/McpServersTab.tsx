@@ -35,7 +35,10 @@ const McpServersTab = () => {
     log('loading installed servers');
     try {
       const installed = await mcpClientsApi.installedList();
-      setServers(installed);
+      // Defensive: API contract guarantees an array, but if a future regression
+      // or malformed envelope returns `undefined`, downstream `.find` crashes
+      // the entire tab. Normalise here.
+      setServers(Array.isArray(installed) ? installed : []);
       // Clear any previous error on successful reload.
       setLoadError(null);
       log('loaded %d installed servers', installed.length);
@@ -50,7 +53,9 @@ const McpServersTab = () => {
     log('polling statuses');
     try {
       const sv = await mcpClientsApi.status();
-      setStatuses(sv);
+      // Defensive: same reasoning as `loadInstalled` — `.find` / `.map`
+      // downstream cannot tolerate an undefined array.
+      setStatuses(Array.isArray(sv) ? sv : []);
     } catch (err) {
       log('status poll error: %o', err);
     }

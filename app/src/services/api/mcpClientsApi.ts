@@ -109,7 +109,12 @@ export const mcpClientsApi = {
       params: {},
     });
     log('installed_list returned %d servers', result.installed?.length ?? 0);
-    return result.installed;
+    // Guard against an unexpected envelope shape (e.g. core returns `{}` on
+    // first launch before the MCP store is initialised). Callers downstream
+    // call `.find` / `.map` on this array directly — returning `undefined`
+    // here crashes the MCP Servers tab with `Cannot read properties of
+    // undefined (reading 'find')`.
+    return result.installed ?? [];
   },
 
   /** Install a server with the given env vars and optional config. */
@@ -168,7 +173,9 @@ export const mcpClientsApi = {
       params: {},
     });
     log('status returned %d servers', result.servers?.length ?? 0);
-    return result.servers;
+    // Same defensive shape: downstream `.find` / `.map` callers can't tolerate
+    // an `undefined` array if the RPC envelope is missing this field.
+    return result.servers ?? [];
   },
 
   /** Invoke a tool on a connected server. */

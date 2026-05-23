@@ -161,19 +161,26 @@ const VoiceIcon = (
   </svg>
 );
 
-const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
+const WrappedSettingsPage = ({
+  children,
+  maxWidthClass = 'max-w-lg',
+}: {
+  children: ReactNode;
+  maxWidthClass?: string;
+}) => {
   return (
     <div className="p-4 pt-6">
-      <div className="max-w-lg mx-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden">
+      <div
+        className={`${maxWidthClass} mx-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 overflow-hidden`}>
         {children}
       </div>
     </div>
   );
 };
 
-function wrapSettingsPage(element: ReactNode) {
+function wrapSettingsPage(element: ReactNode, opts?: { maxWidthClass?: string }) {
   return (
-    <WrappedSettingsPage>
+    <WrappedSettingsPage maxWidthClass={opts?.maxWidthClass}>
       {element}
       <div className="border-t border-stone-100 dark:border-neutral-800 px-4 py-3 text-center text-[11px] text-stone-400 dark:text-neutral-500">
         Beta build - v{APP_VERSION}
@@ -346,7 +353,10 @@ const Settings = () => {
           path="notification-routing"
           element={<Navigate to="/settings/notifications#routing" replace />}
         />
-        <Route path="llm" element={wrapSettingsPage(<AIPanel />)} />
+        <Route
+          path="llm"
+          element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
         <Route

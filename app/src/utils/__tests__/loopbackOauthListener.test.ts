@@ -128,4 +128,30 @@ describe('startLoopbackOauthListener', () => {
       vi.useRealTimers();
     }
   });
+
+  test('unsubscribes the previous listen() handler when a new listener starts', async () => {
+    // First start: register a listen() handler so the module captures
+    // `activeUnlisten`.
+    mockInvoke.mockResolvedValueOnce({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's1' });
+    const firstUnlisten = vi.fn();
+    mockListen.mockResolvedValueOnce(firstUnlisten);
+
+    const first = await startLoopbackOauthListener();
+    void first!.awaitCallback().catch(() => {
+      // The stale promise rejects when its setTimeout fires after this test
+      // ends; swallow so it doesn't surface as an unhandled rejection.
+    });
+    // Let listen() resolve so the module captures the unlisten handle.
+    await Promise.resolve();
+    expect(firstUnlisten).not.toHaveBeenCalled();
+
+    // Second start: should detect the stale activeUnlisten and call it
+    // before installing the new listener.
+    mockInvoke.mockResolvedValueOnce({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's2' });
+    mockListen.mockResolvedValueOnce(() => {});
+
+    await startLoopbackOauthListener();
+
+    expect(firstUnlisten).toHaveBeenCalledTimes(1);
+  });
 });

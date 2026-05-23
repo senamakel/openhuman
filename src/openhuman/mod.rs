@@ -43,6 +43,7 @@ pub mod http_host;
 pub mod inference;
 pub mod integrations;
 pub mod javascript;
+pub mod keyring;
 pub mod learning;
 pub mod mcp_client;
 pub mod mcp_clients;

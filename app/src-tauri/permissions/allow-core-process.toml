@@ -125,6 +125,16 @@ allow = [
     # CEF / PROFILE
     # =========================
     "schedule_cef_profile_purge",
+
+    # =========================
+    # LOOPBACK OAUTH (RFC 8252)
+    # =========================
+    # One-shot http://127.0.0.1:<port>/auth listener that receives the OAuth
+    # callback in lieu of the openhuman:// deep link (#2511). Without these
+    # allow entries the invoke is rejected with "Command not found" and every
+    # login transparently falls back to the deep-link path.
+    "start_loopback_oauth_listener",
+    "stop_loopback_oauth_listener",
 ]
 
 deny = []

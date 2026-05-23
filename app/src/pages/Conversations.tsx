@@ -182,7 +182,7 @@ const Conversations = ({
   const { threads, selectedThreadId, messages, isLoadingMessages, messagesError, activeThreadId } =
     useAppSelector(state => state.thread);
 
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('text');

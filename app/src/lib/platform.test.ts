@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { clearTestPlatform, getIsIOS, setTestPlatform } from './platform';
+import {
+  clearTestPlatform,
+  getIsAndroid,
+  getIsIOS,
+  getIsMobile,
+  setTestPlatform,
+} from './platform';
 
 describe('platform detection', () => {
   afterEach(() => {
@@ -34,5 +40,33 @@ describe('platform detection', () => {
     clearTestPlatform();
     // After clear, back to auto-detect (still a boolean).
     expect(typeof getIsIOS()).toBe('boolean');
+  });
+
+  it('getIsAndroid reflects the "android" test override', () => {
+    setTestPlatform('android');
+    expect(getIsAndroid()).toBe(true);
+    expect(getIsIOS()).toBe(false);
+  });
+
+  it('getIsAndroid returns false on iOS and desktop overrides', () => {
+    setTestPlatform('ios');
+    expect(getIsAndroid()).toBe(false);
+    setTestPlatform('desktop');
+    expect(getIsAndroid()).toBe(false);
+  });
+
+  it('getIsMobile is true for both iOS and Android, false for desktop', () => {
+    setTestPlatform('ios');
+    expect(getIsMobile()).toBe(true);
+    setTestPlatform('android');
+    expect(getIsMobile()).toBe(true);
+    setTestPlatform('desktop');
+    expect(getIsMobile()).toBe(false);
+  });
+
+  it('returns a boolean for getIsAndroid by default', () => {
+    clearTestPlatform();
+    expect(typeof getIsAndroid()).toBe('boolean');
+    expect(typeof getIsMobile()).toBe('boolean');
   });
 });

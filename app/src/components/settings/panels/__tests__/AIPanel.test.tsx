@@ -300,9 +300,7 @@ describe('AIPanel', () => {
     const submit = screen.getByRole('button', { name: /^Save$/ });
     fireEvent.click(submit);
 
-    await waitFor(() =>
-      expect(setOpenAICompatEndpointKey).toHaveBeenCalledWith('sk-test-12345')
-    );
+    await waitFor(() => expect(setOpenAICompatEndpointKey).toHaveBeenCalledWith('sk-test-12345'));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Rotate key' })).toBeInTheDocument()
     );

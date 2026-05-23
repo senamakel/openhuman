@@ -416,6 +416,18 @@ fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) -> Result<(
 
     decrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
 
+    // Search engines: BYO API keys for Parallel and Brave.
+    decrypt_optional_secret(
+        &store,
+        &mut config.search.parallel.api_key,
+        "search.parallel.api_key",
+    )?;
+    decrypt_optional_secret(
+        &store,
+        &mut config.search.brave.api_key,
+        "search.brave.api_key",
+    )?;
+
     // Channels: decrypt every optional secret field.
     //
     // For required (non-Option<String>) secret fields we wrap the value in a
@@ -512,6 +524,17 @@ fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
     let store = crate::openhuman::security::SecretStore::new(parent_dir, true);
 
     encrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
+
+    encrypt_optional_secret(
+        &store,
+        &mut config.search.parallel.api_key,
+        "search.parallel.api_key",
+    )?;
+    encrypt_optional_secret(
+        &store,
+        &mut config.search.brave.api_key,
+        "search.brave.api_key",
+    )?;
 
     let ch = &mut config.channels_config;
     if let Some(ref mut tg) = ch.telegram {

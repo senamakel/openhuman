@@ -57,6 +57,11 @@ fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     cfg.integrations.tinyfish.enabled = true;
     cfg.integrations.stock_prices.enabled = true;
     cfg.integrations.twilio.enabled = true;
+    // Parallel tools (search/extract/chat/research/enrich/dataset) are
+    // registered by the unified search-engine selector, so flip the
+    // engine to `parallel` in test setup.
+    cfg.search.engine = crate::openhuman::config::SEARCH_ENGINE_PARALLEL.into();
+    cfg.search.parallel.api_key = Some("test-parallel-key".into());
     cfg
 }
 
@@ -898,6 +903,9 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     cfg.integrations.stock_prices.enabled = true;
     cfg.integrations.twilio.enabled = true;
     cfg.composio.enabled = true;
+    // Parallel tools now register through the unified search-engine selector.
+    cfg.search.engine = crate::openhuman::config::SEARCH_ENGINE_PARALLEL.into();
+    cfg.search.parallel.api_key = Some("test-parallel-key".into());
     store_test_session_token(&cfg);
 
     let tools = all_tools(
@@ -946,15 +954,19 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
 }
 
 #[test]
-fn all_tools_registers_optional_search_lsp_and_tool_stats_when_enabled() {
+fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
+    // The legacy seltz/searxng tools are no longer registered — the
+    // unified `search.engine` selector replaces them. This test now
+    // verifies that picking `brave` layers in its full tool surface
+    // alongside lsp + tool_stats.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let mem = test_memory(&tmp);
     let browser = BrowserConfig::default();
     let http = crate::openhuman::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
-    cfg.seltz.enabled = true;
-    cfg.searxng.enabled = true;
+    cfg.search.engine = crate::openhuman::config::SEARCH_ENGINE_BRAVE.into();
+    cfg.search.brave.api_key = Some("test-brave-key".into());
     cfg.learning.enabled = true;
     cfg.learning.tool_tracking_enabled = true;
 
@@ -982,7 +994,14 @@ fn all_tools_registers_optional_search_lsp_and_tool_stats_when_enabled() {
     let names = tool_names(&tools);
     assert_contains_all(
         &names,
-        &["seltz_search", "searxng_search", "lsp", "tool_stats"],
+        &[
+            "web_search_tool",
+            "brave_news_search",
+            "brave_image_search",
+            "brave_video_search",
+            "lsp",
+            "tool_stats",
+        ],
     );
 
     unsafe {

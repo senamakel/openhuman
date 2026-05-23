@@ -75,8 +75,7 @@ async fn brave_get(
     let status = resp.status();
     let body = resp.text().await.unwrap_or_default();
     if !status.is_success() {
-        let detail =
-            crate::openhuman::util::utf8_safe_prefix_at_byte_boundary(&body, 500);
+        let detail = crate::openhuman::util::utf8_safe_prefix_at_byte_boundary(&body, 500);
         anyhow::bail!("Brave returned {status}: {detail}");
     }
     serde_json::from_str::<Value>(&body)
@@ -460,9 +459,7 @@ impl Tool for BraveImageSearchTool {
         let parsed: ImageResp = serde_json::from_value(raw)
             .map_err(|e| anyhow::anyhow!("Brave image response shape changed: {e}"))?;
         if parsed.results.is_empty() {
-            return Ok(ToolResult::success(format!(
-                "No images found for: {query}"
-            )));
+            return Ok(ToolResult::success(format!("No images found for: {query}")));
         }
         let mut lines = vec![format!("Image results for: {query} (via Brave)")];
         for (i, r) in parsed.results.iter().take(count).enumerate() {
@@ -571,9 +568,7 @@ impl Tool for BraveVideoSearchTool {
         let parsed: VideoResp = serde_json::from_value(raw)
             .map_err(|e| anyhow::anyhow!("Brave video response shape changed: {e}"))?;
         if parsed.results.is_empty() {
-            return Ok(ToolResult::success(format!(
-                "No videos found for: {query}"
-            )));
+            return Ok(ToolResult::success(format!("No videos found for: {query}")));
         }
         let mut lines = vec![format!("Video results for: {query} (via Brave)")];
         for (i, r) in parsed.results.iter().take(count).enumerate() {

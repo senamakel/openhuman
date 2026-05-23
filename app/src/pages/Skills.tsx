@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
+import PillTabBar from '../components/PillTabBar';
+import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import {
   composioToolkitMeta,
   type ComposioToolkitMeta,
@@ -321,10 +323,13 @@ interface SkillItem {
 
 // ─── Main Skills Page ──────────────────────────────────────────────────────────
 
+type ConnectionsTab = 'channels' | 'composio' | 'mcp';
+
 export default function Skills() {
   const { t } = useT();
   const location = useLocation();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<ConnectionsTab>('composio');
   const { definitions: channelDefs } = useChannelDefinitions();
   const channelConnections = useAppSelector(state => state.channelConnections);
 
@@ -864,9 +869,18 @@ export default function Skills() {
               </div>
             )}
 
+            <PillTabBar<ConnectionsTab>
+              selected={activeTab}
+              onChange={setActiveTab}
+              items={[
+                { value: 'composio', label: t('skills.tabs.composio') },
+                { value: 'channels', label: t('skills.tabs.channels') },
+                { value: 'mcp', label: t('skills.tabs.mcp') },
+              ]}
+            />
             {
               <>
-                {channelsGroup && (
+                {activeTab === 'channels' && channelsGroup && (
                   <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                     <div className="px-1 pb-3 pt-1">
                       <h2
@@ -904,6 +918,7 @@ export default function Skills() {
 
                 {/* <MeetingBotsCard onToast={addToast} /> */}
 
+                {activeTab === 'composio' && (
                 <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
                   <div className="px-1 pb-3 pt-1">
                     <div className="flex items-center gap-2">
@@ -956,8 +971,15 @@ export default function Skills() {
                     </p>
                   )}
                 </div>
+                )}
 
-                {otherGroups.map(group => renderGroup(group))}
+                {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
+
+                {activeTab === 'mcp' && (
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-soft animate-fade-up overflow-hidden">
+                    <McpServerPanel embedded />
+                  </div>
+                )}
               </>
             }
           </div>

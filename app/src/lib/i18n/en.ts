@@ -228,6 +228,9 @@ const en: TranslationMap = {
   'skills.channels': 'Channels',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle': 'Agents use Composio to interact with your apps and services.',
+  'skills.tabs.composio': 'Composio',
+  'skills.tabs.channels': 'Channels',
+  'skills.tabs.mcp': 'MCP Clients',
 
   // Intelligence / Memory
   'memory.title': 'Memory',

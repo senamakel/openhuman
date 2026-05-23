@@ -485,7 +485,6 @@ export function MicComposer({
             </svg>
           )}
         </button>
-        <span className="text-xs text-stone-500 dark:text-neutral-400 select-none">{label}</span>
         {showDeviceMenuFab && (
           <div className="relative">
             <button
@@ -514,7 +513,11 @@ export function MicComposer({
                   strokeLinejoin="round"
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                 />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
               </svg>
             </button>
             {deviceMenuOpen &&
@@ -538,38 +541,42 @@ export function MicComposer({
                       zIndex: 99999,
                     }}
                     className="w-64 rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft py-1">
-                  {devices.map(d => {
-                    const selected = d.deviceId === selectedDeviceId;
-                    return (
-                      <button
-                        key={d.deviceId}
-                        role="menuitemradio"
-                        aria-checked={selected}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDeviceId(d.deviceId);
-                          setDeviceMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
-                          selected
-                            ? 'bg-primary-50 dark:bg-primary-900/20 text-stone-900 dark:text-neutral-100'
-                            : 'text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800'
-                        }`}>
-                        <span className="flex-1 min-w-0 truncate">{d.label}</span>
-                        {selected && (
-                          <svg
-                            className="w-3.5 h-3.5 text-primary-500 flex-shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2.5}
-                            viewBox="0 0 24 24"
-                            aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
+                    {devices.map(d => {
+                      const selected = d.deviceId === selectedDeviceId;
+                      return (
+                        <button
+                          key={d.deviceId}
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDeviceId(d.deviceId);
+                            setDeviceMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                            selected
+                              ? 'bg-primary-50 dark:bg-primary-900/20 text-stone-900 dark:text-neutral-100'
+                              : 'text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800'
+                          }`}>
+                          <span className="flex-1 min-w-0 truncate">{d.label}</span>
+                          {selected && (
+                            <svg
+                              className="w-3.5 h-3.5 text-primary-500 flex-shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2.5}
+                              viewBox="0 0 24 24"
+                              aria-hidden>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </>,
                 document.body
@@ -600,6 +607,7 @@ export function MicComposer({
             </svg>
           </button>
         )}
+        <span className="text-xs text-stone-500 dark:text-neutral-400 select-none">{label}</span>
       </div>
     </div>
   );

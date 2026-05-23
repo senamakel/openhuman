@@ -24,7 +24,7 @@ mod commands;
 mod error;
 mod models;
 
-#[cfg(mobile)]
+#[cfg(target_os = "ios")]
 mod mobile;
 
 pub use error::{Error, Result};
@@ -39,9 +39,9 @@ pub use models::*;
 /// is always `Send + Sync` regardless of whether `R` is `Send + Sync`
 /// (Tauri's `manage()` requires `Send + Sync + 'static`).
 pub struct PttHandle<R: Runtime> {
-    #[cfg(mobile)]
+    #[cfg(target_os = "ios")]
     inner_mobile: mobile::PttMobile<R>,
-    #[cfg(not(mobile))]
+    #[cfg(not(target_os = "ios"))]
     _marker: std::marker::PhantomData<fn(R) -> R>,
 }
 
@@ -51,14 +51,14 @@ unsafe impl<R: Runtime> Send for PttHandle<R> {}
 unsafe impl<R: Runtime> Sync for PttHandle<R> {}
 
 impl<R: Runtime> PttHandle<R> {
-    #[cfg(mobile)]
+    #[cfg(target_os = "ios")]
     fn new(inner: mobile::PttMobile<R>) -> Self {
         Self {
             inner_mobile: inner,
         }
     }
 
-    #[cfg(not(mobile))]
+    #[cfg(not(target_os = "ios"))]
     fn new_stub() -> Self {
         Self {
             _marker: std::marker::PhantomData,
@@ -66,9 +66,9 @@ impl<R: Runtime> PttHandle<R> {
     }
 
     pub fn start_listening(&self) -> Result<()> {
-        #[cfg(mobile)]
+        #[cfg(target_os = "ios")]
         return self.inner_mobile.start_listening();
-        #[cfg(not(mobile))]
+        #[cfg(not(target_os = "ios"))]
         {
             log::warn!("[ptt] start_listening called on non-mobile target — not supported");
             Err(Error::NotSupported)
@@ -76,9 +76,9 @@ impl<R: Runtime> PttHandle<R> {
     }
 
     pub fn stop_listening(&self) -> Result<crate::models::TranscriptResult> {
-        #[cfg(mobile)]
+        #[cfg(target_os = "ios")]
         return self.inner_mobile.stop_listening();
-        #[cfg(not(mobile))]
+        #[cfg(not(target_os = "ios"))]
         {
             log::warn!("[ptt] stop_listening called on non-mobile target — not supported");
             Err(Error::NotSupported)
@@ -86,9 +86,9 @@ impl<R: Runtime> PttHandle<R> {
     }
 
     pub fn speak(&self, req: crate::models::SpeakRequest) -> Result<()> {
-        #[cfg(mobile)]
+        #[cfg(target_os = "ios")]
         return self.inner_mobile.speak(req);
-        #[cfg(not(mobile))]
+        #[cfg(not(target_os = "ios"))]
         {
             let _ = req;
             log::warn!("[ptt] speak called on non-mobile target — not supported");
@@ -97,9 +97,9 @@ impl<R: Runtime> PttHandle<R> {
     }
 
     pub fn cancel_speech(&self) -> Result<()> {
-        #[cfg(mobile)]
+        #[cfg(target_os = "ios")]
         return self.inner_mobile.cancel_speech();
-        #[cfg(not(mobile))]
+        #[cfg(not(target_os = "ios"))]
         {
             log::warn!("[ptt] cancel_speech called on non-mobile target — not supported");
             Err(Error::NotSupported)
@@ -107,9 +107,9 @@ impl<R: Runtime> PttHandle<R> {
     }
 
     pub fn list_voices(&self) -> Result<Vec<crate::models::VoiceInfo>> {
-        #[cfg(mobile)]
+        #[cfg(target_os = "ios")]
         return self.inner_mobile.list_voices();
-        #[cfg(not(mobile))]
+        #[cfg(not(target_os = "ios"))]
         {
             log::warn!("[ptt] list_voices called on non-mobile target — not supported");
             Err(Error::NotSupported)
@@ -134,14 +134,14 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .setup(|app, api| {
             log::debug!("[ptt] setup — configuring platform bridge");
 
-            #[cfg(mobile)]
+            #[cfg(target_os = "ios")]
             {
                 let mobile_handle = mobile::init(app, api)?;
                 let handle = PttHandle::new(mobile_handle);
                 app.manage(handle);
                 log::info!("[ptt] iOS bridge registered");
             }
-            #[cfg(not(mobile))]
+            #[cfg(not(target_os = "ios"))]
             {
                 let _ = (app, api);
                 let handle: PttHandle<R> = PttHandle::new_stub();

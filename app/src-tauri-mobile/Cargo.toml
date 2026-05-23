@@ -29,15 +29,22 @@ tauri = { version = "2.10", default-features = false, features = [
     "devtools",
     "unstable",
     "webview-data-url",
+    "wry",
 ] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
 env_logger = "0.11"
 
-# iOS pairing + push-to-talk plugins. The PTT plugin is hosted at
-# packages/tauri-plugin-ptt/ and ships Swift sources for iOS only.
+# iOS gets the QR scanner + push-to-talk plugins. PTT ships Swift sources
+# under packages/tauri-plugin-ptt/ios/.
 [target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-barcode-scanner = "2"
+tauri-plugin-ptt = { path = "../../packages/tauri-plugin-ptt" }
+
+# Android gets the QR scanner only. PTT returns `NotSupported` on Android —
+# we don't ship a Kotlin implementation today (tracked as a follow-up).
+[target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-barcode-scanner = "2"
 tauri-plugin-ptt = { path = "../../packages/tauri-plugin-ptt" }
 

@@ -26,6 +26,18 @@ cd "$MOBILE_DIR"
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-16.0}"
 npx --package=@tauri-apps/cli@^2 tauri ios init
 
+# Overwrite the placeholder AppIcon set Tauri generates with the real
+# OpenHuman brand icons committed to icons/ios/. The generated Xcode project
+# uses `Assets.xcassets/AppIcon.appiconset/`, identical to the iOS source
+# layout under our `icons/ios/`.
+ICONSRC="$MOBILE_DIR/icons/ios/AppIcon.appiconset"
+ICONDEST=$(find "$MOBILE_DIR/gen/apple" -type d -name "AppIcon.appiconset" 2>/dev/null | head -1)
+if [[ -n "$ICONDEST" && -d "$ICONSRC" ]]; then
+  echo "[ios-init] copying brand icons → $ICONDEST"
+  rm -f "$ICONDEST"/*.png
+  cp -R "$ICONSRC"/. "$ICONDEST"/
+fi
+
 echo ""
 echo "[ios-init] Done. Next steps:"
 echo ""

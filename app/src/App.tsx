@@ -26,7 +26,7 @@ import {
   startNativeNotificationsService,
   stopNativeNotificationsService,
 } from './lib/nativeNotifications';
-import { getIsIOS } from './lib/platform';
+import { getIsMobile } from './lib/platform';
 import {
   startWebviewNotificationsService,
   stopWebviewNotificationsService,
@@ -80,16 +80,16 @@ if (import.meta.hot) {
 }
 
 function App() {
-  const onIOS = getIsIOS();
+  const onMobile = getIsMobile();
 
-  // On iOS, the SocketProvider tries to connect to the local core HTTP socket,
-  // which does not exist on device (the core runs on the remote desktop).
-  // Gate it out to prevent spurious connection errors. Chat events on iOS
-  // come through the TunnelTransport's socket.io relay instead.
+  // On mobile (iOS or Android) the SocketProvider would try to connect to the
+  // local core HTTP socket, which does not exist on device (the core runs on
+  // the remote desktop). Gate it out to prevent spurious connection errors —
+  // chat events arrive through TunnelTransport's socket.io relay instead.
   // NOTE: useHumanMascot's subscribeChatEvents() still returns a no-op unsub
   // when the socket is absent — mascot state falls back to 'idle'.
   const socketWrapped = (children: React.ReactNode) =>
-    onIOS ? <>{children}</> : <SocketProvider>{children}</SocketProvider>;
+    onMobile ? <>{children}</> : <SocketProvider>{children}</SocketProvider>;
 
   return (
     <Sentry.ErrorBoundary
@@ -108,9 +108,9 @@ function App() {
                         <CommandProvider>
                           <ServiceBlockingGate>
                             <AppShell />
-                            {!onIOS && <DictationHotkeyManager />}
-                            {!onIOS && <LocalAIDownloadSnackbar />}
-                            {!onIOS && <AppUpdatePrompt />}
+                            {!onMobile && <DictationHotkeyManager />}
+                            {!onMobile && <LocalAIDownloadSnackbar />}
+                            {!onMobile && <AppUpdatePrompt />}
                           </ServiceBlockingGate>
                         </CommandProvider>
                       </Router>
@@ -126,8 +126,8 @@ function App() {
   );
 }
 
-/** Minimal iOS shell — renders routes only, no desktop chrome. */
-function AppShellIOS() {
+/** Minimal mobile shell — renders routes only, no desktop chrome. */
+function AppShellMobile() {
   return (
     <div className="relative h-screen flex flex-col overflow-hidden bg-[#0f1117]">
       <AppRoutes />
@@ -136,14 +136,14 @@ function AppShellIOS() {
 }
 
 /**
- * Top-level shell router — chooses iOS or desktop shell at render time.
+ * Top-level shell router — chooses mobile or desktop shell at render time.
  * Must NOT call hooks before the branch because each sub-component has its
  * own hook calls that obey the rules-of-hooks within their own scope.
  */
 function AppShell() {
-  const onIOS = getIsIOS();
-  if (onIOS) {
-    return <AppShellIOS />;
+  const onMobile = getIsMobile();
+  if (onMobile) {
+    return <AppShellMobile />;
   }
   return <AppShellDesktop />;
 }

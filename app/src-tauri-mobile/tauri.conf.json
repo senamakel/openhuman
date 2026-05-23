@@ -33,6 +33,9 @@
       "minimumSystemVersion": "16.0",
       "frameworks": ["AVFoundation.framework", "Speech.framework"],
       "developmentTeam": ""
+    },
+    "android": {
+      "minSdkVersion": 24
     }
   }
 }

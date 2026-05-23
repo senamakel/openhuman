@@ -45,6 +45,9 @@
     "tauri:ios:init": "bash scripts/ios-init.sh",
     "tauri:ios:dev": "pnpm --filter openhuman-app tauri:ios:dev",
     "tauri:ios:build": "pnpm --filter openhuman-app tauri:ios:build",
+    "tauri:android:init": "bash scripts/android-init.sh",
+    "tauri:android:dev": "pnpm --filter openhuman-app tauri:android:dev",
+    "tauri:android:build": "pnpm --filter openhuman-app tauri:android:build",
     "i18n:check": "tsx scripts/i18n-coverage.ts",
     "i18n:bundle:check": "node scripts/verify-i18n-bundle.mjs",
     "i18n:dump": "tsx scripts/i18n-coverage.ts --no-unused --out tmp/i18n-coverage"

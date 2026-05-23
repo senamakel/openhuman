@@ -1,5 +1,7 @@
 /**
- * AppRoutesIOS — routes for the iOS app target.
+ * AppRoutesIOS — routes for the iOS + Android app targets.
+ *
+ * The filename is iOS-historic; the routes apply to every mobile target.
  *
  * Two phases:
  *   1. Unpaired — /pair only. QR scan binds the phone to a desktop core,
@@ -21,13 +23,13 @@ import { PairScreen } from './pages/ios/PairScreen';
 import Settings from './pages/Settings';
 import { listProfiles } from './services/transport/profileStore';
 
-const log = debug('ios:routes');
+const log = debug('mobile:routes');
 
 const isPaired = (): boolean => listProfiles().length > 0;
 
 const IOSDefaultRedirect: FC = () => {
   const paired = isPaired();
-  log('[ios] default redirect paired=%s', paired);
+  log('[mobile] default redirect paired=%s', paired);
   return <Navigate to={paired ? '/human' : '/pair'} replace />;
 };
 
@@ -42,7 +44,7 @@ const MobileShell: FC<{ children: React.ReactNode }> = ({ children }) => (
 /** Bounces to /pair when no profile exists; otherwise renders children. */
 const RequirePairing: FC<{ children: React.ReactNode }> = ({ children }) => {
   if (!isPaired()) {
-    log('[ios] no pairing — redirecting to /pair');
+    log('[mobile] no pairing — redirecting to /pair');
     return <Navigate to="/pair" replace />;
   }
   return <MobileShell>{children}</MobileShell>;

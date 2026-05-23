@@ -17,6 +17,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use parking_lot::Mutex;
+
 use crate::openhuman::keyring::error::KeyringError;
 
 // ── Trait ─────────────────────────────────────────────────────────────────────
@@ -106,8 +108,16 @@ impl KeyringBackend for OsBackend {
 /// binary signature changes on every `cargo build`).  It is selected
 /// automatically in debug builds and when `OPENHUMAN_APP_ENV=dev|staging`.
 /// Never use it in a production deployment.
+///
+/// # Thread safety
+///
+/// The `mutex` field serializes in-process read-modify-write operations on
+/// `set` and `delete`.  Cross-process safety relies on the atomic rename in
+/// `write_map`.
 pub struct FileBackend {
     path: PathBuf,
+    /// In-process lock covering the read→modify→write cycle in mutating ops.
+    mutex: Mutex<()>,
 }
 
 impl FileBackend {
@@ -115,6 +125,7 @@ impl FileBackend {
     pub fn new(workspace_dir: &Path) -> Self {
         Self {
             path: workspace_dir.join("dev-keychain.json"),
+            mutex: Mutex::new(()),
         }
     }
 
@@ -158,10 +169,11 @@ impl FileBackend {
             })?;
         }
 
-        // Serialize the map to pretty JSON.  HashMap<String,String> is always
-        // serializable by serde_json, so the unwrap_or_default fallback is a
-        // safety net that should never be reached in practice.
-        let json = serde_json::to_vec_pretty(map).unwrap_or_default();
+        // Serialize the map to pretty JSON.  Propagate serialization failure so
+        // callers are not silently fed empty data on a write error.
+        let json = serde_json::to_vec_pretty(map).map_err(|e| {
+            KeyringError::Backend(format!("failed to serialize dev keychain map: {e}"))
+        })?;
 
         // Atomic write: temp file + rename.
         let tmp_path = self.path.with_extension("tmp");
@@ -198,12 +210,16 @@ impl KeyringBackend for FileBackend {
     }
 
     fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
+        // Hold the in-process lock for the full read→modify→write cycle.
+        let _guard = self.mutex.lock();
         let mut map = self.read_map()?;
         map.insert(namespaced_key.to_string(), value.to_string());
         self.write_map(&map)
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), KeyringError> {
+        // Hold the in-process lock for the full read→modify→write cycle.
+        let _guard = self.mutex.lock();
         let mut map = self.read_map()?;
         if map.remove(namespaced_key).is_some() {
             self.write_map(&map)?;

@@ -44,4 +44,8 @@ pub enum KeyringError {
     /// Random bytes generation failed.
     #[error("Failed to generate random bytes: {0}")]
     RandomGeneration(String),
+
+    /// A backend-internal operation failed (e.g. serialization).
+    #[error("Keyring backend error: {0}")]
+    Backend(String),
 }

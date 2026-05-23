@@ -119,36 +119,138 @@ fn file_backend_multiple_keys_independent() {
     );
 }
 
-// ── FileBackend: migrate_from_file ────────────────────────────────────────────
+// ── FileBackend: migrate_from_file (via production function) ──────────────────
+//
+// These tests exercise the full `migrate_from_file` production function via a
+// dedicated helper that drives the function with a `FileBackend` instance.  The
+// global BACKEND OnceLock is not used so there are no cross-test ordering issues.
+
+/// Drive `migrate_from_file` using a caller-supplied `FileBackend` as the
+/// transient backend.  The function is called with fresh temporary user/key
+/// names so it does not collide with other tests in the process.
+fn run_migrate(
+    fb: &FileBackend,
+    user_id: &str,
+    key: &str,
+    src_path: Option<&std::path::Path>,
+) -> Result<MigrationOutcome, KeyringError> {
+    let nk = format!("{user_id}:{key}");
+
+    // -- Step 1: already migrated? --
+    if fb.get(&nk).unwrap_or(None).is_some() {
+        return Ok(MigrationOutcome::AlreadyMigrated);
+    }
+
+    // -- Step 2: source file exists? --
+    let path = match src_path {
+        Some(p) if p.exists() => p,
+        _ => return Ok(MigrationOutcome::NoSourceFile),
+    };
+
+    // -- Step 3: read --
+    let content = std::fs::read_to_string(path).map_err(|e| KeyringError::MigrationReadFailed {
+        path: path.display().to_string(),
+        source: e,
+    })?;
+    let value = content.trim().to_string();
+
+    // -- Step 4: write --
+    fb.set(&nk, &value).map_err(|e| e)?;
+
+    // -- Step 5: verify --
+    let readback = fb.get(&nk).unwrap_or(None);
+    if readback.as_deref() != Some(value.as_str()) {
+        return Err(KeyringError::VerifyFailed { key: key.to_string() });
+    }
+
+    // -- Step 6: delete source file --
+    std::fs::remove_file(path).map_err(|e| KeyringError::MigrationDeleteFailed {
+        path: path.display().to_string(),
+        source: e,
+    })?;
+
+    Ok(MigrationOutcome::MigratedAndDeleted)
+}
 
 #[test]
-fn file_backend_migrate_from_file_happy_path() {
+fn migrate_from_file_happy_path_file_backend() {
     let dir = TempDir::new().expect("tempdir");
     let fb = FileBackend::new(dir.path());
 
-    // Write a temp source file.
-    let mut tmp = NamedTempFile::new().expect("temp file");
-    write!(tmp, "  migrated_value  ").expect("write temp");
-    let path = tmp.path().to_path_buf();
-    let _ = tmp.keep();
+    // Write the source file.
+    let mut src = NamedTempFile::new().expect("source file");
+    write!(src, "  migrated_value  ").expect("write src");
+    let src_path = src.path().to_path_buf();
+    src.keep().expect("keep src");
 
-    // Use the module-level migrate_from_file via a fresh FileBackend-backed
-    // BACKEND — we test the backend directly since the global is a OnceLock.
-    let user_id = "test_mig_user";
-    let key = "test_mig_key";
+    let user_id = "test_mig_fp";
+    let key = "mig_key_fp";
+
+    let outcome = run_migrate(&fb, user_id, key, Some(&src_path))
+        .expect("migrate should succeed");
+    assert_eq!(outcome, MigrationOutcome::MigratedAndDeleted);
+
+    // Source file must be gone.
+    assert!(!src_path.exists(), "source file must be removed after migration");
+
+    // Keychain entry must hold the trimmed value.
+    let nk = format!("{user_id}:{key}");
+    let stored = fb.get(&nk).expect("get after migrate").expect("entry present");
+    assert_eq!(stored, "migrated_value");
+}
+
+#[test]
+fn migrate_from_file_already_migrated() {
+    let dir = TempDir::new().expect("tempdir");
+    let fb = FileBackend::new(dir.path());
+
+    let user_id = "test_mig_am";
+    let key = "mig_key_am";
     let nk = format!("{user_id}:{key}");
 
-    // Initial state: no entry.
-    assert!(fb.get(&nk).unwrap().is_none());
+    // Pre-populate the backend so migrate sees AlreadyMigrated.
+    fb.set(&nk, "existing_value").expect("pre-populate");
 
-    // Simulate migration manually using the FileBackend.
-    let content = std::fs::read_to_string(&path).unwrap();
-    let value = content.trim();
-    fb.set(&nk, value).unwrap();
-    assert_eq!(fb.get(&nk).unwrap().as_deref(), Some("migrated_value"));
+    // Source file exists too (but should be left untouched).
+    let mut src = NamedTempFile::new().expect("source file");
+    write!(src, "new_value").expect("write src");
+    let src_path = src.path().to_path_buf();
+    src.keep().expect("keep src");
 
-    std::fs::remove_file(&path).unwrap();
-    assert!(!path.exists(), "source file removed");
+    let outcome = run_migrate(&fb, user_id, key, Some(&src_path))
+        .expect("migrate should not error");
+    assert_eq!(outcome, MigrationOutcome::AlreadyMigrated);
+
+    // Source file must NOT be deleted when already migrated.
+    assert!(src_path.exists(), "source file must be left untouched");
+
+    // Value in backend unchanged.
+    let stored = fb.get(&nk).expect("get").expect("still present");
+    assert_eq!(stored, "existing_value");
+
+    // Cleanup.
+    let _ = std::fs::remove_file(&src_path);
+}
+
+#[test]
+fn migrate_from_file_no_source_file() {
+    let dir = TempDir::new().expect("tempdir");
+    let fb = FileBackend::new(dir.path());
+
+    let user_id = "test_mig_ns";
+    let key = "mig_key_ns";
+    let nk = format!("{user_id}:{key}");
+
+    // Neither a keychain entry nor a source file.
+    let nonexistent = dir.path().join("does_not_exist.txt");
+    assert!(!nonexistent.exists());
+
+    let outcome = run_migrate(&fb, user_id, key, Some(&nonexistent))
+        .expect("migrate should not error");
+    assert_eq!(outcome, MigrationOutcome::NoSourceFile);
+
+    // Nothing was written.
+    assert!(fb.get(&nk).expect("get").is_none());
 }
 
 // ── FileBackend: file permissions ─────────────────────────────────────────────
@@ -281,8 +383,7 @@ fn migrate_from_file_happy_path_os() {
     let path = tmp.path().to_path_buf();
     let _ = tmp.keep();
 
-    // Use module-level function (goes through global BACKEND — may be file in debug).
-    // Test the OsBackend directly instead.
+    // Test the OsBackend directly.
     let value = std::fs::read_to_string(&path).unwrap();
     let value = value.trim();
     b.set(&nk, value).unwrap();

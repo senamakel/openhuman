@@ -89,19 +89,13 @@ describe('startLoopbackOauthListener', () => {
 
     const handle = await startLoopbackOauthListener();
     await expect(handle!.cancel()).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      '[loopback-oauth] stop failed',
-      expect.any(Error)
-    );
+    expect(warn).toHaveBeenCalledWith('[loopback-oauth] stop failed', expect.any(Error));
 
     warn.mockRestore();
   });
 
   test('awaitCallback rejects when listen() rejects', async () => {
-    mockInvoke.mockResolvedValueOnce({
-      redirectUri: 'http://127.0.0.1:53824/auth',
-      state: 's',
-    });
+    mockInvoke.mockResolvedValueOnce({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's' });
     mockListen.mockRejectedValueOnce(new Error('listen failed'));
 
     const handle = await startLoopbackOauthListener();

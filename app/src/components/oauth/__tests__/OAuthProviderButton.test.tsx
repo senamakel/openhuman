@@ -24,13 +24,9 @@ vi.mock('../../../utils/oauthAppVersionGate', () => ({
 
 vi.mock('../../../utils/tauriCommands', () => ({ isTauri: vi.fn() }));
 
-vi.mock('../../../utils/loopbackOauthListener', () => ({
-  startLoopbackOauthListener: vi.fn(),
-}));
+vi.mock('../../../utils/loopbackOauthListener', () => ({ startLoopbackOauthListener: vi.fn() }));
 
-vi.mock('../../../utils/desktopDeepLinkListener', () => ({
-  handleDeepLinkUrls: vi.fn(),
-}));
+vi.mock('../../../utils/desktopDeepLinkListener', () => ({ handleDeepLinkUrls: vi.fn() }));
 
 vi.mock('../../../store/deepLinkAuthState', () => ({
   beginDeepLinkAuthProcessing: vi.fn(),
@@ -426,9 +422,7 @@ describe('OAuthProviderButton', () => {
       for (let i = 0; i < 4; i++) await Promise.resolve();
     });
 
-    expect(handleDeepLinkUrls).toHaveBeenCalledWith([
-      'openhuman://auth?token=jwt&state=abc',
-    ]);
+    expect(handleDeepLinkUrls).toHaveBeenCalledWith(['openhuman://auth?token=jwt&state=abc']);
   });
 
   it('swallows loopback awaitCallback rejection without surfacing an error', async () => {

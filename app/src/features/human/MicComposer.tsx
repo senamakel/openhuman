@@ -43,6 +43,9 @@ export interface MicComposerProps {
   language?: string;
   /** Show a microphone device selector beneath the button. Defaults to false. */
   showDeviceSelector?: boolean;
+  /** When provided, renders a keyboard FAB next to the gear that switches the
+   *  surrounding composer back to text input. */
+  onSwitchToText?: () => void;
 }
 
 type RecordingState = 'idle' | 'recording' | 'transcribing';
@@ -66,6 +69,7 @@ export function MicComposer({
   onError,
   language = 'en',
   showDeviceSelector = false,
+  onSwitchToText,
 }: MicComposerProps) {
   const { t } = useT();
   const [state, setState] = useState<RecordingState>('idle');
@@ -480,7 +484,7 @@ export function MicComposer({
         </button>
         <span className="text-xs text-stone-500 dark:text-neutral-400 select-none">{label}</span>
         {showDeviceMenuFab && (
-          <>
+          <div className="relative">
             <button
               type="button"
               aria-label={t('mic.deviceSelector') || 'Microphone device'}
@@ -513,7 +517,7 @@ export function MicComposer({
                 <div
                   role="menu"
                   aria-label={t('mic.deviceSelector') || 'Microphone device'}
-                  className="absolute z-20 top-full right-0 mt-2 w-64 rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft py-1">
+                  className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft py-1">
                   {devices.map(d => {
                     const selected = d.deviceId === selectedDeviceId;
                     return (
@@ -549,7 +553,31 @@ export function MicComposer({
                 </div>
               </>
             )}
-          </>
+          </div>
+        )}
+        {onSwitchToText && (
+          <button
+            type="button"
+            aria-label={t('chat.switchToText')}
+            title={t('chat.switchToText')}
+            onClick={onSwitchToText}
+            disabled={state !== 'idle'}
+            className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              viewBox="0 0 24 24"
+              aria-hidden>
+              <rect x="2" y="6" width="20" height="12" rx="2" ry="2" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"
+              />
+            </svg>
+          </button>
         )}
       </div>
     </div>

@@ -1857,13 +1857,8 @@ const Conversations = ({
                 onSubmit={text => handleSendMessage(text)}
                 onError={message => setSendError(chatSendError('voice_transcription', message))}
                 showDeviceSelector
+                onSwitchToText={() => setComposerOverride('text')}
               />
-              <button
-                type="button"
-                onClick={() => setComposerOverride('text')}
-                className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-                {t('chat.switchToText')}
-              </button>
             </div>
           ) : inputMode === 'text' ? (
             <div className="flex items-end gap-3">

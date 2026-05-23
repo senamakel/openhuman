@@ -10,8 +10,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type AISettings,
-  clearOpenAICompatEndpointKey,
   clearCloudProviderKey,
+  clearOpenAICompatEndpointKey,
   flushCloudProviders,
   listProviderModels,
   loadAISettings,
@@ -22,9 +22,9 @@ import {
   type ProviderRef,
   saveAISettings,
   serializeProviderRef,
-  setOpenAICompatEndpointKey,
   setCloudProviderKey,
   setLocalRuntimeEnabled,
+  setOpenAICompatEndpointKey,
 } from '../aiSettingsApi';
 
 // ─── Mock declarations (must be hoisted before imports) ───────────────────────
@@ -480,10 +480,7 @@ describe('loadOpenAICompatEndpointStatus', () => {
     const status = await loadOpenAICompatEndpointStatus();
 
     expect(mockAuthListProviderCredentials).toHaveBeenCalledWith('external-openai-compat');
-    expect(status).toEqual({
-      baseUrl: 'http://127.0.0.1:7788/v1',
-      has_api_key: true,
-    });
+    expect(status).toEqual({ baseUrl: 'http://127.0.0.1:7788/v1', has_api_key: true });
   });
 
   it('degrades gracefully when URL resolution or auth-list lookup fails', async () => {

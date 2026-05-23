@@ -6,11 +6,11 @@ import {
   clearOpenAICompatEndpointKey,
   listProviderModels,
   loadAISettings,
-  loadOpenAICompatEndpointStatus,
   loadLocalProviderSnapshot,
+  loadOpenAICompatEndpointStatus,
   saveAISettings,
-  setOpenAICompatEndpointKey,
   setCloudProviderKey,
+  setOpenAICompatEndpointKey,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { renderWithProviders } from '../../../../test/test-utils';
@@ -246,9 +246,7 @@ describe('AIPanel', () => {
   it('renders the OpenAI-compatible endpoint card with the local /v1 base URL', async () => {
     renderWithProviders(<AIPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByText('OpenAI-compatible endpoint')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('OpenAI-compatible endpoint')).toBeInTheDocument());
     expect(screen.getByDisplayValue('http://127.0.0.1:7788/v1')).toBeInTheDocument();
     expect(screen.getByText(/Authorization: Bearer/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument();

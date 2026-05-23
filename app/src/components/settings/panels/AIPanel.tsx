@@ -15,21 +15,21 @@ import { listConnections as listComposioConnections } from '../../../lib/composi
 import type { ComposioConnection } from '../../../lib/composio/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
-  clearOpenAICompatEndpointKey,
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
   clearCloudProviderKey,
+  clearOpenAICompatEndpointKey,
   type CloudProviderView,
   flushCloudProviders,
   listProviderModels,
   loadAISettings,
-  loadOpenAICompatEndpointStatus,
   loadLocalProviderSnapshot,
+  loadOpenAICompatEndpointStatus,
   type LocalProviderSnapshot,
   type ModelInfo,
   saveAISettings,
-  setOpenAICompatEndpointKey,
   setCloudProviderKey,
+  setOpenAICompatEndpointKey,
 } from '../../../services/api/aiSettingsApi';
 import {
   creditsApi,
@@ -2091,12 +2091,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  OpenAI-compatible endpoint
+                  {t('settings.ai.openAiCompat.title')}
                 </h3>
                 <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                  Point local harnesses at this `/v1` server to route through the providers
-                  configured below. Authentication uses a stable key you set here, not the
-                  app&apos;s internal core bearer.
+                  {t('settings.ai.openAiCompat.description')}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -2106,14 +2104,18 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                       ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30'
                       : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30'
                   }`}>
-                  {openAiCompatStatus.has_api_key ? 'Key configured' : 'Key required'}
+                  {openAiCompatStatus.has_api_key
+                    ? t('settings.ai.openAiCompat.keyConfigured')
+                    : t('settings.ai.openAiCompat.keyRequired')}
                 </span>
                 <button
                   type="button"
                   onClick={() => setOpenAiCompatDialogOpen(true)}
                   disabled={openAiCompatBusy !== null}
                   className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
-                  {openAiCompatStatus.has_api_key ? 'Rotate key' : 'Set key'}
+                  {openAiCompatStatus.has_api_key
+                    ? t('settings.ai.openAiCompat.rotateKey')
+                    : t('settings.ai.openAiCompat.setKey')}
                 </button>
                 {openAiCompatStatus.has_api_key ? (
                   <button
@@ -2134,7 +2136,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     }}
                     disabled={openAiCompatBusy !== null}
                     className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:opacity-50">
-                    Clear key
+                    {t('settings.ai.openAiCompat.clearKey')}
                   </button>
                 ) : null}
               </div>
@@ -2143,20 +2145,20 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                  Base URL
+                  {t('settings.ai.openAiCompat.baseUrlLabel')}
                 </label>
                 <input
                   readOnly
-                  value={openAiCompatStatus.baseUrl ?? 'Unavailable'}
+                  value={openAiCompatStatus.baseUrl ?? t('settings.ai.openAiCompat.baseUrlUnavailable')}
                   className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100"
                 />
               </div>
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                  Auth header
+                  {t('settings.ai.openAiCompat.authHeaderLabel')}
                 </label>
                 <div className="mt-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-700 dark:text-neutral-300">
-                  Authorization: Bearer &lt;your key&gt;
+                  {t('settings.ai.openAiCompat.authHeaderExample')}
                 </div>
               </div>
             </div>
@@ -2483,7 +2485,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
       {openAiCompatDialogOpen && (
         <ProviderKeyDialog
           slug="external-openai-compat"
-          label="OpenAI-compatible endpoint"
+          label={t('settings.ai.openAiCompat.title')}
           isLocalRuntime={false}
           onCancel={() => setOpenAiCompatDialogOpen(false)}
           onSubmit={async value => {

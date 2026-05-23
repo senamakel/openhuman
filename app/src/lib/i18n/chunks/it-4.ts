@@ -305,7 +305,8 @@ const it4: TranslationMap = {
   'settings.ai.openAiCompat.baseUrlLabel': 'Base URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'Unavailable',
   'settings.ai.openAiCompat.clearKey': 'Clear key',
-  'settings.ai.openAiCompat.description': "Point local harnesses at this /v1 server to route through the providers configured below. Authentication uses a stable key you set here, not the app's internal core bearer.",
+  'settings.ai.openAiCompat.description':
+    "Point local harnesses at this /v1 server to route through the providers configured below. Authentication uses a stable key you set here, not the app's internal core bearer.",
   'settings.ai.openAiCompat.keyConfigured': 'Key configured',
   'settings.ai.openAiCompat.keyRequired': 'Key required',
   'settings.ai.openAiCompat.rotateKey': 'Rotate key',

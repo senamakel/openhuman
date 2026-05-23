@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import debug from 'debug';
+import { useId, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { clearAllAppData } from '../../utils/clearAllAppData';
 import SettingsMenuItem from './components/SettingsMenuItem';
+
+const warnLog = debug('settings:account:warn');
 
 /**
  * Destructive account actions: Log out, and Log out + clear all app data.
@@ -16,12 +19,16 @@ const LogoutAndClearActions = () => {
   const [showLogoutAndClearModal, setShowLogoutAndClearModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const modalTitleId = useId();
 
   const handleLogout = async () => {
     try {
       await clearSession();
     } catch (err) {
-      console.warn('[Account] Rust logout failed:', err);
+      // Log only the message — `err` may carry stack frames / serialized
+      // backend payloads we don't want in renderer console.
+      const reason = err instanceof Error ? err.message : String(err);
+      warnLog('logout_failed %o', { reason });
       setError(t('clearData.failedLogout'));
     }
   };
@@ -74,7 +81,11 @@ const LogoutAndClearActions = () => {
 
       {showLogoutAndClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-md w-full p-6 border border-stone-200 dark:border-neutral-800">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
+            className="bg-white dark:bg-neutral-900 rounded-2xl max-w-md w-full p-6 border border-stone-200 dark:border-neutral-800">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
                 <svg
@@ -91,7 +102,9 @@ const LogoutAndClearActions = () => {
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+                <h3
+                  id={modalTitleId}
+                  className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
                   {t('clearData.title')}
                 </h3>
               </div>

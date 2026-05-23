@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -25,15 +24,11 @@ const NotificationsTabbedPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const location = useLocation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabId>(() => hashToTab(location.hash));
-
-  // Keep state in sync if the user navigates with the hash directly.
-  useEffect(() => {
-    setTab(hashToTab(location.hash));
-  }, [location.hash]);
+  // The router is the single source of truth for the active tab — hash is the
+  // only signal needed, so derive directly instead of mirroring it in state.
+  const tab: TabId = hashToTab(location.hash);
 
   const selectTab = (next: TabId) => {
-    setTab(next);
     navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
   };
 

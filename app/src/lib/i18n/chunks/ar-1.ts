@@ -60,6 +60,8 @@ const ar1: TranslationMap = {
   'settings.accountDesc': 'عبارة الاسترداد والفريق والاتصالات والخصوصية',
   'settings.notifications': 'الإشعارات',
   'settings.notificationsDesc': 'عدم الإزعاج وضوابط الإشعارات لكل حساب',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'الميزات',
   'settings.featuresDesc': 'وعي الشاشة والمراسلة والأدوات',
   'settings.aiModels': 'الذكاء الاصطناعي والنماذج',

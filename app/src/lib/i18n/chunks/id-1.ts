@@ -60,6 +60,8 @@ const id1: TranslationMap = {
   'settings.accountDesc': 'Frasa pemulihan, tim, koneksi, dan privasi',
   'settings.notifications': 'Notifikasi',
   'settings.notificationsDesc': 'Jangan Ganggu dan kontrol notifikasi per akun',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Fitur',
   'settings.featuresDesc': 'Kesadaran layar, pesan, dan alat',
   'settings.aiModels': 'AI & Model',

@@ -60,6 +60,8 @@ const zhCN1: TranslationMap = {
   'settings.accountDesc': '恢复短语、团队、连接与隐私',
   'settings.notifications': '通知',
   'settings.notificationsDesc': '免打扰模式与各账户通知控制',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': '功能',
   'settings.featuresDesc': '屏幕感知、消息与工具',
   'settings.aiModels': 'AI 与模型',

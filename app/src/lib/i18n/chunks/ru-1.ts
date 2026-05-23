@@ -61,6 +61,8 @@ const ru1: TranslationMap = {
   'settings.notifications': 'Уведомления',
   'settings.notificationsDesc':
     'Режим «Не беспокоить» и настройки уведомлений для каждого аккаунта',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Функции',
   'settings.featuresDesc': 'Слежение за экраном, мессенджеры и инструменты',
   'settings.aiModels': 'AI и модели',

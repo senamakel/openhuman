@@ -60,6 +60,8 @@ const en1: TranslationMap = {
   'settings.accountDesc': 'Recovery phrase, team, connections, and privacy',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Do Not Disturb and per-account notification controls',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Features',
   'settings.featuresDesc': 'Screen awareness, messaging, and tools',
   'settings.aiModels': 'AI & Models',

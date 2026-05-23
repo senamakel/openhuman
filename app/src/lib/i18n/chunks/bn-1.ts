@@ -60,6 +60,8 @@ const bn1: TranslationMap = {
   'settings.accountDesc': 'রিকভারি ফ্রেজ, টিম, সংযোগ ও গোপনীয়তা',
   'settings.notifications': 'বিজ্ঞপ্তি',
   'settings.notificationsDesc': 'ডু নট ডিস্টার্ব এবং প্রতিটি অ্যাকাউন্টের বিজ্ঞপ্তি নিয়ন্ত্রণ',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'ফিচার',
   'settings.featuresDesc': 'স্ক্রিন সচেতনতা, মেসেজিং এবং টুলস',
   'settings.aiModels': 'AI ও মডেল',

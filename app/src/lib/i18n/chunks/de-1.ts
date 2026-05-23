@@ -60,6 +60,8 @@ const de1: TranslationMap = {
   'settings.accountDesc': 'Wiederherstellungsphrase, Team, Verbindungen und Privatsphäre',
   'settings.notifications': 'Benachrichtigungen',
   'settings.notificationsDesc': '„Bitte nicht stören“ und Benachrichtigungskontrollen pro Konto',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Funktionen',
   'settings.featuresDesc': 'Bildschirmbewusstsein, Nachrichten und Tools',
   'settings.aiModels': 'KI & Modelle',

@@ -60,6 +60,8 @@ const fr1: TranslationMap = {
   'settings.accountDesc': 'Phrase de récupération, équipe, connexions et confidentialité',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Ne pas déranger et contrôles de notifications par compte',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Fonctionnalités',
   'settings.featuresDesc': "Surveillance de l'écran, messagerie et outils",
   'settings.aiModels': 'IA & Modèles',

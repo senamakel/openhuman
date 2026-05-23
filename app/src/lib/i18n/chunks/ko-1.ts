@@ -60,6 +60,8 @@ const ko1: TranslationMap = {
   'settings.accountDesc': '복구 문구, 팀, 연결 및 개인정보',
   'settings.notifications': '알림',
   'settings.notificationsDesc': '방해 금지 및 계정별 알림 설정',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': '기능',
   'settings.featuresDesc': '화면 인식, 메시징 및 도구',
   'settings.aiModels': 'AI 및 모델',

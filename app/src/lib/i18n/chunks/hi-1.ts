@@ -60,6 +60,8 @@ const hi1: TranslationMap = {
   'settings.accountDesc': 'रिकवरी फ्रेज़, टीम, कनेक्शन और प्राइवेसी',
   'settings.notifications': 'नोटिफिकेशन',
   'settings.notificationsDesc': 'डू नॉट डिस्टर्ब और हर अकाउंट के नोटिफिकेशन कंट्रोल',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'फीचर्स',
   'settings.featuresDesc': 'स्क्रीन अवेयरनेस, मैसेजिंग और टूल्स',
   'settings.aiModels': 'AI और मॉडल्स',

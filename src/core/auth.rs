@@ -263,6 +263,10 @@ fn verify_external_inference_bearer_for_config(config: &Config, supplied: &str) 
 }
 
 async fn verify_external_inference_bearer(supplied: &str) -> bool {
+    if supplied.trim().is_empty() {
+        return false;
+    }
+
     let config = match Config::load_or_init().await {
         Ok(config) => config,
         Err(err) => {

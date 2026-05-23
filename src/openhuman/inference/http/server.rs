@@ -287,13 +287,19 @@ async fn models_handler(State(_state): State<AppState>) -> Response {
         .map(str::trim)
         .filter(|model| !model.is_empty())
     {
-        push_model(default_model.to_string(), "openhuman".to_string());
+        push_model(
+            strip_temperature_suffix(default_model).to_string(),
+            "openhuman".to_string(),
+        );
     }
 
     // Cloud provider default models
     for cp in &config.cloud_providers {
         if let Some(ref model) = cp.default_model {
-            push_model(format!("{}:{}", cp.slug, model), cp.slug.clone());
+            push_model(
+                format!("{}:{}", cp.slug, strip_temperature_suffix(model)),
+                cp.slug.clone(),
+            );
         }
     }
 

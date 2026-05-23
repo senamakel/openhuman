@@ -87,11 +87,13 @@ describe('startLoopbackOauthListener', () => {
     mockListen.mockResolvedValue(() => {});
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const handle = await startLoopbackOauthListener();
-    await expect(handle!.cancel()).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith('[loopback-oauth] stop failed', expect.any(Error));
-
-    warn.mockRestore();
+    try {
+      const handle = await startLoopbackOauthListener();
+      await expect(handle!.cancel()).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledWith('[loopback-oauth] stop failed', expect.any(Error));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test('awaitCallback rejects when listen() rejects', async () => {

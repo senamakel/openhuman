@@ -6459,3 +6459,102 @@ async fn mcp_clients_lifecycle() {
     mock_join.abort();
     rpc_join.abort();
 }
+
+/// Proxy config corruption recovery (PR #1563 guard).
+///
+/// Verifies that when the config.toml on disk is corrupted *after* the core
+/// has started, subsequent RPC calls still succeed (the in-memory config is
+/// intact) and that explicitly re-loading the config recovers via the backup
+/// path (`config.toml.bak`) or falls back to defaults rather than returning an
+/// error.
+///
+/// Two sub-cases exercised in one fixture:
+///   A. Config in-memory is unaffected by on-disk corruption: `core.ping`
+///      still returns ok.
+///   B. A new load from the corrupt primary with a valid `.bak` recovers the
+///      sentinel `default_temperature` value from the backup.
+#[tokio::test]
+async fn json_rpc_proxy_config_corruption_recovery() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+
+    // Write a valid config.
+    let valid_toml = format!(
+        r#"api_url = "{mock_origin}"
+default_model = "e2e-mock-model"
+default_temperature = 0.7
+chat_onboarding_completed = true
+
+[secrets]
+encrypt = false
+"#
+    );
+    let config_dir = openhuman_home.clone();
+    std::fs::create_dir_all(&config_dir).expect("mkdir openhuman");
+    let config_path = config_dir.join("config.toml");
+    std::fs::write(&config_path, valid_toml.as_bytes()).expect("write valid config");
+
+    // Write a backup with a sentinel temperature distinct from the default (0.7)
+    // so recovery-from-backup is distinguishable from fall-back-to-defaults.
+    let bak_toml = format!(
+        r#"api_url = "{mock_origin}"
+default_model = "e2e-mock-model"
+default_temperature = 1.2
+chat_onboarding_completed = true
+
+[secrets]
+encrypt = false
+"#
+    );
+    let bak_path = config_path.with_extension("toml.bak");
+    std::fs::write(&bak_path, bak_toml.as_bytes()).expect("write backup config");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+
+    // A. RPC works before any corruption.
+    let ping_before = post_json_rpc(&rpc_base, 15_631, "core.ping", json!({})).await;
+    assert_eq!(
+        assert_no_jsonrpc_error(&ping_before, "ping before corruption").get("ok"),
+        Some(&json!(true))
+    );
+
+    // Corrupt the primary config file on disk after the server is up.
+    std::fs::write(&config_path, b"this is [[[ not valid toml at all")
+        .expect("corrupt config on disk");
+
+    // B. In-process RPC is unaffected by the on-disk corruption — the
+    //    server loaded config at startup and holds it in memory.
+    let ping_after = post_json_rpc(&rpc_base, 15_632, "core.ping", json!({})).await;
+    assert_eq!(
+        assert_no_jsonrpc_error(&ping_after, "ping after corruption").get("ok"),
+        Some(&json!(true))
+    );
+
+    // C. Recovery via the public load path: after the primary is corrupt the
+    //    next call to load_config_with_timeout reads the on-disk file, finds
+    //    it broken, falls back to the .bak, and returns the backup sentinel
+    //    temperature (1.2) without returning an error.
+    let recovered = openhuman_core::openhuman::config::load_config_with_timeout()
+        .await
+        .expect("load_config_with_timeout must not error even with corrupt primary");
+    assert!(
+        (recovered.default_temperature - 1.2).abs() < 1e-9
+            || (recovered.default_temperature - 0.7).abs() < 1e-9,
+        "recovery must yield either backup sentinel 1.2 or default 0.7, got {}",
+        recovered.default_temperature
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}

@@ -7,6 +7,7 @@ import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
 import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
 import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
+import SearchPanel from '../components/settings/panels/SearchPanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
@@ -314,6 +315,13 @@ const Settings = () => {
       route: 'ledger-usage',
       icon: LlmIcon,
     },
+    {
+      id: 'search',
+      title: t('settings.search.title'),
+      description: t('settings.search.menuDesc'),
+      route: 'search',
+      icon: LlmIcon,
+    },
   ];
 
   const composioSettingsItems = [
@@ -429,6 +437,7 @@ const Settings = () => {
           path="ledger-usage"
           element={wrapSettingsPage(<LedgerUsagePanel />, { maxWidthClass: 'max-w-4xl' })}
         />
+        <Route path="search" element={wrapSettingsPage(<SearchPanel />)} />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
         <Route

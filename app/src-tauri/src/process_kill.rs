@@ -280,11 +280,13 @@ mod windows_tests {
     #[test]
     fn classify_taskkill_force_treats_no_running_instance_as_success() {
         // The `/T` (tree) flag emits this shape when the parent is already
-        // gone but child traversal still runs.
+        // gone but child traversal still runs. Pass a *non-128* exit code
+        // here so the test actually exercises the stderr-matching branch —
+        // `Some(128)` short-circuits before we ever inspect stderr.
         let stderr = b"ERROR: The process with PID 1234 (child process of PID 999) \
             could not be terminated.\r\n\
             Reason: There is no running instance of the task.\r\n";
-        assert!(classify_taskkill_force_status(Some(128), stderr, 1234).is_ok());
+        assert!(classify_taskkill_force_status(Some(1), stderr, 1234).is_ok());
     }
 
     #[test]

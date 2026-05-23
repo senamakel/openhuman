@@ -122,6 +122,12 @@ pub fn get_or_create_random(
 ) -> Result<String, KeyringError> {
     log::debug!("[keyring] get_or_create_random user_id={user_id} key={key} len_bytes={len_bytes}");
 
+    if len_bytes == 0 {
+        return Err(KeyringError::Backend(
+            "get_or_create_random requires len_bytes > 0".to_string(),
+        ));
+    }
+
     if let Some(existing) = get(user_id, key)? {
         log::debug!(
             "[keyring] get_or_create_random returning existing value user_id={user_id} key={key}"

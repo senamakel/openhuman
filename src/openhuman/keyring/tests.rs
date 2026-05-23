@@ -146,7 +146,7 @@ fn run_migrate(
     let nk = format!("{user_id}:{key}");
 
     // -- Step 1: already migrated? --
-    if fb.get(&nk).unwrap_or(None).is_some() {
+    if fb.get(&nk)?.is_some() {
         return Ok(MigrationOutcome::AlreadyMigrated);
     }
 
@@ -164,10 +164,10 @@ fn run_migrate(
     let value = content.trim().to_string();
 
     // -- Step 4: write --
-    fb.set(&nk, &value).map_err(|e| e)?;
+    fb.set(&nk, &value)?;
 
     // -- Step 5: verify --
-    let readback = fb.get(&nk).unwrap_or(None);
+    let readback = fb.get(&nk)?;
     if readback.as_deref() != Some(value.as_str()) {
         return Err(KeyringError::VerifyFailed {
             key: key.to_string(),

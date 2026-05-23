@@ -166,7 +166,7 @@ export const SubMascotLayer: FC<SubMascotLayerProps> = ({ entries }) => {
                 model.status === 'running' ? 'opacity-100' : 'opacity-75',
               ].join(' ')}>
               <div className="drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)]">
-                <YellowMascot size="100%" mascotColor={model.color} face={model.face} />
+                <YellowMascot size="100%" mascotColor={model.color} face={model.face} static />
               </div>
             </div>
             <div

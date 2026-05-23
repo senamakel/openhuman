@@ -15,6 +15,7 @@ import { listConnections as listComposioConnections } from '../../../lib/composi
 import type { ComposioConnection } from '../../../lib/composio/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
+  clearOpenAICompatEndpointKey,
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
   clearCloudProviderKey,
@@ -22,10 +23,12 @@ import {
   flushCloudProviders,
   listProviderModels,
   loadAISettings,
+  loadOpenAICompatEndpointStatus,
   loadLocalProviderSnapshot,
   type LocalProviderSnapshot,
   type ModelInfo,
   saveAISettings,
+  setOpenAICompatEndpointKey,
   setCloudProviderKey,
 } from '../../../services/api/aiSettingsApi';
 import {
@@ -2002,6 +2005,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const [customDialogFor, setCustomDialogFor] = useState<WorkloadId | null>(null);
   // Which provider slug's API-key dialog is currently open (null = closed).
   const [keyDialogFor, setKeyDialogFor] = useState<string | null>(null);
+  const [openAiCompatDialogOpen, setOpenAiCompatDialogOpen] = useState(false);
+  const [openAiCompatStatus, setOpenAiCompatStatus] = useState<{
+    baseUrl: string | null;
+    has_api_key: boolean;
+  }>({ baseUrl: null, has_api_key: false });
+  const [openAiCompatBusy, setOpenAiCompatBusy] = useState<string | null>(null);
   // When the user toggles LM Studio / Ollama (local runtimes), we
   // need to remember which label to attach to the upserted provider so the
   // chip can find it again. Cleared when the dialog closes.
@@ -2009,6 +2018,24 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
 
   const updateRouting = (id: WorkloadId, next: ProviderRef) =>
     setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
+
+  useEffect(() => {
+    let active = true;
+    loadOpenAICompatEndpointStatus()
+      .then(status => {
+        if (active) {
+          setOpenAiCompatStatus(status);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOpenAiCompatStatus({ baseUrl: null, has_api_key: false });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // applyPreset removed alongside the Cloud / Local / Mixed preset pills —
   // the new Default/Custom binary toggle handles routing per workload.
@@ -2059,6 +2086,81 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               {t('settings.ai.llmProvidersDesc')}
             </p>
           </div>
+
+          <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-stone-50/80 dark:bg-neutral-900/70 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                  OpenAI-compatible endpoint
+                </h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+                  Point local harnesses at this `/v1` server to route through the providers
+                  configured below. Authentication uses a stable key you set here, not the
+                  app&apos;s internal core bearer.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    openAiCompatStatus.has_api_key
+                      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30'
+                      : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30'
+                  }`}>
+                  {openAiCompatStatus.has_api_key ? 'Key configured' : 'Key required'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOpenAiCompatDialogOpen(true)}
+                  disabled={openAiCompatBusy !== null}
+                  className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
+                  {openAiCompatStatus.has_api_key ? 'Rotate key' : 'Set key'}
+                </button>
+                {openAiCompatStatus.has_api_key ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenAiCompatBusy('clear');
+                      clearOpenAICompatEndpointKey()
+                        .then(() => {
+                          setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: false }));
+                        })
+                        .catch(err => {
+                          console.warn(
+                            '[ai-settings] clearOpenAICompatEndpointKey failed',
+                            err instanceof Error ? err.message : String(err)
+                          );
+                        })
+                        .finally(() => setOpenAiCompatBusy(null));
+                    }}
+                    disabled={openAiCompatBusy !== null}
+                    className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:opacity-50">
+                    Clear key
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+                  Base URL
+                </label>
+                <input
+                  readOnly
+                  value={openAiCompatStatus.baseUrl ?? 'Unavailable'}
+                  className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+                  Auth header
+                </label>
+                <div className="mt-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-700 dark:text-neutral-300">
+                  Authorization: Bearer &lt;your key&gt;
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">
@@ -2377,6 +2479,25 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             />
           );
         })()}
+
+      {openAiCompatDialogOpen && (
+        <ProviderKeyDialog
+          slug="external-openai-compat"
+          label="OpenAI-compatible endpoint"
+          isLocalRuntime={false}
+          onCancel={() => setOpenAiCompatDialogOpen(false)}
+          onSubmit={async value => {
+            setOpenAiCompatBusy('save');
+            try {
+              await setOpenAICompatEndpointKey(value.trim());
+              setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: true }));
+              setOpenAiCompatDialogOpen(false);
+            } finally {
+              setOpenAiCompatBusy(null);
+            }
+          }}
+        />
+      )}
 
       {keyDialogFor && (
         <ProviderKeyDialog

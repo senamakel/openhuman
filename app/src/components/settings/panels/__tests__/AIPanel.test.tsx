@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { listConnections as listComposioConnections } from '../../../../lib/composio/composioApi';
 import {
+  clearOpenAICompatEndpointKey,
   listProviderModels,
   loadAISettings,
+  loadOpenAICompatEndpointStatus,
   loadLocalProviderSnapshot,
   saveAISettings,
+  setOpenAICompatEndpointKey,
   setCloudProviderKey,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
@@ -33,8 +36,11 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
     'subconscious',
   ],
   loadAISettings: vi.fn(),
+  loadOpenAICompatEndpointStatus: vi.fn(),
   saveAISettings: vi.fn(),
   loadLocalProviderSnapshot: vi.fn(),
+  setOpenAICompatEndpointKey: vi.fn(),
+  clearOpenAICompatEndpointKey: vi.fn().mockResolvedValue(undefined),
   setCloudProviderKey: vi.fn(),
   clearCloudProviderKey: vi.fn().mockResolvedValue(undefined),
   serializeProviderRef: vi.fn((r: { kind: string; providerSlug?: string; model?: string }) =>
@@ -189,7 +195,13 @@ describe('AIPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValue({
+      baseUrl: 'http://127.0.0.1:7788/v1',
+      has_api_key: false,
+    });
     vi.mocked(loadLocalProviderSnapshot).mockResolvedValue(baseLocalSnapshot);
+    vi.mocked(setOpenAICompatEndpointKey).mockResolvedValue(undefined);
+    vi.mocked(clearOpenAICompatEndpointKey).mockResolvedValue(undefined);
     vi.mocked(setCloudProviderKey).mockResolvedValue(undefined);
     vi.mocked(listProviderModels).mockResolvedValue([]);
     vi.mocked(openhumanHeartbeatSettingsGet).mockResolvedValue({
@@ -229,6 +241,17 @@ describe('AIPanel', () => {
     expect(screen.queryByText(/^Auth$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Cloud providers$/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/^Routing$/).length).toBeGreaterThan(0);
+  });
+
+  it('renders the OpenAI-compatible endpoint card with the local /v1 base URL', async () => {
+    renderWithProviders(<AIPanel />);
+
+    await waitFor(() =>
+      expect(screen.getByText('OpenAI-compatible endpoint')).toBeInTheDocument()
+    );
+    expect(screen.getByDisplayValue('http://127.0.0.1:7788/v1')).toBeInTheDocument();
+    expect(screen.getByText(/Authorization: Bearer/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument();
   });
 
   it('renders the OpenHuman primary card after load', async () => {

@@ -84,7 +84,9 @@ struct ThreadLabelMigrationResult {
     failures: usize,
 }
 
-fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<ThreadLabelMigrationResult, String> {
+fn migrate_welcome_thread_labels(
+    workspace_dir: &Path,
+) -> Result<ThreadLabelMigrationResult, String> {
     log::debug!(
         "[migration::welcome-to-orchestrator] scanning workspace={} for legacy '{}' thread label",
         workspace_dir.display(),

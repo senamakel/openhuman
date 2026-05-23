@@ -79,4 +79,57 @@ describe('startLoopbackOauthListener', () => {
 
     expect(mockInvoke).toHaveBeenNthCalledWith(2, 'stop_loopback_oauth_listener');
   });
+
+  test('cancel swallows stop_loopback_oauth_listener failure', async () => {
+    mockInvoke
+      .mockResolvedValueOnce({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's' })
+      .mockRejectedValueOnce(new Error('already stopped'));
+    mockListen.mockResolvedValue(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const handle = await startLoopbackOauthListener();
+    await expect(handle!.cancel()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      '[loopback-oauth] stop failed',
+      expect.any(Error)
+    );
+
+    warn.mockRestore();
+  });
+
+  test('awaitCallback rejects when listen() rejects', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      redirectUri: 'http://127.0.0.1:53824/auth',
+      state: 's',
+    });
+    mockListen.mockRejectedValueOnce(new Error('listen failed'));
+
+    const handle = await startLoopbackOauthListener();
+    await expect(handle!.awaitCallback()).rejects.toThrow('listen failed');
+  });
+
+  test('awaitCallback rejects on timeout and stops the listener', async () => {
+    vi.useFakeTimers();
+    try {
+      mockInvoke
+        .mockResolvedValueOnce({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's' })
+        .mockResolvedValueOnce(undefined);
+      const unlisten = vi.fn();
+      mockListen.mockResolvedValue(unlisten);
+
+      const handle = await startLoopbackOauthListener({ timeoutSecs: 1 });
+      const callbackPromise = handle!.awaitCallback();
+      // Let listen() register.
+      await Promise.resolve();
+      vi.advanceTimersByTime(1000);
+
+      await expect(callbackPromise).rejects.toThrow('Loopback OAuth listener timed out');
+      expect(unlisten).toHaveBeenCalledTimes(1);
+      // Drain the queued microtask that calls stop().
+      await Promise.resolve();
+      expect(mockInvoke).toHaveBeenNthCalledWith(2, 'stop_loopback_oauth_listener');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

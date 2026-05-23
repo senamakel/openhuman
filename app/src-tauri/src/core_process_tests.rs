@@ -409,7 +409,10 @@ fn windows_port_takeover_finds_and_kills_listener() {
     }
 
     let _ = child.wait();
-    assert!(freed, "port {port} still bound after kill_pid_force(pid={pid})");
+    assert!(
+        freed,
+        "port {port} still bound after kill_pid_force(pid={pid})"
+    );
 
     // Idempotency: kill the same pid again — must be Ok, not Err, because
     // the process is already gone and recovery code calls force-kill after

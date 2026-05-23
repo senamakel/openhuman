@@ -173,7 +173,9 @@ pub(crate) fn kill_pid_term(pid: u32) -> Result<(), String> {
 #[cfg(windows)]
 pub(crate) fn kill_pid_force(pid: u32) -> Result<(), String> {
     if is_protected_windows_pid(pid) {
-        return Err(format!("refusing to force-kill protected windows pid {pid}"));
+        return Err(format!(
+            "refusing to force-kill protected windows pid {pid}"
+        ));
     }
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -210,8 +212,7 @@ pub(crate) fn classify_taskkill_force_status(
             let stderr_str = String::from_utf8_lossy(stderr);
             if stderr_str.contains("not found")
                 || stderr_str.contains("could not be terminated")
-                || stderr_str.contains("ERROR: The process")
-                    && stderr_str.contains("not found")
+                || stderr_str.contains("ERROR: The process") && stderr_str.contains("not found")
             {
                 log::debug!(
                     "[app] taskkill /F /PID {pid}: process already gone (stderr match: {stderr_str:?})"

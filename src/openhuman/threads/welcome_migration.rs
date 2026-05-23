@@ -193,7 +193,9 @@ fn migrate_welcome_transcripts(workspace_dir: &Path) -> Result<TranscriptMigrati
                 "[migration::welcome-to-orchestrator] destination already exists for {} — updating metadata in place",
                 destination.display()
             );
-            destination = path.clone();
+            // Keep legacy artifact untouched so a future retry can still
+            // detect and rename it if the collision is removed.
+            continue;
         }
 
         if let Err(err) = write_rewritten_meta(&path, &new_meta_line, destination.as_path()) {
@@ -501,8 +503,8 @@ mod tests {
         );
         let contents = fs::read_to_string(&raw).unwrap();
         assert!(
-            contents.contains("\"agent\":\"orchestrator_thread-abc\""),
-            "metadata should still be rewritten when rename is blocked: {contents}"
+            contents.contains("\"agent\":\"welcome_thread-abc\""),
+            "blocked rename should leave legacy metadata untouched: {contents}"
         );
         assert!(
             !workspace.join(MIGRATION_MARKER).exists(),

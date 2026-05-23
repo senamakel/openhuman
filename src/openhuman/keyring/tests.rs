@@ -22,9 +22,18 @@ use super::*;
 
 // ── OS backend helpers ────────────────────────────────────────────────────────
 
-/// Returns true if the OS keychain is available in this test environment.
+/// Returns true ONLY when the user has explicitly opted into hitting the real
+/// OS keychain by setting `OPENHUMAN_TEST_OS_KEYCHAIN=1`.
+///
+/// Why opt-in instead of probe-first: on macOS, the first `keyring::Entry::set`
+/// from an unsigned/changing debug binary blocks on a GUI permission prompt —
+/// in non-interactive `cargo test` runs (CI, pre-push hook, agent shells) that
+/// hangs the suite indefinitely. We keep `cargo test` defaulting to the
+/// FileBackend path so it never touches the OS keychain.
 fn os_keychain_available() -> bool {
-    // Direct OsBackend probe (bypasses the global BACKEND OnceLock).
+    if std::env::var("OPENHUMAN_TEST_OS_KEYCHAIN").as_deref() != Ok("1") {
+        return false;
+    }
     let b = backend::OsBackend;
     let probe_key = "__openhuman_probe_test__";
     let probe_val = "__probe_ok__";

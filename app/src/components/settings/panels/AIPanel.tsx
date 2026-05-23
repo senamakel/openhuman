@@ -2149,7 +2149,9 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 </label>
                 <input
                   readOnly
-                  value={openAiCompatStatus.baseUrl ?? t('settings.ai.openAiCompat.baseUrlUnavailable')}
+                  value={
+                    openAiCompatStatus.baseUrl ?? t('settings.ai.openAiCompat.baseUrlUnavailable')
+                  }
                   className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100"
                 />
               </div>

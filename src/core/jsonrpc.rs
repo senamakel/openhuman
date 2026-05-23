@@ -1720,6 +1720,37 @@ pub async fn bootstrap_core_runtime(embedded_core: bool) {
         }
     }
 
+    // --- Welcome-agent artifact migration --------------------------------
+    // One-shot cleanup for artifacts created by the removed welcome agent:
+    // strips the legacy "onboarding" label from onboarding threads and
+    // rewrites welcome-named session transcripts to orchestrator naming.
+    match crate::openhuman::threads::migrate_welcome_agent_artifacts(&workspace_dir) {
+        Ok(result) if result.already_done => {
+            log::debug!("[migration::welcome-to-orchestrator] already applied");
+        }
+        Ok(result)
+            if result.threads_updated == 0
+                && result.transcripts_updated == 0
+                && result.transcript_files_renamed == 0
+                && result.markdown_files_renamed == 0 =>
+        {
+            log::debug!("[migration::welcome-to-orchestrator] no artifacts to update");
+        }
+        Ok(result) => {
+            log::info!(
+                "[migration::welcome-to-orchestrator] threads_updated={} transcripts_updated={} transcript_files_renamed={} markdown_files_renamed={}",
+                result.threads_updated,
+                result.transcripts_updated,
+                result.transcript_files_renamed,
+                result.markdown_files_renamed
+            );
+        }
+        Err(err) => {
+            // Don't abort startup over a workspace-cleanup migration.
+            log::warn!("[migration::welcome-to-orchestrator] migration failed: {err}");
+        }
+    }
+
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());
     set_global_socket_manager(socket_mgr.clone());

@@ -812,11 +812,9 @@ fn extract_string_outcome(result: &Value) -> String {
 }
 
 fn write_min_config(openhuman_dir: &Path, api_origin: &str) {
-    // `chat_onboarding_completed = true` bypasses the welcome agent so that
-    // `channel_web_chat` in tests routes straight to the orchestrator. Without
-    // this, the first chat turn goes through the welcome flow whose tool
-    // contract is not modelled by the e2e mock, which closes the SSE stream
-    // mid-response.
+    // `chat_onboarding_completed = true` is retained for backward compatibility
+    // with existing config.toml files. All chat turns now route to the
+    // orchestrator directly regardless of this flag.
     let cfg = format!(
         r#"api_url = "{api_origin}"
 default_model = "e2e-mock-model"
@@ -2681,10 +2679,9 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
         Some(false),
         "expected onboardingCompleted=false default: {body}"
     );
-    // Welcome-lockdown frontend gate (#883). `write_min_config` sets
-    // `chat_onboarding_completed = true` so the test harness bypasses the
-    // welcome agent; the snapshot must surface the same camelCase key the
-    // React app reads.
+    // `chat_onboarding_completed` is a deprecated config field retained for
+    // backward compat. `write_min_config` sets it to `true`; the snapshot
+    // surfaces the same camelCase key the React app reads.
     assert_eq!(
         body.get("chatOnboardingCompleted").and_then(Value::as_bool),
         Some(true),
@@ -3093,9 +3090,9 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     rpc_join.abort();
 }
 
-/// #883 — when `chat_onboarding_completed` is unset in config.toml (fresh
-/// user), the `openhuman.app_state_snapshot` RPC must surface the flag as
-/// `false` so the React welcome-lockdown kicks in.
+/// Verify that when `chat_onboarding_completed` is unset in config.toml (fresh
+/// user), the `openhuman.app_state_snapshot` RPC surfaces the flag as `false`
+/// (its serde default). The field is deprecated but still surfaced for backward compat.
 #[tokio::test]
 async fn json_rpc_app_state_snapshot_chat_onboarding_defaults_false() {
     let _env_lock = json_rpc_e2e_env_lock();
@@ -3111,9 +3108,8 @@ async fn json_rpc_app_state_snapshot_chat_onboarding_defaults_false() {
     let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let mock_origin = format!("http://{}", mock_addr);
 
-    // Fresh-user config: no `chat_onboarding_completed` key → serde default
-    // of `false`. Cannot reuse `write_min_config` because it hard-codes the
-    // flag to `true` so the e2e mock can bypass the welcome agent.
+    // Fresh-user config: no `chat_onboarding_completed` key → serde default of `false`.
+    // Cannot reuse `write_min_config` because it hard-codes the flag to `true`.
     let cfg = format!(
         r#"api_url = "{mock_origin}"
 default_model = "e2e-mock-model"

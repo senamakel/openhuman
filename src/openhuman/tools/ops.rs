@@ -137,8 +137,6 @@ pub fn all_tools_with_runtime(
         // follow-up; the tool emits a stable marker today.
         Box::new(TodoTool::new()),
         Box::new(PlanExitTool::new()),
-        Box::new(CheckOnboardingStatusTool::new()),
-        Box::new(CompleteOnboardingTool::new()),
         Box::new(CurrentTimeTool::new()),
         Box::new(CronAddTool::new(config.clone(), security.clone())),
         Box::new(CronListTool::new(config.clone())),

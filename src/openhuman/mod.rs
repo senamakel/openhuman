@@ -42,6 +42,7 @@ pub mod heartbeat;
 pub mod http_host;
 pub mod inference;
 pub mod integrations;
+pub mod keyring;
 pub mod javascript;
 pub mod learning;
 pub mod mcp_client;

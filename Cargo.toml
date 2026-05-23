@@ -115,6 +115,7 @@ rustls-pki-types = "1.14.0"
 tokio-rustls = "0.26.4"
 webpki-roots = "1.0.6"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"] }
@@ -193,6 +194,10 @@ rppal = { version = "0.22", optional = true }
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 # Mock HTTP server for provider E2E tests (inference_provider_e2e).
 wiremock = "0.6"
+# keyring dev-dep re-declared to make the mock store accessible in tests.
+# The mock::MockCredentialBuilder is always compiled into the crate regardless
+# of features; no extra feature flag is required.
+keyring = { version = "3" }
 
 [features]
 sandbox-landlock = ["dep:landlock"]

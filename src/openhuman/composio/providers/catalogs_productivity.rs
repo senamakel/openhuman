@@ -106,6 +106,14 @@ pub const OUTLOOK_CURATED: &[CuratedTool] = &[
     },
 ];
 
+// ── linear ──────────────────────────────────────────────────────────
+//
+// `LINEAR_CURATED` lives in `super::linear::tools` alongside the native
+// `LinearProvider` impl (per-issue #2400). `catalog_for_toolkit("linear")`
+// in `super::mod` routes through that constant directly. Removing the
+// catalog-only declaration here keeps a single source of truth and
+// matches how `gmail` / `notion` / `clickup` are wired.
+
 // ── jira ────────────────────────────────────────────────────────────
 pub const JIRA_CURATED: &[CuratedTool] = &[
     CuratedTool {

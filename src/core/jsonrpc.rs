@@ -1685,71 +1685,8 @@ pub async fn bootstrap_core_runtime(embedded_core: bool) {
         );
     }
 
-    // --- Session storage layout migration -------------------------------
-    // One-shot move from `session_raw/{DDMMYYYY}/` (≤ 0.53.4) to the new
-    // flat `session_raw/{stem}.jsonl` layout, plus DDMMYYYY → YYYY_MM_DD
-    // for the human-readable `sessions/` companions. Idempotent via a
-    // marker file at `state/migrations/session_layout_v1.done`, so this
-    // costs one stat() on every subsequent boot.
-    match crate::openhuman::agent::harness::session::migrate_session_layout_if_needed(
-        &workspace_dir,
-    ) {
-        Ok(outcome) if outcome.already_done => {
-            log::debug!("[runtime] session_layout migration already applied");
-        }
-        Ok(outcome) => {
-            log::info!(
-                "[runtime] session_layout migration applied: jsonl_moved={} md_moved={} pruned_dirs={} warnings={}",
-                outcome.jsonl_moved,
-                outcome.md_moved,
-                outcome.legacy_dirs_pruned,
-                outcome.warnings.len(),
-            );
-            for w in &outcome.warnings {
-                log::warn!("[runtime] session_layout migration warning: {w}");
-            }
-        }
-        Err(err) => {
-            // Don't bring down startup over a transcript-storage migration.
-            // The transcript module's legacy fallback covers the unmigrated
-            // case for one release window.
-            log::warn!(
-                "[runtime] session_layout migration failed: {err} — \
-                 falling back to in-place legacy reads"
-            );
-        }
-    }
-
-    // --- Welcome-agent artifact migration --------------------------------
-    // One-shot cleanup for artifacts created by the removed welcome agent:
-    // strips the legacy "onboarding" label from onboarding threads and
-    // rewrites welcome-named session transcripts to orchestrator naming.
-    match crate::openhuman::threads::migrate_welcome_agent_artifacts(&workspace_dir) {
-        Ok(result) if result.already_done => {
-            log::debug!("[migration::welcome-to-orchestrator] already applied");
-        }
-        Ok(result)
-            if result.threads_updated == 0
-                && result.transcripts_updated == 0
-                && result.transcript_files_renamed == 0
-                && result.markdown_files_renamed == 0 =>
-        {
-            log::debug!("[migration::welcome-to-orchestrator] no artifacts to update");
-        }
-        Ok(result) => {
-            log::info!(
-                "[migration::welcome-to-orchestrator] threads_updated={} transcripts_updated={} transcript_files_renamed={} markdown_files_renamed={}",
-                result.threads_updated,
-                result.transcripts_updated,
-                result.transcript_files_renamed,
-                result.markdown_files_renamed
-            );
-        }
-        Err(err) => {
-            // Don't abort startup over a workspace-cleanup migration.
-            log::warn!("[migration::welcome-to-orchestrator] migration failed: {err}");
-        }
-    }
+    // --- Workspace migrations --------------------------------------------
+    crate::openhuman::startup::run_workspace_migrations(&workspace_dir);
 
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());

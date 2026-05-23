@@ -52,11 +52,19 @@ pub fn migrate_welcome_agent_artifacts(
     }
 
     let mut result = WelcomeMigrationResult::default();
-    result.threads_updated = migrate_welcome_thread_labels(workspace_dir)?;
+    let thread_result = migrate_welcome_thread_labels(workspace_dir)?;
+    result.threads_updated = thread_result.threads_updated;
     let transcript_result = migrate_welcome_transcripts(workspace_dir)?;
     result.transcripts_updated = transcript_result.transcripts_updated;
     result.transcript_files_renamed = transcript_result.transcript_files_renamed;
     result.markdown_files_renamed = transcript_result.markdown_files_renamed;
+
+    if thread_result.failures > 0 || transcript_result.failures > 0 {
+        return Err(format!(
+            "[migration::welcome-to-orchestrator] partial migration: thread_failures={} transcript_failures={}",
+            thread_result.failures, transcript_result.failures
+        ));
+    }
 
     write_marker(&marker)?;
 
@@ -71,7 +79,12 @@ pub fn migrate_welcome_agent_artifacts(
     Ok(result)
 }
 
-fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<usize, String> {
+struct ThreadLabelMigrationResult {
+    threads_updated: usize,
+    failures: usize,
+}
+
+fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<ThreadLabelMigrationResult, String> {
     log::debug!(
         "[migration::welcome-to-orchestrator] scanning workspace={} for legacy '{}' thread label",
         workspace_dir.display(),
@@ -82,6 +95,7 @@ fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<usize, String> 
         .map_err(|e| format!("[migration::welcome-to-orchestrator] list_threads failed: {e}"))?;
 
     let mut threads_updated = 0usize;
+    let mut failures = 0usize;
     for thread in &threads {
         if !thread
             .labels
@@ -114,6 +128,7 @@ fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<usize, String> 
                 );
             }
             Err(err) => {
+                failures += 1;
                 log::warn!(
                     "[migration::welcome-to-orchestrator] failed to update thread_id={}: {err}",
                     thread.id
@@ -122,7 +137,10 @@ fn migrate_welcome_thread_labels(workspace_dir: &Path) -> Result<usize, String> 
         }
     }
 
-    Ok(threads_updated)
+    Ok(ThreadLabelMigrationResult {
+        threads_updated,
+        failures,
+    })
 }
 
 #[derive(Default)]
@@ -130,6 +148,7 @@ struct TranscriptMigrationResult {
     transcripts_updated: usize,
     transcript_files_renamed: usize,
     markdown_files_renamed: usize,
+    failures: usize,
 }
 
 fn migrate_welcome_transcripts(workspace_dir: &Path) -> Result<TranscriptMigrationResult, String> {
@@ -167,6 +186,7 @@ fn migrate_welcome_transcripts(workspace_dir: &Path) -> Result<TranscriptMigrati
         }
 
         if destination != path && destination.exists() {
+            result.failures += 1;
             log::warn!(
                 "[migration::welcome-to-orchestrator] destination already exists for {} — updating metadata in place",
                 destination.display()
@@ -174,7 +194,11 @@ fn migrate_welcome_transcripts(workspace_dir: &Path) -> Result<TranscriptMigrati
             destination = path.clone();
         }
 
-        write_rewritten_meta(&path, &new_meta_line, destination.as_path())?;
+        if let Err(err) = write_rewritten_meta(&path, &new_meta_line, destination.as_path()) {
+            result.failures += 1;
+            log::warn!("[migration::welcome-to-orchestrator] {err}");
+            continue;
+        }
         result.transcripts_updated += 1;
         if destination != path {
             result.transcript_files_renamed += 1;
@@ -324,6 +348,7 @@ fn rename_markdown_companions(
         }
         let new_path = dir.join(format!("{new_stem}.md"));
         if new_path.exists() {
+            result.failures += 1;
             log::warn!(
                 "[migration::welcome-to-orchestrator] markdown destination already exists at {} — leaving {} in place",
                 new_path.display(),
@@ -332,6 +357,7 @@ fn rename_markdown_companions(
             continue;
         }
         if let Err(err) = fs::rename(&old_path, &new_path) {
+            result.failures += 1;
             log::warn!(
                 "[migration::welcome-to-orchestrator] failed to rename markdown companion {} -> {}: {}",
                 old_path.display(),
@@ -456,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn migration_rewrites_metadata_in_place_when_destination_exists() {
+    fn migration_returns_error_without_marker_when_destination_exists() {
         let tmp = TempDir::new().unwrap();
         let workspace = tmp.path();
 
@@ -465,14 +491,20 @@ mod tests {
         let dest = workspace.join("session_raw/1715000000_orchestrator_thread-abc.jsonl");
         write_transcript(&dest, "orchestrator_thread-abc", "thread-abc");
 
-        let result = migrate_welcome_agent_artifacts(workspace).unwrap();
+        let err = migrate_welcome_agent_artifacts(workspace).unwrap_err();
 
-        assert_eq!(result.transcripts_updated, 1);
-        assert_eq!(result.transcript_files_renamed, 0);
+        assert!(
+            err.contains("partial migration"),
+            "expected partial-migration error, got: {err}"
+        );
         let contents = fs::read_to_string(&raw).unwrap();
         assert!(
             contents.contains("\"agent\":\"orchestrator_thread-abc\""),
             "metadata should still be rewritten when rename is blocked: {contents}"
+        );
+        assert!(
+            !workspace.join(MIGRATION_MARKER).exists(),
+            "partial migration must not write marker"
         );
     }
 }

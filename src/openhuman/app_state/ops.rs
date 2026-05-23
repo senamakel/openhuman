@@ -88,10 +88,10 @@ pub struct AppStateSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_user: Option<Value>,
     pub onboarding_completed: bool,
-    /// Deprecated — the welcome agent has been removed. This field is
-    /// always `true` in practice (set during onboarding completion) and
-    /// is retained in the snapshot for backward compatibility with frontend
-    /// code that reads it. Routing no longer depends on this value.
+    /// Deprecated — the welcome agent has been removed. Retained in the
+    /// snapshot for backward compatibility with frontend code that still
+    /// reads it. This value may be `false` in newer configs; routing no
+    /// longer depends on this field.
     pub chat_onboarding_completed: bool,
     pub analytics_enabled: bool,
     /// Mirror of `Config::meet.auto_orchestrator_handoff` — gates whether

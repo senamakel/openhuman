@@ -1,47 +1,36 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import localeReducer from '../../../store/localeSlice';
+import { renderWithProviders } from '../../../test/test-utils';
 import LogoutAndClearActions from '../LogoutAndClearActions';
 
-function makeTestStore() {
-  return configureStore({
-    reducer: { locale: localeReducer },
-    preloadedState: { locale: { current: 'en' as const } },
-  });
-}
+const { mockClearSession, mockClearAllAppData } = vi.hoisted(() => ({
+  mockClearSession: vi.fn(),
+  mockClearAllAppData: vi.fn(),
+}));
 
 vi.mock('../../../providers/CoreStateProvider', () => ({
   useCoreState: () => ({
-    clearSession: vi.fn().mockResolvedValue(undefined),
+    clearSession: mockClearSession,
     snapshot: { auth: { userId: null }, currentUser: null },
   }),
 }));
 
-const { mockClearAllAppData } = vi.hoisted(() => ({
-  mockClearAllAppData: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock('../../../utils/clearAllAppData', () => ({
   clearAllAppData: (...args: unknown[]) => mockClearAllAppData(...args),
 }));
 
 function renderActions() {
-  return render(
-    <Provider store={makeTestStore()}>
-      <MemoryRouter>
-        <LogoutAndClearActions />
-      </MemoryRouter>
-    </Provider>
-  );
+  return renderWithProviders(<LogoutAndClearActions />, {
+    preloadedState: { locale: { current: 'en' } },
+  });
 }
 
 describe('LogoutAndClearActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClearSession.mockReset().mockResolvedValue(undefined);
     mockClearAllAppData.mockReset().mockResolvedValue(undefined);
   });
 
@@ -56,7 +45,6 @@ describe('LogoutAndClearActions', () => {
     renderActions();
 
     await user.click(screen.getByText('Clear App Data').closest('button')!);
-    // Confirm in the modal — the last button matching the label is the modal confirm.
     const confirmButtons = screen.getAllByRole('button', { name: /Clear App Data/i });
     await user.click(confirmButtons[confirmButtons.length - 1]);
 
@@ -94,5 +82,17 @@ describe('LogoutAndClearActions', () => {
     await user.click(confirmButtons[confirmButtons.length - 1]);
 
     expect(await screen.findByText(/Failed to clear data and logout/)).toBeInTheDocument();
+  });
+
+  it('surfaces logout failures inline next to the Log out row', async () => {
+    const user = userEvent.setup();
+    mockClearSession.mockRejectedValueOnce(new Error('backend unreachable'));
+    renderActions();
+
+    await user.click(screen.getByText('Log out').closest('button')!);
+
+    const alert = await screen.findByTestId('logout-error');
+    expect(alert).toHaveTextContent(/sign-in failed|failed to log out|/i); // tolerant
+    expect(alert).toBeVisible();
   });
 });

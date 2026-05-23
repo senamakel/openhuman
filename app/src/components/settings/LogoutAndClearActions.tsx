@@ -58,6 +58,12 @@ const LogoutAndClearActions = () => {
     </svg>
   );
 
+  // Inline error is only displayed below the row when the clear-data modal is
+  // closed — when the modal is open, it owns the error display. Without this
+  // surface, a `handleLogout` failure would set `error` but the user would
+  // never see it.
+  const showInlineError = error !== null && !showLogoutAndClearModal;
+
   return (
     <div className="mt-6">
       <SettingsMenuItem
@@ -78,6 +84,15 @@ const LogoutAndClearActions = () => {
         dangerous
         isLast
       />
+
+      {showInlineError && (
+        <div
+          role="alert"
+          data-testid="logout-error"
+          className="mt-3 mx-1 p-3 rounded-lg bg-coral-100 dark:bg-coral-500/20 border border-coral-500/20">
+          <p className="text-coral-600 dark:text-coral-300 text-sm">{error}</p>
+        </div>
+      )}
 
       {showLogoutAndClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">

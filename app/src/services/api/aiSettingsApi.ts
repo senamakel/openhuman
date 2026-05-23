@@ -15,8 +15,7 @@
  * through this file. Keeps the wiring testable and the panel focused on
  * presentation.
  */
-import { callCoreRpc } from '../../services/coreRpcClient';
-import { getCoreHttpBaseUrl } from '../../services/coreRpcClient';
+import { callCoreRpc, getCoreHttpBaseUrl } from '../../services/coreRpcClient';
 import {
   authListProviderCredentials,
   type AuthProfileSummary,
@@ -337,10 +336,7 @@ export async function setOpenAICompatEndpointKey(apiKey: string): Promise<void> 
 }
 
 export async function clearOpenAICompatEndpointKey(): Promise<void> {
-  await authRemoveProviderCredentials({
-    provider: openAiCompatAuthProvider(),
-    profile: 'default',
-  });
+  await authRemoveProviderCredentials({ provider: openAiCompatAuthProvider(), profile: 'default' });
 }
 
 /**

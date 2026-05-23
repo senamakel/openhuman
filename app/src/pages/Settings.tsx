@@ -316,6 +316,23 @@ const Settings = () => {
     },
   ];
 
+  const composioSettingsItems = [
+    {
+      id: 'composio-routing',
+      title: t('settings.developerMenu.composioRouting.title'),
+      description: t('settings.developerMenu.composioRouting.desc'),
+      route: 'composio-routing',
+      icon: ToolsIcon,
+    },
+    {
+      id: 'webhooks-triggers',
+      title: t('settings.developerMenu.composeioTriggers.title'),
+      description: t('settings.developerMenu.composeioTriggers.desc'),
+      route: 'webhooks-triggers',
+      icon: ToolsIcon,
+    },
+  ];
+
   return (
     <div>
       <Routes>
@@ -348,6 +365,16 @@ const Settings = () => {
               title={t('pages.settings.aiSection.title')}
               description={t('pages.settings.aiSection.description')}
               items={aiSettingsItems}
+            />
+          )}
+        />
+        <Route
+          path="composio"
+          element={wrapSettingsPage(
+            <SettingsSectionPage
+              title={t('pages.settings.composioSection.title')}
+              description={t('pages.settings.composioSection.description')}
+              items={composioSettingsItems}
             />
           )}
         />

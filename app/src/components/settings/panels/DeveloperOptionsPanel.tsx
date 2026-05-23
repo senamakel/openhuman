@@ -139,26 +139,10 @@ const developerItems = [
   // as a tab. The old `/settings/notification-routing` path now redirects to
   // `/settings/notifications#routing`, so deep links continue to work.
   {
-    id: 'webhooks-triggers',
-    titleKey: 'settings.developerMenu.composeioTriggers.title',
-    descriptionKey: 'settings.developerMenu.composeioTriggers.desc',
-    route: 'webhooks-triggers',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M13.828 10.172a4 4 0 010 5.656l-2 2a4 4 0 01-5.656-5.656l1-1m5-5a4 4 0 015.656 5.656l-1 1m-5 5l5-5"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'composio-routing',
-    titleKey: 'settings.developerMenu.composioRouting.title',
-    descriptionKey: 'settings.developerMenu.composioRouting.desc',
-    route: 'composio-routing',
+    id: 'composio',
+    titleKey: 'settings.developerMenu.composio.title',
+    descriptionKey: 'settings.developerMenu.composio.desc',
+    route: 'composio',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -166,28 +150,6 @@ const developerItems = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M13 10V3L4 14h7v7l9-11h-7z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'composio-triggers',
-    titleKey: 'settings.developerMenu.integrationTriggers.title',
-    descriptionKey: 'settings.developerMenu.integrationTriggers.desc',
-    route: 'composio-triggers',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
         />
       </svg>
     ),

@@ -27,7 +27,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "test/*.test.ts", "test/*.test.tsx", "../packages/tauri-plugin-ptt/guest-js"],
+  "include": ["src", "test/*.test.ts", "test/*.test.tsx", "../packages/tauri-plugin-ptt/guest-js/index.ts"],
   "exclude": ["skills"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

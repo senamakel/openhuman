@@ -18,6 +18,7 @@
 //! the redirect so a hostile page on the same loopback origin cannot fake a
 //! callback.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -36,7 +37,13 @@ const LOOPBACK_CALLBACK_EVENT: &str = "loopback-oauth-callback";
 const READ_BUFFER_BYTES: usize = 8 * 1024;
 const PER_CONNECTION_READ_TIMEOUT: Duration = Duration::from_secs(5);
 
-static ACTIVE_LISTENER: Mutex<Option<oneshot::Sender<()>>> = Mutex::new(None);
+struct ActiveListener {
+    id: u64,
+    tx: oneshot::Sender<()>,
+}
+
+static NEXT_LISTENER_ID: AtomicU64 = AtomicU64::new(1);
+static ACTIVE_LISTENER: Mutex<Option<ActiveListener>> = Mutex::new(None);
 
 #[derive(Serialize, Clone)]
 pub struct StartResult {
@@ -56,23 +63,28 @@ struct CallbackPayload {
 
 fn cancel_active_listener() {
     if let Ok(mut guard) = ACTIVE_LISTENER.lock() {
-        if let Some(tx) = guard.take() {
-            let _ = tx.send(());
+        if let Some(active) = guard.take() {
+            let _ = active.tx.send(());
         }
     }
 }
 
-fn install_active_listener(tx: oneshot::Sender<()>) {
+fn install_active_listener(id: u64, tx: oneshot::Sender<()>) {
     if let Ok(mut guard) = ACTIVE_LISTENER.lock() {
-        if let Some(old) = guard.replace(tx) {
-            let _ = old.send(());
+        if let Some(old) = guard.replace(ActiveListener { id, tx }) {
+            let _ = old.tx.send(());
         }
     }
 }
 
-fn clear_active_listener() {
+/// Only clear the global slot if it still belongs to this listener's id.
+/// A superseded listener's exit must NOT wipe out the newer sender installed
+/// by the start that cancelled it.
+fn clear_active_listener(id: u64) {
     if let Ok(mut guard) = ACTIVE_LISTENER.lock() {
-        *guard = None;
+        if guard.as_ref().map(|active| active.id) == Some(id) {
+            *guard = None;
+        }
     }
 }
 
@@ -130,18 +142,26 @@ pub async fn start_loopback_oauth_listener(
     let listener = TcpListener::bind(&bind_addr)
         .await
         .map_err(|err| format!("bind {bind_addr} failed: {err}"))?;
-    log::info!("[loopback-oauth] listening on {bind_addr}");
+    // Use the listener's actual bound port for the emitted callback URL so
+    // the frontend rewrite (`^https?://127.0.0.1:\d+/auth`) always matches,
+    // even if a future change moves to port 0.
+    let bound_port = listener
+        .local_addr()
+        .map(|addr| addr.port())
+        .unwrap_or(port);
+    log::info!("[loopback-oauth] listening on 127.0.0.1:{bound_port}");
 
     let state = random_state_nonce();
-    let redirect_uri = format!("http://{bind_addr}/auth");
+    let redirect_uri = format!("http://127.0.0.1:{bound_port}/auth");
 
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
-    install_active_listener(cancel_tx);
+    let listener_id = NEXT_LISTENER_ID.fetch_add(1, Ordering::Relaxed);
+    install_active_listener(listener_id, cancel_tx);
 
     let expected_state = state.clone();
     tauri::async_runtime::spawn(async move {
         let lifetime = Duration::from_secs(timeout_secs.max(1));
-        let run = run_accept_loop(listener, app, expected_state, cancel_rx);
+        let run = run_accept_loop(listener, app, expected_state, bound_port, cancel_rx);
         match timeout(lifetime, run).await {
             Ok(()) => log::info!("[loopback-oauth] listener finished"),
             Err(_) => log::warn!(
@@ -149,7 +169,7 @@ pub async fn start_loopback_oauth_listener(
                 lifetime.as_secs()
             ),
         }
-        clear_active_listener();
+        clear_active_listener(listener_id);
     });
 
     Ok(StartResult {
@@ -168,6 +188,7 @@ async fn run_accept_loop(
     listener: TcpListener,
     app: AppHandle,
     expected_state: String,
+    bound_port: u16,
     mut cancel_rx: oneshot::Receiver<()>,
 ) {
     loop {
@@ -237,7 +258,7 @@ async fn run_accept_loop(
                 let _ = socket.write_all(&http_response("200 OK", SUCCESS_BODY)).await;
                 let _ = socket.flush().await;
 
-                let callback_url = format!("http://127.0.0.1{}", target);
+                let callback_url = format!("http://127.0.0.1:{}{}", bound_port, target);
                 if let Err(err) = app.emit(LOOPBACK_CALLBACK_EVENT, CallbackPayload { url: callback_url }) {
                     log::warn!("[loopback-oauth] emit callback event failed: {err}");
                 }

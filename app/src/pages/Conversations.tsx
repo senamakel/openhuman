@@ -1848,7 +1848,7 @@ const Conversations = ({
           )}
 
           {composer === 'mic-cloud' ? (
-            <div className="flex flex-col items-center gap-3 py-4">
+            <div className="flex flex-col items-center gap-3 py-1">
               <MicComposer
                 // Without `!selectedThreadId`, a mic submit before a thread is
                 // ready hits `handleSendMessage`'s early return and the

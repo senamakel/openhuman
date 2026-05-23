@@ -1,5 +1,6 @@
 import debug from 'debug';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { transcribeWithFactory } from './voice/sttClient';
@@ -76,6 +77,8 @@ export function MicComposer({
   const [devices, setDevices] = useState<AudioInputDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
+  const gearButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -486,10 +489,17 @@ export function MicComposer({
         {showDeviceMenuFab && (
           <div className="relative">
             <button
+              ref={gearButtonRef}
               type="button"
               aria-label={t('mic.deviceSelector') || 'Microphone device'}
               aria-expanded={deviceMenuOpen}
-              onClick={() => setDeviceMenuOpen(open => !open)}
+              onClick={() => {
+                const rect = gearButtonRef.current?.getBoundingClientRect();
+                if (rect) {
+                  setMenuAnchor({ top: rect.bottom + 8, left: rect.left + rect.width / 2 });
+                }
+                setDeviceMenuOpen(open => !open);
+              }}
               disabled={state !== 'idle'}
               className="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-600 transition-colors shadow-soft disabled:opacity-40 disabled:cursor-not-allowed">
               <svg
@@ -507,17 +517,27 @@ export function MicComposer({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
-            {deviceMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setDeviceMenuOpen(false)}
-                  aria-hidden
-                />
-                <div
-                  role="menu"
-                  aria-label={t('mic.deviceSelector') || 'Microphone device'}
-                  className="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft py-1">
+            {deviceMenuOpen &&
+              menuAnchor &&
+              createPortal(
+                <>
+                  <div
+                    className="fixed inset-0"
+                    style={{ zIndex: 99998 }}
+                    onClick={() => setDeviceMenuOpen(false)}
+                    aria-hidden
+                  />
+                  <div
+                    role="menu"
+                    aria-label={t('mic.deviceSelector') || 'Microphone device'}
+                    style={{
+                      position: 'fixed',
+                      top: menuAnchor.top,
+                      left: menuAnchor.left,
+                      transform: 'translateX(-50%)',
+                      zIndex: 99999,
+                    }}
+                    className="w-64 rounded-xl border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft py-1">
                   {devices.map(d => {
                     const selected = d.deviceId === selectedDeviceId;
                     return (
@@ -550,9 +570,10 @@ export function MicComposer({
                       </button>
                     );
                   })}
-                </div>
-              </>
-            )}
+                  </div>
+                </>,
+                document.body
+              )}
           </div>
         )}
         {onSwitchToText && (

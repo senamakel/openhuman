@@ -5,6 +5,8 @@ import LogoutAndClearActions from '../components/settings/LogoutAndClearActions'
 import AboutPanel from '../components/settings/panels/AboutPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
+import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
+import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
@@ -298,6 +300,20 @@ const Settings = () => {
       route: 'local-model-debug',
       icon: LlmIcon,
     },
+    {
+      id: 'heartbeat',
+      title: t('settings.heartbeat.title'),
+      description: t('settings.heartbeat.desc'),
+      route: 'heartbeat',
+      icon: LlmIcon,
+    },
+    {
+      id: 'ledger-usage',
+      title: t('settings.ledgerUsage.title'),
+      description: t('settings.ledgerUsage.desc'),
+      route: 'ledger-usage',
+      icon: LlmIcon,
+    },
   ];
 
   return (
@@ -377,6 +393,14 @@ const Settings = () => {
         <Route
           path="llm"
           element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
+        <Route
+          path="heartbeat"
+          element={wrapSettingsPage(<HeartbeatPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
+        <Route
+          path="ledger-usage"
+          element={wrapSettingsPage(<LedgerUsagePanel />, { maxWidthClass: 'max-w-4xl' })}
         />
         <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
         <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />

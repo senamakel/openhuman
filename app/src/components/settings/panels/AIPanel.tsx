@@ -757,7 +757,7 @@ function summarizeSpendSample(transactions: CreditTransaction[]) {
   return { rows, total, avgRowUsd, sampleHours, spendPerHour, rowsPerHour };
 }
 
-function describeProvider(ref: ProviderRef, providers: CloudProvider[]): string {
+function describeProvider(ref: ProviderRef, providers: BackgroundLoopProviderView[]): string {
   if (ref.kind === 'openhuman') return 'OpenHuman';
   if (ref.kind === 'local') return `Local ${ref.model}`;
   const provider = providers.find(p => p.slug === ref.providerSlug);
@@ -828,12 +828,25 @@ const FormulaRow = ({ label, value, detail }: { label: string; value: string; de
   </div>
 );
 
-const BackgroundLoopControls = ({
+export type BackgroundLoopControlsView = 'all' | 'heartbeat' | 'ledger';
+
+/** Minimal cloud-provider shape consumed by the loop map's `describeProvider`
+ *  helper — only slug/label/id are read. Accepting this narrower shape lets
+ *  external panels (HeartbeatPanel, LedgerUsagePanel) feed in the API view
+ *  (`CloudProviderView`) without copying the AIPanel-internal extras
+ *  (`authStyle`, `maskedKey`). */
+export type BackgroundLoopProviderView = { id: string; slug: string; label: string };
+
+export const BackgroundLoopControls = ({
   routing,
   cloudProviders,
+  view = 'all',
+  hideHeader = false,
 }: {
   routing: RoutingMap;
-  cloudProviders: CloudProvider[];
+  cloudProviders: BackgroundLoopProviderView[];
+  view?: BackgroundLoopControlsView;
+  hideHeader?: boolean;
 }) => {
   const [settings, setSettings] = useState<HeartbeatSettings | null>(null);
   const [usage, setUsage] = useState<TeamUsage | null>(null);
@@ -1043,17 +1056,26 @@ const BackgroundLoopControls = ({
     },
   ];
 
+  const showHeartbeat = view === 'all' || view === 'heartbeat';
+  const showLedger = view === 'all' || view === 'ledger';
+  const gridCols =
+    view === 'all'
+      ? 'lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]'
+      : 'lg:grid-cols-1';
+
   return (
     <div className="space-y-4">
-      <div className="border-b border-stone-200 dark:border-neutral-800 pb-2">
-        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-          Background loops
-        </h2>
-        <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-          See what runs without a chat message, pause heartbeat work, and inspect recent credit
-          ledger rows.
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="border-b border-stone-200 dark:border-neutral-800 pb-2">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            Background loops
+          </h2>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            See what runs without a chat message, pause heartbeat work, and inspect recent credit
+            ledger rows.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
@@ -1061,7 +1083,8 @@ const BackgroundLoopControls = ({
         </div>
       )}
 
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
+      <section className={`grid gap-3 ${gridCols}`}>
+        {showHeartbeat && (
         <div className="space-y-3">
           <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1269,7 +1292,9 @@ const BackgroundLoopControls = ({
             </div>
           </div>
         </div>
+        )}
 
+        {showLedger && (
         <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -1495,6 +1520,7 @@ const BackgroundLoopControls = ({
             </div>
           </div>
         </div>
+        )}
       </section>
     </div>
   );
@@ -2343,7 +2369,6 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
         </div>
         {/* end of Routing section */}
 
-        <BackgroundLoopControls routing={draft.routing} cloudProviders={draft.cloudProviders} />
       </div>
 
       {isDirty && (

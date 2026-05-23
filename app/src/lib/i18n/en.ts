@@ -501,6 +501,10 @@ const en: TranslationMap = {
     'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
     'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
+  'settings.heartbeat.title': 'Heartbeat & loops',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
+  'settings.ledgerUsage.title': 'Usage ledger',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
 
   // Settings: AI
   'settings.ai.overview': 'AI System Overview',

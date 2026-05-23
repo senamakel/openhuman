@@ -1,19 +1,11 @@
-// Desktop targets: Windows, macOS, Linux.
-// iOS lives in the parallel crate at `app/src-tauri-mobile/` (separate Tauri
-// host without CEF). Existing `cfg(not(target_os = "ios"))` gates below remain
-// as no-ops on desktop — they were the merge-bridge during the split and are
-// safe to keep until a future cleanup pass.
+// Desktop targets: Windows, macOS, Linux. iOS + Android live in
+// `app/src-tauri-mobile/`.
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-compile_error!("src-tauri host supports desktop (Windows/macOS/Linux) only. iOS lives in app/src-tauri-mobile.");
+compile_error!("src-tauri host supports desktop (Windows/macOS/Linux) only. Mobile lives in app/src-tauri-mobile.");
 
-// ── Desktop-only modules ──────────────────────────────────────────────────────
-// None of these compile for iOS: they depend on CEF, CDP, the Rust core
-// sidecar, or system APIs that do not exist on iOS.
-#[cfg(not(target_os = "ios"))]
 mod cdp;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod cef_preflight;
-#[cfg(not(target_os = "ios"))]
 mod cef_profile;
 mod companion_commands;
 mod core_process;
@@ -23,48 +15,30 @@ mod deep_link_ipc;
 #[cfg(target_os = "windows")]
 mod deep_link_ipc_windows;
 mod dictation_hotkeys;
-#[cfg(not(target_os = "ios"))]
 mod discord_scanner;
-#[cfg(not(target_os = "ios"))]
 mod fake_camera;
-#[cfg(not(target_os = "ios"))]
 mod file_logging;
-#[cfg(not(target_os = "ios"))]
 mod gmessages_scanner;
-#[cfg(not(target_os = "ios"))]
 mod imessage_scanner;
 mod loopback_oauth;
 #[cfg(target_os = "macos")]
 mod mascot_native_window;
 mod mcp_commands;
 mod meet_audio;
-#[cfg(not(target_os = "ios"))]
 mod meet_call;
-#[cfg(not(target_os = "ios"))]
 mod meet_scanner;
-#[cfg(not(target_os = "ios"))]
 mod meet_video;
-#[cfg(not(target_os = "ios"))]
 mod native_notifications;
-#[cfg(not(target_os = "ios"))]
 mod notification_settings;
-#[cfg(not(target_os = "ios"))]
 mod process_kill;
-#[cfg(not(target_os = "ios"))]
 mod process_recovery;
-#[cfg(not(target_os = "ios"))]
 mod screen_capture;
-#[cfg(not(target_os = "ios"))]
 mod slack_scanner;
-#[cfg(not(target_os = "ios"))]
 mod telegram_scanner;
-#[cfg(not(target_os = "ios"))]
 mod webview_accounts;
-#[cfg(not(target_os = "ios"))]
 mod webview_apis;
 mod wechat_scanner;
 mod whatsapp_scanner;
-#[cfg(not(target_os = "ios"))]
 mod window_state;
 mod workspace_paths;
 
@@ -72,30 +46,24 @@ mod workspace_paths;
 use tauri::menu::{PredefinedMenuItem, Submenu};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri::WindowEvent;
-#[cfg(all(not(target_os = "ios"), not(target_os = "linux")))]
+#[cfg(not(target_os = "linux"))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
-#[cfg(not(target_os = "ios"))]
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, RunEvent, WebviewWindow};
-#[cfg(not(target_os = "ios"))]
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_notification::NotificationExt;
 
-#[cfg(all(not(target_os = "ios"), any(windows, target_os = "linux")))]
+#[cfg(any(windows, target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
 
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use objc2::runtime::{AnyClass, AnyObject};
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use objc2::ClassType;
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use objc2_app_kit::{NSPanel, NSWindowCollectionBehavior, NSWindowStyleMask};
-
-// ── iOS-only imports ──────────────────────────────────────────────────────────
-#[cfg(target_os = "ios")]
-use tauri::{AppHandle, Manager, RunEvent};
 
 // CEF is the only runtime; alias kept so command handlers thread the runtime generic uniformly.
 pub(crate) type AppRuntime = tauri::Cef;
@@ -118,14 +86,12 @@ fn core_rpc_url() -> String {
 /// [`CoreProcessHandle::new`]), injected into the core child process via
 /// `OPENHUMAN_CORE_TOKEN`, and stored in the handle — available immediately
 /// with no file I/O or timing issues.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn core_rpc_token(state: tauri::State<'_, core_process::CoreProcessHandle>) -> String {
     log::debug!("[auth] core_rpc_token: returning token to frontend");
     state.inner().rpc_token().to_string()
 }
 
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn overlay_parent_rpc_url() -> Option<String> {
     let url = std::env::var("OPENHUMAN_CORE_RPC_URL").ok()?;
@@ -136,7 +102,6 @@ fn overlay_parent_rpc_url() -> Option<String> {
     Some(trimmed.to_string())
 }
 
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn process_diagnostics_list_owned() -> Result<Vec<process_recovery::ProcessInfo>, String> {
     match process_recovery::enumerate_openhuman_processes() {
@@ -154,7 +119,6 @@ fn process_diagnostics_list_owned() -> Result<Vec<process_recovery::ProcessInfo>
     }
 }
 
-#[cfg(not(target_os = "ios"))]
 #[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
     let Ok(Some(monitor)) = window.current_monitor() else {
@@ -177,7 +141,7 @@ fn pin_overlay_bottom_right(window: &WebviewWindow<AppRuntime>) {
     }
 }
 
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 #[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
 fn configure_overlay_window_macos(window: &WebviewWindow<AppRuntime>) {
     // Standard NSWindow cannot float above fullscreen apps on macOS because
@@ -265,7 +229,6 @@ fn configure_overlay_window_macos(window: &WebviewWindow<AppRuntime>) {
 /// since the core ships in-process with the app. This command is kept as a
 /// no-op stub so the frontend's `checkCoreUpdate` keeps working without errors;
 /// it always reports the running version as up-to-date.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn check_core_update(
     _state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -281,7 +244,6 @@ async fn check_core_update(
 }
 
 /// Stub kept for frontend compatibility — use `apply_app_update` instead.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn apply_core_update(
     _state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -290,7 +252,6 @@ async fn apply_core_update(
     Err("core ships in-process; use the Tauri shell updater (apply_app_update) instead".into())
 }
 
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn restart_core_process(
     state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -309,7 +270,6 @@ async fn restart_core_process(
 /// mismatches to the user.
 ///
 /// Idempotent: `ensure_running` is a no-op if the core is already up.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn start_core_process(
     state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -587,7 +547,6 @@ async fn app_quit(app: tauri::AppHandle<AppRuntime>) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn restart_app(app: tauri::AppHandle<AppRuntime>) -> Result<(), String> {
     log::info!("[app] restart_app invoked from frontend");
@@ -624,14 +583,12 @@ async fn restart_app(app: tauri::AppHandle<AppRuntime>) -> Result<(), String> {
 /// truth available to the UI at boot. Reuses
 /// `cef_profile::default_root_openhuman_dir()` so the lookup honors
 /// `OPENHUMAN_WORKSPACE` overrides used in test harnesses. (#900)
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn get_active_user_id() -> Result<Option<String>, String> {
     let dir = cef_profile::default_root_openhuman_dir()?;
     Ok(cef_profile::read_active_user_id(&dir))
 }
 
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn schedule_cef_profile_purge(user_id: Option<String>) -> Result<String, String> {
     let queued = cef_profile::queue_profile_purge_for_user(user_id.as_deref())?;
@@ -639,7 +596,6 @@ async fn schedule_cef_profile_purge(user_id: Option<String>) -> Result<String, S
 }
 
 /// Information about an available shell-app update returned to the frontend.
-#[cfg(not(target_os = "ios"))]
 #[derive(Debug, Clone, serde::Serialize)]
 struct AppUpdateInfo {
     /// The currently-running app version (matches `tauri.conf.json::version`).
@@ -663,7 +619,6 @@ fn no_app_update_available(current_version: String) -> AppUpdateInfo {
 
 /// Probe the updater endpoint and report whether a newer shell build is available.
 /// Does NOT download or install. Pair with `apply_app_update` to actually upgrade.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn check_app_update(app: tauri::AppHandle<AppRuntime>) -> Result<AppUpdateInfo, String> {
     use tauri_plugin_updater::UpdaterExt;
@@ -711,7 +666,6 @@ async fn check_app_update(app: tauri::AppHandle<AppRuntime>) -> Result<AppUpdate
 ///
 /// Emits Tauri events `app-update:status` and `app-update:progress` so the
 /// frontend can show a snackbar / progress bar.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn apply_app_update(
     state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -800,7 +754,6 @@ async fn apply_app_update(
 /// `download_app_update` (background) and `install_app_update` (user
 /// confirmed restart) commands. Sized at ~100MB on macOS for the .app
 /// bundle, which is fine to keep in RAM until the user is ready.
-#[cfg(not(target_os = "ios"))]
 struct PendingAppUpdate {
     update: tauri_plugin_updater::Update,
     bytes: Vec<u8>,
@@ -810,12 +763,10 @@ struct PendingAppUpdate {
 /// Tauri-managed state slot for the in-flight pending update. `None` means
 /// "no update has been downloaded since launch"; `Some(_)` means the bytes
 /// are ready and `install_app_update` can finalize without re-downloading.
-#[cfg(not(target_os = "ios"))]
 #[derive(Default)]
 struct PendingAppUpdateState(tokio::sync::Mutex<Option<PendingAppUpdate>>);
 
 /// Result returned to the frontend after a download attempt.
-#[cfg(not(target_os = "ios"))]
 #[derive(Debug, Clone, serde::Serialize)]
 struct AppUpdateDownloadResult {
     /// True when an update was found and the bytes are now staged.
@@ -835,7 +786,6 @@ struct AppUpdateDownloadResult {
 /// `apply_app_update`, so the React state machine can drive a single UI off
 /// either path. Status sequence: `checking` → `downloading` → `ready_to_install`,
 /// or `up_to_date` / `error`.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn download_app_update(
     app: tauri::AppHandle<AppRuntime>,
@@ -929,7 +879,6 @@ async fn download_app_update(
 /// Acquires the core restart lock + shuts the in-process core server down
 /// before install, same as `apply_app_update`, so the macOS .app bundle
 /// replacement does not race against a live core holding file handles.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn install_app_update(
     core_state: tauri::State<'_, core_process::CoreProcessHandle>,
@@ -984,7 +933,6 @@ async fn install_app_update(
 
 /// Register (or re-register) the global dictation toggle hotkey.
 /// Emits `dictation://toggle` to all webviews when the shortcut is pressed.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn register_dictation_hotkey(
     app: AppHandle<AppRuntime>,
@@ -1077,7 +1025,6 @@ async fn register_dictation_hotkey(
 }
 
 /// Unregister the global dictation hotkey (if any).
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 async fn unregister_dictation_hotkey(app: AppHandle<AppRuntime>) -> Result<(), String> {
     log::info!("[dictation] unregister_dictation_hotkey: called");
@@ -1102,7 +1049,6 @@ async fn unregister_dictation_hotkey(app: AppHandle<AppRuntime>) -> Result<(), S
     Ok(())
 }
 
-#[cfg(not(target_os = "ios"))]
 fn is_daemon_mode() -> bool {
     std::env::args().any(|arg| arg == "daemon" || arg == "--daemon")
 }
@@ -1128,7 +1074,6 @@ fn path_has_executable(name: &str) -> bool {
 }
 
 /// Tauri command: bring the main window to front from any webview (e.g. overlay orb click).
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn activate_main_window(app: AppHandle<AppRuntime>) -> Result<(), String> {
     log::debug!("[window] activate_main_window called from overlay");
@@ -1140,7 +1085,6 @@ fn activate_main_window(app: AppHandle<AppRuntime>) -> Result<(), String> {
 /// transparent windowed-mode browsers). Loads the Vite dev URL in
 /// development and the bundled `index.html` in production. Other OSes:
 /// not yet wired up.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn mascot_window_show(app: AppHandle<AppRuntime>) -> Result<(), String> {
     log::info!("[mascot-window] show requested");
@@ -1156,7 +1100,6 @@ fn mascot_window_show(app: AppHandle<AppRuntime>) -> Result<(), String> {
 }
 
 /// Hide the floating mascot.
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn mascot_window_hide(app: AppHandle<AppRuntime>) -> Result<(), String> {
     log::info!("[mascot-window] hide requested");
@@ -1173,12 +1116,12 @@ fn mascot_window_hide(app: AppHandle<AppRuntime>) -> Result<(), String> {
     }
 }
 
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 fn mascot_native_window_is_open() -> bool {
     mascot_native_window::is_open()
 }
 
-#[cfg(all(not(target_os = "ios"), not(target_os = "macos")))]
+#[cfg(not(target_os = "macos"))]
 fn mascot_native_window_is_open() -> bool {
     false
 }
@@ -1434,7 +1377,7 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     Ok(())
 }
 
-#[cfg(all(not(target_os = "ios"), not(target_os = "linux")))]
+#[cfg(not(target_os = "linux"))]
 fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     log::info!("[tray] setting up tray icon");
 
@@ -1514,7 +1457,6 @@ fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "ios"))]
 const CEF_PREWARM_LABEL: &str = "cef-prewarm";
 
 /// Decide whether to spawn the CEF cold-start prewarm webview.
@@ -1547,7 +1489,6 @@ fn cef_prewarm_enabled(env_override: Option<&str>, wayland_display_set: bool) ->
 /// account. The first `webview_account_open` then skips the cold
 /// renderer-process spinup. Idempotent — bails if the prewarm webview
 /// already exists.
-#[cfg(not(target_os = "ios"))]
 fn spawn_cef_prewarm(app: &AppHandle<AppRuntime>) -> Result<(), String> {
     use tauri::webview::WebviewBuilder;
     use tauri::WebviewUrl;
@@ -1575,7 +1516,6 @@ fn spawn_cef_prewarm(app: &AppHandle<AppRuntime>) -> Result<(), String> {
 
 /// Drop the prewarm webview if still alive. Called from `RunEvent::Exit`
 /// so its CEF browser is torn down before `cef::shutdown()` runs.
-#[cfg(not(target_os = "ios"))]
 fn teardown_cef_prewarm<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let Some(wv) = app.get_webview(CEF_PREWARM_LABEL) else {
         return Err("no prewarm webview".into());
@@ -1585,14 +1525,10 @@ fn teardown_cef_prewarm<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<(), Str
     Ok(())
 }
 
-#[cfg(not(target_os = "ios"))]
 const CEF_CLOSE_FIXED_YIELD: std::time::Duration = std::time::Duration::from_millis(20);
-#[cfg(not(target_os = "ios"))]
 const CEF_CLOSE_POLL_BUDGET: std::time::Duration = std::time::Duration::from_millis(300);
-#[cfg(not(target_os = "ios"))]
 const CEF_CLOSE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(20);
 
-#[cfg(not(target_os = "ios"))]
 fn close_early_cef_webviews<R: tauri::Runtime>(app: &AppHandle<R>) -> Vec<String> {
     let mut closed_labels = Vec::new();
     if teardown_cef_prewarm(app).is_ok() {
@@ -1604,14 +1540,12 @@ fn close_early_cef_webviews<R: tauri::Runtime>(app: &AppHandle<R>) -> Vec<String
     closed_labels
 }
 
-#[cfg(not(target_os = "ios"))]
 fn shutdown_imessage_scanner<R: tauri::Runtime>(app: &AppHandle<R>) {
     if let Some(registry) = app.try_state::<std::sync::Arc<imessage_scanner::ScannerRegistry>>() {
         registry.inner().shutdown();
     }
 }
 
-#[cfg(not(target_os = "ios"))]
 fn pending_cef_webview_labels<R: tauri::Runtime>(
     app: &AppHandle<R>,
     labels: &[String],
@@ -1625,7 +1559,6 @@ fn pending_cef_webview_labels<R: tauri::Runtime>(
         .collect()
 }
 
-#[cfg(not(target_os = "ios"))]
 async fn wait_for_cef_webviews_to_close_async<R: tauri::Runtime>(
     app: &AppHandle<R>,
     labels: &[String],
@@ -1667,7 +1600,6 @@ async fn wait_for_cef_webviews_to_close_async<R: tauri::Runtime>(
 /// in [`close_early_cef_webviews`]; the exit pump drains them. Use
 /// [`perform_early_teardown_async`] when an async caller can await
 /// [`wait_for_cef_webviews_to_close_async`] without starving the UI loop.
-#[cfg(not(target_os = "ios"))]
 fn perform_early_teardown_sync(app_handle: &AppHandle<AppRuntime>) {
     log::info!("[app] perform_early_teardown_sync — early teardown");
 
@@ -1709,7 +1641,6 @@ fn perform_early_teardown_sync_once(app_handle: &AppHandle<AppRuntime>, reason: 
 
 /// Shared early teardown logic before CEF's shutdown to prevent races and zombie processes.
 /// Asynchronous version to be called from async Tauri commands (e.g. `restart_app`, updates).
-#[cfg(not(target_os = "ios"))]
 async fn perform_early_teardown_async(app_handle: &AppHandle<AppRuntime>) {
     log::info!("[app] perform_early_teardown_async — early teardown");
 
@@ -1729,7 +1660,6 @@ async fn perform_early_teardown_async(app_handle: &AppHandle<AppRuntime>) {
 }
 
 /// Explicitly winds down CEF and Tauri before an app.exit(0)
-#[cfg(not(target_os = "ios"))]
 fn shutdown_app_sync(app_handle: &AppHandle<AppRuntime>, exit_code: i32) {
     log::info!("[app] shutdown_app_sync — starting early teardown");
     perform_early_teardown_sync_once(app_handle, "shutdown_app_sync");
@@ -3433,7 +3363,6 @@ pub fn run() {
     process_kill::sweep_orphan_children();
 }
 
-#[cfg(not(target_os = "ios"))]
 pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
     // Core lives in-process: dispatch directly through the linked `openhuman_core`
     // library instead of shelling out to a separate binary. The Tauri main()
@@ -3447,7 +3376,6 @@ pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 /// Canonical release tag: `openhuman@<version>[+<short_sha>]`.
-#[cfg(not(target_os = "ios"))]
 ///
 /// Mirrors `build_release_tag` in the core sidecar's `src/main.rs` and the
 /// `SENTRY_RELEASE` value computed in `app/vite.config.ts` so events from
@@ -3519,7 +3447,6 @@ fn build_sentry_release_tag() -> String {
 /// `VITE_OPENHUMAN_APP_ENV` (compile-time fallback). Defaults to
 /// `production` so unmarked release builds don't pollute the dev/staging
 /// streams.
-#[cfg(not(target_os = "ios"))]
 fn resolve_sentry_environment() -> String {
     if let Ok(value) = std::env::var("OPENHUMAN_APP_ENV") {
         let trimmed = value.trim();
@@ -3541,7 +3468,7 @@ fn resolve_sentry_environment() -> String {
 /// the command is unavailable. Used to tag Sentry events and startup logs
 /// with OS version so Intel-specific crashes (issue #1012) can be filtered
 /// by macOS release.
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 fn macos_os_version() -> Option<String> {
     std::process::Command::new("sw_vers")
         .arg("-productVersion")
@@ -3553,7 +3480,7 @@ fn macos_os_version() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-#[cfg(all(test, not(target_os = "ios")))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

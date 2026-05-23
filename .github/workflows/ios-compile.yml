@@ -4,7 +4,7 @@ name: iOS Compile Sanity
 on:
   pull_request:
     paths:
-      - 'app/src-tauri/**'
+      - 'app/src-tauri-mobile/**'
       - 'packages/tauri-plugin-ptt/**'
       - 'src/openhuman/devices/**'
       - 'app/src/services/transport/**'
@@ -25,6 +25,11 @@ jobs:
   ios-compile:
     name: iOS Compile Check
     runs-on: macos-latest
+    env:
+      # Pin the deployment target so swift-rs invokes the Swift compiler with
+      # `-target arm64-apple-ios16.0`. Matches Package.swift in
+      # packages/tauri-plugin-ptt/ios/, which uses iOS 14+ APIs (OSLog).
+      IPHONEOS_DEPLOYMENT_TARGET: '16.0'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,7 +48,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            app/src-tauri-mobile -> target
             packages/tauri-plugin-ptt -> target
           cache-on-failure: true
 
@@ -59,22 +64,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Hard gate: host-target check for the desktop Tauri shell.
-      # This catches Rust API breakage introduced by iOS cfg-gates without
-      # needing a full iOS toolchain.
-      - name: cargo check -- Tauri shell (host target)
-        run: cargo check --manifest-path app/src-tauri/Cargo.toml
+      # Hard gate: mobile Tauri host compiles for iOS. No more soft-gate
+      # `continue-on-error` — the mobile crate uses stock Tauri without CEF
+      # so cef-dll-sys is not in the dependency graph.
+      - name: cargo check -- mobile host (aarch64-apple-ios)
+        run: cargo check --manifest-path app/src-tauri-mobile/Cargo.toml --target aarch64-apple-ios
 
-      # Soft gate: iOS-target check for the Tauri shell.
-      # Third-party C deps (cef-dll-sys, etc.) may fail without a full Xcode
-      # installation. We accept these failures as known limitations of the
-      # macos-latest runner until we pin an Xcode version with all deps.
-      # Failures produce a warning in the workflow summary but do not block merge.
-      - name: cargo check -- Tauri shell (aarch64-apple-ios) [soft]
-        run: cargo check --manifest-path app/src-tauri/Cargo.toml --target aarch64-apple-ios
-        continue-on-error: true
-
-      # Hard gate: PTT plugin (pure Swift + Rust, no CEF dep).
+      # Hard gate: PTT plugin (host-target check; Swift sources are built
+      # lazily by swift-rs during the iOS-target check above).
       - name: cargo check -- tauri-plugin-ptt
         run: cargo check --manifest-path packages/tauri-plugin-ptt/Cargo.toml
 
@@ -83,7 +80,6 @@ jobs:
         run: pnpm --dir app compile
 
       # Hard gate: iOS-relevant Vitest suites.
-      # Runs tests matching transport, tunnel, devices, ios, or mascot paths.
       - name: pnpm test (iOS suites)
         run: >
           pnpm --dir app test --

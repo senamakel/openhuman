@@ -68,11 +68,6 @@
       "dmg": {
         "background": "./images/background-dmg.png"
       }
-    },
-    "iOS": {
-      "minimumSystemVersion": "16.0",
-      "frameworks": ["AVFoundation.framework", "Speech.framework"],
-      "developmentTeam": ""
     }
   },
   "plugins": {

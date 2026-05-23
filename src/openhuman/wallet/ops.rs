@@ -290,8 +290,8 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
 
     // ── Step 3: Merge keychain mnemonic with JSON state ───────────────────────
     // Priority: keychain > JSON field.
-    let needs_keychain_migration = keychain_mnemonic.is_none()
-        && state.encrypted_mnemonic.is_some();
+    let needs_keychain_migration =
+        keychain_mnemonic.is_none() && state.encrypted_mnemonic.is_some();
 
     if let Some(mnemonic) = keychain_mnemonic {
         // Keychain is authoritative. If the JSON still has the field, clear it.
@@ -311,9 +311,7 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
     } else if needs_keychain_migration {
         // The encrypted mnemonic is in the JSON. Promote it to keychain if available.
         if let Some(ref enc_mnemonic) = state.encrypted_mnemonic.clone() {
-            debug!(
-                "{LOG_PREFIX} load: promoting encrypted_mnemonic from JSON to keychain"
-            );
+            debug!("{LOG_PREFIX} load: promoting encrypted_mnemonic from JSON to keychain");
             if keychain_save_mnemonic(config, enc_mnemonic) {
                 // Successfully saved to keychain — clear from JSON.
                 state.encrypted_mnemonic = None;
@@ -330,11 +328,10 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
 
     // ── Step 4: Validate (allows encrypted_mnemonic to be None when in keychain) ──
     // Build validation params treating keychain-held mnemonic as present.
-    let effective_mnemonic = state.encrypted_mnemonic.clone()
-        .or_else(|| {
-            // Mnemonic was just wiped from state; re-probe keychain.
-            keychain_load_mnemonic(config)
-        });
+    let effective_mnemonic = state.encrypted_mnemonic.clone().or_else(|| {
+        // Mnemonic was just wiped from state; re-probe keychain.
+        keychain_load_mnemonic(config)
+    });
 
     let validation_params = WalletSetupParams {
         consent_granted: state.consent_granted,
@@ -382,14 +379,10 @@ fn save_stored_wallet_state_unlocked(
     let mut state_for_json = state.clone();
     if let Some(ref enc_mnemonic) = state.encrypted_mnemonic {
         if keychain_save_mnemonic(config, enc_mnemonic) {
-            debug!(
-                "{LOG_PREFIX} save: encrypted_mnemonic saved to keychain; stripping from JSON"
-            );
+            debug!("{LOG_PREFIX} save: encrypted_mnemonic saved to keychain; stripping from JSON");
             state_for_json.encrypted_mnemonic = None;
         } else {
-            debug!(
-                "{LOG_PREFIX} save: keychain unavailable; keeping encrypted_mnemonic in JSON"
-            );
+            debug!("{LOG_PREFIX} save: keychain unavailable; keeping encrypted_mnemonic in JSON");
         }
     }
 

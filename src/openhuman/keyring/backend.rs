@@ -45,32 +45,48 @@ const SERVICE_NAME: &str = "openhuman";
 
 impl KeyringBackend for OsBackend {
     fn get(&self, namespaced_key: &str) -> Result<Option<String>, KeyringError> {
-        let entry = keyring::Entry::new(SERVICE_NAME, namespaced_key)
-            .map_err(|e| KeyringError::Os { key: namespaced_key.to_string(), source: e })?;
+        let entry =
+            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
+                key: namespaced_key.to_string(),
+                source: e,
+            })?;
         match entry.get_password() {
             Ok(v) => Ok(Some(v)),
             Err(keyring::Error::NoEntry) => Ok(None),
             Err(keyring::Error::NoStorageAccess(_)) => Ok(None),
-            Err(e) => Err(KeyringError::Os { key: namespaced_key.to_string(), source: e }),
+            Err(e) => Err(KeyringError::Os {
+                key: namespaced_key.to_string(),
+                source: e,
+            }),
         }
     }
 
     fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
-        let entry = keyring::Entry::new(SERVICE_NAME, namespaced_key)
-            .map_err(|e| KeyringError::Os { key: namespaced_key.to_string(), source: e })?;
-        entry
-            .set_password(value)
-            .map_err(|e| KeyringError::Os { key: namespaced_key.to_string(), source: e })
+        let entry =
+            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
+                key: namespaced_key.to_string(),
+                source: e,
+            })?;
+        entry.set_password(value).map_err(|e| KeyringError::Os {
+            key: namespaced_key.to_string(),
+            source: e,
+        })
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), KeyringError> {
-        let entry = keyring::Entry::new(SERVICE_NAME, namespaced_key)
-            .map_err(|e| KeyringError::Os { key: namespaced_key.to_string(), source: e })?;
+        let entry =
+            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
+                key: namespaced_key.to_string(),
+                source: e,
+            })?;
         match entry.delete_credential() {
             Ok(()) => Ok(()),
             Err(keyring::Error::NoEntry) => Ok(()),
             Err(keyring::Error::NoStorageAccess(_)) => Ok(()),
-            Err(e) => Err(KeyringError::Os { key: namespaced_key.to_string(), source: e }),
+            Err(e) => Err(KeyringError::Os {
+                key: namespaced_key.to_string(),
+                source: e,
+            }),
         }
     }
 
@@ -97,7 +113,9 @@ pub struct FileBackend {
 impl FileBackend {
     /// Create a `FileBackend` that reads/writes `{workspace_dir}/dev-keychain.json`.
     pub fn new(workspace_dir: &Path) -> Self {
-        Self { path: workspace_dir.join("dev-keychain.json") }
+        Self {
+            path: workspace_dir.join("dev-keychain.json"),
+        }
     }
 
     /// Path to the backing file (exposed for logging).
@@ -109,25 +127,27 @@ impl FileBackend {
         if !self.path.exists() {
             return Ok(HashMap::new());
         }
-        let bytes = std::fs::read(&self.path).map_err(|e| {
-            KeyringError::MigrationReadFailed {
-                path: self.path.display().to_string(),
-                source: e,
-            }
+        let bytes = std::fs::read(&self.path).map_err(|e| KeyringError::MigrationReadFailed {
+            path: self.path.display().to_string(),
+            source: e,
         })?;
         if bytes.is_empty() {
             return Ok(HashMap::new());
         }
-        serde_json::from_slice::<HashMap<String, String>>(&bytes).map_err(|e| {
-            // Treat a corrupt file as empty so we degrade gracefully.
-            log::warn!(
-                "[keyring] dev-keychain.json at {} is corrupt ({e}); treating as empty",
-                self.path.display()
-            );
-            // Return empty map by converting to a no-source variant.
-            drop(e);
-            KeyringError::VerifyFailed { key: "<parse>".to_string() }
-        }).or_else(|_| Ok(HashMap::new()))
+        serde_json::from_slice::<HashMap<String, String>>(&bytes)
+            .map_err(|e| {
+                // Treat a corrupt file as empty so we degrade gracefully.
+                log::warn!(
+                    "[keyring] dev-keychain.json at {} is corrupt ({e}); treating as empty",
+                    self.path.display()
+                );
+                // Return empty map by converting to a no-source variant.
+                drop(e);
+                KeyringError::VerifyFailed {
+                    key: "<parse>".to_string(),
+                }
+            })
+            .or_else(|_| Ok(HashMap::new()))
     }
 
     fn write_map(&self, map: &HashMap<String, String>) -> Result<(), KeyringError> {
@@ -156,15 +176,15 @@ impl FileBackend {
             use std::os::unix::fs::PermissionsExt;
             let perms = std::fs::Permissions::from_mode(0o600);
             if let Err(e) = std::fs::set_permissions(&tmp_path, perms) {
-                log::warn!(
-                    "[keyring] could not set 0600 on dev-keychain.json tmp file: {e}"
-                );
+                log::warn!("[keyring] could not set 0600 on dev-keychain.json tmp file: {e}");
             }
         }
 
-        std::fs::rename(&tmp_path, &self.path).map_err(|e| KeyringError::MigrationDeleteFailed {
-            path: self.path.display().to_string(),
-            source: e,
+        std::fs::rename(&tmp_path, &self.path).map_err(|e| {
+            KeyringError::MigrationDeleteFailed {
+                path: self.path.display().to_string(),
+                source: e,
+            }
         })?;
 
         Ok(())
@@ -207,7 +227,9 @@ pub struct MockBackend {
 #[cfg(test)]
 impl MockBackend {
     pub fn new() -> Self {
-        Self { store: std::sync::Mutex::new(HashMap::new()) }
+        Self {
+            store: std::sync::Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -218,7 +240,10 @@ impl KeyringBackend for MockBackend {
     }
 
     fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
-        self.store.lock().unwrap().insert(namespaced_key.to_string(), value.to_string());
+        self.store
+            .lock()
+            .unwrap()
+            .insert(namespaced_key.to_string(), value.to_string());
         Ok(())
     }
 

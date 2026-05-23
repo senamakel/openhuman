@@ -238,10 +238,7 @@ impl AuthProfilesStore {
     /// Load auth secrets for a profile from the OS keychain.
     ///
     /// Returns `None` if no keychain entry exists for the profile.
-    fn keychain_load_secrets(
-        &self,
-        profile_id: &str,
-    ) -> anyhow::Result<Option<KeychainSecrets>> {
+    fn keychain_load_secrets(&self, profile_id: &str) -> anyhow::Result<Option<KeychainSecrets>> {
         let key = self.keychain_key_for_profile(profile_id);
         let payload = match crate::openhuman::keyring::get(&self.user_id, &key) {
             Ok(Some(p)) => p,
@@ -261,9 +258,7 @@ impl AuthProfilesStore {
             }
         };
         let secrets: KeychainSecrets = serde_json::from_str(&payload).map_err(|e| {
-            anyhow::anyhow!(
-                "Keychain payload for profile {profile_id} is not valid JSON: {e}"
-            )
+            anyhow::anyhow!("Keychain payload for profile {profile_id} is not valid JSON: {e}")
         })?;
         log::debug!(
             "[auth] keychain_load_secrets hit profile_id={profile_id} user_id={}",
@@ -441,8 +436,7 @@ impl AuthProfilesStore {
                                 self.decrypt_optional(p.refresh_token.as_deref())?;
                             let (id_token, id_mig) =
                                 self.decrypt_optional(p.id_token.as_deref())?;
-                            let (token, token_mig) =
-                                self.decrypt_optional(p.token.as_deref())?;
+                            let (token, token_mig) = self.decrypt_optional(p.token.as_deref())?;
                             Ok((
                                 access_token,
                                 access_mig,
@@ -454,29 +448,41 @@ impl AuthProfilesStore {
                                 token_mig,
                             ))
                         })();
-                        let (at, at_mig, rt, rt_mig, it, it_mig, tok, tok_mig) =
-                            match decrypted {
-                                Ok(v) => v,
-                                Err(e) => {
-                                    log::warn!(
-                                        "[auth] dropping unrecoverable profile provider={}: {e}. \
+                        let (at, at_mig, rt, rt_mig, it, it_mig, tok, tok_mig) = match decrypted {
+                            Ok(v) => v,
+                            Err(e) => {
+                                log::warn!(
+                                    "[auth] dropping unrecoverable profile provider={}: {e}. \
                                          Most likely cause: .secret_key was regenerated. \
                                          Re-authenticate to restore the session.",
-                                        p.provider
-                                    );
-                                    dropped_ids.push(id.clone());
-                                    continue;
-                                }
-                            };
+                                    p.provider
+                                );
+                                dropped_ids.push(id.clone());
+                                continue;
+                            }
+                        };
                         // Track XOR→enc2 cipher upgrades (existing behavior).
-                        if at_mig.is_some() { p.access_token = at_mig; migrated = true; }
-                        if rt_mig.is_some() { p.refresh_token = rt_mig; migrated = true; }
-                        if it_mig.is_some() { p.id_token = it_mig; migrated = true; }
-                        if tok_mig.is_some() { p.token = tok_mig; migrated = true; }
+                        if at_mig.is_some() {
+                            p.access_token = at_mig;
+                            migrated = true;
+                        }
+                        if rt_mig.is_some() {
+                            p.refresh_token = rt_mig;
+                            migrated = true;
+                        }
+                        if it_mig.is_some() {
+                            p.id_token = it_mig;
+                            migrated = true;
+                        }
+                        if tok_mig.is_some() {
+                            p.token = tok_mig;
+                            migrated = true;
+                        }
 
                         // If any secrets were found in JSON, promote them to keychain
                         // and clear the JSON fields so the next write is clean.
-                        let has_secrets = at.is_some() || rt.is_some() || it.is_some() || tok.is_some();
+                        let has_secrets =
+                            at.is_some() || rt.is_some() || it.is_some() || tok.is_some();
                         if has_secrets {
                             log::info!(
                                 "[auth] load: migrating enc fields to keychain profile_id={id} user_id={}",
@@ -486,8 +492,7 @@ impl AuthProfilesStore {
                                 id: id.clone(),
                                 provider: p.provider.clone(),
                                 profile_name: p.profile_name.clone(),
-                                kind: parse_profile_kind(&p.kind)
-                                    .unwrap_or(AuthProfileKind::Token),
+                                kind: parse_profile_kind(&p.kind).unwrap_or(AuthProfileKind::Token),
                                 account_id: p.account_id.clone(),
                                 workspace_id: p.workspace_id.clone(),
                                 token_set: at.clone().map(|access| TokenSet {
@@ -790,7 +795,15 @@ impl AuthProfilesStore {
                 _ => (None, None, None, None, None, None),
             };
         let token = self.encrypt_optional(profile.token.as_deref())?;
-        Ok((access_token, refresh_token, id_token, token, expires_at, token_type, scope))
+        Ok((
+            access_token,
+            refresh_token,
+            id_token,
+            token,
+            expires_at,
+            token_type,
+            scope,
+        ))
     }
 
     fn read_persisted_locked(&self) -> Result<PersistedAuthProfiles> {

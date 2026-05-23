@@ -28,7 +28,9 @@ pub enum KeyringError {
     },
 
     /// Writing to keychain succeeded but read-back verification failed.
-    #[error("Keychain write verification failed for key '{key}': wrote value did not match read-back")]
+    #[error(
+        "Keychain write verification failed for key '{key}': wrote value did not match read-back"
+    )]
     VerifyFailed { key: String },
 
     /// Deleting the source file after migration failed.

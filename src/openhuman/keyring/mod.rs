@@ -29,19 +29,19 @@
 //! storage (file-encrypted JSON fallback) check this flag.  The `file` backend
 //! always reports as available.
 
-pub mod error;
 pub mod backend;
+pub mod error;
 
 #[cfg(test)]
 mod tests;
 
-pub use error::KeyringError;
 pub use backend::KeyringBackend;
+pub use error::KeyringError;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use chacha20poly1305::aead::{OsRng, rand_core::RngCore};
+use chacha20poly1305::aead::{rand_core::RngCore, OsRng};
 
 // ── Global state ─────────────────────────────────────────────────────────────
 
@@ -70,10 +70,12 @@ pub fn init_workspace(workspace_dir: &Path) {
 
 /// Returns the selected backend, initializing it on first call.
 fn backend() -> &'static dyn KeyringBackend {
-    BACKEND.get_or_init(|| {
-        let b = build_backend();
-        b
-    }).as_ref()
+    BACKEND
+        .get_or_init(|| {
+            let b = build_backend();
+            b
+        })
+        .as_ref()
 }
 
 fn build_backend() -> Box<dyn KeyringBackend> {
@@ -225,7 +227,10 @@ pub fn is_available() -> bool {
     const PROBE_KEY: &str = "__openhuman_keyring_probe__";
     const PROBE_VALUE: &str = "__probe_value__";
 
-    log::debug!("[keyring] is_available probe starting backend={}", backend().name());
+    log::debug!(
+        "[keyring] is_available probe starting backend={}",
+        backend().name()
+    );
 
     // File and mock backends are always available.
     let b = backend();
@@ -267,7 +272,9 @@ pub fn get_or_create_random(
     log::debug!("[keyring] get_or_create_random user_id={user_id} key={key} len_bytes={len_bytes}");
 
     if let Some(existing) = get(user_id, key)? {
-        log::debug!("[keyring] get_or_create_random returning existing value user_id={user_id} key={key}");
+        log::debug!(
+            "[keyring] get_or_create_random returning existing value user_id={user_id} key={key}"
+        );
         return Ok(existing);
     }
 
@@ -282,8 +289,12 @@ pub fn get_or_create_random(
     // Verify write succeeded.
     let readback = get(user_id, key)?;
     if readback.as_deref() != Some(&hex_value) {
-        log::warn!("[keyring] get_or_create_random write verification failed user_id={user_id} key={key}");
-        return Err(KeyringError::VerifyFailed { key: key.to_string() });
+        log::warn!(
+            "[keyring] get_or_create_random write verification failed user_id={user_id} key={key}"
+        );
+        return Err(KeyringError::VerifyFailed {
+            key: key.to_string(),
+        });
     }
 
     log::debug!("[keyring] get_or_create_random created and verified user_id={user_id} key={key}");
@@ -312,9 +323,7 @@ pub fn migrate_from_file(
 
     // Step 1: check if already migrated.
     if get(user_id, key)?.is_some() {
-        log::debug!(
-            "[keyring] migrate_from_file already migrated user_id={user_id} key={key}"
-        );
+        log::debug!("[keyring] migrate_from_file already migrated user_id={user_id} key={key}");
         return Ok(MigrationOutcome::AlreadyMigrated);
     }
 
@@ -332,18 +341,15 @@ pub fn migrate_from_file(
         "[keyring] migrate_from_file reading source file path={}",
         path.display()
     );
-    let file_content = std::fs::read_to_string(path).map_err(|e| {
-        KeyringError::MigrationReadFailed {
+    let file_content =
+        std::fs::read_to_string(path).map_err(|e| KeyringError::MigrationReadFailed {
             path: path.display().to_string(),
             source: e,
-        }
-    })?;
+        })?;
     let value = file_content.trim().to_string();
 
     // Step 4: write to backend.
-    log::debug!(
-        "[keyring] migrate_from_file writing to backend user_id={user_id} key={key}"
-    );
+    log::debug!("[keyring] migrate_from_file writing to backend user_id={user_id} key={key}");
     set(user_id, key, &value)?;
 
     // Step 5: verify read-back matches.
@@ -352,7 +358,9 @@ pub fn migrate_from_file(
         log::warn!(
             "[keyring] migrate_from_file verification failed user_id={user_id} key={key}; NOT deleting source file"
         );
-        return Err(KeyringError::VerifyFailed { key: key.to_string() });
+        return Err(KeyringError::VerifyFailed {
+            key: key.to_string(),
+        });
     }
 
     // Step 6: delete the source file (only after verified write).

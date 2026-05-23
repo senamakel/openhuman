@@ -106,9 +106,17 @@ fn file_backend_multiple_keys_independent() {
 
     fb.delete("key2").unwrap();
 
-    assert_eq!(fb.get("key1").unwrap().as_deref(), Some("v1"), "key1 unaffected");
+    assert_eq!(
+        fb.get("key1").unwrap().as_deref(),
+        Some("v1"),
+        "key1 unaffected"
+    );
     assert!(fb.get("key2").unwrap().is_none(), "key2 deleted");
-    assert_eq!(fb.get("key3").unwrap().as_deref(), Some("v3"), "key3 unaffected");
+    assert_eq!(
+        fb.get("key3").unwrap().as_deref(),
+        Some("v3"),
+        "key3 unaffected"
+    );
 }
 
 // ── FileBackend: migrate_from_file ────────────────────────────────────────────
@@ -154,7 +162,10 @@ fn file_backend_mode_0600() {
     fb.set("k", "v").unwrap();
     let meta = std::fs::metadata(fb.path()).expect("stat");
     let mode = meta.permissions().mode() & 0o777;
-    assert_eq!(mode, 0o600, "dev-keychain.json must be mode 0600, got {mode:o}");
+    assert_eq!(
+        mode, 0o600,
+        "dev-keychain.json must be mode 0600, got {mode:o}"
+    );
 }
 
 // ── Backend selection via env var ─────────────────────────────────────────────
@@ -237,7 +248,7 @@ fn get_or_create_random_idempotent_file_backend() {
     // Manually implement the get_or_create_random logic using FileBackend.
     let first = {
         let mut bytes = vec![0u8; 32];
-        use chacha20poly1305::aead::{OsRng, rand_core::RngCore};
+        use chacha20poly1305::aead::{rand_core::RngCore, OsRng};
         OsRng.fill_bytes(&mut bytes);
         let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
         fb.set(&nk, &hex).unwrap();
@@ -275,7 +286,10 @@ fn migrate_from_file_happy_path_os() {
     let value = std::fs::read_to_string(&path).unwrap();
     let value = value.trim();
     b.set(&nk, value).unwrap();
-    assert_eq!(b.get(&nk).unwrap().as_deref(), Some("migrated_secret_value"));
+    assert_eq!(
+        b.get(&nk).unwrap().as_deref(),
+        Some("migrated_secret_value")
+    );
     std::fs::remove_file(&path).unwrap();
     let _ = b.delete(&nk);
 }

@@ -7,15 +7,19 @@ import {
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
+// u32::MAX — the Rust default and our sentinel for "no limit". Inputs at or
+// above this value render as "Unlimited" and clamp to UNLIMITED on save.
+const UNLIMITED = 4_294_967_295;
+
 const PRESETS = [
-  { label: '20 (default)', value: 20 },
+  { label: 'Unlimited (default)', value: UNLIMITED },
   { label: '100', value: 100 },
   { label: '500', value: 500 },
   { label: '1000', value: 1000 },
 ];
 
 const MIN = 1;
-const MAX = 10_000;
+const MAX = UNLIMITED;
 
 type Status =
   | { kind: 'idle' }
@@ -150,7 +154,12 @@ const AutonomyPanel = () => {
             className="mt-3 text-xs min-h-[1rem]">
             {!isValid && draft.trim() !== '' && (
               <span className="text-coral-600 dark:text-coral-300">
-                Must be an integer between {MIN} and {MAX.toLocaleString()}.
+                Must be a positive integer (use the Unlimited preset for no limit).
+              </span>
+            )}
+            {isValid && parsed === UNLIMITED && (
+              <span className="text-stone-500 dark:text-neutral-400">
+                Unlimited — rate limiting disabled.
               </span>
             )}
             {status.kind === 'saved' && (

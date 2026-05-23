@@ -37,12 +37,10 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-barcode-scanner",
  "tauri-plugin-deep-link",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
- "tauri-plugin-ptt",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tauri-runtime-cef",
@@ -8006,20 +8004,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-barcode-scanner"
-version = "2.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "485cbcf227f04117e930be748ea71d835900466dcd1d455d5ec284d36107a305"
-dependencies = [
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "tauri-plugin-deep-link"
 version = "2.4.7"
 source = "git+https://github.com/tauri-apps/plugins-workspace?rev=c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2#c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2"
@@ -8089,18 +8073,6 @@ dependencies = [
  "url",
  "windows 0.61.3",
  "zbus",
-]
-
-[[package]]
-name = "tauri-plugin-ptt"
-version = "0.1.0"
-dependencies = [
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.18",
 ]
 
 [[package]]

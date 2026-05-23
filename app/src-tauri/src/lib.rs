@@ -1,13 +1,10 @@
 // Desktop targets: Windows, macOS, Linux.
-// iOS is a supported mobile target — all desktop-only modules are cfg-gated below.
-// Other mobile targets (Android) are not yet supported.
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "ios"
-)))]
-compile_error!("src-tauri host supports desktop (Windows/macOS/Linux) and iOS only.");
+// iOS lives in the parallel crate at `app/src-tauri-mobile/` (separate Tauri
+// host without CEF). Existing `cfg(not(target_os = "ios"))` gates below remain
+// as no-ops on desktop — they were the merge-bridge during the split and are
+// safe to keep until a future cleanup pass.
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+compile_error!("src-tauri host supports desktop (Windows/macOS/Linux) only. iOS lives in app/src-tauri-mobile.");
 
 // ── Desktop-only modules ──────────────────────────────────────────────────────
 // None of these compile for iOS: they depend on CEF, CDP, the Rust core

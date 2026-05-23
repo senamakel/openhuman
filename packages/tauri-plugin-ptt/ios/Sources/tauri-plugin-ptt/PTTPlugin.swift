@@ -4,9 +4,11 @@
 // Command names must match the Rust command names in commands.rs
 // (Tauri converts snake_case to camelCase for the Swift @objc method).
 
+import AVFoundation
 import os.log
 import Tauri
 import UIKit
+import WebKit
 
 private let log = Logger(subsystem: "ai.openhuman.ptt", category: "PTTPlugin")
 

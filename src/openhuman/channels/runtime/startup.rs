@@ -652,6 +652,12 @@ pub async fn start_channels(config: Config) -> Result<()> {
 /// `yuanbao` branch in `controllers/ops.rs`). Existing TOML values still
 /// win so manually-installed deployments don't break. Returns the
 /// (possibly-modified) config; logging is the only side effect on failure.
+///
+/// The stored secret is **only** copied when the stored profile's
+/// `app_key` matches `yb_cfg.app_key`. Without that guard, editing
+/// `app_key` in `config.toml` would silently pair a fresh key with a
+/// stale secret on next startup, and the channel would fail auth until
+/// the user reconnected or cleared credentials manually.
 fn resolve_yuanbao_app_secret(
     mut yb_cfg: crate::openhuman::channels::providers::yuanbao::YuanbaoConfig,
     config: &Config,
@@ -662,7 +668,14 @@ fn resolve_yuanbao_app_secret(
     let auth = crate::openhuman::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:yuanbao:api_key", None) {
         Ok(Some(profile)) => {
-            if let Some(secret) = profile.metadata.get("app_secret") {
+            let stored_app_key = profile.metadata.get("app_key").map(String::as_str);
+            if stored_app_key != Some(yb_cfg.app_key.as_str()) {
+                tracing::warn!(
+                    "[channels] yuanbao stored credentials are for a different app_key (toml={:?}, store={:?}); reconnect the channel to refresh the secret",
+                    yb_cfg.app_key,
+                    stored_app_key,
+                );
+            } else if let Some(secret) = profile.metadata.get("app_secret") {
                 yb_cfg.app_secret = secret.clone();
             }
         }
@@ -742,5 +755,34 @@ mod yuanbao_secret_tests {
         // Surfaces empty so the downstream `YuanbaoChannel::new` validate()
         // step can fail clearly, instead of attempting auth with a stale value.
         assert_eq!(resolved.app_secret, "");
+    }
+
+    #[test]
+    fn skips_hydration_when_stored_profile_has_different_app_key() {
+        // Reproduces the stale-secret hazard: user changed `app_key` in
+        // `config.toml` (e.g. swapped to a different bot) but the
+        // credentials store still has the old key's profile. The resolver
+        // must NOT graft the old secret onto the new key.
+        let (_tmp, config) = isolated_config();
+        let auth = AuthService::from_config(&config);
+        let mut metadata = HashMap::new();
+        metadata.insert("app_key".to_string(), "OLD-KEY".to_string());
+        metadata.insert(
+            "app_secret".to_string(),
+            "old-key-secret-do-not-use".to_string(),
+        );
+        auth.store_provider_token("channel:yuanbao:api_key", "default", "", metadata, true)
+            .expect("store credentials");
+
+        let yb = YuanbaoConfig {
+            app_key: "NEW-KEY".into(),
+            app_secret: String::new(),
+            ..Default::default()
+        };
+        let resolved = resolve_yuanbao_app_secret(yb, &config);
+        assert_eq!(
+            resolved.app_secret, "",
+            "stale profile keyed to OLD-KEY must not hydrate NEW-KEY's secret",
+        );
     }
 }

@@ -474,7 +474,11 @@ mod tests {
     #[tokio::test]
     async fn get_cos_credentials_sends_route_env_header_when_non_empty() {
         let server = wiremock::MockServer::start().await;
+        // Bind the matcher to both the upload-info path AND the header so
+        // this test fails if a future refactor routes the call elsewhere
+        // but happens to still attach `X-Route-Env: canary` somewhere.
         wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path(UPLOAD_INFO_PATH))
             .and(wiremock::matchers::header("X-Route-Env", "canary"))
             .respond_with(
                 wiremock::ResponseTemplate::new(200)

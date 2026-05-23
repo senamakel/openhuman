@@ -7,6 +7,7 @@ use crate::api::config::{app_env_from_env, effective_backend_api_url, is_staging
 use crate::api::jwt::get_session_token;
 use crate::api::rest::BackendOAuthClient;
 use crate::openhuman::channels::providers::yuanbao::sign::SignManager;
+use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
 use crate::openhuman::config::{Config, DiscordConfig, IMessageConfig, TelegramConfig};
 use crate::openhuman::credentials;
 use crate::rpc::RpcOutcome;
@@ -109,40 +110,83 @@ fn parse_optional_bool(value: Option<&Value>) -> Option<bool> {
     }
 }
 
+/// Read a required non-empty Yuanbao credential field from the connect-channel
+/// payload. Returns the trimmed value or an error naming the missing field.
+fn require_yuanbao_field(
+    creds_map: &serde_json::Map<String, Value>,
+    key: &str,
+) -> Result<String, String> {
+    creds_map
+        .get(key)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .ok_or_else(|| format!("missing required {key}"))
+}
+
+/// Build the **effective** Yuanbao config that will be used for both
+/// preflight verification and persistence.
+///
+/// Starts from the existing TOML (so manually-installed deployments keep
+/// any custom routes), overlays the client-supplied endpoint overrides
+/// (`env` / `api_domain` / `ws_domain` / `route_env`), then calls
+/// `apply_env_defaults` so the verifier hits the correct cluster — e.g. a
+/// user submitting `env = "pre"` is verified against the pre-release
+/// sign-token endpoint instead of the default prod one.
+///
+/// `app_secret` is intentionally left empty: the runtime loads it from
+/// the encrypted credentials store at startup, never from `config.toml`.
+fn build_effective_yuanbao_config(
+    base: YuanbaoConfig,
+    creds_map: &serde_json::Map<String, Value>,
+    app_key: String,
+) -> YuanbaoConfig {
+    let opt_string = |key: &str| -> Option<String> {
+        creds_map
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    };
+
+    let mut cfg = base;
+    cfg.app_key = app_key;
+    cfg.app_secret = String::new();
+    if let Some(env) = opt_string("env") {
+        cfg.env = env;
+    }
+    if let Some(api_domain) = opt_string("api_domain") {
+        cfg.api_domain = api_domain;
+    }
+    if let Some(ws_domain) = opt_string("ws_domain") {
+        cfg.ws_domain = ws_domain;
+    }
+    if let Some(route_env) = opt_string("route_env") {
+        cfg.route_env = route_env;
+    }
+    cfg.apply_env_defaults();
+    cfg
+}
+
 /// Verify Yuanbao credentials against the `sign-token` endpoint before any
 /// persistence so invalid `app_key` / `app_secret` surface the upstream API
 /// error to the user instead of silently succeeding.
 ///
-/// Honours an explicit `api_domain` already configured in TOML; otherwise
-/// derives it from `env` (prod by default).
+/// Takes the **effective** `YuanbaoConfig` already built from the client's
+/// overrides + TOML defaults, so the verifier targets whatever cluster the
+/// runtime will use after restart.
 async fn verify_yuanbao_credentials(
-    config: &Config,
-    creds_map: &serde_json::Map<String, Value>,
+    yb_cfg: &YuanbaoConfig,
+    app_secret: &str,
 ) -> Result<(), String> {
-    let app_key = creds_map
-        .get("app_key")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "missing required app_key".to_string())?;
-    let app_secret = creds_map
-        .get("app_secret")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "missing required app_secret".to_string())?;
-
-    let mut yb_config = config.channels_config.yuanbao.clone().unwrap_or_default();
-    if yb_config.api_domain.is_empty() {
-        yb_config.apply_env_defaults();
-    }
-
     SignManager::new(reqwest::Client::new())
         .get_token(
-            app_key,
+            &yb_cfg.app_key,
             app_secret,
-            &yb_config.api_domain,
-            &yb_config.route_env,
+            &yb_cfg.api_domain,
+            &yb_cfg.route_env,
         )
         .await
         .map_err(|e| format!("yuanbao credential verification failed: {e}"))?;
@@ -201,11 +245,19 @@ pub async fn connect_channel(
 
     def.validate_credentials(auth_mode, creds_map)?;
 
-    // Yuanbao: verify credentials with the sign-token endpoint before any
-    // persistence so invalid creds surface the upstream API error to the
-    // user without leaving dangling credential entries or TOML state.
+    // Yuanbao: build the effective config (with any client-supplied
+    // endpoint overrides applied) once, verify against THAT cluster, and
+    // reuse the same config for persistence below. This prevents the
+    // verifier from validating against prod while the runtime then
+    // reconnects to a pre-release cluster after restart.
+    let mut prebuilt_yuanbao_config: Option<YuanbaoConfig> = None;
     if channel_id == "yuanbao" && auth_mode == ChannelAuthMode::ApiKey {
-        verify_yuanbao_credentials(config, creds_map).await?;
+        let app_key = require_yuanbao_field(creds_map, "app_key")?;
+        let app_secret = require_yuanbao_field(creds_map, "app_secret")?;
+        let base = config.channels_config.yuanbao.clone().unwrap_or_default();
+        let effective = build_effective_yuanbao_config(base, creds_map, app_key);
+        verify_yuanbao_credentials(&effective, &app_secret).await?;
+        prebuilt_yuanbao_config = Some(effective);
     }
 
     // iMessage is local-only (no credentials): persist channels_config + return connected.
@@ -381,61 +433,15 @@ pub async fn connect_channel(
             "[discord] connect_channel: wrote channels_config.discord; restart core for listener to load token"
         );
     } else if channel_id == "yuanbao" && auth_mode == ChannelAuthMode::ApiKey {
-        let app_key = creds_map
-            .get("app_key")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| "missing required app_key".to_string())?
-            .to_string();
-        // `app_secret` is already in the encrypted credentials store
-        // (stored above via `store_provider_credentials`); we intentionally
-        // do NOT mirror it into the plaintext TOML to limit exposure
-        // surface. The runtime loads it from credentials at startup.
-        let _ = creds_map
-            .get("app_secret")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| "missing required app_secret".to_string())?;
-
-        // Optional endpoint overrides — preserve any non-default values
-        // submitted by the client (e.g. `env = "pre"`) so the runtime
-        // reconnects to the correct cluster after restart.
-        let opt_string = |key: &str| -> Option<String> {
-            creds_map
-                .get(key)
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-        };
-        let env_override = opt_string("env");
-        let api_domain_override = opt_string("api_domain");
-        let ws_domain_override = opt_string("ws_domain");
-        let route_env_override = opt_string("route_env");
+        // Reuse the effective config built above (with `env` / `api_domain`
+        // / `ws_domain` / `route_env` overrides already applied and
+        // `app_secret` already cleared) so persistence and verification
+        // can never diverge.
+        let yb_config = prebuilt_yuanbao_config
+            .take()
+            .expect("yuanbao verify branch must run before persistence");
 
         let mut persisted = config.clone();
-        let mut yb_config = persisted
-            .channels_config
-            .yuanbao
-            .clone()
-            .unwrap_or_default();
-        yb_config.app_key = app_key;
-        // Clear any stale plaintext secret from a previous version.
-        yb_config.app_secret = String::new();
-        if let Some(env) = env_override {
-            yb_config.env = env;
-        }
-        if let Some(api_domain) = api_domain_override {
-            yb_config.api_domain = api_domain;
-        }
-        if let Some(ws_domain) = ws_domain_override {
-            yb_config.ws_domain = ws_domain;
-        }
-        if let Some(route_env) = route_env_override {
-            yb_config.route_env = route_env;
-        }
         persisted.channels_config.yuanbao = Some(yb_config);
 
         persisted

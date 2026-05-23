@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
+import McpServersTab from '../components/channels/mcp/McpServersTab';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
 import PillTabBar from '../components/PillTabBar';
-import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import {
   composioToolkitMeta,
   type ComposioToolkitMeta,
@@ -976,8 +976,16 @@ export default function Skills() {
                 {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
 
                 {activeTab === 'mcp' && (
-                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-soft animate-fade-up overflow-hidden">
-                    <McpServerPanel embedded />
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
+                    <div className="pb-3">
+                      <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                        {t('channels.mcp.title')}
+                      </h2>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                        {t('channels.mcp.description')}
+                      </p>
+                    </div>
+                    <McpServersTab />
                   </div>
                 )}
               </>

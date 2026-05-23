@@ -52,7 +52,27 @@ pub(crate) fn sample_account(chain: WalletChain) -> WalletAccount {
     }
 }
 
+/// RAII guard returned to callers so `OPENHUMAN_WORKSPACE` is restored when
+/// the test scope ends — prevents one test's tempdir from leaking into the
+/// next test in the same process. Drop the guard explicitly or let it fall
+/// out of scope at the end of the test.
+pub(crate) struct WorkspaceEnvGuard {
+    prev: Option<std::ffi::OsString>,
+}
+
+impl Drop for WorkspaceEnvGuard {
+    fn drop(&mut self) {
+        match self.prev.take() {
+            Some(v) => std::env::set_var("OPENHUMAN_WORKSPACE", v),
+            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
+        }
+    }
+}
+
 pub(crate) async fn setup_wallet_in(temp: &TempDir) -> Result<(), String> {
+    // We intentionally leak the env-var change for the duration of the test
+    // (wallet state lookups rely on it). The shared `TEST_LOCK` mutex
+    // serializes tests so concurrent tests can't race on the var.
     std::env::set_var("OPENHUMAN_WORKSPACE", temp.path());
     let config = config_rpc::load_config_with_timeout().await?;
     let encrypted = crate::openhuman::encryption::rpc::encrypt_secret(&config, TEST_MNEMONIC)

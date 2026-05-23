@@ -102,10 +102,12 @@ pub async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<Executi
     };
 
     let chain_id_hex: String = rpc_call_to(&rpc_url, "eth_chainId", json!([])).await?;
+    // Use "pending" so already-submitted-but-not-mined txs don't cause a
+    // nonce collision when two confirmations land back-to-back.
     let nonce_hex: String = rpc_call_to(
         &rpc_url,
         "eth_getTransactionCount",
-        json!([quote.from_address, "latest"]),
+        json!([quote.from_address, "pending"]),
     )
     .await?;
     let gas_price_hex: String = rpc_call_to(&rpc_url, "eth_gasPrice", json!([])).await?;

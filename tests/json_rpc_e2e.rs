@@ -2962,19 +2962,30 @@ async fn json_rpc_wallet_execution_surface_round_trips() {
     let body = assert_no_jsonrpc_error(&assets, "wallet_supported_assets");
     let result = body.get("result").unwrap_or(&body);
     let list = result.as_array().expect("supported_assets array");
-    // EVM has 5 networks (Ethereum + Base + Arbitrum + Optimism + Polygon),
-    // each with native ETH + USDC; Ethereum adds USDT/DAI/WETH. Plus BTC native,
-    // Solana native + USDC, Tron native + USDT. Total: 5 + 2*4 + 1 + 2 + 2 = 18.
-    assert!(
-        list.len() >= 8,
-        "expected at least 8 supported assets across all chains, got {}: {result}",
-        list.len()
-    );
-    assert!(
-        list.iter()
-            .any(|a| a.get("evmNetwork").and_then(Value::as_str) == Some("base_mainnet")),
-        "expected base_mainnet asset in catalog: {result}"
-    );
+    // Pin the actual expected multi-chain catalog (not just a lower bound) so a
+    // regression that silently drops a network is caught.
+    for expected_evm in [
+        "ethereum_mainnet",
+        "base_mainnet",
+        "arbitrum_one",
+        "optimism_mainnet",
+        "polygon_mainnet",
+    ] {
+        assert!(
+            list.iter()
+                .any(|a| a.get("evmNetwork").and_then(Value::as_str) == Some(expected_evm)),
+            "expected {expected_evm} asset row in catalog: {result}"
+        );
+    }
+    for (chain, symbol) in [("btc", "BTC"), ("solana", "SOL"), ("tron", "TRX")] {
+        assert!(
+            list.iter()
+                .any(|a| a.get("chain").and_then(Value::as_str) == Some(chain)
+                    && a.get("symbol").and_then(Value::as_str) == Some(symbol)
+                    && a.get("native").and_then(Value::as_bool) == Some(true)),
+            "expected native {symbol} on {chain}: {result}"
+        );
+    }
     assert!(
         list.iter().any(
             |asset| asset.get("symbol").and_then(Value::as_str) == Some("ETH")
@@ -3190,9 +3201,17 @@ async fn start_mock_evm_with_chain_id(chain_id_hex: &str) -> (SocketAddr, Arc<Mu
 struct MockBtcRestState {
     utxo: Value,
     broadcast_txs: Arc<Mutex<Vec<String>>>,
+    queried_addresses: Arc<Mutex<Vec<String>>>,
 }
 
-async fn mock_btc_utxo(State(state): State<MockBtcRestState>) -> Json<Value> {
+async fn mock_btc_utxo(
+    axum::extract::Path(addr): axum::extract::Path<String>,
+    State(state): State<MockBtcRestState>,
+) -> Json<Value> {
+    match state.queried_addresses.lock() {
+        Ok(mut g) => g.push(addr),
+        Err(p) => p.into_inner().push(addr),
+    }
     Json(state.utxo)
 }
 
@@ -3204,8 +3223,15 @@ async fn mock_btc_broadcast(State(state): State<MockBtcRestState>, body: String)
     "ababababababababababababababababababababababababababababababab".to_string()
 }
 
-async fn start_mock_btc() -> (SocketAddr, Arc<Mutex<Vec<String>>>) {
+struct MockBtcHandle {
+    addr: SocketAddr,
+    broadcast_txs: Arc<Mutex<Vec<String>>>,
+    queried_addresses: Arc<Mutex<Vec<String>>>,
+}
+
+async fn start_mock_btc() -> MockBtcHandle {
     let broadcast = Arc::new(Mutex::new(Vec::new()));
+    let queried_addresses = Arc::new(Mutex::new(Vec::new()));
     let utxo = json!([
         { "txid": "1111111111111111111111111111111111111111111111111111111111111111",
           "vout": 0, "value": 100_000u64 }
@@ -3213,13 +3239,18 @@ async fn start_mock_btc() -> (SocketAddr, Arc<Mutex<Vec<String>>>) {
     let state = MockBtcRestState {
         utxo,
         broadcast_txs: broadcast.clone(),
+        queried_addresses: queried_addresses.clone(),
     };
     let app = Router::new()
         .route("/address/{addr}/utxo", axum::routing::get(mock_btc_utxo))
         .route("/tx", post(mock_btc_broadcast))
         .with_state(state);
     let (addr, _join) = serve_on_ephemeral(app).await;
-    (addr, broadcast)
+    MockBtcHandle {
+        addr,
+        broadcast_txs: broadcast,
+        queried_addresses,
+    }
 }
 
 async fn mock_solana_rpc(Json(payload): Json<Value>) -> Json<Value> {
@@ -3250,7 +3281,17 @@ async fn start_mock_solana() -> SocketAddr {
     addr
 }
 
-async fn mock_tron_create(Json(_): Json<Value>) -> Json<Value> {
+#[derive(Clone, Default)]
+struct MockTronState {
+    create_hits: Arc<Mutex<u32>>,
+    trigger_hits: Arc<Mutex<u32>>,
+    broadcast_hits: Arc<Mutex<u32>>,
+}
+
+async fn mock_tron_create(State(state): State<MockTronState>, Json(_): Json<Value>) -> Json<Value> {
+    if let Ok(mut g) = state.create_hits.lock() {
+        *g += 1;
+    }
     Json(json!({
         "txID": "cd".repeat(32),
         "raw_data": {"contract": []},
@@ -3258,7 +3299,13 @@ async fn mock_tron_create(Json(_): Json<Value>) -> Json<Value> {
     }))
 }
 
-async fn mock_tron_trigger(Json(_): Json<Value>) -> Json<Value> {
+async fn mock_tron_trigger(
+    State(state): State<MockTronState>,
+    Json(_): Json<Value>,
+) -> Json<Value> {
+    if let Ok(mut g) = state.trigger_hits.lock() {
+        *g += 1;
+    }
     Json(json!({
         "transaction": {
             "txID": "cd".repeat(32),
@@ -3268,17 +3315,30 @@ async fn mock_tron_trigger(Json(_): Json<Value>) -> Json<Value> {
     }))
 }
 
-async fn mock_tron_broadcast(Json(_): Json<Value>) -> Json<Value> {
+async fn mock_tron_broadcast(
+    State(state): State<MockTronState>,
+    Json(_): Json<Value>,
+) -> Json<Value> {
+    if let Ok(mut g) = state.broadcast_hits.lock() {
+        *g += 1;
+    }
     Json(json!({"result": true, "txid": "cd".repeat(32)}))
 }
 
-async fn start_mock_tron() -> SocketAddr {
+struct MockTronHandle {
+    addr: SocketAddr,
+    state: MockTronState,
+}
+
+async fn start_mock_tron() -> MockTronHandle {
+    let state = MockTronState::default();
     let app = Router::new()
         .route("/wallet/createtransaction", post(mock_tron_create))
         .route("/wallet/triggersmartcontract", post(mock_tron_trigger))
-        .route("/wallet/broadcasttransaction", post(mock_tron_broadcast));
+        .route("/wallet/broadcasttransaction", post(mock_tron_broadcast))
+        .with_state(state.clone());
     let (addr, _join) = serve_on_ephemeral(app).await;
-    addr
+    MockTronHandle { addr, state }
 }
 
 async fn wallet_setup_via_rpc(rpc_base: &str, encrypted_mnemonic: &str) {
@@ -3407,8 +3467,11 @@ async fn json_rpc_wallet_btc_prepare_execute_round_trips() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let encrypted_mnemonic = encrypt_test_mnemonic().await;
 
-    let (btc_addr, broadcast_txs) = start_mock_btc().await;
-    std::env::set_var("OPENHUMAN_WALLET_RPC_BTC", format!("http://{btc_addr}"));
+    let btc_mock = start_mock_btc().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_BTC",
+        format!("http://{}", btc_mock.addr),
+    );
 
     wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
 
@@ -3444,11 +3507,30 @@ async fn json_rpc_wallet_btc_prepare_execute_round_trips() {
         exec_result.get("status").and_then(Value::as_str),
         Some("broadcasted"),
     );
-    let broadcast_count = match broadcast_txs.lock() {
-        Ok(g) => g.len(),
-        Err(p) => p.into_inner().len(),
+    let (broadcast_count, last_tx_hex) = match btc_mock.broadcast_txs.lock() {
+        Ok(g) => (g.len(), g.last().cloned()),
+        Err(p) => {
+            let g = p.into_inner();
+            (g.len(), g.last().cloned())
+        }
     };
     assert_eq!(broadcast_count, 1, "exactly one BTC broadcast call");
+    // Broadcast body must be non-empty segwit hex.
+    let raw_hex = last_tx_hex.expect("broadcast body recorded");
+    assert!(
+        !raw_hex.is_empty() && raw_hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "broadcast body must be hex, got: {raw_hex}"
+    );
+    // UTXO endpoint must be queried for the BIP84-derived sender, proving
+    // the address that flows into signing is the one we expect.
+    let queried = match btc_mock.queried_addresses.lock() {
+        Ok(g) => g.clone(),
+        Err(p) => p.into_inner().clone(),
+    };
+    assert!(
+        queried.iter().any(|a| a == E2E_TEST_MNEMONIC_ADDRS_BTC),
+        "UTXO endpoint must be queried for the sender's bc1q… address, got: {queried:?}"
+    );
 
     mock_join.abort();
     rpc_join.abort();
@@ -3546,8 +3628,11 @@ async fn json_rpc_wallet_tron_prepare_execute_round_trips() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let encrypted_mnemonic = encrypt_test_mnemonic().await;
 
-    let tron_addr = start_mock_tron().await;
-    std::env::set_var("OPENHUMAN_WALLET_RPC_TRON", format!("http://{tron_addr}"));
+    let tron_mock = start_mock_tron().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_TRON",
+        format!("http://{}", tron_mock.addr),
+    );
 
     wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
 
@@ -3587,6 +3672,22 @@ async fn json_rpc_wallet_tron_prepare_execute_round_trips() {
         exec_result.get("transactionHash").and_then(Value::as_str),
         Some(format!("{}", "cd".repeat(32)).as_str()),
     );
+    // Native TRX must go through createtransaction, NOT triggersmartcontract.
+    let create_hits = *tron_mock.state.create_hits.lock().unwrap();
+    let trigger_hits = *tron_mock.state.trigger_hits.lock().unwrap();
+    let broadcast_hits = *tron_mock.state.broadcast_hits.lock().unwrap();
+    assert_eq!(
+        create_hits, 1,
+        "native TRX must hit /wallet/createtransaction"
+    );
+    assert_eq!(
+        trigger_hits, 0,
+        "native TRX must NOT hit /wallet/triggersmartcontract"
+    );
+    assert_eq!(
+        broadcast_hits, 1,
+        "exactly one /wallet/broadcasttransaction call"
+    );
 
     mock_join.abort();
     rpc_join.abort();
@@ -3615,8 +3716,11 @@ async fn json_rpc_wallet_tron_trc20_prepare_execute_round_trips() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let encrypted_mnemonic = encrypt_test_mnemonic().await;
 
-    let tron_addr = start_mock_tron().await;
-    std::env::set_var("OPENHUMAN_WALLET_RPC_TRON", format!("http://{tron_addr}"));
+    let tron_mock = start_mock_tron().await;
+    std::env::set_var(
+        "OPENHUMAN_WALLET_RPC_TRON",
+        format!("http://{}", tron_mock.addr),
+    );
 
     wallet_setup_via_rpc(&rpc_base, &encrypted_mnemonic).await;
 
@@ -3657,6 +3761,22 @@ async fn json_rpc_wallet_tron_trc20_prepare_execute_round_trips() {
         exec_result.get("status").and_then(Value::as_str),
         Some("broadcasted"),
     );
+    // TRC20 must go through triggersmartcontract, NOT createtransaction.
+    let create_hits = *tron_mock.state.create_hits.lock().unwrap();
+    let trigger_hits = *tron_mock.state.trigger_hits.lock().unwrap();
+    let broadcast_hits = *tron_mock.state.broadcast_hits.lock().unwrap();
+    assert_eq!(
+        trigger_hits, 1,
+        "TRC20 transfer must hit /wallet/triggersmartcontract"
+    );
+    assert_eq!(
+        create_hits, 0,
+        "TRC20 transfer must NOT hit /wallet/createtransaction"
+    );
+    assert_eq!(
+        broadcast_hits, 1,
+        "exactly one /wallet/broadcasttransaction call"
+    );
 
     mock_join.abort();
     rpc_join.abort();
@@ -3694,17 +3814,33 @@ async fn json_rpc_wallet_network_defaults_lists_all_chains() {
     let body = assert_no_jsonrpc_error(&resp, "wallet_network_defaults");
     let result = body.get("result").unwrap_or(body);
     let rows = result.as_array().expect("array");
-    // 5 EVM networks + BTC + Solana + Tron = 8 rows minimum.
-    assert!(
-        rows.len() >= 8,
-        "expected >=8 default rows, got {}",
-        rows.len()
-    );
-    let base = rows
-        .iter()
-        .find(|r| r.get("evmNetwork").and_then(Value::as_str) == Some("base_mainnet"))
-        .expect("base_mainnet row present");
-    assert_eq!(base.get("chainId").and_then(Value::as_u64), Some(8453));
+    // Pin every expected EVM L2 + chain_id + the three non-EVM chains.
+    for (expected_evm, expected_chain_id) in [
+        ("ethereum_mainnet", 1u64),
+        ("base_mainnet", 8453),
+        ("arbitrum_one", 42161),
+        ("optimism_mainnet", 10),
+        ("polygon_mainnet", 137),
+    ] {
+        let row = rows
+            .iter()
+            .find(|r| r.get("evmNetwork").and_then(Value::as_str) == Some(expected_evm))
+            .unwrap_or_else(|| panic!("{expected_evm} row missing from network_defaults"));
+        assert_eq!(
+            row.get("chainId").and_then(Value::as_u64),
+            Some(expected_chain_id),
+            "{expected_evm} should expose chain_id {expected_chain_id}"
+        );
+    }
+    for expected_chain in ["btc", "solana", "tron"] {
+        assert!(
+            rows.iter().any(
+                |r| r.get("chain").and_then(Value::as_str) == Some(expected_chain)
+                    && r.get("evmNetwork").is_none()
+            ),
+            "{expected_chain} row missing from network_defaults"
+        );
+    }
 
     mock_join.abort();
     rpc_join.abort();

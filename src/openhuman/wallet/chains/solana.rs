@@ -293,6 +293,23 @@ fn build_spl_transfer_message(
     encode_message(header, &account_keys, &recent_blockhash, &[ins])
 }
 
+/// Best-effort `getAccountInfo` check — returns `Ok(true)` when the account
+/// exists, `Ok(false)` when the RPC reports `value: null`, or propagates the
+/// transport error.
+async fn account_exists(address_b58: &str) -> Result<bool, String> {
+    #[derive(Deserialize)]
+    struct AccountInfoResponse {
+        value: serde_json::Value,
+    }
+    let resp: AccountInfoResponse = rpc_call(
+        WalletChain::Solana,
+        "getAccountInfo",
+        json!([address_b58, {"encoding": "base64"}]),
+    )
+    .await?;
+    Ok(!resp.value.is_null())
+}
+
 async fn fetch_recent_blockhash() -> Result<[u8; 32], String> {
     let result: BlockhashResponse = rpc_call(
         WalletChain::Solana,
@@ -358,6 +375,17 @@ pub async fn execute_solana_quote(
             let mint = b58_to_pubkey(mint_addr)?;
             let src_ata = associated_token_account(&from_pk, &mint)?;
             let dst_ata = associated_token_account(&to_pubkey, &mint)?;
+            // Preflight: refuse to send to a non-existent ATA so we don't
+            // burn the broadcast on a guaranteed on-chain failure. The
+            // caller (or a future PR) can prepend a CreateAssociatedTokenAccount
+            // instruction; for now we fail loudly with a clear message.
+            if !account_exists(&pubkey_to_b58(&dst_ata)).await? {
+                return Err(format!(
+                    "SPL preflight: destination Associated Token Account does not exist for mint {} owner {}; create it before transferring",
+                    mint_addr,
+                    pubkey_to_b58(&to_pubkey)
+                ));
+            }
             build_spl_transfer_message(from_pk, src_ata, dst_ata, amount, recent_blockhash)
         }
         other => {
@@ -514,6 +542,16 @@ mod tests {
                             "context": {"slot": 0},
                             "value": 1_000_000u64
                         }),
+                        "getAccountInfo" => json!({
+                            "context": {"slot": 0},
+                            "value": {
+                                "lamports": 2_039_280u64,
+                                "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+                                "data": ["", "base64"],
+                                "executable": false,
+                                "rentEpoch": 0u64
+                            }
+                        }),
                         "sendTransaction" => serde_json::Value::String(sig.to_string()),
                         _ => serde_json::Value::Null,
                     };
@@ -624,14 +662,25 @@ mod tests {
         let result = execute_solana_quote(quote).await.expect("spl broadcast ok");
         assert_eq!(result.status, PreparedStatus::Broadcasted);
         let recorded = calls.lock().clone();
-        assert_eq!(recorded.len(), 2);
+        // SPL preflight calls getAccountInfo somewhere in the request set, plus
+        // getLatestBlockhash + sendTransaction.
+        assert_eq!(recorded.len(), 3);
+        assert!(
+            recorded
+                .iter()
+                .any(|c| c.get("method").and_then(|v| v.as_str()) == Some("getAccountInfo")),
+            "SPL preflight must call getAccountInfo"
+        );
         // The sendTransaction param[0] is base64-encoded signed tx; pull the
         // base64 string and decode it to confirm it carries the SPL token
         // program ID in its account_keys.
-        let params = recorded[1]
-            .get("params")
-            .and_then(|v| v.as_array())
-            .unwrap();
+        // sendTransaction is the last call after getAccountInfo + getLatestBlockhash.
+        let send_call = recorded
+            .iter()
+            .rev()
+            .find(|c| c.get("method").and_then(|v| v.as_str()) == Some("sendTransaction"))
+            .expect("sendTransaction call recorded");
+        let params = send_call.get("params").and_then(|v| v.as_array()).unwrap();
         let tx_b64 = params[0].as_str().unwrap();
         let raw = B64.decode(tx_b64).expect("valid base64");
         // shortvec(1) signature + 64-byte sig + message
@@ -642,6 +691,79 @@ mod tests {
         assert!(
             message.windows(32).any(|w| w == token_program),
             "expected token program in account_keys"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_solana_quote_refuses_spl_when_destination_ata_missing() {
+        let _guard = TEST_LOCK.lock();
+        let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        reset_quote_store_for_tests();
+        let temp = TempDir::new().unwrap();
+        setup_wallet_in(&temp).await.unwrap();
+
+        // Custom mock that returns null for getAccountInfo — simulates an ATA
+        // that was never created on-chain.
+        let app = Router::new().route(
+            "/",
+            post(
+                |axum::Json(payload): axum::Json<serde_json::Value>| async move {
+                    let method = payload
+                        .get("method")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    let result = match method {
+                        "getAccountInfo" => json!({"context": {"slot": 0}, "value": null}),
+                        "getLatestBlockhash" => json!({
+                            "context": {"slot": 0},
+                            "value": {
+                                "blockhash": "GHtXQBsoZHVnNFa9YevAzFr17DJjgHXk3ycTKD5xD3Zi",
+                                "lastValidBlockHeight": 0u64
+                            }
+                        }),
+                        _ => serde_json::Value::Null,
+                    };
+                    axum::Json(json!({"jsonrpc":"2.0","id":1,"result":result}))
+                },
+            ),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        std::env::set_var("OPENHUMAN_WALLET_RPC_SOLANA", format!("http://{addr}"));
+
+        let now = now_ms();
+        let quote = PreparedTransaction {
+            quote_id: "q_sol_spl_missing_ata".to_string(),
+            kind: PreparedKind::TokenTransfer,
+            chain: WalletChain::Solana,
+            evm_network: None,
+            from_address: sample_solana_address().to_string(),
+            to_address: "Vote111111111111111111111111111111111111111".to_string(),
+            asset_symbol: "USDC".to_string(),
+            amount_raw: "1000000".to_string(),
+            amount_formatted: "1.000000".to_string(),
+            receive_symbol: None,
+            min_receive_raw: None,
+            calldata: None,
+            token_address: Some("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()),
+            estimated_fee_raw: "5000".to_string(),
+            status: PreparedStatus::AwaitingConfirmation,
+            created_at_ms: now,
+            expires_at_ms: now + 60_000,
+            notes: vec![],
+        };
+        insert_quote_for_test(quote.clone());
+
+        let err = execute_solana_quote(quote).await.unwrap_err();
+        assert!(
+            err.contains("SPL preflight")
+                && err.contains("Associated Token Account does not exist"),
+            "got: {err}"
         );
     }
 

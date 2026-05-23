@@ -764,8 +764,12 @@ pub async fn execute_prepared(
     if !params.confirmed {
         return Err("execute_prepared requires `confirmed: true`".to_string());
     }
-    let quote = get_quote(&params.quote_id)?;
+    // Atomically remove the quote *before* broadcasting so two concurrent
+    // confirmations can't both pass get_quote() and double-submit. If signing
+    // or broadcast fails we restore the quote to keep it retryable.
+    let quote = take_quote(&params.quote_id)?;
     let chain = quote.chain;
+    let restorable = quote.clone();
     let result = match chain {
         WalletChain::Evm => chain_evm::execute_evm_quote(quote).await,
         WalletChain::Btc => chain_btc::execute_btc_quote(quote).await,
@@ -775,16 +779,16 @@ pub async fn execute_prepared(
     let result = match result {
         Ok(value) => value,
         Err(error) => {
-            // Keep quote available so the caller can fix the cause and retry.
+            // Restore the quote so the caller can fix the cause and retry.
+            store_quote(restorable);
             warn!(
-                "{LOG_PREFIX} execute chain={} quote_id={} failed: {error}",
+                "{LOG_PREFIX} execute chain={} quote_id={} failed (quote restored): {error}",
                 chain_str(chain),
                 params.quote_id
             );
             return Err(error);
         }
     };
-    let _ = take_quote(&params.quote_id)?;
     let explorer_fallback = explorer_tx_url(chain, &result.transaction_hash);
     let mut final_result = result;
     if final_result.explorer_url.is_none() {

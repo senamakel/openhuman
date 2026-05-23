@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
@@ -13,6 +14,17 @@ use super::defaults::{rpc_url_for_chain, rpc_url_for_evm_network, EvmNetwork};
 use super::ops::WalletChain;
 
 const LOG_PREFIX: &str = "[wallet::rpc]";
+
+/// Process-wide shared client so reqwest's connection pool stays hot across
+/// repeated wallet RPC/REST calls. Building a new Client per call rebuilds
+/// the TLS connector each time and tears down connection pooling — the
+/// recommended pattern per reqwest 0.12 docs is to reuse a single Client.
+static SHARED_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .expect("wallet RPC client builder must succeed with default settings")
+});
 
 fn redact_rpc_url(raw: &str) -> String {
     match reqwest::Url::parse(raw) {
@@ -24,11 +36,8 @@ fn redact_rpc_url(raw: &str) -> String {
     }
 }
 
-fn client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|e| format!("wallet HTTP client build failed: {e}"))
+fn client() -> reqwest::Client {
+    SHARED_CLIENT.clone()
 }
 
 /// JSON-RPC POST against a chain's default/override endpoint.
@@ -65,7 +74,7 @@ pub async fn rpc_call_to<T: DeserializeOwned>(
         method,
         redact_rpc_url(url)
     );
-    let client = client()?;
+    let client = client();
     let response = client
         .post(url)
         .json(&payload)
@@ -102,7 +111,7 @@ pub async fn rpc_call_to<T: DeserializeOwned>(
 /// Plain REST GET returning JSON or text.
 pub async fn rest_get_text(url: &str) -> Result<String, String> {
     log::debug!("{LOG_PREFIX} rest_get url={}", redact_rpc_url(url));
-    let response = client()?
+    let response = client()
         .get(url)
         .send()
         .await
@@ -133,7 +142,7 @@ pub async fn rest_post_text(url: &str, body: &str, content_type: &str) -> Result
         redact_rpc_url(url),
         body.len()
     );
-    let response = client()?
+    let response = client()
         .post(url)
         .header("content-type", content_type)
         .body(body.to_string())
@@ -156,7 +165,7 @@ pub async fn rest_post_text(url: &str, body: &str, content_type: &str) -> Result
 /// REST POST with a JSON body.
 pub async fn rest_post_json<T: DeserializeOwned>(url: &str, body: &Value) -> Result<T, String> {
     log::debug!("{LOG_PREFIX} rest_post_json url={}", redact_rpc_url(url));
-    let response = client()?
+    let response = client()
         .post(url)
         .json(body)
         .send()

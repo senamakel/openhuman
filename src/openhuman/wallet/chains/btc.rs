@@ -60,23 +60,34 @@ pub fn estimated_btc_fee_sats() -> u64 {
     DEFAULT_FEE_RATE_SAT_VB * TYPICAL_TX_VBYTES
 }
 
+/// Generic BTC address validation — any well-formed mainnet address is OK.
+/// Used for recipients (we don't care what address type they prefer; the
+/// `bitcoin` crate's script_pubkey() will encode P2WPKH/P2TR/P2SH correctly).
 pub fn validate_btc_address(addr: &str) -> Result<String, String> {
     let trimmed = addr.trim();
     if trimmed.is_empty() {
         return Err("BTC address is empty".to_string());
     }
-    let parsed = Address::from_str(trimmed)
+    Address::from_str(trimmed)
         .map_err(|e| format!("invalid BTC address '{trimmed}': {e}"))?
         .require_network(Network::Bitcoin)
         .map_err(|e| format!("BTC address '{trimmed}' is not mainnet: {e}"))?;
-    // Only allow P2WPKH (bech32 `bc1q...`) for this iteration — keeps signing
-    // path deterministic. P2TR / nested P2SH-WPKH can be added later.
+    Ok(trimmed.to_string())
+}
+
+/// Sender-side validation — must be P2WPKH because we only know how to
+/// derive + sign for native segwit (`bc1q…`). Recipients can be any type.
+pub fn validate_btc_sender_address(addr: &str) -> Result<String, String> {
+    let trimmed = validate_btc_address(addr)?;
+    let parsed = Address::from_str(&trimmed)
+        .map_err(|e| format!("invalid BTC sender '{trimmed}': {e}"))?
+        .assume_checked();
     if !parsed.script_pubkey().is_p2wpkh() {
         return Err(format!(
-            "BTC address '{trimmed}' is not P2WPKH (only bc1q… native segwit is supported)"
+            "BTC sender '{trimmed}' is not P2WPKH (only bc1q… native segwit is supported for signing)"
         ));
     }
-    Ok(trimmed.to_string())
+    Ok(trimmed)
 }
 
 use std::str::FromStr;
@@ -186,7 +197,7 @@ pub async fn execute_btc_quote(mut quote: PreparedTransaction) -> Result<Executi
         .map_err(|e| format!("invalid BTC amount '{}': {e}", quote.amount_raw))?;
     let from_addr = quote.from_address.clone();
     let to_addr = quote.to_address.clone();
-    validate_btc_address(&from_addr)?;
+    validate_btc_sender_address(&from_addr)?;
     validate_btc_address(&to_addr)?;
 
     let utxos = fetch_utxos(&from_addr).await?;
@@ -323,10 +334,14 @@ mod tests {
     }
 
     #[test]
-    fn validate_btc_address_rejects_p2tr() {
-        // P2TR (bech32m, bc1p…) should be rejected in this iteration.
+    fn validate_btc_sender_address_rejects_p2tr() {
+        // P2TR (bech32m, bc1p…) is a valid recipient but cannot be a sender —
+        // we only know how to sign P2WPKH inputs in this iteration.
         let p2tr = "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr";
-        let err = validate_btc_address(p2tr).unwrap_err();
+        // Generic validation must accept it (recipients can be any type).
+        assert_eq!(validate_btc_address(p2tr).unwrap(), p2tr);
+        // Sender validation must reject it.
+        let err = validate_btc_sender_address(p2tr).unwrap_err();
         assert!(err.contains("not P2WPKH"), "got: {err}");
     }
 

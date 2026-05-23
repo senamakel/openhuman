@@ -247,12 +247,20 @@ chat_onboarding_completed = true
 encrypt = false
 "#
     );
-    std::fs::create_dir_all(openhuman_dir).expect("mkdir openhuman dir");
-    std::fs::write(openhuman_dir.join("config.toml"), &cfg).expect("write config.toml");
-    // User-scoped dir mirrors the layout write_min_config creates in json_rpc_e2e.rs.
-    let user_dir = openhuman_dir.join("users").join("composio-e2e-user");
-    std::fs::create_dir_all(&user_dir).expect("mkdir user dir");
-    std::fs::write(user_dir.join("config.toml"), &cfg).expect("write user config.toml");
+    fn write_cfg(dir: &Path, cfg: &str) {
+        std::fs::create_dir_all(dir).expect("mkdir config dir");
+        std::fs::write(dir.join("config.toml"), cfg).expect("write config.toml");
+    }
+    write_cfg(openhuman_dir, &cfg);
+    // Pre-login user directory: config resolution uses `users/local` before an
+    // active user is established (same pattern as write_min_config in
+    // json_rpc_e2e.rs). Without this, auth_store_session hits the real backend.
+    write_cfg(&openhuman_dir.join("users").join("local"), &cfg);
+    // Post-login user-scoped directory.
+    write_cfg(
+        &openhuman_dir.join("users").join("composio-e2e-user"),
+        &cfg,
+    );
 }
 
 async fn post_json_rpc(rpc_base: &str, id: i64, method: &str, params: Value) -> Value {

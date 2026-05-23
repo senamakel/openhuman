@@ -187,6 +187,11 @@ pub struct Config {
     #[serde(default)]
     pub web_search: WebSearchConfig,
 
+    /// Unified search-engine selector. Picks exactly one engine
+    /// (managed / parallel / brave) and layers the corresponding tools.
+    #[serde(default)]
+    pub search: SearchConfig,
+
     #[serde(default)]
     pub proxy: ProxyConfig,
 
@@ -624,6 +629,7 @@ impl Default for Config {
             seltz: SeltzConfig::default(),
             searxng: SearxngConfig::default(),
             web_search: WebSearchConfig::default(),
+            search: SearchConfig::default(),
             proxy: ProxyConfig::default(),
             cost: CostConfig::default(),
             computer_control: ComputerControlConfig::default(),

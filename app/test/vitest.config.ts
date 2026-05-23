@@ -45,9 +45,15 @@ export default defineConfig({
     include: [
       "src/**/*.test.{ts,tsx}",
       "test/*.test.{ts,tsx}",
-      // tauri-plugin-ptt guest-js unit tests (no iOS toolchain required).
-      "../packages/tauri-plugin-ptt/guest-js/**/*.test.ts",
     ],
+    // The PTT plugin's guest-js test (`packages/tauri-plugin-ptt/guest-js/index.test.ts`)
+    // is intentionally NOT included here. The app's vitest config injects
+    // `vite-plugin-node-polyfills` banner imports (Buffer/process/global) that
+    // resolve fine from within `app/` but fail from outside the workspace root
+    // on a stricter pnpm CI install (`Failed to resolve import
+    // "vite-plugin-node-polyfills/shims/buffer"`). The PTT test only mocks the
+    // Tauri JS bindings and doesn't need the polyfills — a future PR can add
+    // a self-contained vitest setup at packages/tauri-plugin-ptt/.
     hookTimeout: 30000,
     testTimeout: 30000,
     coverage: {

@@ -210,10 +210,18 @@ pub(crate) fn classify_taskkill_force_status(
         }
         other => {
             let stderr_str = String::from_utf8_lossy(stderr);
-            if stderr_str.contains("not found")
-                || stderr_str.contains("could not be terminated")
-                || stderr_str.contains("ERROR: The process") && stderr_str.contains("not found")
-            {
+            // Only treat the "process is gone" stderr shapes as success.
+            // `could not be terminated` ALONE is *not* enough — it also
+            // appears in access-denied messages like
+            // "could not be terminated. Reason: Access is denied." which
+            // we must surface as a real failure.
+            let stderr_lower = stderr_str.to_ascii_lowercase();
+            let process_gone = stderr_lower.contains("no running instance of the task")
+                || (stderr_lower.contains("could not be terminated")
+                    && stderr_lower.contains("not found"))
+                || (stderr_lower.contains("error: the process")
+                    && stderr_lower.contains("not found"));
+            if process_gone {
                 log::debug!(
                     "[app] taskkill /F /PID {pid}: process already gone (stderr match: {stderr_str:?})"
                 );
@@ -270,9 +278,31 @@ mod windows_tests {
     }
 
     #[test]
-    fn classify_taskkill_force_propagates_real_failure() {
-        // Access-denied or other genuine errors must surface — recovery
-        // depends on knowing when escalation actually failed.
+    fn classify_taskkill_force_treats_no_running_instance_as_success() {
+        // The `/T` (tree) flag emits this shape when the parent is already
+        // gone but child traversal still runs.
+        let stderr = b"ERROR: The process with PID 1234 (child process of PID 999) \
+            could not be terminated.\r\n\
+            Reason: There is no running instance of the task.\r\n";
+        assert!(classify_taskkill_force_status(Some(128), stderr, 1234).is_ok());
+    }
+
+    #[test]
+    fn classify_taskkill_force_propagates_access_denied() {
+        // Access-denied has the SAME "could not be terminated" prefix as
+        // the process-gone case, so the predicate must require additional
+        // tokens before treating it as success. Otherwise we silently mark
+        // a live, unreachable process as killed and recovery proceeds
+        // against a still-bound port.
+        let stderr = b"ERROR: The process with PID 1234 could not be terminated.\r\n\
+            Reason: Access is denied.\r\n";
+        let err = classify_taskkill_force_status(Some(1), stderr, 1234).unwrap_err();
+        assert!(err.contains("code Some(1)"), "got: {err}");
+        assert!(err.contains("Access is denied"), "got: {err}");
+    }
+
+    #[test]
+    fn classify_taskkill_force_propagates_bare_access_denied() {
         let stderr = b"ERROR: Access is denied.\r\n";
         let err = classify_taskkill_force_status(Some(5), stderr, 1234).unwrap_err();
         assert!(err.contains("code Some(5)"), "got: {err}");

@@ -377,16 +377,25 @@ fn windows_port_takeover_finds_and_kills_listener() {
     }
 
     // Walk the production path: pid lookup via netstat, then force-kill.
-    let pid = super::find_pid_on_port(port).expect("find pid on port via netstat");
+    let pid = match super::find_pid_on_port(port) {
+        Some(pid) => pid,
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("find_pid_on_port returned None for port {port}");
+        }
+    };
     // The pid we discovered won't be `child.id()` directly — the powershell
     // process is the listener, and on Windows `child.id()` IS that pid.
     // Sanity-check they match so a future netstat parser regression is loud.
-    assert_eq!(
-        pid,
-        child.id(),
-        "find_pid_on_port returned pid {pid}, expected child pid {}",
-        child.id()
-    );
+    // Tear down the child *before* panicking so a 60s listener doesn't leak
+    // into the rest of the test suite.
+    if pid != child.id() {
+        let expected = child.id();
+        let _ = child.kill();
+        let _ = child.wait();
+        panic!("find_pid_on_port returned pid {pid}, expected child pid {expected}");
+    }
 
     kill_pid_force(pid).expect("force-kill listener");
 

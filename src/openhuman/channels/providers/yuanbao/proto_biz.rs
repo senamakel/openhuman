@@ -394,6 +394,179 @@ mod tests {
         assert_eq!(parsed.member_count, 42);
     }
 
+    // ─── encode_send_c2c branches ──────────────────────────────────
+
+    #[test]
+    fn c2c_encode_with_msg_id_msg_random_group_code_trace_id() {
+        // Hit the branches: msg_id non-empty, msg_random != 0, group_code
+        // non-empty, trace_id non-empty.
+        let buf = encode_send_c2c_message(
+            "uid_alice",
+            "uid_bot",
+            &text_body("hi"),
+            "mid-1",
+            42,
+            "gcode-x",
+            "trace-1",
+        );
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert_eq!(frame.cmd, biz_cmd::SEND_C2C_MESSAGE);
+        assert_eq!(frame.msg_id, "mid-1");
+        // Re-parse the biz body and check the fields we encoded show up.
+        let f = parse_fields(&frame.data).unwrap();
+        assert_eq!(get_string(&f, 1), "mid-1");
+        assert_eq!(get_string(&f, 2), "uid_alice");
+        assert_eq!(get_string(&f, 3), "uid_bot");
+        assert_eq!(get_varint(&f, 4), 42);
+        assert_eq!(get_string(&f, 6), "gcode-x");
+        // log_ext (field 8) carries nested {1: trace_id}
+        let log_ext = get_bytes(&f, 8);
+        assert!(!log_ext.is_empty());
+        let inner = parse_fields(&log_ext).unwrap();
+        assert_eq!(get_string(&inner, 1), "trace-1");
+    }
+
+    #[test]
+    fn c2c_encode_generates_synthetic_req_id_when_msg_id_empty() {
+        // msg_id empty branch — req_id falls back to `c2c_<seq>`.
+        let buf = encode_send_c2c_message("uid_alice", "uid_bot", &text_body("hi"), "", 0, "", "");
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert!(
+            frame.msg_id.starts_with("c2c_"),
+            "expected synthetic req_id starting with c2c_, got {}",
+            frame.msg_id
+        );
+    }
+
+    // ─── encode_send_group branches ────────────────────────────────
+
+    #[test]
+    fn group_encode_with_all_optional_fields() {
+        let buf = encode_send_group_message(
+            "group_42",
+            "uid_bot",
+            &text_body("hello"),
+            "mid-g",
+            "uid_to",
+            "rand_x",
+            "ref-msg-99",
+            "trace-g",
+        );
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert_eq!(frame.cmd, biz_cmd::SEND_GROUP_MESSAGE);
+        assert_eq!(frame.msg_id, "mid-g");
+        let f = parse_fields(&frame.data).unwrap();
+        assert_eq!(get_string(&f, 1), "mid-g");
+        assert_eq!(get_string(&f, 2), "group_42");
+        assert_eq!(get_string(&f, 3), "uid_bot");
+        assert_eq!(get_string(&f, 4), "uid_to");
+        assert_eq!(get_string(&f, 5), "rand_x");
+        assert_eq!(get_string(&f, 7), "ref-msg-99");
+        let log_ext = get_bytes(&f, 9);
+        let inner = parse_fields(&log_ext).unwrap();
+        assert_eq!(get_string(&inner, 1), "trace-g");
+    }
+
+    #[test]
+    fn group_encode_generates_synthetic_req_id_when_msg_id_empty() {
+        let buf = encode_send_group_message(
+            "group_x",
+            "uid_bot",
+            &text_body("hi"),
+            "",
+            "",
+            "",
+            "",
+            "",
+        );
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert!(
+            frame.msg_id.starts_with("grp_"),
+            "expected synthetic req_id starting with grp_, got {}",
+            frame.msg_id
+        );
+    }
+
+    // ─── encode_send_group_heartbeat ───────────────────────────────
+
+    #[test]
+    fn group_heartbeat_encodes_send_time_and_heartbeat() {
+        let buf = encode_send_group_heartbeat(
+            "hb_g_1",
+            "uid_bot",
+            "group_42",
+            ws_heartbeat::RUNNING,
+            1_700_000_123,
+        );
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert_eq!(frame.cmd, biz_cmd::SEND_GROUP_HEARTBEAT);
+        assert_eq!(frame.msg_id, "hb_g_1");
+        let f = parse_fields(&frame.data).unwrap();
+        assert_eq!(get_string(&f, 1), "uid_bot");
+        assert_eq!(get_string(&f, 2), ""); // to_account empty for group
+        assert_eq!(get_string(&f, 3), "group_42");
+        assert_eq!(get_varint(&f, 4), 1_700_000_123);
+        assert_eq!(get_varint(&f, 5), ws_heartbeat::RUNNING as u64);
+    }
+
+    // ─── encode_get_group_member_list ──────────────────────────────
+
+    #[test]
+    fn get_group_member_list_omits_offset_when_zero() {
+        let buf = encode_get_group_member_list("qgm_1", "group_42", 0, 100);
+        let frame = decode_conn_msg(&buf).unwrap();
+        assert_eq!(frame.cmd, biz_cmd::GET_GROUP_MEMBER_LIST);
+        let f = parse_fields(&frame.data).unwrap();
+        assert_eq!(get_string(&f, 1), "group_42");
+        // offset (field 2) skipped when 0
+        assert_eq!(get_varint(&f, 2), 0);
+        assert_eq!(get_varint(&f, 3), 100);
+    }
+
+    #[test]
+    fn get_group_member_list_includes_offset_when_nonzero() {
+        let buf = encode_get_group_member_list("qgm_2", "group_42", 200, 50);
+        let frame = decode_conn_msg(&buf).unwrap();
+        let f = parse_fields(&frame.data).unwrap();
+        assert_eq!(get_varint(&f, 2), 200);
+        assert_eq!(get_varint(&f, 3), 50);
+    }
+
+    // ─── decode_biz_rsp_code + decode_response_envelope ────────────
+
+    #[test]
+    fn decode_biz_rsp_code_reads_code_and_message() {
+        let mut buf = Vec::new();
+        put_varint_field(1, 4002, &mut buf);
+        put_string_field(2, "rate limited", &mut buf);
+        let (code, msg) = decode_biz_rsp_code(&buf).unwrap();
+        assert_eq!(code, 4002);
+        assert_eq!(msg, "rate limited");
+    }
+
+    #[test]
+    fn decode_biz_rsp_code_on_empty_returns_defaults() {
+        let (code, msg) = decode_biz_rsp_code(&[]).unwrap();
+        assert_eq!(code, 0);
+        assert!(msg.is_empty());
+    }
+
+    #[test]
+    fn decode_response_envelope_extracts_frame() {
+        let original = encode_conn_msg(
+            cmd_type::RESPONSE,
+            biz_cmd::SEND_C2C_MESSAGE,
+            1,
+            "mid-r",
+            module::BIZ_PKG,
+            &[0xAA, 0xBB],
+        );
+        let frame = decode_response_envelope(&original).unwrap();
+        assert_eq!(frame.cmd, biz_cmd::SEND_C2C_MESSAGE);
+        assert_eq!(frame.msg_id, "mid-r");
+        assert_eq!(frame.data, vec![0xAA, 0xBB]);
+    }
+
     #[test]
     fn group_member_list_decode() {
         let mut m1 = Vec::new();

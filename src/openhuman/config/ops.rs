@@ -573,7 +573,7 @@ pub async fn apply_model_settings(
     // so a UI embedder switch recovers prior memory under the new
     // signature. Coverage-gated + non-fatal: if the active signature did
     // not actually change, this enqueues nothing.
-    crate::openhuman::memory::tree::jobs::ensure_reembed_backfill(config);
+    crate::openhuman::memory_tree::jobs::ensure_reembed_backfill(config);
     let snapshot = snapshot_config_json(config)?;
     Ok(RpcOutcome::new(
         snapshot,
@@ -623,7 +623,7 @@ pub async fn apply_memory_settings(
     // dark. Idempotent + non-fatal (covered space enqueues nothing; errors
     // are logged, never fail the settings save). §7's migration is
     // one-shot so it does not cover a later switch — this does.
-    crate::openhuman::memory::tree::jobs::ensure_reembed_backfill(config);
+    crate::openhuman::memory_tree::jobs::ensure_reembed_backfill(config);
     let snapshot = snapshot_config_json(config)?;
     Ok(RpcOutcome::new(
         snapshot,

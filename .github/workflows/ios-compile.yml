@@ -35,7 +35,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          submodules: recursive
+          # The mobile crate uses stock Tauri (no CEF), so we don't need
+          # `submodules: recursive` — which would try to clone the
+          # `app/src-tauri/vendor/tauri-cef` submodule, a step that
+          # intermittently fails on macOS runners for fork PRs.
+          submodules: false
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

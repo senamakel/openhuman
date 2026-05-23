@@ -30,7 +30,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          submodules: recursive
+          # Mobile crate uses stock Tauri (no CEF) — no submodules needed.
+          submodules: false
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

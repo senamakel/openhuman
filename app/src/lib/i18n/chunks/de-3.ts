@@ -417,6 +417,9 @@ const de3: TranslationMap = {
   'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
+  'channels.yuanbao.connecting': 'Connecting…',
+  'channels.yuanbao.fieldRequired': '{field} is required',
+  'channels.yuanbao.unexpectedStatus': 'Unexpected connection status: {status}',
 };
 
 export default de3;

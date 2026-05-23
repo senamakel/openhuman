@@ -1301,6 +1301,9 @@ const ko: TranslationMap = {
   'channels.telegram.savedRestartRequired':
     '채널이 저장되었습니다. 활성화하려면 앱을 다시 시작하세요.',
   'channels.web.alwaysAvailable': '항상 사용 가능',
+  'channels.yuanbao.connecting': 'Connecting…',
+  'channels.yuanbao.fieldRequired': '{field} is required',
+  'channels.yuanbao.unexpectedStatus': 'Unexpected connection status: {status}',
   'chat.unsubscribeApproval.approve': '승인 및 구독 취소',
   'chat.unsubscribeApproval.approved': '✓ 구독 취소가 완료되었습니다.',
   'chat.unsubscribeApproval.denied': '✕ 요청이 거부되었습니다.',

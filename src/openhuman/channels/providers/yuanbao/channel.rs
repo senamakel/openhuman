@@ -405,15 +405,12 @@ impl YuanbaoChannel {
                 tracing::trace!("[yuanbao] filtered at {reason}");
             }
             PipelineOutcome::Failed(err) => {
-                let preview_len = biz_body.len().min(256);
-                let hex: String = biz_body[..preview_len]
-                    .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect();
+                // Intentionally omit the raw biz payload — it can carry
+                // user content / PII. The decoder error already encodes
+                // the structural reason; only the length is safe to log.
                 warn!(
-                    "[yuanbao] pipeline error: {err} | biz_len={} biz_hex_first_{preview_len}={}",
-                    biz_body.len(),
-                    hex
+                    "[yuanbao] pipeline error: {err} | biz_len={}",
+                    biz_body.len()
                 );
             }
         }
@@ -693,10 +690,7 @@ mod tests {
         let ch = YuanbaoChannel::new(good_cfg()).unwrap();
         ch.start_heartbeat_task("recipient-1").await;
         assert!(
-            ch.heartbeat_tasks
-                .lock()
-                .await
-                .contains_key("recipient-1"),
+            ch.heartbeat_tasks.lock().await.contains_key("recipient-1"),
             "should have spawned a task for recipient-1"
         );
         // Second start for same recipient is a no-op (does not double-spawn).

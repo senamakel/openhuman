@@ -598,8 +598,78 @@ async fn connect_yuanbao_persists_when_credentials_valid() {
         yb.get("app_key").and_then(toml::Value::as_str),
         Some("real-key")
     );
+    // The plaintext `app_secret` must NOT be persisted in TOML — the
+    // runtime loads it from the encrypted credentials store instead.
+    let toml_secret = yb.get("app_secret").and_then(toml::Value::as_str);
+    assert!(
+        toml_secret.is_none() || toml_secret == Some(""),
+        "app_secret must not be persisted in plaintext TOML, got {toml_secret:?}"
+    );
+
+    // The credentials store should contain the secret so startup can recover it.
+    let auth = crate::openhuman::credentials::AuthService::from_config(&config);
+    let profile = auth
+        .get_profile("channel:yuanbao:api_key", None)
+        .expect("credentials lookup succeeds")
+        .expect("yuanbao credentials stored");
     assert_eq!(
-        yb.get("app_secret").and_then(toml::Value::as_str),
+        profile.metadata.get("app_secret").map(String::as_str),
         Some("real-secret")
+    );
+    assert_eq!(
+        profile.metadata.get("app_key").map(String::as_str),
+        Some("real-key")
+    );
+}
+
+#[tokio::test]
+async fn connect_yuanbao_persists_env_override() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v5/robotLogic/sign-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": 0,
+            "data": {
+                "token": "tok-pre",
+                "bot_id": "bot-456",
+                "product": "yuanbao",
+                "source": "openhuman",
+                "duration": 3600,
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let (_tmp, config) = yuanbao_test_config(&server.uri());
+    connect_channel(
+        &config,
+        "yuanbao",
+        ChannelAuthMode::ApiKey,
+        serde_json::json!({
+            "app_key": "k",
+            "app_secret": "s",
+            "env": "pre",
+            "route_env": "canary",
+        }),
+    )
+    .await
+    .expect("valid yuanbao credentials should succeed");
+
+    let raw = tokio::fs::read_to_string(&config.config_path)
+        .await
+        .expect("config should be persisted");
+    let parsed: toml::Value = toml::from_str(&raw).expect("config parses");
+    let yb = parsed
+        .get("channels_config")
+        .and_then(|v| v.get("yuanbao"))
+        .and_then(toml::Value::as_table)
+        .expect("channels_config.yuanbao persisted");
+    assert_eq!(yb.get("env").and_then(toml::Value::as_str), Some("pre"));
+    assert_eq!(
+        yb.get("route_env").and_then(toml::Value::as_str),
+        Some("canary")
     );
 }

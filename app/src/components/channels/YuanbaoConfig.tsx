@@ -75,7 +75,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
     for (const field of spec.fields) {
       const empty = !fieldValues[field.key]?.trim();
       if (field.required && empty) {
-        errors[field.key] = `${field.label} 不能为空`;
+        errors[field.key] = t('channels.yuanbao.fieldRequired').replace('{field}', field.label);
       }
     }
     if (Object.keys(errors).length > 0) {
@@ -115,6 +115,26 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
         });
         console.log('[YuanbaoConfig] handleConnect: 5.RPC returned', result);
         log('connect result: %o', result);
+
+        // Only treat explicit "connected" as success. Any other status
+        // (e.g. "pending_auth" if a future auth flow gets added) must
+        // surface as an error instead of silently dispatching connected.
+        if (result.status !== 'connected') {
+          const msg = t('channels.yuanbao.unexpectedStatus').replace(
+            '{status}',
+            result.status ?? ''
+          );
+          console.warn('[YuanbaoConfig] handleConnect: 6.unexpected status', result.status);
+          dispatch(
+            setChannelConnectionStatus({
+              channel: 'yuanbao',
+              authMode: spec.mode,
+              status: 'error',
+              lastError: msg,
+            })
+          );
+          return;
+        }
 
         if (result.restart_required) {
           console.log(
@@ -275,7 +295,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
               </svg>
             )}
             {busy
-              ? '连接中…'
+              ? t('channels.yuanbao.connecting')
               : status === 'connected'
                 ? t('channels.telegram.reconnect')
                 : t('channels.telegram.connect')}

@@ -405,6 +405,9 @@ const en3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'channels.yuanbao.connecting': 'Connecting…',
+  'channels.yuanbao.fieldRequired': '{field} is required',
+  'channels.yuanbao.unexpectedStatus': 'Unexpected connection status: {status}',
 };
 
 export default en3;

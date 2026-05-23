@@ -10,7 +10,11 @@ import type { ChannelDefinition, ChannelType } from '../../types/channels';
 import DiscordConfig from './DiscordConfig';
 import TelegramConfig from './TelegramConfig';
 import YuanbaoConfig from './YuanbaoConfig';
+import YuanbaoIcon from './YuanbaoIcon';
 
+// Emoji icons for channels rendered as plain text. `yuanbao` is handled
+// separately with a branded SVG (see `YuanbaoIcon`) — matches the
+// rendering used in `ChannelSelector`.
 const CHANNEL_ICONS: Record<string, string> = {
   telegram: '\u2708\uFE0F',
   discord: '\uD83C\uDFAE',
@@ -66,6 +70,7 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
   };
 
   const emojiIcon = CHANNEL_ICONS[definition.icon] ?? '';
+  const isYuanbao = definition.icon === 'yuanbao';
 
   const modalContent = (
     <div
@@ -89,7 +94,11 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-2">
               <div className="flex items-center gap-2">
-                {emojiIcon && <span className="text-base">{emojiIcon}</span>}
+                {isYuanbao ? (
+                  <YuanbaoIcon className="w-5 h-5" />
+                ) : (
+                  emojiIcon && <span className="text-base">{emojiIcon}</span>
+                )}
                 <h2
                   id="channel-setup-title"
                   className="text-base font-semibold text-stone-900 dark:text-neutral-100">

@@ -241,10 +241,24 @@ pub fn encode_query_group_info(req_id: &str, group_code: &str) -> Vec<u8> {
     )
 }
 
+/// Try to narrow a varint into a smaller integer type, returning
+/// `YuanbaoError::ProtoDecode` (instead of silently truncating) when
+/// the upstream value is out of range. Used to harden response decoders
+/// against malformed / adversarial input.
+fn varint_to_i32(value: u64, field_label: &str) -> Result<i32, YuanbaoError> {
+    i32::try_from(value)
+        .map_err(|_| YuanbaoError::ProtoDecode(format!("{field_label} out of i32 range: {value}")))
+}
+
+fn varint_to_u32(value: u64, field_label: &str) -> Result<u32, YuanbaoError> {
+    u32::try_from(value)
+        .map_err(|_| YuanbaoError::ProtoDecode(format!("{field_label} out of u32 range: {value}")))
+}
+
 pub fn decode_query_group_info_rsp(data: &[u8]) -> Result<GroupInfo, YuanbaoError> {
     let fields = parse_fields(data)?;
     let mut info = GroupInfo {
-        code: get_varint(&fields, 1) as i32,
+        code: varint_to_i32(get_varint(&fields, 1), "GroupInfoRsp.code")?,
         message: get_string(&fields, 2),
         ..Default::default()
     };
@@ -254,7 +268,7 @@ pub fn decode_query_group_info_rsp(data: &[u8]) -> Result<GroupInfo, YuanbaoErro
         info.group_name = get_string(&gi, 1);
         info.owner_id = get_string(&gi, 2);
         info.owner_nickname = get_string(&gi, 3);
-        info.member_count = get_varint(&gi, 4) as u32;
+        info.member_count = varint_to_u32(get_varint(&gi, 4), "GroupInfo.member_count")?;
     }
     Ok(info)
 }
@@ -291,16 +305,16 @@ pub fn decode_get_group_member_list_rsp(data: &[u8]) -> Result<GroupMemberListPa
         members.push(GroupMember {
             user_id: get_string(&m, 1),
             nickname: get_string(&m, 2),
-            role: get_varint(&m, 3) as u32,
-            join_time: get_varint(&m, 4) as u32,
+            role: varint_to_u32(get_varint(&m, 3), "GroupMember.role")?,
+            join_time: varint_to_u32(get_varint(&m, 4), "GroupMember.join_time")?,
             name_card: get_string(&m, 5),
         });
     }
     Ok(GroupMemberListPage {
-        code: get_varint(&fields, 1) as i32,
+        code: varint_to_i32(get_varint(&fields, 1), "GroupMemberListRsp.code")?,
         message: get_string(&fields, 2),
         members,
-        next_offset: get_varint(&fields, 4) as u32,
+        next_offset: varint_to_u32(get_varint(&fields, 4), "GroupMemberListRsp.next_offset")?,
         is_complete: get_varint(&fields, 5) != 0,
     })
 }
@@ -312,7 +326,10 @@ pub fn decode_get_group_member_list_rsp(data: &[u8]) -> Result<GroupMemberListPa
 /// All biz responses share the convention: field 1 = code, field 2 = message.
 pub fn decode_biz_rsp_code(data: &[u8]) -> Result<(i32, String), YuanbaoError> {
     let fields = parse_fields(data)?;
-    Ok((get_varint(&fields, 1) as i32, get_string(&fields, 2)))
+    Ok((
+        varint_to_i32(get_varint(&fields, 1), "BizRsp.code")?,
+        get_string(&fields, 2),
+    ))
 }
 
 /// Decode a `ConnMsg` and return the typed biz response code + frame for
@@ -469,16 +486,8 @@ mod tests {
 
     #[test]
     fn group_encode_generates_synthetic_req_id_when_msg_id_empty() {
-        let buf = encode_send_group_message(
-            "group_x",
-            "uid_bot",
-            &text_body("hi"),
-            "",
-            "",
-            "",
-            "",
-            "",
-        );
+        let buf =
+            encode_send_group_message("group_x", "uid_bot", &text_body("hi"), "", "", "", "", "");
         let frame = decode_conn_msg(&buf).unwrap();
         assert!(
             frame.msg_id.starts_with("grp_"),
@@ -586,5 +595,44 @@ mod tests {
         assert_eq!(page.members[0].role, 2);
         assert_eq!(page.next_offset, 100);
         assert!(page.is_complete);
+    }
+
+    /// Adversarial input: a varint that overflows i32. The decoder must
+    /// surface `YuanbaoError::ProtoDecode` instead of silently truncating
+    /// (which would corrupt the `code` field returned to callers).
+    #[test]
+    fn decode_biz_rsp_code_rejects_varint_out_of_i32_range() {
+        let mut buf = Vec::new();
+        put_varint_field(1, u64::MAX, &mut buf);
+        put_string_field(2, "ok", &mut buf);
+        match decode_biz_rsp_code(&buf).unwrap_err() {
+            YuanbaoError::ProtoDecode(m) => {
+                assert!(
+                    m.contains("out of i32 range"),
+                    "expected i32 overflow message, got: {m}"
+                );
+            }
+            other => panic!("expected ProtoDecode, got {other:?}"),
+        }
+    }
+
+    /// Same guard applied to the group-member-list `next_offset` field —
+    /// an oversized varint must produce a structured decode error, not a
+    /// silent `as u32` wrap that would mis-paginate subsequent fetches.
+    #[test]
+    fn decode_group_member_list_rejects_varint_out_of_u32_range() {
+        let mut rsp = Vec::new();
+        put_varint_field(1, 0, &mut rsp);
+        put_string_field(2, "ok", &mut rsp);
+        put_varint_field(4, u64::from(u32::MAX) + 1, &mut rsp);
+        match decode_get_group_member_list_rsp(&rsp).unwrap_err() {
+            YuanbaoError::ProtoDecode(m) => {
+                assert!(
+                    m.contains("out of u32 range"),
+                    "expected u32 overflow message, got: {m}"
+                );
+            }
+            other => panic!("expected ProtoDecode, got {other:?}"),
+        }
     }
 }

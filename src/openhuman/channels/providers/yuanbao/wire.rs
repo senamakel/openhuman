@@ -100,7 +100,19 @@ pub fn parse_fields(data: &[u8]) -> Result<Vec<(u32, FieldValue)>, YuanbaoError>
             WT_LEN => {
                 let (len, n) = decode_varint(data, pos)?;
                 pos += n;
-                let end = pos + len as usize;
+                // Use checked conversions / arithmetic — a crafted oversize
+                // varint length would otherwise overflow `usize` on 32-bit
+                // targets and panic during slicing.
+                let len_usize = usize::try_from(len).map_err(|_| {
+                    YuanbaoError::ProtoDecode(format!(
+                        "len field {field} too large for platform: {len}"
+                    ))
+                })?;
+                let end = pos.checked_add(len_usize).ok_or_else(|| {
+                    YuanbaoError::ProtoDecode(format!(
+                        "len field {field} overflows position: pos={pos} len={len}"
+                    ))
+                })?;
                 if end > data.len() {
                     return Err(YuanbaoError::ProtoDecode(format!(
                         "truncated len field {field}: need {len} have {}",
@@ -250,6 +262,26 @@ mod tests {
         ];
         match parse_fields(&buf).unwrap_err() {
             YuanbaoError::ProtoDecode(m) => assert!(m.contains("truncated"), "got {m}"),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_fields_oversize_len_field_errors_without_panic() {
+        // Field 1 (wire type 2) with a varint length encoding `u64::MAX` —
+        // previously this would attempt `pos + len as usize`, overflowing
+        // on 32-bit and slicing past the buffer on 64-bit. Now it must
+        // return a structured decode error.
+        let mut buf = Vec::new();
+        buf.push((1 << 3) | 2); // tag: field=1, wire=2
+        encode_varint(u64::MAX, &mut buf); // adversarial length
+        match parse_fields(&buf).unwrap_err() {
+            YuanbaoError::ProtoDecode(m) => {
+                assert!(
+                    m.contains("too large") || m.contains("overflows") || m.contains("truncated"),
+                    "expected overflow/truncation error, got {m}"
+                );
+            }
             other => panic!("unexpected {other:?}"),
         }
     }

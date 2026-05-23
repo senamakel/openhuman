@@ -388,13 +388,32 @@ pub async fn connect_channel(
             .filter(|s| !s.is_empty())
             .ok_or_else(|| "missing required app_key".to_string())?
             .to_string();
-        let app_secret = creds_map
+        // `app_secret` is already in the encrypted credentials store
+        // (stored above via `store_provider_credentials`); we intentionally
+        // do NOT mirror it into the plaintext TOML to limit exposure
+        // surface. The runtime loads it from credentials at startup.
+        let _ = creds_map
             .get("app_secret")
             .and_then(|v| v.as_str())
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| "missing required app_secret".to_string())?
-            .to_string();
+            .ok_or_else(|| "missing required app_secret".to_string())?;
+
+        // Optional endpoint overrides — preserve any non-default values
+        // submitted by the client (e.g. `env = "pre"`) so the runtime
+        // reconnects to the correct cluster after restart.
+        let opt_string = |key: &str| -> Option<String> {
+            creds_map
+                .get(key)
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+        };
+        let env_override = opt_string("env");
+        let api_domain_override = opt_string("api_domain");
+        let ws_domain_override = opt_string("ws_domain");
+        let route_env_override = opt_string("route_env");
 
         let mut persisted = config.clone();
         let mut yb_config = persisted
@@ -403,7 +422,20 @@ pub async fn connect_channel(
             .clone()
             .unwrap_or_default();
         yb_config.app_key = app_key;
-        yb_config.app_secret = app_secret;
+        // Clear any stale plaintext secret from a previous version.
+        yb_config.app_secret = String::new();
+        if let Some(env) = env_override {
+            yb_config.env = env;
+        }
+        if let Some(api_domain) = api_domain_override {
+            yb_config.api_domain = api_domain;
+        }
+        if let Some(ws_domain) = ws_domain_override {
+            yb_config.ws_domain = ws_domain;
+        }
+        if let Some(route_env) = route_env_override {
+            yb_config.route_env = route_env;
+        }
         persisted.channels_config.yuanbao = Some(yb_config);
 
         persisted
@@ -413,7 +445,7 @@ pub async fn connect_channel(
 
         tracing::info!(
             target: "openhuman::channels",
-            "[yuanbao] connect_channel: wrote channels_config.yuanbao; restart core for WS listener"
+            "[yuanbao] connect_channel: wrote channels_config.yuanbao (secret stored in credentials); restart core for WS listener"
         );
     }
 

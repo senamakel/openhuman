@@ -218,6 +218,15 @@ impl YuanbaoConnection {
             *self.sender.lock().await = None;
             self.pending.lock().clear();
 
+            // `connect_once` may have returned because shutdown fired inside
+            // its read loop. In that case we must not sleep through the
+            // reconnect backoff — exit immediately so stop is responsive.
+            if *shutdown.borrow() {
+                info!("[yuanbao] shutdown signaled, stopping connection loop");
+                self.shutdown().await;
+                return;
+            }
+
             attempt += 1;
             let delay = backoff_seconds(attempt);
             info!(
@@ -709,7 +718,48 @@ mod tests {
         let msg = Message::Binary(vec![0xFF, 0xFF, 0xFF, 0xFF]);
         let err = conn.handle_auth_response(&msg).unwrap_err();
         // Either Proto decode error or some other surface — must not be Ok.
-        assert!(!matches!(err, YuanbaoError::AuthFailed(_) if format!("{err:?}").contains("binary")));
+        assert!(
+            !matches!(err, YuanbaoError::AuthFailed(_) if format!("{err:?}").contains("binary"))
+        );
+    }
+
+    /// Regression guard for the post-`connect_once` shutdown short-circuit:
+    /// once shutdown is signaled, `run()` must not block on the reconnect
+    /// backoff. We force connect_once to fail synchronously (invalid WS URL),
+    /// then signal shutdown — total runtime must be well under the first
+    /// backoff slot (`backoff_seconds(1) == 1s`).
+    #[tokio::test]
+    async fn run_exits_promptly_after_shutdown_signal() {
+        use std::time::Instant;
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let mut c = cfg();
+        // tokio-tungstenite rejects the URL synchronously — connect_once
+        // returns Err in microseconds, putting `run()` on the post-connect
+        // cleanup path that the fix targets.
+        c.ws_domain = "not-a-valid-ws-url".to_string();
+        c.max_reconnect_attempts = 100;
+        let conn = YuanbaoConnection::new(c, tx, None);
+        let (sd_tx, sd_rx) = watch::channel(false);
+
+        let handle = tokio::spawn(conn.clone().run(sd_rx));
+        // Let `run()` enter the loop and attempt connect_once at least once.
+        time::sleep(Duration::from_millis(20)).await;
+
+        let started = Instant::now();
+        sd_tx.send(true).unwrap();
+
+        // The first reconnect backoff slot is 1s. Without responsive
+        // shutdown handling, run() would sleep through it before checking
+        // the flag. 500ms gives us comfortable headroom while staying
+        // far enough below the backoff to detect a regression.
+        let res = time::timeout(Duration::from_millis(500), handle).await;
+        res.expect("run() did not exit within 500ms of shutdown signal")
+            .expect("run() task panicked");
+        assert!(
+            started.elapsed() < Duration::from_millis(500),
+            "run() took {:?} to exit after shutdown — backoff was not skipped",
+            started.elapsed()
+        );
     }
 
     #[tokio::test]

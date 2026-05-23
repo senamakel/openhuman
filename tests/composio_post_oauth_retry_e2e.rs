@@ -391,7 +391,10 @@ async fn post_oauth_gap_retries_and_returns_real_data() {
     )
     .await;
 
-    let result = assert_no_jsonrpc_error(&exec, "composio_execute");
+    let envelope = assert_no_jsonrpc_error(&exec, "composio_execute");
+    // RpcOutcome serialises as {"result": <ComposioExecuteResponse>, "logs": [...]}
+    // when logs are present.  Unwrap one level to reach the composio payload.
+    let result = envelope.get("result").unwrap_or(envelope);
 
     // The RPC result must surface the second (successful) backend response.
     assert!(
@@ -526,7 +529,10 @@ async fn revoked_token_surfaces_without_retry() {
             "RPC error should reference the revoked-token message; got: {err_msg}"
         );
     } else {
-        let result = result_opt.expect("expected result or error");
+        let envelope = result_opt.expect("expected result or error");
+        // RpcOutcome wraps the composio payload under a "result" key when logs
+        // are present; fall back to the envelope itself for the no-logs case.
+        let result = envelope.get("result").unwrap_or(envelope);
         let successful = result
             .get("successful")
             .and_then(Value::as_bool)

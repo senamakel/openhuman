@@ -160,7 +160,9 @@ fn run_migrate(
     // -- Step 5: verify --
     let readback = fb.get(&nk).unwrap_or(None);
     if readback.as_deref() != Some(value.as_str()) {
-        return Err(KeyringError::VerifyFailed { key: key.to_string() });
+        return Err(KeyringError::VerifyFailed {
+            key: key.to_string(),
+        });
     }
 
     // -- Step 6: delete source file --
@@ -186,16 +188,21 @@ fn migrate_from_file_happy_path_file_backend() {
     let user_id = "test_mig_fp";
     let key = "mig_key_fp";
 
-    let outcome = run_migrate(&fb, user_id, key, Some(&src_path))
-        .expect("migrate should succeed");
+    let outcome = run_migrate(&fb, user_id, key, Some(&src_path)).expect("migrate should succeed");
     assert_eq!(outcome, MigrationOutcome::MigratedAndDeleted);
 
     // Source file must be gone.
-    assert!(!src_path.exists(), "source file must be removed after migration");
+    assert!(
+        !src_path.exists(),
+        "source file must be removed after migration"
+    );
 
     // Keychain entry must hold the trimmed value.
     let nk = format!("{user_id}:{key}");
-    let stored = fb.get(&nk).expect("get after migrate").expect("entry present");
+    let stored = fb
+        .get(&nk)
+        .expect("get after migrate")
+        .expect("entry present");
     assert_eq!(stored, "migrated_value");
 }
 
@@ -217,8 +224,8 @@ fn migrate_from_file_already_migrated() {
     let src_path = src.path().to_path_buf();
     src.keep().expect("keep src");
 
-    let outcome = run_migrate(&fb, user_id, key, Some(&src_path))
-        .expect("migrate should not error");
+    let outcome =
+        run_migrate(&fb, user_id, key, Some(&src_path)).expect("migrate should not error");
     assert_eq!(outcome, MigrationOutcome::AlreadyMigrated);
 
     // Source file must NOT be deleted when already migrated.
@@ -245,8 +252,8 @@ fn migrate_from_file_no_source_file() {
     let nonexistent = dir.path().join("does_not_exist.txt");
     assert!(!nonexistent.exists());
 
-    let outcome = run_migrate(&fb, user_id, key, Some(&nonexistent))
-        .expect("migrate should not error");
+    let outcome =
+        run_migrate(&fb, user_id, key, Some(&nonexistent)).expect("migrate should not error");
     assert_eq!(outcome, MigrationOutcome::NoSourceFile);
 
     // Nothing was written.

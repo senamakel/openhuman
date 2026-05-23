@@ -42,7 +42,7 @@ mod tests;
 pub use backend::KeyringBackend;
 pub use error::KeyringError;
 pub use ops::{
-    delete, get, get_or_create_random, is_available, migrate_from_file, MigrationOutcome, set,
+    delete, get, get_or_create_random, is_available, migrate_from_file, set, MigrationOutcome,
 };
 pub use store::init_workspace;
 

@@ -259,7 +259,9 @@ pub(crate) fn hex_encode(data: &[u8]) -> String {
 /// tests using this must run before any keyring call in the same process
 /// (i.e. in a dedicated test binary or at the very start of a test).
 #[cfg(test)]
-pub(crate) fn force_backend_for_test(b: Box<dyn crate::openhuman::keyring::backend::KeyringBackend>) {
+pub(crate) fn force_backend_for_test(
+    b: Box<dyn crate::openhuman::keyring::backend::KeyringBackend>,
+) {
     use crate::openhuman::keyring::store::BACKEND;
     if BACKEND.set(b).is_err() {
         panic!("force_backend_for_test must be called before BACKEND initialization");

@@ -438,10 +438,9 @@ mod tests {
             .mount(&server)
             .await;
         let http = reqwest::Client::new();
-        let creds =
-            get_cos_credentials(&http, &server.uri(), "appk", "bot", "tok", "", "file.png")
-                .await
-                .unwrap();
+        let creds = get_cos_credentials(&http, &server.uri(), "appk", "bot", "tok", "", "file.png")
+            .await
+            .unwrap();
         assert_eq!(creds.bucket, "bkt-1");
         assert_eq!(creds.region, "ap-shanghai");
         assert_eq!(creds.location, "k/v/file.png");
@@ -536,9 +535,15 @@ mod tests {
         let http = reqwest::Client::new();
         // empty credentials → fail without making any HTTP call
         let bad = CosCredentials::default();
-        let err = upload_to_cos(&http, &bad, b"data", "f.bin", "application/octet-stream".into())
-            .await
-            .unwrap_err();
+        let err = upload_to_cos(
+            &http,
+            &bad,
+            b"data",
+            "f.bin",
+            "application/octet-stream".into(),
+        )
+        .await
+        .unwrap_err();
         match err {
             YuanbaoError::Media(m) => assert!(m.contains("credentials missing"), "got {m}"),
             other => panic!("expected Media error, got {other:?}"),

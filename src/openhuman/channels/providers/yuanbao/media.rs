@@ -365,10 +365,7 @@ mod tests {
             guess_mime_type("file.xlsx"),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
-        assert_eq!(
-            guess_mime_type("file.ppt"),
-            "application/vnd.ms-powerpoint"
-        );
+        assert_eq!(guess_mime_type("file.ppt"), "application/vnd.ms-powerpoint");
         assert_eq!(
             guess_mime_type("file.pptx"),
             "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -496,8 +493,15 @@ mod tests {
 
     #[test]
     fn build_image_msg_body_falls_back_to_filename_then_default_uuid() {
-        let with_filename =
-            build_image_msg_body("https://x/", None, Some("only-name.png"), 0, 0, 0, "image/png");
+        let with_filename = build_image_msg_body(
+            "https://x/",
+            None,
+            Some("only-name.png"),
+            0,
+            0,
+            0,
+            "image/png",
+        );
         assert_eq!(
             with_filename[0].msg_content.uuid.as_deref(),
             Some("only-name.png")
@@ -537,9 +541,7 @@ mod tests {
     async fn download_url_returns_bytes_and_content_type() {
         let server = wiremock::MockServer::start().await;
         wiremock::Mock::given(wiremock::matchers::method("HEAD"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).insert_header("Content-Length", "3"),
-            )
+            .respond_with(wiremock::ResponseTemplate::new(200).insert_header("Content-Length", "3"))
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
@@ -561,12 +563,10 @@ mod tests {
         let server = wiremock::MockServer::start().await;
         // HEAD reports a very large file → reject BEFORE GET.
         wiremock::Mock::given(wiremock::matchers::method("HEAD"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).insert_header(
-                    "Content-Length",
-                    (10u64 * 1024 * 1024 + 1).to_string().as_str(),
-                ),
-            )
+            .respond_with(wiremock::ResponseTemplate::new(200).insert_header(
+                "Content-Length",
+                (10u64 * 1024 * 1024 + 1).to_string().as_str(),
+            ))
             .mount(&server)
             .await;
         let http = reqwest::Client::new();
@@ -586,8 +586,7 @@ mod tests {
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .respond_with(
-                wiremock::ResponseTemplate::new(200)
-                    .set_body_bytes(vec![0u8; 2 * 1024 * 1024]), // 2 MiB
+                wiremock::ResponseTemplate::new(200).set_body_bytes(vec![0u8; 2 * 1024 * 1024]), // 2 MiB
             )
             .mount(&server)
             .await;

@@ -278,7 +278,11 @@ mod tests {
     #[test]
     fn extract_text_concatenates_text_elements() {
         let m = InboundMessage {
-            msg_body: vec![text_elem("hello"), text_elem("world"), image_elem(&[], None)],
+            msg_body: vec![
+                text_elem("hello"),
+                text_elem("world"),
+                image_elem(&[], None),
+            ],
             ..Default::default()
         };
         assert_eq!(m.extract_text(), "hello\nworld");

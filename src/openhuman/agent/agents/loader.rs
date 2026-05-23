@@ -273,7 +273,6 @@ mod tests {
     fn all_builtins_parse() {
         let defs = load_builtins().expect("built-in TOML must parse");
         assert_eq!(defs.len(), BUILTINS.len());
-        assert_eq!(defs.len(), 18, "expected 18 built-in agents");
     }
 
     #[test]

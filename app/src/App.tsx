@@ -114,7 +114,7 @@ function App() {
                           </ServiceBlockingGate>
                         </CommandProvider>
                       </Router>
-                    </ChatRuntimeProvider>,
+                    </ChatRuntimeProvider>
                   )}
                 </CoreStateProvider>
               </BootCheckGate>

@@ -77,7 +77,10 @@ mod workspace_paths;
 // ── Desktop-only imports ──────────────────────────────────────────────────────
 #[cfg(all(not(target_os = "ios"), target_os = "macos"))]
 use tauri::menu::{PredefinedMenuItem, Submenu};
-#[cfg(all(not(target_os = "ios"), any(target_os = "macos", target_os = "windows")))]
+#[cfg(all(
+    not(target_os = "ios"),
+    any(target_os = "macos", target_os = "windows")
+))]
 use tauri::WindowEvent;
 #[cfg(all(not(target_os = "ios"), not(target_os = "linux")))]
 use tauri::{

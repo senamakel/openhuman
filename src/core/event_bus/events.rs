@@ -431,7 +431,6 @@ pub enum DomainEvent {
         session_token: String,
     },
 
-
     // ── Memory tree ─────────────────────────────────────────────────────
     /// A document (chat batch, email thread, or standalone document) was
     /// fully canonicalised and its chunks written to the memory tree.

@@ -174,7 +174,7 @@ const Conversations = ({
   variant = 'page',
   composer: composerProp = 'text',
 }: ConversationsProps = {}) => {
-  const [composerOverride, setComposerOverride] = useState<'mic-cloud' | null>(null);
+  const [composerOverride, setComposerOverride] = useState<'mic-cloud' | 'text' | null>(null);
   const composer = composerOverride ?? composerProp;
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -1858,14 +1858,12 @@ const Conversations = ({
                 onError={message => setSendError(chatSendError('voice_transcription', message))}
                 showDeviceSelector
               />
-              {composerOverride === 'mic-cloud' && (
-                <button
-                  type="button"
-                  onClick={() => setComposerOverride(null)}
-                  className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-                  {t('chat.switchToText')}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setComposerOverride('text')}
+                className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
+                {t('chat.switchToText')}
+              </button>
             </div>
           ) : inputMode === 'text' ? (
             <div className="flex items-end gap-3">
@@ -1896,30 +1894,28 @@ const Conversations = ({
                 />
                 {/* Voice input mic hidden per #717 (inputMode='voice' path retained). */}
               </div>
-              {composerProp === 'text' && (
-                <button
-                  type="button"
-                  aria-label={t('mic.startRecording')}
-                  title={t('mic.startRecording')}
-                  onClick={() => setComposerOverride('mic-cloud')}
-                  disabled={composerInteractionBlocked || isSending}
-                  className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8"
-                    />
-                  </svg>
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label={t('mic.startRecording')}
+                title={t('mic.startRecording')}
+                onClick={() => setComposerOverride('mic-cloud')}
+                disabled={composerInteractionBlocked || isSending}
+                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8"
+                  />
+                </svg>
+              </button>
               <button
                 data-testid="send-message-button"
                 aria-label={t('chat.send')}

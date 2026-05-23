@@ -12,7 +12,6 @@ import BillingPanel from '../components/settings/panels/BillingPanel';
 import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
-import ConnectionsPanel from '../components/settings/panels/ConnectionsPanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import DevicesPanel from '../components/settings/panels/DevicesPanel';
@@ -37,6 +36,7 @@ import VoiceDebugPanel from '../components/settings/panels/VoiceDebugPanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import WebhooksDebugPanel from '../components/settings/panels/WebhooksDebugPanel';
 import SettingsHome from '../components/settings/SettingsHome';
+import LogoutAndClearActions from '../components/settings/LogoutAndClearActions';
 import SettingsSectionPage from '../components/settings/SettingsSectionPage';
 import { useT } from '../lib/i18n/I18nContext';
 import { APP_VERSION } from '../utils/config';
@@ -61,16 +61,6 @@ const TeamIcon = (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-    />
-  </svg>
-);
-const ConnectionsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13.828 10.172a4 4 0 010 5.656l-2 2a4 4 0 01-5.656-5.656l1-1m5-5a4 4 0 015.656 5.656l-1 1m-5 5l5-5"
     />
   </svg>
 );
@@ -211,13 +201,6 @@ const Settings = () => {
       icon: TeamIcon,
     },
     {
-      id: 'connections',
-      title: t('pages.settings.account.connections'),
-      description: t('pages.settings.account.connectionsDesc'),
-      route: 'connections',
-      icon: ConnectionsIcon,
-    },
-    {
       id: 'privacy',
       title: t('pages.settings.account.privacy'),
       description: t('pages.settings.account.privacyDesc'),
@@ -300,6 +283,7 @@ const Settings = () => {
               title={t('pages.settings.accountSection.title')}
               description={t('pages.settings.accountSection.description')}
               items={accountSettingsItems}
+              footer={<LogoutAndClearActions />}
             />
           )}
         />
@@ -337,7 +321,6 @@ const Settings = () => {
         />
         <Route path="team/members" element={wrapSettingsPage(<TeamMembersPanel />)} />
         <Route path="team/invites" element={wrapSettingsPage(<TeamInvitesPanel />)} />
-        <Route path="connections" element={wrapSettingsPage(<ConnectionsPanel />)} />
         {/* BillingPanel intentionally uses its own wider layout. */}
         <Route path="billing" element={<BillingPanel />} />
         <Route path="privacy" element={wrapSettingsPage(<PrivacyPanel />)} />

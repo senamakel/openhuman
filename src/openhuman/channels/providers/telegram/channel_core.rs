@@ -13,6 +13,15 @@ use tokio::fs;
 
 impl TelegramChannel {
     pub fn new(bot_token: String, allowed_users: Vec<String>, mention_only: bool) -> Self {
+        let api_base = std::env::var("OPENHUMAN_TELEGRAM_API_BASE")
+            .unwrap_or_else(|_| "https://api.telegram.org".to_string());
+        let api_base = api_base.trim_end_matches('/').to_string();
+        tracing::debug!(
+            target: "telegram::api",
+            api_base = %api_base,
+            "Using Telegram API base URL"
+        );
+
         let normalized_allowed = Self::normalize_allowed_users(allowed_users);
         let pairing = if normalized_allowed.is_empty() {
             let (guard, code_opt) = PairingGuard::new(true, &[]);
@@ -27,6 +36,7 @@ impl TelegramChannel {
 
         Self {
             bot_token,
+            api_base,
             allowed_users: Arc::new(RwLock::new(normalized_allowed)),
             pairing,
             client: reqwest::Client::new(),
@@ -86,7 +96,7 @@ impl TelegramChannel {
     }
 
     pub(crate) fn api_url(&self, method: &str) -> String {
-        format!("https://api.telegram.org/bot{}/{method}", self.bot_token)
+        format!("{}/bot{}/{method}", self.api_base, self.bot_token)
     }
 
     pub(crate) fn pairing_code_active(&self) -> bool {

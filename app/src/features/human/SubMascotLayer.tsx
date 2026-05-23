@@ -2,20 +2,20 @@ import debug from 'debug';
 import { type FC, useMemo } from 'react';
 
 import type { ToolTimelineEntry, ToolTimelineEntryStatus } from '../../store/chatRuntimeSlice';
-import { Ghosty, type MascotFace } from './Mascot';
+import { YellowMascot, type MascotFace } from './Mascot';
+import type { MascotColor } from './Mascot/mascotPalette';
 
 const subMascotLog = debug('human:sub-mascots');
 
 const MAX_SUB_MASCOTS = 5;
 const ACTIVITY_LIMIT = 74;
 
-const SUB_MASCOT_COLORS = [
-  '#4A83DD',
-  '#5C9B75',
-  '#D9854B',
-  '#B8657A',
-  '#6E7BBD',
-  '#4A9A9A',
+const SUB_MASCOT_COLORS: readonly MascotColor[] = [
+  'yellow',
+  'green',
+  'navy',
+  'burgundy',
+  'black',
 ] as const;
 
 const POSITIONS = [
@@ -33,7 +33,7 @@ export interface SubMascotModel {
   status: ToolTimelineEntryStatus;
   face: MascotFace;
   activity: string;
-  color: string;
+  color: MascotColor;
   position: (typeof POSITIONS)[number];
 }
 
@@ -108,7 +108,15 @@ function activityForEntry(entry: ToolTimelineEntry): string {
 
 export function subMascotModelsFromTimeline(entries: ToolTimelineEntry[]): SubMascotModel[] {
   return entries
-    .filter(entry => entry.subagent && entry.name.startsWith('subagent:'))
+    .filter(
+      entry =>
+        entry.subagent &&
+        entry.name.startsWith('subagent:') &&
+        // Once a subagent's task is done (success or error), drop it from the
+        // strip rather than letting completed mascots linger and crowd the
+        // bottom. Only actively-running subagents are surfaced.
+        entry.status === 'running'
+    )
     .slice(-MAX_SUB_MASCOTS)
     .map((entry, index) => {
       const subagent = entry.subagent!;
@@ -158,12 +166,7 @@ export const SubMascotLayer: FC<SubMascotLayerProps> = ({ entries }) => {
                 model.status === 'running' ? 'opacity-100' : 'opacity-75',
               ].join(' ')}>
               <div className="drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)]">
-                <Ghosty
-                  size="100%"
-                  idPrefix={`sub-mascot-${model.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
-                  bodyColor={model.color}
-                  face={model.face}
-                />
+                <YellowMascot size="100%" mascotColor={model.color} face={model.face} />
               </div>
             </div>
             <div

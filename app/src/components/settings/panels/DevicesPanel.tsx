@@ -259,9 +259,15 @@ const DevicesPanel = () => {
         </button>
       </div>
 
-      <p className="px-5 pb-3 text-xs text-stone-500">
-        Pair iOS phones with this OpenHuman to use them as a remote client.
-      </p>
+      <div className="px-5 pb-3 flex items-center gap-2">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60">
+          Beta
+        </span>
+        <p className="text-xs text-stone-500 dark:text-neutral-400">
+          This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as
+          a remote client.
+        </p>
+      </div>
 
       <div className="px-5 pb-5">
         {loading && (

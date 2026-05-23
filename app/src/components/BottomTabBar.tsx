@@ -137,6 +137,8 @@ const BottomTabBar = () => {
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
   const unreadCount = useAppSelector(state => selectUnreadCount(state.notifications.items));
   const companionActive = useAppSelector(selectCompanionSessionActive);
+  const tabBarLabels = useAppSelector(state => state.theme.tabBarLabels);
+  const labelsAlwaysVisible = tabBarLabels === 'always';
 
   const hiddenPaths = ['/', '/login'];
   if (
@@ -233,7 +235,7 @@ const BottomTabBar = () => {
                 </span>
                 <span
                   className={`overflow-hidden whitespace-nowrap transition-[max-width,margin-left,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    active
+                    active || labelsAlwaysVisible
                       ? 'max-w-[160px] ml-2 opacity-100'
                       : 'max-w-0 ml-0 opacity-0 group-hover:max-w-[160px] group-hover:ml-2 group-hover:opacity-100 group-focus-visible:max-w-[160px] group-focus-visible:ml-2 group-focus-visible:opacity-100'
                   }`}>

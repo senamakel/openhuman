@@ -35,15 +35,7 @@ fn main() {
     openhuman::run()
 }
 
-// ── iOS entry point ───────────────────────────────────────────────────────────
-// iOS does not use the CEF entry-point macro — WRY runtime, no subprocess
-// re-exec. The core is remote (TunnelTransport / LanHttpTransport).
-#[cfg(target_os = "ios")]
-fn main() {
-    openhuman::run()
-}
-
-#[cfg(all(not(target_os = "ios"), target_os = "windows"))]
+#[cfg(target_os = "windows")]
 fn attach_parent_console() {
     use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
     // SAFETY: AttachConsole has no preconditions beyond a valid PID constant.

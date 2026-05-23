@@ -15,16 +15,13 @@ mod cdp;
 mod cef_preflight;
 #[cfg(not(target_os = "ios"))]
 mod cef_profile;
-#[cfg(not(target_os = "ios"))]
 mod companion_commands;
 mod core_process;
-#[cfg(not(target_os = "ios"))]
 mod core_rpc;
-#[cfg(all(not(target_os = "ios"), target_os = "linux"))]
+#[cfg(target_os = "linux")]
 mod deep_link_ipc;
-#[cfg(all(not(target_os = "ios"), target_os = "windows"))]
+#[cfg(target_os = "windows")]
 mod deep_link_ipc_windows;
-#[cfg(not(target_os = "ios"))]
 mod dictation_hotkeys;
 #[cfg(not(target_os = "ios"))]
 mod discord_scanner;
@@ -36,11 +33,10 @@ mod file_logging;
 mod gmessages_scanner;
 #[cfg(not(target_os = "ios"))]
 mod imessage_scanner;
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+mod loopback_oauth;
+#[cfg(target_os = "macos")]
 mod mascot_native_window;
-#[cfg(not(target_os = "ios"))]
 mod mcp_commands;
-#[cfg(not(target_os = "ios"))]
 mod meet_audio;
 #[cfg(not(target_os = "ios"))]
 mod meet_call;
@@ -66,21 +62,15 @@ mod telegram_scanner;
 mod webview_accounts;
 #[cfg(not(target_os = "ios"))]
 mod webview_apis;
-#[cfg(not(target_os = "ios"))]
 mod wechat_scanner;
-#[cfg(not(target_os = "ios"))]
 mod whatsapp_scanner;
 #[cfg(not(target_os = "ios"))]
 mod window_state;
 mod workspace_paths;
 
-// ── Desktop-only imports ──────────────────────────────────────────────────────
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use tauri::menu::{PredefinedMenuItem, Submenu};
-#[cfg(all(
-    not(target_os = "ios"),
-    any(target_os = "macos", target_os = "windows")
-))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri::WindowEvent;
 #[cfg(all(not(target_os = "ios"), not(target_os = "linux")))]
 use tauri::{
@@ -107,22 +97,15 @@ use objc2_app_kit::{NSPanel, NSWindowCollectionBehavior, NSWindowStyleMask};
 #[cfg(target_os = "ios")]
 use tauri::{AppHandle, Manager, RunEvent};
 
-// ── Runtime type alias ────────────────────────────────────────────────────────
-// Desktop uses the vendored CEF runtime; iOS uses the stock WRY runtime.
-#[cfg(not(target_os = "ios"))]
+// CEF is the only runtime; alias kept so command handlers thread the runtime generic uniformly.
 pub(crate) type AppRuntime = tauri::Cef;
-#[cfg(target_os = "ios")]
-pub(crate) type AppRuntime = tauri::Wry;
 
-#[cfg(not(target_os = "ios"))]
 static EARLY_TEARDOWN_RAN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 const APP_QUIT_MENU_ID: &str = "app_quit";
 
-// ── Desktop-only commands (require core_process / CEF / desktop system APIs) ─
-#[cfg(not(target_os = "ios"))]
 #[tauri::command]
 fn core_rpc_url() -> String {
     crate::core_rpc::core_rpc_url_value()
@@ -1200,7 +1183,6 @@ fn mascot_native_window_is_open() -> bool {
     false
 }
 
-#[cfg(not(target_os = "ios"))]
 /// Hide or show the OS top-level main-window frame on Windows by enumerating
 /// this process's top-level windows and matching the visible
 /// `Chrome_WidgetWin_1` host. `WebviewWindow::hwnd()` from the vendored CEF
@@ -1298,7 +1280,6 @@ fn set_main_window_hidden(hide: bool) {
 /// produces the race is Windows-specific (the macOS close button routes
 /// through `app.hide()` per PR #2049, and Linux/X11 keeps the
 /// `WebviewWindow` record across `WM_DELETE_WINDOW` handling).
-#[cfg(not(target_os = "ios"))]
 fn get_main_webview_window_with_retry(
     app: &AppHandle<AppRuntime>,
 ) -> Option<tauri::WebviewWindow<AppRuntime>> {
@@ -1328,7 +1309,6 @@ fn get_main_webview_window_with_retry(
     }
 }
 
-#[cfg(not(target_os = "ios"))]
 fn show_main_window(app: &AppHandle<AppRuntime>) -> Result<(), String> {
     // On Windows: surface the OS top-level Chrome_WidgetWin_1 frame BEFORE
     // any Tauri lookups. After our close handler's SW_HIDE the runtime
@@ -1383,7 +1363,7 @@ fn show_main_window(app: &AppHandle<AppRuntime>) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(all(not(target_os = "ios"), target_os = "macos"))]
+#[cfg(target_os = "macos")]
 fn macos_app_menu(app: &AppHandle<AppRuntime>) -> tauri::Result<Menu<AppRuntime>> {
     let about = PredefinedMenuItem::about(app, None, None)?;
     let hide = PredefinedMenuItem::hide(app, None)?;
@@ -1445,7 +1425,7 @@ fn macos_app_menu(app: &AppHandle<AppRuntime>) -> tauri::Result<Menu<AppRuntime>
     Menu::with_items(app, &[&app_menu, &edit_menu, &window_menu])
 }
 
-#[cfg(all(not(target_os = "ios"), target_os = "linux"))]
+#[cfg(target_os = "linux")]
 fn setup_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<()> {
     let _ = app;
     log::warn!(
@@ -1757,36 +1737,6 @@ fn shutdown_app_sync(app_handle: &AppHandle<AppRuntime>, exit_code: i32) {
     app_handle.exit(exit_code);
 }
 
-// ── iOS entry point ───────────────────────────────────────────────────────────
-// Minimal Tauri builder for iOS. No CEF runtime, no sidecar, no tray.
-// The React app connects to a remote core via TunnelTransport / LanHttpTransport /
-// CloudHttpTransport (Layer 2 transports) — there is no local core relay here.
-#[cfg(target_os = "ios")]
-pub fn run() {
-    log::info!("[shell] iOS run() — starting Tauri WRY builder");
-
-    tauri::Builder::default()
-        // TODO(Layer 5): register iOS-specific plugins (deep-link, notification, etc.)
-        .plugin(tauri_plugin_barcode_scanner::init())
-        .plugin(tauri_plugin_ptt::init())
-        .invoke_handler(tauri::generate_handler![app_quit])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application for iOS")
-        .run(move |_app_handle, event| match event {
-            RunEvent::Exit => {
-                log::info!("[shell] iOS RunEvent::Exit");
-            }
-            _ => {}
-        });
-}
-
-#[cfg(target_os = "ios")]
-pub fn run_core_from_args(_args: &[String]) -> Result<(), String> {
-    // iOS does not ship a Rust core — this path is never taken on iOS.
-    Err("run_core_from_args is not supported on iOS".into())
-}
-
-// ── Desktop entry point ───────────────────────────────────────────────────────
 #[cfg(target_os = "linux")]
 const WSL_X11_DESKTOP_WARNING: &str = "[startup] likely unsupported desktop environment: WSL with classic X11 forwarding detected (DISPLAY is set, but WAYLAND_DISPLAY/WSLg markers are absent). OpenHuman's Tauri/CEF desktop flow is fragile in this setup; use native Windows development or Windows 11 WSLg for desktop GUI work.";
 
@@ -2079,7 +2029,6 @@ fn install_silent_x_error_handler() {
 #[cfg(not(target_os = "linux"))]
 fn install_silent_x_error_handler() {}
 
-#[cfg(not(target_os = "ios"))]
 pub fn run() {
     // Must run before any GTK/CEF code that could trigger X calls — otherwise
     // Xlib's default handler calls exit(1) on the first BadWindow and we never
@@ -3348,7 +3297,9 @@ pub fn run() {
             companion_commands::unregister_companion_hotkey,
             companion_commands::companion_activate,
             mcp_commands::mcp_resolve_binary_path,
-            mcp_commands::mcp_open_client_config
+            mcp_commands::mcp_open_client_config,
+            loopback_oauth::start_loopback_oauth_listener,
+            loopback_oauth::stop_loopback_oauth_listener
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

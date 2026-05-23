@@ -4956,7 +4956,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.54.9"
+version = "0.54.10"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4984,6 +4984,7 @@ dependencies = [
  "ethers-core",
  "ethers-signers",
  "fantoccini",
+ "filetime",
  "flate2",
  "fs2",
  "futures",

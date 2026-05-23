@@ -66,10 +66,7 @@ export const startLoopbackOauthListener = async (
 
   let result: StartResult;
   try {
-    result = await invoke<StartResult>('start_loopback_oauth_listener', {
-      port,
-      timeoutSecs,
-    });
+    result = await invoke<StartResult>('start_loopback_oauth_listener', { port, timeoutSecs });
   } catch (err) {
     console.warn('[loopback-oauth] start failed, falling back to deep link', err);
     return null;
@@ -108,12 +105,7 @@ export const startLoopbackOauthListener = async (
         });
     });
 
-  return {
-    redirectUri: redirectUriWithState,
-    state: result.state,
-    awaitCallback,
-    cancel: stop,
-  };
+  return { redirectUri: redirectUriWithState, state: result.state, awaitCallback, cancel: stop };
 };
 
 const appendState = (uri: string, state: string): string => {

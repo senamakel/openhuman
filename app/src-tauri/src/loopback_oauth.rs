@@ -254,7 +254,10 @@ mod tests {
     #[test]
     fn parses_get_request_target() {
         let head = "GET /auth?token=abc&state=xyz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
-        assert_eq!(parse_request_target(head), Some("/auth?token=abc&state=xyz"));
+        assert_eq!(
+            parse_request_target(head),
+            Some("/auth?token=abc&state=xyz")
+        );
     }
 
     #[test]

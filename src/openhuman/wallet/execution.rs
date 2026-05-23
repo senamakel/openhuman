@@ -780,9 +780,15 @@ pub async fn execute_prepared(
         Ok(value) => value,
         Err(error) => {
             // Restore the quote so the caller can fix the cause and retry.
-            store_quote(restorable);
+            // Refresh the TTL window so a slow chain call (network timeouts
+            // can chew through the original 5-min budget) doesn't hand back
+            // an immediately-expired quote.
+            let mut refreshed = restorable;
+            let now = now_ms();
+            refreshed.expires_at_ms = now + QUOTE_TTL_MS;
+            store_quote(refreshed);
             warn!(
-                "{LOG_PREFIX} execute chain={} quote_id={} failed (quote restored): {error}",
+                "{LOG_PREFIX} execute chain={} quote_id={} failed (quote restored, ttl refreshed): {error}",
                 chain_str(chain),
                 params.quote_id
             );

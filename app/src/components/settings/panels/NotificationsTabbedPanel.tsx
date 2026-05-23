@@ -4,16 +4,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
-
 import NotificationRoutingPanel from './NotificationRoutingPanel';
 import NotificationsPanel from './NotificationsPanel';
 
 type TabId = 'preferences' | 'routing';
 
-const TAB_HASH: Record<TabId, string> = {
-  preferences: '',
-  routing: '#routing',
-};
+const TAB_HASH: Record<TabId, string> = { preferences: '', routing: '#routing' };
 
 const hashToTab = (hash: string): TabId => (hash === '#routing' ? 'routing' : 'preferences');
 

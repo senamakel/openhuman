@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { clearAllAppData } from '../../utils/clearAllAppData';
-
 import SettingsMenuItem from './components/SettingsMenuItem';
 
 /**

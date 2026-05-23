@@ -120,8 +120,7 @@ fn bind_loopback(port: u16) -> Result<TcpListener, String> {
     let sock_addr: std::net::SocketAddr = format!("127.0.0.1:{port}")
         .parse()
         .map_err(|err| format!("parse 127.0.0.1:{port} failed: {err}"))?;
-    let socket =
-        TcpSocket::new_v4().map_err(|err| format!("TcpSocket::new_v4 failed: {err}"))?;
+    let socket = TcpSocket::new_v4().map_err(|err| format!("TcpSocket::new_v4 failed: {err}"))?;
     socket
         .set_reuseaddr(true)
         .map_err(|err| format!("set_reuseaddr failed: {err}"))?;

@@ -46,14 +46,7 @@ describe('SettingsSectionPage', () => {
       <MemoryRouter>
         <SettingsSectionPage
           title="Account"
-          items={[
-            {
-              id: 'team',
-              title: 'Team',
-              icon: <span />,
-              route: 'team',
-            },
-          ]}
+          items={[{ id: 'team', title: 'Team', icon: <span />, route: 'team' }]}
         />
       </MemoryRouter>
     );

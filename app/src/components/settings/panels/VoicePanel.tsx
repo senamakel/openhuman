@@ -190,18 +190,23 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
           setVoiceSettings(vs);
           // Seed the routing dropdowns from the registry on first load.
           // Use the effective provider string from the core config.
+          const slugs = new Set(vs.voiceProviders.map(p => p.slug));
           const sttStr =
             vs.sttProvider.kind === 'cloud'
               ? 'cloud'
               : vs.sttProvider.kind === 'local'
                 ? vs.sttProvider.engine
-                : vs.sttProvider.providerSlug;
+                : slugs.has(vs.sttProvider.providerSlug)
+                  ? vs.sttProvider.providerSlug
+                  : 'cloud';
           const ttsStr =
             vs.ttsProvider.kind === 'cloud'
               ? 'cloud'
               : vs.ttsProvider.kind === 'local'
                 ? vs.ttsProvider.engine
-                : vs.ttsProvider.providerSlug;
+                : slugs.has(vs.ttsProvider.providerSlug)
+                  ? vs.ttsProvider.providerSlug
+                  : 'cloud';
           setSttProvider(prev => prev || sttStr);
           setTtsProvider(prev => prev || ttsStr);
         })

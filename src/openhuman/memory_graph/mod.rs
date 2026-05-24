@@ -30,3 +30,19 @@ pub mod types;
 
 pub use query::{co_occurring_entities, neighbors};
 pub use types::GraphEdge;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn graph_edge_reexport_is_constructible() {
+        let edge = GraphEdge {
+            subject: "person:alice".into(),
+            object: "topic:phoenix".into(),
+            weight: 2,
+        };
+        assert_eq!(edge.weight, 2);
+        assert_eq!(edge.subject, "person:alice");
+    }
+}

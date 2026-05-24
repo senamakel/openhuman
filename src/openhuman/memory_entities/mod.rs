@@ -60,3 +60,21 @@ pub mod types;
 
 pub use store::{get_entity, list_entities, lookup_alias, put_entity};
 pub use types::{Entity, EntityHandle, EntityKind};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_reexports_are_constructible() {
+        let handle = EntityHandle {
+            kind: "slack".into(),
+            value: "@alice".into(),
+        };
+        let mut entity = Entity::new("person:alice", EntityKind::Person);
+        entity.handles.push(handle.clone());
+
+        assert_eq!(entity.kind, EntityKind::Person);
+        assert_eq!(entity.handles, vec![handle]);
+    }
+}

@@ -308,3 +308,38 @@ impl UnifiedMemory {
             .join(Self::sanitize_namespace(namespace))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::embeddings::NoopEmbedding;
+    use tempfile::TempDir;
+
+    #[test]
+    fn sanitize_namespace_defaults_and_scrubs() {
+        assert_eq!(UnifiedMemory::sanitize_namespace(""), GLOBAL_NAMESPACE);
+        assert_eq!(UnifiedMemory::sanitize_namespace("   "), GLOBAL_NAMESPACE);
+        assert_eq!(
+            UnifiedMemory::sanitize_namespace("team alpha/#1"),
+            "team_alpha/_1"
+        );
+        assert_eq!(
+            UnifiedMemory::sanitize_namespace("a-b_c/ok"),
+            "a-b_c/ok"
+        );
+    }
+
+    #[test]
+    fn namespace_dir_uses_sanitized_namespace() {
+        let tmp = TempDir::new().unwrap();
+        let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+        let dir = memory.namespace_dir("team alpha/#1");
+        assert_eq!(
+            dir,
+            tmp.path()
+                .join("memory")
+                .join("namespaces")
+                .join("team_alpha/_1")
+        );
+    }
+}

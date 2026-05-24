@@ -242,16 +242,21 @@ export async function listVoiceModels(
 
 const VOICE_TEST_TIMEOUT_MS = 30_000;
 
+function stripLogPrefix(s: string): string {
+  return s.replace(/^\[voice-(?:stt|tts|factory)\]\s*/i, '');
+}
+
 export async function testVoiceProvider(
   workload: VoiceWorkloadId,
   provider: string,
   validateOnly = false
 ): Promise<VoiceTestResult> {
-  return await callCoreRpc<VoiceTestResult>({
+  const result = await callCoreRpc<VoiceTestResult>({
     method: 'openhuman.voice_test_provider',
     params: { workload, provider, validate_only: validateOnly },
     timeoutMs: VOICE_TEST_TIMEOUT_MS,
   });
+  return { ...result, detail: stripLogPrefix(result.detail) };
 }
 
 // ---- API key management (shared with LLM providers) ----

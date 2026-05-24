@@ -85,3 +85,21 @@ impl Tool for MemoryTreeQuerySourceTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_exposes_supported_source_filters() {
+        let tool = MemoryTreeQuerySourceTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        assert_eq!(
+            schema["properties"]["source_kind"]["enum"],
+            json!(["chat", "email", "document"])
+        );
+        assert_eq!(schema["properties"]["time_window_days"]["minimum"], 0);
+    }
+}

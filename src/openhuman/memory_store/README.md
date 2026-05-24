@@ -4,8 +4,8 @@ Single home for every persisted memory shape. Owns the storage primitives —
 nothing above this module touches SQLite or the on-disk vault directly.
 
 ```text
-chunker/   md -> bounded chunks (two flavors: semantic + source-kind)
-chunks/    SQLite chunk rows (metadata + tags + raw refs + lifecycle status)
+chunks/    md -> bounded chunks (produce + semantic chunkers) +
+           SQLite chunk rows (metadata + tags + raw refs + lifecycle status)
 content/   on-disk .md files (source of truth for chunk + summary bodies)
 trees/     summary tree persistence (one table, kind-parameterized helpers,
            entity hotness side-table that gates topic-tree spawn)
@@ -34,8 +34,7 @@ contacts/  facade over people::store (Person/Handle/Interaction)
 
 | Path | Owns |
 | --- | --- |
-| [`chunker/`](chunker/) | Markdown → bounded chunks. `semantic.rs` (heading/paragraph-aware, used by `UnifiedMemory`), `source_kind.rs` (chat / email / document dispatch, used by the ingest pipeline). |
-| [`chunks/`](chunks/) | `store.rs` SQLite persistence + `types.rs` (`Chunk`, `Metadata`, `SourceKind`, `RawRef`, `ListChunksQuery`). One table, one connection cache. |
+| [`chunks/`](chunks/) | Full chunk lifecycle. `types.rs` (`Chunk`, `Metadata`, `SourceKind`, `RawRef`, `ListChunksQuery`) + `store.rs` (SQLite persistence + connection cache) + `produce.rs` (source-kind dispatch chunker used by the ingest pipeline) + `semantic.rs` (heading/paragraph-aware chunker used by `UnifiedMemory`). |
 | [`content/`](content/) | On-disk `.md` files for chunk + summary bodies. Atomic writes, path layout, YAML front-matter compose/parse, tag rewrites, Obsidian vault defaults. See [`content/README.md`](content/README.md). |
 | [`trees/`](trees/) | `store.rs` (`mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`), `types.rs` (Tree / SummaryNode / TreeKind / TreeStatus / Buffer + topic hotness types), `registry.rs` (kind-parameterized helpers), `hotness.rs` (entity hotness side-table). |
 | [`vectors/`](vectors/) | Standalone vector store. `VectorStore` over SQLite, byte-codec for f32 vectors, cosine similarity. |

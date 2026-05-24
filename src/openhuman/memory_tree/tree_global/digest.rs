@@ -26,12 +26,12 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use rusqlite::OptionalExtension;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::content_store::{
+use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory::content_store::{
     atomic::stage_summary, paths::slugify_source_id, read as content_read, SummaryComposeInput,
     SummaryTreeKind,
 };
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
-use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
@@ -251,10 +251,10 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
             &tx,
             &daily_clone,
             Some(&staged_daily),
-            &crate::openhuman::memory_tree::store::tree_active_signature(config),
+            &crate::openhuman::memory::chunk_store::tree_active_signature(config),
         )?;
         // Index any entities the summariser emitted (no-op under inert).
-        crate::openhuman::memory_tree::score::store::index_summary_entity_ids_tx(
+        crate::openhuman::memory::score::store::index_summary_entity_ids_tx(
             &tx,
             &daily_clone.entities,
             &daily_clone.id,

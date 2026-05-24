@@ -17,11 +17,11 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::content_store::{
+use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory::content_store::{
     atomic::stage_summary, SummaryComposeInput, SummaryTreeKind,
 };
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
-use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };
@@ -265,7 +265,7 @@ async fn seal_one_level(config: &Config, tree: &Tree, buf: &Buffer) -> Result<St
     // Global tree scope is typically the literal "global" string.
     // Use it as-is for the path (slugify passes through short ascii strings unchanged).
     let global_scope_slug =
-        crate::openhuman::memory_tree::content_store::paths::slugify_source_id(&tree.scope);
+        crate::openhuman::memory::content_store::paths::slugify_source_id(&tree.scope);
     let staged_global = stage_summary(
         &content_root_global,
         &compose_input_global,
@@ -308,13 +308,13 @@ async fn seal_one_level(config: &Config, tree: &Tree, buf: &Buffer) -> Result<St
             &tx,
             &node,
             Some(&staged_global),
-            &crate::openhuman::memory_tree::store::tree_active_signature(config),
+            &crate::openhuman::memory::chunk_store::tree_active_signature(config),
         )?;
         // Index any entities the summariser emitted. No-op under
         // InertSummariser (entities stays empty by design — see
         // summariser/inert.rs). Becomes active when the Ollama summariser
         // lands and emits curated canonical ids.
-        crate::openhuman::memory_tree::score::store::index_summary_entity_ids_tx(
+        crate::openhuman::memory::score::store::index_summary_entity_ids_tx(
             &tx,
             &node.entities,
             &node.id,
@@ -412,7 +412,7 @@ fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::tree_global::registry::get_or_create_global_tree;
     use chrono::TimeZone;
     use std::sync::Arc;
@@ -459,7 +459,7 @@ mod tests {
                 &tx,
                 node,
                 None,
-                &crate::openhuman::memory_tree::store::tree_active_signature(cfg),
+                &crate::openhuman::memory::chunk_store::tree_active_signature(cfg),
             )?;
             tx.commit()?;
             Ok(())

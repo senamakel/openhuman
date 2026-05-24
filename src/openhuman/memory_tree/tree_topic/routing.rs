@@ -112,16 +112,16 @@ async fn route_one_entity(config: &Config, leaf: &LeafRef, entity_id: &str) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_tree::score::extract::EntityKind;
-    use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-    use crate::openhuman::memory_tree::score::store::index_entity;
-    use crate::openhuman::memory_tree::store::upsert_chunks;
+    use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::chunk_store::upsert_chunks;
+    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory::score::extract::EntityKind;
+    use crate::openhuman::memory::score::resolver::CanonicalEntity;
+    use crate::openhuman::memory::score::store::index_entity;
     use crate::openhuman::memory_tree::tree_topic::registry::{
         archive_topic_tree, get_or_create_topic_tree,
     };
     use crate::openhuman::memory_tree::tree_topic::store::get as get_hotness;
-    use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

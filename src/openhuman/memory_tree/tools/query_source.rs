@@ -1,7 +1,7 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_tree::retrieval;
-use crate::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest;
-use crate::openhuman::memory_tree::types::SourceKind;
+use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory::retrieval;
+use crate::openhuman::memory::retrieval::rpc::QuerySourceRequest;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

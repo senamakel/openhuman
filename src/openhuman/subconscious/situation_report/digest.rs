@@ -63,7 +63,7 @@ struct DigestRow {
 }
 
 fn read_latest_global_l0(config: &Config, cutoff_ms: i64) -> anyhow::Result<Option<DigestRow>> {
-    crate::openhuman::memory_tree::store::with_connection(config, |conn| {
+    crate::openhuman::memory::chunk_store::with_connection(config, |conn| {
         let row = conn
             .query_row(
                 "SELECT s.id, s.content, s.sealed_at_ms

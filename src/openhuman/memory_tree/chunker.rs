@@ -16,8 +16,10 @@
 //!   becomes one chunk. Same oversize fallback as Chat.
 //! - **Document**: original paragraph-based greedy packing (unchanged).
 
-use crate::openhuman::memory_tree::types::{approx_token_count, Chunk, Metadata, SourceKind};
-use crate::openhuman::memory_tree::util::redact::redact;
+use crate::openhuman::memory::chunk_types::{
+    approx_token_count, chunk_id, Chunk, Metadata, SourceKind,
+};
+use crate::openhuman::memory::util::redact::redact;
 
 /// Default upper bound on per-chunk tokens.
 ///
@@ -82,7 +84,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
             // Document: run the existing paragraph splitter directly on the
             // whole blob. No message-unit concept.
             log::debug!(
-                "[memory_tree::chunker] document source_id_hash={} len={} — paragraph split",
+                "[memory::ingest_chunker] document source_id_hash={} len={} — paragraph split",
                 redact(&input.source_id),
                 input.markdown.len()
             );
@@ -98,7 +100,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
             .map(|(idx, content)| {
                 let seq = idx as u32;
                 let token_count = approx_token_count(&content);
-                let id = super::types::chunk_id(input.source_kind, &input.source_id, seq, &content);
+                let id = chunk_id(input.source_kind, &input.source_id, seq, &content);
                 Chunk {
                     id,
                     content,
@@ -113,7 +115,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
     }
 
     log::debug!(
-        "[memory_tree::chunker] source_kind={} source_id_hash={} len={} units={}",
+        "[memory::ingest_chunker] source_kind={} source_id_hash={} len={} units={}",
         input.source_kind.as_str(),
         redact(&input.source_id),
         input.markdown.len(),
@@ -138,7 +140,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
         let content = acc.join(unit_separator);
         let seq = out.len() as u32;
         let tc = approx_token_count(&content);
-        let id = super::types::chunk_id(input.source_kind, &input.source_id, seq, &content);
+        let id = chunk_id(input.source_kind, &input.source_id, seq, &content);
         out.push(Chunk {
             id,
             content,
@@ -162,7 +164,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
             for piece in sub_pieces {
                 let seq = out.len() as u32;
                 let tc = approx_token_count(&piece);
-                let id = super::types::chunk_id(input.source_kind, &input.source_id, seq, &piece);
+                let id = chunk_id(input.source_kind, &input.source_id, seq, &piece);
                 out.push(Chunk {
                     id,
                     content: piece,
@@ -200,7 +202,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
 
     if out.is_empty() {
         // Degenerate: empty input → one empty chunk, matching original behaviour.
-        let id = super::types::chunk_id(input.source_kind, &input.source_id, 0, "");
+        let id = chunk_id(input.source_kind, &input.source_id, 0, "");
         out.push(Chunk {
             id,
             content: String::new(),

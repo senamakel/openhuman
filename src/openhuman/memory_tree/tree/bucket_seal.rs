@@ -39,13 +39,13 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::content_store::{
+use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory::content_store::{
     atomic::stage_summary, paths::slugify_source_id, SummaryComposeInput, SummaryTreeKind,
 };
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
-use crate::openhuman::memory_tree::score::extract::EntityExtractor;
-use crate::openhuman::memory_tree::score::resolver::canonicalise;
-use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory::score::embed::build_embedder_from_config;
+use crate::openhuman::memory::score::extract::EntityExtractor;
+use crate::openhuman::memory::score::resolver::canonicalise;
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };
@@ -539,7 +539,7 @@ pub(crate) async fn seal_one_level(
                 // We still yield `None` (so `compose_summary_md`
                 // takes the sanitised-id fallback) but a warn log
                 // makes the SQL error visible for diagnosis.
-                match crate::openhuman::memory_tree::store::get_chunk_raw_refs(config, chunk_id) {
+                match crate::openhuman::memory::chunk_store::get_chunk_raw_refs(config, chunk_id) {
                     Ok(Some(refs)) if !refs.is_empty() => {
                         // RawRef::path is a forward-slash relative path
                         // under content_root, e.g.
@@ -602,9 +602,7 @@ pub(crate) async fn seal_one_level(
     // without manual configuration. Best-effort and idempotent — never
     // overwrites an existing file.
     if let Err(err) =
-        crate::openhuman::memory_tree::content_store::obsidian::ensure_obsidian_defaults(
-            &content_root,
-        )
+        crate::openhuman::memory::content_store::obsidian::ensure_obsidian_defaults(&content_root)
     {
         log::warn!(
             "[tree::bucket_seal] ensure_obsidian_defaults failed: {err:#} — \
@@ -650,7 +648,7 @@ pub(crate) async fn seal_one_level(
             &tx,
             &node,
             Some(&staged),
-            &crate::openhuman::memory_tree::store::tree_active_signature(config),
+            &crate::openhuman::memory::chunk_store::tree_active_signature(config),
         )?;
         // Forward-compat: index any entities the summariser emitted into
         // `mem_tree_entity_index` so Phase 4 retrieval can resolve
@@ -658,7 +656,7 @@ pub(crate) async fn seal_one_level(
         // leaves. No-op when entities is empty (the current summarise()
         // always emits empty — entity extraction is the learning domain's job);
         // becomes active once the summariser or a post-seal extractor emits canonical ids.
-        crate::openhuman::memory_tree::score::store::index_summary_entity_ids_tx(
+        crate::openhuman::memory::score::store::index_summary_entity_ids_tx(
             &tx,
             &node.entities,
             &node.id,
@@ -711,8 +709,8 @@ pub(crate) async fn seal_one_level(
             // `seal:{tree_id}:{parent_level}` prevents duplicates if a
             // parallel path already queued it.
             if should_seal(&parent) {
-                use crate::openhuman::memory_tree::jobs::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory_tree::jobs::types::{NewJob, SealPayload};
+                use crate::openhuman::memory::jobs::store::enqueue_tx as enqueue_job_tx;
+                use crate::openhuman::memory::jobs::types::{NewJob, SealPayload};
                 let parent_seal = SealPayload {
                     tree_id: tree_id.clone(),
                     level: target_level_for_closure,
@@ -724,10 +722,8 @@ pub(crate) async fn seal_one_level(
             // entities back into the topic-tree spawn pipeline. Topic
             // and global trees are sinks — no fan-out from their seals.
             if matches!(tree_kind, TreeKind::Source) {
-                use crate::openhuman::memory_tree::jobs::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory_tree::jobs::types::{
-                    NewJob, NodeRef, TopicRoutePayload,
-                };
+                use crate::openhuman::memory::jobs::store::enqueue_tx as enqueue_job_tx;
+                use crate::openhuman::memory::jobs::types::{NewJob, NodeRef, TopicRoutePayload};
                 let route = TopicRoutePayload {
                     node: NodeRef::Summary {
                         summary_id: summary_id_for_closure.clone(),
@@ -776,7 +772,7 @@ pub(crate) async fn seal_one_level(
 /// HTTP 500 from Ollama rather than auto-truncating, which would
 /// abort the seal transaction.
 fn truncate_for_embed(text: &str, max_tokens: u32) -> String {
-    let approx = crate::openhuman::memory_tree::types::approx_token_count(text);
+    let approx = crate::openhuman::memory::chunk_types::approx_token_count(text);
     if approx <= max_tokens {
         return text.to_string();
     }
@@ -809,9 +805,9 @@ fn hydrate_inputs(config: &Config, level: u32, item_ids: &[String]) -> Result<Ve
 }
 
 fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory_tree::content_store::read as content_read;
-    use crate::openhuman::memory_tree::score::store::{get_score, list_entity_ids_for_node};
-    use crate::openhuman::memory_tree::store::get_chunk;
+    use crate::openhuman::memory::chunk_store::get_chunk;
+    use crate::openhuman::memory::content_store::read as content_read;
+    use crate::openhuman::memory::score::store::{get_score, list_entity_ids_for_node};
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(chunk_ids.len());
     for id in chunk_ids {
@@ -857,7 +853,7 @@ fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<Summ
 }
 
 fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory_tree::content_store::read as content_read;
+    use crate::openhuman::memory::content_store::read as content_read;
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(summary_ids.len());
     for id in summary_ids {

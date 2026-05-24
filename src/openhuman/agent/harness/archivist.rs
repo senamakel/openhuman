@@ -18,16 +18,16 @@
 
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+use crate::openhuman::memory::chat::{ChatConsumer, ChatProvider};
+use crate::openhuman::memory::ingest_pipeline;
+use crate::openhuman::memory::score::embed::{build_embedder_from_config, Embedder};
 use crate::openhuman::memory::store::events::{self, EventRecord, EventType};
 use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
 use crate::openhuman::memory::store::profile::{self, FacetType};
 use crate::openhuman::memory::store::segments::{
     self, BoundaryConfig, BoundaryDecision, ConversationSegment,
 };
-use crate::openhuman::memory_tree::canonicalize::chat::{ChatBatch, ChatMessage};
-use crate::openhuman::memory_tree::chat::{ChatConsumer, ChatProvider};
-use crate::openhuman::memory_tree::ingest;
-use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, Embedder};
 use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use crate::openhuman::memory_tree::tree::types::TreeKind;
 use async_trait::async_trait;
@@ -93,7 +93,7 @@ impl ArchivistHook {
     pub fn with_config(mut self, config: Config) -> Self {
         // Build the LLM chat provider for segment recap.
         let chat_provider: Option<Arc<dyn ChatProvider>> =
-            match crate::openhuman::memory_tree::chat::build_chat_provider(
+            match crate::openhuman::memory::chat::build_chat_provider(
                 &config,
                 ChatConsumer::Summarise,
             ) {
@@ -645,7 +645,7 @@ impl ArchivistHook {
             .iter()
             .filter(|e| !e.content.trim().is_empty())
             .map(|e| {
-                use crate::openhuman::memory_tree::types::approx_token_count;
+                use crate::openhuman::memory::chunk_types::approx_token_count;
                 let content = e.content.clone();
                 let token_count = approx_token_count(&content);
                 let ts = chrono::DateTime::from_timestamp(e.timestamp as i64, 0)
@@ -934,7 +934,7 @@ impl ArchivistHook {
              segment={segment_id} ep_span={start_ep}-{end_ep} provenance={provenance}"
         );
 
-        match ingest::ingest_chat(config, source_id, owner, tags, batch).await {
+        match ingest_pipeline::ingest_chat(config, source_id, owner, tags, batch).await {
             Ok(result) => {
                 tracing::debug!(
                     "[archivist] tree ingest ok: source_id={source_id} \

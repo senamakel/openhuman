@@ -17,9 +17,9 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::chat::{build_chat_provider, ChatConsumer, ChatPrompt};
+use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer, ChatPrompt};
+use crate::openhuman::memory::chunk_types::approx_token_count;
 use crate::openhuman::memory_tree::tree::types::TreeKind;
-use crate::openhuman::memory_tree::types::approx_token_count;
 
 /// Hard cap on summariser output length (in approximate tokens). Sized
 /// to fit the downstream embedder (`nomic-embed-text-v1.5`, 8192-token

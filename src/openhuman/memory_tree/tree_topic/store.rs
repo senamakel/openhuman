@@ -17,7 +17,7 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory::chunk_store::with_connection;
 use crate::openhuman::memory_tree::tree_topic::types::HotnessCounters;
 
 /// Fetch the hotness row for `entity_id`, or `None` if the entity has
@@ -202,9 +202,9 @@ mod tests {
 
     #[test]
     fn distinct_sources_counts_trees() {
-        use crate::openhuman::memory_tree::score::extract::EntityKind;
-        use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-        use crate::openhuman::memory_tree::score::store::index_entity;
+        use crate::openhuman::memory::score::extract::EntityKind;
+        use crate::openhuman::memory::score::resolver::CanonicalEntity;
+        use crate::openhuman::memory::score::store::index_entity;
         let (_tmp, cfg) = test_config();
         let e = CanonicalEntity {
             canonical_id: "email:alice@example.com".into(),
@@ -224,9 +224,9 @@ mod tests {
 
     #[test]
     fn distinct_sources_ignores_null_tree_id() {
-        use crate::openhuman::memory_tree::score::extract::EntityKind;
-        use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-        use crate::openhuman::memory_tree::score::store::index_entity;
+        use crate::openhuman::memory::score::extract::EntityKind;
+        use crate::openhuman::memory::score::resolver::CanonicalEntity;
+        use crate::openhuman::memory::score::store::index_entity;
         let (_tmp, cfg) = test_config();
         let e = CanonicalEntity {
             canonical_id: "email:alice@example.com".into(),

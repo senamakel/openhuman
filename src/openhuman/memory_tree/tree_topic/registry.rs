@@ -52,7 +52,7 @@ pub fn force_create_topic_tree(config: &Config, entity_id: &str) -> Result<Tree>
 /// ascending for stable output.
 pub fn list_topic_trees(config: &Config) -> Result<Vec<Tree>> {
     use rusqlite::params;
-    crate::openhuman::memory_tree::store::with_connection(config, |conn| {
+    crate::openhuman::memory::chunk_store::with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, kind, scope, root_id, max_level, status,
                     created_at_ms, last_sealed_at_ms
@@ -73,7 +73,7 @@ pub fn list_topic_trees(config: &Config) -> Result<Vec<Tree>> {
 /// (unarchive is not a Phase 3c primitive — Phase 3c just stops routing).
 pub fn archive_topic_tree(config: &Config, tree_id: &str) -> Result<()> {
     use rusqlite::params;
-    crate::openhuman::memory_tree::store::with_connection(config, |conn| {
+    crate::openhuman::memory::chunk_store::with_connection(config, |conn| {
         let n = conn
             .execute(
                 "UPDATE mem_tree_trees

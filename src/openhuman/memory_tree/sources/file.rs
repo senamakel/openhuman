@@ -31,7 +31,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::content_store::raw::raw_source_dir;
+use crate::openhuman::memory::content_store::raw::raw_source_dir;
 use crate::openhuman::memory_tree::tree::types::{Tree, TreeKind, TreeStatus};
 
 /// Filename of the per-source registry mirror inside `raw/<source_slug>/`.

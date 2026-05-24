@@ -27,11 +27,11 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::score::store::lookup_entity;
-use crate::openhuman::memory_tree::store::get_chunk;
+use crate::openhuman::memory::chunk_store::get_chunk;
+use crate::openhuman::memory::score::store::lookup_entity;
+use crate::openhuman::memory::util::redact::redact;
 use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
 use crate::openhuman::memory_tree::tree::types::Tree;
-use crate::openhuman::memory_tree::util::redact::redact;
 
 /// Max leaves to pull from the entity index during backfill. A hard cap
 /// keeps initial spawn latency bounded even for very active entities.
@@ -175,14 +175,14 @@ pub async fn backfill_topic_tree_at(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_tree::score::extract::EntityKind;
-    use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-    use crate::openhuman::memory_tree::score::store::index_entity;
-    use crate::openhuman::memory_tree::store::upsert_chunks;
+    use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::chunk_store::upsert_chunks;
+    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory::score::extract::EntityKind;
+    use crate::openhuman::memory::score::resolver::CanonicalEntity;
+    use crate::openhuman::memory::score::store::index_entity;
     use crate::openhuman::memory_tree::tree::store as src_store;
     use crate::openhuman::memory_tree::tree_topic::registry::get_or_create_topic_tree;
-    use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

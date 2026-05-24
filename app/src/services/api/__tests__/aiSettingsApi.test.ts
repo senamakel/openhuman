@@ -583,7 +583,7 @@ describe('saveAISettings', () => {
         agentic: { kind: 'openhuman' },
         coding: { kind: 'openhuman' },
         memory: { kind: 'openhuman' },
-        embeddings: { kind: 'openhuman' },
+
         heartbeat: { kind: 'openhuman' },
         learning: { kind: 'openhuman' },
         subconscious: { kind: 'openhuman' },
@@ -643,7 +643,7 @@ describe('saveAISettings', () => {
         agentic: { kind: 'openhuman' },
         coding: { kind: 'openhuman' },
         memory: { kind: 'openhuman' },
-        embeddings: { kind: 'openhuman' },
+
         heartbeat: { kind: 'openhuman' },
         learning: { kind: 'openhuman' },
         subconscious: { kind: 'openhuman' },

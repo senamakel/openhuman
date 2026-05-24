@@ -16,6 +16,7 @@ import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePan
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import DevicesPanel from '../components/settings/panels/DevicesPanel';
+import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
 import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
@@ -271,6 +272,13 @@ const Settings = () => {
       icon: LlmIcon,
     },
     {
+      id: 'embeddings',
+      title: t('pages.settings.ai.embeddings'),
+      description: t('pages.settings.ai.embeddingsDesc'),
+      route: 'embeddings',
+      icon: LlmIcon,
+    },
+    {
       id: 'voice',
       title: t('pages.settings.ai.voice'),
       description: t('pages.settings.ai.voiceDesc'),
@@ -415,6 +423,7 @@ const Settings = () => {
           element={<Navigate to="/settings/notifications#routing" replace />}
         />
         <Route path="llm" element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })} />
+        <Route path="embeddings" element={wrapSettingsPage(<EmbeddingsPanel />)} />
         <Route
           path="heartbeat"
           element={wrapSettingsPage(<HeartbeatPanel />, { maxWidthClass: 'max-w-4xl' })}

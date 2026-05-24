@@ -79,7 +79,6 @@ type WorkloadId =
   | 'agentic'
   | 'coding'
   | 'memory'
-  | 'embeddings'
   | 'heartbeat'
   | 'learning'
   | 'subconscious';
@@ -155,12 +154,6 @@ const WORKLOADS: Workload[] = [
     description: 'Tree-extracts and consolidations',
   },
   {
-    id: 'embeddings',
-    group: 'background',
-    label: 'Embeddings',
-    description: 'Vector encoding for memory retrieval',
-  },
-  {
     id: 'heartbeat',
     group: 'background',
     label: 'Heartbeat',
@@ -198,7 +191,6 @@ const EMPTY_ROUTING: RoutingMap = {
   agentic: { kind: 'openhuman' },
   coding: { kind: 'openhuman' },
   memory: { kind: 'openhuman' },
-  embeddings: { kind: 'openhuman' },
   heartbeat: { kind: 'openhuman' },
   learning: { kind: 'openhuman' },
   subconscious: { kind: 'openhuman' },
@@ -251,7 +243,6 @@ function toPanelRoutingFromApi(api: ApiAISettings): { panel: AISettings } {
     agentic: liftRef(api.routing.agentic),
     coding: liftRef(api.routing.coding),
     memory: liftRef(api.routing.memory),
-    embeddings: liftRef(api.routing.embeddings),
     heartbeat: liftRef(api.routing.heartbeat),
     learning: liftRef(api.routing.learning),
     subconscious: liftRef(api.routing.subconscious),
@@ -275,7 +266,6 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       agentic: panel.routing.agentic,
       coding: panel.routing.coding,
       memory: panel.routing.memory,
-      embeddings: panel.routing.embeddings,
       heartbeat: panel.routing.heartbeat,
       learning: panel.routing.learning,
       subconscious: panel.routing.subconscious,

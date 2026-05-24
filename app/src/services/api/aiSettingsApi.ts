@@ -50,7 +50,6 @@ export type WorkloadId =
   | 'agentic'
   | 'coding'
   | 'memory'
-  | 'embeddings'
   | 'heartbeat'
   | 'learning'
   | 'subconscious';
@@ -58,7 +57,6 @@ export type WorkloadId =
 export const CHAT_WORKLOADS: WorkloadId[] = ['chat', 'reasoning', 'agentic', 'coding'];
 export const BACKGROUND_WORKLOADS: WorkloadId[] = [
   'memory',
-  'embeddings',
   'heartbeat',
   'learning',
   'subconscious',
@@ -226,7 +224,6 @@ export async function loadAISettings(): Promise<AISettings> {
     agentic: parseProviderString(config.agentic_provider),
     coding: parseProviderString(config.coding_provider),
     memory: parseProviderString(config.memory_provider),
-    embeddings: parseProviderString(config.embeddings_provider),
     heartbeat: parseProviderString(config.heartbeat_provider),
     learning: parseProviderString(config.learning_provider),
     subconscious: parseProviderString(config.subconscious_provider),

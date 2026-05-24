@@ -52,6 +52,7 @@ pub mod mcp_server;
 pub mod meet;
 pub mod meet_agent;
 pub mod memory;
+pub mod memory_archivist;
 pub mod memory_store;
 pub mod memory_tools;
 pub mod memory_tree;

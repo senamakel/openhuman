@@ -91,7 +91,7 @@ mod tests {
 
     impl WorkspaceEnvGuard {
         fn set(path: &std::path::Path) -> Self {
-            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
             let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
             std::env::set_var("OPENHUMAN_WORKSPACE", path);
             Self {

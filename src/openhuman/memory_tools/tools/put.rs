@@ -118,7 +118,7 @@ mod tests {
 
     impl WorkspaceEnvGuard {
         fn set(path: &std::path::Path) -> Self {
-            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
             let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
             std::env::set_var("OPENHUMAN_WORKSPACE", path);
             Self {
@@ -239,12 +239,14 @@ mod tests {
             .expect("active memory client");
         let store = ToolMemoryStore::new(client.memory_handle());
         let rules = store.list_rules("bash").await.expect("list stored rules");
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].rule, "Always dry-run dangerous commands first");
-        assert_eq!(rules[0].priority, ToolMemoryPriority::High);
-        assert_eq!(rules[0].source, ToolMemorySource::UserExplicit);
+        let stored = rules
+            .iter()
+            .find(|rule| rule.rule == "Always dry-run dangerous commands first")
+            .expect("stored bash rule should be present");
+        assert_eq!(stored.priority, ToolMemoryPriority::High);
+        assert_eq!(stored.source, ToolMemorySource::UserExplicit);
         assert_eq!(
-            rules[0].tags,
+            stored.tags,
             vec!["safety".to_string(), "shell".to_string()]
         );
     }

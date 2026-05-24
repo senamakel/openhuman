@@ -269,6 +269,14 @@ mod tests {
         .await
         .expect_err("absolute read path should fail");
         assert!(read_err.contains("absolute paths are not allowed"));
+
+        let write_err = ai_write_memory_file(WriteMemoryFileRequest {
+            relative_path: "/tmp/secret.txt".to_string(),
+            content: "nope".to_string(),
+        })
+        .await
+        .expect_err("absolute write path should fail");
+        assert!(write_err.contains("absolute paths are not allowed"));
     }
 
     #[tokio::test]
@@ -288,6 +296,29 @@ mod tests {
             err.contains("resolve memory path") || err.contains("read memory file"),
             "unexpected error: {err}"
         );
+    }
+
+    #[tokio::test]
+    async fn read_memory_file_surfaces_invalid_utf8_error() {
+        let _guard = env_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let tmp = TempDir::new().expect("tempdir");
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        let memory_root = super::super::helpers::resolve_existing_memory_path("")
+            .await
+            .expect("resolve memory root");
+        tokio::fs::write(memory_root.join("binary.bin"), [0xff, 0xfe, 0xfd])
+            .await
+            .expect("write invalid utf8 file");
+
+        let err = ai_read_memory_file(ReadMemoryFileRequest {
+            relative_path: "binary.bin".to_string(),
+        })
+        .await
+        .expect_err("invalid utf8 file should fail");
+        assert!(err.contains("read memory file"));
     }
 
     #[cfg(unix)]
@@ -317,5 +348,34 @@ mod tests {
         .await
         .expect_err("writing through symlink should fail");
         assert!(err.contains("refusing to write through symlink"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn list_memory_files_skips_symlink_entries() {
+        use std::os::unix::fs::symlink;
+
+        let _guard = env_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let tmp = TempDir::new().expect("tempdir");
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        let memory_root = super::super::helpers::resolve_existing_memory_path("")
+            .await
+            .expect("resolve memory root");
+        let real = memory_root.join("real.md");
+        tokio::fs::write(&real, "hello")
+            .await
+            .expect("write real file");
+        symlink(&real, memory_root.join("alias.md")).expect("create symlink");
+
+        let listed = ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: String::new(),
+        })
+        .await
+        .expect("list should succeed");
+        let listed_data = listed.value.data.expect("list data");
+        assert_eq!(listed_data.files, vec!["real.md"]);
     }
 }

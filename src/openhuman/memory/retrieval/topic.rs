@@ -520,6 +520,71 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn zero_limit_uses_default_limit() {
+        let (_tmp, cfg) = test_config();
+        for i in 0..12 {
+            let source = format!("slack:#c{i}");
+            let batch = ChatBatch {
+                platform: "slack".into(),
+                channel_label: format!("#c{i}"),
+                messages: vec![ChatMessage {
+                    author: "alice".into(),
+                    timestamp: Utc::now(),
+                    text: format!(
+                        "Meeting {i} about Phoenix migration. alice@example.com owns it. \
+                         Launch status looks good."
+                    ),
+                    source_ref: None,
+                }],
+            };
+            ingest_chat(&cfg, &source, "alice", vec![], batch)
+                .await
+                .unwrap();
+        }
+
+        let resp = query_topic(&cfg, "email:alice@example.com", None, None, 0)
+            .await
+            .unwrap();
+        assert!(resp.hits.len() <= DEFAULT_LIMIT);
+        if resp.total > DEFAULT_LIMIT {
+            assert!(resp.truncated);
+        }
+    }
+
+    #[tokio::test]
+    async fn topic_tree_root_missing_summary_row_is_ignored() {
+        use crate::openhuman::memory_store::chunks::store::with_connection;
+        use crate::openhuman::memory_tree::tree::store as tree_store;
+        use crate::openhuman::memory_store::trees::types::{Tree, TreeKind, TreeStatus};
+
+        let (_tmp, cfg) = test_config();
+        let ts = Utc::now();
+        let entity_id = "topic:phoenix";
+        let tree = Tree {
+            id: "test:phoenix-missing-root".into(),
+            kind: TreeKind::Topic,
+            scope: entity_id.into(),
+            root_id: Some("summary:missing".into()),
+            max_level: 1,
+            status: TreeStatus::Active,
+            created_at: ts,
+            last_sealed_at: Some(ts),
+        };
+
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            tree_store::insert_tree_conn(&tx, &tree)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let resp = query_topic(&cfg, entity_id, None, None, 10).await.unwrap();
+        assert!(resp.hits.is_empty());
+        assert_eq!(resp.total, 0);
+    }
+
     // Regression: the same node_id must only appear once in `hits`, even
     // when the topic-tree root overlaps with its own entity-index row.
     // Flagged on PR #831 CodeRabbit review — see the HashMap-based merge

@@ -91,6 +91,87 @@ async fn list_namespaces_returns_distinct_sorted_sanitized_namespaces() {
 }
 
 #[tokio::test]
+async fn list_documents_with_namespace_filters_by_sanitized_namespace_and_orders_newest_first() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input(
+            "team alpha/#1",
+            "doc-a",
+            "Older Doc",
+            "A body",
+        ))
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    memory
+        .upsert_document(make_doc_input(
+            "team alpha/#1",
+            "doc-b",
+            "Newer Doc",
+            "B body",
+        ))
+        .await
+        .unwrap();
+    memory
+        .upsert_document(make_doc_input("other", "doc-c", "Other Doc", "C body"))
+        .await
+        .unwrap();
+
+    let docs = memory.list_documents(Some("team alpha/#1")).await.unwrap();
+    let documents = docs["documents"].as_array().unwrap();
+
+    assert_eq!(docs["count"].as_u64().unwrap(), 2);
+    assert_eq!(documents[0]["namespace"], json!("team_alpha/_1"));
+    assert_eq!(documents[0]["key"], json!("doc-b"));
+    assert_eq!(documents[1]["key"], json!("doc-a"));
+}
+
+#[tokio::test]
+async fn load_documents_for_scope_defaults_invalid_json_fields_from_persisted_rows() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+    let namespace = UnifiedMemory::sanitize_namespace("broken/json");
+
+    {
+        let conn = memory.conn.lock();
+        conn.execute(
+            "INSERT INTO memory_docs
+              (document_id, namespace, key, title, content, source_type, priority, tags_json, metadata_json, category, session_id, created_at, updated_at, markdown_rel_path)
+             VALUES
+              (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            rusqlite::params![
+                "doc-invalid-json",
+                namespace,
+                "doc-a",
+                "Doc A",
+                "Body",
+                "doc",
+                "medium",
+                "{not json",
+                "also not json",
+                "core",
+                Option::<String>::None,
+                10.0_f64,
+                20.0_f64,
+                "memory/namespaces/broken_json/docs/doc-invalid-json.md"
+            ],
+        )
+        .unwrap();
+    }
+
+    let docs = memory.load_documents_for_scope("broken/json").await.unwrap();
+    assert_eq!(docs.len(), 1);
+    assert!(docs[0].tags.is_empty(), "invalid tags_json should fall back to []");
+    assert_eq!(
+        docs[0].metadata,
+        json!({}),
+        "invalid metadata_json should fall back to an empty object"
+    );
+}
+
+#[tokio::test]
 async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and_key() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

@@ -50,6 +50,7 @@ const ko1: TranslationMap = {
   'common.showLess': '간단히 보기',
   'common.submit': '제출',
   'common.continue': '계속',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': '일반',
   'settings.featuresAndAI': '기능 및 AI',
   'settings.billingAndRewards': '결제 및 보상',
@@ -425,6 +426,9 @@ const ko1: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Connection',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Local',

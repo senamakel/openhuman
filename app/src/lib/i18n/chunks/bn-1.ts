@@ -50,6 +50,7 @@ const bn1: TranslationMap = {
   'common.showLess': 'কম দেখুন',
   'common.submit': 'জমা দিন',
   'common.continue': 'চালিয়ে যান',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': 'সাধারণ',
   'settings.featuresAndAI': 'ফিচার ও AI',
   'settings.billingAndRewards': 'বিলিং ও পুরস্কার',
@@ -437,6 +438,9 @@ const bn1: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Connection',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Local',

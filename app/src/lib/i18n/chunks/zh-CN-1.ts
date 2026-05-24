@@ -50,6 +50,7 @@ const zhCN1: TranslationMap = {
   'common.showLess': '收起',
   'common.submit': '提交',
   'common.continue': '继续',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': '通用',
   'settings.featuresAndAI': '功能与 AI',
   'settings.billingAndRewards': '账单与奖励',
@@ -421,6 +422,9 @@ const zhCN1: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Connection',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Local',

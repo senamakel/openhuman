@@ -50,6 +50,7 @@ const it1: TranslationMap = {
   'common.showLess': 'Mostra meno',
   'common.submit': 'Invia',
   'common.continue': 'Continua',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': 'Generale',
   'settings.featuresAndAI': 'Funzionalità e AI',
   'settings.billingAndRewards': 'Fatturazione e premi',
@@ -444,6 +445,9 @@ const it1: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Connection',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Local',

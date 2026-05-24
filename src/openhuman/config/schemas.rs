@@ -734,7 +734,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![FieldSchema {
                 name: "max_actions_per_hour",
                 ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                comment: "Maximum tool actions an agent may run per rolling hour (1-10000).",
+                comment: "Maximum tool actions an agent may run per rolling hour (1..=u32::MAX; u32::MAX is the unlimited sentinel).",
                 required: false,
             }],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],

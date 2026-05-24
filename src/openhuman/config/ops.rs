@@ -834,15 +834,17 @@ pub async fn load_and_apply_meet_settings(
 }
 
 /// Updates the autonomy policy settings in the configuration.
-/// Validation: 1 <= max_actions_per_hour <= 10_000.
+/// Validation: 1 <= max_actions_per_hour <= u32::MAX. The upper bound is the
+/// sentinel for "unlimited" (matches the schema default); the UI surfaces
+/// this preset explicitly.
 pub async fn apply_autonomy_settings(
     config: &mut Config,
     update: AutonomySettingsPatch,
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     if let Some(v) = update.max_actions_per_hour {
-        if v == 0 || v > 10_000 {
+        if v == 0 {
             return Err(format!(
-                "max_actions_per_hour must be between 1 and 10000 (got {v})"
+                "max_actions_per_hour must be at least 1 (got {v})"
             ));
         }
         config.autonomy.max_actions_per_hour = v;

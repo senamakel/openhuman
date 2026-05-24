@@ -102,6 +102,7 @@ impl Tool for MemoryToolsPutTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -113,8 +114,14 @@ mod tests {
 
     #[test]
     fn parse_priority_accepts_critical_and_high_case_insensitively() {
-        assert_eq!(parse_priority(Some("critical")), ToolMemoryPriority::Critical);
-        assert_eq!(parse_priority(Some("CRITICAL")), ToolMemoryPriority::Critical);
+        assert_eq!(
+            parse_priority(Some("critical")),
+            ToolMemoryPriority::Critical
+        );
+        assert_eq!(
+            parse_priority(Some("CRITICAL")),
+            ToolMemoryPriority::Critical
+        );
         assert_eq!(parse_priority(Some("high")), ToolMemoryPriority::High);
         assert_eq!(parse_priority(Some("HiGh")), ToolMemoryPriority::High);
     }
@@ -141,5 +148,51 @@ mod tests {
             schema["properties"]["priority"]["enum"],
             json!(["critical", "high", "normal"])
         );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_required_fields() {
+        let tool = MemoryToolsPutTool;
+        let err = tool
+            .execute(json!({ "tool_name": "bash" }))
+            .await
+            .expect_err("missing rule should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tools_put")
+        );
+
+        let err = tool
+            .execute(json!({ "rule": "Never run rm -rf" }))
+            .await
+            .expect_err("missing tool_name should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tools_put")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_serialized_rule() {
+        let tool = MemoryToolsPutTool;
+        let result = tool
+            .execute(json!({
+                "tool_name": "bash",
+                "rule": "Always dry-run dangerous commands first",
+                "priority": "high",
+                "tags": ["safety", "shell"]
+            }))
+            .await
+            .expect("valid memory_tools_put request should succeed");
+        assert!(!result.is_error);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool result should be json");
+        assert_eq!(parsed["tool_name"], "bash");
+        assert_eq!(parsed["rule"], "Always dry-run dangerous commands first");
+        assert_eq!(parsed["priority"], "high");
+        assert_eq!(parsed["source"], "user_explicit");
+        assert_eq!(parsed["tags"], json!(["safety", "shell"]));
+        assert!(parsed["id"].as_str().is_some());
     }
 }

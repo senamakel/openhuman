@@ -106,6 +106,7 @@ impl Tool for MemoryStoreRawSearchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -128,5 +129,50 @@ mod tests {
         assert_eq!(schema["type"], "object");
         assert_eq!(schema["required"], json!(["query"]));
         assert_eq!(schema["properties"]["limit"]["maximum"], 100);
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_query() {
+        let tool = MemoryStoreRawSearchTool;
+        let err = tool
+            .execute(json!({}))
+            .await
+            .expect_err("missing query should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_store_raw_search")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_invalid_kind() {
+        let tool = MemoryStoreRawSearchTool;
+        let err = tool
+            .execute(json!({
+                "query": "alice",
+                "kinds": ["not-a-kind"]
+            }))
+            .await
+            .expect_err("invalid kind should fail");
+        assert!(err.to_string().contains("memory_store_raw_search:"));
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_array() {
+        let tool = MemoryStoreRawSearchTool;
+        let result = tool
+            .execute(json!({
+                "query": "alice",
+                "limit": 3
+            }))
+            .await
+            .expect("valid raw_search request should succeed");
+        assert!(!result.is_error);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool result should be json");
+        assert!(
+            parsed.is_array(),
+            "raw_search should serialize a JSON array"
+        );
     }
 }

@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_tree::retrieval;
 use crate::openhuman::memory_tree::retrieval::rpc::QueryTopicRequest;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -55,14 +55,14 @@ impl Tool for MemoryTreeQueryTopicTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_query_topic: load config failed: {e}"))?;
-        let resp = retrieval::query_topic(
-            &cfg,
-            &req.entity_id,
-            req.time_window_days,
-            req.query.as_deref(),
-            req.limit.unwrap_or(10),
-        )
-        .await?;
+        let resp = TreeFactory::topic(req.entity_id.as_str())
+            .query(
+                &cfg,
+                req.time_window_days,
+                req.query.as_deref(),
+                req.limit.unwrap_or(10),
+            )
+            .await?;
         log::debug!(
             "[tool][memory_tree] query_topic returning hits={} total={}",
             resp.hits.len(),
@@ -173,7 +173,13 @@ mod tests {
         assert_eq!(parsed["hits"], json!([]));
         assert_eq!(parsed["total"], json!(0));
 
-        let direct = retrieval::query_topic(&cfg, "topic:phoenix", None, None, 2)
+        let direct = crate::openhuman::memory_tree::retrieval::topic::query_topic(
+            &cfg,
+            "topic:phoenix",
+            None,
+            None,
+            2,
+        )
             .await
             .expect("direct query_topic on empty workspace");
         assert!(direct.hits.is_empty());

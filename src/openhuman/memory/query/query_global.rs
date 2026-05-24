@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_tree::retrieval;
 use crate::openhuman::memory_tree::retrieval::rpc::QueryGlobalRequest;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -41,7 +41,9 @@ impl Tool for MemoryTreeQueryGlobalTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_query_global: load config failed: {e}"))?;
-        let resp = retrieval::query_global(&cfg, req.time_window_days).await?;
+        let resp = TreeFactory::global()
+            .query(&cfg, Some(req.time_window_days), None, 10)
+            .await?;
         log::debug!(
             "[tool][memory_tree] query_global returning hits={} total={}",
             resp.hits.len(),
@@ -166,7 +168,7 @@ mod tests {
         assert_eq!(parsed["total"], json!(0));
         assert_eq!(parsed["hits"], json!([]));
 
-        let direct = retrieval::query_global(&cfg, 7)
+        let direct = crate::openhuman::memory_tree::retrieval::global::query_global(&cfg, 7)
             .await
             .expect("direct query_global on empty workspace");
         assert_eq!(direct.total, 0);

@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_tree::retrieval;
 use crate::openhuman::memory_tree::retrieval::rpc::DrillDownRequest;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -60,14 +60,15 @@ impl Tool for MemoryTreeDrillDownTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_drill_down: load config failed: {e}"))?;
-        let hits = retrieval::drill_down(
-            &cfg,
-            &req.node_id,
-            req.max_depth.unwrap_or(1),
-            req.query.as_deref(),
-            req.limit,
-        )
-        .await?;
+        let hits = TreeFactory::global()
+            .drill_down(
+                &cfg,
+                &req.node_id,
+                req.max_depth.unwrap_or(1),
+                req.query.as_deref(),
+                req.limit,
+            )
+            .await?;
         log::debug!(
             "[tool][memory_tree] drill_down returning hits={}",
             hits.len()
@@ -191,7 +192,13 @@ mod tests {
         );
         assert_eq!(parsed, json!([]));
 
-        let direct = retrieval::drill_down(&cfg, "summary-does-not-exist", 1, None, None)
+        let direct = crate::openhuman::memory_tree::retrieval::drill_down::drill_down(
+            &cfg,
+            "summary-does-not-exist",
+            1,
+            None,
+            None,
+        )
             .await
             .expect("direct drill_down on empty workspace");
         assert!(direct.is_empty());

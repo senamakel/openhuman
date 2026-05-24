@@ -20,7 +20,6 @@ use crate::openhuman::memory_queue::types::{
 };
 use crate::openhuman::memory_tree::score;
 use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, pack_checked};
-use crate::openhuman::memory_tree::score::extract::build_summary_extractor;
 use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::content::{
@@ -30,7 +29,7 @@ use crate::openhuman::memory_tree::tree::global::digest::{self, DigestOutcome};
 use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
 use crate::openhuman::memory_tree::tree::topic::curator;
 use crate::openhuman::memory_tree::tree::store as summary_store;
-use crate::openhuman::memory_tree::tree::{LabelStrategy, LeafRef};
+use crate::openhuman::memory_tree::tree::{LeafRef, TreeFactory};
 
 /// Default age for L0 flush_stale when the caller doesn't override.
 /// 1 hour means low-volume sources get summaries within a working session.
@@ -374,7 +373,6 @@ async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> 
 }
 
 async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
-    use crate::openhuman::memory_store::trees::types::TreeKind;
     use crate::openhuman::memory_tree::tree::bucket_seal::{seal_one_level, should_seal};
     use crate::openhuman::memory_tree::tree::store as src_store;
 
@@ -418,11 +416,7 @@ async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
     // by design (scope already pins the canonical id). Global trees never
     // reach here — `digest_daily` handles them — but Empty is a safe
     // defensive default.
-    let strategy = match tree.kind {
-        TreeKind::Source => LabelStrategy::ExtractFromContent(build_summary_extractor(config)),
-        TreeKind::Topic => LabelStrategy::Empty,
-        TreeKind::Global => LabelStrategy::Empty,
-    };
+    let strategy = TreeFactory::from_tree(&tree).label_strategy(config);
 
     // `seal_one_level` with `enqueue_follow_ups: true` atomically inserts
     // the parent-cascade seal (if the parent buffer now meets its gate)

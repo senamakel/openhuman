@@ -50,6 +50,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
     crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
+    crate::openhuman::memory::sync::register_sync_stage_bridge();
     crate::openhuman::composio::register_composio_trigger_subscriber();
     // Spawn the per-toolkit provider periodic sync scheduler. This is
     // a thin tokio task that ticks every minute and dispatches into

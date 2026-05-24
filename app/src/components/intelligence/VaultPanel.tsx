@@ -245,7 +245,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
-            Knowledge vaults
+            Knowledge vaults (Experimental)
           </h3>
           <p className="text-xs text-stone-500 dark:text-neutral-400">
             Point at a local folder; files are chunked and mirrored into memory.

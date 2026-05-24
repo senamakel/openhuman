@@ -15,15 +15,14 @@ use rusqlite::params;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::tree::global::GLOBAL_SCOPE;
-use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 
 /// Return the workspace's singleton global tree, creating it lazily on first
 /// call. Safe to call on every ingest; subsequent calls short-circuit to the
 /// existing row.
 pub fn get_or_create_global_tree(config: &Config) -> Result<Tree> {
     log::debug!("[trees::registry] get_or_create_global_tree");
-    get_or_create_tree(config, TreeKind::Global, GLOBAL_SCOPE)
+    TreeFactory::global().get_or_create(config)
 }
 
 /// Look up the topic tree for `entity_id`, or create a new one.
@@ -41,7 +40,7 @@ pub fn get_or_create_topic_tree(config: &Config, entity_id: &str) -> Result<Tree
         "[trees::registry] get_or_create_topic_tree entity_kind={}",
         entity_kind
     );
-    get_or_create_tree(config, TreeKind::Topic, entity_id)
+    TreeFactory::topic(entity_id).get_or_create(config)
 }
 
 /// Semantic alias used by the admin "force materialise" path.

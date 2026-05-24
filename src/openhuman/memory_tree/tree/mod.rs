@@ -15,6 +15,7 @@
 //! Persistence (store + types) has moved to `memory_store::trees`.
 
 pub mod bucket_seal;
+pub mod factory;
 pub mod flush;
 pub mod global;
 pub mod registry;
@@ -31,4 +32,5 @@ pub use crate::openhuman::memory_store::trees::{
     SUMMARY_FANOUT,
 };
 pub use bucket_seal::{append_leaf, append_leaf_deferred, LabelStrategy, LeafRef};
+pub use factory::{TreeFactory, TreeProfile, GLOBAL_SCOPE};
 pub use registry::{get_or_create_tree, new_summary_id, new_tree_id};

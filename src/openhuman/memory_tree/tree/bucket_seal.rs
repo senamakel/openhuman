@@ -42,9 +42,10 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::score::extract::EntityExtractor;
 use crate::openhuman::memory_tree::score::resolver::canonicalise;
+use crate::openhuman::memory_tree::tree::factory::TreeFactory;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
-    atomic::stage_summary, paths::slugify_source_id, SummaryComposeInput, SummaryTreeKind,
+    atomic::stage_summary, SummaryComposeInput,
 };
 use crate::openhuman::memory_store::trees::types::{
     Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
@@ -480,43 +481,9 @@ pub(crate) async fn seal_one_level(
     // tx. A staging failure aborts the seal cleanly — nothing is persisted
     // and the buffer stays intact for retry.
     //
-    // `bucket_seal.rs` handles both Source and Topic tree seals (Topic trees
-    // use the same cascade machinery via `handle_seal` in the job handler).
-    // Map TreeKind to SummaryTreeKind accordingly.
-    let summary_tree_kind = match tree.kind {
-        TreeKind::Topic => SummaryTreeKind::Topic,
-        _ => SummaryTreeKind::Source,
-    };
-    let scope_slug = {
-        // Path slug semantics per source kind:
-        //
-        // - Gmail source trees: scope is `"gmail:<participants>"` where
-        //   participants is `addr1|addr2|...`. Strip the `gmail:` prefix so the
-        //   path is `summaries/source/<participants_slug>/...` and mirrors the
-        //   chunk layout under `email/<participants_slug>/`.
-        //
-        // - Topic trees: scope is the canonical entity_id (e.g.
-        //   `"email:alice@example.com"`). Slugify the FULL string so topic-tree
-        //   summaries and source-tree summaries don't share a path prefix.
-        //
-        // - All other source kinds (slack:, discord:, document:, …): slugify the
-        //   FULL scope string. Stripping the prefix for non-Gmail sources was a
-        //   bug — `"slack:#eng"` and `"discord:#eng"` would both produce slug
-        //   `"eng"` and collide in `summaries/source/eng/`.
-        let s = &tree.scope;
-        match tree.kind {
-            TreeKind::Topic => slugify_source_id(s),
-            _ => {
-                if s.starts_with("gmail:") {
-                    // Strip "gmail:" prefix; slugify the participants portion.
-                    slugify_source_id(&s["gmail:".len()..])
-                } else {
-                    // All other source kinds: slugify the full scope string.
-                    slugify_source_id(s)
-                }
-            }
-        }
-    };
+    let tree_factory = TreeFactory::from_tree(tree);
+    let summary_tree_kind = tree_factory.summary_tree_kind();
+    let scope_slug = tree_factory.scope_slug();
     // For L1 seals (children are chunks), point each child wikilink at
     // the raw archive file the chunk's body lives in — the email
     // chunk-store path `email/<scope>/<chunk_id>.md` no longer

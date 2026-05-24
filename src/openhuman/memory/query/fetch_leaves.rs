@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_tree::retrieval;
 use crate::openhuman::memory_tree::retrieval::rpc::FetchLeavesRequest;
+use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -57,7 +57,9 @@ impl Tool for MemoryTreeFetchLeavesTool {
                 MAX_CHUNK_IDS_PER_CALL
             );
         }
-        let hits = retrieval::fetch_leaves(&cfg, &req.chunk_ids[..take]).await?;
+        let hits = TreeFactory::global()
+            .fetch_leaves(&cfg, &req.chunk_ids[..take])
+            .await?;
         log::debug!(
             "[rpc][memory_tree] fetch_leaves completed hits={}",
             hits.len()
@@ -179,7 +181,7 @@ mod tests {
         );
         assert_eq!(parsed, json!([]));
 
-        let direct = retrieval::fetch_leaves(
+        let direct = crate::openhuman::memory_tree::retrieval::fetch::fetch_leaves(
             &cfg,
             &[
                 "chunk-does-not-exist-1".to_string(),

@@ -193,19 +193,40 @@ pub(crate) struct LmStudioChatResponseMessage {
 
 impl LmStudioChatResponseMessage {
     pub(crate) fn effective_content(&self) -> String {
-        self.content
+        let content = self
+            .content
             .as_deref()
             .map(crate::openhuman::inference::provider::compatible_parse::strip_think_tags)
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .or_else(|| {
-                self.reasoning_content
-                    .as_deref()
-                    .map(crate::openhuman::inference::provider::compatible_parse::strip_think_tags)
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty())
-            })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if !content.is_empty() {
+            tracing::trace!(
+                source = "content",
+                output_chars = content.chars().count(),
+                "[lm-studio] effective content selected"
+            );
+            return content;
+        }
+
+        let reasoning = self
+            .reasoning_content
+            .as_deref()
+            .map(crate::openhuman::inference::provider::compatible_parse::strip_think_tags)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_default();
+        if !reasoning.is_empty() {
+            tracing::trace!(
+                source = "reasoning_content",
+                output_chars = reasoning.chars().count(),
+                "[lm-studio] effective content selected"
+            );
+            return reasoning;
+        }
+
+        tracing::trace!(source = "none", output_chars = 0, "[lm-studio] effective content empty");
+        String::new()
     }
 }
 

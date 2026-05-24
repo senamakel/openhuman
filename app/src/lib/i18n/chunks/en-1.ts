@@ -50,6 +50,7 @@ const en1: TranslationMap = {
   'common.showLess': 'Show less',
   'common.submit': 'Submit',
   'common.continue': 'Continue',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': 'General',
   'settings.featuresAndAI': 'Features & AI',
   'settings.billingAndRewards': 'Billing & Rewards',
@@ -210,6 +211,9 @@ const en1: TranslationMap = {
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',
   'memory.noResults': 'No memories found',

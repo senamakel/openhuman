@@ -124,3 +124,77 @@ fn row_to_tree_loose(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tree> {
         last_sealed_at: last_sealed_ms.and_then(|ms| Utc.timestamp_millis_opt(ms).single()),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::memory_store::trees::store::insert_tree;
+    use crate::openhuman::memory_store::trees::types::TreeStatus;
+    use tempfile::TempDir;
+
+    fn test_config() -> (TempDir, Config) {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        (tmp, cfg)
+    }
+
+    fn sample_tree(id: &str, kind: TreeKind, scope: &str) -> Tree {
+        Tree {
+            id: id.into(),
+            kind,
+            scope: scope.into(),
+            root_id: Some("root-1".into()),
+            max_level: 2,
+            status: TreeStatus::Active,
+            created_at: Utc::now(),
+            last_sealed_at: None,
+        }
+    }
+
+    #[test]
+    fn list_trees_by_kind_returns_only_requested_kind() {
+        let (_tmp, cfg) = test_config();
+        insert_tree(&cfg, &sample_tree("source-1", TreeKind::Source, "chat:slack:#eng")).unwrap();
+        insert_tree(&cfg, &sample_tree("topic-1", TreeKind::Topic, "person:alice")).unwrap();
+        insert_tree(&cfg, &sample_tree("source-2", TreeKind::Source, "chat:discord:#ops"))
+            .unwrap();
+
+        let source_ids: Vec<String> = list_trees_by_kind(&cfg, TreeKind::Source)
+            .unwrap()
+            .into_iter()
+            .map(|tree| tree.id)
+            .collect();
+        assert_eq!(source_ids, vec!["source-1".to_string(), "source-2".to_string()]);
+
+        let topic_ids: Vec<String> = list_topic_trees(&cfg)
+            .unwrap()
+            .into_iter()
+            .map(|tree| tree.id)
+            .collect();
+        assert_eq!(topic_ids, vec!["topic-1".to_string()]);
+    }
+
+    #[test]
+    fn archive_tree_flips_status_to_archived() {
+        let (_tmp, cfg) = test_config();
+        let tree = sample_tree("topic-1", TreeKind::Topic, "person:alice");
+        insert_tree(&cfg, &tree).unwrap();
+
+        archive_tree(&cfg, "topic-1").unwrap();
+
+        let archived = list_topic_trees(&cfg).unwrap();
+        assert_eq!(archived.len(), 1);
+        assert_eq!(archived[0].status, TreeStatus::Archived);
+    }
+
+    #[test]
+    fn get_or_create_global_tree_is_idempotent() {
+        let (_tmp, cfg) = test_config();
+        let first = get_or_create_global_tree(&cfg).unwrap();
+        let second = get_or_create_global_tree(&cfg).unwrap();
+        assert_eq!(first.id, second.id);
+        assert_eq!(first.kind, TreeKind::Global);
+        assert_eq!(first.scope, GLOBAL_SCOPE);
+    }
+}

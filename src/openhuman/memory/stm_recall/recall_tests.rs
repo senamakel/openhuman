@@ -579,6 +579,52 @@ fn render_empty_block_returns_empty_string() {
     assert!(block.is_empty());
 }
 
+#[test]
+fn decode_vector_blob_rejects_misaligned_bytes() {
+    let decoded = super::decode_vector_blob(&[1_u8, 2, 3]);
+    assert!(
+        decoded.is_empty(),
+        "malformed blobs should be discarded instead of partially decoded"
+    );
+}
+
+#[test]
+fn age_days_from_ts_is_zero_for_future_timestamps() {
+    let future = now_ts() + 86_400.0;
+    assert_eq!(super::age_days_from_ts(future), 0.0);
+}
+
+#[test]
+fn render_includes_recaps_and_episodic_turn_labels() {
+    let block = StmRecallBlock {
+        items: vec![
+            StmItem::SegmentRecap {
+                segment_id: "seg-1".into(),
+                session_id: "thread-a".into(),
+                summary: "Summary text".into(),
+                start_episodic_id: 10,
+                end_episodic_id: Some(12),
+                updated_at: now_ts() - 60.0,
+                cosine: 0.9,
+            },
+            StmItem::EpisodicTurn {
+                id: Some(42),
+                session_id: "thread-b".into(),
+                timestamp: now_ts() - 30.0,
+                role: "user".into(),
+                content: "Turn text".into(),
+            },
+        ],
+        ..Default::default()
+    };
+
+    let rendered = block.render();
+    assert!(rendered.contains("**Conversation recap**"));
+    assert!(rendered.contains("Summary text"));
+    assert!(rendered.contains("**user**"));
+    assert!(rendered.contains("Turn text"));
+}
+
 // ── end-to-end integration test ───────────────────────────────────────────────
 // Drive the real chain: completed turns → episodic rows → segment close
 // (recap + embedding via the Phase 0+1 path using stub providers) →

@@ -1044,4 +1044,28 @@ mod tests {
         assert_eq!(enriched.metadata["ingestion"]["model_name"], config.model_name);
         assert_eq!(enriched.metadata["ingestion"]["chunk_count"], json!(3));
     }
+
+    #[test]
+    fn extract_people_from_header_collects_named_people() {
+        let mut acc = ExtractionAccumulator::default();
+        let people = extract_people_from_header(
+            "Alice Smith <alice@example.com>, Bob Jones <bob@example.com>",
+            &mut acc,
+        );
+        assert_eq!(
+            people,
+            vec!["ALICE SMITH".to_string(), "BOB JONES".to_string()]
+        );
+        assert!(acc.entities.contains_key("ALICE SMITH"));
+        assert!(acc.entities.contains_key("BOB JONES"));
+    }
+
+    #[test]
+    fn detect_primary_subject_only_matches_openhuman() {
+        assert_eq!(
+            detect_primary_subject("OpenHuman desktop roadmap"),
+            Some("OPENHUMAN".to_string())
+        );
+        assert_eq!(detect_primary_subject("General roadmap"), None);
+    }
 }

@@ -18,7 +18,6 @@ pub mod preferences;
 pub mod rpc_models;
 pub mod schemas;
 pub mod stm_recall;
-pub mod sync_status;
 pub mod traits;
 
 // Tool-scoped memory moved to top-level `memory_tools`. Re-exported here so
@@ -57,7 +56,7 @@ pub use crate::openhuman::memory_store::{
     MemoryItemKind, MemoryState, NamespaceDocumentInput, NamespaceMemoryHit, NamespaceQueryResult,
     NamespaceRetrievalContext, RetrievalScoreBreakdown, UnifiedMemory,
 };
-pub use sync_status::{
+pub use crate::openhuman::memory_sync::sync_status::{
     all_memory_sync_status_controller_schemas, all_memory_sync_status_registered_controllers,
     FreshnessLabel, MemorySyncStatus,
 };

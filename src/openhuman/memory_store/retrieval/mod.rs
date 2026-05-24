@@ -269,4 +269,56 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].id, "c2");
     }
+
+    #[test]
+    fn param_tag_search_respects_source_id_owner_and_limit() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        upsert_chunks(
+            &cfg,
+            &[
+                chunk("c1", SourceKind::Chat, "slack:#eng", "alice", &[]),
+                chunk("c2", SourceKind::Chat, "slack:#eng", "bob", &[]),
+                chunk("c3", SourceKind::Chat, "slack:#ops", "alice", &[]),
+            ],
+        )
+        .unwrap();
+
+        let filters = ParamTagFilters {
+            source_id: Some("slack:#eng".into()),
+            owner: Some("alice".into()),
+            limit: Some(1),
+            ..ParamTagFilters::default()
+        };
+        let hits = facade.param_tag_search(&cfg, &filters).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "c1");
+        assert_eq!(hits[0].metadata.source_id, "slack:#eng");
+        assert_eq!(hits[0].metadata.owner, "alice");
+    }
+
+    #[test]
+    fn param_tag_search_empty_required_tags_is_noop() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        upsert_chunks(
+            &cfg,
+            &[
+                chunk("c1", SourceKind::Chat, "slack:#eng", "alice", &["deploy"]),
+                chunk("c2", SourceKind::Email, "gmail:thread-1", "bob", &["person:bob"]),
+            ],
+        )
+        .unwrap();
+
+        let hits = facade
+            .param_tag_search(
+                &cfg,
+                &ParamTagFilters {
+                    tags_all_of: Some(vec![]),
+                    ..ParamTagFilters::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(hits.len(), 2);
+    }
 }

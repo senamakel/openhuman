@@ -172,32 +172,49 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
       }
       setSavedSettings(settingsResponse.result);
       setVoiceStatus(voiceResponse);
-      // Seed provider dropdowns from core state on first load. Use the
-      // functional updater form so the check reads *current* state rather
-      // than the stale closure captured when the interval was created —
-      // otherwise every poll tick could re-apply the server value and
-      // clobber an in-flight user edit.
-      if (voiceResponse.stt_provider) {
-        const seeded = voiceResponse.stt_provider === 'whisper' ? 'whisper' : 'cloud';
-        setSttProvider(prev => prev || seeded);
-      }
-      if (voiceResponse.tts_provider) {
-        const seeded = voiceResponse.tts_provider === 'piper' ? 'piper' : 'cloud';
-        setTtsProvider(prev => prev || seeded);
-      }
+      // Seed model/voice IDs from voice_status on first load only.
       if (voiceResponse.stt_model_id) {
         setSttModel(prev => prev || voiceResponse.stt_model_id);
       }
       if (voiceResponse.tts_voice_id) {
         setTtsVoice(prev => prev || voiceResponse.tts_voice_id);
       }
-      // Load voice provider registry settings (non-blocking — don't fail
-      // the panel if the new RPCs aren't available on an older core).
+      // Load voice provider registry settings. This is the authoritative
+      // source for stt_provider / tts_provider routing — NOT voice_status
+      // (which reads from the legacy local_ai fields and doesn't know
+      // about external providers).
       loadVoiceSettings()
-        .then(vs => setVoiceSettings(vs))
+        .then(vs => {
+          setVoiceSettings(vs);
+          // Seed the routing dropdowns from the registry on first load.
+          // Use the effective provider string from the core config.
+          const sttStr =
+            vs.sttProvider.kind === 'cloud'
+              ? 'cloud'
+              : vs.sttProvider.kind === 'local'
+                ? vs.sttProvider.engine
+                : vs.sttProvider.providerSlug;
+          const ttsStr =
+            vs.ttsProvider.kind === 'cloud'
+              ? 'cloud'
+              : vs.ttsProvider.kind === 'local'
+                ? vs.ttsProvider.engine
+                : vs.ttsProvider.providerSlug;
+          setSttProvider(prev => prev || (sttStr as 'cloud' | 'whisper' | ''));
+          setTtsProvider(prev => prev || (ttsStr as 'cloud' | 'piper' | ''));
+        })
         .catch(err => {
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[VoicePanel] voice settings load failed (expected on older cores)', err);
+          }
+          // Fallback: seed from legacy voice_status
+          if (voiceResponse.stt_provider) {
+            const seeded = voiceResponse.stt_provider === 'whisper' ? 'whisper' : 'cloud';
+            setSttProvider(prev => prev || seeded);
+          }
+          if (voiceResponse.tts_provider) {
+            const seeded = voiceResponse.tts_provider === 'piper' ? 'piper' : 'cloud';
+            setTtsProvider(prev => prev || seeded);
           }
         });
       setError(null);

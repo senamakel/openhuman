@@ -938,6 +938,9 @@ fn handle_voice_update_provider_settings(params: Map<String, Value>) -> Controll
             if !trimmed.is_empty() {
                 validate_stt_provider(trimmed)?;
                 config.stt_provider = Some(trimmed.to_string());
+                // Sync to legacy field so voice_status / voice_stt_dispatch
+                // pick up the change without waiting for a restart.
+                config.local_ai.stt_provider = trimmed.to_string();
             }
         }
 
@@ -946,6 +949,7 @@ fn handle_voice_update_provider_settings(params: Map<String, Value>) -> Controll
             if !trimmed.is_empty() {
                 validate_tts_provider(trimmed)?;
                 config.tts_provider = Some(trimmed.to_string());
+                config.local_ai.tts_provider = trimmed.to_string();
             }
         }
 

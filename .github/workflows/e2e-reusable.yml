@@ -558,9 +558,18 @@ jobs:
 
       - name: Install Rust (rust-toolchain.toml)
         uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          # macos-latest is arm64, but the vendored tauri-cli's build.rs
+          # compiles a CEF helper for x86_64-apple-darwin (universal binary),
+          # so the x86_64 libstd must be installed too. Without this the
+          # build fails with E0463 "can't find crate for `core`".
+          targets: x86_64-apple-darwin
 
       - name: Verify cargo resolves to real toolchain
-        run: cargo --version
+        run: |
+          rustup default 1.93.0 || true
+          which cargo
+          cargo --version
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2

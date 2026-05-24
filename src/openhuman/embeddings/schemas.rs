@@ -317,4 +317,20 @@ mod tests {
         assert_eq!(s.function, "unknown");
         assert_eq!(s.namespace, "embeddings");
     }
+
+    #[tokio::test]
+    async fn all_handlers_accept_empty_params_without_panic() {
+        // Every handler should return a result (Ok or Err) when called with
+        // empty params — it must not panic. Handlers that require params will
+        // return an error, which is also acceptable here.
+        let controllers = all_registered_controllers();
+        for ctrl in controllers {
+            let params = serde_json::Map::new();
+            // The handler is an async fn pointer; calling it with empty params
+            // must not panic. We don't assert Ok because mandatory-param
+            // handlers legitimately return Err("invalid params: ...").
+            let _result = (ctrl.handler)(params).await;
+            // If we reach here the handler did not panic.
+        }
+    }
 }

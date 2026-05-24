@@ -212,4 +212,47 @@ mod tests {
     fn unknown_provider_returns_none() {
         assert!(find_provider("unknown").is_none());
     }
+
+    #[test]
+    fn all_providers_have_unique_slugs() {
+        let providers = all_providers();
+        let mut seen = std::collections::HashSet::new();
+        for entry in providers {
+            assert!(
+                seen.insert(entry.slug),
+                "duplicate slug in CATALOG: \"{}\"",
+                entry.slug
+            );
+        }
+    }
+
+    #[test]
+    fn all_models_have_valid_dimensions() {
+        for entry in all_providers() {
+            for model in entry.models {
+                assert!(
+                    model.allowed_dimensions.contains(&model.default_dimensions),
+                    "provider \"{}\" model \"{}\" has default_dimensions {} not in allowed_dimensions {:?}",
+                    entry.slug,
+                    model.id,
+                    model.default_dimensions,
+                    model.allowed_dimensions
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn default_model_for_all_providers_with_models() {
+        for entry in all_providers() {
+            if !entry.models.is_empty() {
+                assert!(
+                    default_model_for(entry.slug).is_some(),
+                    "default_model_for({:?}) returned None but provider has {} models",
+                    entry.slug,
+                    entry.models.len()
+                );
+            }
+        }
+    }
 }

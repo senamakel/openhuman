@@ -25,9 +25,7 @@ pub fn get_or_create_source_tree(config: &Config, scope: &str) -> Result<Tree> {
     log::debug!("[sources::registry] get_or_create_source_tree scope={scope_redacted}");
     let tree = get_or_create_tree(config, TreeKind::Source, scope)?;
     if let Err(e) = file::write_source_file(config, &tree) {
-        log::warn!(
-            "[sources::registry] write_source_file failed scope={scope_redacted} err={e:#}"
-        );
+        log::warn!("[sources::registry] write_source_file failed scope={scope_redacted} err={e:#}");
     }
     Ok(tree)
 }

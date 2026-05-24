@@ -29,12 +29,9 @@ pub mod types;
 pub mod vectors;
 pub mod unified;
 
-pub mod agentmemory;
 mod client;
 mod factories;
 mod memory_trait;
-
-pub use agentmemory::{agentmemory_default_url, AgentMemoryBackend, DEFAULT_AGENTMEMORY_URL};
 
 pub use kinds::MemoryKind;
 pub use traits::{ObsidianFile, ObsidianRepresentable, VectorEmbeddable};

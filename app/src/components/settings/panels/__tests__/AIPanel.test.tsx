@@ -3,14 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { listConnections as listComposioConnections } from '../../../../lib/composio/composioApi';
 import {
-  clearOpenAICompatEndpointKey,
   listProviderModels,
   loadAISettings,
   loadLocalProviderSnapshot,
-  loadOpenAICompatEndpointStatus,
   saveAISettings,
   setCloudProviderKey,
-  setOpenAICompatEndpointKey,
   testProviderModel,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
@@ -38,12 +35,9 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
     'subconscious',
   ],
   loadAISettings: vi.fn(),
-  loadOpenAICompatEndpointStatus: vi.fn(),
   saveAISettings: vi.fn(),
   loadLocalProviderSnapshot: vi.fn(),
-  setOpenAICompatEndpointKey: vi.fn(),
   testProviderModel: vi.fn(),
-  clearOpenAICompatEndpointKey: vi.fn().mockResolvedValue(undefined),
   setCloudProviderKey: vi.fn(),
   clearCloudProviderKey: vi.fn().mockResolvedValue(undefined),
   serializeProviderRef: vi.fn((r: { kind: string; providerSlug?: string; model?: string }) =>
@@ -200,13 +194,7 @@ describe('AIPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
-    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValue({
-      baseUrl: 'http://127.0.0.1:7788/v1',
-      has_api_key: false,
-    });
     vi.mocked(loadLocalProviderSnapshot).mockResolvedValue(baseLocalSnapshot);
-    vi.mocked(setOpenAICompatEndpointKey).mockResolvedValue(undefined);
-    vi.mocked(clearOpenAICompatEndpointKey).mockResolvedValue(undefined);
     vi.mocked(setCloudProviderKey).mockResolvedValue(undefined);
     vi.mocked(testProviderModel).mockResolvedValue({ reply: 'Hello from the selected model.' });
     vi.mocked(listProviderModels).mockResolvedValue([]);
@@ -250,69 +238,6 @@ describe('AIPanel', () => {
     expect(screen.getAllByText(/^Routing$/).length).toBeGreaterThan(0);
   });
 
-  it('renders the OpenAI-compatible endpoint card with the local /v1 base URL', async () => {
-    renderWithProviders(<AIPanel />);
-
-    await waitFor(() => expect(screen.getByText('OpenAI-compatible endpoint')).toBeInTheDocument());
-    expect(screen.getByDisplayValue('http://127.0.0.1:7788/v1')).toBeInTheDocument();
-    expect(screen.getByText(/Authorization: Bearer/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument();
-  });
-
-  it('renders Rotate/Clear controls when an OpenAI-compat key is configured', async () => {
-    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValueOnce({
-      baseUrl: 'http://127.0.0.1:7788/v1',
-      has_api_key: true,
-    });
-    renderWithProviders(<AIPanel />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Rotate key' })).toBeInTheDocument()
-    );
-    expect(screen.getByRole('button', { name: 'Clear key' })).toBeInTheDocument();
-    expect(screen.getByText('Key configured')).toBeInTheDocument();
-  });
-
-  it('falls back to the localized "Unavailable" base URL when resolution fails', async () => {
-    vi.mocked(loadOpenAICompatEndpointStatus).mockRejectedValueOnce(new Error('boom'));
-    renderWithProviders(<AIPanel />);
-
-    await waitFor(() => expect(screen.getByDisplayValue('Unavailable')).toBeInTheDocument());
-  });
-
-  it('clears the OpenAI-compat key when the Clear button is clicked', async () => {
-    vi.mocked(loadOpenAICompatEndpointStatus).mockResolvedValueOnce({
-      baseUrl: 'http://127.0.0.1:7788/v1',
-      has_api_key: true,
-    });
-    renderWithProviders(<AIPanel />);
-
-    const clearBtn = await screen.findByRole('button', { name: 'Clear key' });
-    fireEvent.click(clearBtn);
-
-    await waitFor(() => expect(clearOpenAICompatEndpointKey).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Set key' })).toBeInTheDocument()
-    );
-  });
-
-  it('persists a new OpenAI-compat key via the Set key dialog', async () => {
-    renderWithProviders(<AIPanel />);
-
-    const setBtn = await screen.findByRole('button', { name: 'Set key' });
-    fireEvent.click(setBtn);
-
-    const input = await screen.findByLabelText(/API Key/i);
-    fireEvent.change(input, { target: { value: 'sk-test-12345' } });
-    const submit = screen.getByRole('button', { name: /^Save$/ });
-    fireEvent.click(submit);
-
-    await waitFor(() => expect(setOpenAICompatEndpointKey).toHaveBeenCalledWith('sk-test-12345'));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Rotate key' })).toBeInTheDocument()
-    );
-  });
-
   it('renders the OpenHuman primary card after load', async () => {
     renderWithProviders(<AIPanel />);
     // The OpenHuman label now appears in multiple places (provider card,
@@ -321,8 +246,28 @@ describe('AIPanel', () => {
     await waitFor(() => expect(screen.getAllByText(/OpenHuman/i).length).toBeGreaterThan(0));
   });
 
-  it('renders all nine workload labels', async () => {
+  it('renders the always-on Managed chip', async () => {
     renderWithProviders(<AIPanel />);
+    const managedSwitch = await screen.findByRole('switch', { name: /Disconnect Managed/i });
+    expect(managedSwitch).toBeDisabled();
+    expect(managedSwitch).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Managed/i })).toBeInTheDocument()
+    );
+    expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument();
+  });
+
+  it('renders all visible advanced workload labels', async () => {
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
       'Chat',
@@ -330,7 +275,6 @@ describe('AIPanel', () => {
       'Agentic',
       'Coding',
       'Memory summarization',
-      'Embeddings',
       'Heartbeat',
       /Learning/,
       'Subconscious',
@@ -378,20 +322,7 @@ describe('AIPanel', () => {
     // Wait for load.
     await waitFor(() => expect(screen.getAllByText(/Anthropic/i).length).toBeGreaterThan(0));
 
-    // Trigger a routing change so the SaveBar appears, then save.
-    // Click the "Default" button specifically on the Reasoning row (which is
-    // currently set to custom cloud routing) to switch it back to openhuman.
-    const reasoningRow = screen
-      .getByText('Reasoning')
-      .closest('[class*="flex items-center justify-between"]');
-    fireEvent.click(within(reasoningRow as HTMLElement).getByText('Default'));
-
-    // SaveBar should appear.
-    await waitFor(() => expect(screen.getByText(/unsaved change/i)).toBeInTheDocument());
-
-    // Click Save in the SaveBar.
-    const saveButton = screen.getByRole('button', { name: /^Save$/i });
-    fireEvent.click(saveButton);
+    fireEvent.click(screen.getByRole('button', { name: /Managed/i }));
 
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
@@ -464,23 +395,18 @@ describe('AIPanel', () => {
     );
   });
 
-  it('clicking the Custom chip (when disabled) opens the CloudProviderEditor, not the key dialog', async () => {
-    // Load with no custom provider → chip is off.
+  it('clicking Add Custom Provider opens the CloudProviderEditor', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getAllByText(/Custom/i).length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
 
-    // Find the "Connect Custom" switch and click it.
-    const connectSwitch = screen.getByRole('switch', { name: /Connect Custom/i });
-    fireEvent.click(connectSwitch);
-
-    // The full CloudProviderEditor should appear (has "Add cloud provider" heading).
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     expect(screen.getByLabelText(/^Name$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/OpenAI URL/i)).toBeInTheDocument();
-    // The simple ProviderKeyDialog should NOT appear.
-    expect(screen.queryByRole('dialog', { name: /Connect Custom/i })).not.toBeInTheDocument();
   });
 
   // ─── chip toggle: toggle OFF scrubs routing entries ──────────────────────────
@@ -522,11 +448,6 @@ describe('AIPanel', () => {
     // Toggle OFF.
     fireEvent.click(screen.getByRole('switch', { name: /Disconnect OpenAI/i }));
 
-    // A SaveBar must appear because the draft changed.
-    await waitFor(() => expect(screen.getByText(/unsaved change/i)).toBeInTheDocument());
-
-    // Save to capture the nextSettings arg.
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
     const [, nextSettings] = vi.mocked(saveAISettings).mock.calls[0];
@@ -536,10 +457,10 @@ describe('AIPanel', () => {
       nextSettings.cloudProviders.find((p: { slug: string }) => p.slug === 'openai')
     ).toBeUndefined();
 
-    // Routing entries that were pinned to openai must be reset to openhuman.
-    expect(nextSettings.routing.reasoning).toEqual({ kind: 'openhuman' });
-    expect(nextSettings.routing.agentic).toEqual({ kind: 'openhuman' });
-    // Entries that were already openhuman remain unchanged.
+    // Routing entries that were pinned to openai must be reset to the user default route.
+    expect(nextSettings.routing.reasoning).toEqual({ kind: 'default' });
+    expect(nextSettings.routing.agentic).toEqual({ kind: 'default' });
+    // Entries that were already OpenHuman-managed remain unchanged.
     expect(nextSettings.routing.coding).toEqual({ kind: 'openhuman' });
   });
 
@@ -629,10 +550,10 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Custom/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Team Gateway' } });
     fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
@@ -659,10 +580,10 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Custom/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'My Team Gateway' } });
@@ -793,13 +714,11 @@ describe('AIPanel', () => {
     vi.mocked(saveAISettings).mockResolvedValue(undefined);
     renderWithProviders(<AIPanel />);
 
-    // Wait for the Reasoning workload row (identified by its unique
-    // description text), then click its "Custom" segment to open the
-    // Custom routing dialog.
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
 
@@ -853,10 +772,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -899,10 +819,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -938,10 +859,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));

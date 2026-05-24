@@ -18,18 +18,15 @@ import {
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
   clearCloudProviderKey,
-  clearOpenAICompatEndpointKey,
   type CloudProviderView,
   flushCloudProviders,
   listProviderModels,
   loadAISettings,
   loadLocalProviderSnapshot,
-  loadOpenAICompatEndpointStatus,
   type LocalProviderSnapshot,
   type ModelInfo,
   saveAISettings,
   setCloudProviderKey,
-  setOpenAICompatEndpointKey,
   testProviderModel,
 } from '../../../services/api/aiSettingsApi';
 import {
@@ -87,12 +84,24 @@ type WorkloadGroup = 'chat' | 'background';
 
 type ProviderRef =
   | { kind: 'openhuman' }
+  | { kind: 'default' }
   | { kind: 'cloud'; providerSlug: string; model: string; temperature?: number | null }
   | { kind: 'local'; model: string; temperature?: number | null };
 
 type Workload = { id: WorkloadId; group: WorkloadGroup; label: string; description: string };
 
 type RoutingMap = Record<WorkloadId, ProviderRef>;
+type RoutingMode = 'managed' | 'own' | 'custom';
+const ROUTING_WORKLOAD_IDS: WorkloadId[] = [
+  'chat',
+  'reasoning',
+  'agentic',
+  'coding',
+  'memory',
+  'heartbeat',
+  'learning',
+  'subconscious',
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static catalog
@@ -102,8 +111,8 @@ type RoutingMap = Record<WorkloadId, ProviderRef>;
 // chip rendering (label, tone). Custom providers use `provider.label` directly.
 const BUILTIN_PROVIDER_META: Record<string, { tone: string; label: string }> = {
   openhuman: {
-    label: 'OpenHuman',
-    tone: 'bg-primary-50 dark:bg-primary-500/10 ring-primary-200 text-primary-900 dark:text-primary-100',
+    label: 'Managed',
+    tone: 'bg-emerald-50 dark:bg-emerald-500/10 ring-emerald-200 text-emerald-900 dark:text-emerald-100',
   },
   openai: {
     label: 'OpenAI',
@@ -121,9 +130,21 @@ const BUILTIN_PROVIDER_META: Record<string, { tone: string; label: string }> = {
     label: 'OrcaRouter',
     tone: 'bg-sky-50 dark:bg-sky-500/10 ring-sky-200 text-sky-900 dark:text-sky-100',
   },
+  gmi: {
+    label: 'GMI',
+    tone: 'bg-fuchsia-50 dark:bg-fuchsia-500/10 ring-fuchsia-200 text-fuchsia-900 dark:text-fuchsia-100',
+  },
+  fireworks: {
+    label: 'Fireworks',
+    tone: 'bg-rose-50 dark:bg-rose-500/10 ring-rose-200 text-rose-900 dark:text-rose-100',
+  },
+  moonshot: {
+    label: 'Kimi (Moonshot)',
+    tone: 'bg-indigo-50 dark:bg-indigo-500/10 ring-indigo-200 text-indigo-900 dark:text-indigo-100',
+  },
   custom: {
-    label: 'Custom',
-    tone: 'bg-stone-100 dark:bg-neutral-800 ring-stone-300 text-stone-900 dark:text-neutral-100',
+    label: 'Advanced',
+    tone: 'bg-sky-50 dark:bg-sky-500/10 ring-sky-200 text-sky-900 dark:text-sky-100',
   },
 };
 
@@ -173,6 +194,24 @@ const WORKLOADS: Workload[] = [
   },
 ];
 
+const WORKLOAD_MODEL_HINTS: Record<WorkloadId, string> = {
+  chat: 'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  reasoning:
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  agentic:
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  coding:
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  memory:
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  heartbeat:
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  learning:
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  subconscious:
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
+};
+
 // TIER_PRESETS removed alongside the Local provider section.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,14 +225,14 @@ const WORKLOADS: Workload[] = [
 type AISettings = { cloudProviders: CloudProvider[]; routing: RoutingMap };
 
 const EMPTY_ROUTING: RoutingMap = {
-  chat: { kind: 'openhuman' },
-  reasoning: { kind: 'openhuman' },
-  agentic: { kind: 'openhuman' },
-  coding: { kind: 'openhuman' },
-  memory: { kind: 'openhuman' },
-  heartbeat: { kind: 'openhuman' },
-  learning: { kind: 'openhuman' },
-  subconscious: { kind: 'openhuman' },
+  chat: { kind: 'default' },
+  reasoning: { kind: 'default' },
+  agentic: { kind: 'default' },
+  coding: { kind: 'default' },
+  memory: { kind: 'default' },
+  heartbeat: { kind: 'default' },
+  learning: { kind: 'default' },
+  subconscious: { kind: 'default' },
 };
 
 const EMPTY_SETTINGS: AISettings = { cloudProviders: [], routing: EMPTY_ROUTING };
@@ -504,12 +543,14 @@ const ProviderToggleChip = ({
   label,
   enabled,
   busy,
+  locked = false,
   onToggle,
 }: {
   slug: string;
   label: string;
   enabled: boolean;
   busy?: boolean;
+  locked?: boolean;
   onToggle: () => void;
 }) => {
   const { t } = useT();
@@ -523,9 +564,9 @@ const ProviderToggleChip = ({
         role="switch"
         aria-checked={enabled}
         aria-label={providerToggleAriaLabel(t, enabled, label)}
-        disabled={busy}
+        disabled={busy || locked}
         onClick={onToggle}
-        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700'}`}>
+        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-700'}`}>
         <span
           aria-hidden
           className={`inline-block h-3 w-3 transform rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
@@ -579,7 +620,13 @@ const ProviderKeyDialog = ({
           ? 'sk-or-...'
           : slug === 'orcarouter'
             ? 'sk-orca-...'
-            : 'your-api-key';
+            : slug === 'gmi'
+              ? 'gmi-...'
+              : slug === 'fireworks'
+                ? 'fw-...'
+                : slug === 'moonshot'
+                  ? 'sk-...'
+                  : 'your-api-key';
 
   const fieldLabel = isLocalRuntime
     ? t('settings.ai.endpointUrlLabel')
@@ -818,7 +865,8 @@ function summarizeSpendSample(transactions: CreditTransaction[]) {
 }
 
 function describeProvider(ref: ProviderRef, providers: BackgroundLoopProviderView[]): string {
-  if (ref.kind === 'openhuman') return 'OpenHuman';
+  if (ref.kind === 'openhuman') return 'Managed · OpenHuman';
+  if (ref.kind === 'default') return 'Default route';
   if (ref.kind === 'local') return `Local ${ref.model}`;
   const provider = providers.find(p => p.slug === ref.providerSlug);
   return `${provider?.label ?? ref.providerSlug} ${ref.model || 'custom model'}`;
@@ -1600,79 +1648,65 @@ export const BackgroundLoopControls = ({
 // Workload row (stacked, narrow-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WorkloadRowProps = {
-  workload: Workload;
-  ref_: ProviderRef;
-  cloudProviders: CloudProvider[];
-  localModels: OllamaModel[];
-  ollamaState: OllamaState;
-  onChange: (next: ProviderRef) => void;
-};
+type WorkloadRowProps = { workload: Workload; ref_: ProviderRef; cloudProviders: CloudProvider[] };
 
 const WorkloadRow = ({
   workload,
   ref_,
   cloudProviders,
-  localModels,
-  ollamaState,
-  onChange,
   onCustomClick,
 }: WorkloadRowProps & { onCustomClick: () => void }) => {
   const { t } = useT();
   const selectedCloud =
     ref_.kind === 'cloud' ? cloudProviders.find(c => c.slug === ref_.providerSlug) : undefined;
+  const isCustom = ref_.kind === 'cloud' || ref_.kind === 'local';
 
-  const isDefault = ref_.kind === 'openhuman';
-
-  let resolved: string;
-  if (ref_.kind === 'openhuman') {
-    resolved = t('settings.ai.openhumanDefault');
-  } else if (ref_.kind === 'cloud') {
-    if (!selectedCloud) resolved = `${ref_.providerSlug} · ${ref_.model}`;
-    else resolved = `${selectedCloud.label} · ${ref_.model}`;
-  } else {
+  let resolved = '';
+  if (ref_.kind === 'cloud') {
+    resolved = selectedCloud
+      ? `${selectedCloud.label} · ${ref_.model}`
+      : `${ref_.providerSlug} · ${ref_.model}`;
+  } else if (ref_.kind === 'local') {
     resolved = formatI18n(t('settings.ai.localModelResolved'), { model: ref_.model });
+  } else if (ref_.kind === 'openhuman') {
+    resolved = t('settings.ai.openhumanDefault');
   }
 
-  // Quiet `ollamaState` / `localModels` unused-prop warnings — they're still
-  // consumed by the parent's onChange wiring through `onCustomClick`.
-  void ollamaState;
-  void localModels;
-
-  const segmentBase =
-    'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer';
-  const activeSegment =
-    'bg-white dark:bg-neutral-900 text-stone-900 dark:text-neutral-100 shadow-subtle ring-1 ring-stone-200 dark:ring-neutral-600';
-  const inactiveSegment =
-    'text-stone-500 dark:text-neutral-400 hover:text-stone-800 dark:text-neutral-100 dark:hover:text-neutral-200';
-
   return (
-    <div className="flex items-center justify-between gap-3 py-3">
-      <div className="min-w-0 flex-1">
+    <div className="flex items-center justify-between gap-3 py-3 transition-colors">
+      <div className="min-w-0 flex-1 space-y-1">
         <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
           {workload.label}
         </div>
-        <div className="truncate text-xs text-stone-500 dark:text-neutral-400">
+        <div className="text-xs leading-5 text-stone-500 dark:text-neutral-400">
           {workload.description}
         </div>
-        <div className="mt-0.5 font-mono text-[11px] text-stone-400 dark:text-neutral-500 truncate">
-          ↳ {resolved}
+        <div className="text-[11px] leading-5 text-stone-500 dark:text-neutral-400">
+          {WORKLOAD_MODEL_HINTS[workload.id]}
         </div>
+        {resolved ? (
+          <div
+            className={`font-mono text-[11px] truncate ${
+              isCustom ? 'text-sky-700 dark:text-sky-200' : 'text-stone-500 dark:text-neutral-400'
+            }`}>
+            {resolved}
+          </div>
+        ) : (
+          <div className="text-[11px] text-stone-400 dark:text-neutral-500">
+            {t('settings.ai.workload.noModel')}
+          </div>
+        )}
       </div>
-      <div className="inline-flex shrink-0 items-center rounded-lg bg-stone-100 dark:bg-neutral-800 p-0.5">
-        <button
-          type="button"
-          onClick={() => onChange({ kind: 'openhuman' })}
-          className={`${segmentBase} ${isDefault ? activeSegment : inactiveSegment}`}>
-          {t('settings.ai.routingDefault')}
-        </button>
-        <button
-          type="button"
-          onClick={onCustomClick}
-          className={`${segmentBase} ${!isDefault ? activeSegment : inactiveSegment}`}>
-          {t('settings.ai.routingCustom')}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onCustomClick}
+        className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+          isCustom
+            ? 'bg-stone-100 text-stone-700 ring-1 ring-stone-300 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700'
+            : 'bg-stone-100 text-stone-700 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700'
+        }`}>
+        {isCustom ? t('settings.ai.workload.changeModel') : t('settings.ai.workload.chooseModel')}
+      </button>
     </div>
   );
 };
@@ -1693,6 +1727,60 @@ interface CustomRoutingDialogProps {
 }
 
 type CustomDialogSource = { kind: 'cloud'; providerSlug: string } | { kind: 'local' };
+
+function providerRefSignature(ref: ProviderRef): string {
+  switch (ref.kind) {
+    case 'openhuman':
+      return 'openhuman';
+    case 'default':
+      return 'default';
+    case 'cloud':
+      return `cloud:${ref.providerSlug}:${ref.model}:${ref.temperature ?? ''}`;
+    case 'local':
+      return `local:${ref.model}:${ref.temperature ?? ''}`;
+  }
+}
+
+function inferRoutingMode(routing: RoutingMap): RoutingMode {
+  const refs = ROUTING_WORKLOAD_IDS.map(id => routing[id]);
+  if (refs.every(ref => ref.kind === 'openhuman' || ref.kind === 'default')) {
+    return 'managed';
+  }
+  const first = refs[0];
+  if (
+    first &&
+    (first.kind === 'cloud' || first.kind === 'local') &&
+    refs.every(ref => providerRefSignature(ref) === providerRefSignature(first))
+  ) {
+    return 'own';
+  }
+  return 'custom';
+}
+
+function inferSharedModelRef(routing: RoutingMap): ProviderRef | null {
+  const refs = ROUTING_WORKLOAD_IDS.map(id => routing[id]);
+  const first = refs[0];
+  if (!first) return null;
+  if (refs.every(ref => providerRefSignature(ref) === providerRefSignature(first))) {
+    return first.kind === 'openhuman' ? null : first;
+  }
+  return (
+    refs.find(ref => ref.kind === 'cloud' || ref.kind === 'local' || ref.kind === 'default') ?? null
+  );
+}
+
+function routingWithAllWorkloads(next: ProviderRef): RoutingMap {
+  return {
+    chat: next,
+    reasoning: next,
+    agentic: next,
+    coding: next,
+    memory: next,
+    heartbeat: next,
+    learning: next,
+    subconscious: next,
+  };
+}
 
 function humanizeModelId(id: string): string {
   return id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -1715,7 +1803,8 @@ const CustomRoutingDialog = ({
 }: CustomRoutingDialogProps) => {
   const { t } = useT();
   // Non-openhuman cloud providers + local-ollama (if available) are the
-  // "Custom" options. OpenHuman is excluded — it's the Default path.
+  // "Custom" options. OpenHuman is its own Managed path; Default serializes
+  // to the backend's `cloud` sentinel.
   const customCloud = cloudProviders.filter(p => p.slug !== 'openhuman');
   const localAvailable = ollamaRunning && localModels.length > 0;
 
@@ -1875,6 +1964,9 @@ const CustomRoutingDialog = ({
               {t('settings.ai.customRouting')}
             </h3>
             <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{workload.label}</p>
+            <p className="mt-2 max-w-md text-xs leading-5 text-stone-500 dark:text-neutral-400">
+              {WORKLOAD_MODEL_HINTS[workload.id]}
+            </p>
           </div>
           <button
             type="button"
@@ -2218,6 +2310,240 @@ const SaveBar = ({
   );
 };
 
+const GlobalOwnModelSelector = ({
+  current,
+  saved,
+  cloudProviders,
+  localModels,
+  ollamaRunning,
+  onApply,
+}: {
+  current: ProviderRef | null;
+  saved: ProviderRef | null;
+  cloudProviders: CloudProvider[];
+  localModels: OllamaModel[];
+  ollamaRunning: boolean;
+  onApply: (next: ProviderRef) => Promise<void>;
+}) => {
+  const { t } = useT();
+  const customCloud = cloudProviders.filter(p => p.slug !== 'openhuman');
+  const localAvailable = ollamaRunning && localModels.length > 0;
+
+  const initialSource: CustomDialogSource | null =
+    current?.kind === 'cloud'
+      ? { kind: 'cloud', providerSlug: current.providerSlug }
+      : current?.kind === 'local'
+        ? { kind: 'local' }
+        : customCloud[0]
+          ? { kind: 'cloud', providerSlug: customCloud[0].slug }
+          : localAvailable
+            ? { kind: 'local' }
+            : null;
+
+  const [source, setSource] = useState<CustomDialogSource | null>(initialSource);
+  const [model, setModel] = useState<string>(
+    current?.kind === 'cloud' || current?.kind === 'local' ? current.model : ''
+  );
+  const [cloudModels, setCloudModels] = useState<ModelInfo[]>([]);
+  const [cloudModelsLoading, setCloudModelsLoading] = useState(false);
+  const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const selectedSlug = source?.kind === 'cloud' ? source.providerSlug : null;
+
+  useEffect(() => {
+    if (!selectedSlug) {
+      setCloudModels([]);
+      setCloudModelsError(null);
+      return;
+    }
+    const provider = customCloud.find(c => c.slug === selectedSlug);
+    if (!provider) {
+      setCloudModels([]);
+      setCloudModelsError(null);
+      return;
+    }
+    let active = true;
+    setCloudModelsLoading(true);
+    setCloudModels([]);
+    setCloudModelsError(null);
+    listProviderModels(provider.slug)
+      .then(ms => {
+        if (!active) return;
+        setCloudModels(ms);
+        setCloudModelsLoading(false);
+        if (!model.trim() && ms[0]?.id) {
+          setModel(ms[0].id);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setCloudModelsError(err instanceof Error ? err.message : String(err));
+        setCloudModelsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlug]);
+
+  useEffect(() => {
+    if (source?.kind === 'local' && !model.trim()) {
+      setModel(localModels[0]?.id ?? '');
+    }
+  }, [source, localModels, model]);
+
+  const canApply = source !== null && model.trim().length > 0;
+  const selectedRef =
+    !source || !model.trim()
+      ? null
+      : source.kind === 'local'
+        ? ({ kind: 'local', model: model.trim() } as const)
+        : ({ kind: 'cloud', providerSlug: source.providerSlug, model: model.trim() } as const);
+  const isSaved =
+    selectedRef !== null &&
+    saved !== null &&
+    providerRefSignature(selectedRef) === providerRefSignature(saved);
+
+  const applySelection = async (nextSource: CustomDialogSource | null, nextModel: string) => {
+    if (!nextSource || !nextModel.trim()) return;
+    setSaving(true);
+    try {
+      if (nextSource.kind === 'local') {
+        await onApply({ kind: 'local', model: nextModel.trim() });
+      } else {
+        await onApply({
+          kind: 'cloud',
+          providerSlug: nextSource.providerSlug,
+          model: nextModel.trim(),
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+      <div className="space-y-1">
+        <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          {t('settings.ai.globalModel.title')}
+        </div>
+        <p className="text-xs text-amber-700 dark:text-amber-200">
+          {t('settings.ai.globalModel.desc')}
+        </p>
+      </div>
+
+      {customCloud.length === 0 && !localAvailable ? (
+        <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+          {t('settings.ai.globalModel.noProviders')}
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                {t('settings.ai.globalModel.provider')}
+              </label>
+              <select
+                value={
+                  source
+                    ? `${source.kind}:${source.kind === 'cloud' ? source.providerSlug : ''}`
+                    : ''
+                }
+                onChange={e => {
+                  const colonIdx = e.target.value.indexOf(':');
+                  const kind = e.target.value.slice(0, colonIdx);
+                  const slug = e.target.value.slice(colonIdx + 1);
+                  if (kind === 'local') {
+                    const nextSource = { kind: 'local' } as const;
+                    const nextModel = localModels[0]?.id ?? '';
+                    setSource(nextSource);
+                    setModel(nextModel);
+                  } else {
+                    const nextSource = { kind: 'cloud', providerSlug: slug } as const;
+                    setSource(nextSource);
+                    setModel('');
+                  }
+                }}
+                className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100">
+                {customCloud.map(p => (
+                  <option key={p.slug} value={`cloud:${p.slug}`}>
+                    {p.label}
+                  </option>
+                ))}
+                {localAvailable ? (
+                  <option value="local:">{t('settings.ai.provider.ollama')}</option>
+                ) : null}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+                {t('settings.ai.globalModel.model')}
+              </label>
+              {source?.kind === 'local' ? (
+                <select
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100">
+                  {localModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.id}
+                    </option>
+                  ))}
+                </select>
+              ) : cloudModels.length > 0 ? (
+                <select
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100">
+                  {cloudModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.id}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  placeholder={
+                    cloudModelsLoading
+                      ? t('settings.ai.globalModel.loadingModels')
+                      : t('settings.ai.globalModel.enterModelId')
+                  }
+                  className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100"
+                />
+              )}
+              {cloudModelsError ? (
+                <div className="text-xs text-coral-700 dark:text-coral-300">{cloudModelsError}</div>
+              ) : null}
+            </div>
+          </div>
+          <div className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-500 dark:text-neutral-400">
+            {t('settings.ai.globalModel.appliesToAll')}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={!canApply || saving || isSaved}
+              onClick={() => void applySelection(source, model)}
+              className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
+              {saving
+                ? t('settings.ai.globalModel.saving')
+                : isSaved
+                  ? t('settings.ai.globalModel.saved')
+                  : t('common.save')}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main panel
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2232,8 +2558,7 @@ interface AIPanelProps {
 const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
-  const { saved, draft, setDraft, isDirty, save, persist, discard, loading, error, reload } =
-    useAISettings();
+  const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
   // Logic lives in a unit-testable hook (see useReembedBackfillModal).
   const { reembed, handleSave, dismissReembed } = useReembedBackfillModal(save);
@@ -2243,22 +2568,14 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   // Which workload's "Custom" dialog is currently open (null = closed).
   const [customDialogFor, setCustomDialogFor] = useState<WorkloadId | null>(null);
+  const [routingEditorMode, setRoutingEditorMode] = useState<'own' | 'custom' | null>(null);
   // Which provider slug's API-key dialog is currently open (null = closed).
   const [keyDialogFor, setKeyDialogFor] = useState<string | null>(null);
-  const [openAiCompatDialogOpen, setOpenAiCompatDialogOpen] = useState(false);
-  const [openAiCompatStatus, setOpenAiCompatStatus] = useState<{
-    baseUrl: string | null;
-    has_api_key: boolean;
-  }>({ baseUrl: null, has_api_key: false });
-  const [openAiCompatBusy, setOpenAiCompatBusy] = useState<string | null>(null);
   // When the user toggles LM Studio / Ollama (local runtimes), we
   // need to remember which label to attach to the upserted provider so the
   // chip can find it again. Cleared when the dialog closes.
   const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
   const openRouterOauthAbortRef = useRef<AbortController | null>(null);
-
-  const updateRouting = (id: WorkloadId, next: ProviderRef) =>
-    setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
 
   const connectProvider = useCallback(
     async ({
@@ -2350,36 +2667,19 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           }
         }
 
-        setDraft({
+        const nextDraft = {
           ...draft,
           cloudProviders: [...draft.cloudProviders.filter(p => p.slug !== slug), upserted],
-        });
+        };
+        await persist(nextDraft);
         setKeyDialogFor(null);
         setPendingLocalLabel(null);
       } finally {
         setBusyAction(null);
       }
     },
-    [draft, saved.cloudProviders, setDraft]
+    [draft, persist, saved.cloudProviders]
   );
-
-  useEffect(() => {
-    let active = true;
-    loadOpenAICompatEndpointStatus()
-      .then(status => {
-        if (active) {
-          setOpenAiCompatStatus(status);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setOpenAiCompatStatus({ baseUrl: null, has_api_key: false });
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // applyPreset removed alongside the Cloud / Local / Mixed preset pills —
   // the new Default/Custom binary toggle handles routing per workload.
@@ -2392,6 +2692,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
       if (JSON.stringify(a) !== JSON.stringify(b)) {
         const describe = (r: ProviderRef) => {
           if (r.kind === 'openhuman') return 'openhuman';
+          if (r.kind === 'default') return 'cloud';
           const tempSuffix = r.temperature != null ? `@${r.temperature.toFixed(2)}` : '';
           if (r.kind === 'cloud') return `${r.providerSlug}:${r.model}${tempSuffix}`;
           return `local:${r.model}${tempSuffix}`;
@@ -2404,6 +2705,14 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
 
   const chatRows = WORKLOADS.filter(w => w.group === 'chat');
   const bgRows = WORKLOADS.filter(w => w.group === 'background');
+  const inferredRoutingMode = useMemo(() => inferRoutingMode(draft.routing), [draft.routing]);
+  const effectiveRoutingMode: RoutingMode =
+    routingEditorMode === 'own'
+      ? 'own'
+      : routingEditorMode === 'custom'
+        ? 'custom'
+        : inferredRoutingMode;
+  const sharedModelRef = useMemo(() => inferSharedModelRef(draft.routing), [draft.routing]);
 
   return (
     <div className="relative">
@@ -2431,85 +2740,6 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             </p>
           </div>
 
-          <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-stone-50/80 dark:bg-neutral-900/70 p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  {t('settings.ai.openAiCompat.title')}
-                </h3>
-                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                  {t('settings.ai.openAiCompat.description')}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
-                    openAiCompatStatus.has_api_key
-                      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30'
-                      : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30'
-                  }`}>
-                  {openAiCompatStatus.has_api_key
-                    ? t('settings.ai.openAiCompat.keyConfigured')
-                    : t('settings.ai.openAiCompat.keyRequired')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setOpenAiCompatDialogOpen(true)}
-                  disabled={openAiCompatBusy !== null}
-                  className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
-                  {openAiCompatStatus.has_api_key
-                    ? t('settings.ai.openAiCompat.rotateKey')
-                    : t('settings.ai.openAiCompat.setKey')}
-                </button>
-                {openAiCompatStatus.has_api_key ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenAiCompatBusy('clear');
-                      clearOpenAICompatEndpointKey()
-                        .then(() => {
-                          setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: false }));
-                        })
-                        .catch(err => {
-                          console.warn(
-                            '[ai-settings] clearOpenAICompatEndpointKey failed',
-                            err instanceof Error ? err.message : String(err)
-                          );
-                        })
-                        .finally(() => setOpenAiCompatBusy(null));
-                    }}
-                    disabled={openAiCompatBusy !== null}
-                    className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:opacity-50">
-                    {t('settings.ai.openAiCompat.clearKey')}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                  {t('settings.ai.openAiCompat.baseUrlLabel')}
-                </label>
-                <input
-                  readOnly
-                  value={
-                    openAiCompatStatus.baseUrl ?? t('settings.ai.openAiCompat.baseUrlUnavailable')
-                  }
-                  className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                  {t('settings.ai.openAiCompat.authHeaderLabel')}
-                </label>
-                <div className="mt-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-700 dark:text-neutral-300">
-                  {t('settings.ai.openAiCompat.authHeaderExample')}
-                </div>
-              </div>
-            </div>
-          </section>
-
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">
             {loading && (
@@ -2524,50 +2754,103 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             )}
 
             <div className="flex flex-wrap gap-2">
+              <ProviderToggleChip
+                key="openhuman"
+                slug="openhuman"
+                label={t('settings.ai.routing.managed')}
+                enabled
+                locked
+                onToggle={() => {}}
+              />
+
               {/* Built-in cloud providers — openai/anthropic/openrouter/orcarouter/custom */}
-              {(['openai', 'anthropic', 'openrouter', 'orcarouter', 'custom'] as const).map(
-                slug => {
-                  const meta = BUILTIN_PROVIDER_META[slug];
-                  const label = meta?.label ?? slug;
-                  const existing = draft.cloudProviders.find(cp => cp.slug === slug);
-                  const enabled = !!existing;
-                  return (
-                    <ProviderToggleChip
-                      key={slug}
-                      slug={slug}
-                      label={label}
-                      enabled={enabled}
-                      busy={busyAction === `toggle-${slug}`}
-                      onToggle={() => {
-                        if (enabled && existing) {
-                          // Toggle OFF: remove the provider + scrub any
-                          // routing entries that pin to it.
-                          const remaining = draft.cloudProviders.filter(
-                            cp => cp.id !== existing.id
-                          );
-                          const nextRouting = Object.fromEntries(
-                            Object.entries(draft.routing).map(([wid, ref]) => [
-                              wid,
-                              ref.kind === 'cloud' && ref.providerSlug === existing.slug
-                                ? ({ kind: 'openhuman' } as const)
-                                : ref,
-                            ])
-                          ) as typeof draft.routing;
-                          setDraft({ ...draft, cloudProviders: remaining, routing: nextRouting });
-                        } else if (slug === 'custom') {
-                          // Custom providers need slug + endpoint + label, not
-                          // just an API key — defer to the full editor modal.
-                          setEditing('new');
-                        } else {
-                          // Toggle ON: open the API-key popup. The chip
-                          // only flips after the dialog saves.
-                          setKeyDialogFor(slug);
-                        }
-                      }}
-                    />
-                  );
-                }
-              )}
+              {(
+                [
+                  'openai',
+                  'anthropic',
+                  'openrouter',
+                  'orcarouter',
+                  'gmi',
+                  'fireworks',
+                  'moonshot',
+                ] as const
+              ).map(slug => {
+                const meta = BUILTIN_PROVIDER_META[slug];
+                const label = meta?.label ?? slug;
+                const existing = draft.cloudProviders.find(cp => cp.slug === slug);
+                const enabled = !!existing;
+                return (
+                  <ProviderToggleChip
+                    key={slug}
+                    slug={slug}
+                    label={label}
+                    enabled={enabled}
+                    busy={busyAction === `toggle-${slug}`}
+                    onToggle={async () => {
+                      if (enabled && existing) {
+                        // Toggle OFF: remove the provider + scrub any
+                        // routing entries that pin to it.
+                        const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
+                        const nextRouting = Object.fromEntries(
+                          Object.entries(draft.routing).map(([wid, ref]) => [
+                            wid,
+                            ref.kind === 'cloud' && ref.providerSlug === existing.slug
+                              ? ({ kind: 'default' } as const)
+                              : ref,
+                          ])
+                        ) as typeof draft.routing;
+                        await persist({
+                          ...draft,
+                          cloudProviders: remaining,
+                          routing: nextRouting,
+                        });
+                      } else {
+                        // Toggle ON: open the API-key popup. The chip
+                        // only flips after the dialog saves.
+                        setKeyDialogFor(slug);
+                      }
+                    }}
+                  />
+                );
+              })}
+
+              {draft.cloudProviders
+                .filter(
+                  cp =>
+                    ![
+                      'openhuman',
+                      'openai',
+                      'anthropic',
+                      'openrouter',
+                      'orcarouter',
+                      'gmi',
+                      'fireworks',
+                      'moonshot',
+                      'lmstudio',
+                      'ollama',
+                    ].includes(cp.slug)
+                )
+                .map(existing => (
+                  <ProviderToggleChip
+                    key={existing.id}
+                    slug="custom"
+                    label={existing.label}
+                    enabled
+                    busy={busyAction === `toggle-${existing.slug}`}
+                    onToggle={async () => {
+                      const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
+                      const nextRouting = Object.fromEntries(
+                        Object.entries(draft.routing).map(([wid, ref]) => [
+                          wid,
+                          ref.kind === 'cloud' && ref.providerSlug === existing.slug
+                            ? ({ kind: 'default' } as const)
+                            : ref,
+                        ])
+                      ) as typeof draft.routing;
+                      await persist({ ...draft, cloudProviders: remaining, routing: nextRouting });
+                    }}
+                  />
+                ))}
 
               {/* LM Studio + Ollama — local runtimes stored with a slug of
                   "lmstudio" / "ollama" so they're distinct from generic custom. */}
@@ -2589,7 +2872,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                       aria-checked={enabled}
                       aria-label={providerToggleAriaLabel(t, enabled, label)}
                       disabled={busyAction === `toggle-${localKind}`}
-                      onClick={() => {
+                      onClick={async () => {
                         if (enabled && existing) {
                           const remaining = draft.cloudProviders.filter(
                             cp => cp.id !== existing.id
@@ -2598,11 +2881,15 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                             Object.entries(draft.routing).map(([wid, ref]) => [
                               wid,
                               ref.kind === 'cloud' && ref.providerSlug === localKind
-                                ? ({ kind: 'openhuman' } as const)
+                                ? ({ kind: 'default' } as const)
                                 : ref,
                             ])
                           ) as typeof draft.routing;
-                          setDraft({ ...draft, cloudProviders: remaining, routing: nextRouting });
+                          await persist({
+                            ...draft,
+                            cloudProviders: remaining,
+                            routing: nextRouting,
+                          });
                         } else {
                           setKeyDialogFor(localKind);
                           setPendingLocalLabel(label);
@@ -2618,14 +2905,23 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 );
               })}
             </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setEditing('new')}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2 text-xs font-medium text-primary-900 ring-1 ring-primary-200 transition-colors hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/30 dark:hover:bg-primary-500/20">
+                {t('settings.ai.routing.addCustomProvider')}
+              </button>
+            </div>
           </section>
         </div>
         {/* end of Auth section */}
 
         {/* ═══════════════════════════════════════════════════════════════
-            ROUTING — which workload uses which model. Each row is a
-            binary toggle: Default (let OpenHuman pick) or Custom (opens
-            a popup to choose provider + model).
+            ROUTING — top-level routing mode. Managed = OpenHuman decides.
+            Own = one provider/model for everything. Custom = fine-grained
+            per-workload routing.
             ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
           <div className="border-b border-stone-200 dark:border-neutral-800 pb-2">
@@ -2638,54 +2934,134 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           </div>
 
           <section className="space-y-3">
-            <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3">
-              <div className="pt-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-                  {t('settings.ai.workloadGroupChat')}
+            <div className="grid gap-3 md:grid-cols-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setRoutingEditorMode(null);
+                  await persist({
+                    ...draft,
+                    routing: routingWithAllWorkloads({ kind: 'openhuman' }),
+                  });
+                }}
+                className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
+                  effectiveRoutingMode === 'managed'
+                    ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10'
+                    : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                }`}>
+                <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                  {t('settings.ai.routing.managed')}
                 </div>
-                <div className="divide-y divide-stone-200 dark:divide-neutral-800">
-                  {chatRows.map(w => (
-                    <WorkloadRow
-                      key={w.id}
-                      workload={w}
-                      ref_={draft.routing[w.id]}
-                      cloudProviders={draft.cloudProviders}
-                      localModels={installed}
-                      ollamaState={ollama.state}
-                      onChange={next => updateRouting(w.id, next)}
-                      onCustomClick={() => setCustomDialogFor(w.id)}
-                    />
-                  ))}
+                <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
+                  {t('settings.ai.routing.managedDesc')}
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRoutingEditorMode('own')}
+                className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
+                  effectiveRoutingMode === 'own'
+                    ? 'border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10'
+                    : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                }`}>
+                <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                  {t('settings.ai.routing.useYourOwn')}
                 </div>
-              </div>
-              <div className="pb-3 pt-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-                  {t('settings.ai.workloadGroupBackground')}
+                <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
+                  {t('settings.ai.routing.useYourOwnDesc')}
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRoutingEditorMode('custom')}
+                className={`flex h-full min-h-[152px] flex-col rounded-2xl border p-4 text-left transition-colors ${
+                  effectiveRoutingMode === 'custom'
+                    ? 'border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10'
+                    : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                }`}>
+                <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                  {t('settings.ai.routing.advanced')}
                 </div>
-                <div className="divide-y divide-stone-200 dark:divide-neutral-800">
-                  {bgRows.map(w => (
-                    <WorkloadRow
-                      key={w.id}
-                      workload={w}
-                      ref_={draft.routing[w.id]}
-                      cloudProviders={draft.cloudProviders}
-                      localModels={installed}
-                      ollamaState={ollama.state}
-                      onChange={next => updateRouting(w.id, next)}
-                      onCustomClick={() => setCustomDialogFor(w.id)}
-                    />
-                  ))}
-                </div>
-              </div>
+                <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
+                  {t('settings.ai.routing.advancedDesc')}
+                </p>
+              </button>
             </div>
 
-            <div className="text-[11px] text-stone-500 dark:text-neutral-400">
-              {t('settings.ai.defaultResolvesTo')}{' '}
-              <span className="font-mono text-stone-700 dark:text-neutral-200">
-                {t('settings.ai.defaultProviderName')}
-              </span>
-              .
-            </div>
+            {effectiveRoutingMode === 'managed' ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                {t('settings.ai.routing.managedMsg')}
+              </div>
+            ) : null}
+
+            {effectiveRoutingMode === 'own' ? (
+              <GlobalOwnModelSelector
+                current={sharedModelRef}
+                saved={inferSharedModelRef(saved.routing)}
+                cloudProviders={draft.cloudProviders}
+                localModels={installed}
+                ollamaRunning={ollama.state === 'running'}
+                onApply={async next => {
+                  await persist({ ...draft, routing: routingWithAllWorkloads(next) });
+                }}
+              />
+            ) : null}
+
+            {effectiveRoutingMode === 'custom' ? (
+              <>
+                <div className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+                  {t('settings.ai.routing.customDesc')}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3">
+                    <div className="border-b border-stone-200 dark:border-neutral-800 py-3">
+                      <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                        {t('settings.ai.routing.chatAndConversations')}
+                      </div>
+                      <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+                        {t('settings.ai.routing.chatDesc')}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-stone-200 dark:divide-neutral-800">
+                      {chatRows.map(w => (
+                        <WorkloadRow
+                          key={w.id}
+                          workload={w}
+                          ref_={draft.routing[w.id]}
+                          cloudProviders={draft.cloudProviders}
+                          onCustomClick={() => setCustomDialogFor(w.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3">
+                    <div className="border-b border-stone-200 dark:border-neutral-800 py-3">
+                      <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                        {t('settings.ai.routing.backgroundTasks')}
+                      </div>
+                      <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+                        {t('settings.ai.routing.bgTasksDesc')}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-stone-200 dark:divide-neutral-800">
+                      {bgRows.map(w => (
+                        <WorkloadRow
+                          key={w.id}
+                          workload={w}
+                          ref_={draft.routing[w.id]}
+                          cloudProviders={draft.cloudProviders}
+                          onCustomClick={() => setCustomDialogFor(w.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </section>
         </div>
         {/* end of Routing section */}
@@ -2785,7 +3161,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 editing === 'new'
                   ? [...draft.cloudProviders, upserted]
                   : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
-              setDraft({ ...draft, cloudProviders: list });
+              await persist({ ...draft, cloudProviders: list });
               setEditing(null);
             } finally {
               setBusyAction(null);
@@ -2826,25 +3202,6 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             />
           );
         })()}
-
-      {openAiCompatDialogOpen && (
-        <ProviderKeyDialog
-          slug="external-openai-compat"
-          label={t('settings.ai.openAiCompat.title')}
-          isLocalRuntime={false}
-          onCancel={() => setOpenAiCompatDialogOpen(false)}
-          onSubmit={async value => {
-            setOpenAiCompatBusy('save');
-            try {
-              await setOpenAICompatEndpointKey(value.trim());
-              setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: true }));
-              setOpenAiCompatDialogOpen(false);
-            } finally {
-              setOpenAiCompatBusy(null);
-            }
-          }}
-        />
-      )}
 
       {keyDialogFor && (
         <ProviderKeyDialog
@@ -2928,6 +3285,9 @@ const CloudProviderEditor = ({
       'anthropic',
       'openrouter',
       'orcarouter',
+      'gmi',
+      'fireworks',
+      'moonshot',
       'custom',
       'ollama',
       'lmstudio',
@@ -3006,7 +3366,14 @@ const CloudProviderEditor = ({
             </label>
             <input
               aria-label={t('settings.ai.apiKeyFieldLabel')}
-              type="password"
+              type="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
@@ -3081,6 +3448,12 @@ function defaultEndpointFor(slug: string): string {
       return 'https://openrouter.ai/api/v1';
     case 'orcarouter':
       return 'https://api.orcarouter.ai/v1';
+    case 'gmi':
+      return 'https://api.gmi-serving.com/v1';
+    case 'fireworks':
+      return 'https://api.fireworks.ai/inference/v1';
+    case 'moonshot':
+      return 'https://api.moonshot.ai/v1';
     case 'ollama':
       // Ollama exposes an OpenAI-compatible endpoint at /v1; the bare host is
       // also accepted by the Rust factory (it appends /v1 internally for chat).

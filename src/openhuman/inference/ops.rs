@@ -3,7 +3,7 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local as local_runtime;
-use crate::openhuman::inference::local::ops::{LocalAiChatMessage, ReactionDecision};
+use crate::openhuman::inference::local::ops::ReactionDecision;
 use crate::openhuman::inference::provider as providers;
 use crate::openhuman::inference::{device, presets, sentiment, SentimentResult};
 use crate::openhuman::inference::{LocalAiEmbeddingResult, LocalAiStatus};
@@ -110,24 +110,6 @@ pub async fn inference_embed(
     result
 }
 
-pub async fn inference_chat(
-    config: &Config,
-    messages: Vec<LocalAiChatMessage>,
-    max_tokens: Option<u32>,
-) -> Result<RpcOutcome<String>, String> {
-    debug!(
-        message_count = messages.len(),
-        ?max_tokens,
-        "{LOG_PREFIX} chat:start"
-    );
-    let result = local_runtime::rpc::local_ai_chat(config, messages, max_tokens).await;
-    match &result {
-        Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} chat:ok"),
-        Err(err) => error!(error = %err, "{LOG_PREFIX} chat:error"),
-    }
-    result
-}
-
 pub async fn inference_test_provider_model(
     config: &Config,
     workload: &str,
@@ -142,52 +124,20 @@ pub async fn inference_test_provider_model(
     );
     let result =
         if provider.trim().starts_with("lmstudio:") || provider.trim().starts_with("ollama:") {
-            let mut effective = config.clone();
-            let (local_kind, raw_model) = provider
-                .split_once(':')
-                .ok_or_else(|| "invalid local provider string".to_string())?;
-            let (model, temperature_override) = match raw_model.rsplit_once('@') {
-                Some((head, tail)) => match tail.trim().parse::<f64>() {
-                    Ok(temp) if !head.trim().is_empty() => (head.trim().to_string(), Some(temp)),
-                    _ => (raw_model.trim().to_string(), None),
-                },
-                None => (raw_model.trim().to_string(), None),
-            };
-            if model.is_empty() {
-                return Err("model must not be empty".to_string());
-            }
-            if let Some(temp) = temperature_override {
-                effective.default_temperature = temp;
-            }
-            if local_kind == "lmstudio" {
-                effective.local_ai.provider = "lm_studio".to_string();
-                if let Some(entry) = config.cloud_providers.iter().find(|e| e.slug == "lmstudio") {
-                    effective.local_ai.base_url = Some(entry.endpoint.clone());
-                }
-            } else {
-                effective.local_ai.provider = "ollama".to_string();
-                if let Some(entry) = config.cloud_providers.iter().find(|e| e.slug == "ollama") {
-                    effective.local_ai.base_url = Some(
-                        entry
-                            .endpoint
-                            .trim_end_matches("/")
-                            .trim_end_matches("/v1")
-                            .to_string(),
-                    );
-                }
-            }
-            effective.local_ai.chat_model_id = model;
-            let messages = vec![LocalAiChatMessage {
-                role: "user".to_string(),
-                content: prompt.to_string(),
-            }];
-            local_runtime::rpc::local_ai_chat(&effective, messages, None)
+            log::debug!("{LOG_PREFIX} test_provider_model: routing to local provider={provider}");
+            let (chat_provider, model) =
+            crate::openhuman::inference::provider::factory::create_local_chat_provider_from_string(
+                provider, config,
+            )
+            .map_err(|e| e.to_string())?;
+            log::debug!("{LOG_PREFIX} test_provider_model: invoking local model={model}");
+            chat_provider
+                .simple_chat(prompt, &model, config.default_temperature)
                 .await
-                .map(|outcome| {
+                .map_err(|e| e.to_string())
+                .map(|reply| {
                     RpcOutcome::single_log(
-                        InferenceTestProviderModelResult {
-                            reply: outcome.value,
-                        },
+                        InferenceTestProviderModelResult { reply },
                         "provider model test completed",
                     )
                 })

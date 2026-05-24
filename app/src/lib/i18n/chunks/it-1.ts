@@ -654,6 +654,43 @@ const it1: TranslationMap = {
   'settings.ai.totalBackgroundApiReadBudget': 'Total bg API read budget',
   'settings.ai.memoryWorkerPolls': 'Memory worker polls',
   'settings.ai.defaultProviderName': 'OpenHuman',
+  'settings.ai.routing.managed': 'Managed',
+  'settings.ai.routing.managedDesc':
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
+  'settings.ai.routing.managedMsg':
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
+  'settings.ai.routing.useYourOwn': 'Use Your Own Models',
+  'settings.ai.routing.useYourOwnDesc':
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
+  'settings.ai.routing.advanced': 'Advanced',
+  'settings.ai.routing.advancedDesc':
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
+  'settings.ai.routing.customDesc':
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
+  'settings.ai.routing.chatAndConversations': 'Chat and Conversations',
+  'settings.ai.routing.chatDesc':
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
+  'settings.ai.routing.backgroundTasks': 'Background Tasks',
+  'settings.ai.routing.bgTasksDesc':
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
+  'settings.ai.routing.addCustomProvider': 'Add Custom Provider',
+  'settings.ai.globalModel.title': 'Choose one model for everything',
+  'settings.ai.globalModel.desc':
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
+  'settings.ai.globalModel.noProviders':
+    'Add or connect a provider first. Then you can route every workload through one model here.',
+  'settings.ai.globalModel.provider': 'Provider',
+  'settings.ai.globalModel.model': 'Model',
+  'settings.ai.globalModel.loadingModels': 'Loading models…',
+  'settings.ai.globalModel.enterModelId': 'Enter model id',
+  'settings.ai.globalModel.appliesToAll':
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
+  'settings.ai.globalModel.saving': 'Saving…',
+  'settings.ai.globalModel.saved': 'Saved',
+  'settings.ai.workload.noModel': 'No model selected',
+  'settings.ai.workload.changeModel': 'Change Model',
+  'settings.ai.workload.chooseModel': 'Choose Model',
+  'settings.ai.provider.ollama': 'Ollama',
   'kbd.ariaLabel': 'Keyboard shortcut: {shortcut}',
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': 'Pair with your desktop',

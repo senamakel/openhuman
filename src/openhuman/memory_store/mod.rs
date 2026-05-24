@@ -21,6 +21,7 @@ pub mod contacts;
 pub mod content;
 pub mod kinds;
 pub mod retrieval;
+pub mod tools;
 pub mod traits;
 pub mod trees;
 pub mod trees_global;

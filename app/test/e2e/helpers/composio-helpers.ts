@@ -66,14 +66,25 @@ export async function assertConnectorCardVisible(name: string, timeout = 15_000)
  */
 export async function openConnectorModal(name: string, timeout = 15_000): Promise<string | null> {
   console.log(`${LOG} opening connector modal for "${name}"`);
-  // Close any modal left open by a previous test in the shared session.
-  // Its dark backdrop (rgba(0,0,0,0.4)) otherwise intercepts the card
-  // click and the WebDriver error is 'element click intercepted ... Other
-  // element would receive the click: <path ... fill="rgba(0, 0, 0, 0.4)"...>'.
+  // Close any modal left open by a previous test in the shared session
+  // ONLY when its dark backdrop is actually present — otherwise the
+  // unconditional Escape we'd press here also dismisses underlying UI
+  // and the next card click finds nothing. Detect by looking for the
+  // semi-transparent path that fills the viewport.
   // @ts-expect-error -- browser global is injected by WDIO at runtime
-  await browser.keys('Escape').catch(() => undefined);
-  // @ts-expect-error
-  await browser.pause(300);
+  const hasModalBackdrop = await browser
+    .execute(() => {
+      return !!document.querySelector(
+        'path[fill="rgba(0, 0, 0, 0.4)"], div[class*="bg-black/30"], div[class*="bg-black/40"]'
+      );
+    })
+    .catch(() => false);
+  if (hasModalBackdrop) {
+    // @ts-expect-error
+    await browser.keys('Escape').catch(() => undefined);
+    // @ts-expect-error
+    await browser.pause(400);
+  }
   // Click the connector card by name
   const cardEl = await waitForText(name, timeout);
   await cardEl.click();

@@ -111,3 +111,43 @@ impl Tool for MemoryStoreRawChunksTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn args_deserialize_optional_filters() {
+        let args: Args = serde_json::from_value(json!({
+            "source_kind": "chat",
+            "source_id": "slack:#eng",
+            "owner": "alice",
+            "since_ms": 10,
+            "until_ms": 20,
+            "tags_all_of": ["person:alice"],
+            "limit": 25
+        }))
+        .unwrap();
+
+        assert_eq!(args.source_kind.as_deref(), Some("chat"));
+        assert_eq!(args.source_id.as_deref(), Some("slack:#eng"));
+        assert_eq!(args.owner.as_deref(), Some("alice"));
+        assert_eq!(args.since_ms, Some(10));
+        assert_eq!(args.until_ms, Some(20));
+        assert_eq!(args.tags_all_of, Some(vec!["person:alice".to_string()]));
+        assert_eq!(args.limit, Some(25));
+    }
+
+    #[test]
+    fn parameters_schema_exposes_supported_source_kinds() {
+        let tool = MemoryStoreRawChunksTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        assert_eq!(
+            schema["properties"]["source_kind"]["enum"],
+            json!(["chat", "email", "document"])
+        );
+        assert_eq!(schema["properties"]["limit"]["maximum"], 1000);
+    }
+}

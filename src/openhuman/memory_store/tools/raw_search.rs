@@ -102,3 +102,31 @@ impl Tool for MemoryStoreRawSearchTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn default_limit_is_five() {
+        assert_eq!(default_limit(), 5);
+    }
+
+    #[test]
+    fn args_deserialize_with_default_limit() {
+        let args: Args = serde_json::from_value(json!({ "query": "alice" })).unwrap();
+        assert_eq!(args.query, "alice");
+        assert_eq!(args.limit, 5);
+        assert!(args.kinds.is_none());
+    }
+
+    #[test]
+    fn parameters_schema_describes_required_query() {
+        let tool = MemoryStoreRawSearchTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        assert_eq!(schema["required"], json!(["query"]));
+        assert_eq!(schema["properties"]["limit"]["maximum"], 100);
+    }
+}

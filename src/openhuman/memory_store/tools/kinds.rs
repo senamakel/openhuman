@@ -31,3 +31,25 @@ impl Tool for MemoryStoreKindsTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parameters_schema_is_empty_object() {
+        let tool = MemoryStoreKindsTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        assert_eq!(schema["properties"], json!({}));
+    }
+
+    #[tokio::test]
+    async fn execute_returns_all_memory_kinds() {
+        let tool = MemoryStoreKindsTool;
+        let result = tool.execute(Value::Null).await.unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
+        let expected: Vec<&str> = MemoryKind::ALL.iter().map(|k| k.as_str()).collect();
+        assert_eq!(parsed["kinds"], json!(expected));
+    }
+}

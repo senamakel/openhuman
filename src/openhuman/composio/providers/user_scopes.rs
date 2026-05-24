@@ -14,7 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::memory::MemoryClientRef;
+use crate::openhuman::memory_store::MemoryClientRef;
 
 use super::tool_scope::ToolScope;
 

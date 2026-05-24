@@ -111,7 +111,7 @@ async fn gmail_fixture_ingestion_recovers_required_signals() {
     assert!(memories.iter().any(|hit| hit.content.contains("JSON-RPC")));
     assert!(memories
         .iter()
-        .any(|hit| matches!(hit.kind, crate::openhuman::memory::MemoryItemKind::Document)));
+        .any(|hit| matches!(hit.kind, crate::openhuman::memory_store::MemoryItemKind::Document)));
     assert!(memories
         .iter()
         .any(|hit| !hit.supporting_relations.is_empty()));
@@ -206,7 +206,7 @@ async fn notion_fixture_ingestion_recovers_required_signals() {
         .any(|hit| hit.content.contains("OpenHuman") || hit.content.contains("core-first")));
     assert!(memories
         .iter()
-        .any(|hit| matches!(hit.kind, crate::openhuman::memory::MemoryItemKind::Document)));
+        .any(|hit| matches!(hit.kind, crate::openhuman::memory_store::MemoryItemKind::Document)));
     assert!(memories
         .iter()
         .any(|hit| !hit.supporting_relations.is_empty()));

@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use super::*;
-use crate::openhuman::memory::tool_memory::test_helpers::MockMemory;
-use crate::openhuman::memory::tool_memory::types::{
+use crate::openhuman::memory_tools::test_helpers::MockMemory;
+use crate::openhuman::memory_tools::types::{
     ToolMemoryPriority, ToolMemoryRule, ToolMemorySource,
 };
 

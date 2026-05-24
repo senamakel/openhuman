@@ -8,15 +8,18 @@
 //! [`crate::openhuman::memory_tree::sources`] module.
 //!
 //! Global and topic policies (scope constants, hotness gates, curator)
-//! live in [`crate::openhuman::memory_tree::global`] and
-//! [`crate::openhuman::memory_tree::topic`] respectively; both
+//! live in [`crate::openhuman::memory_tree::tree::global`] and
+//! [`crate::openhuman::memory_tree::tree::topic`] respectively; both
 //! import generic primitives from this module.
 //!
 //! Persistence (store + types) has moved to `memory_store::trees`.
 
 pub mod bucket_seal;
 pub mod flush;
+pub mod global;
 pub mod registry;
+pub mod rpc;
+pub mod topic;
 
 // Re-export persistence from memory_store so callers using tree::store / tree::types still work.
 pub use crate::openhuman::memory_store::trees::store;

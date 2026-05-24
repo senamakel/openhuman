@@ -22,12 +22,12 @@
 //! Phases 2-4 (#708 scoring, #709 summary trees, #710 retrieval) build on
 //! top of these chunks without modifying the Phase 1 surface.
 
-pub mod global;
 pub mod io;
+pub mod retrieval;
+pub mod score;
 pub mod sources;
 pub mod summarise;
 pub mod tools;
-pub mod topic;
 pub mod tree;
 pub mod tree_runtime;
 
@@ -36,8 +36,8 @@ pub use io::{
     TreeWriteOutcome, TreeWriteRequest,
 };
 
-// Re-export controller registries — moved to memory but keep export names stable.
-pub use crate::openhuman::memory::retrieval::{
+// Re-export controller registries.
+pub use crate::openhuman::memory_tree::retrieval::{
     all_retrieval_controller_schemas, all_retrieval_registered_controllers,
 };
 pub use crate::openhuman::memory::schema::{

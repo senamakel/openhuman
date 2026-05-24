@@ -373,9 +373,9 @@ fn seed_leaf(
     entities: Vec<String>,
     topics: Vec<String>,
 ) -> LeafRef {
-    use crate::openhuman::memory::score::extract::EntityKind;
-    use crate::openhuman::memory::score::resolver::CanonicalEntity;
-    use crate::openhuman::memory::score::store::index_entity;
+    use crate::openhuman::memory_tree::score::extract::EntityKind;
+    use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
+    use crate::openhuman::memory_tree::score::store::index_entity;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
@@ -440,7 +440,7 @@ fn seed_leaf(
 
 #[tokio::test]
 async fn seal_with_extract_strategy_populates_entities_and_topics() {
-    use crate::openhuman::memory::score::extract::{CompositeExtractor, EntityExtractor};
+    use crate::openhuman::memory_tree::score::extract::{CompositeExtractor, EntityExtractor};
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();

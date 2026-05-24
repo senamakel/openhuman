@@ -1,4 +1,4 @@
-use crate::openhuman::memory::NamespaceDocumentInput;
+use crate::openhuman::memory_store::NamespaceDocumentInput;
 use std::collections::VecDeque;
 use uuid::Uuid;
 
@@ -158,7 +158,7 @@ pub(crate) async fn persist_vision_summary(
     let config = crate::openhuman::config::Config::load_or_init()
         .await
         .map_err(|err| format!("config load failed: {err}"))?;
-    let client = crate::openhuman::memory::MemoryClient::from_workspace_dir(config.workspace_dir)
+    let client = crate::openhuman::memory_store::MemoryClient::from_workspace_dir(config.workspace_dir)
         .map_err(|err| format!("memory init failed: {err}"))?;
 
     let ts = chrono::DateTime::from_timestamp_millis(summary.captured_at_ms)

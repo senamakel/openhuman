@@ -39,9 +39,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::score::embed::build_embedder_from_config;
-use crate::openhuman::memory::score::extract::EntityExtractor;
-use crate::openhuman::memory::score::resolver::canonicalise;
+use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use crate::openhuman::memory_tree::score::extract::EntityExtractor;
+use crate::openhuman::memory_tree::score::resolver::canonicalise;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary, paths::slugify_source_id, SummaryComposeInput, SummaryTreeKind,
@@ -658,7 +658,7 @@ pub(crate) async fn seal_one_level(
         // leaves. No-op when entities is empty (the current summarise()
         // always emits empty — entity extraction is the learning domain's job);
         // becomes active once the summariser or a post-seal extractor emits canonical ids.
-        crate::openhuman::memory::score::store::index_summary_entity_ids_tx(
+        crate::openhuman::memory_tree::score::store::index_summary_entity_ids_tx(
             &tx,
             &node.entities,
             &node.id,
@@ -711,8 +711,8 @@ pub(crate) async fn seal_one_level(
             // `seal:{tree_id}:{parent_level}` prevents duplicates if a
             // parallel path already queued it.
             if should_seal(&parent) {
-                use crate::openhuman::memory::jobs::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory::jobs::types::{NewJob, SealPayload};
+                use crate::openhuman::memory_queue::store::enqueue_tx as enqueue_job_tx;
+                use crate::openhuman::memory_queue::types::{NewJob, SealPayload};
                 let parent_seal = SealPayload {
                     tree_id: tree_id.clone(),
                     level: target_level_for_closure,
@@ -724,8 +724,8 @@ pub(crate) async fn seal_one_level(
             // entities back into the topic-tree spawn pipeline. Topic
             // and global trees are sinks — no fan-out from their seals.
             if matches!(tree_kind, TreeKind::Source) {
-                use crate::openhuman::memory::jobs::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory::jobs::types::{NewJob, NodeRef, TopicRoutePayload};
+                use crate::openhuman::memory_queue::store::enqueue_tx as enqueue_job_tx;
+                use crate::openhuman::memory_queue::types::{NewJob, NodeRef, TopicRoutePayload};
                 let route = TopicRoutePayload {
                     node: NodeRef::Summary {
                         summary_id: summary_id_for_closure.clone(),
@@ -807,7 +807,7 @@ fn hydrate_inputs(config: &Config, level: u32, item_ids: &[String]) -> Result<Ve
 }
 
 fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory::score::store::{get_score, list_entity_ids_for_node};
+    use crate::openhuman::memory_tree::score::store::{get_score, list_entity_ids_for_node};
     use crate::openhuman::memory_store::chunks::store::get_chunk;
     use crate::openhuman::memory_store::content::read as content_read;
 

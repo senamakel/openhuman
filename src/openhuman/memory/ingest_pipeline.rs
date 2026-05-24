@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::jobs::{self, ExtractChunkPayload, NewJob};
-use crate::openhuman::memory::score::{self, ScoreResult, ScoringConfig};
+use crate::openhuman::memory_queue::{self as jobs, ExtractChunkPayload, NewJob};
+use crate::openhuman::memory_tree::score::{self, ScoreResult, ScoringConfig};
 use crate::openhuman::memory::util::redact::redact;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
@@ -419,8 +419,8 @@ fn markdown_body_preview(md: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::jobs::drain_until_idle;
-    use crate::openhuman::memory::score::store::{count_scores, lookup_entity};
+    use crate::openhuman::memory_queue::drain_until_idle;
+    use crate::openhuman::memory_tree::score::store::{count_scores, lookup_entity};
     use crate::openhuman::memory_store::chunks::store::{
         count_chunks, count_chunks_by_lifecycle_status, get_chunk_embedding, list_chunks,
         ListChunksQuery, CHUNK_STATUS_BUFFERED, CHUNK_STATUS_DROPPED,

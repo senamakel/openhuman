@@ -13,7 +13,7 @@
 //!     provider makes per day. Resets automatically when the date rolls
 //!     over.
 //!
-//! All persistence goes through [`crate::openhuman::memory::MemoryClient`]'s
+//! All persistence goes through [`crate::openhuman::memory_store::MemoryClient`]'s
 //! KV surface (`kv_set` / `kv_get` under a dedicated namespace), so the
 //! state survives process restarts without any extra file management.
 
@@ -23,7 +23,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::openhuman::memory::MemoryClientRef;
+use crate::openhuman::memory_store::MemoryClientRef;
 
 /// Maximum API requests a single provider connection may make per calendar
 /// day. This covers the initial backfill case where there are thousands of

@@ -227,7 +227,7 @@ fn make_agent(visible_tool_names: Option<HashSet<String>>) -> Agent {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory::create_memory(&memory_cfg, &workspace_path).unwrap());
+        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap());
 
     let mut builder = Agent::builder()
         .provider(Box::new(DummyProvider))
@@ -264,7 +264,7 @@ fn make_agent_with_builder(
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory::create_memory(&memory_cfg, &workspace_path).unwrap());
+        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap());
 
     Agent::builder()
         .provider_arc(provider)
@@ -561,7 +561,7 @@ async fn execute_tool_call_denies_by_policy_before_tool_runs() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory::create_memory(&memory_cfg, &workspace_path).unwrap());
+        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap());
     let calls = Arc::new(AtomicUsize::new(0));
 
     let agent = Agent::builder()
@@ -820,7 +820,7 @@ fn make_agent_with_memory(
 
 fn make_real_memory(workspace: &std::path::Path) -> Arc<dyn Memory> {
     use crate::openhuman::embeddings::NoopEmbedding;
-    use crate::openhuman::memory::UnifiedMemory;
+    use crate::openhuman::memory_store::UnifiedMemory;
     Arc::new(UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None).unwrap())
 }
 

@@ -15,7 +15,7 @@ use rusqlite::params;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::global::GLOBAL_SCOPE;
+use crate::openhuman::memory_tree::tree::global::GLOBAL_SCOPE;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
 
 /// Return the workspace's singleton global tree, creating it lazily on first
@@ -29,7 +29,7 @@ pub fn get_or_create_global_tree(config: &Config) -> Result<Tree> {
 /// Look up the topic tree for `entity_id`, or create a new one.
 ///
 /// Callers should NOT use this directly to materialise topic trees eagerly —
-/// go through `memory_tree::topic::curator::maybe_spawn_topic_tree` so
+/// go through `memory_tree::tree::topic::curator::maybe_spawn_topic_tree` so
 /// creation is gated on hotness. Admin / forced-materialisation flows can
 /// call this directly (or its alias [`force_create_topic_tree`]).
 pub fn get_or_create_topic_tree(config: &Config, entity_id: &str) -> Result<Tree> {

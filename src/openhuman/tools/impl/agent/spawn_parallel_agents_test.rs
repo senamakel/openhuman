@@ -508,7 +508,7 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory::create_memory(&memory_cfg, &workspace_path).unwrap());
+        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap());
 
     let tools: Vec<Box<dyn Tool>> = vec![
         Box::new(SpawnParallelAgentsTool::new()),

@@ -9,10 +9,10 @@ use crate::openhuman::memory::{
     ApiEnvelope, DeleteDocumentRequest, DeleteDocumentResponse, EmptyRequest, ListDocumentsRequest,
     ListDocumentsResponse, ListNamespacesResponse, MemoryIngestionConfig, MemoryIngestionRequest,
     MemoryIngestionResult, MemoryInitRequest, MemoryInitResponse, MemoryRecallItem,
-    NamespaceDocumentInput, NamespaceRetrievalContext, PaginationMeta, QueryNamespaceRequest,
-    QueryNamespaceResponse, RecallContextRequest, RecallContextResponse, RecallMemoriesRequest,
-    RecallMemoriesResponse,
+    PaginationMeta, QueryNamespaceRequest, QueryNamespaceResponse, RecallContextRequest,
+    RecallContextResponse, RecallMemoriesRequest, RecallMemoriesResponse,
 };
+use crate::openhuman::memory_store::{NamespaceDocumentInput, NamespaceRetrievalContext};
 use crate::rpc::RpcOutcome;
 
 use super::envelope::{envelope, error_envelope, memory_counts};

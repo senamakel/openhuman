@@ -12,23 +12,23 @@
 use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::jobs::store;
-use crate::openhuman::memory::jobs::types::{
+use crate::openhuman::memory_queue::store;
+use crate::openhuman::memory_queue::types::{
     AppendBufferPayload, AppendTarget, DigestDailyPayload, ExtractChunkPayload, FlushStalePayload,
     Job, JobKind, JobOutcome, NewJob, NodeRef, ReembedBackfillPayload, SealPayload,
     TopicRoutePayload,
 };
-use crate::openhuman::memory::score;
-use crate::openhuman::memory::score::embed::{build_embedder_from_config, pack_checked};
-use crate::openhuman::memory::score::extract::build_summary_extractor;
-use crate::openhuman::memory::score::store as score_store;
+use crate::openhuman::memory_tree::score;
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, pack_checked};
+use crate::openhuman::memory_tree::score::extract::build_summary_extractor;
+use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::content::{
     self as content_store, read as content_read, tags as content_tags,
 };
-use crate::openhuman::memory_tree::global::digest::{self, DigestOutcome};
+use crate::openhuman::memory_tree::tree::global::digest::{self, DigestOutcome};
 use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
-use crate::openhuman::memory_tree::topic::curator;
+use crate::openhuman::memory_tree::tree::topic::curator;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LabelStrategy, LeafRef};
 
@@ -659,13 +659,13 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
         })?;
 
     if chunk_ids.is_empty() && summary_ids.is_empty() {
-        crate::openhuman::memory::jobs::set_backfill_in_progress(false);
+        crate::openhuman::memory_queue::set_backfill_in_progress(false);
         log::info!(
             "[memory::jobs] reembed_backfill: sig={active_sig} fully covered; chain complete"
         );
         return Ok(JobOutcome::Done);
     }
-    crate::openhuman::memory::jobs::set_backfill_in_progress(true);
+    crate::openhuman::memory_queue::set_backfill_in_progress(true);
 
     // Phase 2 (no tx held): embed each row's stored source text. Per-row
     // errors are skipped (logged) so a single bad row can't strand memory.
@@ -790,8 +790,8 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::jobs::store::{count_by_status, count_total};
-    use crate::openhuman::memory::jobs::types::JobStatus;
+    use crate::openhuman::memory_queue::store::{count_by_status, count_total};
+    use crate::openhuman::memory_queue::types::JobStatus;
     use crate::openhuman::memory_store::chunks::store::with_connection;
     use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
@@ -1451,7 +1451,7 @@ mod tests {
     /// empty/covered space.
     #[tokio::test]
     async fn ensure_reembed_backfill_enqueues_only_when_uncovered() {
-        use crate::openhuman::memory::jobs::ensure_reembed_backfill;
+        use crate::openhuman::memory_queue::ensure_reembed_backfill;
         use crate::openhuman::memory_store::chunks::store::{
             upsert_chunks, upsert_staged_chunks_tx,
         };

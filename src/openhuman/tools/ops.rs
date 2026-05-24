@@ -259,22 +259,6 @@ pub fn all_tools_with_runtime(
         root_config.curl.timeout_secs,
     )));
 
-    // Phase 3 STM recall — on-demand cross-thread episodic search tool.
-    // Feature-gated on `learning.stm_recall_enabled` (default true) so the
-    // tool surface and the preemptive prompt injection are enabled/disabled
-    // together. `session_id` is not known at tool-build time; exclude-own-
-    // session is enforced by the preemptive first-turn injection in turn.rs
-    // (the on-demand tool intentionally uses an empty exclude_session).
-    if root_config.learning.stm_recall_enabled {
-        tools.push(Box::new(
-            crate::openhuman::memory::stm_recall::tool::StmRecallTool::new(
-                memory.clone(),
-                String::new(),
-                None,
-            ),
-        ));
-    }
-
     // gitbooks — answers questions about OpenHuman by calling the
     // GitBook MCP server. Two tools mirroring the upstream MCP tools.
     if root_config.gitbooks.enabled {

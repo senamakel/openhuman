@@ -39,7 +39,7 @@ use crate::openhuman::memory_store::content::raw::{
 use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 
 /// Platform identifier embedded in the canonical chat transcript header.
-/// Matches the value `memory::retrieval::source::PLATFORM_KINDS` expects.
+/// Matches the value `memory_tree::retrieval::source::PLATFORM_KINDS` expects.
 pub const SLACK_PLATFORM: &str = "slack";
 
 /// Tags attached to every Slack-ingested chunk. Stable list — retrieval

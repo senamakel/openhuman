@@ -1,5 +1,5 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory::tree_rpc as rpc;
+use crate::openhuman::memory_tree::tree::rpc as rpc;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::tools::traits::{Tool, ToolResult};

@@ -130,7 +130,7 @@ mod tests {
         LOCK.get_or_init(|| std::sync::Mutex::new(()))
     }
 
-    fn ensure_memory_client() -> crate::openhuman::memory::MemoryClientRef {
+    fn ensure_memory_client() -> crate::openhuman::memory_store::MemoryClientRef {
         static WORKSPACE: OnceLock<PathBuf> = OnceLock::new();
         let workspace = WORKSPACE.get_or_init(|| {
             let tmp = TempDir::new().expect("tempdir");

@@ -20,8 +20,6 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use crate::openhuman::memory::conversations;
-
 const MIGRATION_MARKER: &str = "state/migrations/welcome_to_orchestrator_v1.done";
 const WELCOME_THREAD_LABEL: &str = "onboarding";
 const WELCOME_AGENT_PREFIX: &str = "welcome";
@@ -399,7 +397,7 @@ fn write_marker(marker: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::conversations::{
+    use crate::openhuman::memory_conversations::{
         ensure_thread, list_threads, CreateConversationThread,
     };
     use tempfile::TempDir;

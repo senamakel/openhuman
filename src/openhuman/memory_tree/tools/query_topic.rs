@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory::retrieval;
-use crate::openhuman::memory::retrieval::rpc::QueryTopicRequest;
+use crate::openhuman::memory_tree::retrieval;
+use crate::openhuman::memory_tree::retrieval::rpc::QueryTopicRequest;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

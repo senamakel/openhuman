@@ -20,7 +20,7 @@ use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::chat::ChatProvider;
 use crate::openhuman::memory::ingest_pipeline;
-use crate::openhuman::memory::score::embed::{build_embedder_from_config, Embedder};
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, Embedder};
 use crate::openhuman::memory_store::events::{self, EventRecord, EventType};
 use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
 use crate::openhuman::memory_store::profile::{self, FacetType};

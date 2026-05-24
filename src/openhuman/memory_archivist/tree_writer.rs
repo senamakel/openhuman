@@ -20,7 +20,7 @@ use crate::openhuman::memory_store::trees::{Tree, TreeKind};
 use crate::openhuman::memory_tree::io::{
     TreeLabelStrategy, TreeLeafPayload, TreeWriteOutcome, TreeWriteRequest,
 };
-use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy};
+use crate::openhuman::memory_tree::tree::bucket_seal::{LabelStrategy, append_leaf};
 
 const TOKEN_DIVISOR: usize = 4;
 
@@ -37,10 +37,7 @@ pub async fn archive_to_tree(
     let md = compose_conversation_md(&cleaned);
     let chunk_id = chunk_id_for_session(session_id, &md);
     let token_count = (md.len() / TOKEN_DIVISOR).max(1) as u32;
-    let timestamp = cleaned
-        .last()
-        .map(|t| t.timestamp)
-        .unwrap_or_else(Utc::now);
+    let timestamp = cleaned.last().map(|t| t.timestamp).unwrap_or_else(Utc::now);
 
     let request = TreeWriteRequest {
         tree_id: tree.id.clone(),
@@ -98,7 +95,15 @@ fn _kind_compile_check(t: &Tree) -> TreeKind {
 
 #[cfg(test)]
 mod tests {
-    use super::chunk_id_for_session;
+    use chrono::TimeZone;
+    use tempfile::TempDir;
+
+    use super::{archive_to_tree, chunk_id_for_session};
+    use crate::openhuman::config::Config;
+    use crate::openhuman::memory_archivist::types::Turn;
+    use crate::openhuman::memory_store::trees::store as tree_store;
+    use crate::openhuman::memory_store::trees::{Tree, TreeKind, TreeStatus};
+    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
 
     #[test]
     fn chunk_id_is_stable_for_same_session_and_markdown() {
@@ -120,5 +125,93 @@ mod tests {
         let a = chunk_id_for_session("session-1", "## user\nhello\n");
         let b = chunk_id_for_session("session-1", "## user\nhello again\n");
         assert_ne!(a, b);
+    }
+
+    fn test_config(tmp: &TempDir) -> Config {
+        Config {
+            workspace_dir: tmp.path().join("workspace"),
+            config_path: tmp.path().join("config.toml"),
+            ..Config::default()
+        }
+    }
+
+    fn source_tree(scope: &str) -> Tree {
+        Tree {
+            id: format!("tree:{scope}"),
+            kind: TreeKind::Source,
+            scope: scope.to_string(),
+            root_id: None,
+            max_level: 0,
+            status: TreeStatus::Active,
+            created_at: chrono::Utc::now(),
+            last_sealed_at: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn archive_to_tree_writes_a_leaf_for_conversation_turns() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+        let tree = get_or_create_source_tree(&cfg, "chat:slack:#eng").unwrap();
+
+        let turns = vec![
+            Turn {
+                role: "user".into(),
+                content: "How does ownership work in Rust?".into(),
+                tool_calls_json: None,
+                timestamp: chrono::Utc.with_ymd_and_hms(2026, 5, 24, 10, 0, 0).unwrap(),
+            },
+            Turn {
+                role: "assistant".into(),
+                content: "Ownership gives each value a single owner.".into(),
+                tool_calls_json: Some("{\"tool\":\"ignored\"}".into()),
+                timestamp: chrono::Utc.with_ymd_and_hms(2026, 5, 24, 10, 1, 0).unwrap(),
+            },
+        ];
+
+        let outcome = archive_to_tree(&cfg, &tree, "session-1", &turns)
+            .await
+            .expect("archive_to_tree");
+        assert!(
+            outcome.new_summary_ids.is_empty(),
+            "single archivist leaf should not seal summaries immediately"
+        );
+        assert!(!outcome.seal_pending);
+
+        let buffer = tree_store::get_buffer(&cfg, &tree.id, 0).unwrap();
+        assert_eq!(buffer.item_ids.len(), 1);
+        let expected_md = "## user\nHow does ownership work in Rust?\n\n## assistant\nOwnership gives each value a single owner.\n";
+        assert_eq!(
+            buffer.item_ids[0],
+            chunk_id_for_session("session-1", expected_md)
+        );
+        assert_eq!(
+            buffer.token_sum,
+            ((expected_md.len() / 4).max(1)) as i64,
+            "token count should follow archivist TOKEN_DIVISOR heuristic"
+        );
+    }
+
+    #[tokio::test]
+    async fn archive_to_tree_handles_empty_turns_via_fallback_markdown() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+        let tree = get_or_create_source_tree(&cfg, "chat:empty").unwrap();
+
+        let outcome = archive_to_tree(&cfg, &tree, "session-empty", &[])
+            .await
+            .expect("archive_to_tree empty");
+        assert!(outcome.new_summary_ids.is_empty());
+
+        let buffer = tree_store::get_buffer(&cfg, &tree.id, 0).unwrap();
+        assert_eq!(buffer.item_ids.len(), 1);
+        assert_eq!(
+            buffer.item_ids[0],
+            chunk_id_for_session("session-empty", ""),
+            "empty conversation still generates a deterministic archivist chunk id"
+        );
+        assert_eq!(buffer.token_sum, 1);
     }
 }

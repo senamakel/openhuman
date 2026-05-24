@@ -149,6 +149,19 @@ mod tests {
         assert_eq!(memory.count().await.unwrap(), 2);
         assert!(memory.health_check().await);
         assert_eq!(memory.name(), "mock");
+
+        // The mock intentionally ignores category/session filters so tool
+        // tests can focus on caller behavior instead of backend indexing.
+        let filtered = memory
+            .list(
+                Some("tool-bash"),
+                Some(&MemoryCategory::Core),
+                Some("different-session"),
+            )
+            .await
+            .unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].key, "rule/1");
     }
 
     #[tokio::test]
@@ -197,5 +210,14 @@ mod tests {
             .await
             .unwrap();
         assert!(recalled.is_empty());
+    }
+
+    #[tokio::test]
+    async fn mock_memory_empty_state_helpers_return_empty_values() {
+        let memory = MockMemory::default();
+        assert!(memory.get("missing", "rule").await.unwrap().is_none());
+        assert!(memory.list(Some("missing"), None, None).await.unwrap().is_empty());
+        assert!(memory.namespace_summaries().await.unwrap().is_empty());
+        assert_eq!(memory.count().await.unwrap(), 0);
     }
 }

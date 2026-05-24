@@ -341,9 +341,17 @@ pub fn read_summary_body(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::config::Config;
+    use crate::openhuman::memory_store::chunks::store::{upsert_chunks, with_connection};
     use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind};
     use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
-    use crate::openhuman::memory_store::content::compose::compose_chunk_file;
+    use crate::openhuman::memory_store::content::compose::{
+        SummaryComposeInput, compose_chunk_file,
+    };
+    use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
+    use crate::openhuman::memory_store::content::{atomic::stage_summary, stage_chunks};
+    use crate::openhuman::memory_store::trees::store::{insert_summary_tx, insert_tree};
+    use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind, TreeStatus};
     use chrono::TimeZone;
     use tempfile::TempDir;
 
@@ -365,6 +373,47 @@ mod tests {
             seq_in_source: 0,
             created_at: ts,
             partial_message: false,
+        }
+    }
+
+    fn test_config(tmp: &TempDir) -> Config {
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        cfg
+    }
+
+    fn sample_tree() -> Tree {
+        Tree {
+            id: "tree-1".into(),
+            kind: TreeKind::Source,
+            scope: "slack:#eng".into(),
+            root_id: None,
+            max_level: 0,
+            status: TreeStatus::Active,
+            created_at: chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            last_sealed_at: None,
+        }
+    }
+
+    fn sample_summary_node() -> SummaryNode {
+        let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        SummaryNode {
+            id: "summary-1".into(),
+            tree_id: "tree-1".into(),
+            tree_kind: TreeKind::Source,
+            level: 1,
+            parent_id: None,
+            child_ids: vec!["leaf-a".into()],
+            content: "summary full body".into(),
+            token_count: 4,
+            entities: vec![],
+            topics: vec![],
+            time_range_start: ts,
+            time_range_end: ts,
+            score: 0.5,
+            sealed_at: ts,
+            deleted: false,
+            embedding: None,
         }
     }
 
@@ -551,5 +600,116 @@ mod tests {
 
         let body = read_chunk_body_from_raw(&cfg, &refs).unwrap();
         assert_eq!(body, "bcd");
+    }
+
+    #[test]
+    fn read_chunk_body_roundtrips_from_staged_content_pointer() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let chunk = sample_chunk();
+        upsert_chunks(&cfg, std::slice::from_ref(&chunk)).unwrap();
+        let staged = stage_chunks(
+            &cfg.memory_tree_content_root(),
+            std::slice::from_ref(&chunk),
+        )
+        .unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let body = read_chunk_body(&cfg, &chunk.id).unwrap();
+        assert_eq!(body, chunk.content);
+    }
+
+    #[test]
+    fn read_chunk_body_errors_when_pointers_are_missing() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let err = read_chunk_body(&cfg, "missing-chunk").unwrap_err();
+        assert!(err.to_string().contains("no content_path or raw_refs"));
+    }
+
+    #[test]
+    fn read_chunk_body_errors_on_sha_mismatch() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let chunk = sample_chunk();
+        upsert_chunks(&cfg, std::slice::from_ref(&chunk)).unwrap();
+        let staged = stage_chunks(
+            &cfg.memory_tree_content_root(),
+            std::slice::from_ref(&chunk),
+        )
+        .unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let rel =
+            crate::openhuman::memory_store::chunks::store::get_chunk_content_path(&cfg, &chunk.id)
+                .unwrap()
+                .unwrap();
+        let mut abs = cfg.memory_tree_content_root();
+        for part in rel.split('/') {
+            abs.push(part);
+        }
+        std::fs::write(&abs, b"---\nsource_kind: chat\n---\nmutated body").unwrap();
+
+        let err = read_chunk_body(&cfg, &chunk.id).unwrap_err();
+        assert!(err.to_string().contains("sha256 mismatch"));
+    }
+
+    #[test]
+    fn read_summary_body_roundtrips_from_staged_content_pointer() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let tree = sample_tree();
+        let node = sample_summary_node();
+        insert_tree(&cfg, &tree).unwrap();
+        let staged = stage_summary(
+            &cfg.memory_tree_content_root(),
+            &SummaryComposeInput {
+                summary_id: &node.id,
+                tree_kind: SummaryTreeKind::Source,
+                tree_id: &tree.id,
+                tree_scope: &tree.scope,
+                level: node.level,
+                child_ids: &node.child_ids,
+                child_basenames: None,
+                child_count: node.child_ids.len(),
+                time_range_start: node.time_range_start,
+                time_range_end: node.time_range_end,
+                sealed_at: node.sealed_at,
+                body: &node.content,
+            },
+            "slack-eng",
+            None,
+        )
+        .unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            insert_summary_tx(&tx, &node, Some(&staged), "test")?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let body = read_summary_body(&cfg, &node.id).unwrap();
+        assert_eq!(body, node.content);
+    }
+
+    #[test]
+    fn read_summary_body_errors_when_pointers_are_missing() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        let err = read_summary_body(&cfg, "missing-summary").unwrap_err();
+        assert!(err.to_string().contains("no content_path for summary_id"));
     }
 }

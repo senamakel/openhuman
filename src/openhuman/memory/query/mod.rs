@@ -1,11 +1,10 @@
-//! Consolidated memory-tree tool — dispatches to the correct retrieval
-//! primitive based on the `mode` argument. Reduces the orchestrator's
-//! tool surface from 6 entries to 1.
+//! Consolidated memory query tool — dispatches to the correct memory-tree
+//! retrieval primitive based on the `mode` argument.
 //!
 //! The individual per-mode structs are still re-exported for callers that
 //! need them directly (e.g. tool registration in ops.rs for agents that
-//! prefer the individual tools). The consolidated [`MemoryTreeTool`] is
-//! the recommended single entry point for the orchestrator.
+//! prefer the individual tools). The consolidated [`MemoryQueryTool`] is
+//! the recommended single entry point for the `memory` orchestration layer.
 
 mod drill_down;
 mod fetch_leaves;
@@ -26,6 +25,8 @@ pub use query_source::MemoryTreeQuerySourceTool;
 pub use query_topic::MemoryTreeQueryTopicTool;
 pub use search_entities::MemoryTreeSearchEntitiesTool;
 pub use walk::{run_walk, MemoryTreeWalkTool, WalkOptions, WalkOutcome, WalkStep, WalkStopReason};
+pub use MemoryTreeTool as MemoryQueryTool;
+pub use walk::MemoryTreeWalkTool as MemoryQueryWalkTool;
 
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;

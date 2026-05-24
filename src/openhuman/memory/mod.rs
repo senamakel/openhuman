@@ -21,8 +21,11 @@ pub mod traits;
 // Modules moved from memory_tree (Phase 3)
 pub mod chat;
 pub mod ingest_pipeline;
+pub mod query;
 pub mod read_rpc;
+pub mod remember;
 pub mod schema;
+pub mod sync;
 pub mod util;
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,

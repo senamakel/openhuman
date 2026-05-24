@@ -152,8 +152,8 @@ pub fn all_tools_with_runtime(
         Box::new(MemoryStoreTool::new(memory.clone(), security.clone())),
         Box::new(MemoryRecallTool::new(memory.clone())),
         Box::new(MemoryForgetTool::new(memory.clone(), security.clone())),
-        Box::new(MemoryTreeTool),
-        Box::new(MemoryTreeWalkTool),
+        Box::new(MemoryQueryTool),
+        Box::new(MemoryQueryWalkTool),
         // Explicit user-preference pinning — always registered so the model
         // can save user-stated preferences regardless of whether the full
         // inference-based learning subsystem is enabled.  The preference

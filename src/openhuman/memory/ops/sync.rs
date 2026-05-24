@@ -3,6 +3,7 @@
 //! Sync RPCs publish `DomainEvent::MemorySyncRequested` on the global event
 //! bus — they are fire-and-forget hooks for future ingestion subscribers.
 
+use crate::openhuman::memory::sync::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
 use crate::rpc::RpcOutcome;
 
 /// Parameters for `memory_sync_channel`.
@@ -63,6 +64,13 @@ pub async fn memory_sync_channel(
             channel_id: Some(params.channel_id.clone()),
         },
     );
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Requested,
+        None,
+        Some(&params.channel_id),
+        Some("channel-targeted sync requested".to_string()),
+    );
     tracing::debug!("[memory.sync] memory_sync_channel: MemorySyncRequested published");
     Ok(RpcOutcome::new(
         SyncChannelResult {
@@ -82,6 +90,13 @@ pub async fn memory_sync_all() -> Result<RpcOutcome<SyncAllResult>, String> {
     tracing::info!("[memory.sync] memory_sync_all: entry");
     crate::core::event_bus::publish_global(
         crate::core::event_bus::DomainEvent::MemorySyncRequested { channel_id: None },
+    );
+    emit_sync_stage(
+        MemorySyncTrigger::Manual,
+        MemorySyncStage::Requested,
+        None,
+        None,
+        Some("global sync requested".to_string()),
     );
     tracing::debug!("[memory.sync] memory_sync_all: MemorySyncRequested(all) published");
     Ok(RpcOutcome::new(SyncAllResult { requested: true }, vec![]))

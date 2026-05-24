@@ -29,11 +29,8 @@ use chrono::Utc;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::score::store::lookup_entity;
 use crate::openhuman::memory_tree::store::get_chunk;
-use crate::openhuman::memory_tree::tree_source::bucket_seal::{
-    append_leaf, LabelStrategy, LeafRef,
-};
-use crate::openhuman::memory_tree::tree_source::summariser::Summariser;
-use crate::openhuman::memory_tree::tree_source::types::Tree;
+use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+use crate::openhuman::memory_tree::tree::types::Tree;
 use crate::openhuman::memory_tree::util::redact::redact;
 
 /// Max leaves to pull from the entity index during backfill. A hard cap
@@ -51,20 +48,8 @@ const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 /// to `tree`. Returns the number of leaves appended (NOT the number of
 /// summaries sealed). Idempotent: `append_leaf` itself is a no-op when a
 /// leaf is already in the buffer, so re-running backfill is safe.
-pub async fn backfill_topic_tree(
-    config: &Config,
-    tree: &Tree,
-    entity_id: &str,
-    summariser: &dyn Summariser,
-) -> Result<usize> {
-    backfill_topic_tree_at(
-        config,
-        tree,
-        entity_id,
-        summariser,
-        Utc::now().timestamp_millis(),
-    )
-    .await
+pub async fn backfill_topic_tree(config: &Config, tree: &Tree, entity_id: &str) -> Result<usize> {
+    backfill_topic_tree_at(config, tree, entity_id, Utc::now().timestamp_millis()).await
 }
 
 /// Deterministic variant — backfill against a caller-supplied `now_ms`
@@ -74,7 +59,6 @@ pub async fn backfill_topic_tree_at(
     config: &Config,
     tree: &Tree,
     entity_id: &str,
-    summariser: &dyn Summariser,
     now_ms: i64,
 ) -> Result<usize> {
     let cutoff_ms = now_ms.saturating_sub(BACKFILL_WINDOW_DAYS.saturating_mul(DAY_MS));
@@ -165,7 +149,7 @@ pub async fn backfill_topic_tree_at(
         // Topic-tree backfill: empty labels for sealed summaries — the
         // tree's scope already pins the canonical id, so cross-pollinating
         // descendants' entities would noise the index. See LabelStrategy.
-        append_leaf(config, tree, &leaf, summariser, &LabelStrategy::Empty)
+        append_leaf(config, tree, &leaf, &LabelStrategy::Empty)
             .await
             .with_context(|| {
                 format!(
@@ -191,15 +175,16 @@ pub async fn backfill_topic_tree_at(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::score::extract::EntityKind;
     use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
     use crate::openhuman::memory_tree::score::store::index_entity;
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::store as src_store;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
+    use crate::openhuman::memory_tree::tree::store as src_store;
     use crate::openhuman::memory_tree::tree_topic::registry::get_or_create_topic_tree;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::{TimeZone, Utc};
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -289,16 +274,14 @@ mod tests {
         .unwrap();
 
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
-        let summariser = InertSummariser::new();
-        let n = backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let n = test_override::with_provider(provider, async {
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(n, 3);
 
         // L0 buffer should hold all three leaves (combined tokens well
@@ -326,16 +309,14 @@ mod tests {
         index_entity(&cfg, &e, &c_new.id, "leaf", new_ts, Some("source:slack")).unwrap();
 
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
-        let summariser = InertSummariser::new();
-        let n = backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let n = test_override::with_provider(provider, async {
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(n, 1, "only the in-window leaf should be appended");
         let buf = src_store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert_eq!(buf.item_ids.len(), 1);
@@ -362,16 +343,14 @@ mod tests {
         .unwrap();
 
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
-        let summariser = InertSummariser::new();
-        let n = backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let n = test_override::with_provider(provider, async {
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(n, 1, "only the existing chunk should be appended");
         let buf = src_store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert_eq!(buf.item_ids.len(), 1);
@@ -394,25 +373,17 @@ mod tests {
         .unwrap();
 
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
-        let summariser = InertSummariser::new();
-        backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
-        backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        test_override::with_provider(provider, async {
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap();
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap();
+        })
+        .await;
         // append_leaf is idempotent so the buffer still has exactly one row.
         let buf = src_store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert_eq!(buf.item_ids.len(), 1);
@@ -433,16 +404,14 @@ mod tests {
         )
         .unwrap();
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
-        let summariser = InertSummariser::new();
-        let n = backfill_topic_tree_at(
-            &cfg,
-            &tree,
-            "email:alice@example.com",
-            &summariser,
-            TEST_NOW_MS,
-        )
-        .await
-        .unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let n = test_override::with_provider(provider, async {
+            backfill_topic_tree_at(&cfg, &tree, "email:alice@example.com", TEST_NOW_MS)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(n, 0);
     }
 }

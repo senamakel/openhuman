@@ -12,7 +12,7 @@
 //! exactly what was happening before this section was gated.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::tree_source::types::TreeKind;
+use crate::openhuman::memory_tree::tree::types::TreeKind;
 
 /// Truncate point for the digest body in the situation report.
 const DIGEST_BODY_PREVIEW: usize = 1200;

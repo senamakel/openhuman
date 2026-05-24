@@ -2,7 +2,7 @@
 //!
 //! The only new table owned here is `mem_tree_entity_hotness` — the
 //! per-entity counter block driving lazy materialisation. Tree rows and
-//! summary nodes are reused from [`super::super::tree_source::store`] via
+//! summary nodes are reused from [`super::super::tree::store`] via
 //! the shared `mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`
 //! tables, which already carry a `kind` column that discriminates
 //! `source` from `topic`. No schema additions for those tables in Phase

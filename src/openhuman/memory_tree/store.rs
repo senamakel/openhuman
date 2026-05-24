@@ -1334,7 +1334,7 @@ fn migrate_legacy_embeddings_to_sidecar(conn: &Connection, config: &Config) -> R
                 set_chunk_embedding_for_signature_tx(&tx, &id, &sig, &vec)?;
                 copied_chunks += 1;
             } else {
-                crate::openhuman::memory_tree::tree_source::store::set_summary_embedding_for_signature_tx(
+                crate::openhuman::memory_tree::tree::store::set_summary_embedding_for_signature_tx(
                     &tx, &id, &sig, &vec,
                 )?;
                 copied_summaries += 1;
@@ -1540,7 +1540,7 @@ fn add_column_if_missing(conn: &Connection, table: &str, name: &str, sql_type: &
 /// by (#1574). Reuses the established local-AI workload derivation
 /// ([`Config::workload_local_model`]) and the probe-stable
 /// `active_embedding_signature`; introduces no parallel resolution path.
-/// `pub(crate)` so the sibling `tree_source` summary store shares the exact
+/// `pub(crate)` so the sibling `tree` summary store shares the exact
 /// same resolution.
 pub(crate) fn tree_active_signature(config: &Config) -> String {
     let local_model = config.workload_local_model("embeddings");

@@ -1581,7 +1581,7 @@ pub struct FlushNowResponse {
 pub async fn flush_now_rpc(config: &Config) -> Result<RpcOutcome<FlushNowResponse>, String> {
     use crate::openhuman::memory_tree::jobs::store as jobs_store;
     use crate::openhuman::memory_tree::jobs::types::{FlushStalePayload, NewJob};
-    use crate::openhuman::memory_tree::tree_source::store as tree_store;
+    use crate::openhuman::memory_tree::tree::store as tree_store;
 
     let cfg = config.clone();
     let resp = tokio::task::spawn_blocking(move || -> Result<FlushNowResponse> {

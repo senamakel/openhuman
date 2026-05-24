@@ -32,15 +32,13 @@ use crate::openhuman::memory_tree::content_store::{
 };
 use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
+use crate::openhuman::memory_tree::tree::registry::new_summary_id;
+use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::memory_tree::tree::types::{SummaryNode, Tree, TreeKind};
 use crate::openhuman::memory_tree::tree_global::registry::get_or_create_global_tree;
 use crate::openhuman::memory_tree::tree_global::seal::append_daily_and_cascade;
 use crate::openhuman::memory_tree::tree_global::GLOBAL_TOKEN_BUDGET;
-use crate::openhuman::memory_tree::tree_source::registry::new_summary_id;
-use crate::openhuman::memory_tree::tree_source::store;
-use crate::openhuman::memory_tree::tree_source::summariser::{
-    Summariser, SummaryContext, SummaryInput,
-};
-use crate::openhuman::memory_tree::tree_source::types::{SummaryNode, Tree, TreeKind};
 
 /// Outcome of a single `end_of_day_digest` call — lets the caller decide
 /// whether to log skip details or propagate seal counts to telemetry.
@@ -65,16 +63,13 @@ pub enum DigestOutcome {
 
 /// Run an end-of-day digest for `day`, appending one L0 node to the global
 /// tree and cascade-sealing upward if thresholds are crossed. The
-/// summariser is called once to fold the per-source material into a single
-/// cross-source recap.
+/// `summarise` function is called once to fold the per-source material into
+/// a single cross-source recap; on failure it falls back to a deterministic
+/// concat-and-truncate so the digest never aborts due to an LLM error.
 ///
 /// `day` is the calendar date in UTC the digest should cover. Callers that
 /// simply want "yesterday" can pass `Utc::now().date_naive() - Duration::days(1)`.
-pub async fn end_of_day_digest(
-    config: &Config,
-    day: NaiveDate,
-    summariser: &dyn Summariser,
-) -> Result<DigestOutcome> {
+pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<DigestOutcome> {
     let (day_start, day_end) = day_bounds_utc(day)?;
     log::info!(
         "[tree_global::digest] end_of_day_digest day={} window=[{}, {})",
@@ -138,10 +133,15 @@ pub async fn end_of_day_digest(
         target_level: 0, // daily node lives at L0 on the global tree
         token_budget: GLOBAL_TOKEN_BUDGET,
     };
-    let output = summariser
-        .summarise(&inputs, &ctx)
-        .await
-        .context("summariser failed during end-of-day digest")?;
+    let output = match summarise(config, &inputs, &ctx).await {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!(
+                "[tree_global::digest] summarise failed for day={day}: {e:#} — using fallback"
+            );
+            crate::openhuman::memory_tree::summarise::fallback_summary(&inputs, ctx.token_budget)
+        }
+    };
 
     // Envelope: time range is the day's bounds, score carries the max
     // contribution score so recall still has a ranking signal.
@@ -165,7 +165,7 @@ pub async fn end_of_day_digest(
     // seal time, so emergent themes don't need another extractor pass
     // here — global is a sink; union preserves "days that mentioned X"
     // retrieval without an extra LLM call. See LabelStrategy in
-    // tree_source::bucket_seal for the full design.
+    // tree::bucket_seal for the full design.
     let mut entities_set: BTreeSet<String> = BTreeSet::new();
     let mut topics_set: BTreeSet<String> = BTreeSet::new();
     for inp in &inputs {
@@ -274,7 +274,7 @@ pub async fn end_of_day_digest(
     );
 
     // Append into L0 buffer + cascade-seal if thresholds crossed.
-    let sealed_ids = append_daily_and_cascade(config, &global, &daily, summariser).await?;
+    let sealed_ids = append_daily_and_cascade(config, &global, &daily).await?;
 
     Ok(DigestOutcome::Emitted {
         daily_id: daily.id,

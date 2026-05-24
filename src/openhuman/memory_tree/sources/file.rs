@@ -13,7 +13,7 @@
 //! one-way: nothing reads back from this file at runtime.
 //!
 //! Future direction: as more per-source state moves out of SQLite (the
-//! sibling `tree_source/store.rs` rows that are naturally one-row-per
+//! sibling `tree/store.rs` rows that are naturally one-row-per
 //! source), this file becomes the load-into-memory authority and the
 //! SQLite columns get retired. We keep that migration small and explicit
 //! by gating it behind callers; this module just owns the on-disk shape.
@@ -32,7 +32,7 @@ use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::content_store::raw::raw_source_dir;
-use crate::openhuman::memory_tree::tree_source::types::{Tree, TreeKind, TreeStatus};
+use crate::openhuman::memory_tree::tree::types::{Tree, TreeKind, TreeStatus};
 
 /// Filename of the per-source registry mirror inside `raw/<source_slug>/`.
 pub const SOURCE_FILE_NAME: &str = "_source.md";

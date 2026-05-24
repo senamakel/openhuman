@@ -714,7 +714,7 @@ fn clear_reembed_skipped_for_signature_removes_all_tombstones_for_sig() {
         Ok(())
     })
     .unwrap();
-    crate::openhuman::memory_tree::tree_source::store::mark_summary_reembed_skipped(
+    crate::openhuman::memory_tree::tree::store::mark_summary_reembed_skipped(
         &cfg,
         summary_id,
         &sig,

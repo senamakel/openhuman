@@ -22,9 +22,9 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::memory_tree::tree::types::SummaryNode;
 use crate::openhuman::memory_tree::tree_global::registry::get_or_create_global_tree;
-use crate::openhuman::memory_tree::tree_source::store;
-use crate::openhuman::memory_tree::tree_source::types::SummaryNode;
 
 /// Aggregated recap returned to the caller.
 #[derive(Debug, Clone)]
@@ -158,15 +158,14 @@ fn assemble_recap(covering: &[&SummaryNode], level: u32) -> RecapOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::content_store;
+    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::store::upsert_chunks;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
     use crate::openhuman::memory_tree::tree_global::digest::{end_of_day_digest, DigestOutcome};
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::{
-        append_leaf, LabelStrategy, LeafRef,
-    };
-    use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn stage_test_chunks(cfg: &Config, chunks: &[Chunk]) {
@@ -217,7 +216,8 @@ mod tests {
 
     async fn seed_source_l1(cfg: &Config, scope: &str, ts: DateTime<Utc>) {
         let tree = get_or_create_source_tree(cfg, scope).unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         let c1 = Chunk {
             id: chunk_id(SourceKind::Chat, scope, 0, "test-content"),
             content: format!("c1-{scope}"),
@@ -254,40 +254,33 @@ mod tests {
         };
         upsert_chunks(cfg, &[c1.clone(), c2.clone()]).unwrap();
         stage_test_chunks(cfg, &[c1.clone(), c2.clone()]);
-        append_leaf(
-            cfg,
-            &tree,
-            &LeafRef {
-                chunk_id: c1.id.clone(),
-                token_count: 30_000,
-                timestamp: ts,
-                content: c1.content.clone(),
-                entities: vec![],
-                topics: vec![],
-                score: 0.5,
-            },
-            &summariser,
-            &LabelStrategy::Empty,
-        )
-        .await
-        .unwrap();
-        append_leaf(
-            cfg,
-            &tree,
-            &LeafRef {
-                chunk_id: c2.id.clone(),
-                token_count: 30_000,
-                timestamp: ts,
-                content: c2.content.clone(),
-                entities: vec![],
-                topics: vec![],
-                score: 0.5,
-            },
-            &summariser,
-            &LabelStrategy::Empty,
-        )
-        .await
-        .unwrap();
+        let leaf1 = LeafRef {
+            chunk_id: c1.id.clone(),
+            token_count: 30_000,
+            timestamp: ts,
+            content: c1.content.clone(),
+            entities: vec![],
+            topics: vec![],
+            score: 0.5,
+        };
+        let leaf2 = LeafRef {
+            chunk_id: c2.id.clone(),
+            token_count: 30_000,
+            timestamp: ts,
+            content: c2.content.clone(),
+            entities: vec![],
+            topics: vec![],
+            score: 0.5,
+        };
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(cfg, &tree, &leaf1, &LabelStrategy::Empty)
+                .await
+                .unwrap();
+            append_leaf(cfg, &tree, &leaf2, &LabelStrategy::Empty)
+                .await
+                .unwrap();
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -295,12 +288,16 @@ mod tests {
         // One daily digest → recap(1 day) should return the L0 at the
         // correct level.
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         // Use "today" so the digest's time range covers now.
         let day = Utc::now().date_naive();
         let ts = day.and_hms_opt(12, 0, 0).unwrap().and_utc();
         seed_source_l1(&cfg, "slack:#eng", ts).await;
-        let outcome = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
         assert!(matches!(outcome, DigestOutcome::Emitted { .. }));
 
         let r = recap(&cfg, Duration::hours(24))
@@ -318,14 +315,18 @@ mod tests {
         // should fall back from level 1 to level 0 and return whatever
         // daily nodes exist.
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         let today = Utc::now().date_naive();
         let base = today - Duration::days(2);
         for i in 0..3 {
             let day = base + Duration::days(i);
             let ts = day.and_hms_opt(10, 0, 0).unwrap().and_utc();
             seed_source_l1(&cfg, &format!("slack:#d{i}"), ts).await;
-            end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+            test_override::with_provider(Arc::clone(&provider), async {
+                end_of_day_digest(&cfg, day).await.unwrap()
+            })
+            .await;
         }
         let r = recap(&cfg, Duration::days(7))
             .await
@@ -343,14 +344,18 @@ mod tests {
         // After 7 daily digests a weekly L1 exists. A 7-day recap should
         // return that L1 at level 1.
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         let today = Utc::now().date_naive();
         let base = today - Duration::days(6);
         for i in 0..7 {
             let day = base + Duration::days(i);
             let ts = day.and_hms_opt(10, 0, 0).unwrap().and_utc();
             seed_source_l1(&cfg, &format!("slack:#w{i}"), ts).await;
-            end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+            test_override::with_provider(Arc::clone(&provider), async {
+                end_of_day_digest(&cfg, day).await.unwrap()
+            })
+            .await;
         }
         let r = recap(&cfg, Duration::days(7))
             .await

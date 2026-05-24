@@ -192,20 +192,19 @@ async fn ingest_populates_chunk_embeddings() {
 /// the seal from firing on short batches.
 #[tokio::test]
 async fn seal_populates_summary_embedding() {
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::content_store;
     use crate::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
+    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::{
-        append_leaf, LabelStrategy, LeafRef,
-    };
-    use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_tree::tree_source::store as src_store;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+    use crate::openhuman::memory_tree::tree::store as src_store;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use std::sync::Arc;
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#seal-test").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
     let ts = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
 
     let mk_chunk = |seq: u32, tokens: u32| Chunk {
@@ -251,24 +250,18 @@ async fn seal_populates_summary_embedding() {
         topics: vec![],
         score: 0.5,
     };
-    append_leaf(
-        &cfg,
-        &tree,
-        &leaf_of(&c1),
-        &summariser,
-        &LabelStrategy::Empty,
-    )
-    .await
-    .unwrap();
-    let sealed = append_leaf(
-        &cfg,
-        &tree,
-        &leaf_of(&c2),
-        &summariser,
-        &LabelStrategy::Empty,
-    )
-    .await
-    .unwrap();
+    test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf_of(&c1), &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
+    let sealed = test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf_of(&c2), &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert_eq!(sealed.len(), 1, "expected one seal at the budget crossing");
 
     // #1574 cutover: the seal path no longer writes the legacy

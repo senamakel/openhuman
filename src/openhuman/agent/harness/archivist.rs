@@ -28,13 +28,8 @@ use crate::openhuman::memory_tree::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::chat::{ChatConsumer, ChatProvider};
 use crate::openhuman::memory_tree::ingest;
 use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, Embedder};
-use crate::openhuman::memory_tree::tree_source::summariser::llm::{
-    LlmSummariser, LlmSummariserConfig,
-};
-use crate::openhuman::memory_tree::tree_source::summariser::{
-    Summariser, SummaryContext, SummaryInput,
-};
-use crate::openhuman::memory_tree::tree_source::types::TreeKind;
+use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
+use crate::openhuman::memory_tree::tree::types::TreeKind;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use rusqlite::Connection;
@@ -678,53 +673,47 @@ impl ArchivistHook {
         let first = entries.first().map(|e| e.content.as_str()).unwrap_or("");
         let last = entries.last().map(|e| e.content.as_str()).unwrap_or(first);
 
-        if let Some(ref provider) = self.chat_provider {
-            let cfg = LlmSummariserConfig {
-                model: provider.name().to_string(),
-                structured_facet_extraction: false,
-                output_language: self
-                    .config
-                    .as_ref()
-                    .and_then(|cfg| cfg.output_language.clone()),
-            };
-            let summariser = LlmSummariser::new(cfg, Arc::clone(provider));
-            tracing::debug!(
-                "[archivist] summarize_entries: LLM recap segment={segment_id} \
-                 provider={} entries={}",
-                provider.name(),
-                entries.len()
-            );
-            match summariser.summarise(&corpus_inputs, &summary_ctx).await {
-                Ok(output) if !output.content.is_empty() => {
-                    tracing::debug!(
-                        "[archivist] summarize_entries: LLM recap ok segment={segment_id} \
-                         chars={}",
-                        output.content.len()
-                    );
-                    (output.content, true)
+        if self.chat_provider.is_some() {
+            if let Some(ref config) = self.config {
+                tracing::debug!(
+                    "[archivist] summarize_entries: LLM recap segment={segment_id} entries={}",
+                    entries.len()
+                );
+                match summarise(config, &corpus_inputs, &summary_ctx).await {
+                    Ok(output) if !output.content.is_empty() => {
+                        tracing::debug!(
+                            "[archivist] summarize_entries: LLM recap ok segment={segment_id} \
+                             chars={}",
+                            output.content.len()
+                        );
+                        return (output.content, true);
+                    }
+                    Ok(_) => {
+                        tracing::debug!(
+                            "[archivist] summarize_entries: LLM returned empty — \
+                             heuristic fallback segment={segment_id}"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "[archivist] summarize_entries: LLM recap failed (non-fatal) \
+                             segment={segment_id}: {e} — heuristic fallback"
+                        );
+                    }
                 }
-                Ok(_) => {
-                    tracing::debug!(
-                        "[archivist] summarize_entries: LLM returned empty — \
-                         heuristic fallback segment={segment_id}"
-                    );
-                    (segments::fallback_summary(first, last, turn_count), false)
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "[archivist] summarize_entries: LLM recap failed (non-fatal) \
-                         segment={segment_id}: {e} — heuristic fallback"
-                    );
-                    (segments::fallback_summary(first, last, turn_count), false)
-                }
+            } else {
+                tracing::debug!(
+                    "[archivist] summarize_entries: no config — \
+                     heuristic fallback segment={segment_id}"
+                );
             }
         } else {
             tracing::debug!(
                 "[archivist] summarize_entries: no chat provider — \
                  heuristic fallback segment={segment_id}"
             );
-            (segments::fallback_summary(first, last, turn_count), false)
         }
+        (segments::fallback_summary(first, last, turn_count), false)
     }
 
     /// Produce a rolling recap of the **currently-open** segment for

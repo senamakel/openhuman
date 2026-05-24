@@ -25,12 +25,11 @@ use crate::openhuman::memory_tree::score;
 use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, pack_checked};
 use crate::openhuman::memory_tree::score::extract::build_summary_extractor;
 use crate::openhuman::memory_tree::score::store as score_store;
+use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
 use crate::openhuman::memory_tree::store as chunk_store;
+use crate::openhuman::memory_tree::tree::store as summary_store;
+use crate::openhuman::memory_tree::tree::{LabelStrategy, LeafRef};
 use crate::openhuman::memory_tree::tree_global::digest::{self, DigestOutcome};
-use crate::openhuman::memory_tree::tree_source::store as summary_store;
-use crate::openhuman::memory_tree::tree_source::{
-    build_summariser, get_or_create_source_tree, LabelStrategy, LeafRef,
-};
 use crate::openhuman::memory_tree::tree_topic::curator;
 
 /// Default age for L0 flush_stale when the caller doesn't override.
@@ -239,8 +238,8 @@ async fn handle_extract(config: &Config, job: &Job) -> Result<JobOutcome> {
 }
 
 async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> {
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::should_seal;
-    use crate::openhuman::memory_tree::tree_source::store as src_store;
+    use crate::openhuman::memory_tree::tree::bucket_seal::should_seal;
+    use crate::openhuman::memory_tree::tree::store as src_store;
 
     let payload: AppendBufferPayload =
         serde_json::from_str(&job.payload_json).context("parse AppendBuffer payload")?;
@@ -377,9 +376,9 @@ async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> 
 }
 
 async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::{seal_one_level, should_seal};
-    use crate::openhuman::memory_tree::tree_source::store as src_store;
-    use crate::openhuman::memory_tree::tree_source::types::TreeKind;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{seal_one_level, should_seal};
+    use crate::openhuman::memory_tree::tree::store as src_store;
+    use crate::openhuman::memory_tree::tree::types::TreeKind;
 
     let payload: SealPayload =
         serde_json::from_str(&job.payload_json).context("parse Seal payload")?;
@@ -427,15 +426,13 @@ async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
         TreeKind::Global => LabelStrategy::Empty,
     };
 
-    let summariser = build_summariser(config);
     // `seal_one_level` with `enqueue_follow_ups: true` atomically inserts
     // the parent-cascade seal (if the parent buffer now meets its gate)
     // and the summary-side `topic_route` (for source trees) inside the
     // same SQLite transaction that commits the seal. This eliminates the
     // crash window where the seal succeeds but the follow-up enqueues
     // are silently lost.
-    let summary_id =
-        seal_one_level(config, &tree, &buf, summariser.as_ref(), &strategy, true).await?;
+    let summary_id = seal_one_level(config, &tree, &buf, &strategy, true).await?;
 
     // Phase MD-content: rewrite the `tags:` block in the sealed summary's
     // on-disk .md file. Entity index rows were committed inside
@@ -467,7 +464,7 @@ async fn handle_topic_route(config: &Config, job: &Job) -> Result<JobOutcome> {
             chunk_id.clone()
         }
         NodeRef::Summary { summary_id } => {
-            if crate::openhuman::memory_tree::tree_source::store::get_summary(config, summary_id)?
+            if crate::openhuman::memory_tree::tree::store::get_summary(config, summary_id)?
                 .is_none()
             {
                 log::warn!(
@@ -485,12 +482,11 @@ async fn handle_topic_route(config: &Config, job: &Job) -> Result<JobOutcome> {
         return Ok(JobOutcome::Done);
     }
 
-    let summariser = build_summariser(config);
     for entity_id in entity_ids {
-        let _ = curator::maybe_spawn_topic_tree(config, &entity_id, summariser.as_ref()).await?;
-        if let Some(tree) = crate::openhuman::memory_tree::tree_source::store::get_tree_by_scope(
+        let _ = curator::maybe_spawn_topic_tree(config, &entity_id).await?;
+        if let Some(tree) = crate::openhuman::memory_tree::tree::store::get_tree_by_scope(
             config,
-            crate::openhuman::memory_tree::tree_source::types::TreeKind::Topic,
+            crate::openhuman::memory_tree::tree::types::TreeKind::Topic,
             &entity_id,
         )? {
             let job = NewJob::append_buffer(&AppendBufferPayload {
@@ -512,8 +508,7 @@ async fn handle_digest_daily(config: &Config, job: &Job) -> Result<JobOutcome> {
         serde_json::from_str(&job.payload_json).context("parse DigestDaily payload")?;
     let day = chrono::NaiveDate::parse_from_str(&payload.date_iso, "%Y-%m-%d")
         .with_context(|| format!("invalid digest date {}", payload.date_iso))?;
-    let summariser = build_summariser(config);
-    match digest::end_of_day_digest(config, day, summariser.as_ref()).await? {
+    match digest::end_of_day_digest(config, day).await? {
         DigestOutcome::Emitted { daily_id, .. } => {
             log::info!("[memory_tree::jobs] emitted digest daily_id={daily_id}");
         }
@@ -535,8 +530,7 @@ async fn handle_flush_stale(config: &Config, job: &Job) -> Result<JobOutcome> {
     // that set max_age_secs explicitly.
     let age_secs = payload.max_age_secs.unwrap_or(L0_DEFAULT_FLUSH_AGE_SECS);
     let cutoff = chrono::Utc::now() - chrono::Duration::seconds(age_secs);
-    let buffers =
-        crate::openhuman::memory_tree::tree_source::store::list_stale_buffers(config, cutoff)?;
+    let buffers = crate::openhuman::memory_tree::tree::store::list_stale_buffers(config, cutoff)?;
     for buf in buffers {
         let seal = SealPayload {
             tree_id: buf.tree_id.clone(),
@@ -773,8 +767,11 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
             chunk_store::set_chunk_embedding_for_signature_tx(&tx, id, &active_sig, v)?;
         }
         for (id, v) in &summary_vecs {
-            crate::openhuman::memory_tree::tree_source::store::set_summary_embedding_for_signature_tx(
-                &tx, id, &active_sig, v,
+            crate::openhuman::memory_tree::tree::store::set_summary_embedding_for_signature_tx(
+                &tx,
+                id,
+                &active_sig,
+                v,
             )?;
         }
         tx.commit()?;
@@ -802,10 +799,10 @@ mod tests {
     use crate::openhuman::memory_tree::content_store;
     use crate::openhuman::memory_tree::jobs::store::{count_by_status, count_total};
     use crate::openhuman::memory_tree::jobs::types::JobStatus;
+    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::store::with_connection;
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::{append_leaf_deferred, LeafRef};
-    use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_tree::tree_source::store as src_store;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf_deferred, LeafRef};
+    use crate::openhuman::memory_tree::tree::store as src_store;
     use chrono::TimeZone;
     use rusqlite::params;
     use tempfile::TempDir;
@@ -859,7 +856,7 @@ mod tests {
     /// fire `handle_seal` and inspect the result.
     async fn seed_source_tree_ready_to_seal(
         cfg: &Config,
-    ) -> crate::openhuman::memory_tree::tree_source::types::Tree {
+    ) -> crate::openhuman::memory_tree::tree::types::Tree {
         use crate::openhuman::memory_tree::store::upsert_chunks;
         use crate::openhuman::memory_tree::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
@@ -953,7 +950,7 @@ mod tests {
         match p.node {
             NodeRef::Summary { summary_id } => {
                 // Format: `summary:<13-digit-ms>:L<level>-<8hex>` —
-                // see `tree_source::registry::new_summary_id`.
+                // see `tree::registry::new_summary_id`.
                 assert!(
                     summary_id.starts_with("summary:") && summary_id.contains(":L1-"),
                     "expected summary id with L1 segment, got {summary_id}"
@@ -1059,7 +1056,7 @@ mod tests {
         //    it, and let the seal produce a summary we can address.
         let source_tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
         use crate::openhuman::memory_tree::store::upsert_chunks;
-        use crate::openhuman::memory_tree::tree_source::bucket_seal::seal_one_level;
+        use crate::openhuman::memory_tree::tree::bucket_seal::seal_one_level;
         use crate::openhuman::memory_tree::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
@@ -1107,20 +1104,26 @@ mod tests {
             let _ = append_leaf_deferred(&cfg, &source_tree, &leaf).unwrap();
         }
         // Force-seal the source tree's L0 to mint the summary.
+        use crate::openhuman::memory_tree::chat::{
+            test_override, ChatProvider, StaticChatProvider,
+        };
         let buf = src_store::get_buffer(&cfg, &source_tree.id, 0).unwrap();
-        let summariser = build_summariser(&cfg);
-        let summary_id = seal_one_level(
-            &cfg,
-            &source_tree,
-            &buf,
-            summariser.as_ref(),
-            &crate::openhuman::memory_tree::tree_source::bucket_seal::LabelStrategy::Empty,
-            // No follow-up enqueues — the test scopes assertions to the
-            // append_buffer handler, not seal-side fan-out.
-            false,
-        )
-        .await
-        .unwrap();
+        let provider: std::sync::Arc<dyn ChatProvider> =
+            std::sync::Arc::new(StaticChatProvider::new("test summary content"));
+        let summary_id = test_override::with_provider(provider, async {
+            seal_one_level(
+                &cfg,
+                &source_tree,
+                &buf,
+                &crate::openhuman::memory_tree::tree::bucket_seal::LabelStrategy::Empty,
+                // No follow-up enqueues — the test scopes assertions to the
+                // append_buffer handler, not seal-side fan-out.
+                false,
+            )
+            .await
+            .unwrap()
+        })
+        .await;
 
         // 3. Build an append_buffer payload routing the summary into the
         //    topic tree.

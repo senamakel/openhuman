@@ -3,15 +3,14 @@
 //! cascade-seal trigger for weekly/monthly/yearly levels.
 
 use super::*;
+use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
 use crate::openhuman::memory_tree::content_store;
+use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
 use crate::openhuman::memory_tree::store::upsert_chunks;
-use crate::openhuman::memory_tree::tree_source::bucket_seal::{
-    append_leaf, LabelStrategy, LeafRef,
-};
-use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
-use crate::openhuman::memory_tree::tree_source::types::TreeStatus;
+use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+use crate::openhuman::memory_tree::tree::types::TreeStatus;
 use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Stage a batch of chunks to the content store so that `read_chunk_body`
@@ -47,7 +46,7 @@ async fn seed_source_tree_with_sealed_l1(cfg: &Config, scope: &str, ts: DateTime
     // Use chunks with the source_tree bucket-seal mechanics so we get a
     // real L1 summary persisted that intersects the target day.
     let tree = get_or_create_source_tree(cfg, scope).unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     let c1 = Chunk {
         id: chunk_id(SourceKind::Chat, scope, 0, "test-content"),
@@ -104,12 +103,15 @@ async fn seed_source_tree_with_sealed_l1(cfg: &Config, scope: &str, ts: DateTime
         topics: vec![],
         score: 0.5,
     };
-    append_leaf(cfg, &tree, &leaf1, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
-    append_leaf(cfg, &tree, &leaf2, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(cfg, &tree, &leaf1, &LabelStrategy::Empty)
+            .await
+            .unwrap();
+        append_leaf(cfg, &tree, &leaf2, &LabelStrategy::Empty)
+            .await
+            .unwrap();
+    })
+    .await;
     // 12k tokens > 10k budget → one L1 summary covering `ts`.
 }
 
@@ -117,9 +119,12 @@ async fn seed_source_tree_with_sealed_l1(cfg: &Config, scope: &str, ts: DateTime
 async fn empty_day_returns_empty_day_outcome() {
     // No source trees exist yet — digest should no-op.
     let (_tmp, cfg) = test_config();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
     let day = NaiveDate::from_ymd_opt(2025, 1, 15).unwrap();
-    let outcome = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+    let outcome = test_override::with_provider(provider, async {
+        end_of_day_digest(&cfg, day).await.unwrap()
+    })
+    .await;
     assert!(matches!(outcome, DigestOutcome::EmptyDay));
 
     // No L0 nodes emitted on the global tree.
@@ -130,7 +135,7 @@ async fn empty_day_returns_empty_day_outcome() {
 #[tokio::test]
 async fn populated_day_emits_one_daily_leaf() {
     let (_tmp, cfg) = test_config();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     // Seed 3 source trees with sealed L1s on the target day. This
     // exercises the main cross-source path end to end.
@@ -140,7 +145,10 @@ async fn populated_day_emits_one_daily_leaf() {
     seed_source_tree_with_sealed_l1(&cfg, "email:alice", ts).await;
     seed_source_tree_with_sealed_l1(&cfg, "notion:workspace", ts).await;
 
-    let outcome = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+    let outcome = test_override::with_provider(Arc::clone(&provider), async {
+        end_of_day_digest(&cfg, day).await.unwrap()
+    })
+    .await;
     let (daily_id, source_count) = match outcome {
         DigestOutcome::Emitted {
             daily_id,
@@ -175,18 +183,24 @@ async fn populated_day_emits_one_daily_leaf() {
 #[tokio::test]
 async fn rerun_on_same_day_is_idempotent() {
     let (_tmp, cfg) = test_config();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
     let day = NaiveDate::from_ymd_opt(2025, 2, 3).unwrap();
     let ts = day.and_hms_opt(9, 0, 0).unwrap().and_utc();
     seed_source_tree_with_sealed_l1(&cfg, "slack:#eng", ts).await;
 
-    let first = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+    let first = test_override::with_provider(Arc::clone(&provider), async {
+        end_of_day_digest(&cfg, day).await.unwrap()
+    })
+    .await;
     let first_id = match first {
         DigestOutcome::Emitted { daily_id, .. } => daily_id,
         other => panic!("expected Emitted, got {other:?}"),
     };
 
-    let second = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+    let second = test_override::with_provider(Arc::clone(&provider), async {
+        end_of_day_digest(&cfg, day).await.unwrap()
+    })
+    .await;
     match second {
         DigestOutcome::Skipped { existing_id } => assert_eq!(existing_id, first_id),
         other => panic!("expected Skipped on rerun, got {other:?}"),
@@ -200,7 +214,7 @@ async fn rerun_on_same_day_is_idempotent() {
 #[tokio::test]
 async fn seven_days_cascade_to_weekly_seal() {
     let (_tmp, cfg) = test_config();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     // Emit 7 daily nodes across 7 consecutive days. The 7th should
     // cascade to seal an L1 weekly node.
@@ -212,7 +226,10 @@ async fn seven_days_cascade_to_weekly_seal() {
         // Fresh source scope per day keeps L1s day-specific.
         seed_source_tree_with_sealed_l1(&cfg, &format!("slack:#day{i}"), ts).await;
 
-        let outcome = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
         match outcome {
             DigestOutcome::Emitted {
                 sealed_ids,
@@ -265,7 +282,7 @@ async fn seed_source_tree_with_labeled_l1(
     use crate::openhuman::memory_tree::score::store::index_entity;
 
     let tree = get_or_create_source_tree(cfg, scope).unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     let mut chunks: Vec<Chunk> = Vec::new();
     for seq in 0..2u32 {
@@ -323,8 +340,9 @@ async fn seed_source_tree_with_labeled_l1(
     // Two 6k-token leaves total 12k → exceeds L0 budget → seal fires on
     // the second append, producing one L1 summary that unions all leaf
     // labels (every leaf has the same set, so dedup yields the input set).
-    for chunk in &chunks {
-        let leaf = LeafRef {
+    let leaves: Vec<LeafRef> = chunks
+        .iter()
+        .map(|chunk| LeafRef {
             chunk_id: chunk.id.clone(),
             token_count: 30_000,
             timestamp: ts,
@@ -332,23 +350,22 @@ async fn seed_source_tree_with_labeled_l1(
             entities: entities.clone(),
             topics: topics.clone(),
             score: 0.5,
-        };
-        append_leaf(
-            cfg,
-            &tree,
-            &leaf,
-            &summariser,
-            &LabelStrategy::UnionFromChildren,
-        )
-        .await
-        .unwrap();
-    }
+        })
+        .collect();
+    test_override::with_provider(provider, async {
+        for leaf in &leaves {
+            append_leaf(cfg, &tree, leaf, &LabelStrategy::UnionFromChildren)
+                .await
+                .unwrap();
+        }
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn daily_digest_unions_labels_from_source_summaries() {
     let (_tmp, cfg) = test_config();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     let day = NaiveDate::from_ymd_opt(2025, 5, 1).unwrap();
     let ts = day.and_hms_opt(10, 0, 0).unwrap().and_utc();
@@ -374,7 +391,10 @@ async fn daily_digest_unions_labels_from_source_summaries() {
     )
     .await;
 
-    let outcome = end_of_day_digest(&cfg, day, &summariser).await.unwrap();
+    let outcome = test_override::with_provider(Arc::clone(&provider), async {
+        end_of_day_digest(&cfg, day).await.unwrap()
+    })
+    .await;
     let daily_id = match outcome {
         DigestOutcome::Emitted { daily_id, .. } => daily_id,
         other => panic!("expected Emitted, got {other:?}"),

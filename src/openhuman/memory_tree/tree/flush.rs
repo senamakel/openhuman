@@ -15,10 +15,9 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::tree_source::bucket_seal::{cascade_all_from, LabelStrategy};
-use crate::openhuman::memory_tree::tree_source::store;
-use crate::openhuman::memory_tree::tree_source::summariser::Summariser;
-use crate::openhuman::memory_tree::tree_source::types::DEFAULT_FLUSH_AGE_SECS;
+use crate::openhuman::memory_tree::tree::bucket_seal::{cascade_all_from, LabelStrategy};
+use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::memory_tree::tree::types::DEFAULT_FLUSH_AGE_SECS;
 
 /// Seal every buffer whose oldest item is older than `max_age`. Returns
 /// the number of individual seal calls (not trees) that fired. When the
@@ -26,14 +25,13 @@ use crate::openhuman::memory_tree::tree_source::types::DEFAULT_FLUSH_AGE_SECS;
 pub async fn flush_stale_buffers(
     config: &Config,
     max_age: Duration,
-    summariser: &dyn Summariser,
     strategy: &LabelStrategy,
 ) -> Result<usize> {
     let now = Utc::now();
     let cutoff = now - max_age;
     let stale = store::list_stale_buffers(config, cutoff)?;
     log::info!(
-        "[tree_source::flush] found {} stale buffers (max_age={:?})",
+        "[tree::flush] found {} stale buffers (max_age={:?})",
         stale.len(),
         max_age
     );
@@ -44,15 +42,14 @@ pub async fn flush_stale_buffers(
             Some(t) => t,
             None => {
                 log::warn!(
-                    "[tree_source::flush] orphan buffer tree_id={} level={}",
+                    "[tree::flush] orphan buffer tree_id={} level={}",
                     buf.tree_id,
                     buf.level
                 );
                 continue;
             }
         };
-        let sealed =
-            cascade_all_from(config, &tree, buf.level, summariser, Some(now), strategy).await?;
+        let sealed = cascade_all_from(config, &tree, buf.level, Some(now), strategy).await?;
         seals += sealed.len();
     }
     Ok(seals)
@@ -61,16 +58,9 @@ pub async fn flush_stale_buffers(
 /// Convenience wrapper that uses [`DEFAULT_FLUSH_AGE_SECS`].
 pub async fn flush_stale_buffers_default(
     config: &Config,
-    summariser: &dyn Summariser,
     strategy: &LabelStrategy,
 ) -> Result<usize> {
-    flush_stale_buffers(
-        config,
-        Duration::seconds(DEFAULT_FLUSH_AGE_SECS),
-        summariser,
-        strategy,
-    )
-    .await
+    flush_stale_buffers(config, Duration::seconds(DEFAULT_FLUSH_AGE_SECS), strategy).await
 }
 
 /// Helper exposed for callers that want a single explicit force-seal (e.g.
@@ -78,24 +68,24 @@ pub async fn flush_stale_buffers_default(
 pub async fn force_flush_tree(
     config: &Config,
     tree_id: &str,
-    summariser: &dyn Summariser,
     now: Option<DateTime<Utc>>,
     strategy: &LabelStrategy,
 ) -> Result<Vec<String>> {
     let tree = store::get_tree(config, tree_id)?
         .ok_or_else(|| anyhow::anyhow!("no tree with id {tree_id}"))?;
-    cascade_all_from(config, &tree, 0, summariser, now, strategy).await
+    cascade_all_from(config, &tree, 0, now, strategy).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::content_store;
+    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::bucket_seal::{append_leaf, LeafRef};
-    use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LeafRef};
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn stage_test_chunks(cfg: &Config, chunks: &[Chunk]) {
@@ -127,7 +117,8 @@ mod tests {
     async fn flush_seals_old_buffer_even_under_budget() {
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         // Persist one chunk with an old timestamp (10 days ago).
         let old_ts = Utc::now() - Duration::days(10);
@@ -160,15 +151,20 @@ mod tests {
             topics: vec![],
             score: 0.5,
         };
-        append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-            .await
-            .unwrap();
-        assert_eq!(store::count_summaries(&cfg, &tree.id).unwrap(), 0);
-
-        let seals =
-            flush_stale_buffers(&cfg, Duration::days(7), &summariser, &LabelStrategy::Empty)
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
                 .await
                 .unwrap();
+        })
+        .await;
+        assert_eq!(store::count_summaries(&cfg, &tree.id).unwrap(), 0);
+
+        let seals = test_override::with_provider(Arc::clone(&provider), async {
+            flush_stale_buffers(&cfg, Duration::days(7), &LabelStrategy::Empty)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(seals, 1);
         assert_eq!(store::count_summaries(&cfg, &tree.id).unwrap(), 1);
 
@@ -187,16 +183,17 @@ mod tests {
         // on `SUMMARY_FANOUT` naturally.
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         // Plant a stale L1 buffer holding a single (synthetic) child id.
         // No L0 chunks — the only thing flush could touch is the L1 buffer.
         let old_ts = Utc::now() - Duration::days(10);
         crate::openhuman::memory_tree::store::with_connection(&cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory_tree::tree_source::store::upsert_buffer_tx(
+            crate::openhuman::memory_tree::tree::store::upsert_buffer_tx(
                 &tx,
-                &crate::openhuman::memory_tree::tree_source::types::Buffer {
+                &crate::openhuman::memory_tree::tree::types::Buffer {
                     tree_id: tree.id.clone(),
                     level: 1,
                     item_ids: vec!["fake-l1-child".into()],
@@ -209,10 +206,12 @@ mod tests {
         })
         .unwrap();
 
-        let seals =
-            flush_stale_buffers(&cfg, Duration::days(7), &summariser, &LabelStrategy::Empty)
+        let seals = test_override::with_provider(provider, async {
+            flush_stale_buffers(&cfg, Duration::days(7), &LabelStrategy::Empty)
                 .await
-                .unwrap();
+                .unwrap()
+        })
+        .await;
         assert_eq!(seals, 0, "L1 stale buffer must not be force-sealed");
         assert_eq!(store::count_summaries(&cfg, &tree.id).unwrap(), 0);
 
@@ -225,7 +224,8 @@ mod tests {
     async fn flush_noop_when_buffer_is_recent() {
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         // Persist a leaf stamped now so it's NOT stale.
         let now = Utc::now();
@@ -256,14 +256,19 @@ mod tests {
             topics: vec![],
             score: 0.5,
         };
-        append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-            .await
-            .unwrap();
-
-        let seals =
-            flush_stale_buffers(&cfg, Duration::days(7), &summariser, &LabelStrategy::Empty)
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
                 .await
                 .unwrap();
+        })
+        .await;
+
+        let seals = test_override::with_provider(provider, async {
+            flush_stale_buffers(&cfg, Duration::days(7), &LabelStrategy::Empty)
+                .await
+                .unwrap()
+        })
+        .await;
         assert_eq!(seals, 0);
         assert_eq!(store::count_summaries(&cfg, &tree.id).unwrap(), 0);
     }

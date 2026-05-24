@@ -3,9 +3,10 @@
 //! cascade depth bounds, idempotency on retry, and label-strategy resolution.
 
 use super::*;
+use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
 use crate::openhuman::memory_tree::content_store;
-use crate::openhuman::memory_tree::tree_source::registry::get_or_create_source_tree;
-use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
+use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Stage a batch of chunks to the content store so that `read_chunk_body`
@@ -57,13 +58,16 @@ fn mk_leaf(id: &str, tokens: u32, ts_ms: i64) -> LeafRef {
 async fn append_below_budget_does_not_seal() {
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
     // Chunks don't exist in DB — we're only exercising the buffer
     // accounting, which doesn't require leaf rows until a seal fires.
     let leaf = mk_leaf("leaf-1", 100, 1_700_000_000_000);
-    let sealed = append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    let sealed = test_override::with_provider(provider, async {
+        append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert!(sealed.is_empty());
 
     let buf = store::get_buffer(&cfg, &tree.id, 0).unwrap();
@@ -80,7 +84,7 @@ async fn crossing_budget_triggers_seal() {
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     // Persist two chunks that the hydrator can load during seal.
     let ts = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
@@ -130,14 +134,20 @@ async fn crossing_budget_triggers_seal() {
         score: 0.5,
     };
 
-    let first = append_leaf(&cfg, &tree, &leaf1, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    let first = test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf1, &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert!(first.is_empty(), "first append below budget — no seal");
 
-    let second = append_leaf(&cfg, &tree, &leaf2, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    let second = test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf2, &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert_eq!(second.len(), 1, "second append crosses budget — one seal");
 
     let summary_id = &second[0];
@@ -177,13 +187,13 @@ async fn crossing_budget_triggers_seal() {
 #[tokio::test]
 async fn fanout_at_l1_triggers_l2_seal() {
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::types::SUMMARY_FANOUT;
+    use crate::openhuman::memory_tree::tree::types::SUMMARY_FANOUT;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     let ts = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
     let mk_chunk = |seq: u32| {
@@ -226,9 +236,12 @@ async fn fanout_at_l1_triggers_l2_seal() {
             topics: vec![],
             score: 0.5,
         };
-        let sealed = append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-            .await
-            .unwrap();
+        let sealed = test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
+                .await
+                .unwrap()
+        })
+        .await;
         all_sealed.extend(sealed);
     }
 
@@ -266,13 +279,13 @@ async fn fanout_at_l1_triggers_l2_seal() {
 #[tokio::test]
 async fn upper_level_does_not_seal_below_fanout() {
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::types::SUMMARY_FANOUT;
+    use crate::openhuman::memory_tree::tree::types::SUMMARY_FANOUT;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     let ts = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
     // Emit (fanout - 1) L1 summaries — should leave the L1 buffer
@@ -309,9 +322,12 @@ async fn upper_level_does_not_seal_below_fanout() {
             topics: vec![],
             score: 0.5,
         };
-        let _ = append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-            .await
-            .unwrap();
+        let _ = test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
+                .await
+                .unwrap()
+        })
+        .await;
     }
 
     let t = store::get_tree(&cfg, &tree.id).unwrap().unwrap();
@@ -414,16 +430,15 @@ fn seed_leaf(
 #[tokio::test]
 async fn seal_with_extract_strategy_populates_entities_and_topics() {
     use crate::openhuman::memory_tree::score::extract::{CompositeExtractor, EntityExtractor};
-    use std::sync::Arc;
 
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new(
+        "alice@example.com is leading the #launch sprint this week.",
+    ));
 
     // Content the regex extractor can find: an email and a hashtag. The
-    // inert summariser concatenates leaf content into the L1 summary, so
-    // these tokens survive into the summary text and the extractor finds
-    // them when run on the summary content.
+    // StaticChatProvider returns content that the extractor finds.
     let leaf = seed_leaf(
         &cfg,
         0,
@@ -435,9 +450,10 @@ async fn seal_with_extract_strategy_populates_entities_and_topics() {
     let extractor: Arc<dyn EntityExtractor> = Arc::new(CompositeExtractor::regex_only());
     let strategy = LabelStrategy::ExtractFromContent(extractor);
 
-    let sealed = append_leaf(&cfg, &tree, &leaf, &summariser, &strategy)
-        .await
-        .unwrap();
+    let sealed = test_override::with_provider(provider, async {
+        append_leaf(&cfg, &tree, &leaf, &strategy).await.unwrap()
+    })
+    .await;
     assert_eq!(sealed.len(), 1, "single 10k-token leaf should seal L0→L1");
 
     let summary = store::get_summary(&cfg, &sealed[0]).unwrap().unwrap();
@@ -460,7 +476,7 @@ async fn seal_with_extract_strategy_populates_entities_and_topics() {
 async fn seal_with_union_strategy_inherits_labels_from_children() {
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     // Two leaves with overlapping + distinct labels. Union should
     // dedup-merge them into the parent.
@@ -501,26 +517,20 @@ async fn seal_with_union_strategy_inherits_labels_from_children() {
     };
 
     // First leaf: under budget, no seal.
-    let sealed_1 = append_leaf(
-        &cfg,
-        &tree,
-        &leaf1,
-        &summariser,
-        &LabelStrategy::UnionFromChildren,
-    )
-    .await
-    .unwrap();
+    let sealed_1 = test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf1, &LabelStrategy::UnionFromChildren)
+            .await
+            .unwrap()
+    })
+    .await;
     assert!(sealed_1.is_empty());
     // Second leaf: crosses budget → one seal covering both leaves.
-    let sealed_2 = append_leaf(
-        &cfg,
-        &tree,
-        &leaf2,
-        &summariser,
-        &LabelStrategy::UnionFromChildren,
-    )
-    .await
-    .unwrap();
+    let sealed_2 = test_override::with_provider(Arc::clone(&provider), async {
+        append_leaf(&cfg, &tree, &leaf2, &LabelStrategy::UnionFromChildren)
+            .await
+            .unwrap()
+    })
+    .await;
     assert_eq!(sealed_2.len(), 1);
 
     let summary = store::get_summary(&cfg, &sealed_2[0]).unwrap().unwrap();
@@ -546,7 +556,7 @@ async fn seal_with_union_strategy_inherits_labels_from_children() {
 async fn seal_with_empty_strategy_leaves_labels_empty() {
     let (_tmp, cfg) = test_config();
     let tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
 
     // Leaf carries labels — Empty strategy should ignore them.
     let leaf = seed_leaf(
@@ -557,9 +567,12 @@ async fn seal_with_empty_strategy_leaves_labels_empty() {
         vec!["launch".into()],
     );
 
-    let sealed = append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    let sealed = test_override::with_provider(provider, async {
+        append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert_eq!(sealed.len(), 1);
 
     let summary = store::get_summary(&cfg, &sealed[0]).unwrap().unwrap();
@@ -577,7 +590,7 @@ async fn seal_with_empty_strategy_leaves_labels_empty() {
 
 #[tokio::test]
 async fn topic_tree_seal_persists_topic_kind_not_source() {
-    use crate::openhuman::memory_tree::tree_source::types::TreeStatus;
+    use crate::openhuman::memory_tree::tree::types::TreeStatus;
 
     let (_tmp, cfg) = test_config();
     // Build a topic tree directly — `seal_one_level` runs for both
@@ -595,12 +608,15 @@ async fn topic_tree_seal_persists_topic_kind_not_source() {
     };
     store::insert_tree(&cfg, &tree).unwrap();
 
-    let summariser = InertSummariser::new();
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("test summary content"));
     let leaf = seed_leaf(&cfg, 0, "topic content", vec![], vec![]);
 
-    let sealed = append_leaf(&cfg, &tree, &leaf, &summariser, &LabelStrategy::Empty)
-        .await
-        .unwrap();
+    let sealed = test_override::with_provider(provider, async {
+        append_leaf(&cfg, &tree, &leaf, &LabelStrategy::Empty)
+            .await
+            .unwrap()
+    })
+    .await;
     assert_eq!(sealed.len(), 1);
 
     let summary = store::get_summary(&cfg, &sealed[0]).unwrap().unwrap();

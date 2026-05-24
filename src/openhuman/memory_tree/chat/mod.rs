@@ -117,6 +117,10 @@ pub fn build_chat_provider(
     config: &Config,
     consumer: ChatConsumer,
 ) -> Result<Arc<dyn ChatProvider>> {
+    #[cfg(test)]
+    if let Some(p) = test_override::current() {
+        return Ok(p);
+    }
     if let Some(routed_model) = config.workload_local_model("memory") {
         let (endpoint, model, timeout_ms) = match consumer {
             ChatConsumer::Extract => (
@@ -210,37 +214,71 @@ impl ChatConsumer {
     }
 }
 
+/// In-memory chat provider for unit tests. Returns a canned response
+/// regardless of the prompt and counts invocations so tests can assert
+/// they were exercised. Lifted out of `mod tests` so any test module in
+/// the crate can reach it via `chat::StaticChatProvider`.
+#[cfg(test)]
+pub struct StaticChatProvider {
+    pub response: String,
+    pub calls: std::sync::atomic::AtomicUsize,
+}
+
+#[cfg(test)]
+impl StaticChatProvider {
+    pub fn new(response: impl Into<String>) -> Self {
+        Self {
+            response: response.into(),
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl ChatProvider for StaticChatProvider {
+    fn name(&self) -> &str {
+        "test:static"
+    }
+    async fn chat_for_json(&self, _prompt: &ChatPrompt) -> Result<String> {
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(self.response.clone())
+    }
+}
+
+/// Test-only chat-provider override. Tests that need a deterministic
+/// summariser/extractor wrap their body in
+/// [`test_override::with_provider`] — the inner future sees
+/// `build_chat_provider` return the injected `Arc<dyn ChatProvider>`
+/// regardless of `Config`.
+#[cfg(test)]
+pub mod test_override {
+    use super::ChatProvider;
+    use std::sync::Arc;
+
+    tokio::task_local! {
+        static OVERRIDE: Arc<dyn ChatProvider>;
+    }
+
+    /// Returns the override visible in the current task, if any.
+    pub fn current() -> Option<Arc<dyn ChatProvider>> {
+        OVERRIDE.try_with(Arc::clone).ok()
+    }
+
+    /// Run `fut` with `provider` installed as the override for any
+    /// `build_chat_provider` call made inside it (or any child task
+    /// spawned within it that inherits the task-local).
+    pub async fn with_provider<F, T>(provider: Arc<dyn ChatProvider>, fut: F) -> T
+    where
+        F: std::future::Future<Output = T>,
+    {
+        OVERRIDE.scope(provider, fut).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// In-memory chat provider for unit tests. Returns a canned response
-    /// regardless of the prompt and counts invocations so tests can assert
-    /// they were exercised.
-    pub struct StaticChatProvider {
-        pub response: String,
-        pub calls: std::sync::atomic::AtomicUsize,
-    }
-
-    impl StaticChatProvider {
-        pub fn new(response: impl Into<String>) -> Self {
-            Self {
-                response: response.into(),
-                calls: std::sync::atomic::AtomicUsize::new(0),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl ChatProvider for StaticChatProvider {
-        fn name(&self) -> &str {
-            "test:static"
-        }
-        async fn chat_for_json(&self, _prompt: &ChatPrompt) -> Result<String> {
-            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok(self.response.clone())
-        }
-    }
 
     #[test]
     fn build_provider_returns_cloud_when_default() {

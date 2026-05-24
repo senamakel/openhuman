@@ -6,7 +6,7 @@
 //! tree aligned to the time axis (day / week / month / year) so
 //! window-scoped recap queries can map a duration to a level deterministically.
 //!
-//! Reuses Phase 3a storage primitives from `tree_source::store` without
+//! Reuses Phase 3a storage primitives from `tree::store` without
 //! their token-budget cascade logic — all global seals route through
 //! `mem_tree_summaries` on both sides (children and output), since even L0
 //! is a sealed summary node rather than a raw chunk.
@@ -22,15 +22,15 @@ use crate::openhuman::memory_tree::content_store::{
 };
 use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::store::with_connection;
+use crate::openhuman::memory_tree::summarise::{
+    fallback_summary, summarise, SummaryContext, SummaryInput,
+};
+use crate::openhuman::memory_tree::tree::registry::new_summary_id;
+use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::memory_tree::tree::types::{Buffer, SummaryNode, Tree, TreeKind};
 use crate::openhuman::memory_tree::tree_global::{
     GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
 };
-use crate::openhuman::memory_tree::tree_source::registry::new_summary_id;
-use crate::openhuman::memory_tree::tree_source::store;
-use crate::openhuman::memory_tree::tree_source::summariser::{
-    Summariser, SummaryContext, SummaryInput,
-};
-use crate::openhuman::memory_tree::tree_source::types::{Buffer, SummaryNode, Tree, TreeKind};
 
 /// Hard cap on cascade depth — mirrors the source-tree constant. L0→L1→L2→L3
 /// is only 3 hops so we have ample slack.
@@ -46,7 +46,6 @@ pub async fn append_daily_and_cascade(
     config: &Config,
     tree: &Tree,
     daily_summary: &SummaryNode,
-    summariser: &dyn Summariser,
 ) -> Result<Vec<String>> {
     log::debug!(
         "[tree_global::seal] append_daily tree_id={} daily_id={} tokens={}",
@@ -64,7 +63,7 @@ pub async fn append_daily_and_cascade(
         daily_summary.time_range_start,
     )?;
 
-    cascade_seals(config, tree, summariser).await
+    cascade_seals(config, tree).await
 }
 
 /// Transactionally append a single summary id to the buffer at
@@ -100,11 +99,7 @@ fn append_to_buffer(
     })
 }
 
-async fn cascade_seals(
-    config: &Config,
-    tree: &Tree,
-    summariser: &dyn Summariser,
-) -> Result<Vec<String>> {
+async fn cascade_seals(config: &Config, tree: &Tree) -> Result<Vec<String>> {
     let mut sealed_ids: Vec<String> = Vec::new();
     // `level` is independent of the iteration counter — it only bumps when a
     // seal fires, and the loop can break early if `should_seal` returns
@@ -124,7 +119,7 @@ async fn cascade_seals(
                 break;
             }
 
-            let summary_id = seal_one_level(config, tree, &buf, summariser).await?;
+            let summary_id = seal_one_level(config, tree, &buf).await?;
             sealed_ids.push(summary_id);
             level += 1;
         }
@@ -146,12 +141,7 @@ fn should_seal(buf: &Buffer, level: u32) -> bool {
     !buf.is_empty() && buf.item_ids.len() >= threshold
 }
 
-async fn seal_one_level(
-    config: &Config,
-    tree: &Tree,
-    buf: &Buffer,
-    summariser: &dyn Summariser,
-) -> Result<String> {
+async fn seal_one_level(config: &Config, tree: &Tree, buf: &Buffer) -> Result<String> {
     let level = buf.level;
     let target_level = level + 1;
 
@@ -186,10 +176,17 @@ async fn seal_one_level(
         target_level,
         token_budget: GLOBAL_TOKEN_BUDGET,
     };
-    let output = summariser
-        .summarise(&inputs, &ctx)
-        .await
-        .context("summariser failed during global seal")?;
+    let output = match summarise(config, &inputs, &ctx).await {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!(
+                "[tree_global::seal] summarise failed tree_id={} level={}: {e:#} — using fallback",
+                tree.id,
+                level
+            );
+            fallback_summary(&inputs, ctx.token_budget)
+        }
+    };
 
     // Global-tree summaries inherit their entity/topic labels via union
     // from their already-labeled inputs (source-tree summaries carry
@@ -415,9 +412,10 @@ fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::tree_global::registry::get_or_create_global_tree;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
     use chrono::TimeZone;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -473,7 +471,8 @@ mod tests {
     async fn below_threshold_does_not_seal() {
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_global_tree(&cfg).unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         // Append 3 daily nodes — well below the 7-day weekly threshold.
         for i in 0..3 {
@@ -483,9 +482,10 @@ mod tests {
                 1_700_000_000_000 + i,
             );
             insert_daily(&cfg, &node);
-            let sealed = append_daily_and_cascade(&cfg, &tree, &node, &summariser)
-                .await
-                .unwrap();
+            let sealed = test_override::with_provider(Arc::clone(&provider), async {
+                append_daily_and_cascade(&cfg, &tree, &node).await.unwrap()
+            })
+            .await;
             assert!(sealed.is_empty(), "no cascade expected below threshold");
         }
 
@@ -497,7 +497,8 @@ mod tests {
     async fn crossing_weekly_threshold_seals_l1() {
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_global_tree(&cfg).unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         // Append exactly 7 daily nodes — should trigger one L0→L1 seal.
         for i in 0..WEEKLY_SEAL_THRESHOLD {
@@ -507,9 +508,10 @@ mod tests {
                 1_700_000_000_000 + i as i64,
             );
             insert_daily(&cfg, &node);
-            let sealed = append_daily_and_cascade(&cfg, &tree, &node, &summariser)
-                .await
-                .unwrap();
+            let sealed = test_override::with_provider(Arc::clone(&provider), async {
+                append_daily_and_cascade(&cfg, &tree, &node).await.unwrap()
+            })
+            .await;
             if i + 1 < WEEKLY_SEAL_THRESHOLD {
                 assert!(sealed.is_empty(), "no seal before threshold (i={i})");
             } else {
@@ -540,16 +542,19 @@ mod tests {
     async fn append_is_idempotent_on_retry() {
         let (_tmp, cfg) = test_config();
         let tree = get_or_create_global_tree(&cfg).unwrap();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
 
         let node = mk_daily("summary:L0:dayA", &tree.id, 1_700_000_000_000);
         insert_daily(&cfg, &node);
-        append_daily_and_cascade(&cfg, &tree, &node, &summariser)
-            .await
-            .unwrap();
-        append_daily_and_cascade(&cfg, &tree, &node, &summariser)
-            .await
-            .unwrap();
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_daily_and_cascade(&cfg, &tree, &node).await.unwrap()
+        })
+        .await;
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_daily_and_cascade(&cfg, &tree, &node).await.unwrap()
+        })
+        .await;
 
         let buf = store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert_eq!(

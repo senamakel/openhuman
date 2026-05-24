@@ -24,9 +24,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::content_store::StagedSummary;
 use crate::openhuman::memory_tree::score::embed::{decode_optional_blob, pack_checked};
 use crate::openhuman::memory_tree::store::with_connection;
-use crate::openhuman::memory_tree::tree_source::types::{
-    Buffer, SummaryNode, Tree, TreeKind, TreeStatus,
-};
+use crate::openhuman::memory_tree::tree::types::{Buffer, SummaryNode, Tree, TreeKind, TreeStatus};
 
 fn ms_to_utc(ms: i64) -> rusqlite::Result<DateTime<Utc>> {
     Utc.timestamp_millis_opt(ms).single().ok_or_else(|| {
@@ -274,7 +272,7 @@ pub fn set_summary_embedding(
 ) -> Result<usize> {
     let signature = crate::openhuman::memory_tree::store::tree_active_signature(config);
     log::debug!(
-        "[tree_source::store] set_summary_embedding: summary_id={summary_id} sig={signature} dims={}",
+        "[tree::store] set_summary_embedding: summary_id={summary_id} sig={signature} dims={}",
         embedding.len()
     );
     set_summary_embedding_for_signature(config, summary_id, &signature, embedding)?;

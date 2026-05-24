@@ -46,12 +46,12 @@ use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::score::extract::EntityExtractor;
 use crate::openhuman::memory_tree::score::resolver::canonicalise;
 use crate::openhuman::memory_tree::store::with_connection;
-use crate::openhuman::memory_tree::tree_source::registry::new_summary_id;
-use crate::openhuman::memory_tree::tree_source::store;
-use crate::openhuman::memory_tree::tree_source::summariser::{
-    Summariser, SummaryContext, SummaryInput,
+use crate::openhuman::memory_tree::summarise::{
+    fallback_summary, summarise, SummaryContext, SummaryInput,
 };
-use crate::openhuman::memory_tree::tree_source::types::{
+use crate::openhuman::memory_tree::tree::registry::new_summary_id;
+use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::memory_tree::tree::types::{
     Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
 };
 
@@ -163,11 +163,10 @@ pub async fn append_leaf(
     config: &Config,
     tree: &Tree,
     leaf: &LeafRef,
-    summariser: &dyn Summariser,
     strategy: &LabelStrategy,
 ) -> Result<Vec<String>> {
     log::debug!(
-        "[tree_source::bucket_seal] append_leaf tree_id={} leaf_id={} tokens={} strategy={:?}",
+        "[tree::bucket_seal] append_leaf tree_id={} leaf_id={} tokens={} strategy={:?}",
         tree.id,
         leaf.chunk_id,
         leaf.token_count,
@@ -185,7 +184,7 @@ pub async fn append_leaf(
     )?;
 
     // 2. Cascade seals upward until a level stays under budget.
-    cascade_seals(config, tree, summariser, strategy).await
+    cascade_seals(config, tree, strategy).await
 }
 
 /// Queue-oriented variant of [`append_leaf`].
@@ -223,7 +222,7 @@ fn append_to_buffer(
         // stays on first-seen.
         if buf.item_ids.iter().any(|existing| existing == item_id) {
             log::debug!(
-                "[tree_source::bucket_seal] append_to_buffer: {item_id} already in buffer \
+                "[tree::bucket_seal] append_to_buffer: {item_id} already in buffer \
                  tree_id={tree_id} level={level} — no-op"
             );
             return Ok(());
@@ -243,10 +242,9 @@ fn append_to_buffer(
 async fn cascade_seals(
     config: &Config,
     tree: &Tree,
-    summariser: &dyn Summariser,
     strategy: &LabelStrategy,
 ) -> Result<Vec<String>> {
-    cascade_all_from(config, tree, 0, summariser, None, strategy).await
+    cascade_all_from(config, tree, 0, None, strategy).await
 }
 
 /// Seal buffers starting at `start_level` and cascade upward. When
@@ -260,7 +258,6 @@ pub async fn cascade_all_from(
     config: &Config,
     tree: &Tree,
     start_level: u32,
-    summariser: &dyn Summariser,
     force_now: Option<DateTime<Utc>>,
     strategy: &LabelStrategy,
 ) -> Result<Vec<String>> {
@@ -275,7 +272,7 @@ pub async fn cascade_all_from(
 
         if !forced && !should_seal(&buf) {
             log::debug!(
-                "[tree_source::bucket_seal] cascade done tree_id={} stop_level={} token_sum={}",
+                "[tree::bucket_seal] cascade done tree_id={} stop_level={} token_sum={}",
                 tree.id,
                 level,
                 buf.token_sum
@@ -284,7 +281,7 @@ pub async fn cascade_all_from(
         }
         if buf.is_empty() {
             log::debug!(
-                "[tree_source::bucket_seal] cascade hit empty buffer tree_id={} level={} — stopping",
+                "[tree::bucket_seal] cascade hit empty buffer tree_id={} level={} — stopping",
                 tree.id,
                 level
             );
@@ -293,7 +290,7 @@ pub async fn cascade_all_from(
 
         // Sync cascade — drives the level walk itself; doesn't need the
         // queue follow-ups (we'll hit `seal_one_level` again next iter).
-        let summary_id = seal_one_level(config, tree, &buf, summariser, strategy, false).await?;
+        let summary_id = seal_one_level(config, tree, &buf, strategy, false).await?;
         sealed_ids.push(summary_id);
         level += 1;
     }
@@ -312,7 +309,7 @@ pub async fn cascade_all_from(
 ///
 /// Time-based sealing for low-volume sources is handled separately
 /// by `flush_stale_buffers` (see [`crate::openhuman::memory_tree::
-/// tree_source::flush::flush_stale_buffers`]), which filters buffers
+/// tree::flush::flush_stale_buffers`]), which filters buffers
 /// by `oldest_at` before calling the cascade. Keeping the time gate
 /// out of `should_seal` avoids prematurely sealing buffers during
 /// normal `append_leaf` calls when test/restored data carries older
@@ -358,7 +355,6 @@ pub(crate) async fn seal_one_level(
     config: &Config,
     tree: &Tree,
     buf: &Buffer,
-    summariser: &dyn Summariser,
     strategy: &LabelStrategy,
     enqueue_follow_ups: bool,
 ) -> Result<String> {
@@ -369,7 +365,7 @@ pub(crate) async fn seal_one_level(
     let inputs = hydrate_inputs(config, level, &buf.item_ids)?;
     if inputs.is_empty() {
         anyhow::bail!(
-            "[tree_source::bucket_seal] refused to seal empty buffer tree_id={} level={}",
+            "[tree::bucket_seal] refused to seal empty buffer tree_id={} level={}",
             tree.id,
             level
         );
@@ -399,10 +395,16 @@ pub(crate) async fn seal_one_level(
         target_level,
         token_budget: OUTPUT_TOKEN_BUDGET,
     };
-    let output = summariser
-        .summarise(&inputs, &ctx)
-        .await
-        .context("summariser failed during seal")?;
+    let output = match summarise(config, &inputs, &ctx).await {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!(
+                "[memory_tree::seal] summarise failed for tree_id={} level={}: {e:#} — using fallback",
+                ctx.tree_id, ctx.target_level,
+            );
+            fallback_summary(&inputs, ctx.token_budget)
+        }
+    };
 
     // Resolve labels (entities/topics) for the new summary node according
     // to the chosen strategy. Done before the write tx so an extractor
@@ -429,7 +431,7 @@ pub(crate) async fn seal_one_level(
     // even at 4× tokenizer ratio.
     let embed_input = truncate_for_embed(&output.content, 1_000);
     log::info!(
-        "[tree_source::bucket_seal] embed input: original_chars={} truncated_chars={}",
+        "[tree::bucket_seal] embed input: original_chars={} truncated_chars={}",
         output.content.len(),
         embed_input.len()
     );
@@ -440,7 +442,7 @@ pub(crate) async fn seal_one_level(
         )
     })?;
     log::debug!(
-        "[tree_source::bucket_seal] embedded summary tree_id={} level={}→{} bytes={} provider={}",
+        "[tree::bucket_seal] embedded summary tree_id={} level={}→{} bytes={} provider={}",
         tree.id,
         level,
         target_level,
@@ -556,14 +558,14 @@ pub(crate) async fn seal_one_level(
                         // Obsidian link. Log so the silent-degradation
                         // path stays visible during diagnosis.
                         log::debug!(
-                            "[tree_source::bucket_seal] no raw_refs for chunk_id={chunk_id} \
+                            "[tree::bucket_seal] no raw_refs for chunk_id={chunk_id} \
                              — wikilink will fall back to sanitised chunk id"
                         );
                         None
                     }
                     Err(e) => {
                         log::warn!(
-                            "[tree_source::bucket_seal] get_chunk_raw_refs failed \
+                            "[tree::bucket_seal] get_chunk_raw_refs failed \
                              chunk_id={chunk_id} err={e:#} — falling back to \
                              chunk_id-based wikilink"
                         );
@@ -605,7 +607,7 @@ pub(crate) async fn seal_one_level(
         )
     {
         log::warn!(
-            "[tree_source::bucket_seal] ensure_obsidian_defaults failed: {err:#} — \
+            "[tree::bucket_seal] ensure_obsidian_defaults failed: {err:#} — \
              continuing seal without vault defaults"
         );
     }
@@ -617,7 +619,7 @@ pub(crate) async fn seal_one_level(
             )
         })?;
     log::debug!(
-        "[tree_source::bucket_seal] staged summary {} → {}",
+        "[tree::bucket_seal] staged summary {} → {}",
         node.id,
         staged.content_path
     );
@@ -653,9 +655,9 @@ pub(crate) async fn seal_one_level(
         // Forward-compat: index any entities the summariser emitted into
         // `mem_tree_entity_index` so Phase 4 retrieval can resolve
         // "summaries mentioning Alice" via the same inverted index as
-        // leaves. No-op under InertSummariser (entities is empty by
-        // design — see summariser/inert.rs doc); becomes active once the
-        // Ollama summariser lands and emits curated canonical ids.
+        // leaves. No-op when entities is empty (the current summarise()
+        // always emits empty — entity extraction is the learning domain's job);
+        // becomes active once the summariser or a post-seal extractor emits canonical ids.
         crate::openhuman::memory_tree::score::store::index_summary_entity_ids_tx(
             &tx,
             &node.entities,
@@ -756,7 +758,7 @@ pub(crate) async fn seal_one_level(
     })?;
 
     log::info!(
-        "[tree_source::bucket_seal] sealed tree_id={} level={}→{} summary_id={} children={}",
+        "[tree::bucket_seal] sealed tree_id={} level={}→{} summary_id={} children={}",
         tree.id,
         level,
         target_level,
@@ -817,7 +819,7 @@ fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<Summ
             Some(c) => c,
             None => {
                 log::warn!(
-                    "[tree_source::bucket_seal] hydrate_leaf_inputs: missing chunk {id} — skipping"
+                    "[tree::bucket_seal] hydrate_leaf_inputs: missing chunk {id} — skipping"
                 );
                 continue;
             }
@@ -838,7 +840,7 @@ fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<Summ
         // returns Err; callers that want to handle legacy rows should check
         // content_path presence before calling hydrate_inputs.
         let body = content_read::read_chunk_body(config, id).with_context(|| {
-            format!("[tree_source::bucket_seal] hydrate_leaf_inputs: read body for chunk {id}")
+            format!("[tree::bucket_seal] hydrate_leaf_inputs: read body for chunk {id}")
         })?;
         out.push(SummaryInput {
             id: chunk.id.clone(),
@@ -863,7 +865,7 @@ fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec
             Some(n) => n,
             None => {
                 log::warn!(
-                    "[tree_source::bucket_seal] hydrate_summary_inputs: missing summary {id} — skipping"
+                    "[tree::bucket_seal] hydrate_summary_inputs: missing summary {id} — skipping"
                 );
                 continue;
             }
@@ -872,7 +874,7 @@ fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec
         // after the MD-on-disk migration. Higher-level seals (L2+) summarise
         // over L1 summary content and need the full text, not a preview.
         let body = content_read::read_summary_body(config, id).with_context(|| {
-            format!("[tree_source::bucket_seal] hydrate_summary_inputs: read body for summary {id}")
+            format!("[tree::bucket_seal] hydrate_summary_inputs: read body for summary {id}")
         })?;
         out.push(SummaryInput {
             id: node.id.clone(),

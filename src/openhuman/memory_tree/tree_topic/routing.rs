@@ -21,12 +21,9 @@
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::tree_source::bucket_seal::{
-    append_leaf, LabelStrategy, LeafRef,
-};
-use crate::openhuman::memory_tree::tree_source::store as src_store;
-use crate::openhuman::memory_tree::tree_source::summariser::Summariser;
-use crate::openhuman::memory_tree::tree_source::types::{TreeKind, TreeStatus};
+use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+use crate::openhuman::memory_tree::tree::store as src_store;
+use crate::openhuman::memory_tree::tree::types::{TreeKind, TreeStatus};
 use crate::openhuman::memory_tree::tree_topic::curator::maybe_spawn_topic_tree;
 
 /// Route `leaf` into every active topic tree matching one of
@@ -40,7 +37,6 @@ pub async fn route_leaf_to_topic_trees(
     config: &Config,
     leaf: &LeafRef,
     canonical_entities: &[String],
-    summariser: &dyn Summariser,
 ) -> Result<()> {
     if canonical_entities.is_empty() {
         return Ok(());
@@ -53,7 +49,7 @@ pub async fn route_leaf_to_topic_trees(
     );
 
     for entity_id in canonical_entities {
-        if let Err(e) = route_one_entity(config, leaf, entity_id, summariser).await {
+        if let Err(e) = route_one_entity(config, leaf, entity_id).await {
             let entity_kind = entity_id
                 .split_once(':')
                 .map(|(k, _)| k)
@@ -69,12 +65,7 @@ pub async fn route_leaf_to_topic_trees(
     Ok(())
 }
 
-async fn route_one_entity(
-    config: &Config,
-    leaf: &LeafRef,
-    entity_id: &str,
-    summariser: &dyn Summariser,
-) -> Result<()> {
+async fn route_one_entity(config: &Config, leaf: &LeafRef, entity_id: &str) -> Result<()> {
     // Step 1: if a topic tree already exists and is active, append the leaf.
     // We intentionally do this BEFORE asking the curator to spawn — a
     // same-call spawn would also include this leaf via backfill
@@ -98,14 +89,7 @@ async fn route_one_entity(
             };
             // Topic-tree seals leave entities/topics empty: the tree's
             // scope already pins the canonical id this tree represents.
-            append_leaf(
-                config,
-                &tree,
-                &topic_leaf,
-                summariser,
-                &LabelStrategy::Empty,
-            )
-            .await?;
+            append_leaf(config, &tree, &topic_leaf, &LabelStrategy::Empty).await?;
         } else {
             let entity_kind = entity_id
                 .split_once(':')
@@ -120,7 +104,7 @@ async fn route_one_entity(
     }
 
     // Step 2: curator tick — may spawn a new tree on cadence.
-    maybe_spawn_topic_tree(config, entity_id, summariser).await?;
+    maybe_spawn_topic_tree(config, entity_id).await?;
 
     Ok(())
 }
@@ -128,17 +112,18 @@ async fn route_one_entity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory_tree::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_tree::score::extract::EntityKind;
     use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
     use crate::openhuman::memory_tree::score::store::index_entity;
     use crate::openhuman::memory_tree::store::upsert_chunks;
-    use crate::openhuman::memory_tree::tree_source::summariser::inert::InertSummariser;
     use crate::openhuman::memory_tree::tree_topic::registry::{
         archive_topic_tree, get_or_create_topic_tree,
     };
     use crate::openhuman::memory_tree::tree_topic::store::get as get_hotness;
     use crate::openhuman::memory_tree::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::{TimeZone, Utc};
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -191,11 +176,8 @@ mod tests {
     #[tokio::test]
     async fn empty_entities_is_noop() {
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
         let leaf = mk_leaf("c1", 10, 1_700_000_000_000);
-        route_leaf_to_topic_trees(&cfg, &leaf, &[], &summariser)
-            .await
-            .unwrap();
+        route_leaf_to_topic_trees(&cfg, &leaf, &[]).await.unwrap();
         // No hotness rows were created.
         assert_eq!(
             crate::openhuman::memory_tree::tree_topic::store::count(&cfg).unwrap(),
@@ -206,21 +188,20 @@ mod tests {
     #[tokio::test]
     async fn appends_to_existing_topic_tree() {
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         // Pre-create the topic tree so the hot-path append fires.
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
         // Persist the backing chunk so hydrate can read it on seal.
         let chunk_id_s = persist_chunk(&cfg, "slack:#eng", 0, 1_700_000_000_000, 100);
         let leaf = mk_leaf(&chunk_id_s, 100, 1_700_000_000_000);
 
-        route_leaf_to_topic_trees(
-            &cfg,
-            &leaf,
-            &["email:alice@example.com".to_string()],
-            &summariser,
-        )
-        .await
-        .unwrap();
+        test_override::with_provider(provider, async {
+            route_leaf_to_topic_trees(&cfg, &leaf, &["email:alice@example.com".to_string()])
+                .await
+                .unwrap()
+        })
+        .await;
 
         let buf = src_store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert_eq!(buf.item_ids.len(), 1);
@@ -235,20 +216,14 @@ mod tests {
     #[tokio::test]
     async fn archived_topic_tree_does_not_receive_new_leaves() {
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
         let tree = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
         archive_topic_tree(&cfg, &tree.id).unwrap();
 
         let chunk_id_s = persist_chunk(&cfg, "slack:#eng", 0, 1_700_000_000_000, 100);
         let leaf = mk_leaf(&chunk_id_s, 100, 1_700_000_000_000);
-        route_leaf_to_topic_trees(
-            &cfg,
-            &leaf,
-            &["email:alice@example.com".to_string()],
-            &summariser,
-        )
-        .await
-        .unwrap();
+        route_leaf_to_topic_trees(&cfg, &leaf, &["email:alice@example.com".to_string()])
+            .await
+            .unwrap();
 
         let buf = src_store::get_buffer(&cfg, &tree.id, 0).unwrap();
         assert!(
@@ -265,23 +240,26 @@ mod tests {
     #[tokio::test]
     async fn one_leaf_multiple_entities_fans_out() {
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         let t1 = get_or_create_topic_tree(&cfg, "email:alice@example.com").unwrap();
         let t2 = get_or_create_topic_tree(&cfg, "hashtag:launch").unwrap();
 
         let chunk_id_s = persist_chunk(&cfg, "slack:#eng", 0, 1_700_000_000_000, 100);
         let leaf = mk_leaf(&chunk_id_s, 100, 1_700_000_000_000);
-        route_leaf_to_topic_trees(
-            &cfg,
-            &leaf,
-            &[
-                "email:alice@example.com".to_string(),
-                "hashtag:launch".to_string(),
-            ],
-            &summariser,
-        )
-        .await
-        .unwrap();
+        test_override::with_provider(provider, async {
+            route_leaf_to_topic_trees(
+                &cfg,
+                &leaf,
+                &[
+                    "email:alice@example.com".to_string(),
+                    "hashtag:launch".to_string(),
+                ],
+            )
+            .await
+            .unwrap()
+        })
+        .await;
 
         // Both topic trees' L0 buffers hold the leaf.
         let b1 = src_store::get_buffer(&cfg, &t1.id, 0).unwrap();
@@ -297,7 +275,8 @@ mod tests {
         // new Alice-mentioning leaf routes into both the source tree AND
         // the topic tree.
         let (_tmp, cfg) = test_config();
-        let summariser = InertSummariser::new();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
         let entity_id = "email:alice@example.com";
 
         // Pre-seed counters / index so the next call crosses threshold.
@@ -348,9 +327,12 @@ mod tests {
             score: 0.5,
         };
 
-        route_leaf_to_topic_trees(&cfg, &leaf, &[entity_id.to_string()], &summariser)
-            .await
-            .unwrap();
+        test_override::with_provider(provider, async {
+            route_leaf_to_topic_trees(&cfg, &leaf, &[entity_id.to_string()])
+                .await
+                .unwrap()
+        })
+        .await;
 
         // Topic tree now exists.
         let tree = src_store::get_tree_by_scope(&cfg, TreeKind::Topic, entity_id)

@@ -24,7 +24,6 @@ import MascotPanel from '../components/settings/panels/MascotPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
 import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
-import MessagingPanel from '../components/settings/panels/MessagingPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import NotificationsTabbedPanel from '../components/settings/panels/NotificationsTabbedPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
@@ -401,7 +400,6 @@ const Settings = () => {
         <Route path="screen-intelligence" element={wrapSettingsPage(<ScreenIntelligencePanel />)} />
         <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
         <Route path="voice" element={wrapSettingsPage(<VoicePanel />)} />
-        <Route path="messaging" element={wrapSettingsPage(<MessagingPanel />)} />
         <Route path="notifications" element={wrapSettingsPage(<NotificationsTabbedPanel />)} />
         <Route path="mascot" element={wrapSettingsPage(<MascotPanel />)} />
         <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />

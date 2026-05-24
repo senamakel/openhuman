@@ -50,22 +50,6 @@ const developerItems = [
     ),
   },
   {
-    id: 'messaging',
-    titleKey: 'settings.developerMenu.messagingChannels.title',
-    descriptionKey: 'settings.developerMenu.messagingChannels.desc',
-    route: 'messaging',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 10h.01M12 10h.01M16 10h.01M21 11c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 19l1.395-3.72C3.512 14.042 3 12.574 3 11c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-        />
-      </svg>
-    ),
-  },
-  {
     id: 'tools',
     titleKey: 'settings.developerMenu.tools.title',
     descriptionKey: 'settings.developerMenu.tools.desc',

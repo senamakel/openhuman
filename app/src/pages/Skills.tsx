@@ -38,7 +38,9 @@ import { canonicalizeComposioToolkitSlug } from '../lib/composio/toolkitSlug';
 import { type ComposioConnection, deriveComposioState } from '../lib/composio/types';
 import { useT } from '../lib/i18n/I18nContext';
 import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
-import { useAppSelector } from '../store/hooks';
+import { channelConnectionsApi } from '../services/api/channelConnectionsApi';
+import { setDefaultMessagingChannel } from '../store/channelConnectionsSlice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
 import type { ToastNotification } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
@@ -330,6 +332,18 @@ export default function Skills() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ConnectionsTab>('composio');
+  const dispatch = useAppDispatch();
+  const [defaultChannelBusy, setDefaultChannelBusy] = useState<ChannelType | null>(null);
+  const handleSetDefaultChannel = useCallback(
+    (channel: ChannelType) => {
+      setDefaultChannelBusy(channel);
+      dispatch(setDefaultMessagingChannel(channel));
+      void channelConnectionsApi.updatePreferences(channel).finally(() => {
+        setDefaultChannelBusy(null);
+      });
+    },
+    [dispatch]
+  );
   const { definitions: channelDefs } = useChannelDefinitions();
   const channelConnections = useAppSelector(state => state.channelConnections);
 
@@ -912,6 +926,33 @@ export default function Skills() {
                           />
                         </div>
                       ))}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-stone-100 dark:border-neutral-800">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400 mb-2">
+                        {t('channels.defaultMessaging')}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {channelDefs.map(def => {
+                          const channelId = def.id as ChannelType;
+                          const selected =
+                            channelConnections.defaultMessagingChannel === channelId;
+                          return (
+                            <button
+                              key={channelId}
+                              type="button"
+                              onClick={() => handleSetDefaultChannel(channelId)}
+                              disabled={defaultChannelBusy === channelId}
+                              className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                                selected
+                                  ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300'
+                                  : 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 text-stone-600 dark:text-neutral-300 hover:border-stone-300 dark:hover:border-neutral-700'
+                              }`}>
+                              {def.display_name}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -182,8 +182,8 @@ mod tests {
             None,
             2,
         )
-            .await
-            .expect("direct query_topic on empty workspace");
+        .await
+        .expect("direct query_topic on empty workspace");
         assert!(direct.hits.is_empty());
         assert_eq!(direct.total, 0);
     }

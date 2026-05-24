@@ -22,11 +22,19 @@ pub async fn query_profile(
 ) -> Result<QueryResponse> {
     match profile {
         TreeProfile::Source => {
-            retrieval::source::query_source(config, scope, None::<SourceKind>, time_window_days, query, limit)
-                .await
+            retrieval::source::query_source(
+                config,
+                scope,
+                None::<SourceKind>,
+                time_window_days,
+                query,
+                limit,
+            )
+            .await
         }
         TreeProfile::Topic => {
-            let entity_id = scope.ok_or_else(|| anyhow::anyhow!("topic query requires scope/entity_id"))?;
+            let entity_id =
+                scope.ok_or_else(|| anyhow::anyhow!("topic query requires scope/entity_id"))?;
             retrieval::topic::query_topic(config, entity_id, time_window_days, query, limit).await
         }
         TreeProfile::Global => {

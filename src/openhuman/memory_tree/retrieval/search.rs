@@ -19,9 +19,9 @@ use anyhow::{Context, Result};
 use rusqlite::params_from_iter;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_tree::retrieval::types::EntityMatch;
 use crate::openhuman::memory_tree::score::extract::EntityKind;
-use crate::openhuman::memory_store::chunks::store::with_connection;
 
 const DEFAULT_LIMIT: usize = 5;
 const MAX_LIMIT: usize = 100;

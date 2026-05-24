@@ -95,7 +95,9 @@ pub fn register_sync_stage_bridge() {
             log::debug!("[event_bus] memory sync stage bridge registered");
         }
         None => {
-            log::warn!("[event_bus] failed to register memory sync stage bridge — bus not initialized");
+            log::warn!(
+                "[event_bus] failed to register memory sync stage bridge — bus not initialized"
+            );
         }
     }
 }
@@ -126,7 +128,9 @@ impl EventHandler for MemorySyncStageBridge {
                     MemorySyncStage::Stored,
                     Some(provider),
                     None,
-                    Some(format!("canonicalized {chunks_written} chunks from {source_id}")),
+                    Some(format!(
+                        "canonicalized {chunks_written} chunks from {source_id}"
+                    )),
                 );
                 emit_sync_stage(
                     MemorySyncTrigger::Manual,

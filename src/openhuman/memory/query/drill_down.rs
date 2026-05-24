@@ -198,8 +198,8 @@ mod tests {
             None,
             None,
         )
-            .await
-            .expect("direct drill_down on empty workspace");
+        .await
+        .expect("direct drill_down on empty workspace");
         assert!(direct.is_empty());
     }
 

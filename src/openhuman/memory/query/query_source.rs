@@ -1,7 +1,7 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::memory::query::backend;
-use crate::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
+use crate::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -68,15 +68,17 @@ impl Tool for MemoryTreeQuerySourceTool {
             None => None,
         };
         let resp = match req.source_id.as_deref() {
-            Some(source_id) => backend::query_profile(
-                &cfg,
-                crate::openhuman::memory_tree::tree::TreeProfile::Source,
-                Some(source_id),
-                req.time_window_days,
-                req.query.as_deref(),
-                req.limit.unwrap_or(10),
-            )
-            .await?,
+            Some(source_id) => {
+                backend::query_profile(
+                    &cfg,
+                    crate::openhuman::memory_tree::tree::TreeProfile::Source,
+                    Some(source_id),
+                    req.time_window_days,
+                    req.query.as_deref(),
+                    req.limit.unwrap_or(10),
+                )
+                .await?
+            }
             None => {
                 backend::query_source_kind(
                     &cfg,
@@ -204,17 +206,16 @@ mod tests {
         assert_eq!(parsed["hits"], json!([]));
         assert_eq!(parsed["total"], json!(0));
 
-        let direct =
-            crate::openhuman::memory_tree::retrieval::source::query_source(
-                &cfg,
-                None,
-                Some(SourceKind::Document),
-                None,
-                None,
-                2,
-            )
-            .await
-            .expect("direct query_source on empty workspace");
+        let direct = crate::openhuman::memory_tree::retrieval::source::query_source(
+            &cfg,
+            None,
+            Some(SourceKind::Document),
+            None,
+            None,
+            2,
+        )
+        .await
+        .expect("direct query_source on empty workspace");
         assert!(direct.hits.is_empty());
         assert_eq!(direct.total, 0);
     }

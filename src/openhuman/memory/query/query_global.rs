@@ -42,9 +42,15 @@ impl Tool for MemoryTreeQueryGlobalTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_query_global: load config failed: {e}"))?;
-        let resp =
-            backend::query_profile(&cfg, TreeProfile::Global, None, Some(req.time_window_days), None, 10)
-                .await?;
+        let resp = backend::query_profile(
+            &cfg,
+            TreeProfile::Global,
+            None,
+            Some(req.time_window_days),
+            None,
+            10,
+        )
+        .await?;
         log::debug!(
             "[tool][memory_tree] query_global returning hits={} total={}",
             resp.hits.len(),

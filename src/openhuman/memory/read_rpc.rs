@@ -30,11 +30,11 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::NodeKind;
-use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_store::chunks::store::{self as chunk_store, with_connection};
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory_store::content::read as content_read;
+use crate::openhuman::memory_tree::retrieval::types::NodeKind;
+use crate::openhuman::memory_tree::score::store as score_store;
 use crate::rpc::RpcOutcome;
 
 const PREVIEW_MAX_CHARS: usize = 500;

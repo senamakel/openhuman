@@ -39,20 +39,18 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
-use crate::openhuman::memory_tree::score::extract::EntityExtractor;
-use crate::openhuman::memory_tree::score::resolver::canonicalise;
-use crate::openhuman::memory_tree::tree::factory::TreeFactory;
 use crate::openhuman::memory_store::chunks::store::with_connection;
-use crate::openhuman::memory_store::content::{
-    atomic::stage_summary, SummaryComposeInput,
-};
+use crate::openhuman::memory_store::content::{atomic::stage_summary, SummaryComposeInput};
 use crate::openhuman::memory_store::trees::types::{
     Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
 };
+use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use crate::openhuman::memory_tree::score::extract::EntityExtractor;
+use crate::openhuman::memory_tree::score::resolver::canonicalise;
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };
+use crate::openhuman::memory_tree::tree::factory::TreeFactory;
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
 
@@ -774,9 +772,9 @@ fn hydrate_inputs(config: &Config, level: u32, item_ids: &[String]) -> Result<Ve
 }
 
 fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory_tree::score::store::{get_score, list_entity_ids_for_node};
     use crate::openhuman::memory_store::chunks::store::get_chunk;
     use crate::openhuman::memory_store::content::read as content_read;
+    use crate::openhuman::memory_tree::score::store::{get_score, list_entity_ids_for_node};
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(chunk_ids.len());
     for id in chunk_ids {

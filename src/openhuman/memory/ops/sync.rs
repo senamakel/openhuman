@@ -113,9 +113,7 @@ async fn spawn_manual_sync(requested_connection: Option<String>) -> Result<(), S
     let targets: Vec<composio::SyncTarget> = match requested_connection.as_deref() {
         Some(requested) => targets
             .into_iter()
-            .filter(|target| {
-                target.connection_id == requested || target.toolkit == requested
-            })
+            .filter(|target| target.connection_id == requested || target.toolkit == requested)
             .collect(),
         None => targets,
     };

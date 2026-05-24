@@ -13,10 +13,10 @@
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::{hit_from_chunk, RetrievalHit};
-use crate::openhuman::memory_tree::score::store::get_score;
 use crate::openhuman::memory_store::chunks::store::get_chunk;
 use crate::openhuman::memory_store::content::read as content_read;
+use crate::openhuman::memory_tree::retrieval::types::{hit_from_chunk, RetrievalHit};
+use crate::openhuman::memory_tree::score::store::get_score;
 
 /// Max batch size. Callers that pass more than this get truncated with a
 /// warn log — no error surface so the LLM sees a partial result.

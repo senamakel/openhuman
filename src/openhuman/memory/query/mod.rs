@@ -25,9 +25,9 @@ pub use query_global::MemoryTreeQueryGlobalTool;
 pub use query_source::MemoryTreeQuerySourceTool;
 pub use query_topic::MemoryTreeQueryTopicTool;
 pub use search_entities::MemoryTreeSearchEntitiesTool;
+pub use walk::MemoryTreeWalkTool as MemoryQueryWalkTool;
 pub use walk::{run_walk, MemoryTreeWalkTool, WalkOptions, WalkOutcome, WalkStep, WalkStopReason};
 pub use MemoryTreeTool as MemoryQueryTool;
-pub use walk::MemoryTreeWalkTool as MemoryQueryWalkTool;
 
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;

@@ -17,11 +17,13 @@ use anyhow::Result;
 use chrono::{Duration, TimeZone, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::{hit_from_summary, QueryResponse, RetrievalHit};
-use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, cosine_similarity};
-use crate::openhuman::memory_tree::score::store::{lookup_entity, EntityHit};
 use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
+use crate::openhuman::memory_tree::retrieval::types::{
+    hit_from_summary, QueryResponse, RetrievalHit,
+};
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, cosine_similarity};
+use crate::openhuman::memory_tree::score::store::{lookup_entity, EntityHit};
 use crate::openhuman::memory_tree::tree::store;
 
 const DEFAULT_LIMIT: usize = 10;
@@ -173,8 +175,8 @@ async fn rerank_by_semantic_similarity(
     query: &str,
     hits: Vec<RetrievalHit>,
 ) -> Result<Vec<RetrievalHit>> {
-    use crate::openhuman::memory_tree::retrieval::types::NodeKind;
     use crate::openhuman::memory_store::chunks::store::get_chunk_embedding;
+    use crate::openhuman::memory_tree::retrieval::types::NodeKind;
     use crate::openhuman::memory_tree::tree::store as src_store;
 
     let embedder = build_embedder_from_config(config)?;
@@ -316,8 +318,8 @@ async fn entity_hit_to_retrieval_hit(
             return Ok(Some(h));
         }
         // Leaf: fetch chunk and hydrate.
-        use crate::openhuman::memory_tree::retrieval::types::hit_from_chunk;
         use crate::openhuman::memory_store::chunks::store::get_chunk;
+        use crate::openhuman::memory_tree::retrieval::types::hit_from_chunk;
         let mut chunk = match get_chunk(&config_owned, &node_id)? {
             Some(c) => c,
             None => {
@@ -367,13 +369,13 @@ fn filter_by_window(hits: Vec<RetrievalHit>, window_days: u32) -> Vec<RetrievalH
 mod tests {
     use super::*;
     use crate::openhuman::memory::ingest_pipeline::ingest_chat;
-    use crate::openhuman::memory_tree::score::extract::EntityKind;
-    use crate::openhuman::memory_tree::score::store::EntityHit;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
+    use crate::openhuman::memory_tree::score::extract::EntityKind;
+    use crate::openhuman::memory_tree::score::store::EntityHit;
     use chrono::TimeZone;
     use tempfile::TempDir;
 
@@ -598,12 +600,12 @@ mod tests {
     // caller would see two rows for the same summary.
     #[tokio::test]
     async fn duplicate_node_is_deduplicated_across_index_and_topic_tree_root() {
-        use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-        use crate::openhuman::memory_tree::score::store as score_store;
         use crate::openhuman::memory_store::chunks::store::with_connection;
         use crate::openhuman::memory_store::trees::types::{
             SummaryNode, Tree, TreeKind, TreeStatus,
         };
+        use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
+        use crate::openhuman::memory_tree::score::store as score_store;
         use crate::openhuman::memory_tree::tree::store as tree_store;
 
         let (_tmp, cfg) = test_config();

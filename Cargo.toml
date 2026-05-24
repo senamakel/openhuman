@@ -25,6 +25,10 @@ path = "src/bin/memory_tree_init_smoke.rs"
 name = "inference-probe"
 path = "src/bin/inference_probe.rs"
 
+[[bin]]
+name = "test-mcp-stub"
+path = "src/bin/test_mcp_stub.rs"
+
 [lib]
 name = "openhuman_core"
 crate-type = ["rlib"]

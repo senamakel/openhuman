@@ -52,12 +52,12 @@
 
 pub mod boot;
 pub mod bus;
-pub(crate) mod connections;
+pub mod connections;
 mod ops;
 mod registries;
 mod registry;
 mod schemas;
-mod store;
+pub mod store;
 pub mod types;
 
 pub use schemas::{

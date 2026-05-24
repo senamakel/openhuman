@@ -401,6 +401,10 @@ mod tests {
 
     use super::*;
 
+    fn lock_env() -> std::sync::MutexGuard<'static, ()> {
+        TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner())
+    }
+
     struct WorkspaceEnvGuard {
         _lock: std::sync::MutexGuard<'static, ()>,
         previous: Option<OsString>,
@@ -408,7 +412,7 @@ mod tests {
 
     impl WorkspaceEnvGuard {
         fn set(path: &std::path::Path) -> Self {
-            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let lock = lock_env();
             let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
             std::env::set_var("OPENHUMAN_WORKSPACE", path);
             Self {
@@ -591,11 +595,17 @@ mod tests {
     }
 
     #[test]
-    fn run_summarize_skips_when_isolated_workspace_has_no_buffered_data() {
+    fn run_summarize_surfaces_local_ai_requirement_before_empty_buffer_skip() {
         let tmp = TempDir::new().unwrap();
         let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
-        assert!(run_summarize(&["fresh-ns".to_string()]).is_ok());
+        let err = run_summarize(&["fresh-ns".to_string()])
+            .expect_err("run should still surface the local ai runtime requirement");
+        assert!(
+            err.to_string()
+                .contains("tree summarizer requires local_ai to be enabled in config"),
+            "unexpected run_summarize error: {err:#}"
+        );
     }
 
     #[test]
@@ -635,7 +645,7 @@ mod tests {
 
     #[test]
     fn init_logging_sets_default_rust_log_only_when_needed() {
-        let _lock = TEST_ENV_LOCK.lock().unwrap();
+        let _lock = lock_env();
 
         {
             let _rust_log = EnvVarGuard::remove("RUST_LOG");

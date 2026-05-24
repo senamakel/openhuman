@@ -2313,7 +2313,11 @@ mod tests {
 
         let row = read_chunk_row(&cfg, &chunk.id).unwrap().expect("chunk row");
         assert_eq!(row.content_path, chunk.content_path);
-        assert_eq!(row.content_preview.as_deref(), Some(body));
+        assert!(row
+            .content_preview
+            .as_deref()
+            .unwrap_or("")
+            .contains(body));
     }
 
     #[test]

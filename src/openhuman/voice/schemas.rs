@@ -1173,10 +1173,10 @@ async fn validate_tts_provider_key(
     let endpoint = entry.endpoint.trim_end_matches('/');
     let client = reqwest::Client::new();
 
-    // ElevenLabs: GET /voices validates the key without needing a voice ID.
-    // OpenAI / generic: GET /models works for key validation.
+    // ElevenLabs: GET /user/subscription requires only basic auth (no
+    // extra scopes like voices_read). OpenAI / generic: GET /models.
     let url = if slug == "elevenlabs" {
-        format!("{endpoint}/voices")
+        format!("{endpoint}/user/subscription")
     } else {
         format!("{endpoint}/models")
     };

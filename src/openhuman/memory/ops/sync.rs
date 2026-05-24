@@ -113,8 +113,55 @@ pub async fn memory_ingestion_status() -> Result<RpcOutcome<IngestionStatusResul
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::sync::{Arc, OnceLock};
+
     use super::*;
+    use async_trait::async_trait;
     use serde_json::json;
+    use tempfile::TempDir;
+    use tokio::sync::mpsc;
+    use tokio::time::{Duration, timeout};
+
+    use crate::core::event_bus::{self, DomainEvent, EventHandler};
+
+    fn test_mutex() -> &'static std::sync::Mutex<()> {
+        static LOCK: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+    }
+
+    fn ensure_memory_client() -> crate::openhuman::memory::MemoryClientRef {
+        static WORKSPACE: OnceLock<PathBuf> = OnceLock::new();
+        let workspace = WORKSPACE.get_or_init(|| {
+            let tmp = TempDir::new().expect("tempdir");
+            let path = tmp.path().join("workspace");
+            std::fs::create_dir_all(&path).expect("workspace dir");
+            std::mem::forget(tmp);
+            path
+        });
+        crate::openhuman::memory::global::init(workspace.clone()).expect("init memory client")
+    }
+
+    struct ChannelCapture {
+        tx: mpsc::UnboundedSender<Option<String>>,
+    }
+
+    #[async_trait]
+    impl EventHandler for ChannelCapture {
+        fn name(&self) -> &str {
+            "memory::ops::sync::tests::capture"
+        }
+
+        fn domains(&self) -> Option<&[&str]> {
+            Some(&["memory"])
+        }
+
+        async fn handle(&self, event: &DomainEvent) {
+            if let DomainEvent::MemorySyncRequested { channel_id } = event {
+                let _ = self.tx.send(channel_id.clone());
+            }
+        }
+    }
 
     #[test]
     fn sync_channel_params_deserialize_channel_id() {
@@ -147,5 +194,79 @@ mod tests {
 
         let all = serde_json::to_value(SyncAllResult { requested: true }).unwrap();
         assert_eq!(all, json!({"requested": true}));
+    }
+
+    #[tokio::test]
+    async fn memory_sync_channel_publishes_targeted_event() {
+        let _guard = test_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        event_bus::init_global(event_bus::DEFAULT_CAPACITY);
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let _subscription = event_bus::subscribe_global(Arc::new(ChannelCapture { tx }))
+            .expect("global bus should be initialized");
+
+        let outcome = memory_sync_channel(SyncChannelParams {
+            channel_id: "channel-123".into(),
+        })
+        .await
+        .expect("memory_sync_channel");
+        assert!(outcome.value.requested);
+        assert_eq!(outcome.value.channel_id, "channel-123");
+
+        let received = timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .expect("event should arrive before timeout")
+            .expect("sender should still be connected");
+        assert_eq!(received.as_deref(), Some("channel-123"));
+    }
+
+    #[tokio::test]
+    async fn memory_sync_all_publishes_broadcast_event() {
+        let _guard = test_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        event_bus::init_global(event_bus::DEFAULT_CAPACITY);
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let _subscription = event_bus::subscribe_global(Arc::new(ChannelCapture { tx }))
+            .expect("global bus should be initialized");
+
+        let outcome = memory_sync_all().await.expect("memory_sync_all");
+        assert!(outcome.value.requested);
+
+        let received = timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .expect("event should arrive before timeout")
+            .expect("sender should still be connected");
+        assert!(
+            received.is_none(),
+            "sync-all should publish channel_id=None"
+        );
+    }
+
+    #[tokio::test]
+    async fn memory_ingestion_status_reflects_initialized_client_snapshot() {
+        let _guard = test_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let client = ensure_memory_client();
+        let state = client.ingestion_state();
+
+        state.enqueue();
+        state.mark_running("doc-sync", "Sync Title", "sync-test");
+
+        let status = memory_ingestion_status()
+            .await
+            .expect("memory_ingestion_status")
+            .value;
+
+        assert!(status.running);
+        assert_eq!(status.current_document_id.as_deref(), Some("doc-sync"));
+        assert_eq!(status.current_title.as_deref(), Some("Sync Title"));
+        assert_eq!(status.current_namespace.as_deref(), Some("sync-test"));
+        assert_eq!(status.queue_depth, 1);
+
+        state.dequeue();
+        state.mark_completed("doc-sync", true, 12345);
     }
 }

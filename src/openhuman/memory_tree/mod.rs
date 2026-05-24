@@ -22,22 +22,18 @@
 //! Phases 2-4 (#708 scoring, #709 summary trees, #710 retrieval) build on
 //! top of these chunks without modifying the Phase 1 surface.
 
+pub mod global;
 pub mod io;
 pub mod sources;
 pub mod summarise;
 pub mod tools;
+pub mod topic;
 pub mod tree;
 
 pub use io::{
     TreeLabelStrategy, TreeLeafPayload, TreeReadHit, TreeReadRequest, TreeReadResult,
     TreeWriteOutcome, TreeWriteRequest,
 };
-
-// Kind-specific tree building (Global, Topic) is policy and lives in the
-// memory orchestrator module. Re-exported here for backwards-compatible
-// `memory_tree::tree_{global,topic}::*` paths during the migration.
-pub use crate::openhuman::memory::tree_global;
-pub use crate::openhuman::memory::tree_topic;
 
 // Re-export controller registries — moved to memory but keep export names stable.
 pub use crate::openhuman::memory::retrieval::{

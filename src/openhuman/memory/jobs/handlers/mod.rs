@@ -29,8 +29,8 @@ use crate::openhuman::memory::score::store as score_store;
 use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LabelStrategy, LeafRef};
-use crate::openhuman::memory_tree::tree_global::digest::{self, DigestOutcome};
-use crate::openhuman::memory_tree::tree_topic::curator;
+use crate::openhuman::memory_tree::global::digest::{self, DigestOutcome};
+use crate::openhuman::memory_tree::topic::curator;
 
 /// Default age for L0 flush_stale when the caller doesn't override.
 /// 1 hour means low-volume sources get summaries within a working session.

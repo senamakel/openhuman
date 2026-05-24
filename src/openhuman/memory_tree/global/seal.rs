@@ -28,7 +28,7 @@ use crate::openhuman::memory_tree::summarise::{
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
 use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind};
-use crate::openhuman::memory_tree::tree_global::{
+use crate::openhuman::memory_tree::global::{
     GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
 };
 

@@ -8,8 +8,8 @@
 //! [`crate::openhuman::memory_tree::sources`] module.
 //!
 //! Global and topic policies (scope constants, hotness gates, curator)
-//! live in [`crate::openhuman::memory_tree::tree_global`] and
-//! [`crate::openhuman::memory_tree::tree_topic`] respectively; both
+//! live in [`crate::openhuman::memory_tree::global`] and
+//! [`crate::openhuman::memory_tree::topic`] respectively; both
 //! import generic primitives from this module.
 //!
 //! Persistence (store + types) has moved to `memory_store::trees`.

@@ -24,7 +24,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
 use crate::openhuman::memory_tree::tree::store as src_store;
 use crate::openhuman::memory_store::trees::types::{TreeKind, TreeStatus};
-use crate::openhuman::memory_tree::tree_topic::curator::maybe_spawn_topic_tree;
+use crate::openhuman::memory_tree::topic::curator::maybe_spawn_topic_tree;
 
 /// Route `leaf` into every active topic tree matching one of
 /// `canonical_entities`. Also ticks the curator for each entity so the

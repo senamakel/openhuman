@@ -21,8 +21,8 @@ use chrono::Utc;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::store as src_store;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::tree_topic::backfill::backfill_topic_tree;
-use crate::openhuman::memory_tree::tree_topic::hotness::hotness_at;
+use crate::openhuman::memory_tree::topic::backfill::backfill_topic_tree;
+use crate::openhuman::memory_tree::topic::hotness::hotness_at;
 use crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree;
 use crate::openhuman::memory_store::trees::hotness::{
     distinct_sources_for, get_or_fresh, upsert,

@@ -1356,12 +1356,14 @@ fn migrate_legacy_embeddings_to_sidecar(conn: &Connection, config: &Config) -> R
             },
         )?;
         crate::openhuman::memory::jobs::enqueue_tx(&tx, &backfill_job)?;
-        crate::openhuman::memory::jobs::set_backfill_in_progress(true);
     }
 
     tx.commit()?;
     conn.pragma_update(None, "user_version", TREE_EMBEDDING_MIGRATION_VERSION)
         .context("set PRAGMA user_version after #1574 migration")?;
+    if has_uncovered {
+        crate::openhuman::memory::jobs::set_backfill_in_progress(true);
+    }
     log::info!(
         "[memory_tree::migrate] #1574 §7 done: copied chunks={copied_chunks} summaries={copied_summaries} \
          skipped_dim_mismatch={skipped_dim_mismatch} (left for §6 re-embed); user_version={TREE_EMBEDDING_MIGRATION_VERSION}"

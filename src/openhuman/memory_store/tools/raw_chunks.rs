@@ -85,6 +85,13 @@ impl Tool for MemoryStoreRawChunksTool {
             ),
             None => None,
         };
+        if let Some(limit) = parsed.limit {
+            if !(1..=1000).contains(&limit) {
+                return Err(anyhow::anyhow!(
+                    "memory_store_raw_chunks: limit must be between 1 and 1000"
+                ));
+            }
+        }
         let query = ListChunksQuery {
             source_kind,
             source_id: parsed.source_id,

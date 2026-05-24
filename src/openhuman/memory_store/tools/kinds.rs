@@ -26,8 +26,13 @@ impl Tool for MemoryStoreKindsTool {
     }
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        log::debug!("[tool][memory_store] kinds start");
         let kinds: Vec<&'static str> = MemoryKind::ALL.iter().map(|k| k.as_str()).collect();
         let json = serde_json::to_string(&json!({ "kinds": kinds }))?;
+        log::debug!(
+            "[tool][memory_store] kinds success count={}",
+            MemoryKind::ALL.len()
+        );
         Ok(ToolResult::success(json))
     }
 }

@@ -6,6 +6,7 @@
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::util::redact::redact;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
 use crate::openhuman::memory_tree::sources::file;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
@@ -20,10 +21,13 @@ use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
 /// for this source is (re)written. The write is best-effort — a failure
 /// is logged but does not abort the call.
 pub fn get_or_create_source_tree(config: &Config, scope: &str) -> Result<Tree> {
-    log::debug!("[sources::registry] get_or_create_source_tree scope={scope}");
+    let scope_redacted = redact(scope);
+    log::debug!("[sources::registry] get_or_create_source_tree scope={scope_redacted}");
     let tree = get_or_create_tree(config, TreeKind::Source, scope)?;
     if let Err(e) = file::write_source_file(config, &tree) {
-        log::warn!("[sources::registry] write_source_file failed scope={scope} err={e:#}");
+        log::warn!(
+            "[sources::registry] write_source_file failed scope={scope_redacted} err={e:#}"
+        );
     }
     Ok(tree)
 }

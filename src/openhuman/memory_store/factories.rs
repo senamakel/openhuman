@@ -17,8 +17,8 @@ use crate::openhuman::embeddings::{
     self, format_embedding_signature, EmbeddingProvider, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
     DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL,
 };
-use crate::openhuman::memory::store::agentmemory::AgentMemoryBackend;
-use crate::openhuman::memory::store::unified::UnifiedMemory;
+use crate::openhuman::memory_store::agentmemory::AgentMemoryBackend;
+use crate::openhuman::memory_store::unified::UnifiedMemory;
 use crate::openhuman::memory::traits::Memory;
 
 /// Stable wire string for the agentmemory backend selector.
@@ -395,7 +395,7 @@ fn create_memory_full(
             config
                 .agentmemory_url
                 .as_deref()
-                .unwrap_or(crate::openhuman::memory::store::agentmemory_default_url()),
+                .unwrap_or(crate::openhuman::memory_store::agentmemory_default_url()),
         );
         let backend = AgentMemoryBackend::from_config(config)?;
         return Ok(Box::new(backend));

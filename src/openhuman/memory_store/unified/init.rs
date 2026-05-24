@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::openhuman::embeddings::EmbeddingProvider;
-use crate::openhuman::memory::store::types::GLOBAL_NAMESPACE;
+use crate::openhuman::memory_store::types::GLOBAL_NAMESPACE;
 
 use super::UnifiedMemory;
 

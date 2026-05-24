@@ -147,7 +147,7 @@ async fn recall_namespace_memories_includes_namespace_kv() {
 
 #[tokio::test]
 async fn query_returns_episodic_hits_when_available() {
-    use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
+    use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
 
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
@@ -185,7 +185,7 @@ async fn query_returns_episodic_hits_when_available() {
 
 #[tokio::test]
 async fn query_returns_event_hits_when_available() {
-    use crate::openhuman::memory::store::events::{self, EventRecord, EventType};
+    use crate::openhuman::memory_store::events::{self, EventRecord, EventType};
 
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
@@ -227,7 +227,7 @@ async fn query_returns_event_hits_when_available() {
 
 #[tokio::test]
 async fn query_episodic_hits_have_correct_kind() {
-    use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
+    use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
 
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

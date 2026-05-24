@@ -14,8 +14,8 @@ use chrono::{TimeZone, Utc};
 use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
-use crate::openhuman::memory::store::types::{NamespaceDocumentInput, GLOBAL_NAMESPACE};
-use crate::openhuman::memory::store::unified::fts5;
+use crate::openhuman::memory_store::types::{NamespaceDocumentInput, GLOBAL_NAMESPACE};
+use crate::openhuman::memory_store::unified::fts5;
 use crate::openhuman::memory::traits::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };

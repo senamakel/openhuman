@@ -7,7 +7,7 @@ use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
 use crate::openhuman::memory::safety;
-use crate::openhuman::memory::store::types::MemoryKvRecord;
+use crate::openhuman::memory_store::types::MemoryKvRecord;
 
 use super::UnifiedMemory;
 

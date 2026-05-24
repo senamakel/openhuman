@@ -7,7 +7,7 @@
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Map, Value};
 
-use crate::openhuman::memory::store::types::GraphRelationRecord;
+use crate::openhuman::memory_store::types::GraphRelationRecord;
 
 use super::UnifiedMemory;
 

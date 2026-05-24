@@ -209,13 +209,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 : slugs.has(vs.ttsProvider.providerSlug)
                   ? vs.ttsProvider.providerSlug
                   : 'cloud';
-          // Always sync routing from core config. This ensures stale
-          // slugs (provider removed but routing not cleared) get corrected.
-          // Skip only when the provider modal is open (user is mid-edit).
-          if (!pendingKeySlug) {
-            setSttProvider(sttStr);
-            setTtsProvider(ttsStr);
-          }
+          setSttProvider(prev => prev || sttStr);
+          setTtsProvider(prev => prev || ttsStr);
         })
         .catch(err => {
           if (process.env.NODE_ENV !== 'production') {
@@ -244,7 +239,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
     void loadData(true);
     const timer = window.setInterval(() => {
       void loadData(false);
-    }, 2000);
+    }, 15000);
     return () => window.clearInterval(timer);
   }, []);
 

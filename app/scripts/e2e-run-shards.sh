@@ -29,7 +29,8 @@ cd "$REPO_ROOT"
 SHARDS=(
   "foundation:auth,navigation,system"
   "chat:chat,skills,journeys"
-  "integrations:providers,webhooks,notifications"
+  "providers:providers,notifications"
+  "webhooks:webhooks"
   "connectors:connectors"
   "commerce:payments,settings"
 )

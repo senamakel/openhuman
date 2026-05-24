@@ -273,7 +273,8 @@ jobs:
         shard:
           - { name: foundation, suites: "auth,navigation,system" }
           - { name: chat, suites: "chat,skills,journeys" }
-          - { name: integrations, suites: "providers,webhooks,notifications" }
+          - { name: providers, suites: "providers,notifications" }
+          - { name: webhooks, suites: "webhooks" }
           - { name: connectors, suites: "connectors" }
           - { name: commerce, suites: "payments,settings" }
     steps:

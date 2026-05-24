@@ -83,8 +83,46 @@ impl Tool for MemoryTreeSearchEntitiesTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn parameters_schema_requires_query() {
@@ -142,7 +180,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_success_path_returns_json_array() {
+    async fn execute_success_path_returns_empty_json_array_for_isolated_workspace() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, cfg) = isolated_config(&tmp).await;
         let tool = MemoryTreeSearchEntitiesTool;
         let result = tool
             .execute(json!({
@@ -150,7 +190,7 @@ mod tests {
                 "limit": 3
             }))
             .await
-            .expect("valid search_entities request should succeed");
+            .expect("valid search_entities request should succeed in isolated workspace");
         assert!(!result.is_error);
         let payload = result.text();
         let parsed: serde_json::Value =
@@ -159,5 +199,27 @@ mod tests {
             parsed.is_array(),
             "search_entities should serialize a JSON array"
         );
+        assert_eq!(parsed, json!([]));
+
+        let direct = retrieval::search_entities(&cfg, "alice", None, 3)
+            .await
+            .expect("direct search_entities on empty workspace");
+        assert!(direct.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_accepts_kind_filter_and_clamps_large_limit() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
+        let tool = MemoryTreeSearchEntitiesTool;
+        let result = tool
+            .execute(json!({
+                "query": "alice",
+                "kinds": ["email", "person"],
+                "limit": 999
+            }))
+            .await
+            .expect("filtered search_entities request should succeed");
+        assert!(!result.is_error);
     }
 }

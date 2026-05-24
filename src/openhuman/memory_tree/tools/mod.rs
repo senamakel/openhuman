@@ -25,7 +25,7 @@ pub use query_global::MemoryTreeQueryGlobalTool;
 pub use query_source::MemoryTreeQuerySourceTool;
 pub use query_topic::MemoryTreeQueryTopicTool;
 pub use search_entities::MemoryTreeSearchEntitiesTool;
-pub use walk::{run_walk, MemoryTreeWalkTool, WalkOptions, WalkOutcome, WalkStep, WalkStopReason};
+pub use walk::{MemoryTreeWalkTool, WalkOptions, WalkOutcome, WalkStep, WalkStopReason, run_walk};
 
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
@@ -264,6 +264,37 @@ mod memory_tree_dispatcher_tests {
     async fn memory_tree_missing_mode_returns_error() {
         let result = MemoryTreeTool.execute(json!({})).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn memory_tree_query_global_mode_dispatches_successfully() {
+        let result = MemoryTreeTool
+            .execute(json!({
+                "mode": "query_global",
+                "time_window_days": 7
+            }))
+            .await
+            .expect("query_global mode should dispatch successfully");
+        assert!(!result.is_error);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("result should be valid json");
+        assert!(parsed.get("hits").is_some());
+        assert!(parsed.get("total").is_some());
+    }
+
+    #[tokio::test]
+    async fn memory_tree_fetch_leaves_mode_dispatches_successfully() {
+        let result = MemoryTreeTool
+            .execute(json!({
+                "mode": "fetch_leaves",
+                "chunk_ids": ["chunk-does-not-exist"]
+            }))
+            .await
+            .expect("fetch_leaves mode should dispatch successfully");
+        assert!(!result.is_error);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("result should be valid json");
+        assert!(parsed.is_array());
     }
 
     #[test]

@@ -138,9 +138,7 @@ describe('E2E build hook', () => {
   // the real loopback flow. Exercise both branches so the conditional
   // assignment is covered.
 
-  type WithE2eHook = Window & {
-    __startLoopbackOauthListener?: typeof startLoopbackOauthListener;
-  };
+  type WithE2eHook = Window & { __startLoopbackOauthListener?: typeof startLoopbackOauthListener };
 
   test('exposes __startLoopbackOauthListener on window when the E2E build flag is set', async () => {
     vi.resetModules();

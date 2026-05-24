@@ -23,10 +23,12 @@ use std::collections::VecDeque;
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::{hit_from_chunk, hit_from_summary, RetrievalHit};
-use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, cosine_similarity};
 use crate::openhuman::memory_store::chunks::store::{get_chunk, get_chunk_embedding};
 use crate::openhuman::memory_store::content::read as content_read;
+use crate::openhuman::memory_tree::retrieval::types::{
+    hit_from_chunk, hit_from_summary, RetrievalHit,
+};
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, cosine_similarity};
 use crate::openhuman::memory_tree::tree::store;
 
 /// Walk the summary hierarchy down one step (or more if `max_depth > 1`)
@@ -256,13 +258,13 @@ fn walk_with_embeddings(
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory_store::trees::types::TreeKind;
-    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
     use chrono::Utc;
     use std::sync::Arc;

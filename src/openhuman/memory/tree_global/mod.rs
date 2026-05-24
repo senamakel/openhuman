@@ -1,17 +1,16 @@
-//! Global tree policy over the generic tree engine.
+//! Global tree instance — policy and orchestration for the singleton
+//! cross-source digest tree.
 //!
-//! This is now a thin module root that gathers the remaining global-specific
-//! algorithms while avoiding a dedicated `tree/global/` directory.
+//! The generic tree engine lives in [`memory_tree`]; this module owns
+//! the global-specific algorithms: end-of-day digest, window-scoped
+//! recap, and count-based cascade-seal thresholds.
 
-#[path = "global_digest.rs"]
 pub mod digest;
-#[path = "global_recap.rs"]
 pub mod recap;
-#[path = "global_seal.rs"]
 pub mod seal;
 
-pub use crate::openhuman::memory_store::trees::registry;
 pub use crate::openhuman::memory_store::trees::get_or_create_global_tree;
+pub use crate::openhuman::memory_store::trees::registry;
 pub use crate::openhuman::memory_tree::tree::factory::GLOBAL_SCOPE;
 use crate::openhuman::memory_tree::tree::TreeFactory;
 pub use digest::{end_of_day_digest, DigestOutcome};

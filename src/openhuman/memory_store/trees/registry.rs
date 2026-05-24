@@ -28,7 +28,7 @@ pub fn get_or_create_global_tree(config: &Config) -> Result<Tree> {
 /// Look up the topic tree for `entity_id`, or create a new one.
 ///
 /// Callers should NOT use this directly to materialise topic trees eagerly —
-/// go through `memory_tree::tree::topic::curator::maybe_spawn_topic_tree` so
+/// go through `memory::tree_topic::curator::maybe_spawn_topic_tree` so
 /// creation is gated on hotness. Admin / forced-materialisation flows can
 /// call this directly (or its alias [`force_create_topic_tree`]).
 pub fn get_or_create_topic_tree(config: &Config, entity_id: &str) -> Result<Tree> {
@@ -129,6 +129,7 @@ mod tests {
     use super::*;
     use crate::openhuman::memory_store::trees::store::insert_tree;
     use crate::openhuman::memory_store::trees::types::TreeStatus;
+    use crate::openhuman::memory_tree::tree::factory::GLOBAL_SCOPE;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {

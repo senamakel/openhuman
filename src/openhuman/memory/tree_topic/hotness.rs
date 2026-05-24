@@ -23,8 +23,8 @@
 
 use chrono::Utc;
 
+use crate::openhuman::memory::tree_policy::TreePolicy;
 use crate::openhuman::memory_store::trees::types::EntityIndexStats;
-use crate::openhuman::memory_tree::tree::policy::TreePolicy;
 
 /// Pure hotness function — no I/O, no clocks unless the caller passes one.
 ///

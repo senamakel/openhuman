@@ -1,15 +1,13 @@
-//! Topic tree policy over the generic tree engine.
+//! Topic tree instance — policy and orchestration for per-entity
+//! topic trees.
 //!
-//! This is now a thin module root that gathers the remaining topic-specific
-//! algorithms while avoiding a dedicated `tree/topic/` directory.
+//! The generic tree engine lives in [`memory_tree`]; this module owns
+//! the topic-specific algorithms: hotness scoring, curator (spawn
+//! gate), per-leaf routing, and historical backfill.
 
-#[path = "topic_backfill.rs"]
 pub mod backfill;
-#[path = "topic_curator.rs"]
 pub mod curator;
-#[path = "topic_hotness.rs"]
 pub mod hotness;
-#[path = "topic_routing.rs"]
 pub mod routing;
 
 use crate::openhuman::memory_tree::tree::TreeFactory;

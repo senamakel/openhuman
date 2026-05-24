@@ -19,11 +19,11 @@ use anyhow::Result;
 use chrono::Utc;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::tree_policy::TreePolicy;
+use crate::openhuman::memory::tree_topic::backfill::backfill_topic_tree;
 use crate::openhuman::memory_store::trees::hotness::{distinct_sources_for, get_or_fresh, upsert};
 use crate::openhuman::memory_store::trees::types::HotnessCounters;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::tree::policy::TreePolicy;
-use crate::openhuman::memory_tree::tree::topic::backfill::backfill_topic_tree;
 use crate::openhuman::memory_tree::tree::store as src_store;
 
 /// Outcome of one curator invocation. Surfaced so the caller (typically
@@ -128,7 +128,8 @@ async fn run_full_recompute(
             entity_id,
             h
         );
-        let tree = crate::openhuman::memory_tree::tree::topic::factory(entity_id).get_or_create(config)?;
+        let tree =
+            crate::openhuman::memory::tree_topic::factory(entity_id).get_or_create(config)?;
         let backfilled = backfill_topic_tree(config, &tree, entity_id).await?;
         SpawnOutcome::Spawned {
             hotness: h,
@@ -150,14 +151,17 @@ fn existing_topic_tree(config: &Config, entity_id: &str) -> Result<Option<Tree>>
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_tree::score::extract::EntityKind;
-    use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
-    use crate::openhuman::memory_tree::score::store::index_entity;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_store::trees::hotness::get;
+    use crate::openhuman::memory_store::trees::{
+        TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY,
+    };
+    use crate::openhuman::memory_tree::score::extract::EntityKind;
+    use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
+    use crate::openhuman::memory_tree::score::store::index_entity;
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

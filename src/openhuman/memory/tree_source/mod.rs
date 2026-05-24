@@ -1,4 +1,4 @@
-//! Source-specific policy layer for the memory tree.
+//! Source tree instance — policy layer for per-ingest-source trees.
 //!
 //! This module owns the parts of the source-tree path that are not generic:
 //! - [`file`] — the `_source.md` on-disk mirror (one file per ingest source)

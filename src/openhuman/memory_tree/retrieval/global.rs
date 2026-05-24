@@ -13,10 +13,10 @@ use anyhow::Result;
 use chrono::Duration;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
+use crate::openhuman::memory::tree_global::recap::{recap, RecapOutput};
 use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 use crate::openhuman::memory_store::trees::types::TreeKind;
-use crate::openhuman::memory_tree::tree::global::recap::{recap, RecapOutput};
+use crate::openhuman::memory_tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
 
 /// Return the global digest for the given window in days. Always returns a
 /// [`QueryResponse`]; the response is empty if the global tree has no
@@ -88,13 +88,13 @@ fn recap_to_hits(recap: RecapOutput, tree_id: &str, tree_scope: &str) -> Vec<Ret
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::tree_global::digest::{end_of_day_digest, DigestOutcome};
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_store::content as content_store;
-    use crate::openhuman::memory_tree::tree::global::digest::{end_of_day_digest, DigestOutcome};
-    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
     use chrono::{DateTime, Utc};
     use std::sync::Arc;

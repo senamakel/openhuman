@@ -17,15 +17,15 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use crate::openhuman::memory::tree_global::{
+    GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
+};
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary, SummaryComposeInput, SummaryTreeKind,
 };
 use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind};
-use crate::openhuman::memory_tree::tree::global::{
-    GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
-};
+use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };

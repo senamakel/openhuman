@@ -1,38 +1,30 @@
 //! Kind/profile factory for memory-tree instances.
 //!
-//! The goal is to keep source/global/topic trees as thin policy wrappers over
-//! one generic tree engine. This module centralizes the flavor-specific bits
-//! that were previously scattered across ad hoc wrappers and `match tree.kind`
-//! branches:
-//!
+//! Centralizes the flavor-specific bits so callers get a uniform API:
 //! - underlying [`TreeKind`]
 //! - canonical scope
 //! - summary-file kind
 //! - scope-slug rules
 //! - default seal-time label strategy
-//! - get-or-create behavior
 
 use std::borrow::Cow;
 
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::content::SummaryTreeKind;
 use crate::openhuman::memory_store::content::paths::slugify_source_id;
+use crate::openhuman::memory_store::content::SummaryTreeKind;
+use crate::openhuman::memory_store::trees::archive_tree;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
 use crate::openhuman::memory_tree::score::extract::build_summary_extractor;
-use crate::openhuman::memory_tree::sources::file as source_file;
 use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
 use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
-use crate::openhuman::memory_store::trees::archive_tree;
 
 /// Literal scope used for the singleton global tree.
 pub const GLOBAL_SCOPE: &str = "global";
 
-/// High-level tree profile. `Daily` is currently an explicit alias for the
-/// global tree's daily-digest shape, reserved so callers can refer to that
-/// profile directly even though it still persists under `TreeKind::Global`.
+/// High-level tree profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TreeProfile {
     Source,
@@ -122,17 +114,11 @@ impl<'a> TreeFactory<'a> {
         }
     }
 
+    /// Look up or create the tree row in the database. Instance-specific
+    /// side-effects (e.g. `_source.md` mirror) are handled by the
+    /// per-instance registry wrappers in `memory::tree_source` etc.
     pub fn get_or_create(&self, config: &Config) -> Result<Tree> {
-        let tree = get_or_create_tree(config, self.kind(), self.scope())?;
-        if matches!(self.kind(), TreeKind::Source) {
-            if let Err(e) = source_file::write_source_file(config, &tree) {
-                log::warn!(
-                    "[tree::factory] write_source_file failed scope={} err={e:#}",
-                    crate::openhuman::memory::util::redact::redact(self.scope())
-                );
-            }
-        }
-        Ok(tree)
+        get_or_create_tree(config, self.kind(), self.scope())
     }
 
     /// Append one leaf to this tree profile using its default labeling policy.
@@ -184,7 +170,10 @@ mod tests {
     #[test]
     fn source_scope_slug_strips_gmail_prefix_only() {
         let f = TreeFactory::source("gmail:alice@example.com|bob@example.com");
-        assert_eq!(f.scope_slug(), "alice-at-example-dot-com-bob-at-example-dot-com");
+        assert_eq!(
+            f.scope_slug(),
+            "alice-at-example-dot-com-bob-at-example-dot-com"
+        );
     }
 
     #[test]

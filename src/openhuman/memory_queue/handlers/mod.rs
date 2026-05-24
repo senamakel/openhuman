@@ -25,9 +25,9 @@ use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::content::{
     self as content_store, read as content_read, tags as content_tags,
 };
-use crate::openhuman::memory_tree::tree::global::digest::{self, DigestOutcome};
-use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
-use crate::openhuman::memory_tree::tree::topic::curator;
+use crate::openhuman::memory::tree_global::digest::{self, DigestOutcome};
+use crate::openhuman::memory::tree_source::get_or_create_source_tree;
+use crate::openhuman::memory::tree_topic::curator;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LeafRef, TreeFactory};
 
@@ -788,7 +788,7 @@ mod tests {
     use crate::openhuman::memory_queue::types::JobStatus;
     use crate::openhuman::memory_store::chunks::store::with_connection;
     use crate::openhuman::memory_store::content as content_store;
-    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf_deferred, LeafRef};
     use crate::openhuman::memory_tree::tree::store as src_store;
     use chrono::TimeZone;

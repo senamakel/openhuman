@@ -26,14 +26,14 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use rusqlite::OptionalExtension;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use crate::openhuman::memory::tree_global::seal::append_daily_and_cascade;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary, paths::slugify_source_id, read as content_read, SummaryComposeInput,
     SummaryTreeKind,
 };
 use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind};
-use crate::openhuman::memory_tree::tree::global::seal::append_daily_and_cascade;
+use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
@@ -76,7 +76,7 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
         day_end
     );
 
-    let global = crate::openhuman::memory_tree::tree::global::factory().get_or_create(config)?;
+    let global = crate::openhuman::memory::tree_global::factory().get_or_create(config)?;
 
     // Idempotency: check for an existing L0 daily node whose time range
     // matches this day.
@@ -129,7 +129,7 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
         tree_id: &global.id,
         tree_kind: TreeKind::Global,
         target_level: 0, // daily node lives at L0 on the global tree
-        token_budget: crate::openhuman::memory_tree::tree::global::GLOBAL_TOKEN_BUDGET,
+        token_budget: crate::openhuman::memory::tree_global::GLOBAL_TOKEN_BUDGET,
     };
     let output = match summarise(config, &inputs, &ctx).await {
         Ok(o) => o,
@@ -409,5 +409,265 @@ fn pick_source_contribution(
 }
 
 #[cfg(test)]
-#[path = "digest_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+    use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
+    use crate::openhuman::memory_store::content as content_store;
+    use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+    use std::sync::Arc;
+    use tempfile::TempDir;
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    fn test_config() -> (TempDir, Config) {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        cfg.memory_tree.embedding_endpoint = None;
+        cfg.memory_tree.embedding_model = None;
+        cfg.memory_tree.embedding_strict = false;
+        (tmp, cfg)
+    }
+
+    /// Stage chunk content files on disk so `read_summary_body` can find them
+    /// during `pick_source_contribution`.
+    fn stage_test_chunks(cfg: &Config, chunks: &[Chunk]) {
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).expect("create content_root for test");
+        let staged = content_store::stage_chunks(&content_root, chunks)
+            .expect("stage_chunks for test chunks");
+        crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .expect("persist staged chunk pointers");
+    }
+
+    /// Create a source tree for `scope`, upsert two 30 k-token chunks so that
+    /// `append_leaf` triggers an L0→L1 seal (the 50 k-token threshold), and
+    /// stage the chunk content files on disk.  The resulting source tree has
+    /// at least one sealed summary that `pick_source_contribution` can return.
+    async fn seed_source_l1(cfg: &Config, scope: &str, ts: DateTime<Utc>) {
+        let tree = get_or_create_source_tree(cfg, scope).unwrap();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+
+        let c1 = Chunk {
+            id: chunk_id(SourceKind::Chat, scope, 0, "test-content"),
+            content: format!("c1-{scope}"),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: scope.into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://x")),
+            },
+            token_count: 30_000,
+            seq_in_source: 0,
+            created_at: ts,
+            partial_message: false,
+        };
+        let c2 = Chunk {
+            id: chunk_id(SourceKind::Chat, scope, 1, "test-content"),
+            content: format!("c2-{scope}"),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: scope.into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://y")),
+            },
+            token_count: 30_000,
+            seq_in_source: 1,
+            created_at: ts,
+            partial_message: false,
+        };
+
+        upsert_chunks(cfg, &[c1.clone(), c2.clone()]).unwrap();
+        stage_test_chunks(cfg, &[c1.clone(), c2.clone()]);
+
+        let leaf1 = LeafRef {
+            chunk_id: c1.id.clone(),
+            token_count: 30_000,
+            timestamp: ts,
+            content: c1.content.clone(),
+            entities: vec![],
+            topics: vec![],
+            score: 0.5,
+        };
+        let leaf2 = LeafRef {
+            chunk_id: c2.id.clone(),
+            token_count: 30_000,
+            timestamp: ts,
+            content: c2.content.clone(),
+            entities: vec![],
+            topics: vec![],
+            score: 0.5,
+        };
+
+        test_override::with_provider(Arc::clone(&provider), async {
+            append_leaf(cfg, &tree, &leaf1, &LabelStrategy::Empty)
+                .await
+                .unwrap();
+            append_leaf(cfg, &tree, &leaf2, &LabelStrategy::Empty)
+                .await
+                .unwrap();
+        })
+        .await;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Tests
+    // ---------------------------------------------------------------------------
+
+    /// When there are no source trees at all, `end_of_day_digest` must return
+    /// `EmptyDay` without writing any rows.
+    #[tokio::test]
+    async fn empty_day_with_no_source_trees() {
+        let (_tmp, cfg) = test_config();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let day = Utc::now().date_naive();
+
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+
+        assert!(
+            matches!(outcome, DigestOutcome::EmptyDay),
+            "expected EmptyDay when no source trees exist, got {outcome:?}"
+        );
+    }
+
+    /// A source tree exists but has no sealed summaries covering the target
+    /// day.  A freshly-created tree whose L0 buffer has never crossed the
+    /// token threshold has `root_id = None`, so `pick_source_contribution`
+    /// returns `None` and the digest should be `EmptyDay`.
+    #[tokio::test]
+    async fn empty_day_no_contributions() {
+        let (_tmp, cfg) = test_config();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+
+        // Create the source tree but add no leaves — root_id stays None.
+        get_or_create_source_tree(&cfg, "slack:#empty").unwrap();
+
+        let day = Utc::now().date_naive();
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+
+        assert!(
+            matches!(outcome, DigestOutcome::EmptyDay),
+            "expected EmptyDay when source tree has no sealed summaries, got {outcome:?}"
+        );
+    }
+
+    /// One source tree with sealed L1 material covering today should yield
+    /// `DigestOutcome::Emitted` with `source_count == 1`.
+    #[tokio::test]
+    async fn emits_daily_node_from_single_source() {
+        let (_tmp, cfg) = test_config();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let day = Utc::now().date_naive();
+        // Use a timestamp inside today so the intersecting-summary query hits.
+        let ts = day.and_hms_opt(12, 0, 0).unwrap().and_utc();
+
+        seed_source_l1(&cfg, "slack:#general", ts).await;
+
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+
+        match outcome {
+            DigestOutcome::Emitted {
+                source_count,
+                daily_id,
+                ..
+            } => {
+                assert_eq!(source_count, 1, "expected exactly one contributing source");
+                assert!(!daily_id.is_empty(), "daily_id must be non-empty");
+            }
+            other => panic!("expected Emitted, got {other:?}"),
+        }
+    }
+
+    /// Calling `end_of_day_digest` twice for the same calendar day must return
+    /// `Skipped` on the second call and must NOT insert a second L0 node.
+    #[tokio::test]
+    async fn idempotent_skip_on_rerun() {
+        let (_tmp, cfg) = test_config();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let day = Utc::now().date_naive();
+        let ts = day.and_hms_opt(9, 0, 0).unwrap().and_utc();
+
+        seed_source_l1(&cfg, "slack:#idempotent", ts).await;
+
+        // First call — should emit.
+        let first = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+        assert!(
+            matches!(first, DigestOutcome::Emitted { .. }),
+            "first call must emit, got {first:?}"
+        );
+
+        // Second call — must skip.
+        let second = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+        assert!(
+            matches!(second, DigestOutcome::Skipped { .. }),
+            "second call must be Skipped, got {second:?}"
+        );
+    }
+
+    /// Two source trees with sealed L1 material covering today → `Emitted`
+    /// with `source_count == 2`.
+    #[tokio::test]
+    async fn multiple_sources_contribute() {
+        let (_tmp, cfg) = test_config();
+        let provider: Arc<dyn ChatProvider> =
+            Arc::new(StaticChatProvider::new("test summary content"));
+        let day = Utc::now().date_naive();
+        let ts = day.and_hms_opt(11, 0, 0).unwrap().and_utc();
+
+        seed_source_l1(&cfg, "slack:#alpha", ts).await;
+        seed_source_l1(&cfg, "slack:#beta", ts).await;
+
+        let outcome = test_override::with_provider(Arc::clone(&provider), async {
+            end_of_day_digest(&cfg, day).await.unwrap()
+        })
+        .await;
+
+        match outcome {
+            DigestOutcome::Emitted { source_count, .. } => {
+                assert_eq!(
+                    source_count, 2,
+                    "both source trees must contribute; got source_count={source_count}"
+                );
+            }
+            other => panic!("expected Emitted, got {other:?}"),
+        }
+    }
+}

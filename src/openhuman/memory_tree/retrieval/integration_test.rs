@@ -15,11 +15,11 @@ use tempfile::TempDir;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
+use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{
     drill_down, fetch_leaves, query_global, query_source, query_topic, search_entities,
 };
-use crate::openhuman::memory_store::chunks::types::SourceKind;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn test_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();
@@ -165,8 +165,8 @@ async fn topic_entity_surfaces_after_ingest() {
 #[tokio::test]
 async fn ingest_populates_chunk_embeddings() {
     use crate::openhuman::memory_queue::drain_until_idle;
-    use crate::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
     use crate::openhuman::memory_store::chunks::store::get_chunk_embedding;
+    use crate::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
 
     let (_tmp, cfg) = test_config();
     let out = ingest_chat(&cfg, "slack:#eng", "alice", vec![], chat_about_phoenix(0))
@@ -193,13 +193,13 @@ async fn ingest_populates_chunk_embeddings() {
 #[tokio::test]
 async fn seal_populates_summary_embedding() {
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_store::content as content_store;
-    use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
+    use crate::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
     use crate::openhuman::memory_tree::tree::store as src_store;
     use std::sync::Arc;

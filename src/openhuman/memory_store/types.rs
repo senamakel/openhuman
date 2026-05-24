@@ -187,4 +187,58 @@ mod tests {
         assert_eq!(breakdown.freshness, 0.0);
         assert_eq!(breakdown.final_score, 0.0);
     }
+
+    #[test]
+    fn memory_kv_record_roundtrips_with_optional_namespace() {
+        let global = MemoryKvRecord {
+            namespace: None,
+            key: "theme".into(),
+            value: json!("dark"),
+            updated_at: 1.5,
+        };
+        let namespaced = MemoryKvRecord {
+            namespace: Some("project".into()),
+            key: "state".into(),
+            value: json!({"open": true}),
+            updated_at: 2.5,
+        };
+        for record in [global, namespaced] {
+            let value = serde_json::to_value(&record).unwrap();
+            let decoded: MemoryKvRecord = serde_json::from_value(value).unwrap();
+            assert_eq!(decoded.namespace, record.namespace);
+            assert_eq!(decoded.key, record.key);
+            assert_eq!(decoded.value, record.value);
+            assert_eq!(decoded.updated_at, record.updated_at);
+        }
+    }
+
+    #[test]
+    fn namespace_memory_hit_defaults_optional_fields() {
+        let hit: NamespaceMemoryHit = serde_json::from_value(json!({
+            "id": "hit-1",
+            "kind": "document",
+            "namespace": "global",
+            "key": "note-1",
+            "title": "Title",
+            "content": "Body",
+            "category": "core",
+            "source_type": "manual",
+            "updated_at": 3.5,
+            "score": 0.8,
+            "score_breakdown": {
+                "keyword_relevance": 0.5,
+                "vector_similarity": 0.2,
+                "graph_relevance": 0.0,
+                "episodic_relevance": 0.0,
+                "freshness": 0.1,
+                "final_score": 0.8
+            }
+        }))
+        .unwrap();
+
+        assert!(hit.document_id.is_none());
+        assert!(hit.chunk_id.is_none());
+        assert!(hit.supporting_relations.is_empty());
+        assert_eq!(hit.kind, MemoryItemKind::Document);
+    }
 }

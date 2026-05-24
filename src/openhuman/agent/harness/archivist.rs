@@ -774,7 +774,20 @@ impl ArchivistHook {
                     "[archivist] summarize_entries: LLM recap segment={segment_id} entries={}",
                     entries.len()
                 );
-                match summarise(config, &corpus_inputs, &summary_ctx).await {
+                #[cfg(test)]
+                let summary_result = if let Some(provider) = self.chat_provider.as_ref() {
+                    crate::openhuman::memory::chat::test_override::with_provider(
+                        Arc::clone(provider),
+                        summarise(config, &corpus_inputs, &summary_ctx),
+                    )
+                    .await
+                } else {
+                    summarise(config, &corpus_inputs, &summary_ctx).await
+                };
+                #[cfg(not(test))]
+                let summary_result = summarise(config, &corpus_inputs, &summary_ctx).await;
+
+                match summary_result {
                     Ok(output) if !output.content.is_empty() => {
                         tracing::debug!(
                             "[archivist] summarize_entries: LLM recap ok segment={segment_id} \
@@ -1202,7 +1215,7 @@ impl ArchivistHook {
             conn: Some(conn),
             enabled: true,
             boundary_config: BoundaryConfig::default(),
-            config: None,
+            config: Some(Config::default()),
             chat_provider: Some(chat_provider),
             embedder: Some(embedder),
         }

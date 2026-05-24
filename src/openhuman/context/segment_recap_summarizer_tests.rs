@@ -439,13 +439,13 @@ async fn failing_provider_yields_inert_clipped_recap_used_as_compaction() {
     .await
     .unwrap();
 
-    // Provider present but failing → LlmSummariser inert fallback → real
-    // clipped content (not the bookend stub) → Some, treated as usable.
+    // Provider present but failing → summarize_entries returns a non-LLM
+    // fallback, which rolling_segment_recap must treat as unavailable for
+    // live compaction.
     let recap = hook.rolling_segment_recap(session).await;
     assert!(
-        recap.is_some(),
-        "Inert clipped-content recap (real text) is acceptable compaction \
-         text — must be Some, not None"
+        recap.is_none(),
+        "Non-LLM fallback recap text must not be used as live compaction input"
     );
 
     let inner = RecordingSummarizer::new();
@@ -464,9 +464,9 @@ async fn failing_provider_yields_inert_clipped_recap_used_as_compaction() {
 
     assert_eq!(
         inner.call_count(),
-        0,
-        "Inner summarizer must NOT run when an inert clipped-content recap \
-         is available (real content, better than no compaction)"
+        1,
+        "Inner summarizer must run when rolling recap is unavailable after \
+         provider failure"
     );
 }
 

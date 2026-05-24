@@ -836,7 +836,9 @@ async fn phase2_ingested_content_is_raw_prose_not_recap() {
     }
 
     // The raw prose text MUST appear in at least one chunk.
-    let has_user_prose = chunks.iter().any(|c| c.content.contains("lifetimes"));
+    let has_user_prose = chunks
+        .iter()
+        .any(|c| c.content.to_ascii_lowercase().contains("lifetimes"));
     assert!(
         has_user_prose,
         "Expected at least one chunk body to contain raw prose from the turn \

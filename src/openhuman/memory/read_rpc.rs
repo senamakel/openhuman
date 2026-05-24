@@ -1827,9 +1827,14 @@ fn parse_source_kind_str(s: &str) -> Option<SourceKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::composio::providers::sync_state::KV_NAMESPACE;
+    use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::memory::ingest_pipeline::ingest_chat;
+    use crate::openhuman::memory_store::unified::UnifiedMemory;
     use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
     use chrono::{TimeZone, Utc};
+    use rusqlite::params;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -1864,6 +1869,45 @@ mod tests {
         ingest_chat(cfg, source, "alice", vec![], batch)
             .await
             .unwrap();
+    }
+
+    fn update_chunk_timestamp(cfg: &Config, chunk_id: &str, timestamp_ms: i64) {
+        with_connection(cfg, |conn| {
+            conn.execute(
+                "UPDATE mem_tree_chunks
+                    SET timestamp_ms = ?1,
+                        time_range_start_ms = ?1,
+                        time_range_end_ms = ?1
+                  WHERE id = ?2",
+                params![timestamp_ms, chunk_id],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    fn insert_raw_chunk(
+        cfg: &Config,
+        id: &str,
+        source_kind: &str,
+        source_id: &str,
+        timestamp_ms: i64,
+        tags_json: &str,
+        content: &str,
+        token_count: i64,
+    ) {
+        with_connection(cfg, |conn| {
+            conn.execute(
+                "INSERT INTO mem_tree_chunks (
+                    id, source_kind, source_id, source_ref, owner, timestamp_ms,
+                    time_range_start_ms, time_range_end_ms, tags_json, content,
+                    token_count, seq_in_source, created_at_ms, lifecycle_status, content_path
+                 ) VALUES (?1, ?2, ?3, NULL, 'tester', ?4, ?4, ?4, ?5, ?6, ?7, 0, ?4, 'seeded', NULL)",
+                params![id, source_kind, source_id, timestamp_ms, tags_json, content, token_count],
+            )?;
+            Ok(())
+        })
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1944,6 +1988,114 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn list_chunks_filters_by_entity_id_and_time_window() {
+        let (_tmp, cfg) = test_config();
+        seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com handles phoenix").await;
+        seed_chat_chunk(&cfg, "slack:#eng", "bob@example.com handles atlas").await;
+
+        let seeded = list_chunks_rpc(&cfg, ChunkFilter::default())
+            .await
+            .unwrap()
+            .value
+            .chunks;
+        let alice = seeded
+            .iter()
+            .find(|chunk| {
+                chunk
+                    .content_preview
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("alice@example.com")
+            })
+            .expect("alice chunk present");
+        let bob = seeded
+            .iter()
+            .find(|chunk| {
+                chunk
+                    .content_preview
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("bob@example.com")
+            })
+            .expect("bob chunk present");
+
+        update_chunk_timestamp(&cfg, &alice.id, 1_700_000_000_100);
+        update_chunk_timestamp(&cfg, &bob.id, 1_700_000_000_900);
+
+        let filtered = list_chunks_rpc(
+            &cfg,
+            ChunkFilter {
+                entity_ids: Some(vec!["email:alice@example.com".into()]),
+                since_ms: Some(1_700_000_000_000),
+                until_ms: Some(1_700_000_000_500),
+                ..ChunkFilter::default()
+            },
+        )
+        .await
+        .unwrap()
+        .value;
+
+        assert_eq!(filtered.total, 1);
+        assert_eq!(filtered.chunks.len(), 1);
+        assert_eq!(filtered.chunks[0].id, alice.id);
+    }
+
+    #[tokio::test]
+    async fn list_chunks_ignores_empty_filter_lists_and_blank_query() {
+        let (_tmp, cfg) = test_config();
+        seed_chat_chunk(&cfg, "slack:#a", "alpha").await;
+        seed_chat_chunk(&cfg, "slack:#b", "beta").await;
+
+        let resp = list_chunks_rpc(
+            &cfg,
+            ChunkFilter {
+                source_kinds: Some(vec![]),
+                source_ids: Some(vec![]),
+                entity_ids: Some(vec![]),
+                query: Some("   ".into()),
+                limit: Some(10),
+                ..ChunkFilter::default()
+            },
+        )
+        .await
+        .unwrap()
+        .value;
+
+        assert_eq!(resp.total, 2);
+        assert_eq!(resp.chunks.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn list_chunks_normalizes_invalid_tags_negative_tokens_and_empty_content() {
+        let (_tmp, cfg) = test_config();
+        insert_raw_chunk(
+            &cfg,
+            "raw-empty",
+            "document",
+            "notion:page-1",
+            1_700_000_000_123,
+            "not-json",
+            "",
+            -7,
+        );
+
+        let resp = list_chunks_rpc(&cfg, ChunkFilter::default())
+            .await
+            .unwrap()
+            .value;
+        let row = resp
+            .chunks
+            .into_iter()
+            .find(|chunk| chunk.id == "raw-empty")
+            .expect("raw chunk listed");
+
+        assert_eq!(row.token_count, 0);
+        assert_eq!(row.tags, Vec::<String>::new());
+        assert_eq!(row.content_preview, None);
+        assert!(!row.has_embedding);
+    }
+
+    #[tokio::test]
     async fn list_sources_aggregates() {
         let (_tmp, cfg) = test_config();
         seed_chat_chunk(&cfg, "slack:#a", "x").await;
@@ -1960,6 +2112,33 @@ mod tests {
             .expect("expected slack:#b");
         assert_eq!(a.chunk_count, 2);
         assert_eq!(b.chunk_count, 1);
+    }
+
+    #[tokio::test]
+    async fn list_sources_formats_email_threads_with_trimmed_user_hint() {
+        let (_tmp, cfg) = test_config();
+        insert_raw_chunk(
+            &cfg,
+            "email-thread",
+            "email",
+            "gmail:Alice@Example.com|bob@example.com|carol@example.com",
+            1_700_000_000_123,
+            "[]",
+            "thread body",
+            12,
+        );
+
+        let sources = list_sources_rpc(&cfg, Some(" alice@example.com ".into()))
+            .await
+            .unwrap()
+            .value;
+        let source = sources
+            .iter()
+            .find(|row| {
+                row.source_id == "gmail:Alice@Example.com|bob@example.com|carol@example.com"
+            })
+            .expect("email thread source present");
+        assert_eq!(source.display_name, "bob@example.com, carol@example.com");
     }
 
     #[tokio::test]
@@ -2009,10 +2188,9 @@ mod tests {
             .await
             .unwrap()
             .value;
-        assert!(
-            top.iter()
-                .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2)
-        );
+        assert!(top
+            .iter()
+            .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2));
     }
 
     #[tokio::test]
@@ -2108,12 +2286,34 @@ mod tests {
         assert_eq!(row.owner, "alice");
         assert_eq!(row.lifecycle_status, "pending_extraction");
         assert!(row.content_path.is_some());
-        assert!(
-            row.content_preview
-                .as_deref()
-                .unwrap_or("")
-                .contains("phoenix migration scheduled friday")
-        );
+        assert!(row
+            .content_preview
+            .as_deref()
+            .unwrap_or("")
+            .contains("phoenix migration scheduled friday"));
+    }
+
+    #[tokio::test]
+    async fn read_chunk_row_falls_back_to_sqlite_preview_when_file_missing() {
+        let (_tmp, cfg) = test_config();
+        let body = "sqlite preview survives missing file";
+        seed_chat_chunk(&cfg, "slack:#eng", body).await;
+        let chunk = list_chunks_rpc(&cfg, ChunkFilter::default())
+            .await
+            .unwrap()
+            .value
+            .chunks
+            .into_iter()
+            .next()
+            .expect("seeded chunk");
+
+        let rel_path = chunk.content_path.clone().expect("content path present");
+        let abs_path = cfg.memory_tree_content_root().join(rel_path);
+        std::fs::remove_file(&abs_path).expect("remove chunk file");
+
+        let row = read_chunk_row(&cfg, &chunk.id).unwrap().expect("chunk row");
+        assert_eq!(row.content_path, chunk.content_path);
+        assert_eq!(row.content_preview.as_deref(), Some(body));
     }
 
     #[test]
@@ -2424,6 +2624,15 @@ mod tests {
     }
 
     #[test]
+    fn display_name_handles_multiple_participants_and_trimmed_hint() {
+        let name = display_name_for_source(
+            "gmail:Alice@Example.com|bob@example.com|carol@example.com",
+            Some(" alice@example.com "),
+        );
+        assert_eq!(name, "bob@example.com, carol@example.com");
+    }
+
+    #[test]
     fn display_name_handles_no_prefix() {
         assert_eq!(display_name_for_source("loose-id", None), "loose-id");
     }
@@ -2458,5 +2667,48 @@ mod tests {
             outcome.logs,
             vec!["memory_tree::read: get_llm current=local".to_string()]
         );
+    }
+
+    #[test]
+    fn clear_composio_sync_state_removes_only_target_namespace() {
+        let tmp = TempDir::new().unwrap();
+        let _memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+        let db_path = tmp.path().join("memory").join("memory.db");
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+
+        conn.execute(
+            "INSERT INTO kv_namespace (namespace, key, value_json, updated_at)
+             VALUES (?1, 'cursor', '{}', 1.0)",
+            params![KV_NAMESPACE],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO kv_namespace (namespace, key, value_json, updated_at)
+             VALUES ('other-namespace', 'cursor', '{}', 2.0)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let removed = clear_composio_sync_state(&db_path).unwrap();
+        assert_eq!(removed, 1);
+
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        let composio_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM kv_namespace WHERE namespace = ?1",
+                params![KV_NAMESPACE],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let other_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM kv_namespace WHERE namespace = 'other-namespace'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(composio_count, 0);
+        assert_eq!(other_count, 1);
     }
 }

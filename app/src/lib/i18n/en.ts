@@ -1106,6 +1106,8 @@ const en: TranslationMap = {
   // Voice routing section
   'voice.routing.title': 'Voice Routing',
   'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
 
   // External voice providers
   'voice.externalProviders.title': 'External Voice Providers',

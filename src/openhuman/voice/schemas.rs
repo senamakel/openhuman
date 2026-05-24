@@ -1094,28 +1094,108 @@ fn handle_voice_test_provider(params: Map<String, Value>) -> ControllerFuture {
                 }
             }
             "tts" => {
-                let provider =
-                    crate::openhuman::voice::create_tts_provider(&p.provider, "", &config)
-                        .map_err(|e| e.to_string())?;
+                // For external providers, validate the API key by hitting a
+                // lightweight endpoint (e.g. /voices for ElevenLabs, /models
+                // for OpenAI) rather than synthesizing audio — avoids needing
+                // a valid voice ID just to verify credentials.
+                let trimmed = p.provider.trim();
+                let is_external = !matches!(trimmed, "cloud" | "openhuman" | "piper" | "");
 
-                match provider.synthesize(&config, "Hello", None).await {
-                    Ok(_outcome) => {
-                        let elapsed = start.elapsed().as_millis();
-                        Ok(serde_json::json!({
-                            "ok": true,
-                            "detail": format!("TTS test passed ({elapsed}ms)"),
-                            "latency_ms": elapsed,
-                        }))
+                if is_external {
+                    match validate_tts_provider_key(trimmed, &config).await {
+                        Ok(detail) => {
+                            let elapsed = start.elapsed().as_millis();
+                            Ok(serde_json::json!({
+                                "ok": true,
+                                "detail": format!("{detail} ({elapsed}ms)"),
+                                "latency_ms": elapsed,
+                            }))
+                        }
+                        Err(e) => Ok(serde_json::json!({
+                            "ok": false,
+                            "detail": format!("TTS test failed: {e}"),
+                        })),
                     }
-                    Err(e) => Ok(serde_json::json!({
-                        "ok": false,
-                        "detail": format!("TTS test failed: {e}"),
-                    })),
+                } else {
+                    let provider =
+                        crate::openhuman::voice::create_tts_provider(trimmed, "", &config)
+                            .map_err(|e| e.to_string())?;
+                    match provider.synthesize(&config, "Hello", None).await {
+                        Ok(_outcome) => {
+                            let elapsed = start.elapsed().as_millis();
+                            Ok(serde_json::json!({
+                                "ok": true,
+                                "detail": format!("TTS test passed ({elapsed}ms)"),
+                                "latency_ms": elapsed,
+                            }))
+                        }
+                        Err(e) => Ok(serde_json::json!({
+                            "ok": false,
+                            "detail": format!("TTS test failed: {e}"),
+                        })),
+                    }
                 }
             }
             other => Err(format!("invalid workload '{other}' (valid: 'stt', 'tts')")),
         }
     })
+}
+
+/// Validate a TTS provider's API key by hitting a lightweight read-only endpoint
+/// rather than synthesizing audio (which requires a valid voice ID).
+async fn validate_tts_provider_key(
+    provider: &str,
+    config: &crate::openhuman::config::Config,
+) -> Result<String, String> {
+    let (slug, _model) = if let Some(pos) = provider.find(':') {
+        (&provider[..pos], &provider[pos + 1..])
+    } else {
+        (provider, "")
+    };
+
+    let entry = config
+        .voice_providers
+        .iter()
+        .find(|p| p.slug == slug)
+        .ok_or_else(|| format!("no voice provider with slug '{slug}'"))?;
+
+    let api_key = crate::openhuman::inference::provider::factory::lookup_key_for_slug(slug, config)
+        .unwrap_or_default();
+
+    if api_key.is_empty() {
+        return Err("no API key configured for this provider".to_string());
+    }
+
+    let endpoint = entry.endpoint.trim_end_matches('/');
+    let client = reqwest::Client::new();
+
+    // ElevenLabs: GET /voices validates the key without needing a voice ID.
+    // OpenAI / generic: GET /models works for key validation.
+    let url = if slug == "elevenlabs" {
+        format!("{endpoint}/voices")
+    } else {
+        format!("{endpoint}/models")
+    };
+
+    let mut req = client.get(&url);
+    if slug == "elevenlabs" {
+        req = req.header("xi-api-key", &api_key);
+    } else {
+        req = req.header("Authorization", format!("Bearer {api_key}"));
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {e}"))?;
+
+    if resp.status().is_success() {
+        Ok("TTS provider key is valid".to_string())
+    } else {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        Err(format!("API returned {status}: {body}"))
+    }
 }
 
 /// Generate a minimal WAV file with ~0.1s of silence (8kHz mono 16-bit PCM).

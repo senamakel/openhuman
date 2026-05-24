@@ -109,6 +109,10 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const [isSavingPendingKey, setIsSavingPendingKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [isTestingStt, setIsTestingStt] = useState(false);
+  const [sttTestResult, setSttTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [isTestingTts, setIsTestingTts] = useState(false);
+  const [ttsTestResult, setTtsTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
   const settingsRef = useRef<VoiceServerSettings | null>(null);
   const savedSettingsRef = useRef<VoiceServerSettings | null>(null);
   const piperVoicePresets: ReadonlyArray<{ id: string; label: string }> = [
@@ -905,6 +909,41 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   </select>
                 </label>
 
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="test-stt-button"
+                    disabled={isTestingStt || !sttProvider}
+                    onClick={async () => {
+                      setIsTestingStt(true);
+                      setSttTestResult(null);
+                      try {
+                        const result = await testVoiceProvider('stt', sttProvider || 'cloud');
+                        setSttTestResult(result);
+                      } catch (err) {
+                        setSttTestResult({
+                          ok: false,
+                          detail: err instanceof Error ? err.message : 'Test failed',
+                        });
+                      } finally {
+                        setIsTestingStt(false);
+                      }
+                    }}
+                    className="px-2.5 py-1 text-[11px] rounded-md border border-stone-300 dark:border-neutral-600 text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-700 disabled:opacity-50">
+                    {isTestingStt ? t('voice.modal.testing') : t('voice.routing.testStt')}
+                  </button>
+                  {sttTestResult && (
+                    <span
+                      className={`text-[11px] ${
+                        sttTestResult.ok
+                          ? 'text-emerald-600 dark:text-emerald-300'
+                          : 'text-red-600 dark:text-red-300'
+                      }`}>
+                      {sttTestResult.detail}
+                    </span>
+                  )}
+                </div>
+
                 {/* Whisper install controls — shown when whisper is selected for STT */}
                 {sttProvider === 'whisper' && (
                   <div className="flex items-center gap-2">
@@ -1007,6 +1046,41 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     ))}
                   </select>
                 </label>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="test-tts-button"
+                    disabled={isTestingTts || !ttsProvider}
+                    onClick={async () => {
+                      setIsTestingTts(true);
+                      setTtsTestResult(null);
+                      try {
+                        const result = await testVoiceProvider('tts', ttsProvider || 'cloud');
+                        setTtsTestResult(result);
+                      } catch (err) {
+                        setTtsTestResult({
+                          ok: false,
+                          detail: err instanceof Error ? err.message : 'Test failed',
+                        });
+                      } finally {
+                        setIsTestingTts(false);
+                      }
+                    }}
+                    className="px-2.5 py-1 text-[11px] rounded-md border border-stone-300 dark:border-neutral-600 text-stone-600 dark:text-neutral-300 hover:bg-stone-100 dark:hover:bg-neutral-700 disabled:opacity-50">
+                    {isTestingTts ? t('voice.modal.testing') : t('voice.routing.testTts')}
+                  </button>
+                  {ttsTestResult && (
+                    <span
+                      className={`text-[11px] ${
+                        ttsTestResult.ok
+                          ? 'text-emerald-600 dark:text-emerald-300'
+                          : 'text-red-600 dark:text-red-300'
+                      }`}>
+                      {ttsTestResult.detail}
+                    </span>
+                  )}
+                </div>
 
                 {/* Piper install controls — shown when piper is selected */}
                 {ttsProvider === 'piper' && (

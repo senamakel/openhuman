@@ -26,6 +26,7 @@
 //!   own retry/backoff policy. The trait gives the orchestrator a
 //!   single shape to call; everything else stays local.
 
+pub mod canonicalize;
 pub mod composio;
 pub mod mcp;
 pub mod traits;

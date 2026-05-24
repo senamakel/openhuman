@@ -156,7 +156,7 @@ fn row_to_match(row: &rusqlite::Row<'_>) -> rusqlite::Result<EntityMatch> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+    use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
     use crate::openhuman::memory::ingest_pipeline::ingest_chat;
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;

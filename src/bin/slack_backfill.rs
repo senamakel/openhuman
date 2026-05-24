@@ -211,7 +211,7 @@ async fn main() -> Result<()> {
 
     if cli.seal_probe {
         use chrono::{Duration, Utc};
-        use openhuman_core::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+        use openhuman_core::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
         use openhuman_core::openhuman::memory::ingest_pipeline::ingest_chat;
 
         let connection_id = cli.connection_id.clone().ok_or_else(|| {

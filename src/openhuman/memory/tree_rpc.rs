@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::canonicalize::{
+use crate::openhuman::memory_sync::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
 use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};

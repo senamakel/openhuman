@@ -26,7 +26,6 @@ pub mod traits;
 pub use crate::openhuman::memory_tools as tool_memory;
 
 // Modules moved from memory_tree (Phase 3)
-pub mod canonicalize;
 pub mod chat;
 pub mod ingest_pipeline;
 pub mod jobs;

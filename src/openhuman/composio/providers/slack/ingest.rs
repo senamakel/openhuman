@@ -30,7 +30,7 @@ use anyhow::Result;
 
 use super::types::SlackMessage;
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_store::chunks::store::{set_chunk_raw_refs, RawRef};
 use crate::openhuman::memory_store::content::raw::{
     self as raw_store, raw_rel_path, RawItem, RawKind,

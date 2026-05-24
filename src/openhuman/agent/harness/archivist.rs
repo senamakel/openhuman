@@ -18,7 +18,7 @@
 
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory::chat::{ChatConsumer, ChatProvider};
 use crate::openhuman::memory::ingest_pipeline;
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, Embedder};

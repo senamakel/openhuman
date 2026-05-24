@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::canonicalize::{
+use crate::openhuman::memory_sync::canonicalize::{
     chat::{self, ChatBatch},
     document::{self, DocumentInput},
     email::{self, EmailThread},
@@ -419,7 +419,7 @@ fn markdown_body_preview(md: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::canonicalize::chat::ChatMessage;
+    use crate::openhuman::memory_sync::canonicalize::chat::ChatMessage;
     use crate::openhuman::memory_store::chunks::store::{
         count_chunks, count_chunks_by_lifecycle_status, get_chunk_embedding, list_chunks,
         ListChunksQuery, CHUNK_STATUS_BUFFERED, CHUNK_STATUS_DROPPED,

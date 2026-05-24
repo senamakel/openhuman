@@ -14,7 +14,7 @@ use chrono::{TimeZone, Utc};
 use tempfile::TempDir;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
+use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory::retrieval::{

@@ -16,9 +16,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use rusqlite::params;
 use serde_json::Value;
 
-use super::types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
+use super::types::{ToolMemoryPriority, ToolMemoryRule, ToolMemorySource, tool_memory_namespace};
 use crate::openhuman::memory::{Memory, MemoryCategory};
 
 /// Maximum number of rules surfaced into the system prompt at once.
@@ -107,28 +108,65 @@ impl ToolMemoryStore {
     /// first) and then `updated_at` descending.
     pub async fn list_rules(&self, tool_name: &str) -> Result<Vec<ToolMemoryRule>, String> {
         let namespace = tool_memory_namespace(tool_name);
-        let entries = self
-            .memory
-            .list(Some(&namespace), None, None)
-            .await
-            .map_err(|e| format!("list tool rules: {e:#}"))?;
+        let mut rules: Vec<ToolMemoryRule> = if let Some(conn) = self.memory.sqlite_conn() {
+            let conn = conn.lock();
+            let mut stmt = conn
+                .prepare(
+                    "SELECT key, content
+                     FROM memory_docs
+                     WHERE namespace = ?1 AND key LIKE 'rule/%'
+                     ORDER BY updated_at DESC",
+                )
+                .map_err(|e| format!("prepare tool rule list: {e}"))?;
+            let rows = stmt
+                .query_map(params![namespace], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| format!("query tool rule list: {e}"))?;
 
-        let mut rules: Vec<ToolMemoryRule> = entries
-            .into_iter()
-            .filter(|entry| entry.key.starts_with("rule/"))
-            .filter_map(
-                |entry| match serde_json::from_str::<ToolMemoryRule>(&entry.content) {
+            rows.filter_map(|row| match row {
+                Ok((key, content)) => match serde_json::from_str::<ToolMemoryRule>(&content) {
                     Ok(rule) => Some(rule),
                     Err(err) => {
                         log::warn!(
-                            "[tool-memory] skipping malformed rule key={} tool={tool_name}: {err}",
-                            entry.key
+                            "[tool-memory] skipping malformed sqlite rule key={} tool={tool_name}: {err}",
+                            key
                         );
                         None
                     }
                 },
-            )
-            .collect();
+                Err(err) => {
+                    log::warn!(
+                        "[tool-memory] skipping unreadable sqlite rule row tool={tool_name}: {err}"
+                    );
+                    None
+                }
+            })
+            .collect()
+        } else {
+            let entries = self
+                .memory
+                .list(Some(&namespace), None, None)
+                .await
+                .map_err(|e| format!("list tool rules: {e:#}"))?;
+
+            entries
+                .into_iter()
+                .filter(|entry| entry.key.starts_with("rule/"))
+                .filter_map(
+                    |entry| match serde_json::from_str::<ToolMemoryRule>(&entry.content) {
+                        Ok(rule) => Some(rule),
+                        Err(err) => {
+                            log::warn!(
+                                "[tool-memory] skipping malformed rule key={} tool={tool_name}: {err}",
+                                entry.key
+                            );
+                            None
+                        }
+                    },
+                )
+                .collect()
+        };
 
         rules.sort_by(|a, b| {
             b.priority

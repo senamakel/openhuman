@@ -111,9 +111,10 @@ pub async fn memory_learn_all(
             "[memory.learn] running summarization for namespace='{}'",
             namespace
         );
-        let outcome =
-            crate::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_run(&config, namespace)
-                .await;
+        let outcome = crate::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_run(
+            &config, namespace,
+        )
+        .await;
         match outcome {
             Ok(_) => {
                 tracing::info!("[memory.learn] namespace='{}' ok", namespace);
@@ -150,4 +151,52 @@ pub async fn memory_learn_all(
         },
         vec![],
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::OnceLock;
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    fn ensure_memory_client() {
+        static WORKSPACE: OnceLock<PathBuf> = OnceLock::new();
+        let workspace = WORKSPACE.get_or_init(|| {
+            let tmp = TempDir::new().expect("tempdir");
+            let path = tmp.path().join("workspace");
+            std::fs::create_dir_all(&path).expect("workspace dir");
+            std::mem::forget(tmp);
+            path
+        });
+        let _ = crate::openhuman::memory::global::init(workspace.clone());
+    }
+
+    #[tokio::test]
+    async fn memory_learn_all_is_noop_for_explicit_empty_namespace_list() {
+        ensure_memory_client();
+        let outcome = memory_learn_all(LearnAllParams {
+            namespaces: Some(vec![]),
+        })
+        .await
+        .expect("empty list should early-return");
+        assert_eq!(outcome.value.namespaces_processed, 0);
+        assert!(outcome.value.results.is_empty());
+        assert!(outcome.logs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn memory_learn_all_is_noop_when_requested_namespaces_do_not_exist() {
+        ensure_memory_client();
+        let missing = format!("missing-{}", uuid::Uuid::new_v4());
+        let outcome = memory_learn_all(LearnAllParams {
+            namespaces: Some(vec![missing]),
+        })
+        .await
+        .expect("unknown namespaces should filter to no-op");
+        assert_eq!(outcome.value.namespaces_processed, 0);
+        assert!(outcome.value.results.is_empty());
+    }
 }

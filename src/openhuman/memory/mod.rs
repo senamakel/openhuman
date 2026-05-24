@@ -23,8 +23,11 @@ pub mod safety;
 pub mod schemas;
 pub mod stm_recall;
 pub mod sync_status;
-pub mod tool_memory;
 pub mod traits;
+
+// Tool-scoped memory moved to top-level `memory_tools`. Re-exported here so
+// existing `memory::tool_memory::*` paths still resolve during the migration.
+pub use crate::openhuman::memory_tools as tool_memory;
 
 // Modules moved from memory_tree (Phase 3)
 pub mod canonicalize;

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
-import McpServersTab from '../components/channels/mcp/McpServersTab';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
 import {
   composioToolkitMeta,
@@ -281,6 +280,37 @@ function ChannelTile({ def, status, icon, testId, onOpen }: ChannelTileProps) {
         </span>
       </div>
     </button>
+  );
+}
+
+function McpComingSoonPanel() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 dark:border-neutral-700 bg-stone-50/80 dark:bg-neutral-900/80 px-6 py-16 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-500/10">
+        <svg
+          className="h-7 w-7 text-primary-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6.75 7.5h10.5m-10.5 4.5h10.5m-10.5 4.5h6m-9.75 3h13.5A2.25 2.25 0 0 0 19.5 17.25V6.75A2.25 2.25 0 0 0 17.25 4.5H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5A2.25 2.25 0 0 0 6.75 19.5Z"
+          />
+        </svg>
+      </div>
+      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+        MCP Servers
+      </h3>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
+        MCP server management is coming soon. This tab will be the home for discovering,
+        connecting, and monitoring your MCP server integrations.
+      </p>
+      <span className="mt-4 inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400">
+        Coming Soon
+      </span>
+    </div>
   );
 }
 
@@ -1035,7 +1065,7 @@ export default function Skills() {
                         {t('channels.mcp.description')}
                       </p>
                     </div>
-                    <McpServersTab />
+                    <McpComingSoonPanel />
                   </div>
                 )}
               </>

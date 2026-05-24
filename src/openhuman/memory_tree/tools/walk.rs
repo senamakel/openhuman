@@ -18,7 +18,7 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider::traits::{ChatMessage, Provider};
-use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer, ChatPrompt};
+use crate::openhuman::memory::chat::{build_chat_provider, ChatPrompt};
 use crate::openhuman::memory::retrieval;
 use crate::openhuman::memory::retrieval::fetch::fetch_leaves as do_fetch_leaves;
 use crate::openhuman::memory::summarizer::store::{read_children, read_node};
@@ -179,7 +179,7 @@ impl Tool for MemoryTreeWalkTool {
 
         // Build a chat provider from config (same path used by the summariser)
         // and wrap it in the thin `ChatProviderAdapter` that satisfies `Provider`.
-        let chat_provider = build_chat_provider(&cfg, ChatConsumer::Summarise)
+        let chat_provider = build_chat_provider(&cfg)
             .map_err(|e| anyhow::anyhow!("memory_tree_walk: build chat provider failed: {e}"))?;
         let adapter = ChatProviderAdapter {
             inner: chat_provider,

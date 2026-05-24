@@ -13,7 +13,7 @@ pub mod types;
 use std::sync::Arc;
 
 use crate::openhuman::config::{Config, DEFAULT_CLOUD_LLM_MODEL};
-use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer};
+use crate::openhuman::memory::chat::build_chat_provider;
 
 pub use extractor::{CompositeExtractor, EntityExtractor, RegexEntityExtractor};
 pub use llm::{LlmEntityExtractor, LlmExtractorConfig};
@@ -51,7 +51,7 @@ pub fn build_summary_extractor(config: &Config) -> Arc<dyn EntityExtractor> {
         ..LlmExtractorConfig::default()
     };
 
-    let provider = match build_chat_provider(config, ChatConsumer::Extract) {
+    let provider = match build_chat_provider(config) {
         Ok(p) => p,
         Err(err) => {
             log::warn!(

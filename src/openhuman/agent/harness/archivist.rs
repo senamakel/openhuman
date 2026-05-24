@@ -19,7 +19,7 @@
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
-use crate::openhuman::memory::chat::{ChatConsumer, ChatProvider};
+use crate::openhuman::memory::chat::{ChatProvider};
 use crate::openhuman::memory::ingest_pipeline;
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, Embedder};
 use crate::openhuman::memory_store::events::{self, EventRecord, EventType};
@@ -93,10 +93,7 @@ impl ArchivistHook {
     pub fn with_config(mut self, config: Config) -> Self {
         // Build the LLM chat provider for segment recap.
         let chat_provider: Option<Arc<dyn ChatProvider>> =
-            match crate::openhuman::memory::chat::build_chat_provider(
-                &config,
-                ChatConsumer::Summarise,
-            ) {
+            match crate::openhuman::memory::chat::build_chat_provider(&config) {
                 Ok(p) => {
                     tracing::debug!("[archivist] segment recap provider={} registered", p.name());
                     Some(p)

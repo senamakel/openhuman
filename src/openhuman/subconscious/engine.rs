@@ -21,7 +21,7 @@ use super::types::{
 };
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
-use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer, ChatPrompt, ChatProvider};
+use crate::openhuman::memory::chat::{build_chat_provider, ChatPrompt, ChatProvider};
 use crate::openhuman::memory::MemoryClientRef;
 use anyhow::Result;
 use executor::ExecutionOutcome;
@@ -868,7 +868,7 @@ fn build_subconscious_chat_provider(config: &Config) -> Result<Arc<dyn ChatProvi
         SubconsciousProviderRoute::OpenHumanCloud => Some("cloud".to_string()),
         SubconsciousProviderRoute::Other(provider) => Some(provider),
     };
-    build_chat_provider(&routed, ChatConsumer::Summarise)
+    build_chat_provider(&routed)
 }
 
 /// Parse the per-tick LLM response into evaluations + reflection drafts.

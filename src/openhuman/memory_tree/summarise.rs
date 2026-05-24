@@ -17,7 +17,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer, ChatPrompt};
+use crate::openhuman::memory::chat::{build_chat_provider, ChatPrompt};
 use crate::openhuman::memory_store::chunks::types::approx_token_count;
 use crate::openhuman::memory_store::trees::types::TreeKind;
 
@@ -103,7 +103,7 @@ pub async fn summarise(
         });
     }
 
-    let provider = build_chat_provider(config, ChatConsumer::Summarise)
+    let provider = build_chat_provider(config)
         .context("memory_tree::summarise: build chat provider")?;
 
     let prompt = ChatPrompt {

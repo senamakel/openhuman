@@ -119,7 +119,7 @@ impl ScoringConfig {
     /// failures) fall back to regex-only with a warn log; scoring never
     /// blocks on LLM availability.
     pub fn from_config(config: &crate::openhuman::config::Config) -> Self {
-        use crate::openhuman::memory::chat::{build_chat_provider, ChatConsumer};
+        use crate::openhuman::memory::chat::build_chat_provider;
 
         let model = match extract::resolve_extractor_model(config) {
             Some(m) => m,
@@ -139,7 +139,7 @@ impl ScoringConfig {
             ..extract::LlmExtractorConfig::default()
         };
 
-        match build_chat_provider(config, ChatConsumer::Extract) {
+        match build_chat_provider(config) {
             Ok(provider) => {
                 log::info!(
                     "[memory::score] using LlmEntityExtractor provider={} model={}",

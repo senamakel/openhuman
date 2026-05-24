@@ -86,11 +86,7 @@ pub fn spawn(jail: &Jail, cmd: Command) -> std::io::Result<Child> {
 /// Same as [`jail`] but with a caller-supplied backend. Useful in
 /// tests and for callers that want to opt into a weaker backend
 /// explicitly (e.g. forcing [`NoopBackend`] during local dev).
-pub fn spawn_with(
-    backend: &dyn JailBackend,
-    jail: &Jail,
-    cmd: Command,
-) -> std::io::Result<Child> {
+pub fn spawn_with(backend: &dyn JailBackend, jail: &Jail, cmd: Command) -> std::io::Result<Child> {
     let mut jail = jail.clone();
     jail.canonicalize()?;
     backend.spawn(&jail, cmd)

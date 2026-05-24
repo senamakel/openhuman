@@ -242,4 +242,70 @@ mod tests {
         assert!(obsidian.markdown.contains("tree_id: tree-1"));
         assert!(obsidian.markdown.contains("summary body"));
     }
+
+    #[test]
+    fn tree_traits_render_obsidian_metadata() {
+        let tree = Tree {
+            id: "tree-1".into(),
+            kind: crate::openhuman::memory_store::trees::TreeKind::Topic,
+            scope: "topic:phoenix".into(),
+            root_id: Some("summary-root".into()),
+            max_level: 2,
+            status: crate::openhuman::memory_store::trees::TreeStatus::Active,
+            created_at: Utc::now(),
+            last_sealed_at: None,
+        };
+        let obsidian = tree.to_obsidian();
+        assert_eq!(obsidian.relative_path, PathBuf::from("trees/tree-1.md"));
+        assert!(obsidian.markdown.contains("id: tree-1"));
+        assert!(obsidian.markdown.contains("Tree tree-1"));
+        assert!(obsidian.markdown.contains("Topic"));
+    }
+
+    #[test]
+    fn person_traits_render_name_and_email_when_present() {
+        let now = Utc::now();
+        let person = Person {
+            id: crate::openhuman::people::types::PersonId::new(),
+            display_name: Some("Alice Example".into()),
+            primary_email: Some("alice@example.com".into()),
+            primary_phone: Some("+1 555 0100".into()),
+            handles: vec![
+                crate::openhuman::people::types::Handle::DisplayName("Alice Example".into()),
+                crate::openhuman::people::types::Handle::Email("alice@example.com".into()),
+            ],
+            created_at: now,
+            updated_at: now,
+        };
+        assert_eq!(person.memory_kind(), MemoryKind::Contact);
+        assert_eq!(
+            person.embeddable_text(),
+            "Alice Example\nalice@example.com"
+        );
+        let obsidian = person.to_obsidian();
+        assert_eq!(
+            obsidian.relative_path,
+            PathBuf::from("contacts").join(format!("{}.md", person.id))
+        );
+        assert!(obsidian.markdown.contains("# Alice Example"));
+        assert!(obsidian.markdown.contains("Email: alice@example.com"));
+    }
+
+    #[test]
+    fn person_traits_fall_back_when_fields_are_missing() {
+        let now = Utc::now();
+        let person = Person {
+            id: crate::openhuman::people::types::PersonId::new(),
+            display_name: None,
+            primary_email: None,
+            primary_phone: None,
+            handles: vec![],
+            created_at: now,
+            updated_at: now,
+        };
+        assert_eq!(person.embeddable_text(), "");
+        let obsidian = person.to_obsidian();
+        assert!(obsidian.markdown.contains("# Unknown"));
+        assert!(obsidian.markdown.contains("Email: "));
+    }
 }

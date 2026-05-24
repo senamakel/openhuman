@@ -392,7 +392,40 @@ fn print_help() {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::TEST_ENV_LOCK;
+
     use super::*;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
 
     #[test]
     fn is_help_matches_supported_aliases() {
@@ -465,5 +498,48 @@ mod tests {
         assert!(run_query(&["--help".to_string()]).is_ok());
         assert!(run_status(&["--help".to_string()]).is_ok());
         assert!(run_rebuild(&["--help".to_string()]).is_ok());
+    }
+
+    #[test]
+    fn ingest_status_and_query_run_against_isolated_workspace() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        assert!(run_ingest(&["ns".to_string(), "--content".to_string(), "hello world".to_string()]).is_ok());
+        assert!(run_status(&["ns".to_string()]).is_ok());
+        let err = run_query(&["ns".to_string(), "root".to_string()])
+            .expect_err("root query should fail before a summarization run creates nodes");
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn ingest_reads_from_file_path() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+        let input = tmp.path().join("input.txt");
+        std::fs::write(&input, "from file").unwrap();
+
+        let args = vec![
+            "ns".to_string(),
+            "--file".to_string(),
+            input.display().to_string(),
+        ];
+        assert!(run_ingest(&args).is_ok());
+    }
+
+    #[test]
+    fn run_and_rebuild_surface_local_ai_runtime_requirement() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        // Seed a namespace so the commands go through the runtime path
+        // rather than failing argument validation.
+        assert!(run_ingest(&["ns".to_string(), "--content".to_string(), "seed".to_string()]).is_ok());
+
+        let run_err = run_summarize(&["ns".to_string()]).expect_err("run should require local ai");
+        assert!(run_err.to_string().contains("requires local_ai to be enabled"));
+
+        let rebuild_err = run_rebuild(&["ns".to_string()]).expect_err("rebuild should require local ai");
+        assert!(rebuild_err.to_string().contains("requires local_ai to be enabled"));
     }
 }

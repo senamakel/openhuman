@@ -70,8 +70,46 @@ impl Tool for MemoryTreeFetchLeavesTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn parameters_schema_requires_chunk_ids() {
@@ -123,14 +161,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_success_path_returns_json_array() {
+    async fn execute_success_path_returns_empty_json_array_for_isolated_workspace() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, cfg) = isolated_config(&tmp).await;
         let tool = MemoryTreeFetchLeavesTool;
         let result = tool
             .execute(json!({
                 "chunk_ids": ["chunk-does-not-exist-1", "chunk-does-not-exist-2"]
             }))
             .await
-            .expect("valid fetch_leaves request should succeed");
+            .expect("valid fetch_leaves request should succeed in isolated workspace");
         assert!(!result.is_error);
         let payload = result.text();
         let parsed: serde_json::Value =
@@ -139,5 +179,30 @@ mod tests {
             parsed.is_array(),
             "fetch_leaves should serialize a JSON array"
         );
+        assert_eq!(parsed, json!([]));
+
+        let direct = retrieval::fetch_leaves(
+            &cfg,
+            &["chunk-does-not-exist-1".to_string(), "chunk-does-not-exist-2".to_string()],
+        )
+        .await
+        .expect("direct fetch_leaves on empty workspace");
+        assert!(direct.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_truncates_requests_to_twenty_ids() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
+        let tool = MemoryTreeFetchLeavesTool;
+        let ids: Vec<String> = (0..25).map(|i| format!("chunk-{i}")).collect();
+        let result = tool
+            .execute(json!({ "chunk_ids": ids }))
+            .await
+            .expect("over-cap request should still succeed");
+        assert!(!result.is_error);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("result should be valid json");
+        assert_eq!(parsed, json!([]));
     }
 }

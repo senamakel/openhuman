@@ -7,6 +7,13 @@
 //! hashes `(session_id, composed_markdown)` so retries are deterministic for
 //! the same conversation snapshot while distinct sessions or edits produce a
 //! fresh leaf id.
+//!
+//! These archivist leaves are synthetic conversation snapshots, not
+//! `mem_tree_chunks` rows. That means they currently participate in the L0
+//! buffer contract only: downstream source-tree sealing still expects
+//! chunk-store-backed leaves when rehydrating inputs. Multi-conversation
+//! summarisation for archivist-only source trees will need a dedicated
+//! hydration path before these synthetic leaves can seal upward.
 
 use anyhow::Result;
 use chrono::Utc;
@@ -213,5 +220,43 @@ mod tests {
             "empty conversation still generates a deterministic archivist chunk id"
         );
         assert_eq!(buffer.token_sum, 1);
+    }
+
+    #[tokio::test]
+    async fn archive_to_tree_accumulates_multiple_sessions_in_buffer_order() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = test_config(&tmp);
+        std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+        let tree = get_or_create_source_tree(&cfg, "chat:slack:#buffer-order").unwrap();
+
+        let mut expected_ids = Vec::new();
+        for idx in 0..3 {
+            let turns = vec![Turn {
+                role: "user".into(),
+                content: format!("Conversation {idx} about the phoenix rollout."),
+                tool_calls_json: None,
+                timestamp: chrono::Utc
+                    .with_ymd_and_hms(2026, 5, 24, 10, idx, 0)
+                    .unwrap(),
+            }];
+            let outcome = archive_to_tree(&cfg, &tree, &format!("session-{idx}"), &turns)
+                .await
+                .expect("archive_to_tree multi-session batch");
+            assert!(
+                outcome.new_summary_ids.is_empty(),
+                "archivist writes should remain buffered until a later seal-compatible path exists"
+            );
+
+            let expected_md = format!("## user\nConversation {idx} about the phoenix rollout.\n");
+            expected_ids.push(chunk_id_for_session(&format!("session-{idx}"), &expected_md));
+        }
+
+        let l0 = tree_store::get_buffer(&cfg, &tree.id, 0).unwrap();
+        assert_eq!(l0.item_ids, expected_ids);
+        assert_eq!(l0.item_ids.len(), 3);
+        assert!(
+            l0.token_sum >= 3,
+            "each archivist conversation contributes at least one token"
+        );
     }
 }

@@ -848,12 +848,11 @@ describe('AIPanel', () => {
     };
     vi.mocked(loadAISettings).mockResolvedValue(settingsWithOpenAI);
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
-    let resolveTest: ((value: { reply: string }) => void) | null = null;
-    vi.mocked(testProviderModel).mockReturnValue(
-      new Promise(resolve => {
-        resolveTest = resolve;
-      })
-    );
+    let resolveTest: (value: { reply: string }) => void = () => {};
+    const pendingTest = new Promise<{ reply: string }>(resolve => {
+      resolveTest = resolve;
+    });
+    vi.mocked(testProviderModel).mockReturnValue(pendingTest);
 
     renderWithProviders(<AIPanel />);
 
@@ -869,7 +868,7 @@ describe('AIPanel', () => {
     expect(within(dialog).getByText(/Provider: openai:gpt-4o/i)).toBeInTheDocument();
     expect(within(dialog).getByText(/Prompt: Hello world/i)).toBeInTheDocument();
 
-    resolveTest?.({ reply: 'Hello from gpt-4o.' });
+    resolveTest({ reply: 'Hello from gpt-4o.' });
     expect(await within(dialog).findByText('Model response')).toBeInTheDocument();
   });
 

@@ -944,46 +944,6 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   )}
                 </div>
 
-                {/* Whisper install controls — shown when whisper is selected for STT */}
-                {sttProvider === 'whisper' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      data-testid="install-whisper-button"
-                      onClick={() => void handleInstallWhisper()}
-                      disabled={isInstallingWhisper || whisperInstall?.state === 'installing'}
-                      title={
-                        whisperReady
-                          ? t('voice.providers.whisperInstalledTitle')
-                          : t('voice.providers.whisperDownloadTitle')
-                      }
-                      className={`px-2.5 py-1 text-[11px] rounded-md text-white disabled:opacity-60 ${
-                        whisperReady
-                          ? 'bg-stone-600 hover:bg-stone-700'
-                          : 'bg-primary-600 hover:bg-primary-700'
-                      }`}>
-                      {installButtonLabel(whisperInstall, isInstallingWhisper, 'Whisper')}
-                    </button>
-                    <span
-                      data-testid="whisper-install-state"
-                      className={`text-[11px] ${
-                        whisperReady
-                          ? 'text-emerald-600 dark:text-emerald-300'
-                          : whisperInstall?.state === 'error'
-                            ? 'text-red-600 dark:text-red-300'
-                            : 'text-stone-500 dark:text-neutral-400'
-                      }`}>
-                      {whisperInstall?.state === 'installing' && whisperInstall.stage
-                        ? whisperInstall.stage
-                        : whisperReady
-                          ? t('voice.providers.installed')
-                          : whisperInstall?.state === 'error'
-                            ? (whisperInstall.error_detail ?? t('voice.providers.installFailed'))
-                            : t('voice.providers.notInstalled')}
-                    </span>
-                  </div>
-                )}
-
                 {/* Whisper model picker — shown when Whisper is selected */}
                 {sttProvider === 'whisper' && (
                   <label className="block space-y-1">
@@ -999,12 +959,6 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                         const nextModel = e.target.value;
                         setSttModel(nextModel);
                         void persistProviders({ stt_model: nextModel });
-                        void installWhisper({ modelSize: nextModel }).catch(err =>
-                          console.warn(
-                            '[voice-install:whisper] auto-install on model change failed:',
-                            err
-                          )
-                        );
                       }}
                       className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400">
                       <option value="tiny">{t('voice.providers.whisperModelTiny')}</option>
@@ -1081,46 +1035,6 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     </span>
                   )}
                 </div>
-
-                {/* Piper install controls — shown when piper is selected */}
-                {ttsProvider === 'piper' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      data-testid="install-piper-button"
-                      onClick={() => void handleInstallPiper()}
-                      disabled={isInstallingPiper || piperInstall?.state === 'installing'}
-                      title={
-                        piperReady
-                          ? t('voice.providers.piperInstalledTitle')
-                          : t('voice.providers.piperDownloadTitle')
-                      }
-                      className={`px-2.5 py-1 text-[11px] rounded-md text-white disabled:opacity-60 ${
-                        piperReady
-                          ? 'bg-stone-600 hover:bg-stone-700'
-                          : 'bg-primary-600 hover:bg-primary-700'
-                      }`}>
-                      {installButtonLabel(piperInstall, isInstallingPiper, 'Piper')}
-                    </button>
-                    <span
-                      data-testid="piper-install-state"
-                      className={`text-[11px] ${
-                        piperReady
-                          ? 'text-emerald-600 dark:text-emerald-300'
-                          : piperInstall?.state === 'error'
-                            ? 'text-red-600 dark:text-red-300'
-                            : 'text-stone-500 dark:text-neutral-400'
-                      }`}>
-                      {piperInstall?.state === 'installing' && piperInstall.stage
-                        ? piperInstall.stage
-                        : piperReady
-                          ? t('voice.providers.installed')
-                          : piperInstall?.state === 'error'
-                            ? (piperInstall.error_detail ?? t('voice.providers.installFailed'))
-                            : t('voice.providers.notInstalled')}
-                    </span>
-                  </div>
-                )}
 
                 {/* Piper voice picker — shown when Piper is selected */}
                 {ttsProvider === 'piper' && (

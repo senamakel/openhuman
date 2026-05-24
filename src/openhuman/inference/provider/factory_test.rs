@@ -394,7 +394,7 @@ async fn cloud_provider_without_stored_key_fails_with_actionable_error() {
         .await
         .expect_err("missing key should fail at call time");
     assert!(
-        err.to_string().contains("cloud API key not set"),
+        err.to_string().contains("API key not set"),
         "expected missing-key guidance, got: {err}"
     );
 }

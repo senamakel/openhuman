@@ -1,16 +1,13 @@
-//! Memory system for OpenHuman.
+//! Memory orchestration.
 //!
-//! This module provides the core abstractions and implementations for the memory system,
-//! including semantic search, ingestion pipelines, document management, and knowledge graph
-//! operations. It integrates vector search, keyword search, and relational data to provide
-//! a unified memory interface for AI agents.
+//! This module is the high-level routing + policy layer over the memory
+//! stack. Owns the ingest pipeline, background job handlers, scoring,
+//! tree-building policy (tree_global / tree_topic), recall ranking, and
+//! the RPC surface. Storage primitives all live in sibling memory_*
+//! modules — see [`README.md`](README.md) for the full map.
 //!
-//! Storage is consolidated in `memory_store`:
-//! - `memory_store::unified`  — SQLite unified memory
-//! - `memory_store::chunks`   — SQLite chunk + type layer
-//! - `memory_store::content`  — on-disk .md content store
-//! - `memory_store::vectors`  — local vector/embedding store
-//! - `memory_store::trees*`   — summary-tree persistence
+//! No SQLite, no on-disk md, no vector tables here — those belong one
+//! layer down in [`memory_store`](crate::openhuman::memory_store).
 
 // Legacy memory modules
 pub mod conversations;

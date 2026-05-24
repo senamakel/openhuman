@@ -17,7 +17,9 @@
 //! - `memory_trait`: Defines the `Memory` trait that all implementations must satisfy.
 
 pub mod chunks;
+pub mod contacts;
 pub mod content;
+pub mod kinds;
 pub mod retrieval;
 pub mod trees;
 pub mod trees_global;
@@ -32,6 +34,8 @@ mod factories;
 mod memory_trait;
 
 pub use agentmemory::{agentmemory_default_url, AgentMemoryBackend, DEFAULT_AGENTMEMORY_URL};
+
+pub use kinds::MemoryKind;
 
 pub use client::{MemoryClient, MemoryClientRef, MemoryState};
 pub use factories::{

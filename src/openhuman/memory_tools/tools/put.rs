@@ -102,8 +102,47 @@ impl Tool for MemoryToolsPutTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
+    use crate::openhuman::memory_tools::ToolMemoryStore;
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn parse_priority_defaults_to_normal() {
@@ -173,7 +212,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_success_path_returns_serialized_rule() {
+    async fn execute_success_path_persists_rule_in_isolated_workspace() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
         let tool = MemoryToolsPutTool;
         let result = tool
             .execute(json!({
@@ -183,7 +224,7 @@ mod tests {
                 "tags": ["safety", "shell"]
             }))
             .await
-            .expect("valid memory_tools_put request should succeed");
+            .expect("valid memory_tools_put request should succeed in isolated workspace");
         assert!(!result.is_error);
 
         let parsed: serde_json::Value =
@@ -194,5 +235,36 @@ mod tests {
         assert_eq!(parsed["source"], "user_explicit");
         assert_eq!(parsed["tags"], json!(["safety", "shell"]));
         assert!(parsed["id"].as_str().is_some());
+
+        let client = crate::openhuman::memory::ops::helpers::active_memory_client()
+            .await
+            .expect("active memory client");
+        let store = ToolMemoryStore::new(client.memory_handle());
+        let rules = store.list_rules("bash").await.expect("list stored rules");
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].rule, "Always dry-run dangerous commands first");
+        assert_eq!(rules[0].priority, ToolMemoryPriority::High);
+        assert_eq!(rules[0].source, ToolMemorySource::UserExplicit);
+        assert_eq!(rules[0].tags, vec!["safety".to_string(), "shell".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn execute_defaults_unknown_priority_to_normal() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
+        let tool = MemoryToolsPutTool;
+        let result = tool
+            .execute(json!({
+                "tool_name": "bash",
+                "rule": "Prefer printf over echo for escapes",
+                "priority": "unexpected"
+            }))
+            .await
+            .expect("unknown priority should still succeed");
+        assert!(!result.is_error);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool result should be json");
+        assert_eq!(parsed["priority"], "normal");
     }
 }

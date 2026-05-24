@@ -45,3 +45,20 @@ pub async fn lookup_contact(handle: &Handle) -> Option<PersonId> {
         Err(_) => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn contact_facade_fail_softs_when_store_is_uninitialized() {
+        let missing = get_contact(PersonId("missing".into())).await;
+        assert!(missing.is_none());
+
+        let listed = list_contacts().await;
+        assert!(listed.is_empty());
+
+        let looked_up = lookup_contact(&Handle::Email("nobody@example.com".into())).await;
+        assert!(looked_up.is_none());
+    }
+}

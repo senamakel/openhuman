@@ -510,3 +510,74 @@ impl UnifiedMemory {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn merge_graph_attrs_accumulates_evidence_and_dedupes_ids() {
+        let existing = json!({
+            "evidence_count": 2,
+            "document_ids": ["doc-1"],
+            "chunk_ids": ["doc-1:chunk-1"],
+            "order_index": 7,
+            "created_at": 1.0
+        });
+        let incoming = json!({
+            "evidence_count": 3,
+            "document_ids": ["doc-1", "doc-2"],
+            "chunk_ids": ["doc-2:chunk-9"],
+            "order_index": 3,
+            "attrs_only": true
+        });
+
+        let merged = UnifiedMemory::merge_graph_attrs(Some(&existing.to_string()), &incoming, 9.0);
+        assert_eq!(merged["evidence_count"], json!(5));
+        assert_eq!(merged["document_ids"], json!(["doc-1", "doc-2"]));
+        assert_eq!(merged["chunk_ids"], json!(["doc-1:chunk-1", "doc-2:chunk-9"]));
+        assert_eq!(merged["order_index"], json!(3));
+        assert_eq!(merged["created_at"], json!(1.0));
+        assert_eq!(merged["updated_at"], json!(9.0));
+        assert_eq!(merged["attrs_only"], json!(true));
+    }
+
+    #[test]
+    fn graph_relation_from_parts_extracts_counts_and_ids() {
+        let record = UnifiedMemory::graph_relation_from_parts(
+            Some("global".into()),
+            "Alice".into(),
+            "OWNS".into(),
+            "OpenHuman".into(),
+            r#"{"evidence_count":2,"order_index":4,"document_ids":["doc-1"],"chunk_ids":["doc-1:chunk-1"]}"#,
+            5.0,
+        );
+        assert_eq!(record.namespace.as_deref(), Some("global"));
+        assert_eq!(record.evidence_count, 2);
+        assert_eq!(record.order_index, Some(4));
+        assert_eq!(record.document_ids, vec!["doc-1".to_string()]);
+        assert_eq!(record.chunk_ids, vec!["doc-1:chunk-1".to_string()]);
+    }
+
+    #[test]
+    fn graph_relation_to_json_uses_expected_public_keys() {
+        let value = UnifiedMemory::graph_relation_to_json(GraphRelationRecord {
+            namespace: None,
+            subject: "Alice".into(),
+            predicate: "OWNS".into(),
+            object: "OpenHuman".into(),
+            attrs: json!({"extra": true}),
+            updated_at: 1.5,
+            evidence_count: 1,
+            order_index: Some(2),
+            document_ids: vec!["doc-1".into()],
+            chunk_ids: vec!["doc-1:chunk-1".into()],
+        });
+        assert_eq!(value["subject"], "Alice");
+        assert_eq!(value["predicate"], "OWNS");
+        assert_eq!(value["evidenceCount"], 1);
+        assert_eq!(value["orderIndex"], 2);
+        assert_eq!(value["documentIds"], json!(["doc-1"]));
+        assert_eq!(value["chunkIds"], json!(["doc-1:chunk-1"]));
+    }
+}

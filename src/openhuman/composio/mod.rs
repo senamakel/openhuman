@@ -37,7 +37,6 @@
 
 pub mod action_tool;
 pub mod auth_retry;
-pub mod bus;
 pub mod client;
 pub mod error_mapping;
 pub mod execute_dispatch;
@@ -45,6 +44,7 @@ pub mod execute_prepare;
 pub mod googlecalendar_args;
 pub mod oauth_handoff;
 pub mod ops;
+pub mod bus;
 pub mod periodic;
 pub mod providers;
 pub mod schemas;
@@ -53,7 +53,7 @@ pub mod trigger_history;
 pub mod types;
 
 pub use action_tool::ComposioActionTool;
-pub use bus::{
+pub use crate::openhuman::memory_sync::composio::bus::{
     register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,
     ComposioTriggerSubscriber,
 };
@@ -63,8 +63,8 @@ pub use ops::{
     fetch_connected_integrations_status, fetch_toolkit_actions,
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
 };
-pub use periodic::{record_sync_success, start_periodic_sync};
-pub use providers::{
+pub use crate::openhuman::memory_sync::composio::periodic::{record_sync_success, start_periodic_sync};
+pub use crate::openhuman::memory_sync::composio::providers::{
     all_providers as all_composio_providers, get_provider as get_composio_provider,
     init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
     ProviderUserProfile, SyncOutcome, SyncReason,

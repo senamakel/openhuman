@@ -20,7 +20,7 @@ use crate::openhuman::agent::harness::subagent_runner::{
 };
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::memory_conversations::{
-    self, ConversationMessage, CreateConversationThread,
+    self as conversations, ConversationMessage, CreateConversationThread,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;

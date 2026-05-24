@@ -1,29 +1,29 @@
 //! Composio-backed sync pipelines.
 //!
-//! New home for the per-provider sync code that lives across
-//! `composio/providers/{gmail,slack,github,notion,linear,clickup,...}/`.
-//! Each provider gets a submodule here whose job is to:
+//! This module owns the "pull upstream provider data into memory" side of
+//! Composio integrations:
 //!
-//! 1. Resolve the user's Composio connection for the provider.
-//! 2. Paginate through the provider's upstream surface (messages,
-//!    issues, docs, …).
-//! 3. Hand each record to `memory::ingest_pipeline` so it lands as raw
-//!    md → chunks → tree leaves like any other ingest.
+//! - provider sync implementations (`providers/*/provider.rs`, `sync.rs`)
+//! - periodic scheduler (`periodic.rs`)
+//! - trigger / connection-created event subscribers (`bus.rs`)
+//! - sync-state persistence and profile-to-memory shaping
 //!
-//! ## Status
-//!
-//! Scaffold only. The actual per-provider sync code still lives under
-//! `composio/providers/*/ingest.rs` and is invoked from
-//! `bin/slack_backfill.rs` / `bin/gmail_backfill_3d.rs`. Migration plan
-//! is a per-provider PR per submodule below.
-//!
-//! ## Provider submodules (planned)
-//!
-//! | Submodule | Source | Notes |
-//! | --- | --- | --- |
-//! | `gmail`    | `composio/providers/gmail/ingest.rs` | Backfill + incremental |
-//! | `slack`    | `composio/providers/slack/ingest.rs` | Channel + DM |
-//! | `github`   | `composio/providers/github/`         | Issues + PRs + comments |
-//! | `notion`   | `composio/providers/notion/`         | Pages + databases |
-//! | `linear`   | `composio/providers/linear/`         | Issues + comments |
-//! | `clickup`  | `composio/providers/clickup/`        | Tasks + comments |
+//! The sibling [`crate::openhuman::composio`] domain still owns auth,
+//! connection management, action execution, and general Composio RPC/tool
+//! surfaces. This submodule is specifically the memory-sync half of that
+//! integration boundary.
+
+pub mod bus;
+pub mod periodic;
+pub mod providers;
+
+pub use bus::{
+    register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,
+    ComposioTriggerSubscriber,
+};
+pub use periodic::{record_sync_success, start_periodic_sync};
+pub use providers::{
+    all_providers as all_composio_sync_providers, get_provider as get_composio_sync_provider,
+    init_default_providers as init_default_composio_sync_providers, ComposioProvider,
+    ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason,
+};

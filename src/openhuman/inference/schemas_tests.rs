@@ -5,7 +5,7 @@ fn inference_catalog_counts_match_and_nonempty() {
     let declared = all_controller_schemas();
     let registered = all_registered_controllers();
     assert_eq!(declared.len(), registered.len());
-    assert!(declared.len() >= 20);
+    assert!(declared.len() >= 19);
 }
 
 #[test]
@@ -43,7 +43,6 @@ fn inference_schema_function_names_are_stable() {
     assert!(functions.contains(&"prompt"));
     assert!(functions.contains(&"vision_prompt"));
     assert!(functions.contains(&"embed"));
-    assert!(functions.contains(&"chat"));
     assert!(!functions.contains(&"should_send_gif"));
     assert!(!functions.contains(&"tenor_search"));
 }
@@ -55,17 +54,6 @@ fn inference_prompt_schema_reuses_local_ai_shape_with_new_namespace() {
     assert_eq!(schema.function, "prompt");
     assert!(schema.inputs.iter().any(|field| field.name == "prompt"));
     assert!(schema.inputs.iter().any(|field| field.name == "max_tokens"));
-}
-
-#[test]
-fn inference_chat_schema_requires_messages() {
-    let schema = schemas("chat");
-    assert_eq!(schema.namespace, "inference");
-    assert_eq!(schema.function, "chat");
-    assert!(schema
-        .inputs
-        .iter()
-        .any(|field| field.name == "messages" && field.required));
 }
 
 #[test]

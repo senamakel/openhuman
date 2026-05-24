@@ -161,9 +161,15 @@ async fn load_documents_for_scope_defaults_invalid_json_fields_from_persisted_ro
         .unwrap();
     }
 
-    let docs = memory.load_documents_for_scope("broken/json").await.unwrap();
+    let docs = memory
+        .load_documents_for_scope("broken/json")
+        .await
+        .unwrap();
     assert_eq!(docs.len(), 1);
-    assert!(docs[0].tags.is_empty(), "invalid tags_json should fall back to []");
+    assert!(
+        docs[0].tags.is_empty(),
+        "invalid tags_json should fall back to []"
+    );
     assert_eq!(
         docs[0].metadata,
         json!({}),
@@ -195,7 +201,10 @@ async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and
         .await
         .unwrap();
 
-    assert_eq!(first_id, second_id, "metadata-only upsert should reuse the document id");
+    assert_eq!(
+        first_id, second_id,
+        "metadata-only upsert should reuse the document id"
+    );
     let docs = memory.load_documents_for_scope("test:meta").await.unwrap();
     assert_eq!(docs.len(), 1);
     assert_eq!(docs[0].document_id, first_id);
@@ -257,6 +266,90 @@ async fn upsert_document_metadata_only_preserves_created_at_and_rewrites_sidecar
 }
 
 #[tokio::test]
+async fn upsert_document_metadata_only_over_existing_document_preserves_vector_chunks() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let document_id = memory
+        .upsert_document(make_doc_input(
+            "test:meta-preserve-chunks",
+            "doc-a",
+            "Doc A",
+            &"alpha ".repeat(400),
+        ))
+        .await
+        .unwrap();
+    let original_chunk_count =
+        count_vector_chunks(&memory, "test:meta-preserve-chunks", &document_id);
+    assert!(original_chunk_count > 0);
+
+    let updated_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta-preserve-chunks",
+            "doc-a",
+            "Doc A v2",
+            "Updated body without re-embedding",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(updated_id, document_id);
+    let docs = memory
+        .load_documents_for_scope("test:meta-preserve-chunks")
+        .await
+        .unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].content, "Updated body without re-embedding");
+    assert_eq!(
+        count_vector_chunks(&memory, "test:meta-preserve-chunks", &document_id),
+        original_chunk_count,
+        "metadata-only writes should not delete existing semantic chunks"
+    );
+}
+
+#[tokio::test]
+async fn upsert_document_after_metadata_only_reuses_document_id_and_adds_vector_chunks() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let metadata_only_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta-then-full",
+            "doc-a",
+            "Doc A",
+            "Short body",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        count_vector_chunks(&memory, "test:meta-then-full", &metadata_only_id),
+        0
+    );
+
+    let full_id = memory
+        .upsert_document(make_doc_input(
+            "test:meta-then-full",
+            "doc-a",
+            "Doc A Embedded",
+            &"beta ".repeat(400),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(full_id, metadata_only_id);
+    let docs = memory
+        .load_documents_for_scope("test:meta-then-full")
+        .await
+        .unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].title, "Doc A Embedded");
+    assert!(
+        count_vector_chunks(&memory, "test:meta-then-full", &full_id) > 0,
+        "full upsert should backfill chunks for a metadata-only document"
+    );
+}
+
+#[tokio::test]
 async fn upsert_document_writes_vector_chunks_for_chunked_content() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
@@ -287,7 +380,11 @@ async fn upsert_document_reuses_document_id_preserves_created_at_and_replaces_ve
         ))
         .await
         .unwrap();
-    let first_doc = memory.load_documents_for_scope("test:update").await.unwrap()[0].clone();
+    let first_doc = memory
+        .load_documents_for_scope("test:update")
+        .await
+        .unwrap()[0]
+        .clone();
     let first_chunk_count = count_vector_chunks(&memory, "test:update", &first_id);
     assert!(first_chunk_count > 0);
 
@@ -303,8 +400,15 @@ async fn upsert_document_reuses_document_id_preserves_created_at_and_replaces_ve
         .await
         .unwrap();
 
-    assert_eq!(first_id, second_id, "upsert should reuse the existing document id");
-    let updated_doc = memory.load_documents_for_scope("test:update").await.unwrap()[0].clone();
+    assert_eq!(
+        first_id, second_id,
+        "upsert should reuse the existing document id"
+    );
+    let updated_doc = memory
+        .load_documents_for_scope("test:update")
+        .await
+        .unwrap()[0]
+        .clone();
     assert_eq!(updated_doc.document_id, first_id);
     assert_eq!(updated_doc.created_at, first_doc.created_at);
     assert!(updated_doc.updated_at >= first_doc.updated_at);
@@ -324,16 +428,14 @@ async fn delete_document_removes_doc_sidecar_and_is_idempotent() {
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
     let document_id = memory
-        .upsert_document(make_doc_input(
-            "test:delete",
-            "doc-a",
-            "Doc A",
-            "Delete me",
-        ))
+        .upsert_document(make_doc_input("test:delete", "doc-a", "Doc A", "Delete me"))
         .await
         .unwrap();
 
-    let docs = memory.load_documents_for_scope("test:delete").await.unwrap();
+    let docs = memory
+        .load_documents_for_scope("test:delete")
+        .await
+        .unwrap();
     assert_eq!(docs.len(), 1);
     let sidecar = tmp.path().join(&docs[0].markdown_rel_path);
     assert!(sidecar.exists(), "sidecar should exist before delete");
@@ -359,13 +461,11 @@ async fn delete_document_removes_doc_sidecar_and_is_idempotent() {
     assert_eq!(deleted["deleted"], json!(true));
     assert_eq!(deleted["documentId"], json!(document_id.clone()));
     assert!(!sidecar.exists(), "sidecar should be removed on delete");
-    assert!(
-        memory
-            .load_documents_for_scope("test:delete")
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(memory
+        .load_documents_for_scope("test:delete")
+        .await
+        .unwrap()
+        .is_empty());
     assert!(
         memory
             .graph_relations_namespace("test:delete", None, None)
@@ -413,13 +513,44 @@ async fn delete_document_succeeds_when_sidecar_is_already_missing() {
         .await
         .unwrap();
     assert_eq!(deleted["deleted"], json!(true));
-    assert!(
-        memory
-            .load_documents_for_scope("test:delete-missing-sidecar")
-            .await
-            .unwrap()
-            .is_empty()
+    assert!(memory
+        .load_documents_for_scope("test:delete-missing-sidecar")
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn delete_document_accepts_unsanitized_namespace_and_removes_chunks() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let document_id = memory
+        .upsert_document(make_doc_input(
+            "Team Alpha/#1",
+            "doc-a",
+            "Doc A",
+            &"delete ".repeat(300),
+        ))
+        .await
+        .unwrap();
+    assert!(count_vector_chunks(&memory, "Team Alpha/#1", &document_id) > 0);
+
+    let deleted = memory
+        .delete_document("Team Alpha/#1", &document_id)
+        .await
+        .unwrap();
+    assert_eq!(deleted["deleted"], json!(true));
+    assert_eq!(deleted["namespace"], json!("Team_Alpha/_1"));
+    assert_eq!(
+        count_vector_chunks(&memory, "Team Alpha/#1", &document_id),
+        0
     );
+    assert!(memory
+        .load_documents_for_scope("Team Alpha/#1")
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -648,6 +779,88 @@ async fn clear_namespace_removes_on_disk_markdown_files() {
         !docs_dir.exists(),
         "docs directory should be removed after clear_namespace"
     );
+}
+
+#[tokio::test]
+async fn clear_namespace_accepts_unsanitized_namespace_and_removes_sanitized_docs_dir() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input(
+            "Team Alpha/#1",
+            "doc-a",
+            "Doc A",
+            "Namespace cleanup body",
+        ))
+        .await
+        .unwrap();
+    memory
+        .kv_set_namespace("Team Alpha/#1", "pref-1", &json!({"theme": "dark"}))
+        .await
+        .unwrap();
+
+    let docs_dir = tmp
+        .path()
+        .join("memory")
+        .join("namespaces")
+        .join("Team_Alpha/_1")
+        .join("docs");
+    assert!(docs_dir.exists());
+
+    memory.clear_namespace("Team Alpha/#1").await.unwrap();
+
+    assert!(memory
+        .load_documents_for_scope("Team Alpha/#1")
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(memory
+        .kv_list_namespace("Team Alpha/#1")
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(!docs_dir.exists());
+}
+
+#[tokio::test]
+async fn list_namespaces_skips_blank_rows_inserted_outside_normal_writes() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    {
+        let conn = memory.conn.lock();
+        conn.execute(
+            "INSERT INTO memory_docs
+              (document_id, namespace, key, title, content, source_type, priority, tags_json, metadata_json, category, session_id, created_at, updated_at, markdown_rel_path)
+             VALUES
+              (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            rusqlite::params![
+                "doc-blank-ns",
+                "   ",
+                "doc-a",
+                "Doc A",
+                "Body",
+                "doc",
+                "medium",
+                "[]",
+                "{}",
+                "core",
+                Option::<String>::None,
+                10.0_f64,
+                20.0_f64,
+                "memory/namespaces/blank/docs/doc-blank-ns.md"
+            ],
+        )
+        .unwrap();
+    }
+    memory
+        .upsert_document(make_doc_input("valid/ns", "doc-b", "Doc B", "Body"))
+        .await
+        .unwrap();
+
+    let namespaces = memory.list_namespaces().await.unwrap();
+    assert_eq!(namespaces, vec!["valid/ns".to_string()]);
 }
 
 #[tokio::test]

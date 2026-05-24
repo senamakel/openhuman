@@ -446,3 +446,168 @@ async fn run_summarization_multi_hour_groups_produce_multiple_hour_leaves() {
     // Buffer must be empty.
     assert!(store::buffer_read(&cfg, ns).unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn rebuild_tree_restores_buffer_and_rewrites_ancestors() {
+    let tmp = TempDir::new().unwrap();
+    let cfg = test_config(&tmp);
+    std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+    let ns = "rebuild-test";
+    let ts = Utc.with_ymd_and_hms(2024, 3, 15, 10, 0, 0).unwrap();
+
+    let make_hour = |id: &str, text: &str| TreeNode {
+        node_id: id.to_string(),
+        namespace: ns.to_string(),
+        level: NodeLevel::Hour,
+        parent_id: derive_parent_id(id),
+        summary: text.to_string(),
+        token_count: estimate_tokens(text),
+        child_count: 0,
+        created_at: ts,
+        updated_at: ts,
+        metadata: None,
+    };
+
+    // Seed the tree with hour leaves and an outdated ancestor/root.
+    store::write_node(&cfg, &make_hour("2024/03/15/10", "hour ten")).unwrap();
+    store::write_node(&cfg, &make_hour("2024/03/15/11", "hour eleven")).unwrap();
+    store::write_node(
+        &cfg,
+        &TreeNode {
+            node_id: "2024/03/15".into(),
+            namespace: ns.into(),
+            level: NodeLevel::Day,
+            parent_id: Some("2024/03".into()),
+            summary: "stale day".into(),
+            token_count: 2,
+            child_count: 1,
+            created_at: ts,
+            updated_at: ts,
+            metadata: None,
+        },
+    )
+    .unwrap();
+    store::write_node(
+        &cfg,
+        &TreeNode {
+            node_id: "root".into(),
+            namespace: ns.into(),
+            level: NodeLevel::Root,
+            parent_id: None,
+            summary: "stale root".into(),
+            token_count: 2,
+            child_count: 1,
+            created_at: ts,
+            updated_at: ts,
+            metadata: None,
+        },
+    )
+    .unwrap();
+
+    // Preserve unsummarized buffer content across rebuild.
+    store::buffer_write(&cfg, ns, "pending buffer item", &ts, None).unwrap();
+    let provider = StubProvider::with_reply("rebuilt summary");
+
+    let status = rebuild_tree(&cfg, &provider, ns).await.unwrap();
+    assert!(status.total_nodes >= 5, "expected leaf + ancestor chain");
+
+    let restored_buffer = store::buffer_read(&cfg, ns).unwrap();
+    assert_eq!(
+        restored_buffer.len(),
+        1,
+        "buffer entries must survive rebuild"
+    );
+
+    let day = store::read_node(&cfg, ns, "2024/03/15").unwrap().unwrap();
+    assert!(
+        day.summary.contains("hour ten") || day.summary.contains("rebuilt summary"),
+        "day node should be regenerated from hour leaves"
+    );
+
+    let root = store::read_node(&cfg, ns, "root").unwrap().unwrap();
+    assert!(
+        root.summary.contains("rebuilt summary") || root.summary.contains("hour ten"),
+        "root node should be regenerated during rebuild"
+    );
+}
+
+#[tokio::test]
+async fn rebuild_tree_on_empty_namespace_is_noop() {
+    let tmp = TempDir::new().unwrap();
+    let cfg = test_config(&tmp);
+    std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+
+    let provider = StubProvider::with_reply("unused");
+    let status = rebuild_tree(&cfg, &provider, "empty-rebuild")
+        .await
+        .unwrap();
+    assert_eq!(status.total_nodes, 0);
+    assert_eq!(status.depth, 0);
+}
+
+#[tokio::test]
+async fn summarize_to_limit_truncates_overlong_provider_output() {
+    let provider = StubProvider::with_reply("x".repeat(MAX_SUMMARY_CHARS + 50));
+    let summary = summarize_to_limit(&provider, "short input", 10, "day", "2024/03/15", "m")
+        .await
+        .unwrap();
+
+    assert_eq!(summary.len(), 40, "max_tokens=10 should clamp to 40 chars");
+    assert!(summary.chars().all(|c| c == 'x'));
+}
+
+#[test]
+fn hour_id_from_buffer_filename_parses_and_rejects_invalid_inputs() {
+    let parsed = hour_id_from_buffer_filename("1711958400000_uuid.md").unwrap();
+    assert_eq!(parsed, "2024/04/01/08");
+
+    assert!(hour_id_from_buffer_filename("not-a-timestamp.md").is_none());
+    assert!(hour_id_from_buffer_filename("abc_123.md").is_none());
+}
+
+#[test]
+fn derive_node_ids_from_hour_id_falls_back_for_non_hour_ids() {
+    let ids = derive_node_ids_from_hour_id("2024/03/15");
+    assert_eq!(
+        ids,
+        (
+            "2024/03/15".to_string(),
+            "unknown".to_string(),
+            "unknown".to_string(),
+            "unknown".to_string(),
+            "root".to_string(),
+        )
+    );
+}
+
+#[test]
+fn discover_active_namespaces_requires_markdown_entries_in_buffer() {
+    let tmp = TempDir::new().unwrap();
+    let cfg = test_config(&tmp);
+    std::fs::create_dir_all(&cfg.workspace_dir).unwrap();
+
+    let base = cfg.workspace_dir.join("memory").join("namespaces");
+    std::fs::create_dir_all(base.join("alpha").join("tree").join("buffer")).unwrap();
+    std::fs::create_dir_all(base.join("beta").join("tree").join("buffer")).unwrap();
+    std::fs::create_dir_all(base.join("gamma").join("tree")).unwrap();
+
+    std::fs::write(
+        base.join("alpha")
+            .join("tree")
+            .join("buffer")
+            .join("entry.md"),
+        "alpha",
+    )
+    .unwrap();
+    std::fs::write(
+        base.join("beta")
+            .join("tree")
+            .join("buffer")
+            .join("entry.txt"),
+        "beta",
+    )
+    .unwrap();
+
+    let active = discover_active_namespaces(&cfg);
+    assert_eq!(active, vec!["alpha".to_string()]);
+}

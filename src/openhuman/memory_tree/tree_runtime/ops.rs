@@ -197,11 +197,36 @@ mod tests {
     use chrono::TimeZone;
     use tempfile::TempDir;
 
+    fn rfc3339_z(ts: DateTime<Utc>) -> String {
+        ts.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+    }
+
     fn config_in_tempdir() -> (TempDir, Config) {
         let tmp = TempDir::new().expect("tempdir");
         let mut cfg = Config::default();
         cfg.workspace_dir = tmp.path().to_path_buf();
         (tmp, cfg)
+    }
+
+    fn test_node(
+        namespace: &str,
+        node_id: &str,
+        summary: &str,
+        created_at: DateTime<Utc>,
+        child_count: u32,
+    ) -> TreeNode {
+        TreeNode {
+            node_id: node_id.to_string(),
+            namespace: namespace.to_string(),
+            level: level_from_node_id(node_id),
+            parent_id: derive_parent_id(node_id),
+            summary: summary.to_string(),
+            token_count: estimate_tokens(summary),
+            child_count,
+            created_at,
+            updated_at: created_at,
+            metadata: None,
+        }
     }
 
     #[test]
@@ -286,6 +311,93 @@ mod tests {
             .await
             .expect_err("missing node should error");
         assert!(err.contains("node 'root' not found in namespace 'fresh-ns'"));
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_query_returns_node_and_children() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let ts = chrono::Utc
+            .with_ymd_and_hms(2026, 5, 24, 12, 30, 0)
+            .unwrap();
+        let root = test_node("team", "root", "root summary", ts, 1);
+        let year = test_node("team", "2026", "year summary", ts, 1);
+        store::write_node(&cfg, &root).expect("write root");
+        store::write_node(&cfg, &year).expect("write year");
+
+        let outcome = tree_summarizer_query(&cfg, "team", None)
+            .await
+            .expect("query should succeed");
+
+        assert_eq!(outcome.logs, vec!["queried node 'root' in namespace 'team'"]);
+        assert_eq!(outcome.value["node"]["node_id"], "root");
+        assert_eq!(outcome.value["node"]["summary"], "root summary");
+        assert_eq!(outcome.value["children"], json!([{
+            "node_id": "2026",
+            "namespace": "team",
+            "level": "year",
+            "parent_id": "root",
+            "summary": "year summary",
+            "token_count": estimate_tokens("year summary"),
+            "child_count": 1,
+            "created_at": rfc3339_z(ts),
+            "updated_at": rfc3339_z(ts)
+        }]));
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_status_reports_populated_tree_details() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let early = chrono::Utc
+            .with_ymd_and_hms(2026, 5, 24, 8, 0, 0)
+            .unwrap();
+        let late = chrono::Utc
+            .with_ymd_and_hms(2026, 5, 24, 17, 0, 0)
+            .unwrap();
+        for node in [
+            test_node("team", "root", "root summary", early, 1),
+            test_node("team", "2026", "year summary", early, 1),
+            test_node("team", "2026/05", "month summary", early, 1),
+            test_node("team", "2026/05/24", "day summary", early, 2),
+            test_node("team", "2026/05/24/08", "hour one", early, 0),
+            test_node("team", "2026/05/24/17", "hour two", late, 0),
+        ] {
+            store::write_node(&cfg, &node).expect("write test node");
+        }
+
+        let outcome = tree_summarizer_status(&cfg, "team")
+            .await
+            .expect("status should succeed");
+
+        assert_eq!(outcome.logs, vec!["tree status for namespace 'team'"]);
+        assert_eq!(outcome.value["namespace"], "team");
+        assert_eq!(outcome.value["total_nodes"], 6);
+        assert_eq!(outcome.value["depth"], 5);
+        assert_eq!(outcome.value["oldest_entry"], rfc3339_z(early));
+        assert_eq!(outcome.value["newest_entry"], rfc3339_z(late));
+        assert_eq!(outcome.value["last_run_at"], Value::Null);
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_run_skips_when_buffer_is_empty() {
+        let (_tmp, mut cfg) = config_in_tempdir();
+        cfg.local_ai.runtime_enabled = true;
+
+        let outcome = tree_summarizer_run(&cfg, "team")
+            .await
+            .expect("empty buffer should skip");
+
+        assert_eq!(
+            outcome.logs,
+            vec!["summarization skipped for 'team': no buffered data"]
+        );
+        assert_eq!(
+            outcome.value,
+            json!({ "skipped": true, "reason": "no buffered data" })
+        );
+        assert!(
+            !store::buffer_dir(&cfg, "team").exists(),
+            "skip path should not create a buffer directory"
+        );
     }
 
     #[tokio::test]

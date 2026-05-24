@@ -308,4 +308,38 @@ mod tests {
 
         assert!(err.contains("memory_learn_all requires local_ai.runtime_enabled=true"));
     }
+
+    #[tokio::test]
+    async fn memory_learn_all_uses_all_namespaces_when_none_is_requested() {
+        let namespace_a = seed_namespace("memory-learn-all-a").await;
+        let namespace_b = seed_namespace("memory-learn-all-b").await;
+        let tmp = TempDir::new().expect("tempdir");
+        write_config_with_runtime_enabled(tmp.path(), true).await;
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        let outcome = memory_learn_all(LearnAllParams { namespaces: None })
+            .await
+            .expect("runtime-enabled config should process all namespaces");
+
+        assert!(
+            outcome.value.namespaces_processed >= 2,
+            "expected at least the two seeded namespaces to be processed"
+        );
+        let namespaces: std::collections::BTreeSet<_> = outcome
+            .value
+            .results
+            .iter()
+            .map(|r| r.namespace.as_str())
+            .collect();
+        assert!(namespaces.contains(namespace_a.as_str()));
+        assert!(namespaces.contains(namespace_b.as_str()));
+        assert!(
+            outcome
+                .value
+                .results
+                .iter()
+                .filter(|r| r.namespace == namespace_a || r.namespace == namespace_b)
+                .all(|r| r.status == "ok" && r.error.is_none())
+        );
+    }
 }

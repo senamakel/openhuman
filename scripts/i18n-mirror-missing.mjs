@@ -24,12 +24,12 @@ async function loadChunk(locale, n) {
 }
 
 function tsLiteral(value) {
-  // Single-line template if no newlines, otherwise escape backticks for safety.
-  if (!value.includes('\n') && !value.includes('`')) {
-    return `'${value.replace(/'/g, "\\'")}'`;
-  }
-  // Fallback: JSON.stringify produces a valid TS string literal.
-  return JSON.stringify(value);
+  // Always emit a fully escaped JS/TS string literal. The earlier
+  // single-quote branch left `\` untouched, so values containing a
+  // backslash (e.g. `'C:\Users\me'`) would be mis-parsed as escape
+  // sequences and silently drop the backslash. `JSON.stringify` handles
+  // every escape correctly.
+  return JSON.stringify(String(value));
 }
 
 async function appendMissing(locale, n, missing) {

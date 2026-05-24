@@ -314,7 +314,10 @@ pub async fn backfill_status_rpc(
 mod tests {
     use super::*;
     use crate::openhuman::memory::jobs::store::count_total;
+    use crate::openhuman::memory_store::chunks::types::SourceKind;
+    use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
     use chrono::{Duration as ChronoDuration, Utc};
+    use serde_json::json;
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -325,6 +328,155 @@ mod tests {
         cfg.memory_tree.embedding_model = None;
         cfg.memory_tree.embedding_strict = false;
         (tmp, cfg)
+    }
+
+    fn sample_document(title: &str, body: &str) -> DocumentInput {
+        DocumentInput {
+            provider: "notion".into(),
+            title: title.into(),
+            body: body.into(),
+            modified_at: Utc::now(),
+            source_ref: Some("notion://page/launch".into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn ingest_document_roundtrip_lists_and_gets_chunks() {
+        let (_tmp, cfg) = test_config();
+        let outcome = ingest_rpc(
+            &cfg,
+            IngestRequest {
+                source_kind: SourceKind::Document,
+                source_id: "doc-launch".into(),
+                owner: "alice".into(),
+                tags: vec!["launch".into()],
+                payload: serde_json::to_value(sample_document(
+                    "Launch Plan",
+                    "Phoenix launch canary checklist with rollback steps.",
+                ))
+                .unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome.value.source_id, "doc-launch");
+        assert_eq!(outcome.value.chunks_dropped, 0);
+        assert!(!outcome.value.chunk_ids.is_empty());
+
+        let listed = list_chunks_rpc(
+            &cfg,
+            ListChunksRequest {
+                source_kind: Some("document".into()),
+                source_id: Some("doc-launch".into()),
+                owner: Some("alice".into()),
+                limit: Some(10),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap()
+        .value
+        .chunks;
+        assert_eq!(listed.len(), outcome.value.chunks_written);
+        assert!(listed.iter().all(|chunk| chunk.metadata.source_kind == SourceKind::Document));
+        assert!(listed
+            .iter()
+            .any(|chunk| chunk.content.contains("Phoenix launch canary checklist")));
+
+        let fetched = get_chunk_rpc(
+            &cfg,
+            GetChunkRequest {
+                id: outcome.value.chunk_ids[0].clone(),
+            },
+        )
+        .await
+        .unwrap()
+        .value
+        .chunk
+        .expect("chunk should exist");
+        assert_eq!(fetched.id, outcome.value.chunk_ids[0]);
+        assert_eq!(fetched.metadata.source_id, "doc-launch");
+        assert_eq!(fetched.metadata.owner, "alice");
+    }
+
+    #[tokio::test]
+    async fn ingest_document_is_idempotent_for_duplicate_source_id() {
+        let (_tmp, cfg) = test_config();
+        let req = IngestRequest {
+            source_kind: SourceKind::Document,
+            source_id: "doc-dup".into(),
+            owner: "alice".into(),
+            tags: vec![],
+            payload: serde_json::to_value(sample_document("Launch Plan", "First body")).unwrap(),
+        };
+
+        let first = ingest_rpc(&cfg, req.clone()).await.unwrap().value;
+        let second = ingest_rpc(&cfg, req).await.unwrap().value;
+        assert!(first.chunks_written > 0);
+        assert!(!first.already_ingested);
+        assert_eq!(second.chunks_written, 0);
+        assert!(second.already_ingested);
+
+        let listed = list_chunks_rpc(
+            &cfg,
+            ListChunksRequest {
+                source_id: Some("doc-dup".into()),
+                limit: Some(10),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap()
+        .value
+        .chunks;
+        assert_eq!(listed.len(), first.chunks_written);
+    }
+
+    #[tokio::test]
+    async fn ingest_rpc_rejects_invalid_document_payload() {
+        let (_tmp, cfg) = test_config();
+        let err = ingest_rpc(
+            &cfg,
+            IngestRequest {
+                source_kind: SourceKind::Document,
+                source_id: "doc-invalid".into(),
+                owner: String::new(),
+                tags: vec![],
+                payload: json!({"title": "Missing body"}),
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("invalid document payload"));
+    }
+
+    #[tokio::test]
+    async fn list_chunks_rejects_unknown_source_kind() {
+        let (_tmp, cfg) = test_config();
+        let err = list_chunks_rpc(
+            &cfg,
+            ListChunksRequest {
+                source_kind: Some("nonsense".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("unknown source kind: nonsense"));
+    }
+
+    #[tokio::test]
+    async fn get_chunk_returns_none_for_missing_id() {
+        let (_tmp, cfg) = test_config();
+        let outcome = get_chunk_rpc(
+            &cfg,
+            GetChunkRequest {
+                id: "missing-chunk".into(),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(outcome.value.chunk.is_none());
     }
 
     #[tokio::test]

@@ -313,8 +313,10 @@ impl ArchivistHook {
         session_id: &str,
         now: f64,
     ) {
-        // Gather the conversation text for this segment from episodic entries.
-        let entries = fts5::episodic_session_entries(conn, session_id).unwrap_or_default();
+        // Gather the conversation text for this segment. Prefer the
+        // md-backed memory_archivist read when config is available; fall
+        // back to FTS5 in test paths or when config isn't wired.
+        let entries = self.read_session_entries(conn, session_id);
 
         // Filter entries that fall within the segment's time window.
         // Use <= for end_timestamp (entries at the boundary are part of this
@@ -648,6 +650,47 @@ impl PostTurnHook for ArchivistHook {
 }
 
 impl ArchivistHook {
+    /// Read every entry recorded for `session_id`, preferring the
+    /// md-backed `memory_archivist::store` when `self.config` is set and
+    /// falling back to the legacy FTS5 episodic table otherwise.
+    ///
+    /// Returns `EpisodicEntry` so the existing call sites (segment
+    /// gathering, recap rendering, tree push) keep their shape unchanged
+    /// during the FTS5 retirement migration.
+    fn read_session_entries(
+        &self,
+        conn: &Arc<Mutex<Connection>>,
+        session_id: &str,
+    ) -> Vec<EpisodicEntry> {
+        if let Some(cfg) = self.config.as_ref() {
+            match crate::openhuman::memory_archivist::store::session_entries(cfg, session_id) {
+                Ok(turns) => {
+                    return turns
+                        .into_iter()
+                        .map(|t| EpisodicEntry {
+                            id: None,
+                            session_id: t.session_id,
+                            // ArchivedTurn stores epoch-ms; EpisodicEntry
+                            // takes epoch-seconds as f64.
+                            timestamp: (t.timestamp_ms as f64) / 1000.0,
+                            role: t.role,
+                            content: t.content,
+                            lesson: t.lesson,
+                            tool_calls_json: t.tool_calls_json,
+                            cost_microdollars: t.cost_microdollars,
+                        })
+                        .collect();
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "[archivist] memory_archivist read failed (falling back to FTS5): {e}"
+                    );
+                }
+            }
+        }
+        fts5::episodic_session_entries(conn, session_id).unwrap_or_default()
+    }
+
     /// Shared summarize helper — the **single LLM summarizer** used by both
     /// the finalize path (`on_segment_closed`) and the rolling-recap path
     /// (`rolling_segment_recap`).
@@ -817,7 +860,7 @@ impl ArchivistHook {
         };
 
         // Gather the episodic entries for this session so far.
-        let all_entries = fts5::episodic_session_entries(conn, session_id).unwrap_or_default();
+        let all_entries = self.read_session_entries(conn, session_id);
 
         // Keep only entries within the open segment's time window (start →
         // now, inclusive). An open segment has `end_timestamp = None`.

@@ -113,6 +113,71 @@ async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and
 }
 
 #[tokio::test]
+async fn delete_document_removes_doc_sidecar_and_is_idempotent() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let document_id = memory
+        .upsert_document(make_doc_input(
+            "test:delete",
+            "doc-a",
+            "Doc A",
+            "Delete me",
+        ))
+        .await
+        .unwrap();
+
+    let docs = memory.load_documents_for_scope("test:delete").await.unwrap();
+    assert_eq!(docs.len(), 1);
+    let sidecar = tmp.path().join(&docs[0].markdown_rel_path);
+    assert!(sidecar.exists(), "sidecar should exist before delete");
+
+    memory
+        .graph_upsert_namespace(
+            "test:delete",
+            "Alice",
+            "OWNS",
+            "Phoenix",
+            &json!({
+                "document_id": document_id.clone(),
+                "chunk_id": format!("{document_id}:0")
+            }),
+        )
+        .await
+        .unwrap();
+
+    let deleted = memory
+        .delete_document("test:delete", &document_id)
+        .await
+        .unwrap();
+    assert_eq!(deleted["deleted"], json!(true));
+    assert_eq!(deleted["documentId"], json!(document_id.clone()));
+    assert!(!sidecar.exists(), "sidecar should be removed on delete");
+    assert!(
+        memory
+            .load_documents_for_scope("test:delete")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        memory
+            .graph_relations_namespace("test:delete", None, None)
+            .await
+            .unwrap()
+            .is_empty(),
+        "document-linked graph relations should be pruned"
+    );
+
+    let second = memory
+        .delete_document("test:delete", &document_id)
+        .await
+        .unwrap();
+    assert_eq!(second["deleted"], json!(false));
+    assert_eq!(second["documentId"], json!(document_id));
+}
+
+#[tokio::test]
 async fn clear_namespace_removes_all_data_and_preserves_other_namespaces() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

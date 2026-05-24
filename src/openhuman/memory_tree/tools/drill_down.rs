@@ -76,3 +76,32 @@ impl Tool for MemoryTreeDrillDownTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_requires_node_id() {
+        let tool = MemoryTreeDrillDownTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["node_id"]));
+        assert_eq!(schema["properties"]["max_depth"]["minimum"], 1);
+    }
+
+    #[test]
+    fn drill_down_request_deserializes_optional_fields() {
+        let req: DrillDownRequest = serde_json::from_value(json!({
+            "node_id": "summary-1",
+            "max_depth": 2,
+            "query": "deployment blockers",
+            "limit": 7
+        }))
+        .unwrap();
+        assert_eq!(req.node_id, "summary-1");
+        assert_eq!(req.max_depth, Some(2));
+        assert_eq!(req.query.as_deref(), Some("deployment blockers"));
+        assert_eq!(req.limit, Some(7));
+    }
+}

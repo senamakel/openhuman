@@ -139,3 +139,31 @@ impl Tool for MemoryTreeIngestDocumentTool {
         )))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_requires_title_body_and_source_id() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["title", "body", "source_id"]));
+        assert_eq!(schema["properties"]["provider"]["type"], "string");
+    }
+
+    #[test]
+    fn missing_required_fields_produce_none_via_json_accessors() {
+        let value = json!({
+            "title": "Doc title",
+            "body": "Body"
+        });
+        assert_eq!(value.get("source_id").and_then(|v| v.as_str()), None);
+    }
+
+    #[test]
+    fn source_kind_document_string_is_expected() {
+        assert_eq!(SourceKind::Document.as_str(), "document");
+    }
+}

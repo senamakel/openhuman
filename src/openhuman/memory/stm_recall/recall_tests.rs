@@ -209,6 +209,95 @@ fn arm2_drops_below_gate_and_accepts_above() {
     );
 }
 
+#[test]
+fn arm2_respects_model_signature_filter() {
+    let conn = setup_conn();
+    let now = now_ts();
+
+    let mut emb = vec![0.0_f32; 8];
+    emb[0] = 1.0;
+
+    let id_a = insert_episodic(&conn, "session-a", now - 120.0, "user", "matching model");
+    insert_segment_with_embedding(
+        &conn,
+        "seg-match",
+        "session-a",
+        id_a,
+        id_a,
+        "Segment with the selected embedding signature",
+        Some(emb.clone()),
+        now - 100.0,
+        "match:model:8",
+    );
+
+    let id_b = insert_episodic(&conn, "session-b", now - 90.0, "user", "other model");
+    insert_segment_with_embedding(
+        &conn,
+        "seg-other",
+        "session-b",
+        id_b,
+        id_b,
+        "Segment with a different embedding signature",
+        Some(emb.clone()),
+        now - 80.0,
+        "other:model:8",
+    );
+
+    let opts = StmRecallOpts {
+        exclude_session: "current",
+        query: Some("matching model"),
+        model_signature: Some("match:model:8"),
+    };
+    let block = stm_recall(&conn, &opts, Some(&emb)).unwrap();
+
+    let recap_ids: Vec<&str> = block
+        .items
+        .iter()
+        .filter_map(|it| match it {
+            StmItem::SegmentRecap { segment_id, .. } => Some(segment_id.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(recap_ids.contains(&"seg-match"));
+    assert!(!recap_ids.contains(&"seg-other"));
+}
+
+#[test]
+fn arm2_skips_blank_summary_rows_even_when_embedding_matches() {
+    let conn = setup_conn();
+    let now = now_ts();
+
+    let mut emb = vec![0.0_f32; 8];
+    emb[0] = 1.0;
+
+    let id = insert_episodic(&conn, "session-a", now - 100.0, "user", "blank summary row");
+    insert_segment_with_embedding(
+        &conn,
+        "seg-blank",
+        "session-a",
+        id,
+        id,
+        "   ",
+        Some(emb.clone()),
+        now - 90.0,
+        "test:model:8",
+    );
+
+    let opts = StmRecallOpts {
+        exclude_session: "current",
+        query: Some("blank summary row"),
+        model_signature: None,
+    };
+    let block = stm_recall(&conn, &opts, Some(&emb)).unwrap();
+
+    assert!(
+        block.items.iter().all(|it| {
+            !matches!(it, StmItem::SegmentRecap { segment_id, .. } if segment_id == "seg-blank")
+        }),
+        "blank summaries should be skipped during recall assembly"
+    );
+}
+
 // ── exclude-own-session tests ─────────────────────────────────────────────────
 
 #[test]

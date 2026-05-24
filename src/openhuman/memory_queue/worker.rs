@@ -305,7 +305,13 @@ fn is_sqlite_busy(err: &anyhow::Error) -> bool {
 mod tests {
     use super::*;
     use crate::openhuman::memory::jobs::store::{count_by_status, enqueue, get_job};
-    use crate::openhuman::memory::jobs::types::{FlushStalePayload, JobStatus, NewJob};
+    use crate::openhuman::memory::jobs::types::{FlushStalePayload, JobKind, JobStatus, NewJob, ReembedBackfillPayload};
+    use crate::openhuman::memory_store::chunks::store::{
+        tree_active_signature, upsert_chunks, upsert_staged_chunks_tx, with_connection,
+    };
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::content as content_store;
+    use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -498,5 +504,72 @@ mod tests {
         assert_eq!(count_by_status(&cfg, JobStatus::Done).unwrap(), 1);
         assert!(job.completed_at_ms.is_some());
         assert!(job.locked_until_ms.is_none());
+    }
+
+    #[tokio::test]
+    async fn run_once_reschedules_reembed_backfill_jobs_that_defer() {
+        let (_tmp, cfg) = test_config();
+        let ts = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let chunk = Chunk {
+            id: chunk_id(SourceKind::Chat, "slack:#eng", 0, "reembed-worker-seed"),
+            content: "memory content about the phoenix migration project".into(),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: "slack:#eng".into(),
+                owner: "alice".into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: vec![],
+                source_ref: Some(SourceRef::new("slack://x")),
+            },
+            token_count: 12,
+            seq_in_source: 0,
+            created_at: ts,
+            partial_message: false,
+        };
+        upsert_chunks(&cfg, &[chunk.clone()]).unwrap();
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).unwrap();
+        let staged = content_store::stage_chunks(&content_root, &[chunk]).unwrap();
+        with_connection(&cfg, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            upsert_staged_chunks_tx(&tx, &staged)?;
+            tx.commit()?;
+            Ok(())
+        })
+        .unwrap();
+
+        let signature = tree_active_signature(&cfg);
+        let new_job = NewJob::reembed_backfill(&ReembedBackfillPayload {
+            signature: signature.clone(),
+        })
+        .unwrap();
+        let id = enqueue(&cfg, &new_job).unwrap().expect("enqueue backfill job");
+
+        let processed = run_once(&cfg).await.unwrap();
+        assert!(processed);
+
+        let job = get_job(&cfg, &id).unwrap().expect("job should still exist");
+        assert_eq!(job.kind, JobKind::ReembedBackfill);
+        assert_eq!(job.status, JobStatus::Ready);
+        assert_eq!(
+            job.attempts, 0,
+            "defer should revert the claim attempt bump"
+        );
+        assert!(job.started_at_ms.is_none());
+        assert!(job.locked_until_ms.is_none());
+        assert!(job.completed_at_ms.is_none());
+        assert!(
+            job.available_at_ms > Utc::now().timestamp_millis(),
+            "deferred job should be rescheduled into the future"
+        );
+        assert!(
+            job.last_error
+                .as_deref()
+                .unwrap_or("")
+                .contains("re-embed backfill"),
+            "defer reason should be recorded for visibility"
+        );
+        assert_eq!(count_by_status(&cfg, JobStatus::Ready).unwrap(), 1);
     }
 }

@@ -98,7 +98,7 @@ mod tests {
     use super::*;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
-    use crate::openhuman::memory::content_store;
+    use crate::openhuman::memory_store::content as content_store;
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
 

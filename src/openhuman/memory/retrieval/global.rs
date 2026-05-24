@@ -90,7 +90,7 @@ mod tests {
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
-    use crate::openhuman::memory::content_store;
+    use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
     use crate::openhuman::memory_tree::tree_global::digest::{end_of_day_digest, DigestOutcome};

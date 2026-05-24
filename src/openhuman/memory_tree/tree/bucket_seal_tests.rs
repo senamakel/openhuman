@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-use crate::openhuman::memory::content_store;
+use crate::openhuman::memory_store::content as content_store;
 use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
 use std::sync::Arc;
 use tempfile::TempDir;

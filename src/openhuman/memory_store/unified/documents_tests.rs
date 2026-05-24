@@ -29,6 +29,16 @@ fn make_doc_input(
     }
 }
 
+fn count_vector_chunks(memory: &UnifiedMemory, namespace: &str, document_id: &str) -> i64 {
+    let conn = memory.conn.lock();
+    conn.query_row(
+        "SELECT COUNT(*) FROM vector_chunks WHERE namespace = ?1 AND document_id = ?2",
+        rusqlite::params![UnifiedMemory::sanitize_namespace(namespace), document_id],
+        |row| row.get(0),
+    )
+    .unwrap()
+}
+
 #[tokio::test]
 async fn list_documents_without_namespace_returns_all_docs_across_namespaces() {
     let tmp = TempDir::new().unwrap();
@@ -110,6 +120,28 @@ async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and
     assert_eq!(docs[0].document_id, first_id);
     assert_eq!(docs[0].title, "Doc A v2");
     assert_eq!(docs[0].content, "Updated body");
+    assert_eq!(
+        count_vector_chunks(&memory, "test:meta", &first_id),
+        0,
+        "metadata-only writes must not enqueue vector chunks"
+    );
+}
+
+#[tokio::test]
+async fn upsert_document_writes_vector_chunks_for_chunked_content() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let long_body = "alpha ".repeat(400);
+    let document_id = memory
+        .upsert_document(make_doc_input("test:vector", "doc-a", "Doc A", &long_body))
+        .await
+        .unwrap();
+
+    assert!(
+        count_vector_chunks(&memory, "test:vector", &document_id) > 0,
+        "full document upsert should replace vector chunks for semantic retrieval"
+    );
 }
 
 #[tokio::test]

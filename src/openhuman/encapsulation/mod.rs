@@ -47,6 +47,7 @@
 pub mod detect;
 pub mod jail;
 pub mod noop;
+pub mod registry;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -57,6 +58,7 @@ pub mod windows;
 
 pub use jail::{Jail, JailBackend};
 pub use noop::NoopBackend;
+pub use registry::{JailRecord, JailRegistry};
 
 use std::process::{Child, Command};
 use std::sync::{Arc, OnceLock};

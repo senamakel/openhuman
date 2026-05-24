@@ -80,6 +80,7 @@ impl Tool for MemoryTreeDrillDownTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -103,5 +104,51 @@ mod tests {
         assert_eq!(req.max_depth, Some(2));
         assert_eq!(req.query.as_deref(), Some("deployment blockers"));
         assert_eq!(req.limit, Some(7));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_node_id() {
+        let tool = MemoryTreeDrillDownTool;
+        let err = tool
+            .execute(json!({}))
+            .await
+            .expect_err("missing node_id should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_drill_down")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_zero_max_depth() {
+        let tool = MemoryTreeDrillDownTool;
+        let err = tool
+            .execute(json!({
+                "node_id": "summary-1",
+                "max_depth": 0
+            }))
+            .await
+            .expect_err("max_depth=0 should fail at tool boundary");
+        assert!(err.to_string().contains("max_depth must be >= 1"));
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_array() {
+        let tool = MemoryTreeDrillDownTool;
+        let result = tool
+            .execute(json!({
+                "node_id": "summary-does-not-exist",
+                "max_depth": 1
+            }))
+            .await
+            .expect("valid drill_down request should succeed");
+        assert!(!result.is_error);
+        let payload = result.text();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&payload).expect("result should be valid json");
+        assert!(
+            parsed.is_array(),
+            "drill_down should serialize a JSON array"
+        );
     }
 }

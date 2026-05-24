@@ -18,16 +18,18 @@
 //!
 //! ## Components
 //!
-//! - [`types`] — [`ToolMemoryRule`], [`ToolMemoryPriority`],
+//! - [`types`]   — [`ToolMemoryRule`], [`ToolMemoryPriority`],
 //!   [`ToolMemorySource`].
-//! - [`store`] — [`ToolMemoryStore`], the put/list/delete/prompt API
+//! - [`store`]   — [`ToolMemoryStore`], the put/list/delete/prompt API
 //!   built on top of an `Arc<dyn Memory>`.
 //! - [`capture`] — [`ToolMemoryCaptureHook`], the post-turn
 //!   [`PostTurnHook`] that records user edicts and repeated tool
 //!   failures.
-//! - [`prompt`] — [`ToolMemoryRulesSection`], the prompt section that
+//! - [`prompt`]  — [`ToolMemoryRulesSection`], the prompt section that
 //!   pins Critical / High rules into the system prompt so they survive
 //!   mid-session compression.
+//! - [`tools`]   — agent-facing read/write tools:
+//!   [`tools::MemoryToolsListTool`], [`tools::MemoryToolsPutTool`].
 //!
 //! [`PostTurnHook`]: crate::openhuman::agent::hooks::PostTurnHook
 

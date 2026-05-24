@@ -320,7 +320,8 @@ fi
 if should_run_suite "providers"; then
   echo ""
   echo "## Running suite: providers"
-  run "test/e2e/specs/telegram-flow.spec.ts"                  "telegram"                  "providers"
+  # telegram-flow.spec.ts was renamed to telegram-channel-flow.spec.ts;
+  # only the latter exists in the repo today.
   run "test/e2e/specs/telegram-channel-flow.spec.ts"          "telegram-channel"          "providers"
   run "test/e2e/specs/gmail-flow.spec.ts"                     "gmail"                     "providers"
   run "test/e2e/specs/accounts-provider-modal.spec.ts"        "accounts-providers"        "providers"

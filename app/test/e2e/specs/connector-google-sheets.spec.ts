@@ -22,6 +22,7 @@ import {
 import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
 import {
   clearRequestLog,
+  getRequestLog,
   resetMockBehavior,
   startMockServer,
   stopMockServer,
@@ -67,7 +68,7 @@ describe('Google Sheets Composio connector flow', () => {
     clearRequestLog();
     const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: TOOLKIT_SLUG });
     expect(out.ok).toBe(true);
-    const authReq = log.find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
+    const authReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
     expect(authReq).toBeDefined();
     console.log(`${LOG} PASS: auth/connect routed`);
   });
@@ -150,7 +151,7 @@ describe('Google Sheets Composio connector flow', () => {
     await callOpenhumanRpc('openhuman.composio_delete_connection', {
       connection_id: 'c-gsheets-1',
     });
-    const deleteReq = log.find(
+    const deleteReq = getRequestLog().find(
       r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
     );
     expect(deleteReq).toBeDefined();

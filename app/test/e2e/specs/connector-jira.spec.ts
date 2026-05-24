@@ -26,6 +26,7 @@ import {
 import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
 import {
   clearRequestLog,
+  getRequestLog,
   resetMockBehavior,
   setMockBehavior,
   startMockServer,
@@ -107,7 +108,7 @@ describe('Jira Composio connector flow', () => {
       extra_params: { subdomain: 'myteam' },
     });
     expect(out.ok).toBe(true);
-    const authReq = log.find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
+    const authReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
     expect(authReq).toBeDefined();
     const body = JSON.parse(authReq?.body || '{}');
     expect(body.toolkit).toBe(TOOLKIT_SLUG);
@@ -191,7 +192,7 @@ describe('Jira Composio connector flow', () => {
     seedComposioConnection(TOOLKIT_SLUG, 'ACTIVE', 'c-jira-1');
     clearRequestLog();
     await callOpenhumanRpc('openhuman.composio_delete_connection', { connection_id: 'c-jira-1' });
-    const deleteReq = log.find(
+    const deleteReq = getRequestLog().find(
       r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
     );
     expect(deleteReq).toBeDefined();

@@ -22,6 +22,7 @@ import {
 import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
 import {
   clearRequestLog,
+  getRequestLog,
   resetMockBehavior,
   startMockServer,
   stopMockServer,
@@ -67,7 +68,7 @@ describe('Google Calendar Composio connector flow', () => {
     clearRequestLog();
     const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: TOOLKIT_SLUG });
     expect(out.ok).toBe(true);
-    const authReq = log.find(
+    const authReq = getRequestLog().find(
       r => r.method === 'POST' && r.url.includes('/agent-integrations/composio/authorize')
     );
     expect(authReq).toBeDefined();
@@ -153,7 +154,7 @@ describe('Google Calendar Composio connector flow', () => {
     seedComposioConnection(TOOLKIT_SLUG, 'ACTIVE', 'c-gcal-1');
     clearRequestLog();
     await callOpenhumanRpc('openhuman.composio_delete_connection', { connection_id: 'c-gcal-1' });
-    const deleteReq = log.find(
+    const deleteReq = getRequestLog().find(
       r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
     );
     expect(deleteReq).toBeDefined();

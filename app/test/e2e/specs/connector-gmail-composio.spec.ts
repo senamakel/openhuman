@@ -26,6 +26,7 @@ import {
 import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
 import {
   clearRequestLog,
+  getRequestLog,
   resetMockBehavior,
   setMockBehavior,
   startMockServer,
@@ -72,7 +73,7 @@ describe('Gmail (Composio) connector flow', () => {
     clearRequestLog();
     const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: TOOLKIT_SLUG });
     expect(out.ok).toBe(true);
-    const authReq = log.find(
+    const authReq = getRequestLog().find(
       r => r.method === 'POST' && r.url.includes('/agent-integrations/composio/authorize')
     );
     expect(authReq).toBeDefined();
@@ -100,7 +101,7 @@ describe('Gmail (Composio) connector flow', () => {
     this.timeout(30_000);
     clearRequestLog();
     await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });
-    const syncReq = log.find(r => r.method === 'POST' && r.url.includes('/composio/sync'));
+    const syncReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/sync'));
     expect(syncReq).toBeDefined();
     console.log(`${LOG} PASS: composio_sync routed (status ${syncReq?.statusCode})`);
     await assertSessionNotNuked();
@@ -129,7 +130,7 @@ describe('Gmail (Composio) connector flow', () => {
       action: 'GMAIL_FETCH_EMAILS',
       params: {},
     });
-    const execReq = log.find(r => r.url.includes('/composio/execute'));
+    const execReq = getRequestLog().find(r => r.url.includes('/composio/execute'));
     if (execReq) {
       // The mock returns 400 — the RPC layer should surface a safe error, not crash
       console.log(`${LOG} execute returned status: ${execReq.statusCode}`);
@@ -186,7 +187,7 @@ describe('Gmail (Composio) connector flow', () => {
     seedComposioConnection(TOOLKIT_SLUG, 'ACTIVE', 'c-gmail-1');
     clearRequestLog();
     await callOpenhumanRpc('openhuman.composio_delete_connection', { connection_id: 'c-gmail-1' });
-    const deleteReq = log.find(
+    const deleteReq = getRequestLog().find(
       r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
     );
     expect(deleteReq).toBeDefined();

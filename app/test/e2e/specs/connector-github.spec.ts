@@ -29,6 +29,7 @@ import {
 import { completeOnboardingIfVisible, navigateToSkills } from '../helpers/shared-flows';
 import {
   clearRequestLog,
+  getRequestLog,
   resetMockBehavior,
   setMockBehavior,
   startMockServer,
@@ -87,7 +88,7 @@ describe('GitHub Composio connector flow', () => {
 
     const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: TOOLKIT_SLUG });
     expect(out.ok).toBe(true);
-    const authReq = log.find(
+    const authReq = getRequestLog().find(
       r => r.method === 'POST' && r.url.includes('/agent-integrations/composio/authorize')
     );
     expect(authReq).toBeDefined();
@@ -117,7 +118,7 @@ describe('GitHub Composio connector flow', () => {
     clearRequestLog();
 
     await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });
-    const syncReq = log.find(r => r.method === 'POST' && r.url.includes('/composio/sync'));
+    const syncReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/sync'));
     expect(syncReq).toBeDefined();
     console.log(`${LOG} PASS: composio_sync routed to mock (status ${syncReq?.statusCode})`);
     // Session must remain alive regardless
@@ -197,7 +198,7 @@ describe('GitHub Composio connector flow', () => {
     clearRequestLog();
 
     await callOpenhumanRpc('openhuman.composio_delete_connection', { connection_id: 'c-github-1' });
-    const deleteReq = log.find(
+    const deleteReq = getRequestLog().find(
       r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
     );
     expect(deleteReq).toBeDefined();

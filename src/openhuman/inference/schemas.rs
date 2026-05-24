@@ -28,11 +28,6 @@ struct InferenceVisionPromptParams {
 }
 
 #[derive(Debug, Deserialize)]
-struct InferenceEmbedParams {
-    inputs: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
 struct InferenceChatMessageParam {
     role: String,
     content: String,
@@ -152,7 +147,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("summarize"),
         schemas("prompt"),
         schemas("vision_prompt"),
-        schemas("embed"),
         schemas("chat"),
         schemas("test_provider_model"),
         schemas("should_react"),
@@ -225,10 +219,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("vision_prompt"),
             handler: handle_inference_vision_prompt,
-        },
-        RegisteredController {
-            schema: schemas("embed"),
-            handler: handle_inference_embed,
         },
         RegisteredController {
             schema: schemas("chat"),
@@ -418,18 +408,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_u64("max_tokens", "Optional max output tokens."),
             ],
             outputs: vec![json_output("output", "Prompt output text.")],
-        },
-        "embed" => ControllerSchema {
-            namespace: "inference",
-            function: "embed",
-            description: "Generate embeddings for text inputs.",
-            inputs: vec![FieldSchema {
-                name: "inputs",
-                ty: TypeSchema::Array(Box::new(TypeSchema::String)),
-                comment: "Texts to embed.",
-                required: true,
-            }],
-            outputs: vec![json_output("embedding", "Embedding result payload.")],
         },
         "chat" => ControllerSchema {
             namespace: "inference",
@@ -795,14 +773,6 @@ fn handle_inference_vision_prompt(params: Map<String, Value>) -> ControllerFutur
             )
             .await?,
         )
-    })
-}
-
-fn handle_inference_embed(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<InferenceEmbedParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::inference::rpc::inference_embed(&config, &p.inputs).await?)
     })
 }
 

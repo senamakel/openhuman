@@ -83,6 +83,7 @@ impl Tool for MemoryTreeSearchEntitiesTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -90,16 +91,73 @@ mod tests {
         let tool = MemoryTreeSearchEntitiesTool;
         let schema = tool.parameters_schema();
         assert_eq!(schema["required"], json!(["query"]));
-        assert_eq!(schema["properties"]["limit"]["description"].is_string(), true);
+        assert_eq!(
+            schema["properties"]["limit"]["description"].is_string(),
+            true
+        );
     }
 
     #[test]
     fn kind_enum_contains_expected_memory_entity_kinds() {
         let tool = MemoryTreeSearchEntitiesTool;
         let schema = tool.parameters_schema();
-        let kinds = schema["properties"]["kinds"]["items"]["enum"].as_array().unwrap();
+        let kinds = schema["properties"]["kinds"]["items"]["enum"]
+            .as_array()
+            .unwrap();
         for required in ["email", "person", "organization", "topic"] {
-            assert!(kinds.iter().any(|v| v == required), "missing kind {required}");
+            assert!(
+                kinds.iter().any(|v| v == required),
+                "missing kind {required}"
+            );
         }
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_query() {
+        let tool = MemoryTreeSearchEntitiesTool;
+        let err = tool
+            .execute(json!({}))
+            .await
+            .expect_err("missing query should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_search_entities")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_invalid_kind_after_validation() {
+        let tool = MemoryTreeSearchEntitiesTool;
+        let err = tool
+            .execute(json!({
+                "query": "alice",
+                "kinds": ["not-a-real-kind"]
+            }))
+            .await
+            .expect_err("invalid kind should fail");
+        assert!(
+            err.to_string()
+                .contains("memory_tree_search_entities: invalid kind:")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_array() {
+        let tool = MemoryTreeSearchEntitiesTool;
+        let result = tool
+            .execute(json!({
+                "query": "alice",
+                "limit": 3
+            }))
+            .await
+            .expect("valid search_entities request should succeed");
+        assert!(!result.is_error);
+        let payload = result.text();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&payload).expect("result should be valid json");
+        assert!(
+            parsed.is_array(),
+            "search_entities should serialize a JSON array"
+        );
     }
 }

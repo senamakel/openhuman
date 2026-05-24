@@ -275,6 +275,22 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
         "heartbeat_provider": config.heartbeat_provider,
         "learning_provider": config.learning_provider,
         "subconscious_provider": config.subconscious_provider,
+        "voice_providers": config.voice_providers.iter().map(|v| {
+            serde_json::json!({
+                "id": v.id,
+                "slug": v.slug,
+                "label": v.label,
+                "endpoint": v.endpoint,
+                "auth_style": v.auth_style.as_str(),
+                "capability": v.capability.as_str(),
+                "stt_api_style": v.stt_api_style,
+                "tts_api_style": v.tts_api_style,
+                "default_stt_model": v.default_stt_model,
+                "default_tts_voice": v.default_tts_voice,
+            })
+        }).collect::<Vec<_>>(),
+        "stt_provider": config.stt_provider,
+        "tts_provider": config.tts_provider,
     })
 }
 

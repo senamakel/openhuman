@@ -158,6 +158,15 @@ export async function loadVoiceSettings(): Promise<VoiceSettings> {
       authSlugs.has(authKeyForSlug(p.slug).toLowerCase()) || authSlugs.has(p.slug.toLowerCase()),
   }));
 
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('[voiceSettingsApi] loaded', {
+      providerCount: voiceProviders.length,
+      slugs: voiceProviders.map(p => p.slug),
+      stt: configResult.stt_provider,
+      tts: configResult.tts_provider,
+    });
+  }
+
   return {
     voiceProviders,
     sttProvider: parseVoiceProviderString(configResult.stt_provider),
@@ -203,6 +212,10 @@ export async function saveVoiceSettings(prev: VoiceSettings, next: VoiceSettings
   }
 
   if (!hasChanges) return;
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('[voiceSettingsApi] saving patch', patch);
+  }
 
   await callCoreRpc({ method: 'openhuman.voice_update_provider_settings', params: patch });
 }

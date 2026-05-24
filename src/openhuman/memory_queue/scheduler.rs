@@ -253,6 +253,14 @@ mod tests {
     }
 
     #[test]
+    fn backfill_missing_digests_negative_window_is_noop() {
+        let (_tmp, cfg) = test_config();
+        let n = backfill_missing_digests(&cfg, -3).unwrap();
+        assert_eq!(n, 0);
+        assert_eq!(count_total(&cfg).unwrap(), 0);
+    }
+
+    #[test]
     fn backfill_missing_digests_is_idempotent_while_active() {
         let (_tmp, cfg) = test_config();
         let n1 = backfill_missing_digests(&cfg, 3).unwrap();
@@ -301,6 +309,39 @@ mod tests {
         assert_eq!(second.kind, JobKind::FlushStale);
         let flush: FlushStalePayload = serde_json::from_str(&second.payload_json).unwrap();
         assert_eq!(flush.max_age_secs, None);
+    }
+
+    #[test]
+    fn enqueue_daily_jobs_is_fully_deduped_while_jobs_remain_active() {
+        let (_tmp, cfg) = test_config();
+        enqueue_daily_jobs(&cfg).unwrap();
+        enqueue_daily_jobs(&cfg).unwrap();
+
+        assert_eq!(
+            count_total(&cfg).unwrap(),
+            2,
+            "same-day scheduler rerun should not create duplicate active jobs"
+        );
+    }
+
+    #[test]
+    fn enqueue_daily_jobs_reenqueues_after_prior_rows_complete() {
+        let (_tmp, cfg) = test_config();
+        enqueue_daily_jobs(&cfg).unwrap();
+
+        let first = claim_next(&cfg, DEFAULT_LOCK_DURATION_MS).unwrap().unwrap();
+        mark_done(&cfg, &first).unwrap();
+        let second = claim_next(&cfg, DEFAULT_LOCK_DURATION_MS).unwrap().unwrap();
+        mark_done(&cfg, &second).unwrap();
+
+        enqueue_daily_jobs(&cfg).unwrap();
+
+        assert_eq!(
+            count_total(&cfg).unwrap(),
+            4,
+            "completed daily jobs should allow a fresh digest+flush pair"
+        );
+        assert_eq!(count_by_status(&cfg, JobStatus::Ready).unwrap(), 2);
     }
 
     #[test]

@@ -20,7 +20,7 @@
  */
 import { waitForApp, waitForAppReady } from './app-helpers';
 import { callOpenhumanRpc } from './core-rpc';
-import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
+import { triggerAuthLoopbackBypass } from './loopback-auth-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
 import { supportsExecuteScript } from './platform';
 import { dismissBootCheckGateIfVisible, waitForHomePage, walkOnboarding } from './shared-flows';
@@ -141,11 +141,11 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
     return userId;
   }
 
-  stepLog(`Triggering auth deep-link bypass for ${userId}`);
-  await triggerAuthDeepLinkBypass(userId);
+  stepLog(`Triggering auth loopback bypass for ${userId}`);
+  await triggerAuthLoopbackBypass(userId);
   await waitForAppReady(15_000);
-  // BootCheckGate may re-mount after the deep-link routes to /home; dismiss
-  // the modal again if it slid back into view.
+  // BootCheckGate may re-mount after the loopback callback routes to /home;
+  // dismiss the modal again if it slid back into view.
   await dismissBootCheckGateIfVisible(8_000);
   await walkOnboarding(logPrefix);
 
@@ -156,7 +156,7 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
   const homeText = await waitForHomePage(15_000).catch(() => null);
   if (!homeText) {
     stepLog('Home page not reached after onboarding — retrying auth bypass');
-    await triggerAuthDeepLinkBypass(userId);
+    await triggerAuthLoopbackBypass(userId);
     await waitForAppReady(10_000);
     await dismissBootCheckGateIfVisible(8_000);
     await walkOnboarding(logPrefix);

@@ -174,14 +174,94 @@ jobs:
             echo "No summary file found." >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Full-suite Linux runs are sharded across 4 parallel jobs by suite group.
-  # `e2e-run-all-flows.sh --suite=<csv>` accepts a comma-separated list, so
-  # each shard runs roughly a quarter of the ~80 specs. With Swatinem
-  # rust-cache + the CEF cache restored on every job, the per-shard build
-  # step is fast (~1-3 min). Longest shard dominates wall clock — expect
-  # ~20-25 min vs the ~60-min serial baseline.
+  # Full-suite Linux is now build-once-then-fanout: one `build-linux-full`
+  # job produces the binary + frontend dist + CEF runtime as a single
+  # workflow artifact, and the 4 shard test jobs `needs:` that build and
+  # download the artifact. This eliminates the parallel-shard cache race
+  # (only the first shard would otherwise populate the binary/CEF caches,
+  # the others would lose the race and rebuild) and guarantees the binary
+  # and its libcef.so are always packaged together.
+  build-linux-full:
+    if: inputs.run_linux && inputs.full
+    name: Build (Linux full)
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tinyhumansai/openhuman_ci:latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            app/src-tauri -> target
+          cache-on-failure: true
+          key: e2e-linux-unified
+
+      - name: Cache CEF binary distribution
+        uses: actions/cache@v5
+        with:
+          # cef-dll-sys downloads into $CEF_PATH; ensure-tauri-cli.sh +
+          # e2e-build.sh pin that to $HOME/Library/Caches/tauri-cef on
+          # every OS, so the cache key/path live there too.
+          path: |
+            ~/Library/Caches/tauri-cef
+          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            cef-x86_64-unknown-linux-gnu-v2-
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure .env exists for E2E build
+        run: |
+          touch .env
+          touch app/.env
+
+      - name: Build E2E app
+        run: pnpm --filter openhuman-app test:e2e:build
+
+      - name: Package build artifact
+        run: |
+          # Stage everything the test shards need at the layout they expect
+          # under a single directory, so the consumer can extract straight
+          # into the workspace + $HOME.
+          STAGE="$(mktemp -d)"
+          mkdir -p "$STAGE/repo/app/src-tauri/target/debug"
+          mkdir -p "$STAGE/repo/app/dist"
+          mkdir -p "$STAGE/home/Library/Caches"
+          cp -a app/src-tauri/target/debug/OpenHuman "$STAGE/repo/app/src-tauri/target/debug/"
+          cp -a app/dist/. "$STAGE/repo/app/dist/"
+          cp -a "$HOME/Library/Caches/tauri-cef" "$STAGE/home/Library/Caches/tauri-cef"
+          tar --zstd -cf e2e-build-linux.tar.zst -C "$STAGE" repo home
+          ls -lh e2e-build-linux.tar.zst
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-build-linux-${{ github.run_id }}
+          path: e2e-build-linux.tar.zst
+          retention-days: 1
+          if-no-files-found: error
+
   e2e-linux-full:
     if: inputs.run_linux && inputs.full
+    needs: build-linux-full
     name: E2E (Linux full / ${{ matrix.shard.name }})
     runs-on: ubuntu-22.04
     container:
@@ -211,32 +291,6 @@ jobs:
           restore-keys: |
             pnpm-store-${{ runner.os }}-
 
-      - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            . -> target
-            app/src-tauri -> target
-          cache-on-failure: true
-          # Shared key across shards so the first shard to populate the cache
-          # warms it for the others within the same run.
-          key: e2e-linux-unified
-
-      - name: Cache CEF binary distribution
-        id: cef-cache
-        uses: actions/cache@v5
-        with:
-          # e2e-build.sh + ensure-tauri-cli.sh always export
-          # CEF_PATH=$HOME/Library/Caches/tauri-cef regardless of OS, so the
-          # cef-dll-sys download lands there on Linux/Windows too. Cache the
-          # actual download location so the cache hits when the binary-cache
-          # short-circuit skips the build step.
-          path: |
-            ~/Library/Caches/tauri-cef
-          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
-          restore-keys: |
-            cef-x86_64-unknown-linux-gnu-v2-
-
       - name: Cache Appium global install
         uses: actions/cache@v5
         with:
@@ -245,13 +299,8 @@ jobs:
             /usr/local/lib/node_modules/appium
           key: appium3-chromium-${{ runner.os }}-v1
 
-      - name: Install JS dependencies
+      - name: Install JS dependencies (for test harness only)
         run: pnpm install --frozen-lockfile
-
-      - name: Ensure .env exists for E2E build
-        run: |
-          touch .env
-          touch app/.env
 
       - name: Install Appium and chromium driver
         run: |
@@ -260,36 +309,30 @@ jobs:
           fi
           appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
-      # Cache the built debug binary + bundled frontend dist across runs.
-      # Most iteration on this branch is CI/spec/orchestrator changes that do
-      # NOT touch the Rust core or the React app — so the key below is stable
-      # across those iterations and the next run hits the cache, skipping the
-      # 10-15 min `cargo tauri build` step.
-      - name: Cache built E2E binary (Linux)
-        id: e2e-binary-cache
-        uses: actions/cache@v5
+      - name: Download build artifact
+        uses: actions/download-artifact@v5
         with:
-          path: |
-            app/src-tauri/target/debug/OpenHuman
-            app/dist
-          key: e2e-binary-${{ runner.os }}-${{ hashFiles('src/**/*.rs', 'app/src-tauri/src/**', 'app/src-tauri/build.rs', 'app/src-tauri/tauri.conf.json', 'Cargo.lock', 'app/src-tauri/Cargo.lock', 'app/src-tauri/vendor/tauri-cef/Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-build.sh') }}
+          name: e2e-build-linux-${{ github.run_id }}
+          path: .
 
-      # Skip the (slow) build only when BOTH the binary AND the CEF runtime
-      # caches hit — having the binary without libcef makes the runner fail
-      # with 'libcef.so: cannot open shared object file' at launch.
-      - name: Build E2E app
-        if: steps.e2e-binary-cache.outputs.cache-hit != 'true' || steps.cef-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter openhuman-app test:e2e:build
+      - name: Restore build artifact into workspace + $HOME
+        run: |
+          tar --zstd -xf e2e-build-linux.tar.zst
+          # The artifact contains: repo/{app/src-tauri/target/debug/OpenHuman, app/dist/...}
+          # and home/Library/Caches/tauri-cef/...
+          mkdir -p app/src-tauri/target/debug app/dist "$HOME/Library/Caches"
+          cp -a repo/app/src-tauri/target/debug/OpenHuman app/src-tauri/target/debug/
+          cp -a repo/app/dist/. app/dist/
+          cp -a home/Library/Caches/tauri-cef "$HOME/Library/Caches/"
+          rm -rf repo home e2e-build-linux.tar.zst
+          chmod +x app/src-tauri/target/debug/OpenHuman
+          ls -la app/src-tauri/target/debug/OpenHuman app/dist | head
+          ls -la "$HOME/Library/Caches/tauri-cef" | head
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         env:
           E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
         run: |
-          # Pin CEF_PATH to the actual download location used by
-          # ensure-tauri-cli.sh + e2e-build.sh. The default in
-          # e2e-run-session.sh already points here on macOS but Linux
-          # needs the explicit export when the binary-cache short-circuit
-          # skips the build step (which would otherwise have exported it).
           export CEF_PATH="$HOME/Library/Caches/tauri-cef"
           BAIL_FLAG=""
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then

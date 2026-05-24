@@ -130,7 +130,7 @@ const EmbeddingsPanel = () => {
     setTestResult(null);
     try {
       const result = await updateEmbeddingsSettings({ ...update, confirm_wipe: false });
-      if (result.error === 'EMBEDDINGS_SIGNATURE_CHANGE_REQUIRES_WIPE') {
+      if (result.error === 'EMBEDDINGS_DIMENSION_CHANGE_REQUIRES_WIPE') {
         setPendingWipe(update);
         setStatus({ kind: 'idle' });
         return;

@@ -89,26 +89,32 @@ pub async fn update_settings(
     let new_dims = dimensions.unwrap_or(config.memory.embedding_dimensions);
     let new_sig = format_embedding_signature(&new_provider, &new_model, new_dims);
 
+    let old_dims = config.memory.embedding_dimensions;
+    let dims_changed = new_dims != old_dims;
     let sig_changed = new_sig != old_sig;
 
-    if sig_changed && !confirm_wipe {
+    // Only require a wipe when dimensions actually change — switching
+    // provider/model at the same dimensionality keeps vectors comparable.
+    if dims_changed && !confirm_wipe {
         let payload = serde_json::json!({
-            "error": "EMBEDDINGS_SIGNATURE_CHANGE_REQUIRES_WIPE",
+            "error": "EMBEDDINGS_DIMENSION_CHANGE_REQUIRES_WIPE",
+            "old_dimensions": old_dims,
+            "new_dimensions": new_dims,
             "old_signature": old_sig,
             "new_signature": new_sig,
-            "message": "Changing the embedding provider, model, or dimensions invalidates \
-                        all stored vectors. Pass confirm_wipe=true to wipe memory and apply.",
+            "message": "Changing embedding dimensions invalidates all stored vectors. \
+                        Pass confirm_wipe=true to wipe memory and apply.",
         });
         return Ok(RpcOutcome::new(payload, vec![
-            "embedding signature change requires wipe confirmation".into(),
+            "embedding dimension change requires wipe confirmation".into(),
         ]));
     }
 
-    if sig_changed {
+    if dims_changed {
         tracing::warn!(
-            old = old_sig.as_str(),
-            new = new_sig.as_str(),
-            "{LOG_PREFIX} embedding signature changing — wiping memory"
+            old_dims,
+            new_dims,
+            "{LOG_PREFIX} embedding dimensions changing — wiping memory"
         );
         crate::openhuman::memory::read_rpc::wipe_all_rpc(&config)
             .await

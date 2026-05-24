@@ -143,7 +143,9 @@ pub fn read_chunk_body(
     config: &crate::openhuman::config::Config,
     chunk_id: &str,
 ) -> anyhow::Result<String> {
-    use crate::openhuman::memory_store::chunks::store::{get_chunk_content_pointers, get_chunk_raw_refs};
+    use crate::openhuman::memory_store::chunks::store::{
+        get_chunk_content_pointers, get_chunk_raw_refs,
+    };
 
     // Path 1: chunk has raw-archive pointers (today: email). Read each
     // referenced file, slice by byte range, join with `\n\n` (the
@@ -414,7 +416,7 @@ mod tests {
     fn write_summary_file(dir: &TempDir, body: &str) -> (std::path::PathBuf, String) {
         use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
         use crate::openhuman::memory_store::content::compose::{
-            compose_summary_md, SummaryComposeInput,
+            SummaryComposeInput, compose_summary_md,
         };
         use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
         use chrono::TimeZone;
@@ -473,5 +475,81 @@ mod tests {
             verify_summary_file(&path, "abc").unwrap(),
             VerifyResult::Missing
         );
+    }
+
+    #[test]
+    fn read_chunk_file_rejects_invalid_utf8() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("bad.md");
+        std::fs::write(&path, [0xff, 0xfe, 0xfd]).unwrap();
+        let err = match read_chunk_file(&path) {
+            Ok(_) => panic!("invalid UTF-8 should fail"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("invalid UTF-8"));
+    }
+
+    #[test]
+    fn read_chunk_file_rejects_missing_front_matter() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("plain.md");
+        std::fs::write(&path, "no front matter here").unwrap();
+        let err = match read_chunk_file(&path) {
+            Ok(_) => panic!("missing front matter should fail"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("no front-matter"));
+    }
+
+    #[test]
+    fn verify_summary_file_mismatch_returns_actual_sha() {
+        let dir = TempDir::new().unwrap();
+        let (path, expected_sha) = write_summary_file(&dir, "body text\n");
+        let actual = match verify_summary_file(&path, "deadbeef").unwrap() {
+            VerifyResult::Mismatch { actual } => actual,
+            other => panic!("expected mismatch, got {other:?}"),
+        };
+        assert_eq!(actual, expected_sha);
+    }
+
+    #[test]
+    fn read_chunk_body_from_raw_clamps_ranges_and_skips_bad_refs() {
+        use crate::openhuman::memory_store::chunks::store::RawRef;
+
+        let dir = TempDir::new().unwrap();
+        let mut cfg = crate::openhuman::config::Config::default();
+        cfg.workspace_dir = dir.path().to_path_buf();
+
+        let content_root = cfg.memory_tree_content_root();
+        std::fs::create_dir_all(&content_root).unwrap();
+
+        std::fs::write(content_root.join("one.txt"), "abcdef").unwrap();
+        std::fs::write(content_root.join("two.txt"), [0xff, 0xfe]).unwrap();
+
+        let refs = vec![
+            RawRef {
+                path: "one.txt".into(),
+                start: 1,
+                end: Some(4),
+            },
+            RawRef {
+                path: "missing.txt".into(),
+                start: 0,
+                end: None,
+            },
+            RawRef {
+                path: "two.txt".into(),
+                start: 0,
+                end: None,
+            },
+            RawRef {
+                path: "one.txt".into(),
+                start: 99,
+                end: None,
+            },
+        ];
+
+        let body = read_chunk_body_from_raw(&cfg, &refs).unwrap();
+        assert_eq!(body, "bcd");
     }
 }

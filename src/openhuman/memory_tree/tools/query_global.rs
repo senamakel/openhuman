@@ -111,10 +111,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing time_window_days should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_query_global")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_query_global"));
     }
 
     #[tokio::test]
@@ -124,17 +123,16 @@ mod tests {
             .execute(json!({"time_window_days": "seven"}))
             .await
             .expect_err("wrong type should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_query_global")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_query_global"));
     }
 
     #[tokio::test]
     async fn execute_accepts_window_days_alias() {
         let tool = MemoryTreeQueryGlobalTool;
-        let req: QueryGlobalRequest = serde_json::from_value(json!({"window_days": 7}))
-            .expect("alias should deserialize");
+        let req: QueryGlobalRequest =
+            serde_json::from_value(json!({"window_days": 7})).expect("alias should deserialize");
         assert_eq!(req.time_window_days, 7);
 
         let result = tool

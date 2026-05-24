@@ -278,10 +278,7 @@ mod tests {
             updated_at: now,
         };
         assert_eq!(person.memory_kind(), MemoryKind::Contact);
-        assert_eq!(
-            person.embeddable_text(),
-            "Alice Example\nalice@example.com"
-        );
+        assert_eq!(person.embeddable_text(), "Alice Example\nalice@example.com");
         let obsidian = person.to_obsidian();
         assert_eq!(
             obsidian.relative_path,

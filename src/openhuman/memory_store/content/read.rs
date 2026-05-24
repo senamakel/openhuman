@@ -346,7 +346,7 @@ mod tests {
     use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind};
     use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
     use crate::openhuman::memory_store::content::compose::{
-        SummaryComposeInput, compose_chunk_file,
+        compose_chunk_file, SummaryComposeInput,
     };
     use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
     use crate::openhuman::memory_store::content::{atomic::stage_summary, stage_chunks};
@@ -465,7 +465,7 @@ mod tests {
     fn write_summary_file(dir: &TempDir, body: &str) -> (std::path::PathBuf, String) {
         use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
         use crate::openhuman::memory_store::content::compose::{
-            SummaryComposeInput, compose_summary_md,
+            compose_summary_md, SummaryComposeInput,
         };
         use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
         use chrono::TimeZone;

@@ -16,10 +16,10 @@
 //!   becomes one chunk. Same oversize fallback as Chat.
 //! - **Document**: original paragraph-based greedy packing (unchanged).
 
+use crate::openhuman::memory::util::redact::redact;
 use crate::openhuman::memory_store::chunks::types::{
     approx_token_count, chunk_id, Chunk, Metadata, SourceKind,
 };
-use crate::openhuman::memory::util::redact::redact;
 
 /// Default upper bound on per-chunk tokens.
 ///

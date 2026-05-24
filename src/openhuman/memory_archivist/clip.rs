@@ -61,10 +61,7 @@ mod tests {
 
     #[test]
     fn preserves_user_and_system_turns_unchanged() {
-        let convo = vec![
-            t("system", "be brief", None),
-            t("user", "hi", None),
-        ];
+        let convo = vec![t("system", "be brief", None), t("user", "hi", None)];
         let cleaned = clean_conversation(&convo);
         assert_eq!(cleaned.len(), 2);
         assert_eq!(cleaned[0].role, "system");

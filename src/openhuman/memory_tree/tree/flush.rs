@@ -15,9 +15,9 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory_store::trees::types::DEFAULT_FLUSH_AGE_SECS;
 use crate::openhuman::memory_tree::tree::bucket_seal::{cascade_all_from, LabelStrategy};
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_store::trees::types::DEFAULT_FLUSH_AGE_SECS;
 
 /// Seal every buffer whose oldest item is older than `max_age`. Returns
 /// the number of individual seal calls (not trees) that fired. When the
@@ -81,7 +81,9 @@ mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LeafRef};

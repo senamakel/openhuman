@@ -324,7 +324,10 @@ fn empty_query_embedding_skips_arm2_but_preserves_arm1_fts5_hits() {
     );
     assert!(block.fts5_candidates > 0, "Arm 1 should still run");
     assert!(
-        block.items.iter().any(|it| matches!(it, StmItem::EpisodicTurn { .. })),
+        block
+            .items
+            .iter()
+            .any(|it| matches!(it, StmItem::EpisodicTurn { .. })),
         "FTS5 hits should still surface episodic turns when Arm 2 is skipped"
     );
 }
@@ -355,7 +358,10 @@ fn missing_query_embedding_skips_arm2_but_preserves_arm1_fts5_hits() {
     );
     assert!(block.fts5_candidates > 0, "Arm 1 should still run");
     assert!(
-        block.items.iter().any(|it| matches!(it, StmItem::EpisodicTurn { .. })),
+        block
+            .items
+            .iter()
+            .any(|it| matches!(it, StmItem::EpisodicTurn { .. })),
         "FTS5 hits should still surface episodic turns when Arm 2 is skipped"
     );
 }
@@ -365,7 +371,13 @@ fn arm2_sql_filter_excludes_null_summary_segments() {
     let conn = setup_conn();
     let now = now_ts();
 
-    let id = insert_episodic(&conn, "session-null", now - 100.0, "user", "null summary row");
+    let id = insert_episodic(
+        &conn,
+        "session-null",
+        now - 100.0,
+        "user",
+        "null summary row",
+    );
     {
         let c = conn.lock();
         c.execute(

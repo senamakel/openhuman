@@ -511,10 +511,11 @@ fn collect_hour_leaves_recursive(
             let level = level_from_node_id(&node_id);
             if level == NodeLevel::Hour {
                 let raw = std::fs::read_to_string(entry.path())?;
-                let node = crate::openhuman::memory_tree::tree_runtime::store::parse_node_markdown_pub(
-                    &raw, namespace, &node_id,
-                )
-                .with_context(|| format!("failed to parse hour leaf '{node_id}'"))?;
+                let node =
+                    crate::openhuman::memory_tree::tree_runtime::store::parse_node_markdown_pub(
+                        &raw, namespace, &node_id,
+                    )
+                    .with_context(|| format!("failed to parse hour leaf '{node_id}'"))?;
                 leaves.push(node);
             }
         }

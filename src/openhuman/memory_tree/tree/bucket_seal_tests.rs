@@ -13,7 +13,10 @@ use tempfile::TempDir;
 /// can find the on-disk file during seals. Tests that call `upsert_chunks`
 /// and then trigger a seal MUST also call this helper; otherwise
 /// `hydrate_leaf_inputs` will fail with "no content_path for chunk_id".
-fn stage_test_chunks(cfg: &Config, chunks: &[crate::openhuman::memory_store::chunks::types::Chunk]) {
+fn stage_test_chunks(
+    cfg: &Config,
+    chunks: &[crate::openhuman::memory_store::chunks::types::Chunk],
+) {
     let content_root = cfg.memory_tree_content_root();
     std::fs::create_dir_all(&content_root).expect("create content_root for test");
     let staged =
@@ -79,7 +82,9 @@ async fn append_below_budget_does_not_seal() {
 #[tokio::test]
 async fn crossing_budget_triggers_seal() {
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
@@ -187,7 +192,9 @@ async fn crossing_budget_triggers_seal() {
 #[tokio::test]
 async fn fanout_at_l1_triggers_l2_seal() {
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::trees::types::SUMMARY_FANOUT;
     use chrono::TimeZone;
 
@@ -279,7 +286,9 @@ async fn fanout_at_l1_triggers_l2_seal() {
 #[tokio::test]
 async fn upper_level_does_not_seal_below_fanout() {
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::trees::types::SUMMARY_FANOUT;
     use chrono::TimeZone;
 
@@ -364,11 +373,13 @@ fn seed_leaf(
     entities: Vec<String>,
     topics: Vec<String>,
 ) -> LeafRef {
-    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::score::extract::EntityKind;
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use chrono::TimeZone;
     let ts = Utc
         .timestamp_millis_opt(1_700_000_000_000 + seq as i64)

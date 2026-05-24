@@ -7,7 +7,7 @@
 //! backend, the `UnifiedMemory` impl shrinks to a thin shim and the bulk
 //! of this file moves to free functions.
 
-use rusqlite::{OptionalExtension, params};
+use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
 use crate::openhuman::memory_store::safety;
@@ -321,16 +321,12 @@ mod tests {
 
         let scoped = memory.kv_records_for_scope("team alpha/#1").await.unwrap();
         assert_eq!(scoped.len(), 2);
-        assert!(
-            scoped
-                .iter()
-                .any(|r| r.namespace.is_none() && r.key == "global-setting")
-        );
-        assert!(
-            scoped
-                .iter()
-                .any(|r| { r.namespace.as_deref() == Some("team_alpha/_1") && r.key == "state" })
-        );
+        assert!(scoped
+            .iter()
+            .any(|r| r.namespace.is_none() && r.key == "global-setting"));
+        assert!(scoped
+            .iter()
+            .any(|r| { r.namespace.as_deref() == Some("team_alpha/_1") && r.key == "state" }));
     }
 
     #[tokio::test]

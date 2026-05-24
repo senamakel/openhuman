@@ -41,8 +41,7 @@ fn entity_path(config: &Config, kind: EntityKind, canonical_id: &str) -> PathBuf
 /// entity with `updated_at` refreshed.
 pub fn put_entity(config: &Config, mut entity: Entity) -> Result<Entity> {
     let dir = kind_dir(config, entity.kind);
-    fs::create_dir_all(&dir)
-        .with_context(|| format!("failed to mkdir -p {}", dir.display()))?;
+    fs::create_dir_all(&dir).with_context(|| format!("failed to mkdir -p {}", dir.display()))?;
     let path = entity_path(config, entity.kind, &entity.id);
 
     // Preserve any free-form notes the user typed in Obsidian.
@@ -65,17 +64,13 @@ pub fn put_entity(config: &Config, mut entity: Entity) -> Result<Entity> {
 }
 
 /// Read by canonical id. Returns `Ok(None)` when the file doesn't exist.
-pub fn get_entity(
-    config: &Config,
-    kind: EntityKind,
-    canonical_id: &str,
-) -> Result<Option<Entity>> {
+pub fn get_entity(config: &Config, kind: EntityKind, canonical_id: &str) -> Result<Option<Entity>> {
     let path = entity_path(config, kind, canonical_id);
     if !path.exists() {
         return Ok(None);
     }
-    let text = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
+    let text =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     Ok(parse(&text))
 }
 
@@ -87,8 +82,8 @@ pub fn list_entities(config: &Config, kind: EntityKind) -> Result<Vec<Entity>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in fs::read_dir(&dir)
-        .with_context(|| format!("failed to read_dir {}", dir.display()))?
+    for entry in
+        fs::read_dir(&dir).with_context(|| format!("failed to read_dir {}", dir.display()))?
     {
         let entry = entry?;
         let name = entry.file_name();
@@ -111,11 +106,7 @@ pub fn list_entities(config: &Config, kind: EntityKind) -> Result<Vec<Entity>> {
 ///
 /// Linear scan — for a single-user workspace with thousands (not millions)
 /// of entities this is fine and avoids any additional index.
-pub fn lookup_alias(
-    config: &Config,
-    kind: EntityKind,
-    needle: &str,
-) -> Result<Option<Entity>> {
+pub fn lookup_alias(config: &Config, kind: EntityKind, needle: &str) -> Result<Option<Entity>> {
     let lower = needle.to_lowercase();
     for e in list_entities(config, kind)? {
         if e.aliases.iter().any(|a| a.to_lowercase() == lower) {
@@ -169,14 +160,8 @@ fn compose(entity: &Entity, notes: &str) -> String {
             ));
         }
     }
-    out.push_str(&format!(
-        "created_at: {}\n",
-        entity.created_at.to_rfc3339()
-    ));
-    out.push_str(&format!(
-        "updated_at: {}\n",
-        entity.updated_at.to_rfc3339()
-    ));
+    out.push_str(&format!("created_at: {}\n", entity.created_at.to_rfc3339()));
+    out.push_str(&format!("updated_at: {}\n", entity.updated_at.to_rfc3339()));
     out.push_str("---\n\n");
     out.push_str(notes);
     if !notes.ends_with('\n') {
@@ -383,7 +368,10 @@ mod tests {
         let (_t, c) = cfg();
         put_entity(&c, alice()).unwrap();
         assert_eq!(
-            lookup_alias(&c, EntityKind::Person, "Ali").unwrap().unwrap().id,
+            lookup_alias(&c, EntityKind::Person, "Ali")
+                .unwrap()
+                .unwrap()
+                .id,
             "person:alice"
         );
         assert_eq!(
@@ -407,7 +395,9 @@ mod tests {
                 .id,
             "person:alice"
         );
-        assert!(lookup_alias(&c, EntityKind::Person, "noone").unwrap().is_none());
+        assert!(lookup_alias(&c, EntityKind::Person, "noone")
+            .unwrap()
+            .is_none());
     }
 
     #[test]

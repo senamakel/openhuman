@@ -196,19 +196,17 @@ mod tests {
             .execute(json!({ "tool_name": "bash" }))
             .await
             .expect_err("missing rule should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tools_put")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tools_put"));
 
         let err = tool
             .execute(json!({ "rule": "Never run rm -rf" }))
             .await
             .expect_err("missing tool_name should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tools_put")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tools_put"));
     }
 
     #[tokio::test]
@@ -245,7 +243,10 @@ mod tests {
         assert_eq!(rules[0].rule, "Always dry-run dangerous commands first");
         assert_eq!(rules[0].priority, ToolMemoryPriority::High);
         assert_eq!(rules[0].source, ToolMemorySource::UserExplicit);
-        assert_eq!(rules[0].tags, vec!["safety".to_string(), "shell".to_string()]);
+        assert_eq!(
+            rules[0].tags,
+            vec!["safety".to_string(), "shell".to_string()]
+        );
     }
 
     #[tokio::test]

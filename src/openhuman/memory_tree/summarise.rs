@@ -103,8 +103,8 @@ pub async fn summarise(
         });
     }
 
-    let provider = build_chat_provider(config)
-        .context("memory_tree::summarise: build chat provider")?;
+    let provider =
+        build_chat_provider(config).context("memory_tree::summarise: build chat provider")?;
 
     let prompt = ChatPrompt {
         system: system_prompt(effective_budget, config.output_language.as_deref()),

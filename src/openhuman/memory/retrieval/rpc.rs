@@ -8,7 +8,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::retrieval::{
     drill_down::drill_down,
     fetch::fetch_leaves,
@@ -19,6 +18,7 @@ use crate::openhuman::memory::retrieval::{
     types::{EntityMatch, QueryResponse, RetrievalHit},
 };
 use crate::openhuman::memory::score::extract::EntityKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::rpc::RpcOutcome;
 
 // ── query_source ──────────────────────────────────────────────────────

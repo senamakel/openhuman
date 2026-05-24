@@ -22,10 +22,10 @@ pub mod registry;
 pub use crate::openhuman::memory_store::trees::store;
 pub use crate::openhuman::memory_store::trees::types;
 
-pub use bucket_seal::{append_leaf, append_leaf_deferred, LabelStrategy, LeafRef};
-pub use registry::{get_or_create_tree, new_summary_id, new_tree_id};
 pub use crate::openhuman::memory_store::trees::{get_summary_embedding, set_summary_embedding};
 pub use crate::openhuman::memory_store::trees::{
     Buffer, SummaryNode, Tree, TreeKind, TreeStatus, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET,
     SUMMARY_FANOUT,
 };
+pub use bucket_seal::{append_leaf, append_leaf_deferred, LabelStrategy, LeafRef};
+pub use registry::{get_or_create_tree, new_summary_id, new_tree_id};

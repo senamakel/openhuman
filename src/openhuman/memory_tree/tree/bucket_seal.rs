@@ -39,21 +39,21 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::score::embed::build_embedder_from_config;
+use crate::openhuman::memory::score::extract::EntityExtractor;
+use crate::openhuman::memory::score::resolver::canonicalise;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary, paths::slugify_source_id, SummaryComposeInput, SummaryTreeKind,
 };
-use crate::openhuman::memory::score::embed::build_embedder_from_config;
-use crate::openhuman::memory::score::extract::EntityExtractor;
-use crate::openhuman::memory::score::resolver::canonicalise;
+use crate::openhuman::memory_store::trees::types::{
+    Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
+};
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_store::trees::types::{
-    Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
-};
 
 /// Hard cap on cascade depth — prevents runaway loops if token accounting
 /// ever slips. 32 levels at even a 2x fan-in is more than enough for any
@@ -539,7 +539,9 @@ pub(crate) async fn seal_one_level(
                 // We still yield `None` (so `compose_summary_md`
                 // takes the sanitised-id fallback) but a warn log
                 // makes the SQL error visible for diagnosis.
-                match crate::openhuman::memory_store::chunks::store::get_chunk_raw_refs(config, chunk_id) {
+                match crate::openhuman::memory_store::chunks::store::get_chunk_raw_refs(
+                    config, chunk_id,
+                ) {
                     Ok(Some(refs)) if !refs.is_empty() => {
                         // RawRef::path is a forward-slash relative path
                         // under content_root, e.g.
@@ -805,9 +807,9 @@ fn hydrate_inputs(config: &Config, level: u32, item_ids: &[String]) -> Result<Ve
 }
 
 fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<SummaryInput>> {
+    use crate::openhuman::memory::score::store::{get_score, list_entity_ids_for_node};
     use crate::openhuman::memory_store::chunks::store::get_chunk;
     use crate::openhuman::memory_store::content::read as content_read;
-    use crate::openhuman::memory::score::store::{get_score, list_entity_ids_for_node};
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(chunk_ids.len());
     for id in chunk_ids {

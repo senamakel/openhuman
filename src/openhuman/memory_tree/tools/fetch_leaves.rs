@@ -141,10 +141,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing chunk_ids should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_fetch_leaves")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_fetch_leaves"));
     }
 
     #[tokio::test]
@@ -154,10 +153,9 @@ mod tests {
             .execute(json!({"chunk_ids": "not-an-array"}))
             .await
             .expect_err("wrong chunk_ids type should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_fetch_leaves")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_fetch_leaves"));
     }
 
     #[tokio::test]
@@ -183,7 +181,10 @@ mod tests {
 
         let direct = retrieval::fetch_leaves(
             &cfg,
-            &["chunk-does-not-exist-1".to_string(), "chunk-does-not-exist-2".to_string()],
+            &[
+                "chunk-does-not-exist-1".to_string(),
+                "chunk-does-not-exist-2".to_string(),
+            ],
         )
         .await
         .expect("direct fetch_leaves on empty workspace");

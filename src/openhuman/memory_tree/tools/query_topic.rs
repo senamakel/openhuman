@@ -132,10 +132,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing entity_id should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_query_topic")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_query_topic"));
     }
 
     #[tokio::test]
@@ -145,10 +144,9 @@ mod tests {
             .execute(json!({"entity_id": 42}))
             .await
             .expect_err("wrong type should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_query_topic")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_query_topic"));
     }
 
     #[tokio::test]

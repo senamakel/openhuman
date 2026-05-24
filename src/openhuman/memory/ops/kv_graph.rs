@@ -188,12 +188,10 @@ mod tests {
         })
         .await
         .expect("kv list namespace");
-        assert!(
-            listed
-                .value
-                .iter()
-                .any(|row| row["key"] == key && row["value"] == serde_json::json!({"open": true}))
-        );
+        assert!(listed
+            .value
+            .iter()
+            .any(|row| row["key"] == key && row["value"] == serde_json::json!({"open": true})));
 
         let deleted = kv_delete(KvGetDeleteParams {
             namespace: Some(namespace.clone()),

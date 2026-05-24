@@ -44,10 +44,7 @@ mod tests {
 
     #[test]
     fn role_headings_separate_turns() {
-        let md = compose_conversation_md(&[
-            t("user", "hi"),
-            t("assistant", "hello"),
-        ]);
+        let md = compose_conversation_md(&[t("user", "hi"), t("assistant", "hello")]);
         assert!(md.contains("## user\nhi\n"));
         assert!(md.contains("## assistant\nhello\n"));
     }

@@ -2,7 +2,7 @@
 //! [`MemoryKind`] so an agent can plan a fan-out without hard-coding.
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::openhuman::memory_store::MemoryKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};

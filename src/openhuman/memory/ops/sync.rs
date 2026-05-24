@@ -121,7 +121,7 @@ mod tests {
     use serde_json::json;
     use tempfile::TempDir;
     use tokio::sync::mpsc;
-    use tokio::time::{Duration, timeout};
+    use tokio::time::{timeout, Duration};
 
     use crate::core::event_bus::{self, DomainEvent, EventHandler};
 

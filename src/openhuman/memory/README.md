@@ -37,21 +37,21 @@ one job. memory orchestrates and routes between them.
 | --- | --- |
 | [`mod.rs`](mod.rs) | Module root + re-exports. |
 | [`ingest_pipeline.rs`](ingest_pipeline.rs) | Source-agnostic ingest orchestration. Called by sync pipelines and tree_rpc. |
-| [`jobs/`](jobs/) | Background workers: extract, admit, seal, digest, topic curate. |
+| [`jobs/`](../memory_queue/) | Background workers: extract, admit, seal, digest, topic curate. Re-exported here from `memory_queue`. |
 | [`score/`](score/) | Fast scorer, signals, embeddings, entity extraction, entity-index persistence. `store.rs` will eventually split — entity-index pieces move to `memory_store::entities`. |
 | [`retrieval/`](retrieval/) | Drill-down, fetch, query_source, query_global, query_topic, search; scoring + ranking on top of memory_store. |
-| [`tree_global/`](tree_global/) | Global digest tree building policy: seal, digest, recap. |
-| [`tree_topic/`](tree_topic/) | Topic tree building policy: hotness gating, routing, curator, backfill. |
-| [`summarizer/`](summarizer/) | LLM summarisation pipeline for sealed buckets. |
+| [`tree_global/`](../memory_tree/global/) | Global digest tree building policy: seal, digest, recap. Implemented in `memory_tree/global` and routed from here. |
+| [`tree_topic/`](../memory_tree/topic/) | Topic tree building policy: hotness gating, routing, curator, backfill. Implemented in `memory_tree/topic` and routed from here. |
+| [`summarizer/`](../memory_tree/summarise.rs) | LLM summarisation pipeline for sealed buckets. Implemented in `memory_tree/summarise.rs`. |
 | [`stm_recall/`](stm_recall/) | Short-term recall: cross-session FTS5 lookup + ranking. |
 | [`ingestion/`](ingestion/) | Document ingestion queue + extraction (entities, relations, embeddings) — feeds UnifiedMemory documents. |
-| [`canonicalize/`](canonicalize/) | Source → canonical markdown (chat / email / document). Used at ingest time. |
+| [`canonicalize/`](../memory_sync/canonicalize/) | Source → canonical markdown (chat / email / document). Implemented in `memory_sync/canonicalize` and used at ingest time. |
 | [`chat/`](chat/) | Chat-source canonicalisation helpers. |
-| [`conversations/`](conversations/) | Workspace-backed JSONL chat thread/message history. |
+| [`conversations/`](../memory_conversations/) | Workspace-backed JSONL chat thread/message history. Re-exported here from `memory_conversations`. |
 | [`read_rpc.rs`](read_rpc.rs) | RPC handlers for memory reads. |
 | [`tree_rpc.rs`](tree_rpc.rs) | RPC handlers for tree ingest + introspection. |
 | [`schemas/`](schemas/) + [`schema.rs`](schema.rs) | Controller schema definitions for the memory + memory_tree RPC namespaces. |
-| [`sync_status/`](sync_status/) | Sync freshness tracking + RPC. |
+| [`sync_status/`](../memory_sync/sync_status/) | Sync freshness tracking + RPC. Re-exported here from `memory_sync::sync_status`. |
 | [`ops/`](ops/) | RPC operation handlers + the shared `active_memory_client` helper. |
 | [`preferences.rs`](preferences.rs) | User preference read/write helpers. |
 | [`rpc_models.rs`](rpc_models.rs) | Shared RPC request/response shapes. |

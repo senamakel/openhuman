@@ -26,10 +26,10 @@ pub mod global;
 pub mod io;
 pub mod sources;
 pub mod summarise;
-pub mod tree_runtime;
 pub mod tools;
 pub mod topic;
 pub mod tree;
+pub mod tree_runtime;
 
 pub use io::{
     TreeLabelStrategy, TreeLeafPayload, TreeReadHit, TreeReadRequest, TreeReadResult,

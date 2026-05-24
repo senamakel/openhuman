@@ -163,10 +163,9 @@ mod tests {
             }))
             .await
             .expect_err("wrong limit type should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_query_source")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_query_source"));
     }
 
     #[tokio::test]

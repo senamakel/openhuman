@@ -556,7 +556,12 @@ mod tests {
     #[test]
     fn query_namespace_schema_requires_namespace_and_query() {
         let schema = schema("query_namespace").unwrap();
-        let required: Vec<&str> = schema.inputs.iter().filter(|f| f.required).map(|f| f.name).collect();
+        let required: Vec<&str> = schema
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
         assert!(required.contains(&"namespace"));
         assert!(required.contains(&"query"));
     }

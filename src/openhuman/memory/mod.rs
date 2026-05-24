@@ -41,6 +41,16 @@ pub use crate::openhuman::memory_conversations as conversations;
 // so existing `memory::jobs::*` paths still resolve during the migration.
 pub use crate::openhuman::memory_queue as jobs;
 
+pub use crate::openhuman::memory_store::{
+    create_memory, create_memory_for_migration, create_memory_with_local_ai,
+    effective_embedding_settings, effective_memory_backend_name, MemoryClient, MemoryClientRef,
+    MemoryItemKind, MemoryState, NamespaceDocumentInput, NamespaceMemoryHit, NamespaceQueryResult,
+    NamespaceRetrievalContext, RetrievalScoreBreakdown, UnifiedMemory,
+};
+pub use crate::openhuman::memory_sync::sync_status::{
+    all_memory_sync_status_controller_schemas, all_memory_sync_status_registered_controllers,
+    FreshnessLabel, MemorySyncStatus,
+};
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,
     IngestionState, IngestionStatusSnapshot, MemoryIngestionConfig, MemoryIngestionRequest,
@@ -52,16 +62,6 @@ pub use rpc_models::*;
 pub use schemas::{
     all_controller_schemas as all_memory_controller_schemas,
     all_registered_controllers as all_memory_registered_controllers,
-};
-pub use crate::openhuman::memory_store::{
-    create_memory, create_memory_for_migration, create_memory_with_local_ai,
-    effective_embedding_settings, effective_memory_backend_name, MemoryClient, MemoryClientRef,
-    MemoryItemKind, MemoryState, NamespaceDocumentInput, NamespaceMemoryHit, NamespaceQueryResult,
-    NamespaceRetrievalContext, RetrievalScoreBreakdown, UnifiedMemory,
-};
-pub use crate::openhuman::memory_sync::sync_status::{
-    all_memory_sync_status_controller_schemas, all_memory_sync_status_registered_controllers,
-    FreshnessLabel, MemorySyncStatus,
 };
 pub use tool_memory::{
     render_tool_memory_rules, tool_memory_namespace, ToolMemoryCaptureHook, ToolMemoryPriority,

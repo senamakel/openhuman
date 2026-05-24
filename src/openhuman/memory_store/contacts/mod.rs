@@ -11,7 +11,7 @@
 //! union of: chunks, content (md files), trees (Source/Global/Topic),
 //! vectors, AND contacts.
 
-pub use crate::openhuman::people::store::{PeopleStore, get as get_store, init as init_store};
+pub use crate::openhuman::people::store::{get as get_store, init as init_store, PeopleStore};
 pub use crate::openhuman::people::types::{
     AddressBookContact, Handle, Interaction, Person, PersonId, ScoreComponents,
 };

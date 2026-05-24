@@ -22,9 +22,9 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use uuid::Uuid;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory::jobs::redact::scrub_for_log;
 use crate::openhuman::memory::jobs::types::{Job, JobKind, JobStatus, NewJob};
+use crate::openhuman::memory_store::chunks::store::with_connection;
 
 /// Default visibility lock — a worker that crashes mid-job will have its
 /// row recovered after this window. 5 min is comfortably larger than any

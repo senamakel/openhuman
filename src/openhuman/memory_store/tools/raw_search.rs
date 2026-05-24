@@ -138,10 +138,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing query should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_store_raw_search")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_store_raw_search"));
     }
 
     #[tokio::test]

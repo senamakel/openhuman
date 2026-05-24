@@ -151,10 +151,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing node_id should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_drill_down")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_drill_down"));
     }
 
     #[tokio::test]

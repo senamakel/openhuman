@@ -538,7 +538,10 @@ mod tests {
         let merged = UnifiedMemory::merge_graph_attrs(Some(&existing.to_string()), &incoming, 9.0);
         assert_eq!(merged["evidence_count"], json!(5));
         assert_eq!(merged["document_ids"], json!(["doc-1", "doc-2"]));
-        assert_eq!(merged["chunk_ids"], json!(["doc-1:chunk-1", "doc-2:chunk-9"]));
+        assert_eq!(
+            merged["chunk_ids"],
+            json!(["doc-1:chunk-1", "doc-2:chunk-9"])
+        );
         assert_eq!(merged["order_index"], json!(3));
         assert_eq!(merged["created_at"], json!(1.0));
         assert_eq!(merged["updated_at"], json!(9.0));
@@ -672,7 +675,10 @@ mod tests {
         assert_eq!(rows[0]["evidenceCount"], 2);
         assert_eq!(rows[0]["orderIndex"], 2);
         assert_eq!(rows[0]["documentIds"], json!(["doc-1", "doc-2"]));
-        assert_eq!(rows[0]["chunkIds"], json!(["doc-1:chunk-1", "doc-2:chunk-9"]));
+        assert_eq!(
+            rows[0]["chunkIds"],
+            json!(["doc-1:chunk-1", "doc-2:chunk-9"])
+        );
 
         let scoped = memory
             .graph_relations_for_scope("team alpha/#1")
@@ -713,10 +719,7 @@ mod tests {
         assert_eq!(global[0]["namespace"], Value::Null);
         assert_eq!(global[0]["subject"], "BOB");
 
-        let all = memory
-            .graph_query_all(None, None)
-            .await
-            .unwrap();
+        let all = memory.graph_query_all(None, None).await.unwrap();
         assert_eq!(all.len(), 2);
         assert!(all.iter().any(|row| row["subject"] == "ALICE"));
         assert!(all.iter().any(|row| row["subject"] == "BOB"));
@@ -747,7 +750,9 @@ mod tests {
 
         let scoped = memory.graph_relations_for_scope("scope-a").await.unwrap();
         assert_eq!(scoped.len(), 2);
-        assert!(scoped.iter().any(|row| row.namespace.as_deref() == Some("scope-a")));
+        assert!(scoped
+            .iter()
+            .any(|row| row.namespace.as_deref() == Some("scope-a")));
         assert!(scoped.iter().any(|row| row.namespace.is_none()));
         assert!(
             scoped[0].updated_at >= scoped[1].updated_at,
@@ -790,8 +795,15 @@ mod tests {
             .await
             .unwrap();
 
-        let rows = memory.graph_query_namespace("cleanup", None, None).await.unwrap();
-        assert_eq!(rows.len(), 1, "single-doc relation should be deleted entirely");
+        let rows = memory
+            .graph_query_namespace("cleanup", None, None)
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.len(),
+            1,
+            "single-doc relation should be deleted entirely"
+        );
         assert_eq!(rows[0]["predicate"], "OWNS");
         assert_eq!(rows[0]["documentIds"], json!(["doc-2"]));
         assert_eq!(rows[0]["chunkIds"], json!(["doc-2:chunk-2"]));
@@ -819,7 +831,10 @@ mod tests {
             .await
             .unwrap();
 
-        let rows = memory.graph_query_namespace("cleanup", None, None).await.unwrap();
+        let rows = memory
+            .graph_query_namespace("cleanup", None, None)
+            .await
+            .unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["documentIds"], json!(["doc-2"]));
         assert_eq!(rows[0]["chunkIds"], json!(["doc-2:chunk-2"]));

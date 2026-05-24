@@ -145,7 +145,12 @@ mod tests {
     #[test]
     fn write_file_schema_requires_path_and_content() {
         let schema = schema("write_file").unwrap();
-        let required: Vec<&str> = schema.inputs.iter().filter(|f| f.required).map(|f| f.name).collect();
+        let required: Vec<&str> = schema
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
         assert!(required.contains(&"relative_path"));
         assert!(required.contains(&"content"));
     }

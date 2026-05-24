@@ -105,7 +105,11 @@ mod tests {
     #[test]
     fn empty_when_no_co_occurrence() {
         let (_tmp, cfg) = test_config();
-        let alice = entity("email:alice@example.com", EntityKind::Email, "alice@example.com");
+        let alice = entity(
+            "email:alice@example.com",
+            EntityKind::Email,
+            "alice@example.com",
+        );
         index_entity(&cfg, &alice, "leaf-1", "leaf", 100, None).unwrap();
         let neighbors = co_occurring_entities(&cfg, "email:alice@example.com", None).unwrap();
         assert!(neighbors.is_empty());

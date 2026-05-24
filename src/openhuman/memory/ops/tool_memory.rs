@@ -313,13 +313,11 @@ mod tests {
         .expect("tool rules json")
         .value;
         assert!(json_rules.is_array(), "tool rules json should be an array");
-        assert!(
-            json_rules
-                .as_array()
-                .expect("array")
-                .iter()
-                .any(|row| row["rule"] == "Log the final command")
-        );
+        assert!(json_rules
+            .as_array()
+            .expect("array")
+            .iter()
+            .any(|row| row["rule"] == "Log the final command"));
 
         let _ = tool_rule_delete(ToolRuleRefParams {
             tool_name: primary_tool,

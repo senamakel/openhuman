@@ -27,7 +27,7 @@ use crate::openhuman::memory_store::trees::{Tree, TreeKind};
 use crate::openhuman::memory_tree::io::{
     TreeLabelStrategy, TreeLeafPayload, TreeWriteOutcome, TreeWriteRequest,
 };
-use crate::openhuman::memory_tree::tree::bucket_seal::{LabelStrategy, append_leaf};
+use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy};
 
 const TOKEN_DIVISOR: usize = 4;
 
@@ -248,7 +248,10 @@ mod tests {
             );
 
             let expected_md = format!("## user\nConversation {idx} about the phoenix rollout.\n");
-            expected_ids.push(chunk_id_for_session(&format!("session-{idx}"), &expected_md));
+            expected_ids.push(chunk_id_for_session(
+                &format!("session-{idx}"),
+                &expected_md,
+            ));
         }
 
         let l0 = tree_store::get_buffer(&cfg, &tree.id, 0).unwrap();

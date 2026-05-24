@@ -294,7 +294,10 @@ mod tests {
             0,
             Map::new(),
         );
-        assert!(acc.relations.is_empty(), "unknown predicate should be ignored");
+        assert!(
+            acc.relations.is_empty(),
+            "unknown predicate should be ignored"
+        );
     }
 
     #[test]

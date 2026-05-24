@@ -11,14 +11,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_sync::canonicalize::{
-    chat::ChatBatch, document::DocumentInput, email::EmailThread,
-};
-use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};
-use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory::ingest_pipeline::{
     ingest_chat as do_ingest_chat, ingest_document as do_ingest_document,
     ingest_email as do_ingest_email, IngestResult,
+};
+use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};
+use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
+use crate::openhuman::memory_sync::canonicalize::{
+    chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
 use crate::rpc::RpcOutcome;
 
@@ -378,7 +378,9 @@ mod tests {
         .value
         .chunks;
         assert_eq!(listed.len(), outcome.value.chunks_written);
-        assert!(listed.iter().all(|chunk| chunk.metadata.source_kind == SourceKind::Document));
+        assert!(listed
+            .iter()
+            .all(|chunk| chunk.metadata.source_kind == SourceKind::Document));
         assert!(listed
             .iter()
             .any(|chunk| chunk.content.contains("Phoenix launch canary checklist")));

@@ -264,7 +264,10 @@ mod tests {
         let input_names: Vec<&str> = schema.inputs.iter().map(|f| f.name).collect();
         assert!(input_names.contains(&"tool_name"));
         assert!(input_names.contains(&"rule"));
-        assert!(schema.inputs.iter().any(|f| f.name == "tool_name" && f.required));
+        assert!(schema
+            .inputs
+            .iter()
+            .any(|f| f.name == "tool_name" && f.required));
         assert!(schema.inputs.iter().any(|f| f.name == "rule" && f.required));
     }
 }

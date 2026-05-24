@@ -244,21 +244,15 @@ async fn rules_for_prompt_returns_only_eager_priorities() {
         .unwrap();
     let email_rules = rendered.get("email").expect("email rules present");
     assert_eq!(email_rules.len(), 2, "Normal rule must not be eager");
-    assert!(
-        email_rules
-            .iter()
-            .any(|r| r.priority == ToolMemoryPriority::Critical)
-    );
-    assert!(
-        email_rules
-            .iter()
-            .any(|r| r.priority == ToolMemoryPriority::High)
-    );
-    assert!(
-        email_rules
-            .iter()
-            .all(|r| r.priority != ToolMemoryPriority::Normal)
-    );
+    assert!(email_rules
+        .iter()
+        .any(|r| r.priority == ToolMemoryPriority::Critical));
+    assert!(email_rules
+        .iter()
+        .any(|r| r.priority == ToolMemoryPriority::High));
+    assert!(email_rules
+        .iter()
+        .all(|r| r.priority != ToolMemoryPriority::Normal));
 }
 
 #[tokio::test]
@@ -359,13 +353,11 @@ async fn list_rules_json_serializes_payload_for_rpc_envelopes() {
     let json = store.list_rules_json("email").await.unwrap();
     let arr = json.as_array().expect("expected an array");
     assert_eq!(arr.len(), 1);
-    assert!(
-        arr[0]
-            .get("priority")
-            .and_then(|v| v.as_str())
-            .map(|s| s == "high")
-            .unwrap_or(false)
-    );
+    assert!(arr[0]
+        .get("priority")
+        .and_then(|v| v.as_str())
+        .map(|s| s == "high")
+        .unwrap_or(false));
 }
 
 #[tokio::test]

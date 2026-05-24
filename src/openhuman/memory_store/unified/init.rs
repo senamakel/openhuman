@@ -323,10 +323,7 @@ mod tests {
             UnifiedMemory::sanitize_namespace("team alpha/#1"),
             "team_alpha/_1"
         );
-        assert_eq!(
-            UnifiedMemory::sanitize_namespace("a-b_c/ok"),
-            "a-b_c/ok"
-        );
+        assert_eq!(UnifiedMemory::sanitize_namespace("a-b_c/ok"), "a-b_c/ok");
     }
 
     #[test]

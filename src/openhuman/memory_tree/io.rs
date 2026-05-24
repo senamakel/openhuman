@@ -183,7 +183,7 @@ impl TreeReadResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_store::trees::{TreeStatus};
+    use crate::openhuman::memory_store::trees::TreeStatus;
 
     fn sample_tree() -> Tree {
         Tree {

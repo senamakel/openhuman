@@ -18,8 +18,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::jobs::handlers;
 use crate::openhuman::memory::jobs::redact::scrub_for_log;
 use crate::openhuman::memory::jobs::store::{
-    DEFAULT_LOCK_DURATION_MS, claim_next, mark_deferred, mark_done, mark_failed,
-    recover_stale_locks,
+    claim_next, mark_deferred, mark_done, mark_failed, recover_stale_locks,
+    DEFAULT_LOCK_DURATION_MS,
 };
 use crate::openhuman::memory::jobs::types::JobOutcome;
 
@@ -305,11 +305,15 @@ fn is_sqlite_busy(err: &anyhow::Error) -> bool {
 mod tests {
     use super::*;
     use crate::openhuman::memory::jobs::store::{count_by_status, enqueue, get_job};
-    use crate::openhuman::memory::jobs::types::{FlushStalePayload, JobKind, JobStatus, NewJob, ReembedBackfillPayload};
+    use crate::openhuman::memory::jobs::types::{
+        FlushStalePayload, JobKind, JobStatus, NewJob, ReembedBackfillPayload,
+    };
     use crate::openhuman::memory_store::chunks::store::{
         tree_active_signature, upsert_chunks, upsert_staged_chunks_tx, with_connection,
     };
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::content as content_store;
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
@@ -544,7 +548,9 @@ mod tests {
             signature: signature.clone(),
         })
         .unwrap();
-        let id = enqueue(&cfg, &new_job).unwrap().expect("enqueue backfill job");
+        let id = enqueue(&cfg, &new_job)
+            .unwrap()
+            .expect("enqueue backfill job");
 
         let processed = run_once(&cfg).await.unwrap();
         assert!(processed);

@@ -333,13 +333,11 @@ mod tests {
             .collect();
         assert!(namespaces.contains(namespace_a.as_str()));
         assert!(namespaces.contains(namespace_b.as_str()));
-        assert!(
-            outcome
-                .value
-                .results
-                .iter()
-                .filter(|r| r.namespace == namespace_a || r.namespace == namespace_b)
-                .all(|r| r.status == "ok" && r.error.is_none())
-        );
+        assert!(outcome
+            .value
+            .results
+            .iter()
+            .filter(|r| r.namespace == namespace_a || r.namespace == namespace_b)
+            .all(|r| r.status == "ok" && r.error.is_none()));
     }
 }

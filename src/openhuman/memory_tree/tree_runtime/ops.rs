@@ -1,7 +1,7 @@
 //! RPC operation wrappers for the tree summarizer.
 
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree_runtime::{engine, store, types::*};
@@ -328,31 +328,33 @@ mod tests {
             .await
             .expect("query should succeed");
 
-        assert_eq!(outcome.logs, vec!["queried node 'root' in namespace 'team'"]);
+        assert_eq!(
+            outcome.logs,
+            vec!["queried node 'root' in namespace 'team'"]
+        );
         assert_eq!(outcome.value["node"]["node_id"], "root");
         assert_eq!(outcome.value["node"]["summary"], "root summary");
-        assert_eq!(outcome.value["children"], json!([{
-            "node_id": "2026",
-            "namespace": "team",
-            "level": "year",
-            "parent_id": "root",
-            "summary": "year summary",
-            "token_count": estimate_tokens("year summary"),
-            "child_count": 1,
-            "created_at": rfc3339_z(ts),
-            "updated_at": rfc3339_z(ts)
-        }]));
+        assert_eq!(
+            outcome.value["children"],
+            json!([{
+                "node_id": "2026",
+                "namespace": "team",
+                "level": "year",
+                "parent_id": "root",
+                "summary": "year summary",
+                "token_count": estimate_tokens("year summary"),
+                "child_count": 1,
+                "created_at": rfc3339_z(ts),
+                "updated_at": rfc3339_z(ts)
+            }])
+        );
     }
 
     #[tokio::test]
     async fn tree_summarizer_status_reports_populated_tree_details() {
         let (_tmp, cfg) = config_in_tempdir();
-        let early = chrono::Utc
-            .with_ymd_and_hms(2026, 5, 24, 8, 0, 0)
-            .unwrap();
-        let late = chrono::Utc
-            .with_ymd_and_hms(2026, 5, 24, 17, 0, 0)
-            .unwrap();
+        let early = chrono::Utc.with_ymd_and_hms(2026, 5, 24, 8, 0, 0).unwrap();
+        let late = chrono::Utc.with_ymd_and_hms(2026, 5, 24, 17, 0, 0).unwrap();
         for node in [
             test_node("team", "root", "root summary", early, 1),
             test_node("team", "2026", "year summary", early, 1),

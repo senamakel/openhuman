@@ -19,7 +19,7 @@ use std::sync::Arc;
 use rusqlite::params;
 use serde_json::Value;
 
-use super::types::{ToolMemoryPriority, ToolMemoryRule, ToolMemorySource, tool_memory_namespace};
+use super::types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
 use crate::openhuman::memory::{Memory, MemoryCategory};
 
 /// Maximum number of rules surfaced into the system prompt at once.

@@ -217,10 +217,9 @@ mod tests {
             }))
             .await
             .expect_err("missing title should fail");
-        assert!(
-            err.to_string()
-                .contains("ingest_document: missing required field `title`")
-        );
+        assert!(err
+            .to_string()
+            .contains("ingest_document: missing required field `title`"));
     }
 
     #[tokio::test]
@@ -233,10 +232,9 @@ mod tests {
             }))
             .await
             .expect_err("missing body should fail");
-        assert!(
-            err.to_string()
-                .contains("ingest_document: missing required field `body`")
-        );
+        assert!(err
+            .to_string()
+            .contains("ingest_document: missing required field `body`"));
     }
 
     #[tokio::test]
@@ -249,10 +247,9 @@ mod tests {
             }))
             .await
             .expect_err("missing source_id should fail");
-        assert!(
-            err.to_string()
-                .contains("ingest_document: missing required field `source_id`")
-        );
+        assert!(err
+            .to_string()
+            .contains("ingest_document: missing required field `source_id`"));
     }
 
     #[tokio::test]
@@ -376,6 +373,10 @@ mod tests {
         .expect("list chunks after duplicate execute")
         .value
         .chunks;
-        assert_eq!(listed.len(), 1, "duplicate source_id should not create extra chunks");
+        assert_eq!(
+            listed.len(),
+            1,
+            "duplicate source_id should not create extra chunks"
+        );
     }
 }

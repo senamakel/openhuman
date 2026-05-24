@@ -157,10 +157,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing query should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tree_search_entities")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tree_search_entities"));
     }
 
     #[tokio::test]
@@ -173,10 +172,9 @@ mod tests {
             }))
             .await
             .expect_err("invalid kind should fail");
-        assert!(
-            err.to_string()
-                .contains("memory_tree_search_entities: invalid kind:")
-        );
+        assert!(err
+            .to_string()
+            .contains("memory_tree_search_entities: invalid kind:"));
     }
 
     #[tokio::test]

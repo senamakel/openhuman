@@ -804,7 +804,8 @@ mod tests {
 
     fn make_node(namespace: &str, node_id: &str, summary: &str, child_count: u32) -> TreeNode {
         let level = crate::openhuman::memory_tree::tree_runtime::types::level_from_node_id(node_id);
-        let parent_id = crate::openhuman::memory_tree::tree_runtime::types::derive_parent_id(node_id);
+        let parent_id =
+            crate::openhuman::memory_tree::tree_runtime::types::derive_parent_id(node_id);
         let ts = Utc::now();
         TreeNode {
             node_id: node_id.to_string(),
@@ -812,7 +813,9 @@ mod tests {
             level,
             parent_id,
             summary: summary.to_string(),
-            token_count: crate::openhuman::memory_tree::tree_runtime::types::estimate_tokens(summary),
+            token_count: crate::openhuman::memory_tree::tree_runtime::types::estimate_tokens(
+                summary,
+            ),
             child_count,
             created_at: ts,
             updated_at: ts,

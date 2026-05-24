@@ -13,10 +13,10 @@
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store::get_chunk;
-use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory::retrieval::types::{hit_from_chunk, RetrievalHit};
 use crate::openhuman::memory::score::store::get_score;
+use crate::openhuman::memory_store::chunks::store::get_chunk;
+use crate::openhuman::memory_store::content::read as content_read;
 
 /// Max batch size. Callers that pass more than this get truncated with a
 /// warn log — no error surface so the LLM sees a partial result.
@@ -97,7 +97,9 @@ pub async fn fetch_leaves(config: &Config, chunk_ids: &[String]) -> Result<Vec<R
 mod tests {
     use super::*;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::content as content_store;
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;

@@ -21,10 +21,10 @@
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
-use crate::openhuman::memory_tree::tree::store as src_store;
 use crate::openhuman::memory_store::trees::types::{TreeKind, TreeStatus};
 use crate::openhuman::memory_tree::topic::curator::maybe_spawn_topic_tree;
+use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
+use crate::openhuman::memory_tree::tree::store as src_store;
 
 /// Route `leaf` into every active topic tree matching one of
 /// `canonical_entities`. Also ticks the curator for each entity so the
@@ -113,15 +113,17 @@ async fn route_one_entity(config: &Config, leaf: &LeafRef, entity_id: &str) -> R
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::score::extract::EntityKind;
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
+    use crate::openhuman::memory_store::trees::hotness::get as get_hotness;
     use crate::openhuman::memory_store::trees::registry::{
         archive_topic_tree, get_or_create_topic_tree,
     };
-    use crate::openhuman::memory_store::trees::hotness::get as get_hotness;
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

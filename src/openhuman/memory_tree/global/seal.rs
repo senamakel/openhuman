@@ -17,20 +17,20 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::score::embed::build_embedder_from_config;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary, SummaryComposeInput, SummaryTreeKind,
 };
-use crate::openhuman::memory::score::embed::build_embedder_from_config;
+use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind};
+use crate::openhuman::memory_tree::global::{
+    GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
+};
 use crate::openhuman::memory_tree::summarise::{
     fallback_summary, summarise, SummaryContext, SummaryInput,
 };
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind};
-use crate::openhuman::memory_tree::global::{
-    GLOBAL_TOKEN_BUDGET, MONTHLY_SEAL_THRESHOLD, WEEKLY_SEAL_THRESHOLD, YEARLY_SEAL_THRESHOLD,
-};
 
 /// Hard cap on cascade depth — mirrors the source-tree constant. L0→L1→L2→L3
 /// is only 3 hops so we have ample slack.

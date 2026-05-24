@@ -124,10 +124,9 @@ mod tests {
             .execute(json!({}))
             .await
             .expect_err("missing tool_name should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_tools_list")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_tools_list"));
     }
 
     #[tokio::test]

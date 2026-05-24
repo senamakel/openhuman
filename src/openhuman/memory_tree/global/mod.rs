@@ -35,9 +35,9 @@ pub mod seal;
 // tree_global::registry:: still work.
 pub use crate::openhuman::memory_store::trees::registry;
 
+pub use crate::openhuman::memory_store::trees::get_or_create_global_tree;
 pub use digest::{end_of_day_digest, DigestOutcome};
 pub use recap::{recap, RecapOutput};
-pub use crate::openhuman::memory_store::trees::get_or_create_global_tree;
 
 /// Number of L0 (daily) nodes that seal into one L1 (weekly) node.
 pub const WEEKLY_SEAL_THRESHOLD: usize = 7;

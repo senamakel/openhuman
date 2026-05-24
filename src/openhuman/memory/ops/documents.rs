@@ -17,9 +17,10 @@ use crate::rpc::RpcOutcome;
 
 use super::envelope::{envelope, error_envelope, memory_counts};
 use super::helpers::{
-    RawDeleteDocumentResult, active_memory_client, build_retrieval_context, current_workspace_dir,
+    active_memory_client, build_retrieval_context, current_workspace_dir,
     filter_hits_by_document_ids, format_llm_context_message, maybe_retrieval_context,
     memory_kind_label, parse_memory_document_summaries, query_limit_for_request,
+    RawDeleteDocumentResult,
 };
 use super::helpers::{default_category, default_priority, default_source_type};
 

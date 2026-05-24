@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 
 use super::regex::{
     action_item_regex, classify_entity, email_header_regex, explicit_owner_regex,
@@ -11,8 +11,8 @@ use super::regex::{
     sanitize_entity_name, sanitize_fact_text, spatial_regex, will_review_regex,
 };
 use super::types::{
-    DEFAULT_CHUNK_TOKENS, ExtractedEntity, ExtractedRelation, ExtractionAccumulator,
-    ExtractionMode, ExtractionUnit, MemoryIngestionConfig, ParsedIngestion, RawEntity, RawRelation,
+    ExtractedEntity, ExtractedRelation, ExtractionAccumulator, ExtractionMode, ExtractionUnit,
+    MemoryIngestionConfig, ParsedIngestion, RawEntity, RawRelation, DEFAULT_CHUNK_TOKENS,
 };
 use crate::openhuman::memory::UnifiedMemory;
 use crate::openhuman::memory_store::types::NamespaceDocumentInput;

@@ -5,7 +5,7 @@
 //! below own (de)serialisation; handlers parse the payload by branching on
 //! [`JobKind`] and calling the matching `from_payload_json`.
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 /// Discriminator persisted in `mem_tree_jobs.kind`.

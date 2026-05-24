@@ -15,8 +15,8 @@ use rusqlite::params;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
 use crate::openhuman::memory_tree::global::GLOBAL_SCOPE;
+use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
 
 /// Return the workspace's singleton global tree, creating it lazily on first
 /// call. Safe to call on every ingest; subsequent calls short-circuit to the
@@ -155,17 +155,31 @@ mod tests {
     #[test]
     fn list_trees_by_kind_returns_only_requested_kind() {
         let (_tmp, cfg) = test_config();
-        insert_tree(&cfg, &sample_tree("source-1", TreeKind::Source, "chat:slack:#eng")).unwrap();
-        insert_tree(&cfg, &sample_tree("topic-1", TreeKind::Topic, "person:alice")).unwrap();
-        insert_tree(&cfg, &sample_tree("source-2", TreeKind::Source, "chat:discord:#ops"))
-            .unwrap();
+        insert_tree(
+            &cfg,
+            &sample_tree("source-1", TreeKind::Source, "chat:slack:#eng"),
+        )
+        .unwrap();
+        insert_tree(
+            &cfg,
+            &sample_tree("topic-1", TreeKind::Topic, "person:alice"),
+        )
+        .unwrap();
+        insert_tree(
+            &cfg,
+            &sample_tree("source-2", TreeKind::Source, "chat:discord:#ops"),
+        )
+        .unwrap();
 
         let source_ids: Vec<String> = list_trees_by_kind(&cfg, TreeKind::Source)
             .unwrap()
             .into_iter()
             .map(|tree| tree.id)
             .collect();
-        assert_eq!(source_ids, vec!["source-1".to_string(), "source-2".to_string()]);
+        assert_eq!(
+            source_ids,
+            vec!["source-1".to_string(), "source-2".to_string()]
+        );
 
         let topic_ids: Vec<String> = list_topic_trees(&cfg)
             .unwrap()

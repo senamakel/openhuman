@@ -176,7 +176,7 @@ fn next_sleep_duration() -> Duration {
 mod tests {
     use super::*;
     use crate::openhuman::memory::jobs::store::{
-        DEFAULT_LOCK_DURATION_MS, claim_next, count_by_status, count_total, mark_done,
+        claim_next, count_by_status, count_total, mark_done, DEFAULT_LOCK_DURATION_MS,
     };
     use crate::openhuman::memory::jobs::types::{
         DigestDailyPayload, FlushStalePayload, JobKind, JobStatus,

@@ -193,8 +193,10 @@ fn handle_run(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(&config, &namespace)
-                .await?,
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(
+                &config, &namespace,
+            )
+            .await?,
         )
     })
 }
@@ -220,8 +222,10 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(&config, &namespace)
-                .await?,
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(
+                &config, &namespace,
+            )
+            .await?,
         )
     })
 }
@@ -231,8 +235,10 @@ fn handle_rebuild(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(&config, &namespace)
-                .await?,
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(
+                &config, &namespace,
+            )
+            .await?,
         )
     })
 }

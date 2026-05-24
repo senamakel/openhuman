@@ -12,10 +12,6 @@
 use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store as chunk_store;
-use crate::openhuman::memory_store::content::{
-    self as content_store, read as content_read, tags as content_tags,
-};
 use crate::openhuman::memory::jobs::store;
 use crate::openhuman::memory::jobs::types::{
     AppendBufferPayload, AppendTarget, DigestDailyPayload, ExtractChunkPayload, FlushStalePayload,
@@ -26,11 +22,15 @@ use crate::openhuman::memory::score;
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, pack_checked};
 use crate::openhuman::memory::score::extract::build_summary_extractor;
 use crate::openhuman::memory::score::store as score_store;
+use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory_store::content::{
+    self as content_store, read as content_read, tags as content_tags,
+};
+use crate::openhuman::memory_tree::global::digest::{self, DigestOutcome};
 use crate::openhuman::memory_tree::sources::get_or_create_source_tree;
+use crate::openhuman::memory_tree::topic::curator;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LabelStrategy, LeafRef};
-use crate::openhuman::memory_tree::global::digest::{self, DigestOutcome};
-use crate::openhuman::memory_tree::topic::curator;
 
 /// Default age for L0 flush_stale when the caller doesn't override.
 /// 1 hour means low-volume sources get summaries within a working session.
@@ -374,9 +374,9 @@ async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> 
 }
 
 async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
+    use crate::openhuman::memory_store::trees::types::TreeKind;
     use crate::openhuman::memory_tree::tree::bucket_seal::{seal_one_level, should_seal};
     use crate::openhuman::memory_tree::tree::store as src_store;
-    use crate::openhuman::memory_store::trees::types::TreeKind;
 
     let payload: SealPayload =
         serde_json::from_str(&job.payload_json).context("parse Seal payload")?;
@@ -790,10 +790,10 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_store::chunks::store::with_connection;
-    use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory::jobs::store::{count_by_status, count_total};
     use crate::openhuman::memory::jobs::types::JobStatus;
+    use crate::openhuman::memory_store::chunks::store::with_connection;
+    use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf_deferred, LeafRef};
     use crate::openhuman::memory_tree::tree::store as src_store;
@@ -959,12 +959,11 @@ mod tests {
         let (_tmp, cfg) = test_config();
         // Spawn a topic tree directly via the registry (skipping curator's
         // hotness gate — we just need a TreeKind::Topic with leaves).
-        let topic_tree =
-            crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
-                &cfg,
-                "topic:phoenix-migration",
-            )
-            .unwrap();
+        let topic_tree = crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
+            &cfg,
+            "topic:phoenix-migration",
+        )
+        .unwrap();
         // Push a single 10k-token leaf so L0 is gate-ready.
         use crate::openhuman::memory_store::chunks::store::upsert_chunks;
         use crate::openhuman::memory_store::chunks::types::{
@@ -1036,12 +1035,11 @@ mod tests {
         let (_tmp, cfg) = test_config();
 
         // 1. Create a target topic tree with a clean L0 buffer.
-        let topic_tree =
-            crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
-                &cfg,
-                "email:alice@example.com",
-            )
-            .unwrap();
+        let topic_tree = crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
+            &cfg,
+            "email:alice@example.com",
+        )
+        .unwrap();
         let l0_before = src_store::get_buffer(&cfg, &topic_tree.id, 0).unwrap();
         assert!(l0_before.is_empty());
 
@@ -1081,7 +1079,9 @@ mod tests {
             let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
             with_connection(&cfg, |conn| {
                 let tx = conn.unchecked_transaction()?;
-                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
+                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(
+                    &tx, &staged,
+                )?;
                 tx.commit()?;
                 Ok(())
             })
@@ -1451,11 +1451,13 @@ mod tests {
     /// empty/covered space.
     #[tokio::test]
     async fn ensure_reembed_backfill_enqueues_only_when_uncovered() {
-        use crate::openhuman::memory_store::chunks::store::{upsert_chunks, upsert_staged_chunks_tx};
+        use crate::openhuman::memory::jobs::ensure_reembed_backfill;
+        use crate::openhuman::memory_store::chunks::store::{
+            upsert_chunks, upsert_staged_chunks_tx,
+        };
         use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
-        use crate::openhuman::memory::jobs::ensure_reembed_backfill;
 
         // Empty space → nothing to do → no job.
         let (_t0, empty_cfg) = test_config();

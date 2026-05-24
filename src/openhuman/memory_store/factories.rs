@@ -17,8 +17,8 @@ use crate::openhuman::embeddings::{
     self, format_embedding_signature, EmbeddingProvider, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
     DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL,
 };
-use crate::openhuman::memory_store::unified::UnifiedMemory;
 use crate::openhuman::memory::traits::Memory;
+use crate::openhuman::memory_store::unified::UnifiedMemory;
 
 /// One-shot guard so the Ollama health-gate fallback only reports to Sentry
 /// once per process lifetime. Memory is constructed many times per session

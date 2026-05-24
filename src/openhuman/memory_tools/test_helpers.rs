@@ -216,7 +216,11 @@ mod tests {
     async fn mock_memory_empty_state_helpers_return_empty_values() {
         let memory = MockMemory::default();
         assert!(memory.get("missing", "rule").await.unwrap().is_none());
-        assert!(memory.list(Some("missing"), None, None).await.unwrap().is_empty());
+        assert!(memory
+            .list(Some("missing"), None, None)
+            .await
+            .unwrap()
+            .is_empty());
         assert!(memory.namespace_summaries().await.unwrap().is_empty());
         assert_eq!(memory.count().await.unwrap(), 0);
     }

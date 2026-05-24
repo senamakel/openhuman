@@ -9,12 +9,12 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::GraphRelationRecord;
 use crate::openhuman::memory::{
     MemoryClient, MemoryClientRef, MemoryDocumentSummary, MemoryItemKind, MemoryRetrievalChunk,
     MemoryRetrievalContext, MemoryRetrievalEntity, MemoryRetrievalRelation, NamespaceMemoryHit,
     QueryNamespaceRequest,
 };
+use crate::openhuman::memory_store::GraphRelationRecord;
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -270,7 +270,9 @@ mod tests {
 
     #[test]
     fn relation_identity_and_metadata_include_namespace_and_attrs() {
-        let relation = sample_hit(MemoryItemKind::Document).supporting_relations.remove(0);
+        let relation = sample_hit(MemoryItemKind::Document)
+            .supporting_relations
+            .remove(0);
         assert_eq!(relation_identity(&relation), "global|Alice|OWNS|OpenHuman");
         let meta = relation_metadata(&relation);
         assert_eq!(meta["namespace"], "global");

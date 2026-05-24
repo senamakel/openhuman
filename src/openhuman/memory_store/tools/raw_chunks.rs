@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_store::chunks::store::{ListChunksQuery, list_chunks};
+use crate::openhuman::memory_store::chunks::store::{list_chunks, ListChunksQuery};
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 
@@ -173,10 +173,9 @@ mod tests {
             }))
             .await
             .expect_err("wrong limit type should fail");
-        assert!(
-            err.to_string()
-                .contains("invalid arguments for memory_store_raw_chunks")
-        );
+        assert!(err
+            .to_string()
+            .contains("invalid arguments for memory_store_raw_chunks"));
     }
 
     #[tokio::test]

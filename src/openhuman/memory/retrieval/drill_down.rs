@@ -23,10 +23,10 @@ use std::collections::VecDeque;
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store::{get_chunk, get_chunk_embedding};
-use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory::retrieval::types::{hit_from_chunk, hit_from_summary, RetrievalHit};
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, cosine_similarity};
+use crate::openhuman::memory_store::chunks::store::{get_chunk, get_chunk_embedding};
+use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory_tree::tree::store;
 
 /// Walk the summary hierarchy down one step (or more if `max_depth > 1`)
@@ -257,11 +257,13 @@ mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::content as content_store;
+    use crate::openhuman::memory_store::trees::types::TreeKind;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
-    use crate::openhuman::memory_store::trees::types::TreeKind;
     use chrono::Utc;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -311,7 +313,9 @@ mod tests {
             let staged = content_store::stage_chunks(&content_root, &[c.clone()]).unwrap();
             crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
                 let tx = conn.unchecked_transaction()?;
-                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
+                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(
+                    &tx, &staged,
+                )?;
                 tx.commit()?;
                 Ok(())
             })
@@ -425,8 +429,8 @@ mod tests {
     // one depth before any descendant at a deeper depth).
 
     use crate::openhuman::memory_store::chunks::store::with_connection;
-    use crate::openhuman::memory_tree::tree::store as tree_store;
     use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeStatus};
+    use crate::openhuman::memory_tree::tree::store as tree_store;
 
     /// Build a tiny 2-level tree directly via store inserts so we can
     /// assert BFS ordering without needing ~100 leaves to cascade L1→L2

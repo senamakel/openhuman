@@ -411,9 +411,7 @@ mod tests {
     fn registered_controllers_use_memory_tree_namespace() {
         let controllers = all_registered_controllers();
         assert_eq!(controllers.len(), 6);
-        assert!(controllers
-            .iter()
-            .all(|c| c.schema.namespace == NAMESPACE));
+        assert!(controllers.iter().all(|c| c.schema.namespace == NAMESPACE));
     }
 
     #[test]

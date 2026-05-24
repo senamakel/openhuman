@@ -30,7 +30,13 @@ fn session_dir(config: &Config, session_id: &str) -> PathBuf {
 
 fn sanitize_session(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -93,8 +99,7 @@ fn yaml_escape(s: &str) -> String {
 /// truth and the returned `ArchivedTurn` carries the actually-assigned seq.
 pub fn record_turn(config: &Config, mut turn: ArchivedTurn) -> Result<ArchivedTurn> {
     let dir = session_dir(config, &turn.session_id);
-    fs::create_dir_all(&dir)
-        .with_context(|| format!("failed to mkdir -p {}", dir.display()))?;
+    fs::create_dir_all(&dir).with_context(|| format!("failed to mkdir -p {}", dir.display()))?;
     turn.seq = next_seq(&dir);
     let path = dir.join(format!("{:06}.md", turn.seq));
     let bytes = compose_turn(&turn).into_bytes();
@@ -130,8 +135,8 @@ pub fn session_entries(config: &Config, session_id: &str) -> Result<Vec<Archived
     files.sort_by_key(|(seq, _)| *seq);
     let mut out = Vec::with_capacity(files.len());
     for (_, path) in files {
-        let bytes = fs::read(&path)
-            .with_context(|| format!("failed to read {}", path.display()))?;
+        let bytes =
+            fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
         let text = String::from_utf8_lossy(&bytes);
         if let Some(turn) = parse_turn(&text) {
             out.push(turn);
@@ -225,7 +230,10 @@ mod tests {
         let c = record_turn(&cfg, turn("s1", "user", "three")).unwrap();
         assert_eq!((a.seq, b.seq, c.seq), (0, 1, 2));
         let read = session_entries(&cfg, "s1").unwrap();
-        assert_eq!(read.iter().map(|t| t.seq).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(
+            read.iter().map(|t| t.seq).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
         assert_eq!(read[1].role, "assistant");
         assert_eq!(read[2].content, "three");
     }
@@ -245,7 +253,10 @@ mod tests {
         t.cost_microdollars = 1234;
         record_turn(&cfg, t.clone()).unwrap();
         let read = session_entries(&cfg, "s1").unwrap();
-        assert_eq!(read[0].lesson.as_deref(), Some("be careful with X: it bites"));
+        assert_eq!(
+            read[0].lesson.as_deref(),
+            Some("be careful with X: it bites")
+        );
         assert_eq!(
             read[0].tool_calls_json.as_deref(),
             Some(r#"[{"name":"bash","args":{"cmd":"ls"}}]"#)

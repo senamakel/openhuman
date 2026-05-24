@@ -22,9 +22,9 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_store::trees::types::SummaryNode;
 use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
+use crate::openhuman::memory_store::trees::types::SummaryNode;
+use crate::openhuman::memory_tree::tree::store;
 
 /// Aggregated recap returned to the caller.
 #[derive(Debug, Clone)]
@@ -160,11 +160,13 @@ mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
-    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{
+        chunk_id, Chunk, Metadata, SourceKind, SourceRef,
+    };
     use crate::openhuman::memory_store::content as content_store;
+    use crate::openhuman::memory_tree::global::digest::{end_of_day_digest, DigestOutcome};
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
-    use crate::openhuman::memory_tree::global::digest::{end_of_day_digest, DigestOutcome};
     use std::sync::Arc;
     use tempfile::TempDir;
 

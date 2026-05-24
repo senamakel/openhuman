@@ -21,10 +21,12 @@ use chrono::{DateTime, TimeZone, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::score::embed::{decode_optional_blob, pack_checked};
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::StagedSummary;
-use crate::openhuman::memory::score::embed::{decode_optional_blob, pack_checked};
-use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind, TreeStatus};
+use crate::openhuman::memory_store::trees::types::{
+    Buffer, SummaryNode, Tree, TreeKind, TreeStatus,
+};
 
 fn ms_to_utc(ms: i64) -> rusqlite::Result<DateTime<Utc>> {
     Utc.timestamp_millis_opt(ms).single().ok_or_else(|| {
@@ -346,8 +348,10 @@ pub fn mark_summary_reembed_skipped(
     model_signature: &str,
     reason: &str,
 ) -> Result<()> {
-    let summary_id =
-        crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key("summary_id", summary_id)?;
+    let summary_id = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
+        "summary_id",
+        summary_id,
+    )?;
     let model_signature = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
         "model_signature",
         model_signature,
@@ -378,8 +382,10 @@ pub fn clear_summary_reembed_skipped(
     summary_id: &str,
     model_signature: &str,
 ) -> Result<()> {
-    let summary_id =
-        crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key("summary_id", summary_id)?;
+    let summary_id = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
+        "summary_id",
+        summary_id,
+    )?;
     let model_signature = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
         "model_signature",
         model_signature,

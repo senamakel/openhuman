@@ -18,8 +18,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::jobs::handlers;
 use crate::openhuman::memory::jobs::redact::scrub_for_log;
 use crate::openhuman::memory::jobs::store::{
-    claim_next, mark_deferred, mark_done, mark_failed, recover_stale_locks,
-    DEFAULT_LOCK_DURATION_MS,
+    DEFAULT_LOCK_DURATION_MS, claim_next, mark_deferred, mark_done, mark_failed,
+    recover_stale_locks,
 };
 use crate::openhuman::memory::jobs::types::JobOutcome;
 
@@ -304,6 +304,19 @@ fn is_sqlite_busy(err: &anyhow::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory::jobs::store::{count_by_status, enqueue, get_job};
+    use crate::openhuman::memory::jobs::types::{FlushStalePayload, JobStatus, NewJob};
+    use tempfile::TempDir;
+
+    fn test_config() -> (TempDir, Config) {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        cfg.memory_tree.embedding_endpoint = None;
+        cfg.memory_tree.embedding_model = None;
+        cfg.memory_tree.embedding_strict = false;
+        (tmp, cfg)
+    }
 
     /// Raw `rusqlite::Error::SqliteFailure` with the `DatabaseBusy` code
     /// is what surfaces when the `busy_timeout` is exhausted on a write.
@@ -456,5 +469,34 @@ mod tests {
             Some("UNIQUE constraint failed: mem_tree_jobs.dedupe_key".into()),
         );
         assert!(!is_sqlite_io_transient(&anyhow::Error::from(raw)));
+    }
+
+    #[tokio::test]
+    async fn wake_workers_is_noop_before_start() {
+        wake_workers();
+    }
+
+    #[tokio::test]
+    async fn run_once_returns_false_when_queue_is_empty() {
+        let (_tmp, cfg) = test_config();
+        let processed = run_once(&cfg).await.unwrap();
+        assert!(!processed);
+    }
+
+    #[tokio::test]
+    async fn run_once_claims_and_completes_a_flush_stale_job() {
+        let (_tmp, cfg) = test_config();
+        let new_job = NewJob::flush_stale(&FlushStalePayload::default(), "2026-05-24", 3).unwrap();
+        let id = enqueue(&cfg, &new_job).unwrap().expect("enqueue job");
+
+        let processed = run_once(&cfg).await.unwrap();
+        assert!(processed);
+
+        let job = get_job(&cfg, &id).unwrap().expect("job should still exist");
+        assert_eq!(job.kind.as_str(), "flush_stale");
+        assert_eq!(job.status, JobStatus::Done);
+        assert_eq!(count_by_status(&cfg, JobStatus::Done).unwrap(), 1);
+        assert!(job.completed_at_ms.is_some());
+        assert!(job.locked_until_ms.is_none());
     }
 }

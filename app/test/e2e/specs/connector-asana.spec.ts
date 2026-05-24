@@ -68,7 +68,9 @@ describe('Asana Composio connector flow', () => {
     clearRequestLog();
     const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: TOOLKIT_SLUG });
     expect(out.ok).toBe(true);
-    const authReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
+    const authReq = getRequestLog().find(
+      r => r.method === 'POST' && r.url.includes('/composio/authorize')
+    );
     expect(authReq).toBeDefined();
     console.log(`${LOG} PASS: auth/connect routed`);
   });

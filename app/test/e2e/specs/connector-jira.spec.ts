@@ -108,7 +108,9 @@ describe('Jira Composio connector flow', () => {
       extra_params: { subdomain: 'myteam' },
     });
     expect(out.ok).toBe(true);
-    const authReq = getRequestLog().find(r => r.method === 'POST' && r.url.includes('/composio/authorize'));
+    const authReq = getRequestLog().find(
+      r => r.method === 'POST' && r.url.includes('/composio/authorize')
+    );
     expect(authReq).toBeDefined();
     const body = JSON.parse(authReq?.body || '{}');
     expect(body.toolkit).toBe(TOOLKIT_SLUG);

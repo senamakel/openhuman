@@ -50,10 +50,7 @@ function loopbackDebug(...args: unknown[]): void {
  * alive across the browser.execute boundary — its `awaitCallback()`
  * Promise must not be GC'd before the Node-side fetch fires.
  */
-async function startWebViewListener(
-  port: number,
-  timeoutSecs: number
-): Promise<LoopbackHandle> {
+async function startWebViewListener(port: number, timeoutSecs: number): Promise<LoopbackHandle> {
   const result = (await browser.executeAsync(
     (p: number, t: number, done: (r: unknown) => void) => {
       type StartFn = (opts: {
@@ -71,13 +68,19 @@ async function startWebViewListener(
         __pendingLoopbackHandle?: unknown;
       };
       if (typeof w.__startLoopbackOauthListener !== 'function') {
-        done({ ok: false, error: '__startLoopbackOauthListener is not exposed (E2E build flag missing?)' });
+        done({
+          ok: false,
+          error: '__startLoopbackOauthListener is not exposed (E2E build flag missing?)',
+        });
         return;
       }
       w.__startLoopbackOauthListener({ port: p, timeoutSecs: t })
         .then(handle => {
           if (!handle) {
-            done({ ok: false, error: 'startLoopbackOauthListener returned null (not in Tauri or bind failed)' });
+            done({
+              ok: false,
+              error: 'startLoopbackOauthListener returned null (not in Tauri or bind failed)',
+            });
             return;
           }
           // Keep the handle reachable so awaitCallback's Promise + the
@@ -105,17 +108,10 @@ async function startWebViewListener(
             .catch((err: unknown) => {
               console.warn('[E2E][loopback-auth] awaitCallback failed', err);
             });
-          done({
-            ok: true,
-            redirectUri: handle.redirectUri,
-            state: handle.state,
-          });
+          done({ ok: true, redirectUri: handle.redirectUri, state: handle.state });
         })
         .catch((err: unknown) => {
-          done({
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
+          done({ ok: false, error: err instanceof Error ? err.message : String(err) });
         });
     },
     port,
@@ -187,8 +183,7 @@ export async function triggerAuthLoopbackBypass(userId: string = 'e2e-user'): Pr
   // we append the bypass token + key (matching what `handleAuthDeepLink`
   // expects after the URL is rewritten to openhuman://auth).
   const sep = redirectUri.includes('?') ? '&' : '?';
-  const callbackUrl =
-    `${redirectUri}${sep}token=${encodeURIComponent(token)}&key=auth`;
+  const callbackUrl = `${redirectUri}${sep}token=${encodeURIComponent(token)}&key=auth`;
 
   loopbackDebug('fetching loopback URL to fire callback', { url: callbackUrl });
   let httpStatus: number | undefined;

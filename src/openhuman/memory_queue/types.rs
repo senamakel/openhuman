@@ -5,7 +5,7 @@
 //! below own (de)serialisation; handlers parse the payload by branching on
 //! [`JobKind`] and calling the matching `from_payload_json`.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 /// Discriminator persisted in `mem_tree_jobs.kind`.
@@ -549,5 +549,63 @@ mod tests {
             AppendTarget::Source { source_id } => assert_eq!(source_id, "x"),
             _ => panic!("wrong variant"),
         }
+    }
+
+    #[test]
+    fn new_job_extract_chunk_builder_sets_kind_payload_and_dedupe_key() {
+        let payload = ExtractChunkPayload {
+            chunk_id: "chunk-123".into(),
+        };
+        let job = NewJob::extract_chunk(&payload).unwrap();
+        assert_eq!(job.kind, JobKind::ExtractChunk);
+        assert_eq!(job.dedupe_key.as_deref(), Some("extract:chunk-123"));
+        assert_eq!(job.available_at_ms, None);
+        assert_eq!(job.max_attempts, None);
+        let roundtrip: ExtractChunkPayload = serde_json::from_str(&job.payload_json).unwrap();
+        assert_eq!(roundtrip.chunk_id, "chunk-123");
+    }
+
+    #[test]
+    fn new_job_append_buffer_builder_uses_payload_dedupe_key() {
+        let payload = AppendBufferPayload {
+            node: NodeRef::Summary {
+                summary_id: "summary-9".into(),
+            },
+            target: AppendTarget::Topic {
+                tree_id: "topic:ops".into(),
+            },
+        };
+        let job = NewJob::append_buffer(&payload).unwrap();
+        assert_eq!(job.kind, JobKind::AppendBuffer);
+        assert_eq!(
+            job.dedupe_key.as_deref(),
+            Some("append:topic:topic:ops:summary:summary-9")
+        );
+        let roundtrip: AppendBufferPayload = serde_json::from_str(&job.payload_json).unwrap();
+        assert_eq!(roundtrip.dedupe_key(), payload.dedupe_key());
+    }
+
+    #[test]
+    fn new_job_flush_stale_builder_uses_supplied_time_bucket() {
+        let payload = FlushStalePayload {
+            max_age_secs: Some(600),
+        };
+        let job = NewJob::flush_stale(&payload, "2026-05-24", 4).unwrap();
+        assert_eq!(job.kind, JobKind::FlushStale);
+        assert_eq!(job.dedupe_key.as_deref(), Some("flush_stale:2026-05-24-h4"));
+        let roundtrip: FlushStalePayload = serde_json::from_str(&job.payload_json).unwrap();
+        assert_eq!(roundtrip.max_age_secs, Some(600));
+    }
+
+    #[test]
+    fn new_job_reembed_backfill_builder_is_one_chain_per_signature() {
+        let payload = ReembedBackfillPayload {
+            signature: "embed-v2".into(),
+        };
+        let job = NewJob::reembed_backfill(&payload).unwrap();
+        assert_eq!(job.kind, JobKind::ReembedBackfill);
+        assert_eq!(job.dedupe_key.as_deref(), Some("reembed_backfill:embed-v2"));
+        let roundtrip: ReembedBackfillPayload = serde_json::from_str(&job.payload_json).unwrap();
+        assert_eq!(roundtrip.signature, "embed-v2");
     }
 }

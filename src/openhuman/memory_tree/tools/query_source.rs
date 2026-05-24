@@ -1,7 +1,7 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::retrieval;
 use crate::openhuman::memory::retrieval::rpc::QuerySourceRequest;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -89,6 +89,7 @@ impl Tool for MemoryTreeQuerySourceTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -101,5 +102,53 @@ mod tests {
             json!(["chat", "email", "document"])
         );
         assert_eq!(schema["properties"]["time_window_days"]["minimum"], 0);
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_invalid_source_kind() {
+        let tool = MemoryTreeQuerySourceTool;
+        let err = tool
+            .execute(json!({
+                "source_kind": "not-real"
+            }))
+            .await
+            .expect_err("invalid source kind should fail");
+        assert!(err.to_string().contains("memory_tree_query_source:"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_wrong_type_for_limit() {
+        let tool = MemoryTreeQuerySourceTool;
+        let err = tool
+            .execute(json!({
+                "limit": "five"
+            }))
+            .await
+            .expect_err("wrong limit type should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_query_source")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_payload() {
+        let tool = MemoryTreeQuerySourceTool;
+        let result = tool
+            .execute(json!({
+                "source_kind": "document",
+                "limit": 2
+            }))
+            .await
+            .expect("valid query_source should succeed");
+        assert!(!result.is_error);
+        let payload = result.text();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&payload).expect("result should be valid json");
+        assert!(parsed.get("hits").is_some(), "payload should include hits");
+        assert!(
+            parsed.get("total").is_some(),
+            "payload should include total"
+        );
     }
 }

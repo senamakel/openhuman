@@ -76,6 +76,7 @@ impl Tool for MemoryTreeQueryTopicTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -84,5 +85,52 @@ mod tests {
         let schema = tool.parameters_schema();
         assert_eq!(schema["required"], json!(["entity_id"]));
         assert_eq!(schema["properties"]["time_window_days"]["minimum"], 0);
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_entity_id() {
+        let tool = MemoryTreeQueryTopicTool;
+        let err = tool
+            .execute(json!({}))
+            .await
+            .expect_err("missing entity_id should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_query_topic")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_wrong_type_for_entity_id() {
+        let tool = MemoryTreeQueryTopicTool;
+        let err = tool
+            .execute(json!({"entity_id": 42}))
+            .await
+            .expect_err("wrong type should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_query_topic")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_payload() {
+        let tool = MemoryTreeQueryTopicTool;
+        let result = tool
+            .execute(json!({
+                "entity_id": "topic:phoenix",
+                "limit": 2
+            }))
+            .await
+            .expect("valid query_topic should succeed");
+        assert!(!result.is_error);
+        let payload = result.text();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&payload).expect("result should be valid json");
+        assert!(parsed.get("hits").is_some(), "payload should include hits");
+        assert!(
+            parsed.get("total").is_some(),
+            "payload should include total"
+        );
     }
 }

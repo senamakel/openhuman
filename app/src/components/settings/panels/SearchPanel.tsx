@@ -210,8 +210,12 @@ const SearchPanel = () => {
             {/* BYO API keys */}
             <div className="space-y-3">
               <KeyEditor
-                label="Parallel API key"
-                placeholder={settings.parallel_configured ? '•••••••• (stored)' : 'pk_...'}
+                label={t('settings.search.parallelKeyLabel')}
+                placeholder={
+                  settings.parallel_configured
+                    ? t('settings.search.placeholderStored')
+                    : t('settings.search.placeholderParallel')
+                }
                 show={showParallel}
                 onToggleShow={() => setShowParallel(s => !s)}
                 value={parallelKey}
@@ -223,8 +227,12 @@ const SearchPanel = () => {
                 t={t}
               />
               <KeyEditor
-                label="Brave Search API key"
-                placeholder={settings.brave_configured ? '•••••••• (stored)' : 'BSA...'}
+                label={t('settings.search.braveKeyLabel')}
+                placeholder={
+                  settings.brave_configured
+                    ? t('settings.search.placeholderStored')
+                    : t('settings.search.placeholderBrave')
+                }
                 show={showBrave}
                 onToggleShow={() => setShowBrave(s => !s)}
                 value={braveKey}

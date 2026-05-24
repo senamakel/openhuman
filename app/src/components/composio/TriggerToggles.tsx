@@ -127,7 +127,13 @@ export default function TriggerToggles({
         const msg = err instanceof Error ? err.message : String(err);
         const actionWord = existing ? t('common.disable') : t('common.enable');
         setRowError(
-          `${actionWord} failed for ${formatTriggerLabel(entry.slug, { toolkit: toolkitName || toolkitSlug })}: ${msg}`
+          t('triggers.toggleFailed')
+            .replace('{action}', actionWord)
+            .replace(
+              '{trigger}',
+              formatTriggerLabel(entry.slug, { toolkit: toolkitName || toolkitSlug })
+            )
+            .replace('{message}', msg)
         );
       } finally {
         setPendingSignature(null);

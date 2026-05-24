@@ -335,14 +335,24 @@ export default function Skills() {
   const dispatch = useAppDispatch();
   const [defaultChannelBusy, setDefaultChannelBusy] = useState<ChannelType | null>(null);
   const handleSetDefaultChannel = useCallback(
-    (channel: ChannelType) => {
+    async (channel: ChannelType) => {
+      // Single-flight: ignore re-entries while a write is in progress so two
+      // back-to-back clicks can't interleave (would leave UI + persisted
+      // preference disagreeing on which channel won).
+      if (defaultChannelBusy !== null) return;
       setDefaultChannelBusy(channel);
-      dispatch(setDefaultMessagingChannel(channel));
-      void channelConnectionsApi.updatePreferences(channel).finally(() => {
+      try {
+        // Persist first, then dispatch — on failure the UI keeps the previous
+        // selection and the user sees no false-positive flicker.
+        await channelConnectionsApi.updatePreferences(channel);
+        dispatch(setDefaultMessagingChannel(channel));
+      } catch (err) {
+        console.warn('[skills] default channel persist failed:', err);
+      } finally {
         setDefaultChannelBusy(null);
-      });
+      }
     },
-    [dispatch]
+    [dispatch, defaultChannelBusy]
   );
   const { definitions: channelDefs } = useChannelDefinitions();
   const channelConnections = useAppSelector(state => state.channelConnections);
@@ -940,8 +950,8 @@ export default function Skills() {
                             <button
                               key={channelId}
                               type="button"
-                              onClick={() => handleSetDefaultChannel(channelId)}
-                              disabled={defaultChannelBusy === channelId}
+                              onClick={() => void handleSetDefaultChannel(channelId)}
+                              disabled={defaultChannelBusy !== null}
                               className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                                 selected
                                   ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300'

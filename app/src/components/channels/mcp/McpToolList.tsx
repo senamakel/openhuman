@@ -3,6 +3,7 @@
  */
 import { useState } from 'react';
 
+import { useT } from '../../../lib/i18n/I18nContext';
 import type { McpTool } from './types';
 
 interface McpToolListProps {
@@ -10,12 +11,15 @@ interface McpToolListProps {
 }
 
 const McpToolList = ({ tools }: McpToolListProps) => {
+  const { t } = useT();
   const [expanded, setExpanded] = useState(false);
   // Guard against undefined/null passed at runtime (TypeScript can't always prevent this).
   const safeTools = tools ?? [];
 
   if (safeTools.length === 0) {
-    return <p className="text-xs text-stone-400 dark:text-neutral-500">No tools available.</p>;
+    return (
+      <p className="text-xs text-stone-400 dark:text-neutral-500">{t('mcp.toolList.noTools')}</p>
+    );
   }
 
   return (

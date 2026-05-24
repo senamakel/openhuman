@@ -1,18 +1,57 @@
-# Memory store
+# memory_store
 
-Storage backend for the memory subsystem. Houses the SQLite + FTS5 + vector + graph implementation (`UnifiedMemory`), the async client handle used by RPC controllers (`MemoryClient`), the `Memory` trait impl bridging both, and the factory functions used to bootstrap a memory instance.
+Single home for every persisted memory shape. Owns the storage primitives —
+nothing above this module touches SQLite or the on-disk vault directly.
 
-## Files
+```text
+chunker/   md -> bounded chunks (two flavors: semantic + source-kind)
+chunks/    SQLite chunk rows (metadata + tags + raw refs + lifecycle status)
+content/   on-disk .md files (source of truth for chunk + summary bodies)
+trees/     summary tree persistence (one table, kind-parameterized helpers,
+           entity hotness side-table that gates topic-tree spawn)
+vectors/   local vector DB (cosine, brute-force)
+unified/   UnifiedMemory: hybrid SQLite store (docs / kv / graph / events /
+           segments / profile / FTS5 episodic)
+contacts/  facade over people::store (Person/Handle/Interaction)
+```
 
-- **`mod.rs`** — module root; re-exports `UnifiedMemory`, `MemoryClient`, factory functions, and the public types from `types.rs`.
-- **`types.rs`** — public input/output structs (`NamespaceDocumentInput`, `NamespaceMemoryHit`, `NamespaceRetrievalContext`, `RetrievalScoreBreakdown`, `MemoryItemKind`, `StoredMemoryDocument`, `MemoryKvRecord`, `GraphRelationRecord`) plus the `GLOBAL_NAMESPACE` sentinel.
-- **`client.rs`** — `MemoryClient` / `MemoryClientRef` / `MemoryState`. Async wrapper around `UnifiedMemory` that owns the singleton ingestion queue and exposes the surface called by RPC handlers (`put_doc`, `ingest_doc`, `query_namespace`, `recall_namespace_*`, `kv_*`, `graph_*`, skill-sync helpers). Always local — no remote sync.
-- **`client_tests.rs`** — coverage for the client-facing storage and graph round-trips against a fresh temp workspace.
-- **`factories.rs`** — `create_memory*` constructors that select the embedding provider from `MemoryConfig` and instantiate `UnifiedMemory`. `effective_memory_backend_name` always reports `"namespace"`.
-- **`memory_trait.rs`** — `impl Memory for UnifiedMemory`, mapping the generic trait surface (`store`, `recall`, `get`, `list`, `forget`, `namespace_summaries`) onto the unified store. Includes namespace normalisation and episodic-session augmentation.
-- **`../safety/`** — shared secret-detection + redaction helpers used by memory write paths (documents, KV, episodic) to prevent credentials/tokens from being persisted into long-lived memory.
-- **`unified/`** — the SQLite implementation, broken into per-table submodules. See `unified/README.md`.
+## Cross-cutting modules
 
-## How it fits
+| Path | Role |
+| --- | --- |
+| [`mod.rs`](mod.rs) | Module root + public re-exports. |
+| [`README.md`](README.md) | You are here. |
+| [`kinds.rs`](kinds.rs) | `MemoryKind` enum — the authoritative catalog of stored shapes (Content / Chunk / Tree / Vector / Document / Kv / Graph / Contact) + per-kind type aliases. |
+| [`traits.rs`](traits.rs) | `VectorEmbeddable` + `ObsidianRepresentable` + `ObsidianFile`. Every stored kind implements both — the compiler enforces "everything in memory_store is vector and obsidian compatible". |
+| [`types.rs`](types.rs) | Shared serde types used across submodules: `NamespaceDocumentInput`, `NamespaceMemoryHit`, `NamespaceQueryResult`, `NamespaceRetrievalContext`, `RetrievalScoreBreakdown`, `MemoryItemKind`, `StoredMemoryDocument`, `MemoryKvRecord`, `GraphRelationRecord`. |
+| [`memory_trait.rs`](memory_trait.rs) | `impl Memory for UnifiedMemory` — bridges the generic `Memory` trait surface onto the unified store. |
+| [`client.rs`](client.rs) | `MemoryClient` / `MemoryClientRef` / `MemoryState`. Async wrapper over `UnifiedMemory` used by RPC controllers; owns the singleton ingestion-queue handle. |
+| [`factories.rs`](factories.rs) | `create_memory*` constructors. Selects the embedding provider per the `MemoryConfig`, probes Ollama health, and builds a `Box<dyn Memory>` over `UnifiedMemory`. |
+| [`retrieval/`](retrieval/) | `RetrievalFacade` — single import surface over the four retrieval modes (tree-walk, vector, keyword, param/tag). |
+| [`tools/`](tools/) | Agent tools that read directly from memory_store: `memory_store_raw_search`, `memory_store_raw_chunks`, `memory_store_kinds`. |
 
-Callers (RPC controllers, the agent harness, learning pipelines) interact with `MemoryClient`. The client delegates persistence to `UnifiedMemory` and offloads heavier work (chunk + embed + graph extraction) to the singleton `IngestionQueue` defined in `../ingestion/`. Generic consumers that just need `Memory` trait behaviour go through `memory_trait.rs`.
+## Storage submodules
+
+| Path | Owns |
+| --- | --- |
+| [`chunker/`](chunker/) | Markdown → bounded chunks. `semantic.rs` (heading/paragraph-aware, used by `UnifiedMemory`), `source_kind.rs` (chat / email / document dispatch, used by the ingest pipeline). |
+| [`chunks/`](chunks/) | `store.rs` SQLite persistence + `types.rs` (`Chunk`, `Metadata`, `SourceKind`, `RawRef`, `ListChunksQuery`). One table, one connection cache. |
+| [`content/`](content/) | On-disk `.md` files for chunk + summary bodies. Atomic writes, path layout, YAML front-matter compose/parse, tag rewrites, Obsidian vault defaults. See [`content/README.md`](content/README.md). |
+| [`trees/`](trees/) | `store.rs` (`mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`), `types.rs` (Tree / SummaryNode / TreeKind / TreeStatus / Buffer + topic hotness types), `registry.rs` (kind-parameterized helpers), `hotness.rs` (entity hotness side-table). |
+| [`vectors/`](vectors/) | Standalone vector store. `VectorStore` over SQLite, byte-codec for f32 vectors, cosine similarity. |
+| [`unified/`](unified/) | The hybrid SQLite store. Per-domain submodules (documents, kv, graph, events, segments, profile, FTS5 episodic) and the `query` / `recall` retrieval entry points. See [`unified/README.md`](unified/README.md). |
+| [`contacts/`](contacts/) | Re-export of `people::store` + async fail-soft helpers (`get_contact`, `list_contacts`, `lookup_contact`). |
+
+## Layer rules
+
+- **Content bytes are immutable.** The `.md` file written by `content/` is
+  the source of truth; SQLite stores a `(content_path, content_sha256)`
+  pointer. The body never changes after the first write — only YAML
+  front-matter (`tags:`) is rewritable.
+- **SQLite is for indexing and vectors.** Anything keyword/param-searchable
+  on the body itself should be served by grepping the `.md` files.
+- **No upward dependencies.** memory_store does not depend on
+  `memory_tree`, `memory_tools`, or `memory`. The one documented exception
+  is `retrieval::RetrievalFacade::tree_walk`, which delegates to
+  `memory::retrieval::drill_down`; revisit when drill_down's policy bits
+  can be cleanly separated from its pure traversal.

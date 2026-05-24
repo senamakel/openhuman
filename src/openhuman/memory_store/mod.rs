@@ -53,3 +53,15 @@ pub use unified::fts5;
 pub use unified::profile;
 pub use unified::segments;
 pub use unified::UnifiedMemory;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memory_store_reexports_expected_memory_kind_catalog() {
+        assert!(MemoryKind::ALL.contains(&MemoryKind::Chunk));
+        assert!(MemoryKind::ALL.contains(&MemoryKind::Tree));
+        assert!(MemoryKind::ALL.contains(&MemoryKind::Contact));
+    }
+}

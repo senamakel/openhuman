@@ -68,44 +68,121 @@ impl JailBackend for SeatbeltBackend {
     }
 }
 
-/// Render a Seatbelt profile. Defaults to deny-all; opens just what `jail`
-/// allows. Kept conservative — we'd rather break a tool than leak.
+/// Render a Seatbelt profile.
+///
+/// The model is **allow-default for reads, deny-default for writes**.
+/// A deny-everything profile is unworkable on macOS — Mach-O binaries need
+/// dyld, libsystem, the shared cache, mach lookups for Foundation, and a
+/// dozen other things that change between OS releases. Locking those down
+/// breaks tools faster than it stops attackers.
+///
+/// What we actually want from a *directory jail* is: the child can read
+/// pretty much anything, but it can only **write** inside `jail.root` and
+/// the system scratchpad. That's what this profile enforces.
 fn render_profile(jail: &Jail) -> String {
     let mut out = String::new();
-    out.push_str("(version 1)\n(deny default)\n");
-    // System reads always required: dyld, frameworks, locale, tz.
-    out.push_str("(allow process-fork)\n");
-    if jail.allow_subprocess {
-        out.push_str("(allow process-exec)\n");
-    }
-    out.push_str("(allow sysctl-read)\n");
-    out.push_str("(allow mach-lookup)\n");
-    out.push_str("(allow file-read*\n");
-    for sys in [
-        "/System", "/usr/lib", "/usr/share", "/Library/Frameworks", "/private/etc",
-        "/private/var/db/timezone", "/dev/null", "/dev/random", "/dev/urandom",
-    ] {
-        out.push_str(&format!("  (subpath \"{sys}\")\n"));
-    }
-    for ro in &jail.read_only {
-        out.push_str(&format!("  (subpath \"{}\")\n", escape(&ro.to_string_lossy())));
-    }
-    out.push_str(")\n");
+    out.push_str("(version 1)\n");
+    out.push_str("(allow default)\n");
 
-    // R/W root.
+    // Network gate. `allow default` enables network*; only flip it off
+    // when the jail explicitly denies it.
+    if !jail.allow_net {
+        out.push_str("(deny network*)\n");
+    }
+
+    // Subprocess gate. Same idea — only restrict on opt-in.
+    if !jail.allow_subprocess {
+        out.push_str("(deny process-fork)\n");
+        out.push_str("(deny process-exec)\n");
+    }
+
+    // The actual directory jail: deny writes everywhere, then re-allow
+    // them under root + /private/tmp (the macOS scratchpad most tools
+    // assume exists and is writable).
+    out.push_str("(deny file-write*)\n");
     out.push_str(&format!(
-        "(allow file-read* file-write*\n  (subpath \"{}\")\n)\n",
+        "(allow file-write*\n  (subpath \"{}\")\n  (subpath \"/private/tmp\")\n)\n",
         escape(&jail.root.to_string_lossy())
     ));
-    // /tmp is treated like the root scratchpad. macOS apps assume it.
-    out.push_str("(allow file-read* file-write* (subpath \"/private/tmp\"))\n");
 
-    if jail.allow_net {
-        out.push_str("(allow network*)\n");
-    }
+    // `read_only` is informational on macOS — reads are already allowed
+    // by `(allow default)`. We keep the field on `Jail` because Landlock
+    // and AppContainer use it, and it lets callers express intent
+    // uniformly across platforms.
+    let _ = jail.read_only.len();
+
     out
 }
 
 fn escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::process::Stdio;
+
+    #[test]
+    fn profile_allows_default_and_jails_writes() {
+        let jail = Jail::new("/tmp/abc", "test").deny_net();
+        let p = render_profile(&jail);
+        assert!(p.contains("(allow default)"));
+        assert!(p.contains("(deny file-write*)"));
+        assert!(p.contains("(subpath \"/tmp/abc\")"));
+        assert!(p.contains("(deny network*)"));
+    }
+
+    #[test]
+    fn seatbelt_spawn_runs_true() {
+        let backend = SeatbeltBackend::new();
+        if !backend.is_available() {
+            return;
+        }
+        let dir = std::env::temp_dir();
+        let jail = Jail::new(&dir, "test.true");
+        let mut cmd = Command::new("/usr/bin/true");
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        let mut child = backend.spawn(&jail, cmd).expect("spawn");
+        let status = child.wait().expect("wait");
+        assert!(status.success(), "sandboxed /usr/bin/true exited non-zero");
+    }
+
+    #[test]
+    fn seatbelt_blocks_write_outside_root() {
+        let backend = SeatbeltBackend::new();
+        if !backend.is_available() {
+            return;
+        }
+        // Root = a fresh tempdir. Try to touch a file *outside* it.
+        let root = std::env::temp_dir().join(format!(
+            "openhuman-encap-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let outside = std::env::temp_dir().join(format!(
+            "openhuman-encap-outside-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_file(&outside);
+
+        let jail = Jail::new(&root, "test.blocked");
+        let mut cmd = Command::new("/usr/bin/touch");
+        cmd.arg(&outside)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let mut child = backend.spawn(&jail, cmd).expect("spawn");
+        let status = child.wait().expect("wait");
+
+        // Either the touch failed (good — sandbox blocked it) or it
+        // succeeded (sandbox didn't apply). Assert the file does not exist.
+        assert!(
+            !outside.exists(),
+            "Seatbelt failed to block write to {}, status={:?}",
+            outside.display(),
+            status
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
 }

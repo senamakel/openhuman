@@ -153,7 +153,7 @@ mod tests {
     use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata};
-    use chrono::Utc;
+    use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -175,7 +175,17 @@ mod tests {
         owner: &str,
         tags: &[&str],
     ) -> Chunk {
-        let ts = Utc::now();
+        chunk_at(id, source_kind, source_id, owner, tags, Utc::now())
+    }
+
+    fn chunk_at(
+        id: &str,
+        source_kind: SourceKind,
+        source_id: &str,
+        owner: &str,
+        tags: &[&str],
+        ts: chrono::DateTime<Utc>,
+    ) -> Chunk {
         Chunk {
             id: id.into(),
             content: format!("content for {id}"),
@@ -317,8 +327,65 @@ mod tests {
                     tags_all_of: Some(vec![]),
                     ..ParamTagFilters::default()
                 },
+        )
+        .unwrap();
+        assert_eq!(hits.len(), 2);
+    }
+
+    #[test]
+    fn param_tag_search_respects_since_and_until_bounds() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        let older = Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let newer = Utc.timestamp_millis_opt(1_700_100_000_000).unwrap();
+        upsert_chunks(
+            &cfg,
+            &[
+                chunk_at("c1", SourceKind::Chat, "slack:#eng", "alice", &[], older),
+                chunk_at("c2", SourceKind::Chat, "slack:#eng", "alice", &[], newer),
+            ],
+        )
+        .unwrap();
+
+        let hits = facade
+            .param_tag_search(
+                &cfg,
+                &ParamTagFilters {
+                    since_ms: Some(newer.timestamp_millis()),
+                    until_ms: Some(newer.timestamp_millis()),
+                    ..ParamTagFilters::default()
+                },
             )
             .unwrap();
-        assert_eq!(hits.len(), 2);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "c2");
+    }
+
+    #[test]
+    fn param_tag_search_returns_empty_when_required_tag_is_missing() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        upsert_chunks(
+            &cfg,
+            &[chunk(
+                "c1",
+                SourceKind::Chat,
+                "slack:#eng",
+                "alice",
+                &["deploy"],
+            )],
+        )
+        .unwrap();
+
+        let hits = facade
+            .param_tag_search(
+                &cfg,
+                &ParamTagFilters {
+                    tags_all_of: Some(vec!["person:bob".into()]),
+                    ..ParamTagFilters::default()
+                },
+            )
+            .unwrap();
+        assert!(hits.is_empty());
     }
 }

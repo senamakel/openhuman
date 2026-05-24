@@ -861,7 +861,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                             const workload = meta?.capability === 'tts' ? 'tts' : 'stt';
                             const result = await testVoiceProvider(
                               workload as 'stt' | 'tts',
-                              pendingKeySlug
+                              pendingKeySlug,
+                              true
                             );
                             setKeyTestResult(result);
                           } catch (err) {
@@ -1036,7 +1037,13 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                       setIsTestingTts(true);
                       setTtsTestResult(null);
                       try {
-                        const result = await testVoiceProvider('tts', ttsProvider || 'cloud');
+                        // For ElevenLabs, include the voice ID so the test
+                        // actually synthesizes audio with the selected voice.
+                        let ttsTestProvider = ttsProvider || 'cloud';
+                        if (ttsProvider === 'elevenlabs' && elevenlabsVoiceId) {
+                          ttsTestProvider = `elevenlabs:${elevenlabsVoiceId}`;
+                        }
+                        const result = await testVoiceProvider('tts', ttsTestProvider);
                         setTtsTestResult(result);
                       } catch (err) {
                         setTtsTestResult({

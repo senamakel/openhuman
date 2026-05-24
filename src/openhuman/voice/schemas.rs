@@ -163,6 +163,10 @@ struct VoiceListModelsParams {
 struct VoiceTestProviderParams {
     workload: String,
     provider: String,
+    /// When true, only validate the API key (lightweight GET) without
+    /// synthesizing or transcribing. Used by the provider-enable modal.
+    #[serde(default)]
+    validate_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1098,14 +1102,8 @@ fn handle_voice_test_provider(params: Map<String, Value>) -> ControllerFuture {
                 }
             }
             "tts" => {
-                // For external providers, validate the API key by hitting a
-                // lightweight endpoint (e.g. /voices for ElevenLabs, /models
-                // for OpenAI) rather than synthesizing audio — avoids needing
-                // a valid voice ID just to verify credentials.
                 let trimmed = p.provider.trim();
-                let is_external = !matches!(trimmed, "cloud" | "openhuman" | "piper" | "");
-
-                if is_external {
+                if p.validate_only && !matches!(trimmed, "cloud" | "openhuman" | "piper" | "") {
                     match validate_tts_provider_key(trimmed, &config).await {
                         Ok(detail) => {
                             let elapsed = start.elapsed().as_millis();

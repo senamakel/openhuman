@@ -244,11 +244,12 @@ const VOICE_TEST_TIMEOUT_MS = 30_000;
 
 export async function testVoiceProvider(
   workload: VoiceWorkloadId,
-  provider: string
+  provider: string,
+  validateOnly = false
 ): Promise<VoiceTestResult> {
   return await callCoreRpc<VoiceTestResult>({
     method: 'openhuman.voice_test_provider',
-    params: { workload, provider },
+    params: { workload, provider, validate_only: validateOnly },
     timeoutMs: VOICE_TEST_TIMEOUT_MS,
   });
 }

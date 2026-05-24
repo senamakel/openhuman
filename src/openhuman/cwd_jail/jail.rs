@@ -2,7 +2,7 @@
 //!
 //! A [`Jail`] describes *what* the agent is allowed to see; a [`JailBackend`]
 //! enforces it on a specific OS. Callers only interact with [`Jail`] and the
-//! top-level [`crate::openhuman::encapsulation::encapsulate`] function — they
+//! top-level [`crate::openhuman::cwd_jail::spawn`] function — they
 //! never pick a backend by name.
 
 use std::path::{Path, PathBuf};

@@ -10,7 +10,7 @@ pub fn pick_backend() -> Arc<dyn JailBackend> {
     {
         let lb = super::linux::LandlockBackend::new();
         if lb.is_available() {
-            log::info!("[encapsulation] backend=landlock");
+            log::info!("[cwd_jail] backend=landlock");
             return Arc::new(lb);
         }
     }
@@ -18,7 +18,7 @@ pub fn pick_backend() -> Arc<dyn JailBackend> {
     {
         let sb = super::macos::SeatbeltBackend::new();
         if sb.is_available() {
-            log::info!("[encapsulation] backend=seatbelt");
+            log::info!("[cwd_jail] backend=seatbelt");
             return Arc::new(sb);
         }
     }
@@ -26,10 +26,10 @@ pub fn pick_backend() -> Arc<dyn JailBackend> {
     {
         let ac = super::windows::AppContainerBackend::new();
         if ac.is_available() {
-            log::info!("[encapsulation] backend=appcontainer");
+            log::info!("[cwd_jail] backend=appcontainer");
             return Arc::new(ac);
         }
     }
-    log::warn!("[encapsulation] no OS sandbox available, falling back to noop");
+    log::warn!("[cwd_jail] no OS sandbox available, falling back to noop");
     Arc::new(NoopBackend)
 }

@@ -1,4 +1,4 @@
-//! Jail registry — manage many encapsulated workspaces side-by-side.
+//! Jail registry — manage many spawnd workspaces side-by-side.
 //!
 //! A [`JailRegistry`] is rooted at a single base directory (typically
 //! `~/.openhuman/jails/` or `<workspace>/jails/`) and owns every active
@@ -7,7 +7,7 @@
 //! - A stable **id** (UUID-ish, used in paths and the index).
 //! - A user-visible **label** (free text, displayed in UI, used for
 //!   AppContainer profile derivation on Windows).
-//! - A **directory** at `<base>/<id>/` that the [`crate::openhuman::encapsulation::Jail`]
+//! - A **directory** at `<base>/<id>/` that the [`crate::openhuman::cwd_jail::Jail`]
 //!   is rooted in.
 //! - **Metadata**: created/updated timestamps, backend used at create
 //!   time, optional notes.
@@ -32,7 +32,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use super::jail::{Jail, JailBackend};
-use super::{default_backend, encapsulate_with};
+use super::{default_backend, spawn_with};
 
 /// Metadata persisted for each jail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -229,7 +229,7 @@ impl JailRegistry {
 
     /// Spawn `cmd` inside the named jail, using the default backend.
     /// Convenience wrapper — the same effect as
-    /// `encapsulate(&Jail::new(record.dir, record.label), cmd)`.
+    /// `spawn(&Jail::new(record.dir, record.label), cmd)`.
     pub fn spawn_in(&self, id: &str, cmd: Command) -> io::Result<Child> {
         let record = self
             .get(id)
@@ -251,7 +251,7 @@ impl JailRegistry {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
         let mut jail = Jail::new(&record.dir, &record.label);
         jail.canonicalize()?;
-        encapsulate_with(backend, &jail, cmd)
+        spawn_with(backend, &jail, cmd)
     }
 
     /// Atomic-rename write of the index. Falls back to direct write on

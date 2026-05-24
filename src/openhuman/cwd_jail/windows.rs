@@ -96,7 +96,7 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
     let profile_name = sanitize_profile_name(&jail.label);
     let wide_name = to_wide(&profile_name);
     let display = to_wide(&format!("openhuman {}", jail.label));
-    let desc = to_wide("openhuman encapsulated agent process");
+    let desc = to_wide("openhuman spawnd agent process");
 
     let mut sid: PSID = ptr::null_mut();
     let hr = CreateAppContainerProfile(
@@ -136,7 +136,7 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
     //    log a warning until implemented).
     if jail.allow_net {
         log::warn!(
-            "[encapsulation] AppContainer network capabilities not yet wired; \
+            "[cwd_jail] AppContainer network capabilities not yet wired; \
              jail.allow_net=true is currently equivalent to no-net on Windows"
         );
     }
@@ -211,12 +211,12 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
 
     // TODO: bridge OwnedHandle -> std::process::Child once
     // `std::os::windows::process::ChildExt::from_raw_handle` lands, OR
-    // expose a custom `OpenhumanChild` from the encapsulation module that
+    // expose a custom `OpenhumanChild` from the cwd_jail module that
     // mirrors the bits of `Child` callers actually need (id, wait, kill).
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "AppContainer spawn succeeded but cannot yet be returned as std::process::Child; \
-         see TODO in src/openhuman/encapsulation/windows.rs",
+         see TODO in src/openhuman/cwd_jail/windows.rs",
     ))
 }
 

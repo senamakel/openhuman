@@ -1,4 +1,4 @@
-//! Directory encapsulation: jail an agent/tool into a single workspace.
+//! Directory jail (cwd_jail): jail an agent/tool into a single workspace.
 //!
 //! ## Why this exists
 //!
@@ -8,7 +8,7 @@
 //! and there is no Windows backend at all. Callers also have to thread
 //! `SecurityConfig` through every call site.
 //!
-//! `encapsulation` is the user-facing facade. Callers describe *what* the
+//! `cwd_jail` is the user-facing facade. Callers describe *what* the
 //! jail looks like ([`Jail`]) and the module picks the right OS backend:
 //!
 //! | OS      | Backend       | Mechanism                                  |
@@ -21,7 +21,7 @@
 //! ## Quick start
 //!
 //! ```ignore
-//! use openhuman::openhuman::encapsulation::{encapsulate, Jail};
+//! use openhuman::openhuman::cwd_jail::{spawn, Jail};
 //! use std::process::Command;
 //!
 //! let mut jail = Jail::new("/Users/x/work/proj", "agent.delegate")
@@ -31,7 +31,7 @@
 //!
 //! let mut cmd = Command::new("node");
 //! cmd.arg("script.js");
-//! let child = encapsulate(&jail, cmd)?;
+//! let child = spawn(&jail, cmd)?;
 //! ```
 //!
 //! ## What this does *not* do
@@ -71,22 +71,22 @@ pub fn default_backend() -> Arc<dyn JailBackend> {
     DEFAULT_BACKEND.get_or_init(detect::pick_backend).clone()
 }
 
-/// Spawn `cmd` inside the jail described by `jail`, using the default backend.
+/// Spawn `cmd` inside the jail described by `spawn`, using the default backend.
 ///
 /// `jail.canonicalize()` is called once here so the backends never see
 /// `..` or symlinks. If the root does not exist, the spawn fails with
 /// `NotFound` (canonicalize bubbles it up) — callers should create the
 /// workspace before encapsulating.
-pub fn encapsulate(jail: &Jail, cmd: Command) -> std::io::Result<Child> {
+pub fn spawn(jail: &Jail, cmd: Command) -> std::io::Result<Child> {
     let mut jail = jail.clone();
     jail.canonicalize()?;
     default_backend().spawn(&jail, cmd)
 }
 
-/// Same as [`encapsulate`] but with a caller-supplied backend. Useful in
+/// Same as [`jail`] but with a caller-supplied backend. Useful in
 /// tests and for callers that want to opt into a weaker backend
 /// explicitly (e.g. forcing [`NoopBackend`] during local dev).
-pub fn encapsulate_with(
+pub fn spawn_with(
     backend: &dyn JailBackend,
     jail: &Jail,
     cmd: Command,
@@ -99,11 +99,11 @@ pub fn encapsulate_with(
 impl Jail {
     /// Best-effort canonicalize that swallows errors and logs them. Most
     /// callers should use the validating [`Jail::canonicalize`] path that
-    /// [`encapsulate`] runs automatically.
+    /// [`jail`] runs automatically.
     pub fn canonicalize_or_log(&mut self) {
         if let Err(e) = self.canonicalize() {
             log::warn!(
-                "[encapsulation] failed to canonicalize jail root {}: {}",
+                "[cwd_jail] failed to canonicalize jail root {}: {}",
                 self.root.display(),
                 e
             );
@@ -119,7 +119,7 @@ mod tests {
     fn noop_backend_spawns_unrestricted() {
         let dir = std::env::temp_dir();
         let jail = Jail::new(&dir, "test.noop");
-        let mut child = encapsulate_with(&NoopBackend, &jail, {
+        let mut child = spawn_with(&NoopBackend, &jail, {
             let mut c = Command::new(if cfg!(windows) { "cmd" } else { "true" });
             if cfg!(windows) {
                 c.args(["/C", "exit"]);
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn missing_root_errors() {
         let jail = Jail::new("/this/does/not/exist/ever", "x");
-        let err = encapsulate_with(&NoopBackend, &jail, Command::new("true")).unwrap_err();
+        let err = spawn_with(&NoopBackend, &jail, Command::new("true")).unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
     }
 
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn encapsulate_uses_default_backend() {
+    fn spawn_uses_default_backend() {
         let dir = std::env::temp_dir();
         let jail = Jail::new(&dir, "default-spawn");
         let cmd = if cfg!(windows) {
@@ -176,8 +176,8 @@ mod tests {
         };
         // Must succeed via whichever platform backend is detected (or
         // noop). The point of the test is that we go through the public
-        // `encapsulate` entry rather than `encapsulate_with`.
-        let mut child = encapsulate(&jail, cmd).expect("encapsulate spawn");
+        // `spawn` entry rather than `spawn_with`.
+        let mut child = spawn(&jail, cmd).expect("spawn spawn");
         let _ = child.wait().expect("wait");
     }
 

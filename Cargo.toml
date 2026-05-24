@@ -183,8 +183,8 @@ wacore = { version = "0.5", optional = true, default-features = false }
 # connections honor the Windows cert store, including corporate CAs
 # installed by AV / TLS-inspection proxies. See run-dev-win.sh notes.
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "native-tls"] }
-# AppContainer / process-jail backend in `openhuman::encapsulation`.
-# Feature list mirrors the Win32 surface used by encapsulation/windows.rs:
+# AppContainer / process-jail backend in `openhuman::cwd_jail`.
+# Feature list mirrors the Win32 surface used by cwd_jail/windows.rs:
 # AppContainer profile APIs, ACL editing, STARTUPINFOEXW process spawn,
 # and the GENERIC_* file access masks.
 windows-sys = { version = "0.61", features = [

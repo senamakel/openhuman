@@ -1,6 +1,6 @@
-//! End-to-end tests for `openhuman::encapsulation`.
+//! End-to-end tests for `openhuman::cwd_jail`.
 //!
-//! Each test goes through the public surface only — `Jail`, `encapsulate`,
+//! Each test goes through the public surface only — `Jail`, `spawn`,
 //! `JailRegistry`, `default_backend` — and (where the platform allows it)
 //! actually exercises the OS sandbox by trying to do something it should
 //! be blocked from doing.
@@ -13,14 +13,14 @@
 //! - **macOS**: same shape, exercises Seatbelt via `/usr/bin/touch`.
 //! - **Windows**: AppContainer integration is marked `#[ignore]` until
 //!   the raw-`HANDLE` → `Child` bridge lands (see TODO in
-//!   `src/openhuman/encapsulation/windows.rs`).
+//!   `src/openhuman/cwd_jail/windows.rs`).
 
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use openhuman_core::openhuman::encapsulation::{
-    default_backend, encapsulate, encapsulate_with, Jail, JailRegistry, NoopBackend,
+use openhuman_core::openhuman::cwd_jail::{
+    default_backend, spawn, spawn_with, Jail, JailRegistry, NoopBackend,
 };
 
 fn unique_tempdir(tag: &str) -> PathBuf {
@@ -83,7 +83,7 @@ fn registry_full_lifecycle_with_noop() {
 #[test]
 fn jail_canonicalize_rejects_missing_root() {
     let jail = Jail::new("/does/not/exist/at/all", "missing");
-    let err = encapsulate_with(&NoopBackend, &jail, noop_exit_zero_cmd()).unwrap_err();
+    let err = spawn_with(&NoopBackend, &jail, noop_exit_zero_cmd()).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
 }
 
@@ -98,7 +98,7 @@ fn default_backend_is_named_and_available() {
 
 #[test]
 fn jail_builder_carries_intent_through_clone() {
-    // `encapsulate` clones the jail before canonicalize; verify a chained
+    // `spawn` clones the jail before canonicalize; verify a chained
     // builder still produces the right shape.
     let dir = unique_tempdir("builder");
     let j = Jail::new(&dir, "build")
@@ -128,7 +128,7 @@ fn linux_landlock_blocks_write_outside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = encapsulate(&jail, cmd).expect("spawn under landlock");
+    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
     let _ = child.wait().expect("wait");
 
     assert!(
@@ -153,7 +153,7 @@ fn linux_landlock_allows_write_inside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = encapsulate(&jail, cmd).expect("spawn under landlock");
+    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
     let status = child.wait().expect("wait");
     assert!(status.success(), "write inside root should succeed");
     assert!(inside.exists());
@@ -179,7 +179,7 @@ fn macos_seatbelt_blocks_write_outside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = encapsulate(&jail, cmd).expect("spawn under seatbelt");
+    let mut child = spawn(&jail, cmd).expect("spawn under seatbelt");
     let _ = child.wait().expect("wait");
 
     assert!(
@@ -203,7 +203,7 @@ fn macos_seatbelt_allows_write_inside_root() {
     let mut cmd = Command::new("/usr/bin/touch");
     cmd.arg(&inside).stdout(Stdio::null()).stderr(Stdio::null());
 
-    let mut child = encapsulate(&jail, cmd).expect("spawn under seatbelt");
+    let mut child = spawn(&jail, cmd).expect("spawn under seatbelt");
     let status = child.wait().expect("wait");
     assert!(status.success(), "writing inside root should succeed");
     assert!(inside.exists());
@@ -227,7 +227,7 @@ fn macos_seatbelt_blocks_network_when_denied() {
         .arg("/usr/bin/nc -z -w 1 1.1.1.1 80 2>/dev/null && echo OPEN")
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let child = encapsulate(&jail, cmd).expect("spawn under seatbelt");
+    let child = spawn(&jail, cmd).expect("spawn under seatbelt");
     let out = child.wait_with_output().expect("wait");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
@@ -256,7 +256,7 @@ fn windows_appcontainer_blocks_write_outside_root() {
 
     // Once the Child bridge is implemented, flip this from `unwrap_err`
     // to `wait` + assert(!outside.exists()).
-    let err = encapsulate(&jail, cmd).unwrap_err();
+    let err = spawn(&jail, cmd).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
     fs::remove_dir_all(&root).ok();
 }

@@ -176,7 +176,7 @@ mod tests {
         // `/tmp` canonicalizes to `/private/tmp` on macOS — subpath
         // matching in the Seatbelt profile is by canonical path, so
         // unless we resolve first the write inside root gets denied.
-        // This is exactly what the `encapsulate` facade does for callers.
+        // This is exactly what the `spawn` facade does for callers.
         jail.canonicalize().unwrap();
         let mut cmd = Command::new("/bin/sh");
         cmd.arg("-c")

@@ -1174,7 +1174,7 @@ export const BackgroundLoopControls = ({
               </div>
 
               {settings ? (
-        <div className="space-y-2">
+                <div className="space-y-2">
                   <LoopToggle
                     label={t('settings.ai.heartbeatLoop')}
                     description={t('settings.ai.heartbeatLoopDesc')}
@@ -1313,9 +1313,7 @@ export const BackgroundLoopControls = ({
                       onClick={() => void runPlannerNow()}
                       disabled={runningTick}
                       className="ml-auto rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
-                      {runningTick
-                        ? t('settings.ai.running')
-                        : t('settings.ai.plannerTickNow')}
+                      {runningTick ? t('settings.ai.running') : t('settings.ai.plannerTickNow')}
                     </button>
                   </div>
 
@@ -1324,10 +1322,7 @@ export const BackgroundLoopControls = ({
                       {t('settings.ai.plannerSummary')
                         .replace('{sourceEvents}', String(plannerSummary.source_events))
                         .replace('{sent}', String(plannerSummary.deliveries_sent))
-                        .replace(
-                          '{deduped}',
-                          String(plannerSummary.deliveries_skipped_dedup)
-                        )}
+                        .replace('{deduped}', String(plannerSummary.deliveries_skipped_dedup))}
                     </div>
                   )}
                 </div>
@@ -1881,9 +1876,7 @@ const CustomRoutingDialog = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={formatI18n(t('settings.ai.customRoutingForWorkload'), {
-        label: workload.label,
-      })}
+      aria-label={formatI18n(t('settings.ai.customRoutingForWorkload'), { label: workload.label })}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-md rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -3027,9 +3020,7 @@ const CloudProviderEditor = ({
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-              placeholder={
-                hasExistingKey ? t('settings.ai.keepExistingKeyPlaceholder') : 'sk-...'
-              }
+              placeholder={hasExistingKey ? t('settings.ai.keepExistingKeyPlaceholder') : 'sk-...'}
             />
           </div>
           {submitError ? <ProviderSetupErrorNotice error={submitError} /> : null}

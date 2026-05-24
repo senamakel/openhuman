@@ -307,36 +307,39 @@ export const MascotScreen: FC = () => {
 
   // -- shared send (declared before PTT handlers so it is in scope) -----------
 
-  const sendMessage = useCallback(async (text: string) => {
-    log('[ios] sendMessage len=%d thread_id=%s', text.length, IOS_THREAD_ID);
+  const sendMessage = useCallback(
+    async (text: string) => {
+      log('[ios] sendMessage len=%d thread_id=%s', text.length, IOS_THREAD_ID);
 
-    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', text };
-    const assistantId = `asst-${Date.now()}`;
-    streamingIdRef.current = assistantId;
+      const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', text };
+      const assistantId = `asst-${Date.now()}`;
+      streamingIdRef.current = assistantId;
 
-    setMessages(prev => [
-      ...prev,
-      userMsg,
-      { id: assistantId, role: 'assistant', text: '', streaming: true },
-    ]);
-    setIsSending(true);
+      setMessages(prev => [
+        ...prev,
+        userMsg,
+        { id: assistantId, role: 'assistant', text: '', streaming: true },
+      ]);
+      setIsSending(true);
 
-    try {
-      await chatSend({ threadId: IOS_THREAD_ID, message: text, model: IOS_CHAT_MODEL });
-      log('[ios] chatSend enqueued thread_id=%s', IOS_THREAD_ID);
-    } catch (err) {
-      logErr('[ios] chatSend failed: %o', err);
-      streamingIdRef.current = null;
-      setIsSending(false);
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantId
-            ? { ...m, text: t('iosMascot.error.sendFailed'), streaming: false }
-            : m
-        )
-      );
-    }
-  }, [t]);
+      try {
+        await chatSend({ threadId: IOS_THREAD_ID, message: text, model: IOS_CHAT_MODEL });
+        log('[ios] chatSend enqueued thread_id=%s', IOS_THREAD_ID);
+      } catch (err) {
+        logErr('[ios] chatSend failed: %o', err);
+        streamingIdRef.current = null;
+        setIsSending(false);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? { ...m, text: t('iosMascot.error.sendFailed'), streaming: false }
+              : m
+          )
+        );
+      }
+    },
+    [t]
+  );
 
   // -- PTT handlers ----------------------------------------------------------
 

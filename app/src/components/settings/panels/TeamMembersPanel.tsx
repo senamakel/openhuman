@@ -310,9 +310,7 @@ const TeamMembersPanel = () => {
                       </strong>{' '}
                       {t('team.removePromptSuffix')}
                     </p>
-                    <p className="mt-2 text-coral-400">
-                      {t('team.removeWarning')}
-                    </p>
+                    <p className="mt-2 text-coral-400">{t('team.removeWarning')}</p>
                   </div>
 
                   <div className="flex gap-2 pt-2">
@@ -359,14 +357,10 @@ const TeamMembersPanel = () => {
                         .replace('{newRole}', roleChangeConfirmation.newRole)}
                     </p>
                     {roleChangeConfirmation.newRole === 'ADMIN' && (
-                      <p className="mt-2 text-amber-400">
-                        {t('team.changeRoleAdminGrant')}
-                      </p>
+                      <p className="mt-2 text-amber-400">{t('team.changeRoleAdminGrant')}</p>
                     )}
                     {roleChangeConfirmation.oldRole === 'ADMIN' && (
-                      <p className="mt-2 text-coral-400">
-                        {t('team.changeRoleAdminRemove')}
-                      </p>
+                      <p className="mt-2 text-coral-400">{t('team.changeRoleAdminRemove')}</p>
                     )}
                   </div>
 

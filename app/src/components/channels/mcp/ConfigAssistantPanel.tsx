@@ -122,7 +122,8 @@ const ConfigAssistantPanel = ({
                   <ul className="space-y-0.5">
                     {Object.keys(msg.suggested_env).map(key => (
                       <li key={key} className="text-[11px] font-mono opacity-90">
-                        {key}: <span className="opacity-60">{t('mcp.configAssistant.valueHidden')}</span>
+                        {key}:{' '}
+                        <span className="opacity-60">{t('mcp.configAssistant.valueHidden')}</span>
                       </li>
                     ))}
                   </ul>

@@ -1,10 +1,10 @@
+import { useT } from '../../../../lib/i18n/I18nContext';
 import type {
   TeamUsage,
   TeamUsageDailyPoint,
   TeamUsageIntegrationRow,
   TeamUsageModelRow,
 } from '../../../../services/api/creditsApi';
-import { useT } from '../../../../lib/i18n/I18nContext';
 
 interface InferenceBudgetProps {
   teamUsage: TeamUsage | null;
@@ -128,7 +128,9 @@ const InferenceBudget = ({ teamUsage, isLoadingCredits }: InferenceBudgetProps) 
       ) : isLoadingCredits ? (
         <div className="h-1.5 w-full rounded-full bg-stone-200 animate-pulse" />
       ) : (
-        <p className="text-xs text-stone-500">{t('settings.billing.inferenceBudget.unableToLoad')}</p>
+        <p className="text-xs text-stone-500">
+          {t('settings.billing.inferenceBudget.unableToLoad')}
+        </p>
       )}
     </div>
   );

@@ -342,9 +342,7 @@ const DevicesPanel = () => {
               </svg>
             </div>
             <p className="text-sm font-medium text-stone-700 mb-1">{t('devices.noPaired')}</p>
-            <p className="text-xs text-stone-400 mb-4 max-w-xs">
-              {t('devices.emptyState')}
-            </p>
+            <p className="text-xs text-stone-400 mb-4 max-w-xs">{t('devices.emptyState')}</p>
             <button
               onClick={handleOpenPairModal}
               className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 transition-colors rounded-lg">

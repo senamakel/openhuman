@@ -39,10 +39,7 @@ const SmitheryServerCard = ({ server, onInstall }: SmitheryServerCardProps) => {
           </div>
           {server.use_count != null && server.use_count > 0 && (
             <p className="text-[11px] text-stone-400 dark:text-neutral-500 mt-0.5">
-              {t('mcp.catalog.installCount').replace(
-                '{count}',
-                server.use_count.toLocaleString()
-              )}
+              {t('mcp.catalog.installCount').replace('{count}', server.use_count.toLocaleString())}
             </p>
           )}
         </div>

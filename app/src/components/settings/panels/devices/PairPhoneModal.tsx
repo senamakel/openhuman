@@ -297,9 +297,7 @@ function QrBody({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <p className="text-sm text-stone-600 text-center">
-        {t('devices.pairModal.instructions')}
-      </p>
+      <p className="text-sm text-stone-600 text-center">{t('devices.pairModal.instructions')}</p>
 
       {/* QR code */}
       <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-sm">
@@ -307,10 +305,9 @@ function QrBody({
       </div>
 
       <p className="text-xs text-stone-400">
-        {t(minutesLeft === 1 ? 'devices.pairModal.expiresIn' : 'devices.pairModal.expiresInPlural').replace(
-          '{count}',
-          String(minutesLeft)
-        )}
+        {t(
+          minutesLeft === 1 ? 'devices.pairModal.expiresIn' : 'devices.pairModal.expiresInPlural'
+        ).replace('{count}', String(minutesLeft))}
       </p>
 
       {/* Details toggle */}

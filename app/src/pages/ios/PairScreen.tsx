@@ -105,10 +105,7 @@ export const PairScreen: FC = () => {
       await handleScanResult(rawContent);
     } catch (err) {
       logErr('[ios] scan error: %o', err);
-      setState({
-        kind: 'error',
-        message: t('iosPair.error.camera'),
-      });
+      setState({ kind: 'error', message: t('iosPair.error.camera') });
     }
   }
 
@@ -116,10 +113,7 @@ export const PairScreen: FC = () => {
     // 1. Parse
     const payload = parsePairUrl(raw);
     if (!payload) {
-      setState({
-        kind: 'error',
-        message: t('iosPair.error.invalidQr'),
-      });
+      setState({ kind: 'error', message: t('iosPair.error.invalidQr') });
       return;
     }
 
@@ -163,19 +157,13 @@ export const PairScreen: FC = () => {
       const healthy = await transport.isHealthy();
       if (!healthy) {
         logErr('[ios] transport health check failed kind=%s', transport.kind);
-        setState({
-          kind: 'error',
-          message: t('iosPair.error.unreachableDesktop'),
-        });
+        setState({ kind: 'error', message: t('iosPair.error.unreachableDesktop') });
         return;
       }
       log('[ios] transport healthy kind=%s; navigating to /human', transport.kind);
     } catch (err) {
       logErr('[ios] transport probe error: %o', err);
-      setState({
-        kind: 'error',
-        message: t('iosPair.error.connectionFailed'),
-      });
+      setState({ kind: 'error', message: t('iosPair.error.connectionFailed') });
       return;
     }
 
@@ -208,9 +196,7 @@ export const PairScreen: FC = () => {
         {/* Heading */}
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-white mb-2">{t('iosPair.title')}</h1>
-          <p className="text-sm text-white/60 leading-relaxed">
-            {t('iosPair.instructions')}
-          </p>
+          <p className="text-sm text-white/60 leading-relaxed">{t('iosPair.instructions')}</p>
         </div>
 
         {/* State-specific content */}

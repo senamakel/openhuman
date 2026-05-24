@@ -45,9 +45,7 @@ const InstalledServerList = ({
 
       {servers.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8">
-          <p className="text-sm text-stone-400 dark:text-neutral-500">
-            {t('mcp.installed.empty')}
-          </p>
+          <p className="text-sm text-stone-400 dark:text-neutral-500">{t('mcp.installed.empty')}</p>
           <button
             type="button"
             onClick={onBrowseCatalog}
@@ -84,7 +82,9 @@ const InstalledServerList = ({
                     {status === 'connected' && toolCount > 0 && (
                       <span className="block text-[11px] text-stone-400 dark:text-neutral-500">
                         {t(
-                          toolCount === 1 ? 'mcp.installed.toolSingular' : 'mcp.installed.toolPlural'
+                          toolCount === 1
+                            ? 'mcp.installed.toolSingular'
+                            : 'mcp.installed.toolPlural'
                         ).replace('{count}', String(toolCount))}
                       </span>
                     )}

@@ -31,39 +31,42 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
   // responses when a newer request has already been issued.
   const requestSeqRef = useRef(0);
 
-  const fetchPage = useCallback(async (searchQuery: string, pageNum: number, append: boolean) => {
-    const seq = ++requestSeqRef.current;
-    setLoading(true);
-    setError(null);
-    log('fetching page=%d query=%s seq=%d', pageNum, searchQuery, seq);
-    try {
-      const result = await mcpClientsApi.registrySearch({
-        query: searchQuery || undefined,
-        page: pageNum,
-        page_size: PAGE_SIZE,
-      });
-      // Discard if a newer request has already been dispatched.
-      if (seq !== requestSeqRef.current) {
-        log('discarding stale response seq=%d (latest=%d)', seq, requestSeqRef.current);
-        return;
+  const fetchPage = useCallback(
+    async (searchQuery: string, pageNum: number, append: boolean) => {
+      const seq = ++requestSeqRef.current;
+      setLoading(true);
+      setError(null);
+      log('fetching page=%d query=%s seq=%d', pageNum, searchQuery, seq);
+      try {
+        const result = await mcpClientsApi.registrySearch({
+          query: searchQuery || undefined,
+          page: pageNum,
+          page_size: PAGE_SIZE,
+        });
+        // Discard if a newer request has already been dispatched.
+        if (seq !== requestSeqRef.current) {
+          log('discarding stale response seq=%d (latest=%d)', seq, requestSeqRef.current);
+          return;
+        }
+        setTotalPages(result.total_pages);
+        setPage(result.page);
+        // Guard against malformed envelope where `servers` is null/undefined.
+        const incoming = result.servers ?? [];
+        setServers(prev => (append ? [...prev, ...incoming] : incoming));
+        log('loaded %d servers (append=%s)', incoming.length, append);
+      } catch (err) {
+        if (seq !== requestSeqRef.current) return;
+        const msg = err instanceof Error ? err.message : t('mcp.catalog.loadFailed');
+        log('catalog fetch error: %s', msg);
+        setError(msg);
+      } finally {
+        if (seq === requestSeqRef.current) {
+          setLoading(false);
+        }
       }
-      setTotalPages(result.total_pages);
-      setPage(result.page);
-      // Guard against malformed envelope where `servers` is null/undefined.
-      const incoming = result.servers ?? [];
-      setServers(prev => (append ? [...prev, ...incoming] : incoming));
-      log('loaded %d servers (append=%s)', incoming.length, append);
-    } catch (err) {
-      if (seq !== requestSeqRef.current) return;
-      const msg = err instanceof Error ? err.message : t('mcp.catalog.loadFailed');
-      log('catalog fetch error: %s', msg);
-      setError(msg);
-    } finally {
-      if (seq === requestSeqRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [t]);
+    },
+    [t]
+  );
 
   // Debounce the query and reset to page 1 whenever it changes.
   useEffect(() => {

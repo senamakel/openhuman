@@ -319,10 +319,9 @@ const TeamInvitesPanel = () => {
                     </div>
                     <div className="flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
                       <span>
-                        {t('invites.uses').replace('{current}', String(invite.currentUses)).replace(
-                          '{max}',
-                          invite.maxUses > 0 ? `/${invite.maxUses}` : ''
-                        )}
+                        {t('invites.uses')
+                          .replace('{current}', String(invite.currentUses))
+                          .replace('{max}', invite.maxUses > 0 ? `/${invite.maxUses}` : '')}
                       </span>
                       <span>
                         {status === 'expired'
@@ -381,9 +380,7 @@ const TeamInvitesPanel = () => {
                       </code>
                       ?
                     </p>
-                    <p className="mt-2 text-amber-400">
-                      {t('invites.revokeWarning')}
-                    </p>
+                    <p className="mt-2 text-amber-400">{t('invites.revokeWarning')}</p>
                   </div>
 
                   <div className="flex gap-2 pt-2">

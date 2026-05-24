@@ -83,10 +83,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
     { id: 'en_US-amy-medium', label: t('voice.providers.piperPreset.amyMedium') },
     { id: 'en_US-libritts-high', label: t('voice.providers.piperPreset.librittsHigh') },
     { id: 'en_GB-alan-medium', label: t('voice.providers.piperPreset.alanMedium') },
-    {
-      id: 'en_GB-jenny_dioco-medium',
-      label: t('voice.providers.piperPreset.jennyDiocoMedium'),
-    },
+    { id: 'en_GB-jenny_dioco-medium', label: t('voice.providers.piperPreset.jennyDiocoMedium') },
     {
       id: 'en_GB-northern_english_male-medium',
       label: t('voice.providers.piperPreset.northernEnglishMaleMedium'),

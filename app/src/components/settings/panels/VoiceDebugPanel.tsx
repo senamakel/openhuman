@@ -161,9 +161,7 @@ const VoiceDebugPanel = () => {
                   STT
                 </div>
                 <div className="mt-1 font-medium text-stone-900 dark:text-neutral-100">
-                  {voiceStatus?.stt_available
-                    ? t('voice.debug.ready')
-                    : t('voice.debug.notReady')}
+                  {voiceStatus?.stt_available ? t('voice.debug.ready') : t('voice.debug.notReady')}
                 </div>
               </div>
             </div>

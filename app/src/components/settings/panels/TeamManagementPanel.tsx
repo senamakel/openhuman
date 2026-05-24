@@ -299,9 +299,7 @@ const TeamManagementPanel = () => {
                     />
                   </svg>
                   <div>
-                    <div className="font-medium text-sm text-coral-400">
-                      {t('team.delete')}
-                    </div>
+                    <div className="font-medium text-sm text-coral-400">{t('team.delete')}</div>
                     <p className="text-xs text-stone-500 dark:text-neutral-400">
                       {t('team.deleteDesc')}
                     </p>
@@ -387,13 +385,8 @@ const TeamManagementPanel = () => {
 
                 <div className="space-y-4">
                   <div className="text-sm text-stone-400 dark:text-neutral-500">
-                    <p>
-                      {t('team.confirmDelete')
-                        .replace('{name}', teamEntry?.team.name ?? '')}
-                    </p>
-                    <p className="mt-2 text-coral-400">
-                      {t('team.deleteWarning')}
-                    </p>
+                    <p>{t('team.confirmDelete').replace('{name}', teamEntry?.team.name ?? '')}</p>
+                    <p className="mt-2 text-coral-400">{t('team.deleteWarning')}</p>
                   </div>
 
                   <div className="flex gap-2 pt-2">

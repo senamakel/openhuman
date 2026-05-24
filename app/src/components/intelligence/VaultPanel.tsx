@@ -249,9 +249,7 @@ export function VaultPanel({ onToast }: VaultPanelProps) {
           <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
             {t('vault.title')}
           </h3>
-          <p className="text-xs text-stone-500 dark:text-neutral-400">
-            {t('vault.description')}
-          </p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400">{t('vault.description')}</p>
         </div>
         <button
           type="button"
@@ -410,10 +408,7 @@ function formatRelative(iso: string, translate: (key: string) => string): string
   return translate('vault.relative.day').replace('{count}', String(day));
 }
 
-function formatSyncSummary(
-  state: CoreVaultSyncState,
-  t: (key: string) => string
-): string {
+function formatSyncSummary(state: CoreVaultSyncState, t: (key: string) => string): string {
   let summary = t('vault.syncSummary')
     .replace('{ingested}', String(state.ingested))
     .replace('{unchanged}', String(state.unchanged))
@@ -422,10 +417,7 @@ function formatSyncSummary(
     summary += t('vault.syncSummaryFailed').replace('{count}', String(state.failed));
   }
   if (state.skipped_unsupported > 0) {
-    summary += t('vault.syncSummarySkipped').replace(
-      '{count}',
-      String(state.skipped_unsupported)
-    );
+    summary += t('vault.syncSummarySkipped').replace('{count}', String(state.skipped_unsupported));
   }
   if (state.duration_ms > 0) {
     summary += t('vault.syncSummaryDuration').replace(

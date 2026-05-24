@@ -74,7 +74,10 @@ impl JailRegistry {
         fs::create_dir_all(&base)?;
         let idx_path = base.join(INDEX_FILENAME);
         let index = if idx_path.exists() {
-            log::debug!("[cwd_jail] registry.open loading index {}", idx_path.display());
+            log::debug!(
+                "[cwd_jail] registry.open loading index {}",
+                idx_path.display()
+            );
             let raw = fs::read(&idx_path)?;
             serde_json::from_slice::<Index>(&raw)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
@@ -85,7 +88,11 @@ impl JailRegistry {
                 schema_version: INDEX_SCHEMA_VERSION,
             }
         };
-        log::debug!("[cwd_jail] registry.open base={} records={}", base.display(), index.records.len());
+        log::debug!(
+            "[cwd_jail] registry.open base={} records={}",
+            base.display(),
+            index.records.len()
+        );
         Ok(Self {
             base,
             index: Mutex::new(index),
@@ -129,7 +136,10 @@ impl JailRegistry {
         };
         idx.records.insert(id.clone(), record.clone());
         self.persist(&idx)?;
-        log::debug!("[cwd_jail] registry.create id={id} dir={}", record.dir.display());
+        log::debug!(
+            "[cwd_jail] registry.create id={id} dir={}",
+            record.dir.display()
+        );
         Ok(record)
     }
 
@@ -182,7 +192,10 @@ impl JailRegistry {
 
     /// Update the free-form notes field.
     pub fn set_notes(&self, id: &str, notes: Option<String>) -> io::Result<JailRecord> {
-        log::debug!("[cwd_jail] registry.set_notes id={id} has_notes={}", notes.is_some());
+        log::debug!(
+            "[cwd_jail] registry.set_notes id={id} has_notes={}",
+            notes.is_some()
+        );
         let mut idx = self.index.lock().unwrap();
         let record = idx
             .records
@@ -210,7 +223,10 @@ impl JailRegistry {
             .get(id)
             .cloned()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
-        log::debug!("[cwd_jail] registry.delete id={id} dir={}", record.dir.display());
+        log::debug!(
+            "[cwd_jail] registry.delete id={id} dir={}",
+            record.dir.display()
+        );
 
         let resolved = record
             .dir
@@ -276,7 +292,10 @@ impl JailRegistry {
         cmd: Command,
     ) -> io::Result<Child> {
         let jail = self.jail_for(id)?;
-        log::debug!("[cwd_jail] registry.spawn_in_with id={id} backend={}", backend.name());
+        log::debug!(
+            "[cwd_jail] registry.spawn_in_with id={id} backend={}",
+            backend.name()
+        );
         spawn_with(backend, &jail, cmd)
     }
 
@@ -330,12 +349,17 @@ impl JailRegistry {
         fs::write(&tmp, &bytes)?;
         match fs::rename(&tmp, &path) {
             Ok(()) => {
-                log::trace!("[cwd_jail] registry.persist atomic-rename n={}", idx.records.len());
+                log::trace!(
+                    "[cwd_jail] registry.persist atomic-rename n={}",
+                    idx.records.len()
+                );
                 Ok(())
             }
             Err(e) => {
                 // Fallback: direct overwrite.
-                log::debug!("[cwd_jail] registry.persist rename failed ({e}); falling back to overwrite");
+                log::debug!(
+                    "[cwd_jail] registry.persist rename failed ({e}); falling back to overwrite"
+                );
                 fs::write(&path, &bytes)?;
                 let _ = fs::remove_file(&tmp);
                 Ok(())
@@ -360,7 +384,6 @@ fn generate_id() -> String {
     let ts = now_unix();
     format!("j{ts:x}{n:x}")
 }
-
 
 #[cfg(test)]
 #[path = "registry_test.rs"]

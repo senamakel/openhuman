@@ -97,9 +97,7 @@ impl JailBackend for LandlockBackend {
                             ruleset = ruleset
                                 .add_rule(PathBeneath::new(
                                     fd,
-                                    AccessFs::Execute
-                                        | AccessFs::ReadFile
-                                        | AccessFs::ReadDir,
+                                    AccessFs::Execute | AccessFs::ReadFile | AccessFs::ReadDir,
                                 ))
                                 .map_err(|e| std::io::Error::other(e.to_string()))?;
                         }

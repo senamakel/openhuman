@@ -176,9 +176,11 @@ fn next_sleep_duration() -> Duration {
 mod tests {
     use super::*;
     use crate::openhuman::memory::jobs::store::{
-        claim_next, count_by_status, count_total, mark_done, DEFAULT_LOCK_DURATION_MS,
+        DEFAULT_LOCK_DURATION_MS, claim_next, count_by_status, count_total, mark_done,
     };
-    use crate::openhuman::memory::jobs::types::JobStatus;
+    use crate::openhuman::memory::jobs::types::{
+        DigestDailyPayload, FlushStalePayload, JobKind, JobStatus,
+    };
     use tempfile::TempDir;
 
     fn test_config() -> (TempDir, Config) {
@@ -258,5 +260,59 @@ mod tests {
         assert_eq!(n1, 3);
         assert_eq!(n2, 0, "second call must be fully dedupe-suppressed");
         assert_eq!(count_total(&cfg).unwrap(), 3);
+    }
+
+    #[test]
+    fn enqueue_flush_stale_enqueues_at_most_one_job_per_current_block() {
+        let (_tmp, cfg) = test_config();
+        enqueue_flush_stale(&cfg);
+        enqueue_flush_stale(&cfg);
+
+        assert_eq!(
+            count_by_status(&cfg, JobStatus::Ready).unwrap(),
+            1,
+            "second enqueue in same 3h block should be dedupe-suppressed"
+        );
+
+        let claimed = claim_next(&cfg, DEFAULT_LOCK_DURATION_MS).unwrap().unwrap();
+        assert_eq!(claimed.kind, JobKind::FlushStale);
+        let payload: FlushStalePayload = serde_json::from_str(&claimed.payload_json).unwrap();
+        assert_eq!(payload.max_age_secs, None);
+    }
+
+    #[test]
+    fn enqueue_daily_jobs_adds_digest_and_flush_jobs() {
+        let (_tmp, cfg) = test_config();
+        enqueue_daily_jobs(&cfg).unwrap();
+
+        assert_eq!(count_total(&cfg).unwrap(), 2);
+
+        let first = claim_next(&cfg, DEFAULT_LOCK_DURATION_MS).unwrap().unwrap();
+        assert_eq!(
+            first.kind,
+            JobKind::DigestDaily,
+            "digest_daily should be claimed ahead of flush_stale"
+        );
+        let digest: DigestDailyPayload = serde_json::from_str(&first.payload_json).unwrap();
+        assert!(!digest.date_iso.is_empty());
+        mark_done(&cfg, &first).unwrap();
+
+        let second = claim_next(&cfg, DEFAULT_LOCK_DURATION_MS).unwrap().unwrap();
+        assert_eq!(second.kind, JobKind::FlushStale);
+        let flush: FlushStalePayload = serde_json::from_str(&second.payload_json).unwrap();
+        assert_eq!(flush.max_age_secs, None);
+    }
+
+    #[test]
+    fn next_sleep_duration_targets_near_next_midnight_utc_plus_five_minutes() {
+        let sleep = next_sleep_duration();
+        assert!(
+            sleep.as_secs() > 0,
+            "scheduler sleep should always be positive"
+        );
+        assert!(
+            sleep.as_secs() <= 24 * 60 * 60 + 5 * 60,
+            "scheduler should never sleep for more than ~24h+5m"
+        );
     }
 }

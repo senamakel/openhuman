@@ -393,6 +393,7 @@ fn print_help() {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::path::PathBuf;
 
     use tempfile::TempDir;
 
@@ -423,6 +424,35 @@ mod tests {
                 std::env::set_var("OPENHUMAN_WORKSPACE", previous);
             } else {
                 std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        previous: Option<OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+
+        fn remove(key: &'static str) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::remove_var(key);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var(self.key, previous);
+            } else {
+                std::env::remove_var(self.key);
             }
         }
     }
@@ -462,6 +492,14 @@ mod tests {
             Err(err) => err,
         };
         assert!(err.to_string().contains("missing value for --content"));
+
+        let err =
+            parse_opts(&["--file".to_string()]).expect_err("missing --file value should fail");
+        assert!(err.to_string().contains("missing value for --file"));
+
+        let err = parse_opts(&["--node-id".to_string()])
+            .expect_err("missing --node-id value should fail");
+        assert!(err.to_string().contains("missing value for --node-id"));
     }
 
     #[test]
@@ -471,20 +509,18 @@ mod tests {
 
         let err = run_tree_summarizer_command(&["bogus".to_string()])
             .expect_err("unknown subcommand should fail");
-        assert!(
-            err.to_string()
-                .contains("unknown tree-summarizer subcommand")
-        );
+        assert!(err
+            .to_string()
+            .contains("unknown tree-summarizer subcommand"));
     }
 
     #[test]
     fn subcommand_argument_validation_errors_without_running_runtime() {
         let err = run_ingest(&["ns".to_string()])
             .expect_err("ingest without content or file should fail");
-        assert!(
-            err.to_string()
-                .contains("either --content or --file is required")
-        );
+        assert!(err
+            .to_string()
+            .contains("either --content or --file is required"));
 
         let err = run_ingest(&["ns".to_string(), "--content".to_string(), "   ".to_string()])
             .expect_err("blank content should fail");
@@ -505,7 +541,12 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
-        assert!(run_ingest(&["ns".to_string(), "--content".to_string(), "hello world".to_string()]).is_ok());
+        assert!(run_ingest(&[
+            "ns".to_string(),
+            "--content".to_string(),
+            "hello world".to_string()
+        ])
+        .is_ok());
         assert!(run_status(&["ns".to_string()]).is_ok());
         let err = run_query(&["ns".to_string(), "root".to_string()])
             .expect_err("root query should fail before a summarization run creates nodes");
@@ -528,18 +569,112 @@ mod tests {
     }
 
     #[test]
+    fn ingest_prefers_file_input_and_surfaces_read_errors() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+        let missing = tmp.path().join("missing.txt");
+
+        let args = vec![
+            "ns".to_string(),
+            "--content".to_string(),
+            "fallback text".to_string(),
+            "--file".to_string(),
+            missing.display().to_string(),
+        ];
+        let err = run_ingest(&args).expect_err("missing file should win over inline content");
+        assert!(err.to_string().contains("failed to read"));
+        assert!(err.to_string().contains("missing.txt"));
+    }
+
+    #[test]
+    fn run_summarize_skips_when_isolated_workspace_has_no_buffered_data() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        assert!(run_summarize(&["fresh-ns".to_string()]).is_ok());
+    }
+
+    #[test]
+    fn query_prefers_explicit_node_flag_over_positional_node() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+
+        let err = run_query(&[
+            "ns".to_string(),
+            "2024/03/15".to_string(),
+            "--node-id".to_string(),
+            "2024/03/16".to_string(),
+        ])
+        .expect_err("missing node should fail");
+
+        assert!(err
+            .to_string()
+            .contains("node '2024/03/16' not found in namespace 'ns'"));
+    }
+
+    #[test]
+    fn load_config_uses_isolated_workspace_and_env_overrides() {
+        let tmp = TempDir::new().unwrap();
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
+        let _model = EnvVarGuard::set("OPENHUMAN_MODEL", "custom-model");
+        let _language = EnvVarGuard::set("OPENHUMAN_OUTPUT_LANGUAGE", "fr-CA");
+
+        let runtime = build_runtime().expect("runtime");
+        let config = runtime.block_on(load_config()).expect("config");
+
+        let expected_config_path: PathBuf = tmp.path().join("config.toml");
+        assert_eq!(config.config_path, expected_config_path);
+        assert_eq!(config.workspace_dir, tmp.path().join("workspace"));
+        assert_eq!(config.default_model.as_deref(), Some("custom-model"));
+        assert_eq!(config.output_language.as_deref(), Some("fr-CA"));
+    }
+
+    #[test]
+    fn init_logging_sets_default_rust_log_only_when_needed() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap();
+
+        {
+            let _rust_log = EnvVarGuard::remove("RUST_LOG");
+            init_logging(false);
+            assert_eq!(std::env::var("RUST_LOG").ok().as_deref(), Some("warn"));
+        }
+
+        {
+            let _rust_log = EnvVarGuard::remove("RUST_LOG");
+            init_logging(true);
+            assert!(std::env::var_os("RUST_LOG").is_none());
+        }
+
+        {
+            let _rust_log = EnvVarGuard::set("RUST_LOG", "debug");
+            init_logging(false);
+            assert_eq!(std::env::var("RUST_LOG").ok().as_deref(), Some("debug"));
+        }
+    }
+
+    #[test]
     fn run_and_rebuild_surface_local_ai_runtime_requirement() {
         let tmp = TempDir::new().unwrap();
         let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
         // Seed a namespace so the commands go through the runtime path
         // rather than failing argument validation.
-        assert!(run_ingest(&["ns".to_string(), "--content".to_string(), "seed".to_string()]).is_ok());
+        assert!(run_ingest(&[
+            "ns".to_string(),
+            "--content".to_string(),
+            "seed".to_string()
+        ])
+        .is_ok());
 
         let run_err = run_summarize(&["ns".to_string()]).expect_err("run should require local ai");
-        assert!(run_err.to_string().contains("requires local_ai to be enabled"));
+        assert!(run_err
+            .to_string()
+            .contains("requires local_ai to be enabled"));
 
-        let rebuild_err = run_rebuild(&["ns".to_string()]).expect_err("rebuild should require local ai");
-        assert!(rebuild_err.to_string().contains("requires local_ai to be enabled"));
+        let rebuild_err =
+            run_rebuild(&["ns".to_string()]).expect_err("rebuild should require local ai");
+        assert!(rebuild_err
+            .to_string()
+            .contains("requires local_ai to be enabled"));
     }
 }

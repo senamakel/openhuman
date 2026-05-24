@@ -42,7 +42,8 @@ fn inference_schema_function_names_are_stable() {
     assert!(functions.contains(&"openai_oauth_disconnect"));
     assert!(functions.contains(&"prompt"));
     assert!(functions.contains(&"vision_prompt"));
-    assert!(functions.contains(&"embed"));
+    // embed moved to the embeddings domain (openhuman.embeddings_embed)
+    assert!(!functions.contains(&"embed"));
     assert!(!functions.contains(&"should_send_gif"));
     assert!(!functions.contains(&"tenor_search"));
 }

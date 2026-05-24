@@ -61,8 +61,46 @@ impl Tool for MemoryToolsListTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn args_require_tool_name() {
@@ -93,12 +131,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_success_path_returns_json_array() {
+    async fn execute_success_path_returns_empty_json_array_for_isolated_workspace() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
         let tool = MemoryToolsListTool;
         let result = tool
             .execute(json!({ "tool_name": "bash" }))
             .await
-            .expect("valid tool list request should succeed");
+            .expect("valid tool list request should succeed in isolated workspace");
         assert!(!result.is_error);
         let payload = result.text();
         let parsed: serde_json::Value =
@@ -107,5 +147,18 @@ mod tests {
             parsed.is_array(),
             "list tool rules should serialize a JSON array"
         );
+        assert_eq!(parsed, json!([]));
+    }
+
+    #[tokio::test]
+    async fn execute_accepts_other_tool_names_without_rules() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _cfg) = isolated_config(&tmp).await;
+        let tool = MemoryToolsListTool;
+        let result = tool
+            .execute(json!({ "tool_name": "web_search" }))
+            .await
+            .expect("arbitrary tool names should succeed even when empty");
+        assert!(!result.is_error);
     }
 }

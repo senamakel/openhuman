@@ -122,41 +122,40 @@ pub async fn inference_test_provider_model(
         prompt_len = prompt.len(),
         "{LOG_PREFIX} test_provider_model:start"
     );
-    let result = if provider.trim().starts_with("lmstudio:")
-        || provider.trim().starts_with("ollama:")
-    {
-        let (chat_provider, model) =
+    let result =
+        if provider.trim().starts_with("lmstudio:") || provider.trim().starts_with("ollama:") {
+            let (chat_provider, model) =
             crate::openhuman::inference::provider::factory::create_local_chat_provider_from_string(
                 provider, config,
             )
             .map_err(|e| e.to_string())?;
-        chat_provider
-            .simple_chat(prompt, &model, config.default_temperature)
-            .await
-            .map_err(|e| e.to_string())
-            .map(|reply| {
-                RpcOutcome::single_log(
-                    InferenceTestProviderModelResult { reply },
-                    "provider model test completed",
+            chat_provider
+                .simple_chat(prompt, &model, config.default_temperature)
+                .await
+                .map_err(|e| e.to_string())
+                .map(|reply| {
+                    RpcOutcome::single_log(
+                        InferenceTestProviderModelResult { reply },
+                        "provider model test completed",
+                    )
+                })
+        } else {
+            let (chat_provider, model) =
+                crate::openhuman::inference::provider::factory::create_chat_provider_from_string(
+                    workload, provider, config,
                 )
-            })
-    } else {
-        let (chat_provider, model) =
-            crate::openhuman::inference::provider::factory::create_chat_provider_from_string(
-                workload, provider, config,
-            )
-            .map_err(|e| e.to_string())?;
-        chat_provider
-            .simple_chat(prompt, &model, config.default_temperature)
-            .await
-            .map_err(|e| e.to_string())
-            .map(|reply| {
-                RpcOutcome::single_log(
-                    InferenceTestProviderModelResult { reply },
-                    "provider model test completed",
-                )
-            })
-    };
+                .map_err(|e| e.to_string())?;
+            chat_provider
+                .simple_chat(prompt, &model, config.default_temperature)
+                .await
+                .map_err(|e| e.to_string())
+                .map(|reply| {
+                    RpcOutcome::single_log(
+                        InferenceTestProviderModelResult { reply },
+                        "provider model test completed",
+                    )
+                })
+        };
     match &result {
         Ok(outcome) => debug!(
             output_len = outcome.value.reply.len(),

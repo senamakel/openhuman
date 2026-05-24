@@ -613,7 +613,7 @@ const ProviderKeyDialog = ({
                 ? 'fw-...'
                 : slug === 'moonshot'
                   ? 'sk-...'
-            : 'your-api-key';
+                  : 'your-api-key';
 
   const fieldLabel = isLocalRuntime ? 'Endpoint URL' : t('settings.ai.apiKeyFieldLabel');
   const helper = isLocalRuntime
@@ -1626,11 +1626,7 @@ export const BackgroundLoopControls = ({
 // Workload row (stacked, narrow-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WorkloadRowProps = {
-  workload: Workload;
-  ref_: ProviderRef;
-  cloudProviders: CloudProvider[];
-};
+type WorkloadRowProps = { workload: Workload; ref_: ProviderRef; cloudProviders: CloudProvider[] };
 
 const WorkloadRow = ({
   workload,
@@ -1644,7 +1640,9 @@ const WorkloadRow = ({
 
   let resolved = '';
   if (ref_.kind === 'cloud') {
-    resolved = selectedCloud ? `${selectedCloud.label} · ${ref_.model}` : `${ref_.providerSlug} · ${ref_.model}`;
+    resolved = selectedCloud
+      ? `${selectedCloud.label} · ${ref_.model}`
+      : `${ref_.providerSlug} · ${ref_.model}`;
   } else if (ref_.kind === 'local') {
     resolved = `Ollama · ${ref_.model}`;
   }
@@ -1664,16 +1662,12 @@ const WorkloadRow = ({
         {resolved ? (
           <div
             className={`font-mono text-[11px] truncate ${
-              isCustom
-                ? 'text-sky-700 dark:text-sky-200'
-                : 'text-stone-500 dark:text-neutral-400'
+              isCustom ? 'text-sky-700 dark:text-sky-200' : 'text-stone-500 dark:text-neutral-400'
             }`}>
             {resolved}
           </div>
         ) : (
-          <div className="text-[11px] text-stone-400 dark:text-neutral-500">
-            No model selected
-          </div>
+          <div className="text-[11px] text-stone-400 dark:text-neutral-500">No model selected</div>
         )}
       </div>
       <button
@@ -1744,8 +1738,7 @@ function inferSharedModelRef(routing: RoutingMap): ProviderRef | null {
     return first.kind === 'openhuman' ? null : first;
   }
   return (
-    refs.find(ref => ref.kind === 'cloud' || ref.kind === 'local' || ref.kind === 'default') ??
-    null
+    refs.find(ref => ref.kind === 'cloud' || ref.kind === 'local' || ref.kind === 'default') ?? null
   );
 }
 
@@ -2361,7 +2354,9 @@ const GlobalOwnModelSelector = ({
         ? ({ kind: 'local', model: model.trim() } as const)
         : ({ kind: 'cloud', providerSlug: source.providerSlug, model: model.trim() } as const);
   const isSaved =
-    selectedRef !== null && saved !== null && providerRefSignature(selectedRef) === providerRefSignature(saved);
+    selectedRef !== null &&
+    saved !== null &&
+    providerRefSignature(selectedRef) === providerRefSignature(saved);
 
   const applySelection = async (nextSource: CustomDialogSource | null, nextModel: string) => {
     if (!nextSource || !nextModel.trim()) return;
@@ -2403,7 +2398,9 @@ const GlobalOwnModelSelector = ({
               </label>
               <select
                 value={
-                  source ? `${source.kind}:${source.kind === 'cloud' ? source.providerSlug : ''}` : ''
+                  source
+                    ? `${source.kind}:${source.kind === 'cloud' ? source.providerSlug : ''}`
+                    : ''
                 }
                 onChange={e => {
                   const colonIdx = e.target.value.indexOf(':');
@@ -2471,8 +2468,8 @@ const GlobalOwnModelSelector = ({
           </div>
           <div className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-500 dark:text-neutral-400">
             Applies the same provider + model to chat, reasoning, coding, memory, heartbeat,
-            learning, and subconscious. Embeddings are configured separately. Changes save
-            when you click save.
+            learning, and subconscious. Embeddings are configured separately. Changes save when you
+            click save.
           </div>
 
           <div className="flex justify-end">
@@ -2710,49 +2707,55 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               />
 
               {/* Built-in cloud providers — openai/anthropic/openrouter/orcarouter/custom */}
-              {(['openai', 'anthropic', 'openrouter', 'orcarouter', 'gmi', 'fireworks', 'moonshot'] as const).map(
-                slug => {
-                  const meta = BUILTIN_PROVIDER_META[slug];
-                  const label = meta?.label ?? slug;
-                  const existing = draft.cloudProviders.find(cp => cp.slug === slug);
-                  const enabled = !!existing;
-                  return (
-                    <ProviderToggleChip
-                      key={slug}
-                      slug={slug}
-                      label={label}
-                      enabled={enabled}
-                      busy={busyAction === `toggle-${slug}`}
-                      onToggle={async () => {
-                        if (enabled && existing) {
-                          // Toggle OFF: remove the provider + scrub any
-                          // routing entries that pin to it.
-                          const remaining = draft.cloudProviders.filter(
-                            cp => cp.id !== existing.id
-                          );
-                          const nextRouting = Object.fromEntries(
-                            Object.entries(draft.routing).map(([wid, ref]) => [
-                              wid,
-                              ref.kind === 'cloud' && ref.providerSlug === existing.slug
-                                ? ({ kind: 'default' } as const)
-                                : ref,
-                            ])
-                          ) as typeof draft.routing;
-                          await persist({
-                            ...draft,
-                            cloudProviders: remaining,
-                            routing: nextRouting,
-                          });
-                        } else {
-                          // Toggle ON: open the API-key popup. The chip
-                          // only flips after the dialog saves.
-                          setKeyDialogFor(slug);
-                        }
-                      }}
-                    />
-                  );
-                }
-              )}
+              {(
+                [
+                  'openai',
+                  'anthropic',
+                  'openrouter',
+                  'orcarouter',
+                  'gmi',
+                  'fireworks',
+                  'moonshot',
+                ] as const
+              ).map(slug => {
+                const meta = BUILTIN_PROVIDER_META[slug];
+                const label = meta?.label ?? slug;
+                const existing = draft.cloudProviders.find(cp => cp.slug === slug);
+                const enabled = !!existing;
+                return (
+                  <ProviderToggleChip
+                    key={slug}
+                    slug={slug}
+                    label={label}
+                    enabled={enabled}
+                    busy={busyAction === `toggle-${slug}`}
+                    onToggle={async () => {
+                      if (enabled && existing) {
+                        // Toggle OFF: remove the provider + scrub any
+                        // routing entries that pin to it.
+                        const remaining = draft.cloudProviders.filter(cp => cp.id !== existing.id);
+                        const nextRouting = Object.fromEntries(
+                          Object.entries(draft.routing).map(([wid, ref]) => [
+                            wid,
+                            ref.kind === 'cloud' && ref.providerSlug === existing.slug
+                              ? ({ kind: 'default' } as const)
+                              : ref,
+                          ])
+                        ) as typeof draft.routing;
+                        await persist({
+                          ...draft,
+                          cloudProviders: remaining,
+                          routing: nextRouting,
+                        });
+                      } else {
+                        // Toggle ON: open the API-key popup. The chip
+                        // only flips after the dialog saves.
+                        setKeyDialogFor(slug);
+                      }
+                    }}
+                  />
+                );
+              })}
 
               {draft.cloudProviders
                 .filter(
@@ -2787,11 +2790,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                             : ref,
                         ])
                       ) as typeof draft.routing;
-                      await persist({
-                        ...draft,
-                        cloudProviders: remaining,
-                        routing: nextRouting,
-                      });
+                      await persist({ ...draft, cloudProviders: remaining, routing: nextRouting });
                     }}
                   />
                 ))}
@@ -2996,8 +2995,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                         Background Tasks
                       </div>
                       <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                        Models used outside the main conversation flow for summarization,
-                        heartbeat, learning, and subconscious evaluation.
+                        Models used outside the main conversation flow for summarization, heartbeat,
+                        learning, and subconscious evaluation.
                       </div>
                     </div>
                     <div className="divide-y divide-stone-200 dark:divide-neutral-800">

@@ -255,14 +255,18 @@ describe('AIPanel', () => {
 
   it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Managed/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Managed/i })).toBeInTheDocument()
+    );
     expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument();
   });
 
   it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument()
+    );
     fireEvent.click(screen.getByRole('button', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
@@ -395,7 +399,9 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
+    );
     fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
 
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());

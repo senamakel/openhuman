@@ -40,9 +40,7 @@ const mockOpenhumanLocalAiDiagnostics = vi.fn();
 const mockOpenhumanLocalAiPresets = vi.fn();
 const mockOpenhumanLocalAiApplyPreset = vi.fn();
 
-vi.mock('../../coreRpcClient', () => ({
-  callCoreRpc: (a: unknown) => mockCallCoreRpc(a),
-}));
+vi.mock('../../coreRpcClient', () => ({ callCoreRpc: (a: unknown) => mockCallCoreRpc(a) }));
 
 vi.mock('../../../utils/tauriCommands/common', () => ({
   isTauri: () => mockIsTauri(),

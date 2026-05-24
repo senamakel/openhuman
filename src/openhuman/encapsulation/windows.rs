@@ -37,8 +37,8 @@ use std::ptr;
 use windows_sys::core::PWSTR;
 use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, HLOCAL};
 use windows_sys::Win32::Security::Authorization::{
-    SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, NO_INHERITANCE, SET_ACCESS,
-    SE_FILE_OBJECT, TRUSTEE_IS_GROUP, TRUSTEE_IS_SID, TRUSTEE_W,
+    SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS, SE_FILE_OBJECT,
+    TRUSTEE_IS_GROUP, TRUSTEE_IS_SID, TRUSTEE_W,
 };
 use windows_sys::Win32::Security::Isolation::{
     CreateAppContainerProfile, DeriveAppContainerSidFromAppContainerName,
@@ -46,7 +46,16 @@ use windows_sys::Win32::Security::Isolation::{
 use windows_sys::Win32::Security::{
     ACL, DACL_SECURITY_INFORMATION, PSID, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
 };
-use windows_sys::Win32::Storage::FileSystem::{DELETE, GENERIC_READ, GENERIC_WRITE};
+
+// Well-known Win32 access masks. `windows-sys` has moved these constants
+// between modules across releases (0.59 had GENERIC_READ in
+// `Win32::Storage::FileSystem`, 0.60+ shuffled them around). Inlining the
+// canonical values is both stable and avoids guessing which module the
+// installed minor version exposes them through. Source: WinNT.h.
+const GENERIC_READ: u32 = 0x8000_0000;
+const GENERIC_WRITE: u32 = 0x4000_0000;
+const DELETE: u32 = 0x0001_0000;
+const NO_INHERITANCE: u32 = 0;
 use windows_sys::Win32::System::Memory::{LocalAlloc, LPTR};
 use windows_sys::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, InitializeProcThreadAttributeList,

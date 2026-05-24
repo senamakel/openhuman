@@ -68,9 +68,7 @@ static DEFAULT_BACKEND: OnceLock<Arc<dyn JailBackend>> = OnceLock::new();
 
 /// Returns the process-wide default backend, lazily auto-detected.
 pub fn default_backend() -> Arc<dyn JailBackend> {
-    DEFAULT_BACKEND
-        .get_or_init(detect::pick_backend)
-        .clone()
+    DEFAULT_BACKEND.get_or_init(detect::pick_backend).clone()
 }
 
 /// Spawn `cmd` inside the jail described by `jail`, using the default backend.

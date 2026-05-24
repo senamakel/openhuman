@@ -191,7 +191,10 @@ impl JailRegistry {
             .dir
             .canonicalize()
             .unwrap_or_else(|_| record.dir.clone());
-        let resolved_base = self.base.canonicalize().unwrap_or_else(|_| self.base.clone());
+        let resolved_base = self
+            .base
+            .canonicalize()
+            .unwrap_or_else(|_| self.base.clone());
         if !resolved.starts_with(&resolved_base) {
             // Put it back; this index entry is suspicious — don't touch
             // anything on disk.
@@ -199,7 +202,10 @@ impl JailRegistry {
             self.persist(&idx)?;
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
-                format!("refusing to delete jail outside registry base: {}", resolved.display()),
+                format!(
+                    "refusing to delete jail outside registry base: {}",
+                    resolved.display()
+                ),
             ));
         }
 
@@ -396,7 +402,9 @@ mod tests {
     fn parallel_jails_have_distinct_dirs() {
         let base = tempdir("parallel");
         let reg = JailRegistry::open(&base).unwrap();
-        let jails: Vec<_> = (0..5).map(|i| reg.create(format!("p{i}")).unwrap()).collect();
+        let jails: Vec<_> = (0..5)
+            .map(|i| reg.create(format!("p{i}")).unwrap())
+            .collect();
         let mut dirs: Vec<_> = jails.iter().map(|r| r.dir.clone()).collect();
         dirs.sort();
         dirs.dedup();

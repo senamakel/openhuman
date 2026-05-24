@@ -53,7 +53,9 @@ fn registry_full_lifecycle_with_noop() {
     // Rename + notes update timestamps.
     let renamed = reg.rename(&a.id, "agent-a-renamed").unwrap();
     assert_eq!(renamed.label, "agent-a-renamed");
-    let noted = reg.set_notes(&a.id, Some("owner=stevent95".into())).unwrap();
+    let noted = reg
+        .set_notes(&a.id, Some("owner=stevent95".into()))
+        .unwrap();
     assert_eq!(noted.notes.as_deref(), Some("owner=stevent95"));
 
     // Spawn through the registry into one of the jails.
@@ -167,15 +169,15 @@ fn macos_seatbelt_blocks_write_outside_root() {
         return;
     }
     let root = unique_tempdir("sb-root");
-    let outside = std::env::temp_dir().join(format!(
-        "openhuman-e2e-sb-forbidden-{}",
-        std::process::id()
-    ));
+    let outside =
+        std::env::temp_dir().join(format!("openhuman-e2e-sb-forbidden-{}", std::process::id()));
     let _ = fs::remove_file(&outside);
 
     let jail = Jail::new(&root, "e2e.seatbelt");
     let mut cmd = Command::new("/usr/bin/touch");
-    cmd.arg(&outside).stdout(Stdio::null()).stderr(Stdio::null());
+    cmd.arg(&outside)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     let mut child = encapsulate(&jail, cmd).expect("spawn under seatbelt");
     let _ = child.wait().expect("wait");
@@ -242,16 +244,15 @@ fn macos_seatbelt_blocks_network_when_denied() {
 #[ignore = "AppContainer spawn returns Unsupported pending Child handle bridge; see windows.rs TODO"]
 fn windows_appcontainer_blocks_write_outside_root() {
     let root = unique_tempdir("ac-root");
-    let outside =
-        std::env::temp_dir().join(format!("openhuman-e2e-ac-forbidden-{}.txt", std::process::id()));
+    let outside = std::env::temp_dir().join(format!(
+        "openhuman-e2e-ac-forbidden-{}.txt",
+        std::process::id()
+    ));
     let _ = fs::remove_file(&outside);
 
     let jail = Jail::new(&root, "e2e.appcontainer");
     let mut cmd = Command::new("cmd");
-    cmd.args([
-        "/C",
-        &format!("echo hi > \"{}\"", outside.display()),
-    ]);
+    cmd.args(["/C", &format!("echo hi > \"{}\"", outside.display())]);
 
     // Once the Child bridge is implemented, flip this from `unwrap_err`
     // to `wait` + assert(!outside.exists()).

@@ -254,15 +254,10 @@ mod tests {
             return;
         }
         // Root = a fresh tempdir. Try to touch a file *outside* it.
-        let root = std::env::temp_dir().join(format!(
-            "openhuman-encap-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("openhuman-encap-{}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
-        let outside = std::env::temp_dir().join(format!(
-            "openhuman-encap-outside-{}",
-            std::process::id()
-        ));
+        let outside =
+            std::env::temp_dir().join(format!("openhuman-encap-outside-{}", std::process::id()));
         let _ = fs::remove_file(&outside);
 
         let jail = Jail::new(&root, "test.blocked");

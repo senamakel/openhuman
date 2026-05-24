@@ -35,25 +35,23 @@ use std::process::{Child, Command};
 use std::ptr;
 
 use windows_sys::core::PWSTR;
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
+use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, HLOCAL};
 use windows_sys::Win32::Security::Authorization::{
-    SetNamedSecurityInfoW, SE_FILE_OBJECT, SET_ACCESS, NO_INHERITANCE, TRUSTEE_W,
-    TRUSTEE_IS_SID, TRUSTEE_IS_GROUP, EXPLICIT_ACCESS_W, SetEntriesInAclW,
+    SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, NO_INHERITANCE, SET_ACCESS,
+    SE_FILE_OBJECT, TRUSTEE_IS_GROUP, TRUSTEE_IS_SID, TRUSTEE_W,
 };
 use windows_sys::Win32::Security::Isolation::{
     CreateAppContainerProfile, DeriveAppContainerSidFromAppContainerName,
 };
 use windows_sys::Win32::Security::{
-    ACL, DACL_SECURITY_INFORMATION, PSID, SID_AND_ATTRIBUTES,
-    SECURITY_CAPABILITIES,
+    ACL, DACL_SECURITY_INFORMATION, PSID, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
 };
-use windows_sys::Win32::Storage::FileSystem::{GENERIC_READ, GENERIC_WRITE, DELETE};
+use windows_sys::Win32::Storage::FileSystem::{DELETE, GENERIC_READ, GENERIC_WRITE};
 use windows_sys::Win32::System::Memory::{LocalAlloc, LPTR};
 use windows_sys::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, InitializeProcThreadAttributeList,
-    UpdateProcThreadAttribute, EXTENDED_STARTUPINFO_PRESENT,
-    LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
-    STARTUPINFOEXW, STARTUPINFOW,
+    UpdateProcThreadAttribute, EXTENDED_STARTUPINFO_PRESENT, LPPROC_THREAD_ATTRIBUTE_LIST,
+    PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, STARTUPINFOEXW, STARTUPINFOW,
 };
 
 use super::jail::{Jail, JailBackend};
@@ -171,9 +169,7 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
     // 5. Build the command line and current directory.
     let cmdline = build_command_line(&cmd);
     let mut cmdline_w = to_wide(&cmdline);
-    let cwd_w = cmd
-        .get_current_dir()
-        .map(|p| to_wide(&p.to_string_lossy()));
+    let cwd_w = cmd.get_current_dir().map(|p| to_wide(&p.to_string_lossy()));
 
     let mut pi: PROCESS_INFORMATION = std::mem::zeroed();
     let ok = CreateProcessW(
@@ -184,10 +180,7 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
         0, // bInheritHandles
         EXTENDED_STARTUPINFO_PRESENT,
         ptr::null_mut(),
-        cwd_w
-            .as_ref()
-            .map(|s| s.as_ptr())
-            .unwrap_or(ptr::null()),
+        cwd_w.as_ref().map(|s| s.as_ptr()).unwrap_or(ptr::null()),
         &mut si as *mut _ as *mut STARTUPINFOW,
         &mut pi,
     );
@@ -302,7 +295,10 @@ fn push_arg(out: &mut String, a: &str) {
 }
 
 fn to_wide(s: &str) -> Vec<u16> {
-    OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+    OsStr::new(s)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
 }
 
 fn sanitize_profile_name(label: &str) -> String {
@@ -310,7 +306,13 @@ fn sanitize_profile_name(label: &str) -> String {
     // charset. Keep ASCII alnum + dot; map everything else to `_`.
     let mut s: String = label
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '.' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     s.truncate(60);
     format!("openhuman.{s}")

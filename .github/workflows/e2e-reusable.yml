@@ -223,6 +223,7 @@ jobs:
           key: e2e-linux-unified
 
       - name: Cache CEF binary distribution
+        id: cef-cache
         uses: actions/cache@v5
         with:
           # e2e-build.sh + ensure-tauri-cli.sh always export
@@ -232,9 +233,9 @@ jobs:
           # short-circuit skips the build step.
           path: |
             ~/Library/Caches/tauri-cef
-          key: cef-x86_64-unknown-linux-gnu-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
           restore-keys: |
-            cef-x86_64-unknown-linux-gnu-
+            cef-x86_64-unknown-linux-gnu-v2-
 
       - name: Cache Appium global install
         uses: actions/cache@v5
@@ -273,8 +274,11 @@ jobs:
             app/dist
           key: e2e-binary-${{ runner.os }}-${{ hashFiles('src/**/*.rs', 'app/src-tauri/src/**', 'app/src-tauri/build.rs', 'app/src-tauri/tauri.conf.json', 'Cargo.lock', 'app/src-tauri/Cargo.lock', 'app/src-tauri/vendor/tauri-cef/Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-build.sh') }}
 
+      # Skip the (slow) build only when BOTH the binary AND the CEF runtime
+      # caches hit — having the binary without libcef makes the runner fail
+      # with 'libcef.so: cannot open shared object file' at launch.
       - name: Build E2E app
-        if: steps.e2e-binary-cache.outputs.cache-hit != 'true'
+        if: steps.e2e-binary-cache.outputs.cache-hit != 'true' || steps.cef-cache.outputs.cache-hit != 'true'
         run: pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
@@ -741,6 +745,7 @@ jobs:
           key: e2e-windows-unified
 
       - name: Cache CEF binary distribution
+        id: cef-cache
         uses: actions/cache@v5
         with:
           # ensure-tauri-cli.sh + e2e-build.sh both export
@@ -749,9 +754,9 @@ jobs:
           # is the actual download target.
           path: |
             ~/Library/Caches/tauri-cef
-          key: cef-x86_64-pc-windows-msvc-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-pc-windows-msvc-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
           restore-keys: |
-            cef-x86_64-pc-windows-msvc-
+            cef-x86_64-pc-windows-msvc-v2-
 
       - name: Cache Appium global install
         uses: actions/cache@v5
@@ -791,8 +796,10 @@ jobs:
             app/dist
           key: e2e-binary-${{ runner.os }}-${{ hashFiles('src/**/*.rs', 'app/src-tauri/src/**', 'app/src-tauri/build.rs', 'app/src-tauri/tauri.conf.json', 'Cargo.lock', 'app/src-tauri/Cargo.lock', 'app/src-tauri/vendor/tauri-cef/Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-build.sh') }}
 
+      # Skip the build only when BOTH the binary AND the CEF runtime caches
+      # hit (see Linux full job for the rationale).
       - name: Build E2E app
-        if: steps.e2e-binary-cache.outputs.cache-hit != 'true'
+        if: steps.e2e-binary-cache.outputs.cache-hit != 'true' || steps.cef-cache.outputs.cache-hit != 'true'
         run: pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})

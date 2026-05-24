@@ -31,11 +31,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::retrieval::types::NodeKind;
+use crate::openhuman::memory::score::store as score_store;
 use crate::openhuman::memory_store::chunks::store::{self as chunk_store, with_connection};
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory_store::content::read as content_read;
-use crate::openhuman::memory::retrieval::types::NodeKind;
-use crate::openhuman::memory::score::store as score_store;
 use crate::rpc::RpcOutcome;
 
 const PREVIEW_MAX_CHARS: usize = 500;
@@ -1827,8 +1827,8 @@ fn parse_source_kind_str(s: &str) -> Option<SourceKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
     use crate::openhuman::memory::ingest_pipeline::ingest_chat;
+    use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
 
@@ -1912,11 +1912,12 @@ mod tests {
         .await
         .unwrap()
         .value;
-        assert!(resp.chunks.iter().any(|c| c
-            .content_preview
-            .as_deref()
-            .unwrap_or("")
-            .contains("phoenix")));
+        assert!(resp.chunks.iter().any(|c| {
+            c.content_preview
+                .as_deref()
+                .unwrap_or("")
+                .contains("phoenix")
+        }));
     }
 
     #[tokio::test]
@@ -1966,9 +1967,10 @@ mod tests {
             .await
             .unwrap()
             .value;
-        assert!(top
-            .iter()
-            .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2));
+        assert!(
+            top.iter()
+                .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2)
+        );
     }
 
     #[tokio::test]
@@ -2030,11 +2032,12 @@ mod tests {
         seed_chat_chunk(&cfg, "slack:#eng", "phoenix migration scheduled friday").await;
         seed_chat_chunk(&cfg, "slack:#eng", "different unrelated text").await;
         let hits = search_rpc(&cfg, "phoenix".into(), 10).await.unwrap().value;
-        assert!(hits.iter().any(|c| c
-            .content_preview
-            .as_deref()
-            .unwrap_or("")
-            .contains("phoenix")));
+        assert!(hits.iter().any(|c| {
+            c.content_preview
+                .as_deref()
+                .unwrap_or("")
+                .contains("phoenix")
+        }));
     }
 
     #[tokio::test]
@@ -2341,5 +2344,37 @@ mod tests {
     #[test]
     fn display_name_handles_no_prefix() {
         assert_eq!(display_name_for_source("loose-id", None), "loose-id");
+    }
+
+    #[test]
+    fn sanitize_basename_replaces_windows_illegal_characters() {
+        assert_eq!(
+            sanitize_basename(r#"chat:slack/#eng\name*?"<>|"#),
+            "chat-slack-#eng-name------"
+        );
+        assert_eq!(sanitize_basename("safe-name.md"), "safe-name.md");
+    }
+
+    #[test]
+    fn parse_source_kind_str_accepts_known_values_only() {
+        assert_eq!(parse_source_kind_str("chat"), Some(SourceKind::Chat));
+        assert_eq!(parse_source_kind_str("email"), Some(SourceKind::Email));
+        assert_eq!(
+            parse_source_kind_str("document"),
+            Some(SourceKind::Document)
+        );
+        assert_eq!(parse_source_kind_str("unknown"), None);
+    }
+
+    #[tokio::test]
+    async fn get_llm_rpc_includes_current_backend_in_value_and_log() {
+        let (_tmp, mut cfg) = test_config();
+        cfg.memory_tree.llm_backend = crate::openhuman::config::LlmBackend::Local;
+        let outcome = get_llm_rpc(&cfg).await.unwrap();
+        assert_eq!(outcome.value.current, "local");
+        assert_eq!(
+            outcome.logs,
+            vec!["memory_tree::read: get_llm current=local".to_string()]
+        );
     }
 }

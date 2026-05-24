@@ -70,10 +70,18 @@ describe('subMascotModelsFromTimeline', () => {
     expect(running?.activity).toBe('Using Read File');
     expect(running?.face).toBe('thinking');
     // success and error are filtered out — only 1 model returned.
-    expect(subMascotModelsFromTimeline([
-      subagentEntry({ status: 'success', subagent: { taskId: 'sub-2', agentId: 'researcher', outputChars: 512, toolCalls: [] } }),
-      subagentEntry({ status: 'error', subagent: { taskId: 'sub-3', agentId: 'critic', toolCalls: [] } }),
-    ])).toHaveLength(0);
+    expect(
+      subMascotModelsFromTimeline([
+        subagentEntry({
+          status: 'success',
+          subagent: { taskId: 'sub-2', agentId: 'researcher', outputChars: 512, toolCalls: [] },
+        }),
+        subagentEntry({
+          status: 'error',
+          subagent: { taskId: 'sub-3', agentId: 'critic', toolCalls: [] },
+        }),
+      ])
+    ).toHaveLength(0);
   });
 });
 

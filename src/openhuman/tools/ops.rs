@@ -289,6 +289,20 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[gitbooks] registered gitbooks_search + gitbooks_get_page");
     }
 
+    // MCP setup-agent tool surface (search/get/request_secret/test/install).
+    // Registered unconditionally — the `mcp_setup` sub-agent filters to just
+    // these via its `[tools] named = [...]` allowlist, and the host agent's
+    // own tool list is wide enough that the extra five entries are negligible.
+    {
+        let cfg = Arc::new(root_config.clone());
+        tools.push(Box::new(McpSetupSearchTool::new(Arc::clone(&cfg))));
+        tools.push(Box::new(McpSetupGetTool::new(Arc::clone(&cfg))));
+        tools.push(Box::new(McpSetupRequestSecretTool::new()));
+        tools.push(Box::new(McpSetupTestConnectionTool::new(Arc::clone(&cfg))));
+        tools.push(Box::new(McpSetupInstallAndConnectTool::new(cfg)));
+        tracing::debug!("[mcp_setup] registered 5 setup-agent tools");
+    }
+
     // Generic remote MCP bridge tools. These let the agent enumerate
     // named MCP servers and forward `tools/call` through the core
     // instead of hardcoding one bespoke MCP integration per server.

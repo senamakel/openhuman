@@ -16,6 +16,7 @@
 //! - `factories`: Factory functions for creating and initializing memory instances.
 //! - `memory_trait`: Defines the `Memory` trait that all implementations must satisfy.
 
+pub mod chunks;
 pub mod content;
 pub mod types;
 pub mod unified;

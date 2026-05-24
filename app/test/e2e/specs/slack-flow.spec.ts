@@ -1,17 +1,12 @@
-import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
-import { triggerAuthDeepLinkBypass } from '../helpers/deep-link-helpers';
-import {
-  clickButton,
-  textExists,
-  waitForText,
-  waitForWebView,
-  waitForWindowVisible,
-} from '../helpers/element-helpers';
+import { waitForApp } from '../helpers/app-helpers';
 import { supportsExecuteScript } from '../helpers/platform';
+import { resetApp } from '../helpers/reset-app';
 import {
-  completeOnboardingIfVisible,
+  clickAddAccountProvider,
   navigateViaHash,
   openAddAccountModal,
+  waitForAccountsPage,
+  waitForAddAccountModalClosed,
 } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
 
@@ -40,24 +35,14 @@ function stepLog(message: string, context?: unknown): void {
 
 describe('Slack account integration smoke', () => {
   before(async function beforeSuite() {
-    // Auth + onboarding can take longer than the default 30s per-hook budget.
-    this.timeout(90_000);
-
     if (!supportsExecuteScript()) {
       stepLog('Skipping suite on Mac2 — Accounts rail not mapped for Appium');
       this.skip();
     }
 
-    stepLog('starting mock server');
     await startMockServer();
-    stepLog('waiting for app');
     await waitForApp();
-    stepLog('triggering auth bypass deep link');
-    await triggerAuthDeepLinkBypass('e2e-slack-flow');
-    await waitForWindowVisible(25_000);
-    await waitForWebView(15_000);
-    await waitForAppReady(15_000);
-    await completeOnboardingIfVisible('[SlackFlowE2E]');
+    await resetApp('e2e-slack-flow');
   });
 
   after(async () => {
@@ -65,36 +50,31 @@ describe('Slack account integration smoke', () => {
     await stopMockServer();
   });
 
-  it('shows Slack as an addable provider in the Add Account modal', async function () {
-    this.timeout(90_000);
-    stepLog('navigating to /chat');
+  it('shows Slack as an addable provider in the Add Account modal', async () => {
+    stepLog('navigating to /accounts');
     await navigateViaHash('/chat');
-    await waitForText('Add Account', 15_000);
+    await waitForAccountsPage();
 
     stepLog('opening Add Account modal');
     await openAddAccountModal();
 
-    await waitForText('Slack', 10_000);
-    expect(await textExists('Slack')).toBe(true);
-    expect(await textExists('Slack workspaces and channels.')).toBe(true);
+    const slackTile = await browser.$('[data-testid="add-account-provider-slack"]');
+    await slackTile.waitForDisplayed({ timeout: 10_000 });
+    expect(await slackTile.isDisplayed()).toBe(true);
   });
 
   it('selecting Slack closes the modal and registers an account on the rail', async () => {
     // Set up route + modal independently so this case is runnable in isolation.
-    stepLog('navigating to /chat (independent setup)');
+    stepLog('navigating to /accounts (independent setup)');
     await navigateViaHash('/chat');
-    await waitForText('Add Account', 15_000);
+    await waitForAccountsPage();
     await openAddAccountModal();
-    await waitForText('Slack', 10_000);
 
     stepLog('clicking Slack tile via shared helper');
-    await clickButton('Slack');
+    await clickAddAccountProvider('slack');
 
     // 1) Modal must close.
-    await browser.waitUntil(async () => !(await textExists('Add account')), {
-      timeout: 5_000,
-      timeoutMsg: 'Add account modal did not close after picking Slack',
-    });
+    await waitForAddAccountModalClosed();
 
     // 2) Redux must record a new account with provider === "slack" — the
     // backing-state mock-effect that proves registration. The Slack tile

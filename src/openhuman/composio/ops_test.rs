@@ -350,6 +350,60 @@ async fn composio_list_connections_via_mock_counts_active() {
 }
 
 #[tokio::test]
+async fn composio_authorize_clears_pending_meta_connection_before_handoff() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    let deletes = Arc::new(AtomicUsize::new(0));
+    let deletes_for_delete = Arc::clone(&deletes);
+    let app = Router::new()
+        .route(
+            "/agent-integrations/composio/connections",
+            get(|| async {
+                Json(json!({
+                    "success": true,
+                    "data": {"connections": [
+                        {"id":"ig-pending","toolkit":"instagram","status":"PENDING"}
+                    ]}
+                }))
+            }),
+        )
+        .route(
+            "/agent-integrations/composio/connections/{id}",
+            axum::routing::delete(move |Path(id): Path<String>| {
+                let deletes = Arc::clone(&deletes_for_delete);
+                async move {
+                    if id == "ig-pending" {
+                        deletes.fetch_add(1, Ordering::SeqCst);
+                    }
+                    Json(json!({"success": true, "data": {"deleted": true}}))
+                }
+            }),
+        )
+        .route(
+            "/agent-integrations/composio/authorize",
+            post(|Json(body): Json<Value>| async move {
+                assert_eq!(body["toolkit"], "instagram");
+                Json(json!({
+                    "success": true,
+                    "data": {
+                        "connectUrl": "https://meta.example/oauth",
+                        "connectionId": "c-new"
+                    }
+                }))
+            }),
+        );
+    let base = start_mock_backend(app).await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_with_backend(&tmp, base);
+    let outcome = composio_authorize(&config, "instagram", None)
+        .await
+        .unwrap();
+    assert_eq!(outcome.value.connection_id, "c-new");
+    assert_eq!(deletes.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn composio_authorize_via_mock_publishes_event_and_returns_url() {
     let app = Router::new().route(
         "/agent-integrations/composio/authorize",
@@ -522,8 +576,8 @@ async fn composio_execute_via_mock_propagates_backend_error() {
 #[tokio::test]
 async fn composio_sync_gmail_via_mock_archives_raw_email_and_updates_outcome() {
     use crate::openhuman::config::TEST_ENV_LOCK;
-    use crate::openhuman::memory::tree::content_store::raw::{raw_rel_path, RawKind};
-    use crate::openhuman::memory::tree::rpc::{list_chunks_rpc, ListChunksRequest};
+    use crate::openhuman::memory_tree::content_store::raw::{raw_rel_path, RawKind};
+    use crate::openhuman::memory_tree::rpc::{list_chunks_rpc, ListChunksRequest};
     let _cache_guard = CACHE_TEST_GUARD.lock().unwrap_or_else(|e| e.into_inner());
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -593,23 +647,54 @@ async fn composio_sync_gmail_via_mock_archives_raw_email_and_updates_outcome() {
 
     assert_eq!(outcome.value.toolkit, "gmail");
     assert_eq!(outcome.value.connection_id.as_deref(), Some("c1"));
-    assert_eq!(outcome.value.items_ingested, 1);
-    assert!(outcome.value.summary.contains("persisted 1 new"));
+    // composio_sync is now spawn-and-return: the immediate envelope is a
+    // "started" sentinel, and the actual ingestion runs on a detached
+    // tokio task. items_ingested == 0 / finished_at_ms == 0 / summary
+    // contains "started" are the contract of that sentinel.
+    assert_eq!(
+        outcome.value.items_ingested, 0,
+        "spawn-and-return: items_ingested on the immediate envelope is a 'started' sentinel, not a final count"
+    );
+    assert_eq!(
+        outcome.value.finished_at_ms, 0,
+        "spawn-and-return: finished_at_ms == 0 means 'task spawned, not yet complete'"
+    );
+    assert!(
+        outcome.value.summary.contains("started"),
+        "expected spawn-and-return summary to mention 'started', got: {}",
+        outcome.value.summary
+    );
 
-    let chunks = list_chunks_rpc(
-        &config,
-        ListChunksRequest {
-            source_kind: Some("email".to_string()),
-            source_id: Some("gmail:pilot-at-example-dot-com".to_string()),
-            limit: Some(10),
-            ..Default::default()
-        },
-    )
-    .await
-    .unwrap()
-    .value
-    .chunks;
-    assert_eq!(chunks.len(), 1, "expected one ingested Gmail chunk");
+    // Poll for the spawned ingest task to drain. The mock backend is
+    // local + in-memory, so this normally lands in well under a second.
+    let chunks = {
+        let mut chunks = Vec::new();
+        for _ in 0..50 {
+            chunks = list_chunks_rpc(
+                &config,
+                ListChunksRequest {
+                    source_kind: Some("email".to_string()),
+                    source_id: Some("gmail:pilot-at-example-dot-com".to_string()),
+                    limit: Some(10),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap()
+            .value
+            .chunks;
+            if !chunks.is_empty() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        chunks
+    };
+    assert_eq!(
+        chunks.len(),
+        1,
+        "expected one ingested Gmail chunk after spawned task drains"
+    );
     assert!(
         chunks[0].content.contains("Phoenix launch canary"),
         "chunk content missing mock email subject: {}",
@@ -839,7 +924,9 @@ fn integration(toolkit: &str, connected: bool) -> ConnectedIntegration {
         toolkit: toolkit.to_string(),
         description: String::new(),
         tools: Vec::new(),
+        gated_tools: Vec::new(),
         connected,
+        non_active_status: None,
     }
 }
 
@@ -1530,5 +1617,87 @@ fn composio_transport_timeout_is_dropped_by_before_send() {
     assert!(
         crate::core::observability::is_transient_integrations_failure(&event),
         "composio transport timeout must be dropped by integrations filter (#1608)"
+    );
+}
+
+// ── TAURI-RUST-X9 (#1166): direct-mode auth-rejection routing ───────────
+//
+// Pins the contract that direct-mode 401 / Invalid API key shapes are
+// classified by the observability matcher AND their failure-tag stays
+// `non_2xx` so the `before_send` integrations filter has consistent
+// inputs. Together with the classifier-arm tests in
+// `core::observability` these tests prove the leak path (~15.7 k events
+// in ~22h before #1166) is closed end-to-end.
+
+#[test]
+fn composio_direct_invalid_api_key_classifies_as_provider_user_state() {
+    // The verbatim Sentry TAURI-RUST-X9 wire shape — emitted by
+    // `ops.rs::composio_list_connections` direct branch via the
+    // `report_composio_op_error` hook restored in #1166. Routing this
+    // through `expected_error_kind` is what demotes it to
+    // `ProviderUserState` (info breadcrumb) instead of firing a Sentry
+    // event.
+    let msg = "[composio-direct] list_connections failed: \
+               Composio v3 connected_accounts failed: \
+               HTTP 401: Invalid API key: ak_VsUvq*****";
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        Some(crate::core::observability::ExpectedErrorKind::ProviderUserState),
+        "the canonical TAURI-RUST-X9 wire shape must demote via the composio-direct arm"
+    );
+}
+
+#[test]
+fn composio_direct_invalid_api_key_failure_tag_is_non_2xx() {
+    // Belt-and-suspenders: even if `expected_error_kind` ever stops
+    // matching the body (regression in the classifier arm), the
+    // failure tag must STILL be `non_2xx`. Combined with the
+    // `before_send` filter's transient-status handling and a
+    // future-added `status="401"` tag (Patch 1 doesn't extract status
+    // from the `HTTP 401` shape — only the `Backend returned <status>`
+    // shape — so this just pins the safe default), this is the
+    // backstop drop path.
+    let rendered = "[composio-direct] list_connections failed: \
+                    Composio v3 connected_accounts failed: \
+                    HTTP 401: Invalid API key: ak_VsUvq*****";
+    assert_eq!(
+        classify_composio_failure_tag(rendered),
+        "non_2xx",
+        "direct-mode auth-rejection must tag as non_2xx (not transport)"
+    );
+}
+
+#[test]
+fn composio_direct_invalid_api_key_extract_status_returns_none() {
+    // Pins the contract: `extract_backend_returned_status` only parses
+    // the integrations-layer `Backend returned <status>` rendering, NOT
+    // the direct-mode `HTTP 401` shape. The direct-mode arm relies on
+    // the classifier demotion + the failure-tag drop path instead of
+    // status extraction; if this ever changes (e.g. we extend the
+    // status extractor to cover both shapes), the new behaviour should
+    // come with an explicit test, not be inferred.
+    let rendered = "[composio-direct] list_connections failed: \
+                    Composio v3 connected_accounts failed: \
+                    HTTP 401: Invalid API key: ak_…";
+    assert_eq!(
+        extract_backend_returned_status(rendered),
+        None,
+        "direct-mode HTTP 401 must not parse via extract_backend_returned_status"
+    );
+}
+
+#[test]
+fn composio_direct_500_does_not_demote() {
+    // Discrimination test from the composio side — a real bug shape
+    // (500 with no auth body) MUST escape the classifier and reach
+    // `report_error_message`. Without this guard the matcher in
+    // `observability.rs` could be tightened too far and silence
+    // genuine backend faults.
+    let msg = "[composio-direct] list_connections failed: \
+               Composio v3 connected_accounts failed: HTTP 500";
+    assert_eq!(
+        crate::core::observability::expected_error_kind(msg),
+        None,
+        "composio-direct 500 with no auth body must remain an unclassified bug shape"
     );
 }

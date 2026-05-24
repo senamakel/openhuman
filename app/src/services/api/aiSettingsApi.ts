@@ -15,7 +15,7 @@
  * through this file. Keeps the wiring testable and the panel focused on
  * presentation.
  */
-import { callCoreRpc } from '../../services/coreRpcClient';
+import { callCoreRpc, getCoreHttpBaseUrl } from '../../services/coreRpcClient';
 import {
   authListProviderCredentials,
   type AuthProfileSummary,
@@ -113,10 +113,21 @@ export interface ModelInfo {
   context_window?: number | null;
 }
 
+export interface ProviderModelTestResult {
+  reply: string;
+}
+
+const PROVIDER_MODEL_TEST_TIMEOUT_MS = 120_000;
+
 /** Single in-memory snapshot the AI panel renders against. */
 export interface AISettings {
   cloudProviders: CloudProviderView[];
   routing: Record<WorkloadId, ProviderRef>;
+}
+
+export interface OpenAICompatEndpointStatus {
+  baseUrl: string | null;
+  has_api_key: boolean;
 }
 
 // ─── Read path: load + parse ───────────────────────────────────────────────
@@ -175,6 +186,10 @@ function authKeyForSlug(slug: string): string {
   return `provider:${slug}`;
 }
 
+function openAiCompatAuthProvider(): string {
+  return 'external-openai-compat';
+}
+
 /**
  * Loads the full AI settings view by joining:
  *  - the core's client-config snapshot (cloud_providers + *_provider fields)
@@ -218,6 +233,23 @@ export async function loadAISettings(): Promise<AISettings> {
   };
 
   return { cloudProviders, routing };
+}
+
+export async function loadOpenAICompatEndpointStatus(): Promise<OpenAICompatEndpointStatus> {
+  const [baseUrl, profilesRes] = await Promise.all([
+    getCoreHttpBaseUrl()
+      .then(url => `${url.replace(/\/$/, '')}/v1`)
+      .catch((): string | null => null),
+    authListProviderCredentials(openAiCompatAuthProvider()).catch(
+      (): { result: AuthProfileSummary[] } => ({ result: [] })
+    ),
+  ]);
+
+  const has_api_key = profilesRes.result.some(
+    profile => profile.provider.toLowerCase() === openAiCompatAuthProvider()
+  );
+
+  return { baseUrl, has_api_key };
 }
 
 // ─── Write path: diff + save ───────────────────────────────────────────────
@@ -300,6 +332,19 @@ export async function clearCloudProviderKey(slug: string): Promise<void> {
   await authRemoveProviderCredentials({ provider: authKeyForSlug(slug), profile: 'default' });
 }
 
+export async function setOpenAICompatEndpointKey(apiKey: string): Promise<void> {
+  await authStoreProviderCredentials({
+    provider: openAiCompatAuthProvider(),
+    profile: 'default',
+    token: apiKey,
+    setActive: true,
+  });
+}
+
+export async function clearOpenAICompatEndpointKey(): Promise<void> {
+  await authRemoveProviderCredentials({ provider: openAiCompatAuthProvider(), profile: 'default' });
+}
+
 /**
  * Eagerly write the cloud_providers list to the core config.
  *
@@ -330,6 +375,27 @@ export async function listProviderModels(providerId: string): Promise<ModelInfo[
     params: { provider_id: providerId },
   });
   return res?.result?.models ?? [];
+}
+
+export async function testProviderModel(
+  workload: WorkloadId,
+  provider: string,
+  prompt = 'Hello world'
+): Promise<ProviderModelTestResult> {
+  if (!isTauri()) {
+    throw new Error('Model testing is only available in the desktop app.');
+  }
+  const res = await callCoreRpc<{ result: ProviderModelTestResult }>({
+    method: 'openhuman.inference_test_provider_model',
+    params: { workload, provider, prompt },
+    timeoutMs: PROVIDER_MODEL_TEST_TIMEOUT_MS,
+  });
+  if (!res?.result) {
+    throw new Error(
+      `Model test RPC returned no result for ${workload} via ${provider} (openhuman.inference_test_provider_model).`
+    );
+  }
+  return res.result;
 }
 
 // ─── Local provider façade (Ollama install / detect / model manage) ───────

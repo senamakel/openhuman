@@ -1,5 +1,5 @@
 use super::*;
-use crate::openhuman::credentials::session_support::LOCAL_SESSION_USER_ID;
+use crate::openhuman::credentials::session_support::local_session_user_id;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -94,8 +94,9 @@ async fn store_session_local_token_rejects_missing_user_payload() {
 }
 
 /// A local session token with a user payload must be accepted without any
-/// network call, must force `user_id = "local"` regardless of what the
-/// caller passes, and must return a stored profile summary.
+/// network call, must force a deterministic `local-<device>` user id
+/// regardless of what the caller passes, and must return a stored profile
+/// summary.
 #[tokio::test]
 async fn store_session_local_token_succeeds_without_network_and_forces_local_user_id() {
     let tmp = TempDir::new().unwrap();
@@ -126,6 +127,17 @@ async fn store_session_local_token_succeeds_without_network_and_forces_local_use
         log_text.contains("local session accepted without backend validation"),
         "expected log confirming no backend call, got: {log_text}"
     );
+    let expected_local_user_id = local_session_user_id();
+    assert!(
+        log_text.contains(&format!(
+            "user directory activated for {expected_local_user_id}"
+        )),
+        "expected user-directory activation log for deterministic local uid, got: {log_text}"
+    );
+    assert!(
+        log_text.contains("onboarding left incomplete for local session setup"),
+        "expected local session to remain in onboarding, got: {log_text}"
+    );
     // The profile_id or metadata must reflect the forced user_id.
     // Because store_session re-activates the user directory and reloads
     // config (so it picks up the user-scoped workspace path), we verify
@@ -134,6 +146,22 @@ async fn store_session_local_token_succeeds_without_network_and_forces_local_use
         result.value.provider, "app-session",
         "profile must be stored under the app-session provider"
     );
+}
+
+#[test]
+fn normalize_local_session_user_overwrites_id_fields() {
+    let out = normalize_local_session_user(
+        json!({
+            "id": "old",
+            "_id": "old",
+            "name": "Local User"
+        }),
+        "local-device-123",
+    );
+
+    assert_eq!(out["id"], "local-device-123");
+    assert_eq!(out["_id"], "local-device-123");
+    assert_eq!(out["name"], "Local User");
 }
 
 // ── clear_session ──────────────────────────────────────────────

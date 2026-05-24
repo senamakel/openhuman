@@ -50,6 +50,7 @@ const en1: TranslationMap = {
   'common.showLess': 'Show less',
   'common.submit': 'Submit',
   'common.continue': 'Continue',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': 'General',
   'settings.featuresAndAI': 'Features & AI',
   'settings.billingAndRewards': 'Billing & Rewards',
@@ -60,6 +61,8 @@ const en1: TranslationMap = {
   'settings.accountDesc': 'Recovery phrase, team, connections, and privacy',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Do Not Disturb and per-account notification controls',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Features',
   'settings.featuresDesc': 'Screen awareness, messaging, and tools',
   'settings.aiModels': 'AI & Models',
@@ -204,7 +207,15 @@ const en1: TranslationMap = {
   'skills.available': 'Available',
   'skills.addAccount': 'Add Account',
   'skills.channels': 'Channels',
-  'skills.integrations': 'Integrations',
+  'skills.integrations': 'Composio Integrations',
+  'skills.integrationsSubtitle':
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
+  'skills.tabs.composio': 'Composio',
+  'skills.tabs.channels': 'Channels',
+  'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',
   'memory.noResults': 'No memories found',
@@ -222,6 +233,9 @@ const en1: TranslationMap = {
   'rewards.title': 'Rewards',
   'rewards.referrals': 'Referrals',
   'rewards.coupons': 'Redeem',
+  'rewards.localUnavailable':
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
+  'rewards.localUnavailableCta': 'Open Account Settings',
   'rewards.credits': 'Credits',
   'rewards.referralCode': 'Your referral code',
   'rewards.copyCode': 'Copy code',
@@ -243,20 +257,21 @@ const en1: TranslationMap = {
   'onboarding.getStarted': 'Get Started',
   'onboarding.runtimeChoice.title': 'How would you like to run OpenHuman?',
   'onboarding.runtimeChoice.subtitle':
-    'Pick the setup that fits you best. You can change this later in Settings.',
+    'Pick how much OpenHuman manages for you. You can change this later in Settings.',
   'onboarding.runtimeChoice.cloud.title': 'Simple',
-  'onboarding.runtimeChoice.cloud.tagline': 'Let OpenHuman manage everything for you.',
-  'onboarding.runtimeChoice.cloud.f1': 'Built-in security',
+  'onboarding.runtimeChoice.cloud.tagline':
+    'Use OpenHuman-hosted sign-in, model routing, search, and managed integrations.',
+  'onboarding.runtimeChoice.cloud.f1': 'Backend-brokered OAuth and model routing',
   'onboarding.runtimeChoice.cloud.f2': 'Token compression to stretch your usage further',
   'onboarding.runtimeChoice.cloud.f3': 'One subscription, every model included',
-  'onboarding.runtimeChoice.cloud.f4': 'No API keys to manage',
-  'onboarding.runtimeChoice.cloud.f5': 'Simple to set up',
+  'onboarding.runtimeChoice.cloud.f4': 'No model, search, or Composio keys to manage',
+  'onboarding.runtimeChoice.cloud.f5': 'Local Memory Tree, managed network services',
   'onboarding.runtimeChoice.custom.title': 'Run Custom',
   'onboarding.runtimeChoice.custom.tagline':
-    "Bring your own keys. Full control of what you're using.",
+    'Bring your own keys. Choose which services OpenHuman should call.',
   'onboarding.runtimeChoice.custom.f1': "You'll need API keys for almost everything",
   'onboarding.runtimeChoice.custom.f2': 'Reuses services you already pay for',
-  'onboarding.runtimeChoice.custom.f3': 'Can be free if you run everything locally',
+  'onboarding.runtimeChoice.custom.f3': 'Keep supported workloads on your machine',
   'onboarding.runtimeChoice.custom.f4': 'More setup, more knobs',
   'onboarding.runtimeChoice.custom.f5': 'Best for power users and developers',
   'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
@@ -295,26 +310,26 @@ const en1: TranslationMap = {
   'onboarding.custom.inference.subtitle':
     'Which language model should answer your questions and run your agents?',
   'onboarding.custom.inference.defaultDesc':
-    'OpenHuman routes every workload to a sensible default model. No keys, no setup.',
+    'OpenHuman routes workloads through its managed backend by default. No keys, no setup.',
   'onboarding.custom.inference.configureDesc':
     'Bring your own OpenAI or Anthropic key. We use it for every text-based workload.',
   'onboarding.custom.voice.title': 'Voice',
   'onboarding.custom.voice.subtitle': 'Speech-to-text and text-to-speech for voice mode.',
   'onboarding.custom.voice.defaultDesc':
-    'OpenHuman ships with managed STT/TTS that just works. Nothing to wire up.',
+    'OpenHuman ships with managed STT/TTS providers that may send audio/text to hosted services.',
   'onboarding.custom.voice.configureDesc':
     'Use your own ElevenLabs / OpenAI Whisper / etc. Configure in Settings › Voice.',
   'onboarding.custom.oauth.title': 'Connections (OAuth)',
   'onboarding.custom.oauth.subtitle':
     'Gmail, Slack, Notion, and other connected services that need OAuth.',
   'onboarding.custom.oauth.defaultDesc':
-    'OpenHuman runs a managed Composio workspace. One click to connect each service later.',
+    'OpenHuman brokers OAuth and tool calls through a managed Composio workspace.',
   'onboarding.custom.oauth.configureDesc':
     'Bring your own Composio account / API key. Configure in Settings › Connections.',
   'onboarding.custom.search.title': 'Web Search',
   'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman uses a managed search backend. No keys needed.',
+    'OpenHuman uses a managed search proxy by default. No search API key needed.',
   'onboarding.custom.search.configureDesc':
     'Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.',
   'onboarding.custom.memory.title': 'Memory',
@@ -419,12 +434,99 @@ const en1: TranslationMap = {
   'settings.about.releases': 'Releases',
   'settings.about.releasesDesc': 'Browse release notes and earlier builds on GitHub.',
   'settings.about.openReleases': 'Open GitHub releases',
+  'settings.about.connection': 'Connection',
+  'settings.about.connectionMode': 'Mode',
+  'settings.about.connectionModeLocal': 'Local',
+  'settings.about.connectionModeCloud': 'Cloud',
+  'settings.about.connectionModeUnset': 'Not selected',
+  'settings.about.serverUrl': 'Server URL',
+  'settings.about.serverUrlUnavailable': 'Unavailable',
+  'settings.about.connectionHelperLocal':
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
+  'settings.about.connectionHelperCloud':
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
+  'settings.heartbeat.title': 'Heartbeat & loops',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
+  'settings.ledgerUsage.title': 'Usage ledger',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
+  'settings.search.title': 'Search engine',
+  'settings.search.menuDesc':
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
+  'settings.search.description':
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+  'settings.search.engineAria': 'Search engine',
+  'settings.search.engineManagedLabel': 'OpenHuman Managed',
+  'settings.search.engineManagedDesc':
+    'Default. Routed through the OpenHuman backend — no API key required.',
+  'settings.search.engineParallelLabel': 'Parallel',
+  'settings.search.engineParallelDesc':
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
+  'settings.search.engineBraveLabel': 'Brave Search',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
+  'settings.search.statusConfigured': 'Configured',
+  'settings.search.statusNeedsKey': 'Needs API key',
+  'settings.search.fallbackToManaged':
+    'No key configured — search will fall back to Managed until a key is saved.',
+  'settings.search.getApiKey': 'Get API key',
+  'settings.search.save': 'Save',
+  'settings.search.clear': 'Clear',
+  'settings.search.show': 'Show',
+  'settings.search.hide': 'Hide',
+  'settings.search.statusSaving': 'Saving…',
+  'settings.search.statusSaved': 'Saved.',
+  'settings.search.statusError': 'Failed',
+  'settings.search.parallelKeyLabel': 'Parallel API key',
+  'settings.search.braveKeyLabel': 'Brave Search API key',
+  'settings.search.placeholderStored': '•••••••• (stored)',
+  'settings.search.placeholderParallel': 'pk_...',
+  'settings.search.placeholderBrave': 'BSA...',
+  'mcp.alphaBadge': 'Alpha',
+  'mcp.alphaBannerText':
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
+  'mcp.toolList.noTools': 'No tools available.',
+  'mcp.setup.secretDialog.title': 'MCP Setup — Enter Secret',
+  'mcp.setup.secretDialog.bodyPrefix': 'The MCP setup agent needs',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
+  'mcp.setup.secretDialog.inputLabel': 'Value',
+  'mcp.setup.secretDialog.inputPlaceholder': 'Paste here',
+  'mcp.setup.secretDialog.show': 'Show',
+  'mcp.setup.secretDialog.hide': 'Hide',
+  'mcp.setup.secretDialog.submit': 'Submit',
+  'mcp.setup.secretDialog.cancel': 'Cancel',
+  'mcp.setup.secretDialog.submitting': 'Submitting…',
+  'mcp.setup.secretDialog.errorPrefix': 'Failed to submit:',
+  'mcp.setup.secretDialog.privacyNote':
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
+  'devices.betaBadge': 'Beta',
+  'devices.betaText':
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
+  'autonomy.title': 'Agent autonomy',
+  'autonomy.maxActionsLabel': 'Max actions per hour',
+  'autonomy.maxActionsHelp':
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
+  'autonomy.statusSaving': 'Saving…',
+  'autonomy.statusSaved': 'Saved.',
+  'autonomy.statusFailed': 'Failed',
+  'autonomy.unlimitedNote': 'Unlimited — rate limiting disabled.',
+  'autonomy.invalidIntegerMsg':
+    'Must be a positive integer (use the Unlimited preset for no limit).',
+  'autonomy.presetUnlimited': 'Unlimited (default)',
+  'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
   'settings.ai.overview': 'AI System Overview',
   // Settings menu: Appearance + Mascot (#2225)
   'settings.appearance': 'Appearance',
   'settings.appearanceDesc': 'Pick light, dark, or match your system theme',
   'settings.mascot': 'Mascot',
   'settings.mascotDesc': 'Pick the mascot color used across the app',
+  'channels.authMode.managed_dm': 'Login with OpenHuman',
+  'channels.authMode.oauth': 'OAuth Sign-in',
+  'channels.authMode.bot_token': 'Use your own Bot Token',
+  'channels.authMode.api_key': 'Use your own API Key',
+  'channels.fieldRequired': '{field} is required',
+  'channels.mcp.title': 'MCP Servers',
+  'channels.mcp.description':
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
 };
 
 export default en1;

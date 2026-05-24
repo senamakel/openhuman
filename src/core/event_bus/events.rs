@@ -92,10 +92,22 @@ pub enum DomainEvent {
 
     // ── Channels ────────────────────────────────────────────────────────
     /// An inbound channel message from the transport layer, ready for processing.
+    ///
+    /// `sender`, `reply_target`, and `thread_ts` are carried alongside
+    /// `channel` so the agent loop can derive per-sender conversation keys
+    /// the same way `channels::context::conversation_history_key` does for
+    /// other inbound paths — keying on `channel` alone collapses distinct
+    /// senders inside a shared channel into one cached session.
     ChannelInboundMessage {
         event_name: String,
         channel: String,
         message: String,
+        #[doc = "Originating user/account id within the channel. `None` for legacy publishers that don't surface it."]
+        sender: Option<String>,
+        #[doc = "Direct-message peer or group thread the reply should go to. `None` when the channel does not distinguish."]
+        reply_target: Option<String>,
+        #[doc = "Slack/Discord thread anchor when the message is in-thread. `None` for top-level messages."]
+        thread_ts: Option<String>,
         raw_data: serde_json::Value,
     },
     /// A message was received on a channel.
@@ -394,6 +406,31 @@ pub enum DomainEvent {
         routed: bool,
     },
 
+    // ── Device pairing ──────────────────────────────────────────────────
+    /// A mobile device completed the X25519 handshake and is now paired.
+    DevicePaired {
+        channel_id: String,
+        device_pubkey: String,
+        label: Option<String>,
+    },
+    /// A paired device's tunnel session was revoked.
+    DeviceRevoked { channel_id: String },
+    /// The backend tunnel reported the peer (device) came online.
+    DevicePeerOnline { channel_id: String },
+    /// The backend tunnel reported the peer (device) went offline.
+    DevicePeerOffline { channel_id: String },
+    /// An encrypted tunnel frame arrived from the device.
+    DeviceTunnelFrame {
+        channel_id: String,
+        payload_b64: String,
+    },
+    /// The backend acknowledged `tunnel:register` with channel credentials.
+    DeviceTunnelRegistered {
+        channel_id: String,
+        pairing_token: String,
+        session_token: String,
+    },
+
     // ── Memory tree ─────────────────────────────────────────────────────
     /// A document (chat batch, email thread, or standalone document) was
     /// fully canonicalised and its chunks written to the memory tree.
@@ -457,6 +494,37 @@ pub enum DomainEvent {
         session_id: String,
         reason: String,
         turn_count: usize,
+    },
+
+    // ── MCP Clients ─────────────────────────────────────────────────────
+    /// A new MCP server was installed from the Smithery registry.
+    McpServerInstalled {
+        server_id: String,
+        qualified_name: String,
+    },
+    /// An MCP server subprocess connected and completed the initialize handshake.
+    McpServerConnected { server_id: String, tool_count: u32 },
+    /// An MCP server subprocess was disconnected or terminated.
+    McpServerDisconnected {
+        server_id: String,
+        reason: Option<String>,
+    },
+    /// An MCP client tool was invoked.
+    McpClientToolExecuted {
+        server_id: String,
+        tool_name: String,
+        success: bool,
+        elapsed_ms: u64,
+    },
+    /// The MCP setup agent asked the user for a secret value. The UI
+    /// subscribes to this and renders a native prompt; on submit it calls
+    /// `openhuman.mcp_setup_submit_secret`. `ref_id` is the opaque handle
+    /// returned to the agent; the raw secret value never traverses this
+    /// event.
+    McpSetupSecretRequested {
+        ref_id: String,
+        key_name: String,
+        prompt: String,
     },
 
     // ── System lifecycle ────────────────────────────────────────────────
@@ -555,6 +623,13 @@ impl DomainEvent {
 
             Self::NotificationIngested { .. } | Self::NotificationTriaged { .. } => "notification",
 
+            Self::DevicePaired { .. }
+            | Self::DeviceRevoked { .. }
+            | Self::DevicePeerOnline { .. }
+            | Self::DevicePeerOffline { .. }
+            | Self::DeviceTunnelFrame { .. }
+            | Self::DeviceTunnelRegistered { .. } => "device",
+
             Self::CompanionSessionStarted { .. }
             | Self::CompanionStateChanged { .. }
             | Self::CompanionSessionEnded { .. } => "companion",
@@ -569,6 +644,12 @@ impl DomainEvent {
             Self::SessionExpired { .. } => "auth",
 
             Self::ApprovalRequested { .. } | Self::ApprovalDecided { .. } => "approval",
+
+            Self::McpServerInstalled { .. }
+            | Self::McpServerConnected { .. }
+            | Self::McpServerDisconnected { .. }
+            | Self::McpClientToolExecuted { .. }
+            | Self::McpSetupSecretRequested { .. } => "mcp_client",
         }
     }
 }

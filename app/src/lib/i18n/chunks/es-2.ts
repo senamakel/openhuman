@@ -251,6 +251,16 @@ const es2: TranslationMap = {
     'Interruptor principal. Desactivado por defecto — Ollama permanece inactivo. Cuando está activado, el resumidor de árbol, la inteligencia de pantalla y el autocompletado siempre usan el modelo local.',
   'localModel.advancedSettings': 'Configuración avanzada',
   'localModel.debugTitle': 'Depuración de modelo local',
+  'localModel.ollamaServer.helperText': 'Ejemplo: http://192.168.1.5:11434',
+  'localModel.ollamaServer.label': 'URL del servidor Ollama',
+  'localModel.ollamaServer.modelCount': 'modelos',
+  'localModel.ollamaServer.placeholder': 'http://localhost:11434',
+  'localModel.ollamaServer.reachable': 'Accesible',
+  'localModel.ollamaServer.resetButton': 'Restablecer al valor predeterminado',
+  'localModel.ollamaServer.saveButton': 'Guardar',
+  'localModel.ollamaServer.testButton': 'Probar conexión',
+  'localModel.ollamaServer.unreachable': 'No accesible',
+  'localModel.ollamaServer.validationError': 'Debe ser una URL http:// o https:// válida',
   'screenAwareness.debugTitle': 'Depuración de Conciencia de pantalla',
   'memory.debugTitle': 'Depuración de memoria',
   'webhooks.debugTitle': 'Depuración de webhooks',
@@ -417,6 +427,7 @@ const es2: TranslationMap = {
   'devOptions.menuComposioTriggers': 'Integration Triggers',
   'devOptions.menuComposioTriggersDesc':
     'Configure AI triage settings for Composio integration triggers',
+  'mic.deviceSelector': 'Microphone device',
 };
 
 export default es2;

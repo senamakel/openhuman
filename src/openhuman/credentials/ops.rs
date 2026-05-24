@@ -7,8 +7,8 @@ use crate::api::jwt::get_session_token;
 use crate::api::rest::{user_id_from_profile_payload, BackendOAuthClient};
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::{
-    build_session_state, is_local_session_token, parse_fields_value, profile_name_or_default,
-    summarize_auth_profile, LOCAL_SESSION_USER_ID,
+    build_session_state, is_local_session_token, local_session_user_id, parse_fields_value,
+    profile_name_or_default, summarize_auth_profile, LOCAL_SESSION_USER_ID,
 };
 use crate::openhuman::security::SecretStore;
 use crate::rpc::RpcOutcome;
@@ -130,8 +130,15 @@ pub async fn store_session(
 
     let api_url = effective_backend_api_url(&config.api_url);
     let local_session = is_local_session_token(trimmed_token);
+    let local_user_id = local_session.then(local_session_user_id);
     let settings = if local_session {
         sanitize_stored_session_user(user.clone())
+            .map(|value| {
+                normalize_local_session_user(
+                    value,
+                    local_user_id.as_deref().unwrap_or(LOCAL_SESSION_USER_ID),
+                )
+            })
             .ok_or_else(|| "local session requires a user payload".to_string())?
     } else {
         let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
@@ -143,7 +150,7 @@ pub async fn store_session(
 
     let mut metadata = std::collections::HashMap::new();
     if let Some(uid) = if local_session {
-        Some(LOCAL_SESSION_USER_ID.to_string())
+        local_user_id.clone()
     } else {
         user_id
             .and_then(|v| {
@@ -154,7 +161,11 @@ pub async fn store_session(
     } {
         metadata.insert("user_id".to_string(), uid);
     }
-    let user_for_store = sanitize_stored_session_user(user).unwrap_or(settings);
+    let user_for_store = if local_session {
+        settings.clone()
+    } else {
+        sanitize_stored_session_user(user).unwrap_or(settings)
+    };
     metadata.insert("user_json".to_string(), user_for_store.to_string());
 
     // Determine user_id so we can scope the openhuman directory to this user.
@@ -247,10 +258,10 @@ pub async fn store_session(
     };
 
     if local_session {
-        match crate::openhuman::config::ops::set_onboarding_completed(true).await {
-            Ok(_) => logs.push("onboarding marked complete for local session".to_string()),
+        match crate::openhuman::config::ops::set_onboarding_completed(false).await {
+            Ok(_) => logs.push("onboarding left incomplete for local session setup".to_string()),
             Err(error) => logs.push(format!(
-                "onboarding completion warning for local session: {error}"
+                "onboarding setup warning for local session: {error}"
             )),
         }
     }
@@ -300,6 +311,22 @@ fn sanitize_stored_session_user(user: Option<serde_json::Value>) -> Option<serde
         Some(serde_json::Value::Null) => None,
         other => other,
     }
+}
+
+fn normalize_local_session_user(user: serde_json::Value, local_user_id: &str) -> serde_json::Value {
+    let mut map = match user {
+        serde_json::Value::Object(map) => map,
+        other => return other,
+    };
+    map.insert(
+        "id".to_string(),
+        serde_json::Value::String(local_user_id.to_string()),
+    );
+    map.insert(
+        "_id".to_string(),
+        serde_json::Value::String(local_user_id.to_string()),
+    );
+    serde_json::Value::Object(map)
 }
 
 pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Value>, String> {

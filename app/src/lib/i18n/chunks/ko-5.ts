@@ -167,6 +167,10 @@ const ko5: TranslationMap = {
   'settings.mascot.active': '활성',
   'settings.mascot.characterDesc': '캐릭터 설명',
   'settings.mascot.characterHeading': '캐릭터 제목',
+  'settings.mascot.customGifError':
+    'HTTPS .gif URL, loopback HTTP .gif URL, file:// .gif URL 또는 로컬 .gif 경로를 입력하세요.',
+  'settings.mascot.customGifHeading': '사용자 지정 GIF 아바타',
+  'settings.mascot.customGifLabel': '사용자 지정 GIF 아바타 URL',
   'settings.mascot.colorDesc': '색상 설명',
   'settings.mascot.colorHeading': '색상 제목',
   'settings.mascot.loadingLibrary': 'OpenHuman 라이브러리 불러오는 중…',
@@ -402,6 +406,9 @@ const ko5: TranslationMap = {
   'webhooks.tunnels.toggleFailed': 'Echo 전환 실패',
   'composio.authExpired': '인증이 만료됨',
   'composio.reconnect': '다시 연결',
+  'composio.previewBadge': 'Preview',
+  'composio.previewTooltip':
+    'Agent integration coming soon — you can connect, but the agent can’t use this toolkit yet.',
   'composio.directModeRequiresKey':
     '저장에 실패했습니다. Direct 모드에는 비어 있지 않은 API 키가 필요합니다.',
   'composio.notYetRouted': '아직 라우팅되지 않음',
@@ -443,6 +450,76 @@ const ko5: TranslationMap = {
   'settings.mascot.colorYellow': '노랑',
   'settings.mascot.libraryUnavailable': 'OpenHuman 라이브러리를 사용할 수 없음',
   'settings.mascot.title': 'OpenHuman',
+  'settings.developerMenu.mcpServer.title': 'MCP Server',
+  'settings.developerMenu.mcpServer.desc': 'Configure external MCP clients to connect to OpenHuman',
+  'settings.developerMenu.autonomy.title': '에이전트 자율성',
+  'settings.developerMenu.autonomy.desc': '도구 작업 속도 제한 및 안전 임계값',
+  'settings.mcpServer.title': 'MCP Server',
+  'settings.mcpServer.toolsSectionTitle': 'Available Tools',
+  'settings.mcpServer.toolsSectionDesc':
+    'Tools exposed via the MCP stdio server when running openhuman-core mcp',
+  'settings.mcpServer.configSectionTitle': 'Client Configuration',
+  'settings.mcpServer.configSectionDesc':
+    'Select your MCP client to generate the correct configuration snippet',
+  'settings.mcpServer.copySnippet': 'Copy to Clipboard',
+  'settings.mcpServer.copied': 'Copied!',
+  'settings.mcpServer.openConfigFile': 'Open Config File',
+  'settings.mcpServer.binaryPathNotFound':
+    'OpenHuman binary not found. If running from source, build with: cargo build --bin openhuman-core',
+  'settings.mcpServer.openConfigError': 'Failed to open config file',
+  'settings.mcpServer.clientClaudeDesktop': 'Claude Desktop',
+  'settings.mcpServer.clientCursor': 'Cursor',
+  'settings.mcpServer.clientCodex': 'Codex',
+  'settings.mcpServer.clientZed': 'Zed',
+  'settings.mcpServer.configFilePath': 'Config file',
+  'settings.mcpServer.clientSelectorAriaLabel': 'MCP client selector',
+  'settings.developerMenu.ai.title': 'AI Configuration',
+  'settings.developerMenu.ai.desc':
+    'Cloud providers, local Ollama models, and per-workload routing',
+  'settings.developerMenu.screenAwareness.title': 'Screen Awareness',
+  'settings.developerMenu.screenAwareness.desc':
+    'Screen capture permissions, monitoring policy, and session controls',
+  'settings.developerMenu.messagingChannels.title': 'Messaging Channels',
+  'settings.developerMenu.messagingChannels.desc':
+    'Configure Telegram/Discord auth modes and default channel routing',
+  'settings.developerMenu.tools.title': 'Tools',
+  'settings.developerMenu.tools.desc':
+    'Enable or disable capabilities OpenHuman can use on your behalf',
+  'settings.developerMenu.agentChat.title': 'Agent Chat',
+  'settings.developerMenu.agentChat.desc':
+    'Test agent conversation with model and temperature overrides',
+  'settings.developerMenu.cronJobs.title': 'Cron Jobs',
+  'settings.developerMenu.cronJobs.desc': 'View and configure scheduled jobs for runtime skills',
+  'settings.developerMenu.localModelDebug.title': 'Local Model Debug',
+  'settings.developerMenu.localModelDebug.desc':
+    'Ollama config, asset downloads, model tests, and diagnostics',
+  'settings.developerMenu.composio.title': 'Composio',
+  'settings.developerMenu.composio.desc':
+    'Routing mode, integration triggers, and trigger history archive.',
+  'settings.developerMenu.webhooks.title': 'Webhooks',
+  'settings.developerMenu.webhooks.desc':
+    'Inspect runtime webhook registrations and captured request logs',
+  'settings.developerMenu.intelligence.title': 'Intelligence',
+  'settings.developerMenu.intelligence.desc':
+    'Memory workspace, subconscious engine, dreams, and settings',
+  'settings.developerMenu.notificationRouting.title': 'Notification Routing',
+  'settings.developerMenu.notificationRouting.desc':
+    'AI importance scoring and orchestrator escalation for integration alerts',
+  'settings.developerMenu.composeioTriggers.title': 'ComposeIO Triggers',
+  'settings.developerMenu.composeioTriggers.desc': 'View ComposeIO trigger history and archive',
+  'settings.developerMenu.composioRouting.title': 'Composio Routing (Direct Mode)',
+  'settings.developerMenu.composioRouting.desc':
+    'Bring your own Composio API key and route calls directly to backend.composio.dev',
+  'settings.developerMenu.integrationTriggers.title': 'Integration Triggers',
+  'settings.developerMenu.integrationTriggers.desc':
+    'Configure AI triage settings for Composio integration triggers',
+  'settings.appearance.menuDesc': 'Pick light, dark, or match your system theme',
+  'settings.mascot.menuTitle': 'Mascot',
+  'settings.mascot.menuDesc': 'Pick the mascot color used across the app',
+  'settings.appearance.tabBarHeading': 'Bottom tab bar',
+  'settings.appearance.tabBarAlwaysShowLabels': 'Always show labels',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc':
+    'When off, labels only appear on hover or for the active tab.',
 };
 
 export default ko5;

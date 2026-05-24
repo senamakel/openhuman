@@ -237,6 +237,45 @@ async fn lm_studio_chat_with_history_returns_response() {
 }
 
 #[tokio::test]
+async fn lm_studio_chat_with_history_falls_back_to_reasoning_content() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    let app = Router::new().route(
+        "/v1/chat/completions",
+        post(|Json(_body): Json<serde_json::Value>| async move {
+            Json(json!({
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "reasoning-only reply"
+                    }
+                }]
+            }))
+        }),
+    );
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = ready_service(&config);
+
+    let reply = service
+        .chat_with_history(
+            &config,
+            vec![
+                crate::openhuman::inference::local::ollama::OllamaChatMessage {
+                    role: "user".to_string(),
+                    content: "hi".to_string(),
+                },
+            ],
+            None,
+        )
+        .await
+        .expect("lm studio reasoning fallback");
+
+    assert_eq!(reply, "reasoning-only reply");
+}
+
+#[tokio::test]
 async fn lm_studio_prompt_errors_on_non_success_status() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 

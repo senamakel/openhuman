@@ -52,6 +52,7 @@ const en: TranslationMap = {
   'common.showLess': 'Show less',
   'common.submit': 'Submit',
   'common.continue': 'Continue',
+  'common.comingSoon': 'Coming Soon',
 
   // Settings Home
   'settings.general': 'General',
@@ -64,6 +65,8 @@ const en: TranslationMap = {
   'settings.accountDesc': 'Recovery phrase, team, connections, and privacy',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Do Not Disturb and per-account notification controls',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': 'Features',
   'settings.featuresDesc': 'Screen awareness, messaging, and tools',
   'settings.aiModels': 'AI & Models',
@@ -226,7 +229,12 @@ const en: TranslationMap = {
   'skills.available': 'Available',
   'skills.addAccount': 'Add Account',
   'skills.channels': 'Channels',
-  'skills.integrations': 'Integrations',
+  'skills.integrations': 'Composio Integrations',
+  'skills.integrationsSubtitle':
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
+  'skills.tabs.composio': 'Composio',
+  'skills.tabs.channels': 'Channels',
+  'skills.tabs.mcp': 'MCP Servers',
 
   // Intelligence / Memory
   'memory.title': 'Memory',
@@ -250,6 +258,9 @@ const en: TranslationMap = {
   'rewards.title': 'Rewards',
   'rewards.referrals': 'Referrals',
   'rewards.coupons': 'Redeem',
+  'rewards.localUnavailable':
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
+  'rewards.localUnavailableCta': 'Open Account Settings',
   'rewards.credits': 'Credits',
   'rewards.referralCode': 'Your referral code',
   'rewards.copyCode': 'Copy code',
@@ -275,20 +286,21 @@ const en: TranslationMap = {
   // Onboarding: runtime-choice step (Cloud vs Custom)
   'onboarding.runtimeChoice.title': 'How would you like to run OpenHuman?',
   'onboarding.runtimeChoice.subtitle':
-    'Pick the setup that fits you best. You can change this later in Settings.',
+    'Pick how much OpenHuman manages for you. You can change this later in Settings.',
   'onboarding.runtimeChoice.cloud.title': 'Simple',
-  'onboarding.runtimeChoice.cloud.tagline': 'Let OpenHuman manage everything for you.',
-  'onboarding.runtimeChoice.cloud.f1': 'Built-in security',
+  'onboarding.runtimeChoice.cloud.tagline':
+    'Use OpenHuman-hosted sign-in, model routing, search, and managed integrations.',
+  'onboarding.runtimeChoice.cloud.f1': 'Backend-brokered OAuth and model routing',
   'onboarding.runtimeChoice.cloud.f2': 'Token compression to stretch your usage further',
   'onboarding.runtimeChoice.cloud.f3': 'One subscription, every model included',
-  'onboarding.runtimeChoice.cloud.f4': 'No API keys to manage',
-  'onboarding.runtimeChoice.cloud.f5': 'Simple to set up',
+  'onboarding.runtimeChoice.cloud.f4': 'No model, search, or Composio keys to manage',
+  'onboarding.runtimeChoice.cloud.f5': 'Local Memory Tree, managed network services',
   'onboarding.runtimeChoice.custom.title': 'Run Custom',
   'onboarding.runtimeChoice.custom.tagline':
-    "Bring your own keys. Full control of what you're using.",
+    'Bring your own keys. Choose which services OpenHuman should call.',
   'onboarding.runtimeChoice.custom.f1': "You'll need API keys for almost everything",
   'onboarding.runtimeChoice.custom.f2': 'Reuses services you already pay for',
-  'onboarding.runtimeChoice.custom.f3': 'Can be free if you run everything locally',
+  'onboarding.runtimeChoice.custom.f3': 'Keep supported workloads on your machine',
   'onboarding.runtimeChoice.custom.f4': 'More setup, more knobs',
   'onboarding.runtimeChoice.custom.f5': 'Best for power users and developers',
   'onboarding.runtimeChoice.cloud.creditHighlight': '$1 free credit to try it out',
@@ -333,7 +345,7 @@ const en: TranslationMap = {
   'onboarding.custom.inference.subtitle':
     'Which language model should answer your questions and run your agents?',
   'onboarding.custom.inference.defaultDesc':
-    'OpenHuman routes every workload to a sensible default model. No keys, no setup.',
+    'OpenHuman routes workloads through its managed backend by default. No keys, no setup.',
   'onboarding.custom.inference.configureDesc':
     'Bring your own OpenAI or Anthropic key. We use it for every text-based workload.',
 
@@ -341,7 +353,7 @@ const en: TranslationMap = {
   'onboarding.custom.voice.title': 'Voice',
   'onboarding.custom.voice.subtitle': 'Speech-to-text and text-to-speech for voice mode.',
   'onboarding.custom.voice.defaultDesc':
-    'OpenHuman ships with managed STT/TTS that just works. Nothing to wire up.',
+    'OpenHuman ships with managed STT/TTS providers that may send audio/text to hosted services.',
   'onboarding.custom.voice.configureDesc':
     'Use your own ElevenLabs / OpenAI Whisper / etc. Configure in Settings › Voice.',
 
@@ -350,7 +362,7 @@ const en: TranslationMap = {
   'onboarding.custom.oauth.subtitle':
     'Gmail, Slack, Notion, and other connected services that need OAuth.',
   'onboarding.custom.oauth.defaultDesc':
-    'OpenHuman runs a managed Composio workspace. One click to connect each service later.',
+    'OpenHuman brokers OAuth and tool calls through a managed Composio workspace.',
   'onboarding.custom.oauth.configureDesc':
     'Bring your own Composio account / API key. Configure in Settings › Connections.',
 
@@ -358,7 +370,7 @@ const en: TranslationMap = {
   'onboarding.custom.search.title': 'Web Search',
   'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman uses a managed search backend. No keys needed.',
+    'OpenHuman uses a managed search proxy by default. No search API key needed.',
   'onboarding.custom.search.configureDesc':
     'Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.',
 
@@ -485,6 +497,85 @@ const en: TranslationMap = {
   'settings.about.releases': 'Releases',
   'settings.about.releasesDesc': 'Browse release notes and earlier builds on GitHub.',
   'settings.about.openReleases': 'Open GitHub releases',
+  'settings.about.connection': 'Connection',
+  'settings.about.connectionMode': 'Mode',
+  'settings.about.connectionModeLocal': 'Local',
+  'settings.about.connectionModeCloud': 'Cloud',
+  'settings.about.connectionModeUnset': 'Not selected',
+  'settings.about.serverUrl': 'Server URL',
+  'settings.about.serverUrlUnavailable': 'Unavailable',
+  'settings.about.connectionHelperLocal':
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
+  'settings.about.connectionHelperCloud':
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
+  'settings.heartbeat.title': 'Heartbeat & loops',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
+  'settings.ledgerUsage.title': 'Usage ledger',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
+  'settings.search.title': 'Search engine',
+  'settings.search.menuDesc':
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
+  'settings.search.description':
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+  'settings.search.engineAria': 'Search engine',
+  'settings.search.engineManagedLabel': 'OpenHuman Managed',
+  'settings.search.engineManagedDesc':
+    'Default. Routed through the OpenHuman backend — no API key required.',
+  'settings.search.engineParallelLabel': 'Parallel',
+  'settings.search.engineParallelDesc':
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
+  'settings.search.engineBraveLabel': 'Brave Search',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
+  'settings.search.statusConfigured': 'Configured',
+  'settings.search.statusNeedsKey': 'Needs API key',
+  'settings.search.fallbackToManaged':
+    'No key configured — search will fall back to Managed until a key is saved.',
+  'settings.search.getApiKey': 'Get API key',
+  'settings.search.save': 'Save',
+  'settings.search.clear': 'Clear',
+  'settings.search.show': 'Show',
+  'settings.search.hide': 'Hide',
+  'settings.search.statusSaving': 'Saving…',
+  'settings.search.statusSaved': 'Saved.',
+  'settings.search.statusError': 'Failed',
+  'settings.search.parallelKeyLabel': 'Parallel API key',
+  'settings.search.braveKeyLabel': 'Brave Search API key',
+  'settings.search.placeholderStored': '•••••••• (stored)',
+  'settings.search.placeholderParallel': 'pk_...',
+  'settings.search.placeholderBrave': 'BSA...',
+  'mcp.alphaBadge': 'Alpha',
+  'mcp.alphaBannerText':
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
+  'mcp.toolList.noTools': 'No tools available.',
+  'mcp.setup.secretDialog.title': 'MCP Setup — Enter Secret',
+  'mcp.setup.secretDialog.bodyPrefix': 'The MCP setup agent needs',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
+  'mcp.setup.secretDialog.inputLabel': 'Value',
+  'mcp.setup.secretDialog.inputPlaceholder': 'Paste here',
+  'mcp.setup.secretDialog.show': 'Show',
+  'mcp.setup.secretDialog.hide': 'Hide',
+  'mcp.setup.secretDialog.submit': 'Submit',
+  'mcp.setup.secretDialog.cancel': 'Cancel',
+  'mcp.setup.secretDialog.submitting': 'Submitting…',
+  'mcp.setup.secretDialog.errorPrefix': 'Failed to submit:',
+  'mcp.setup.secretDialog.privacyNote':
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
+  'devices.betaBadge': 'Beta',
+  'devices.betaText':
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
+  'autonomy.title': 'Agent autonomy',
+  'autonomy.maxActionsLabel': 'Max actions per hour',
+  'autonomy.maxActionsHelp':
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
+  'autonomy.statusSaving': 'Saving…',
+  'autonomy.statusSaved': 'Saved.',
+  'autonomy.statusFailed': 'Failed',
+  'autonomy.unlimitedNote': 'Unlimited — rate limiting disabled.',
+  'autonomy.invalidIntegerMsg':
+    'Must be a positive integer (use the Unlimited preset for no limit).',
+  'autonomy.presetUnlimited': 'Unlimited (default)',
+  'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
 
   // Settings: AI
   'settings.ai.overview': 'AI System Overview',
@@ -870,6 +961,7 @@ const en: TranslationMap = {
   'mic.tapAndSpeak': 'Tap and speak',
   'mic.stopRecording': 'Stop recording and send',
   'mic.startRecording': 'Start recording',
+  'mic.deviceSelector': 'Microphone device',
 
   // Token
   'token.usageLimitReached': 'Usage limit reached',
@@ -955,6 +1047,14 @@ const en: TranslationMap = {
   'workspace.building': 'Building...',
   'workspace.buildSummaryTrees': 'Build Summary Trees',
   'workspace.viewVault': 'View Vault',
+  'workspace.openingVaultTitle': 'Opening vault in Obsidian',
+  'workspace.openingVaultMessage':
+    "If Obsidian doesn't open, install it from obsidian.md or use Reveal Folder. Vault path:",
+  'workspace.openVaultFailedTitle': "Couldn't open vault in Obsidian",
+  'workspace.openVaultFailedMessage':
+    'Use Reveal Folder to open the vault directory directly. Vault path:',
+  'workspace.revealVaultFailed': "Couldn't reveal vault folder",
+  'workspace.revealFolder': 'Reveal Folder',
   'workspace.graphLoadFailed': 'Failed to load memory graph',
   'workspace.loadingGraph': 'Loading memory graph...',
   'workspace.graphViewMode': 'Memory graph view mode',
@@ -1013,8 +1113,9 @@ const en: TranslationMap = {
   'backend.cloud': 'Cloud',
   'backend.recommended': 'Recommended',
   'backend.cloudDescription':
-    'Fast, powerful models hosted on our servers. Ready to use immediately.',
-  'backend.privacyNote': 'No personal data, messages, or keys are ever sent to our servers.',
+    'Fast, powerful models routed through the OpenHuman backend. Ready to use immediately.',
+  'backend.privacyNote':
+    'Prompts and selected context may be sent to the configured backend/provider. Use local mode for supported on-device workloads.',
   'backend.local': 'Local',
   'backend.advanced': 'Advanced',
   'backend.localDescription':
@@ -1028,6 +1129,8 @@ const en: TranslationMap = {
   'subconscious.failed': 'failed',
   'subconscious.tickInterval': 'Tick Interval',
   'subconscious.runNow': 'Run Now',
+  'subconscious.providerUnavailableTitle': 'Subconscious is paused',
+  'subconscious.providerSettings': 'AI settings',
   'subconscious.approvalNeeded': 'Approval Needed',
   'subconscious.requiresApproval': 'Requires approval',
   'subconscious.fixInConnections': 'Fix in Connections',
@@ -1152,6 +1255,7 @@ const en: TranslationMap = {
   'welcome.connectionFailed': 'Connection failed: {status} {statusText}',
   'welcome.connectionFailedMsg': 'Connection failed: {message}',
   'welcome.continueLocally': 'Continue locally',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'welcome.legalConsentPrefix': 'By continuing, you agree to the',
@@ -1187,6 +1291,9 @@ const en: TranslationMap = {
   'composio.authExpired': 'Auth expired',
   'composio.reconnect': 'Reconnect',
   'composio.envVarOverrides': 'is set, it overrides this setting.',
+  'composio.previewBadge': 'Preview',
+  'composio.previewTooltip':
+    'Agent integration coming soon — you can connect, but the agent can’t use this toolkit yet.',
 
   // Memory: day-of-week labels for heatmap
   'memory.day.sun': 'Sun',
@@ -1350,6 +1457,50 @@ const en: TranslationMap = {
   'channels.telegram.reconnect': 'Reconnect',
   'channels.telegram.savedRestartRequired': 'Channel saved. Restart the app to activate it.',
   'channels.web.alwaysAvailable': 'Always available',
+
+  // Auth mode labels
+  'channels.authMode.managed_dm': 'Login with OpenHuman',
+  'channels.authMode.oauth': 'OAuth Sign-in',
+  'channels.authMode.bot_token': 'Use your own Bot Token',
+  'channels.authMode.api_key': 'Use your own API Key',
+
+  // Field validation
+  'channels.fieldRequired': '{field} is required',
+
+  // MCP (virtual channel)
+  'channels.mcp.title': 'MCP Servers',
+  'channels.mcp.description':
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
+
+  // Discord
+  'channels.discord.displayName': 'Discord',
+  'channels.discord.description': 'Send and receive messages via Discord.',
+  'channels.discord.authMode.bot_token.description': 'Provide your own Discord bot token.',
+  'channels.discord.authMode.oauth.description':
+    'Install the OpenHuman bot to your Discord server via OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'Link your personal Discord account to the OpenHuman bot.',
+  'channels.discord.fields.bot_token.label': 'Bot Token',
+  'channels.discord.fields.bot_token.placeholder': 'Your Discord bot token',
+  'channels.discord.fields.guild_id.label': 'Server (Guild) ID',
+  'channels.discord.fields.guild_id.placeholder': 'Optional: restrict to a specific server',
+
+  // Telegram
+  'channels.telegram.displayName': 'Telegram',
+  'channels.telegram.description': 'Send and receive messages via Telegram.',
+  'channels.telegram.authMode.managed_dm.description':
+    'Message the OpenHuman Telegram bot directly.',
+  'channels.telegram.authMode.bot_token.description':
+    'Provide your own Telegram Bot token from @BotFather.',
+  'channels.telegram.fields.bot_token.label': 'Bot Token',
+  'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+  'channels.telegram.fields.allowed_users.label': 'Allowed Users',
+  'channels.telegram.fields.allowed_users.placeholder': 'Comma-separated Telegram usernames',
+
+  // Web
+  'channels.web.displayName': 'Web',
+  'channels.web.description': 'Chat via the built-in web UI.',
+  'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
   'chat.unsubscribeApproval.approve': 'Approve & Unsubscribe',
   'chat.unsubscribeApproval.approved': '✓ Successfully unsubscribed.',
   'chat.unsubscribeApproval.denied': '✕ Request denied.',
@@ -1398,6 +1549,14 @@ const en: TranslationMap = {
   'composio.connect.retryConnection': 'Retry connection',
   'composio.connect.scopeLoadError': "Couldn't load scope preferences: {msg}",
   'composio.connect.scopeSaveError': "Couldn't save {key} scope: {msg}",
+  'composio.connect.scope.read': 'Read',
+  'composio.connect.scope.readHint': 'Allow the agent to read data from this connection.',
+  'composio.connect.scope.write': 'Write',
+  'composio.connect.scope.writeHint':
+    'Allow the agent to create or modify data through this connection.',
+  'composio.connect.scope.admin': 'Admin',
+  'composio.connect.scope.adminHint':
+    'Allow the agent to manage settings, permissions, or destructive actions.',
   'composio.connect.subdomainInvalid':
     'Enter the short subdomain only (e.g. "acme"), not the full URL. It should contain only letters, numbers, and hyphens.',
   'composio.connect.subdomainRequired': 'Please enter your Atlassian subdomain to continue.',
@@ -1544,6 +1703,12 @@ const en: TranslationMap = {
   'pages.settings.aiSection.description':
     'Language model providers, local Ollama, and voice (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
+  'pages.settings.composioSection.title': 'Composio',
+  'pages.settings.composioSection.description':
+    'Routing, triggers, and history for integrations powered by Composio.',
+  'settings.developerMenu.composio.title': 'Composio',
+  'settings.developerMenu.composio.desc':
+    'Routing mode, integration triggers, and trigger history archive.',
   'pages.settings.features.desktopCompanion': 'Desktop Companion',
   'pages.settings.features.desktopCompanionDesc':
     'Voice assistant with screen awareness — listens, sees, speaks, points',
@@ -1653,7 +1818,22 @@ const en: TranslationMap = {
   'settings.ai.localOllama': 'Local (Ollama)',
   'settings.ai.modelLabel': 'Model',
   'settings.ai.noCustomProviders': 'No custom providers',
+  'settings.ai.openAiCompat.authHeaderExample': 'Authorization: Bearer <your key>',
+  'settings.ai.openAiCompat.authHeaderLabel': 'Auth header',
+  'settings.ai.openAiCompat.baseUrlLabel': 'Base URL',
+  'settings.ai.openAiCompat.baseUrlUnavailable': 'Unavailable',
+  'settings.ai.openAiCompat.clearKey': 'Clear key',
+  'settings.ai.openAiCompat.description':
+    "Point local harnesses at this /v1 server to route through the providers configured below. Authentication uses a stable key you set here, not the app's internal core bearer.",
+  'settings.ai.openAiCompat.keyConfigured': 'Key configured',
+  'settings.ai.openAiCompat.keyRequired': 'Key required',
+  'settings.ai.openAiCompat.rotateKey': 'Rotate key',
+  'settings.ai.openAiCompat.setKey': 'Set key',
+  'settings.ai.openAiCompat.title': 'OpenAI-compatible endpoint',
   'settings.ai.providerLabel': 'Provider',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.ai.routing': 'Routing',
   'settings.ai.routingCustom': 'Custom routing',
   'settings.ai.routingDefault': 'Default',
@@ -1887,6 +2067,16 @@ const en: TranslationMap = {
   'settings.localModel.status.notFound': 'Not found',
   'settings.localModel.status.notRunning': 'Not running',
   'settings.localModel.status.ollamaBinaryPath': 'Ollama binary path',
+  'localModel.ollamaServer.helperText': 'Example: http://192.168.1.5:11434',
+  'localModel.ollamaServer.label': 'Ollama Server URL',
+  'localModel.ollamaServer.modelCount': 'models',
+  'localModel.ollamaServer.placeholder': 'http://localhost:11434',
+  'localModel.ollamaServer.reachable': 'Reachable',
+  'localModel.ollamaServer.resetButton': 'Reset to default',
+  'localModel.ollamaServer.saveButton': 'Save',
+  'localModel.ollamaServer.testButton': 'Test Connection',
+  'localModel.ollamaServer.unreachable': 'Unreachable',
+  'localModel.ollamaServer.validationError': 'Must be a valid http:// or https:// URL',
   'settings.localModel.status.ollamaDiagnostics': 'Ollama Diagnostics',
   'settings.localModel.status.ollamaNotInstalled': 'Ollama runtime unavailable',
   'settings.localModel.status.ollamaNotInstalledDesc':
@@ -1945,6 +2135,29 @@ const en: TranslationMap = {
   'settings.developerMenu.integrationTriggers.title': 'Integration Triggers',
   'settings.developerMenu.integrationTriggers.desc':
     'Configure AI triage settings for Composio integration triggers',
+  'settings.developerMenu.mcpServer.title': 'MCP Server',
+  'settings.developerMenu.mcpServer.desc': 'Configure external MCP clients to connect to OpenHuman',
+  'settings.developerMenu.autonomy.title': 'Agent autonomy',
+  'settings.developerMenu.autonomy.desc': 'Tool action rate limits and safety thresholds',
+  'settings.mcpServer.title': 'MCP Server',
+  'settings.mcpServer.toolsSectionTitle': 'Available Tools',
+  'settings.mcpServer.toolsSectionDesc':
+    'Tools exposed via the MCP stdio server when running openhuman-core mcp',
+  'settings.mcpServer.configSectionTitle': 'Client Configuration',
+  'settings.mcpServer.configSectionDesc':
+    'Select your MCP client to generate the correct configuration snippet',
+  'settings.mcpServer.copySnippet': 'Copy to Clipboard',
+  'settings.mcpServer.copied': 'Copied!',
+  'settings.mcpServer.openConfigFile': 'Open Config File',
+  'settings.mcpServer.binaryPathNotFound':
+    'OpenHuman binary not found. If running from source, build with: cargo build --bin openhuman-core',
+  'settings.mcpServer.openConfigError': 'Failed to open config file',
+  'settings.mcpServer.clientClaudeDesktop': 'Claude Desktop',
+  'settings.mcpServer.clientCursor': 'Cursor',
+  'settings.mcpServer.clientCodex': 'Codex',
+  'settings.mcpServer.clientZed': 'Zed',
+  'settings.mcpServer.configFilePath': 'Config file',
+  'settings.mcpServer.clientSelectorAriaLabel': 'MCP client selector',
   'settings.appearance.menuDesc': 'Pick light, dark, or match your system theme',
   'settings.appearance.title': 'Appearance',
   'settings.appearance.themeHeading': 'Theme',
@@ -1957,9 +2170,17 @@ const en: TranslationMap = {
   'settings.appearance.modeSystemDesc': 'Follow your OS appearance setting.',
   'settings.appearance.helperText':
     'Dark mode switches the entire app — chat, settings, panels — to a dim palette. "Match system" follows your OS appearance and updates live.',
+  'settings.appearance.tabBarHeading': 'Bottom tab bar',
+  'settings.appearance.tabBarAlwaysShowLabels': 'Always show labels',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc':
+    'When off, labels only appear on hover or for the active tab.',
   'settings.mascot.active': 'Active',
   'settings.mascot.characterDesc': 'Choose your OpenHuman character.',
   'settings.mascot.characterHeading': 'Character',
+  'settings.mascot.customGifError':
+    'Enter an HTTPS .gif URL, loopback HTTP .gif URL, file:// .gif URL, or local .gif path.',
+  'settings.mascot.customGifHeading': 'Custom GIF avatar',
+  'settings.mascot.customGifLabel': 'Custom GIF avatar URL',
   'settings.mascot.characterPreview': 'Preview',
   'settings.mascot.characterStates': 'states',
   'settings.mascot.characterVisemes': 'visemes',

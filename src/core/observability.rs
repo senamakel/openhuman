@@ -132,6 +132,16 @@ pub enum ExpectedErrorKind {
     /// `rpc.invoke_method`. See [`is_loopback_unavailable`] for the exact
     /// body shapes matched.
     LoopbackUnavailable,
+    /// A user prompt was rejected by the in-process prompt-injection guard
+    /// before it reached the model. Both enforcement actions that produce a
+    /// user-visible error — `Blocked` (score ≥ 0.70) and `ReviewBlocked`
+    /// (score ≥ 0.55) — are expected, user-input conditions: the detector
+    /// fired on the user's own message and the UI already surfaces an
+    /// actionable "please rephrase" message. Sentry has no remediation path
+    /// and the volume is high (OPENHUMAN-TAURI-140: ~1 480 events in 2 days,
+    /// ~56 events/hour, all from `openhuman.agent_chat` via
+    /// `local_ai.ops.agent_chat`).
+    PromptInjectionBlocked,
 }
 
 pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
@@ -187,19 +197,19 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if is_session_expired_message(message) {
         return Some(ExpectedErrorKind::SessionExpired);
     }
+    if is_prompt_injection_blocked_message(&lower) {
+        return Some(ExpectedErrorKind::PromptInjectionBlocked);
+    }
     None
 }
 
 /// Detect **app-session-expired** boundary errors that bubble up from any
 /// backend-touching call site (agent, web channel, cron, integrations).
 ///
-/// Deliberately stricter than the dispatch-site classifier in
-/// [`crate::core::jsonrpc`]: the dispatch-site predicate matches a generic
-/// "401 + unauthorized" pair to trigger token cleanup on *any* 401 (even an
-/// OpenAI / Anthropic BYO-key 401 that means a misconfigured key — see
-/// `providers::ops::api_error`). Replicating that loose match here would
-/// silence BYO-key configuration errors at the agent layer, where they
-/// *are* actionable and should reach Sentry as errors.
+/// This is also the JSON-RPC dispatch-site classifier. Keep it stricter than
+/// a bare "401 + unauthorized" pair: OpenAI / Anthropic BYO-key failures,
+/// Composio scope failures, and channel-provider 401s are actionable scoped
+/// errors, not proof that the user's OpenHuman app session expired.
 ///
 /// The canonical OpenHuman session-expired wire shapes:
 ///
@@ -217,13 +227,9 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
 ///   stored profile is empty (`#1465`-ish onboarding spam) or has been
 ///   cleared by a previous 401 cycle. Both shapes are OpenHuman-specific.
 ///
-/// At the JSON-RPC dispatch boundary the looser classifier in
-/// `crate::core::jsonrpc::is_session_expired_error` keeps its existing
-/// generic "401 + unauthorized" match so token cleanup + `DomainEvent::SessionExpired`
-/// publish still fires for every 401. Adding the demote here therefore does
-/// **not** silence the auto-cleanup teardown — it only stops the duplicate
-/// per-attempt error event that escaped via `report_error_or_expected` from
-/// the agent / web-channel layers (OPENHUMAN-TAURI-26).
+/// At the JSON-RPC dispatch boundary the same strict match controls
+/// `DomainEvent::SessionExpired` publication, so downstream/provider 401s stay
+/// recoverable and do not clear the stored app session.
 pub fn is_session_expired_message(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
     lower.contains("session expired")
@@ -296,15 +302,34 @@ fn is_loopback_unavailable(lower: &str) -> bool {
 /// through [`is_loopback_unavailable`] *before* this matcher so the
 /// boot-window race against the embedded core keeps its own bucket — see
 /// the precedence comment in [`expected_error_kind`].
+///
+/// Three additional substrings cover wire-shape variants observed in
+/// Wave 4 that the original `"dns error"` / status-code matchers miss:
+///
+/// - `"failed to lookup address"` / `"nodename nor servname"` —
+///   `getaddrinfo()` failure renderings on macOS / BSD libc and POSIX
+///   resolvers (`OPENHUMAN-TAURI-44` ~50 events,
+///   `[socket] Connection failed: WebSocket connect: IO error: failed to
+///   lookup address information: nodename nor servname provided, or not
+///   known`).
+/// - `"http error: 200 ok"` — tungstenite's `WsError::Http(200)` render
+///   when a corporate proxy / captive portal intercepts the WebSocket
+///   handshake and returns a plain HTML 200 page (`OPENHUMAN-TAURI-4P`
+///   ~66 events). Tungstenite-only — reqwest renders HTTP 200 as
+///   `"HTTP status server error (200)"`, so this can't collide with the
+///   regular HTTP call path.
 fn is_network_unreachable_message(lower: &str) -> bool {
     lower.contains("error sending request for url")
         || lower.contains("dns error")
+        || lower.contains("failed to lookup address")
+        || lower.contains("nodename nor servname")
         || lower.contains("connection refused")
         || lower.contains("connection reset")
         || lower.contains("network is unreachable")
         || lower.contains("no route to host")
         || lower.contains("tls handshake")
         || lower.contains("certificate verify failed")
+        || lower.contains("http error: 200 ok")
 }
 
 /// Detect transient upstream HTTP failures that have bubbled up out of the
@@ -493,6 +518,42 @@ fn is_provider_user_state_message(lower: &str) -> bool {
         return true;
     }
 
+    // TAURI-RUST-X9 (#1166): direct-mode composio call against the user's
+    // personal Composio v3 tenant rejected with a 401 because the stored
+    // API key is invalid / revoked / has the wrong prefix. The canonical
+    // wire shape rendered by
+    // `src/openhuman/composio/tools/impl/network/composio.rs::response_error`
+    // and the various direct-mode op wrappers is:
+    //
+    //   `[composio-direct] list_connections failed: Composio v3
+    //    connected_accounts failed: HTTP 401: Invalid API key: ak_…`
+    //
+    // The "Invalid API key" body is rendered for every direct-mode
+    // endpoint (list_connections / list_tools / authorize / etc.), so we
+    // gate on the **`[composio-direct]` prefix** + either of the two
+    // anchors that prove the failure came from the v3 auth wall:
+    //   - `HTTP 401`  (the status the v3 wall returns)
+    //   - `Invalid API key`  (the body Composio puts in the JSON)
+    //
+    // Requiring the `[composio-direct]` prefix keeps this from
+    // accidentally swallowing unrelated bugs — backend-mode 401s from
+    // `integrations/composio/*` still carry the `Backend returned 401`
+    // shape (handled by the failure-tag flow with `status="401"`),
+    // not the `HTTP 401: Invalid API key` shape.
+    //
+    // Remediation is purely user-state: the user must rotate / re-enter
+    // their Composio key via Settings → Composio → Direct mode. Sentry
+    // has no actionable signal — the UI surfaces the "Invalid API key"
+    // toast and the polling layer already retries every 5 s.
+    //
+    // Drops Sentry TAURI-RUST-X9 (~15.7 k events / ~22 h, single user,
+    // release openhuman@0.54.0+c25fc8e5fd3e).
+    if lower.contains("[composio-direct]")
+        && (lower.contains("http 401") || lower.contains("invalid api key"))
+    {
+        return true;
+    }
+
     false
 }
 
@@ -515,6 +576,18 @@ fn is_provider_user_state_message(lower: &str) -> bool {
 /// that merely mentions "RAM tier" out of context is not silenced.
 fn is_local_ai_capability_unavailable_message(lower: &str) -> bool {
     lower.contains("for this ram tier")
+}
+
+/// Detect prompts rejected by the in-process prompt-injection guard.
+///
+/// Both enforcement actions that produce a user-visible error — `Blocked`
+/// (score ≥ 0.70) and `ReviewBlocked` (score ≥ 0.55) — share a unique
+/// prefix that cannot appear in any other error path. Anchored to the exact
+/// strings emitted by `prompt_guard_user_message` in
+/// `src/openhuman/inference/local/ops.rs`.
+fn is_prompt_injection_blocked_message(lower: &str) -> bool {
+    lower.contains("prompt flagged for security review")
+        || lower.contains("prompt blocked by security policy")
 }
 
 /// Capture an error to Sentry with structured tags.
@@ -733,6 +806,14 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
                 operation = operation,
                 kind = "loopback_unavailable",
                 "[observability] {domain}.{operation} skipped expected loopback-unavailable error"
+            );
+        }
+        ExpectedErrorKind::PromptInjectionBlocked => {
+            tracing::info!(
+                domain = domain,
+                operation = operation,
+                kind = "prompt_injection_blocked",
+                "[observability] {domain}.{operation} skipped expected prompt-injection-blocked error"
             );
         }
     }
@@ -1095,6 +1176,48 @@ pub fn is_budget_event(event: &sentry::protocol::Event<'_>) -> bool {
     event_contains_budget_exhausted_message(event)
 }
 
+/// 404 on PATCH/DELETE to a channel-message path is an expected backend state
+/// (user deleted the message provider-side, backend GC'd the relay row). The
+/// primary suppression lives in `authed_json` via `parse_message_path` +
+/// defense-in-depth inline check. This filter is the outermost safety net for
+/// any future call site that bypasses both. Targets OPENHUMAN-TAURI-R7.
+///
+/// Match criteria (all required):
+/// - tag `domain == "backend_api"`
+/// - tag `failure == "non_2xx"`
+/// - tag `status == "404"`
+/// - tag `method == "PATCH"` or `"DELETE"`
+/// - event message or exception value contains both `"/channels/"` and `"/messages/"`
+pub fn is_channel_message_not_found_event(event: &sentry::protocol::Event<'_>) -> bool {
+    let tags = &event.tags;
+    if tags.get("domain").map(String::as_str) != Some("backend_api") {
+        return false;
+    }
+    if tags.get("failure").map(String::as_str) != Some("non_2xx") {
+        return false;
+    }
+    if tags.get("status").map(String::as_str) != Some("404") {
+        return false;
+    }
+    let method = tags.get("method").map(String::as_str).unwrap_or("");
+    if method != "PATCH" && method != "DELETE" {
+        return false;
+    }
+    event_contains_channel_message_path(event)
+}
+
+fn event_contains_channel_message_path(event: &sentry::protocol::Event<'_>) -> bool {
+    let has_pattern = |s: &str| s.contains("/channels/") && s.contains("/messages/");
+    if event.message.as_deref().is_some_and(has_pattern) {
+        return true;
+    }
+    event
+        .exception
+        .values
+        .iter()
+        .any(|exc| exc.value.as_deref().is_some_and(has_pattern))
+}
+
 fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) -> bool {
     if event
         .message
@@ -1185,6 +1308,45 @@ mod tests {
     }
 
     #[test]
+    fn classifies_prompt_injection_blocked_errors() {
+        // OPENHUMAN-TAURI-140: ~1 480 events from `openhuman.agent_chat` where
+        // users' messages scored ≥ 0.45 on the injection heuristic. Both
+        // enforcement wire shapes must be classified as expected so they stop
+        // reaching Sentry.
+        for raw in [
+            "Prompt flagged for security review and was not processed. Please rephrase clearly.",
+            "Prompt blocked by security policy. Please rephrase without instruction overrides or exfiltration requests.",
+        ] {
+            assert_eq!(
+                expected_error_kind(raw),
+                Some(ExpectedErrorKind::PromptInjectionBlocked),
+                "should classify as prompt-injection blocked: {raw}"
+            );
+        }
+
+        // Wrapped by the RPC dispatch layer — substring match must survive the prefix.
+        assert_eq!(
+            expected_error_kind(
+                "rpc.invoke_method failed: Prompt flagged for security review and was not processed. Please rephrase clearly."
+            ),
+            Some(ExpectedErrorKind::PromptInjectionBlocked)
+        );
+    }
+
+    #[test]
+    fn does_not_classify_unrelated_messages_as_prompt_injection_blocked() {
+        // Must not silently swallow real security errors or generic "prompt" mentions.
+        assert_eq!(
+            expected_error_kind("prompt injection detected in tool arguments"),
+            None
+        );
+        assert_eq!(
+            expected_error_kind("security review required for deploy"),
+            None
+        );
+    }
+
+    #[test]
     fn does_not_classify_unrelated_messages_as_capability_unavailable() {
         // The classifier anchors on the exact "for this RAM tier" substring.
         // Messages that talk about RAM in a different context (sizing the
@@ -1239,6 +1401,51 @@ mod tests {
         );
         assert_eq!(
             expected_error_kind("OpenAI API error (500): internal server error"),
+            None
+        );
+    }
+
+    #[test]
+    fn classifies_wave4_socket_transport_wire_shapes() {
+        // OPENHUMAN-TAURI-44 (~50 events): libc `getaddrinfo()` rendering
+        // without the `dns error` token, wrapped by the socket emit site.
+        // The Wave 4 matcher arms catch the literal resolver phrases that
+        // the original `dns error` substring would miss when reqwest's
+        // wrapper isn't in the chain (e.g. tungstenite IO errors).
+        assert_eq!(
+            expected_error_kind(
+                "[socket] Connection failed (sustained outage after 5 attempts): \
+                 WebSocket connect: IO error: failed to lookup address information: \
+                 nodename nor servname provided, or not known"
+            ),
+            Some(ExpectedErrorKind::NetworkUnreachable)
+        );
+
+        // OPENHUMAN-TAURI-4P (~66 events): tungstenite renders a captive
+        // portal / corporate proxy that intercepts the WS handshake as
+        // `WsError::Http(200)` → `"HTTP error: 200 OK"`. Classify as
+        // network-unreachable since no amount of app-side retry can pierce
+        // an intercepting proxy.
+        assert_eq!(
+            expected_error_kind(
+                "[socket] Connection failed (sustained outage after 5 attempts): \
+                 WebSocket connect: HTTP error: 200 OK"
+            ),
+            Some(ExpectedErrorKind::NetworkUnreachable)
+        );
+    }
+
+    #[test]
+    fn http_200_classifier_does_not_silence_unrelated_log_lines() {
+        // The captive-portal arm anchors on `"http error: 200 ok"` (the
+        // exact tungstenite `WsError::Http(200)` Display rendering).
+        // Adjacent non-WebSocket log lines that mention `"HTTP/1.1 200 OK"`
+        // or `"status: 200 OK"` MUST NOT classify — those are normal-flow
+        // success traces, not failure events. Pin this precedence so a
+        // future refactor doesn't broaden the substring.
+        assert_eq!(expected_error_kind("HTTP/1.1 200 OK"), None);
+        assert_eq!(
+            expected_error_kind("upstream returned status: 200 OK after retry"),
             None
         );
     }
@@ -1833,6 +2040,118 @@ mod tests {
         );
     }
 
+    // ── TAURI-RUST-X9 (#1166): composio-direct 401 / Invalid API key ────
+
+    #[test]
+    fn classifies_composio_direct_invalid_api_key_as_provider_user_state() {
+        // Canonical Sentry TAURI-RUST-X9 wire shape — the verbatim title
+        // body from the issue, captured 15,732 times in ~22h on a single
+        // user with a bad direct-mode key. The classifier must demote
+        // this to `ProviderUserState` so the polling layer's 5 s retry
+        // doesn't keep flooding Sentry.
+        let msg = "[composio-direct] list_connections failed: \
+                   Composio v3 connected_accounts failed: \
+                   HTTP 401: Invalid API key: ak_VsUvq*****";
+        assert_eq!(
+            expected_error_kind(msg),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "composio-direct HTTP 401 + Invalid API key must demote to ProviderUserState"
+        );
+    }
+
+    #[test]
+    fn classifies_composio_direct_invalid_api_key_for_other_ops() {
+        // Same arm must cover every op-name the direct branches emit —
+        // not just `list_connections`. The matcher gates on the
+        // `[composio-direct]` prefix, not on a specific op string, so
+        // `list_tools` / `authorize` / `list_connections` all demote.
+        let shapes = [
+            // list_tools prefetch fails before the actual list_tools call
+            "[composio-direct] list_tools: prefetch connections failed: \
+             Composio v3 connected_accounts failed: HTTP 401: Invalid API key: ak_…",
+            // direct authorize hits the v3 /connected_accounts/link wall
+            "[composio-direct] authorize failed: \
+             Composio v3 connected_accounts/link failed: HTTP 401: Invalid API key: ak_…",
+            // direct list_tools itself
+            "[composio-direct] list_tools failed: \
+             Composio v3 tools failed: HTTP 401: Invalid API key: ak_…",
+            // periodic-tick rendering (no "[composio-direct]" prefix because
+            // periodic.rs wraps differently, but the failure still gets the
+            // hook — handled by ops.rs's report path, not the
+            // expected_error_kind body shape, so we only verify the
+            // composio-direct branch here)
+        ];
+        for msg in shapes {
+            assert_eq!(
+                expected_error_kind(msg),
+                Some(ExpectedErrorKind::ProviderUserState),
+                "every [composio-direct] op with HTTP 401 / Invalid API key must demote: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn classifies_composio_direct_with_invalid_api_key_only_no_http_401() {
+        // The matcher accepts EITHER `HTTP 401` OR `Invalid API key`
+        // alongside the `[composio-direct]` prefix. Catches the wire
+        // shape variant where the body anchor lands but the status text
+        // is rendered differently (e.g. "401 Unauthorized" instead of
+        // "HTTP 401") — same user-state condition.
+        let msg = "[composio-direct] list_connections failed: \
+                   Composio v3 connected_accounts failed: \
+                   401 Unauthorized: Invalid API key: ak_…";
+        assert_eq!(
+            expected_error_kind(msg),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "composio-direct + Invalid API key body must demote even without literal 'HTTP 401'"
+        );
+    }
+
+    #[test]
+    fn does_not_classify_unrelated_http_401_as_composio_direct_user_state() {
+        // Discrimination test: a generic 401 that does NOT carry the
+        // `[composio-direct]` prefix must NOT match this arm. This
+        // protects against the arm accidentally swallowing backend-mode
+        // composio 401s, unrelated integration 401s, or any other
+        // 401-containing message that lacks the direct-mode anchor.
+        //
+        // The backend-mode shape is `Backend returned 401 …`; it does
+        // not contain `[composio-direct]`, so the new arm rightly skips
+        // it. Backend-mode 401s remain a real Sentry signal (bad
+        // service-to-service auth, expired token, etc.).
+        let backend_401 = "[composio] list_connections failed: \
+                           Backend returned 401 Unauthorized for GET \
+                           https://api.tinyhumans.ai/agent-integrations/composio/connections: \
+                           Invalid API key";
+        assert_ne!(
+            expected_error_kind(backend_401),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "backend-mode 401 must NOT demote via the composio-direct arm"
+        );
+
+        let unrelated_401 = "GitHub API error: HTTP 401: Bad credentials";
+        assert_ne!(
+            expected_error_kind(unrelated_401),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "unrelated 401 (no [composio-direct] anchor) must NOT match the composio-direct arm"
+        );
+    }
+
+    #[test]
+    fn does_not_classify_composio_direct_500_as_user_state() {
+        // Real bug shapes — a 500 from the direct v3 path with no auth
+        // body anchor — must still fall through to `None` so Sentry
+        // sees them. Without this guard the arm could be too permissive
+        // and silence genuine backend faults.
+        let msg = "[composio-direct] list_connections failed: \
+                   Composio v3 connected_accounts failed: HTTP 500";
+        assert_eq!(
+            expected_error_kind(msg),
+            None,
+            "composio-direct 500 with no auth body must NOT demote — it is a real bug shape"
+        );
+    }
+
     #[test]
     fn classifies_local_ai_binary_missing_errors() {
         // OPENHUMAN-TAURI-9N: `local_ai_tts` returns this exact string
@@ -1995,10 +2314,9 @@ mod tests {
         // to fix in settings. It must reach Sentry as an error and must
         // NOT be classified as session-expired at the agent layer — the
         // strict classifier requires the OpenHuman backend's
-        // "session expired" body to anchor the match. The dispatch-site
-        // classifier (`crate::core::jsonrpc::is_session_expired_error`)
-        // still matches these for the `DomainEvent::SessionExpired`
-        // auto-cleanup path, which clears stale local state defensively.
+        // "session expired" body to anchor the match. The JSON-RPC
+        // dispatch-site classifier uses the same strict rule so these
+        // scoped provider failures never clear the app session either.
         for raw in [
             "OpenAI API error (401 Unauthorized): invalid_api_key",
             "Anthropic API error (401 Unauthorized): authentication_error",
@@ -2546,6 +2864,83 @@ mod tests {
         assert!(!is_max_iterations_event(&event_with_message("")));
         assert!(!is_max_iterations_event(&sentry::protocol::Event::default()));
     }
+
+    // ── is_channel_message_not_found_event (TAURI-R7) ────────────────────────
+
+    fn channel_message_404_event(method: &str) -> sentry::protocol::Event<'static> {
+        let mut event = sentry::protocol::Event::default();
+        event.tags.insert("domain".into(), "backend_api".into());
+        event.tags.insert("failure".into(), "non_2xx".into());
+        event.tags.insert("status".into(), "404".into());
+        event.tags.insert("method".into(), method.into());
+        event.message = Some(
+            "PATCH /channels/telegram/messages/1103 failed (404); response_body_len=172"
+                .to_string(),
+        );
+        event
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_matches_patch() {
+        // Canonical TAURI-R7 shape: PATCH 404 on a channel-message path.
+        assert!(is_channel_message_not_found_event(
+            &channel_message_404_event("PATCH")
+        ));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_matches_delete() {
+        assert!(is_channel_message_not_found_event(
+            &channel_message_404_event("DELETE")
+        ));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_ignores_get_404() {
+        // GET 404 on a channel-message path is NOT an expected state — must keep Sentry signal.
+        assert!(!is_channel_message_not_found_event(
+            &channel_message_404_event("GET")
+        ));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_ignores_non_channel_path() {
+        let mut event = channel_message_404_event("PATCH");
+        event.message = Some("PATCH /auth/profile failed (404); response_body_len=42".to_string());
+        assert!(!is_channel_message_not_found_event(&event));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_ignores_wrong_status() {
+        let mut event = channel_message_404_event("PATCH");
+        event.tags.insert("status".into(), "403".into());
+        assert!(!is_channel_message_not_found_event(&event));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_ignores_wrong_domain() {
+        let mut event = channel_message_404_event("PATCH");
+        event.tags.insert("domain".into(), "channels".into());
+        assert!(!is_channel_message_not_found_event(&event));
+    }
+
+    #[test]
+    fn channel_message_not_found_filter_matches_exception_path() {
+        // sentry-tracing with attach_stacktrace=true populates exception list.
+        let mut event = sentry::protocol::Event::default();
+        event.tags.insert("domain".into(), "backend_api".into());
+        event.tags.insert("failure".into(), "non_2xx".into());
+        event.tags.insert("status".into(), "404".into());
+        event.tags.insert("method".into(), "PATCH".into());
+        event.exception = vec![sentry::protocol::Exception {
+            value: Some("PATCH /channels/discord/messages/abc failed (404): Not Found".to_string()),
+            ..Default::default()
+        }]
+        .into();
+        assert!(is_channel_message_not_found_event(&event));
+    }
+
+    // ── LoopbackUnavailable (TAURI-R5, TAURI-R6) ─────────────────────────────
 
     /// Verbatim body shape from OPENHUMAN-TAURI-R5 (~2.5k events): the
     /// `integrations.get` site reaches the embedded core's `127.0.0.1:18474`

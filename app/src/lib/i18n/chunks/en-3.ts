@@ -33,6 +33,14 @@ const en3: TranslationMap = {
   'workspace.building': 'Building...',
   'workspace.buildSummaryTrees': 'Build Summary Trees',
   'workspace.viewVault': 'View Vault',
+  'workspace.openingVaultTitle': 'Opening vault in Obsidian',
+  'workspace.openingVaultMessage':
+    "If Obsidian doesn't open, install it from obsidian.md or use Reveal Folder. Vault path:",
+  'workspace.openVaultFailedTitle': "Couldn't open vault in Obsidian",
+  'workspace.openVaultFailedMessage':
+    'Use Reveal Folder to open the vault directory directly. Vault path:',
+  'workspace.revealVaultFailed': "Couldn't reveal vault folder",
+  'workspace.revealFolder': 'Reveal Folder',
   'workspace.graphLoadFailed': 'Failed to load memory graph',
   'workspace.loadingGraph': 'Loading memory graph...',
   'workspace.graphViewMode': 'Memory graph view mode',
@@ -79,8 +87,9 @@ const en3: TranslationMap = {
   'backend.cloud': 'Cloud',
   'backend.recommended': 'Recommended',
   'backend.cloudDescription':
-    'Fast, powerful models hosted on our servers. Ready to use immediately.',
-  'backend.privacyNote': 'No personal data, messages, or keys are ever sent to our servers.',
+    'Fast, powerful models routed through the OpenHuman backend. Ready to use immediately.',
+  'backend.privacyNote':
+    'Prompts and selected context may be sent to the configured backend/provider. Use local mode for supported on-device workloads.',
   'backend.local': 'Local',
   'backend.advanced': 'Advanced',
   'backend.localDescription':
@@ -92,6 +101,8 @@ const en3: TranslationMap = {
   'subconscious.failed': 'failed',
   'subconscious.tickInterval': 'Tick Interval',
   'subconscious.runNow': 'Run Now',
+  'subconscious.providerUnavailableTitle': 'Subconscious is paused',
+  'subconscious.providerSettings': 'AI settings',
   'subconscious.approvalNeeded': 'Approval Needed',
   'subconscious.requiresApproval': 'Requires approval',
   'subconscious.fixInConnections': 'Fix in Connections',
@@ -204,6 +215,7 @@ const en3: TranslationMap = {
   'welcome.connectionFailed': 'Connection failed: {status} {statusText}',
   'welcome.connectionFailedMsg': 'Connection failed: {message}',
   'welcome.continueLocally': 'Continue locally',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'welcome.legalConsentPrefix': 'By continuing, you agree to the',
@@ -373,6 +385,30 @@ const en3: TranslationMap = {
   'channels.telegram.reconnect': 'Reconnect',
   'channels.telegram.savedRestartRequired': 'Channel saved. Restart the app to activate it.',
   'channels.web.alwaysAvailable': 'Always available',
+  'channels.discord.displayName': 'Discord',
+  'channels.discord.description': 'Send and receive messages via Discord.',
+  'channels.discord.authMode.bot_token.description': 'Provide your own Discord bot token.',
+  'channels.discord.authMode.oauth.description':
+    'Install the OpenHuman bot to your Discord server via OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'Link your personal Discord account to the OpenHuman bot.',
+  'channels.discord.fields.bot_token.label': 'Bot Token',
+  'channels.discord.fields.bot_token.placeholder': 'Your Discord bot token',
+  'channels.discord.fields.guild_id.label': 'Server (Guild) ID',
+  'channels.discord.fields.guild_id.placeholder': 'Optional: restrict to a specific server',
+  'channels.telegram.displayName': 'Telegram',
+  'channels.telegram.description': 'Send and receive messages via Telegram.',
+  'channels.telegram.authMode.managed_dm.description':
+    'Message the OpenHuman Telegram bot directly.',
+  'channels.telegram.authMode.bot_token.description':
+    'Provide your own Telegram Bot token from @BotFather.',
+  'channels.telegram.fields.bot_token.label': 'Bot Token',
+  'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+  'channels.telegram.fields.allowed_users.label': 'Allowed Users',
+  'channels.telegram.fields.allowed_users.placeholder': 'Comma-separated Telegram usernames',
+  'channels.web.displayName': 'Web',
+  'channels.web.description': 'Chat via the built-in web UI.',
+  'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
 };
 
 export default en3;

@@ -10,6 +10,7 @@ pub mod conversations;
 pub mod global;
 pub mod ingestion;
 pub mod ops;
+pub mod preferences;
 pub mod rpc_models;
 pub mod safety;
 pub mod schemas;
@@ -18,8 +19,6 @@ pub mod store;
 pub mod sync_status;
 pub mod tool_memory;
 pub mod traits;
-pub mod tree;
-
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,
     IngestionState, IngestionStatusSnapshot, MemoryIngestionConfig, MemoryIngestionRequest,
@@ -50,7 +49,3 @@ pub use tool_memory::{
     TOOL_MEMORY_PROMPT_CAP,
 };
 pub use traits::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-pub use tree::{
-    all_memory_tree_controller_schemas, all_memory_tree_registered_controllers,
-    all_retrieval_controller_schemas, all_retrieval_registered_controllers,
-};

@@ -607,6 +607,75 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
     expect(vi.mocked(tauriCommands.logout)).toHaveBeenCalledTimes(1);
   });
 
+  it('core-state:suppress-reauth suppresses auth-expired clearSession during deep-link delivery (#2377)', async () => {
+    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
+    listTeams.mockResolvedValue([]);
+    vi.mocked(tauriCommands.logout).mockReset();
+    vi.mocked(tauriCommands.logout).mockResolvedValue(undefined as never);
+
+    render(
+      <CoreStateProvider>
+        <Consumer />
+      </CoreStateProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
+
+    // Arm the suppress window so core-rpc-auth-expired is silenced.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 30_000 } })
+      );
+    });
+
+    // auth-expired during the suppress window must not call logout.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('core-rpc-auth-expired', {
+          detail: { method: 'openhuman.auth_store_session', source: 'rpc' },
+        })
+      );
+    });
+
+    expect(vi.mocked(tauriCommands.logout)).not.toHaveBeenCalled();
+  });
+
+  it('core-state:suppress-reauth with until=0 re-enables auth-expired handling after deep-link delivery (#2377)', async () => {
+    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
+    listTeams.mockResolvedValue([]);
+    vi.mocked(tauriCommands.logout).mockReset();
+    vi.mocked(tauriCommands.logout).mockResolvedValue(undefined as never);
+
+    render(
+      <CoreStateProvider>
+        <Consumer />
+      </CoreStateProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
+
+    // Arm then immediately disarm so clearSession is allowed again.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 30_000 } })
+      );
+    });
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('core-state:suppress-reauth', { detail: { until: 0 } }));
+    });
+
+    // auth-expired after suppress cleared must call logout.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('core-rpc-auth-expired', {
+          detail: { method: 'openhuman.team_get_usage', source: 'rpc' },
+        })
+      );
+    });
+
+    await waitFor(() => expect(vi.mocked(tauriCommands.logout)).toHaveBeenCalledTimes(1));
+  });
+
   it('ignores forged session-token-updated events that do not match the core snapshot (#1937)', async () => {
     fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
     listTeams.mockResolvedValue([]);
@@ -742,14 +811,13 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
 });
 
 describe('coreStatePollFailureWarningMessage', () => {
-  it('logs bounded bootstrap failures and one suppression notice', () => {
+  it('warns once during bootstrap and once when warnings are suppressed', () => {
     expect(coreStatePollFailureWarningMessage(0)).toBeNull();
     expect(coreStatePollFailureWarningMessage(1)).toBe(
       '[core-state] bootstrap poll failed (attempt 1/5):'
     );
-    expect(coreStatePollFailureWarningMessage(5)).toBe(
-      '[core-state] bootstrap poll failed (attempt 5/5):'
-    );
+    expect(coreStatePollFailureWarningMessage(2)).toBeNull();
+    expect(coreStatePollFailureWarningMessage(5)).toBeNull();
     expect(coreStatePollFailureWarningMessage(6)).toBe(
       '[core-state] bootstrap budget exhausted; continuing with backoff. Suppressing further warnings until recovery:'
     );

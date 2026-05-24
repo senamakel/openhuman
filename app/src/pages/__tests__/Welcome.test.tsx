@@ -86,12 +86,6 @@ vi.mock('../../services/backendUrl', () => ({
   getBackendUrl: vi.fn().mockResolvedValue('http://localhost:5005'),
 }));
 
-type BackendProbeStatus = 'probing' | 'reachable' | 'unreachable';
-const mockUseBackendReachable = vi.fn((): BackendProbeStatus => 'reachable');
-vi.mock('../../hooks/useBackendReachable', () => ({
-  useBackendReachable: () => mockUseBackendReachable(),
-}));
-
 vi.mock('../../utils/configPersistence', () => ({
   getStoredRpcUrl: vi.fn(() => 'http://127.0.0.1:7788/rpc'),
   peekStoredRpcUrl: vi.fn(() => null),
@@ -336,7 +330,6 @@ describe('Welcome — local login', () => {
   beforeEach(() => {
     mockStoreSessionToken.mockReset().mockResolvedValue(undefined);
     mockNavigate.mockReset();
-    mockUseBackendReachable.mockReturnValue('unreachable');
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
       errorMessage: null,
@@ -344,24 +337,18 @@ describe('Welcome — local login', () => {
     });
   });
 
-  it('renders the "Continue locally" button when backend is unreachable', () => {
+  it('renders the "Continue locally" button regardless of runtime mode', () => {
     renderWithProviders(<Welcome />);
 
     expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
   });
 
-  it('hides the "Continue locally" button when backend is reachable', () => {
-    mockUseBackendReachable.mockReturnValue('reachable');
-    renderWithProviders(<Welcome />);
+  it('renders the "Continue locally" button in cloud mode too', () => {
+    renderWithProviders(<Welcome />, {
+      preloadedState: { coreMode: { mode: { kind: 'cloud', url: 'http://x', token: 't' } } },
+    });
 
-    expect(screen.queryByRole('button', { name: /Continue locally/i })).not.toBeInTheDocument();
-  });
-
-  it('hides the "Continue locally" button while the probe is in flight', () => {
-    mockUseBackendReachable.mockReturnValue('probing');
-    renderWithProviders(<Welcome />);
-
-    expect(screen.queryByRole('button', { name: /Continue locally/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
   });
 
   it('calls storeSessionToken with a local session token and navigates to /home', async () => {
@@ -376,7 +363,7 @@ describe('Welcome — local login', () => {
     const [tokenArg, userArg] = mockStoreSessionToken.mock.calls[0];
     expect(tokenArg).toContain('local');
     expect(userArg).toEqual(expect.objectContaining({ id: 'local' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/onboarding/custom/inference', { replace: true });
   });
 
   it('shows error when storeSessionToken rejects', async () => {

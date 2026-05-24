@@ -50,6 +50,7 @@ const zhCN1: TranslationMap = {
   'common.showLess': '收起',
   'common.submit': '提交',
   'common.continue': '继续',
+  'common.comingSoon': 'Coming Soon',
   'settings.general': '通用',
   'settings.featuresAndAI': '功能与 AI',
   'settings.billingAndRewards': '账单与奖励',
@@ -60,6 +61,8 @@ const zhCN1: TranslationMap = {
   'settings.accountDesc': '恢复短语、团队、连接与隐私',
   'settings.notifications': '通知',
   'settings.notificationsDesc': '免打扰模式与各账户通知控制',
+  'settings.notifications.tabs.preferences': 'Preferences',
+  'settings.notifications.tabs.routing': 'Routing',
   'settings.features': '功能',
   'settings.featuresDesc': '屏幕感知、消息与工具',
   'settings.aiModels': 'AI 与模型',
@@ -291,6 +294,19 @@ const zhCN1: TranslationMap = {
   'channels.status.error': '错误',
   'channels.status.configuring': '配置中',
   'channels.defaultMessaging': '默认消息渠道',
+
+  // Auth mode labels
+  'channels.authMode.managed_dm': '使用 OpenHuman 登录',
+  'channels.authMode.oauth': 'OAuth 登录',
+  'channels.authMode.bot_token': '使用你自己的 Bot Token',
+  'channels.authMode.api_key': '使用你自己的 API Key',
+
+  // Field validation
+  'channels.fieldRequired': '{field} 是必填项',
+
+  // MCP (virtual channel)
+  'channels.mcp.title': 'MCP 服务器',
+  'channels.mcp.description': '浏览和管理扩展 AI 能力的 Model Context Protocol 服务器。',
   'webhooks.title': 'Webhook',
   'webhooks.create': '创建 Webhook',
   'webhooks.noWebhooks': '未配置任何 Webhook',
@@ -403,6 +419,93 @@ const zhCN1: TranslationMap = {
   'settings.appearanceDesc': '选择浅色、深色或跟随系统主题',
   'settings.mascot': '吉祥物',
   'settings.mascotDesc': '选择应用中使用的吉祥物颜色',
+  'skills.integrationsSubtitle':
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
+  'skills.tabs.composio': 'Composio',
+  'skills.tabs.channels': 'Channels',
+  'skills.tabs.mcp': 'MCP Servers',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
+  'settings.about.connection': 'Connection',
+  'settings.about.connectionMode': 'Mode',
+  'settings.about.connectionModeLocal': 'Local',
+  'settings.about.connectionModeCloud': 'Cloud',
+  'settings.about.connectionModeUnset': 'Not selected',
+  'settings.about.serverUrl': 'Server URL',
+  'settings.about.serverUrlUnavailable': 'Unavailable',
+  'settings.about.connectionHelperLocal':
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
+  'settings.about.connectionHelperCloud':
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
+  'settings.heartbeat.title': 'Heartbeat & loops',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
+  'settings.ledgerUsage.title': 'Usage ledger',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
+  'settings.search.title': 'Search engine',
+  'settings.search.menuDesc':
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
+  'settings.search.description':
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+  'settings.search.engineAria': 'Search engine',
+  'settings.search.engineManagedLabel': 'OpenHuman Managed',
+  'settings.search.engineManagedDesc':
+    'Default. Routed through the OpenHuman backend — no API key required.',
+  'settings.search.engineParallelLabel': 'Parallel',
+  'settings.search.engineParallelDesc':
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
+  'settings.search.engineBraveLabel': 'Brave Search',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
+  'settings.search.statusConfigured': 'Configured',
+  'settings.search.statusNeedsKey': 'Needs API key',
+  'settings.search.fallbackToManaged':
+    'No key configured — search will fall back to Managed until a key is saved.',
+  'settings.search.getApiKey': 'Get API key',
+  'settings.search.save': 'Save',
+  'settings.search.clear': 'Clear',
+  'settings.search.show': 'Show',
+  'settings.search.hide': 'Hide',
+  'settings.search.statusSaving': 'Saving…',
+  'settings.search.statusSaved': 'Saved.',
+  'settings.search.statusError': 'Failed',
+  'settings.search.parallelKeyLabel': 'Parallel API key',
+  'settings.search.braveKeyLabel': 'Brave Search API key',
+  'settings.search.placeholderStored': '•••••••• (stored)',
+  'settings.search.placeholderParallel': 'pk_...',
+  'settings.search.placeholderBrave': 'BSA...',
+  'mcp.alphaBadge': 'Alpha',
+  'mcp.alphaBannerText':
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
+  'mcp.toolList.noTools': 'No tools available.',
+  'mcp.setup.secretDialog.title': 'MCP Setup — Enter Secret',
+  'mcp.setup.secretDialog.bodyPrefix': 'The MCP setup agent needs',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
+  'mcp.setup.secretDialog.inputLabel': 'Value',
+  'mcp.setup.secretDialog.inputPlaceholder': 'Paste here',
+  'mcp.setup.secretDialog.show': 'Show',
+  'mcp.setup.secretDialog.hide': 'Hide',
+  'mcp.setup.secretDialog.submit': 'Submit',
+  'mcp.setup.secretDialog.cancel': 'Cancel',
+  'mcp.setup.secretDialog.submitting': 'Submitting…',
+  'mcp.setup.secretDialog.errorPrefix': 'Failed to submit:',
+  'mcp.setup.secretDialog.privacyNote':
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
+  'devices.betaBadge': 'Beta',
+  'devices.betaText':
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
+  'autonomy.title': 'Agent autonomy',
+  'autonomy.maxActionsLabel': 'Max actions per hour',
+  'autonomy.maxActionsHelp':
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
+  'autonomy.statusSaving': 'Saving…',
+  'autonomy.statusSaved': 'Saved.',
+  'autonomy.statusFailed': 'Failed',
+  'autonomy.unlimitedNote': 'Unlimited — rate limiting disabled.',
+  'autonomy.invalidIntegerMsg':
+    'Must be a positive integer (use the Unlimited preset for no limit).',
+  'autonomy.presetUnlimited': 'Unlimited (default)',
+  'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
 };
 
 export default zhCN1;

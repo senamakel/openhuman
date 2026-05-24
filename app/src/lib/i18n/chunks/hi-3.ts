@@ -33,6 +33,14 @@ const hi3: TranslationMap = {
   'workspace.building': 'बन रहा है...',
   'workspace.buildSummaryTrees': 'समरी ट्री बनाएं',
   'workspace.viewVault': 'वॉल्ट देखें',
+  'workspace.openingVaultTitle': 'Opening vault in Obsidian',
+  'workspace.openingVaultMessage':
+    "If Obsidian doesn't open, install it from obsidian.md or use Reveal Folder. Vault path:",
+  'workspace.openVaultFailedTitle': "Couldn't open vault in Obsidian",
+  'workspace.openVaultFailedMessage':
+    'Use Reveal Folder to open the vault directory directly. Vault path:',
+  'workspace.revealVaultFailed': "Couldn't reveal vault folder",
+  'workspace.revealFolder': 'Reveal Folder',
   'workspace.graphLoadFailed': 'मेमोरी ग्राफ लोड नहीं हो पाया',
   'workspace.loadingGraph': 'मेमोरी ग्राफ लोड हो रहा है...',
   'workspace.graphViewMode': 'मेमोरी ग्राफ व्यू मोड',
@@ -92,6 +100,8 @@ const hi3: TranslationMap = {
   'subconscious.failed': 'विफल',
   'subconscious.tickInterval': 'टिक इंटरवल',
   'subconscious.runNow': 'अभी चलाएं',
+  'subconscious.providerUnavailableTitle': 'Subconscious रुका हुआ है',
+  'subconscious.providerSettings': 'AI सेटिंग्स',
   'subconscious.approvalNeeded': 'अनुमति चाहिए',
   'subconscious.requiresApproval': 'अनुमति ज़रूरी है',
   'subconscious.fixInConnections': 'Connections में ठीक करें',
@@ -376,6 +386,30 @@ const hi3: TranslationMap = {
   'channels.telegram.savedRestartRequired':
     'चैनल सेव हो गया। एक्टिवेट करने के लिए ऐप रीस्टार्ट करें।',
   'channels.web.alwaysAvailable': 'हमेशा उपलब्ध',
+  'channels.discord.displayName': 'Discord',
+  'channels.discord.description': 'Send and receive messages via Discord.',
+  'channels.discord.authMode.bot_token.description': 'Provide your own Discord bot token.',
+  'channels.discord.authMode.oauth.description':
+    'Install the OpenHuman bot to your Discord server via OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'Link your personal Discord account to the OpenHuman bot.',
+  'channels.discord.fields.bot_token.label': 'Bot Token',
+  'channels.discord.fields.bot_token.placeholder': 'Your Discord bot token',
+  'channels.discord.fields.guild_id.label': 'Server (Guild) ID',
+  'channels.discord.fields.guild_id.placeholder': 'Optional: restrict to a specific server',
+  'channels.telegram.displayName': 'Telegram',
+  'channels.telegram.description': 'Send and receive messages via Telegram.',
+  'channels.telegram.authMode.managed_dm.description':
+    'Message the OpenHuman Telegram bot directly.',
+  'channels.telegram.authMode.bot_token.description':
+    'Provide your own Telegram Bot token from @BotFather.',
+  'channels.telegram.fields.bot_token.label': 'Bot Token',
+  'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+  'channels.telegram.fields.allowed_users.label': 'Allowed Users',
+  'channels.telegram.fields.allowed_users.placeholder': 'Comma-separated Telegram usernames',
+  'channels.web.displayName': 'Web',
+  'channels.web.description': 'Chat via the built-in web UI.',
+  'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
 };
 
 export default hi3;

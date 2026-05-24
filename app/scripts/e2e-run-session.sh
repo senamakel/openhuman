@@ -135,8 +135,14 @@ trap cleanup EXIT
 
 export VITE_BACKEND_URL="http://127.0.0.1:${E2E_MOCK_PORT}"
 export BACKEND_URL="http://127.0.0.1:${E2E_MOCK_PORT}"
+export OPENHUMAN_E2E_MODE="1"
 export APPIUM_PORT
 export CEF_CDP_PORT
+# Redirect Telegram Bot API calls to the mock server during E2E runs.
+# The mock server (WS-A) serves /bot<token>/* routes on the same port as the
+# rest of the mock backend.  The core reads this at TelegramChannel::new() time,
+# which runs after the config is fully loaded.
+export OPENHUMAN_TELEGRAM_API_BASE="http://127.0.0.1:${E2E_MOCK_PORT}"
 
 echo "[runner] Killing any running OpenHuman instances..."
 case "$OS" in
@@ -177,13 +183,42 @@ mkdir -p "$E2E_CONFIG_DIR"
 if [ -f "$E2E_CONFIG_FILE" ]; then
   E2E_CONFIG_BACKUP="$E2E_CONFIG_FILE.e2e-backup.$$"
   cp "$E2E_CONFIG_FILE" "$E2E_CONFIG_BACKUP"
-  sed -i.bak '/^api_url[[:space:]]*=/d' "$E2E_CONFIG_FILE" && rm -f "$E2E_CONFIG_FILE.bak"
-  EXISTING_CONTENT="$(cat "$E2E_CONFIG_FILE")"
-  printf 'api_url = "http://127.0.0.1:%s"\n%s\n' "${E2E_MOCK_PORT}" "$EXISTING_CONTENT" > "$E2E_CONFIG_FILE"
-else
-  printf 'api_url = "http://127.0.0.1:%s"\n' "${E2E_MOCK_PORT}" > "$E2E_CONFIG_FILE"
 fi
-echo "[runner] Wrote E2E config.toml with api_url=http://127.0.0.1:${E2E_MOCK_PORT}"
+
+# Write a complete E2E config that routes ALL LLM inference through the mock
+# server via OpenAiCompatibleProvider (supports_streaming=true).
+#
+# WHY pre-populate cloud_providers here:
+#   The unify_ai_provider_settings migration runs on first startup. If
+#   cloud_providers is empty it seeds an OpenHuman entry and sets primary_cloud
+#   to that entry — which routes all inference to OpenHumanBackendProvider
+#   (supports_streaming=false, always returns non-streaming responses, so the
+#   mock server never receives /openai/v1/chat/completions).
+#
+#   By pre-populating [[cloud_providers]] with a "none" auth mock entry and
+#   setting primary_cloud to its id, the migration sees !is_empty() and skips
+#   seeding entirely. provider_for_role() resolves unset workloads via
+#   primary_cloud → slug "e2e" (non-openhuman) → returns "e2e:" →
+#   make_cloud_provider_by_slug → auth_style=none → OpenAiCompatibleProvider
+#   → supports_streaming=true → streams to mock at /openai/v1/chat/completions.
+cat > "$E2E_CONFIG_FILE" << TOMLEOF
+api_url = "http://127.0.0.1:${E2E_MOCK_PORT}"
+primary_cloud = "p_e2e_mock"
+default_model = "e2e-mock-model"
+chat_provider = "e2e:e2e-mock-model"
+reasoning_provider = "e2e:e2e-mock-model"
+agentic_provider = "e2e:e2e-mock-model"
+coding_provider = "e2e:e2e-mock-model"
+
+[[cloud_providers]]
+id = "p_e2e_mock"
+slug = "e2e"
+label = "E2E Mock"
+endpoint = "http://127.0.0.1:${E2E_MOCK_PORT}/openai/v1"
+auth_style = "none"
+default_model = "e2e-mock-model"
+TOMLEOF
+echo "[runner] Wrote E2E config.toml routing inference to mock at http://127.0.0.1:${E2E_MOCK_PORT}"
 
 DIST_JS="$(ls dist/assets/index-*.js 2>/dev/null | head -1)"
 if [ -z "$DIST_JS" ]; then

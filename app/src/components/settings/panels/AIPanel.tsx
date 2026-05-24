@@ -18,21 +18,26 @@ import {
   type AISettings as ApiAISettings,
   type ProviderRef as ApiProviderRef,
   clearCloudProviderKey,
+  clearOpenAICompatEndpointKey,
   type CloudProviderView,
   flushCloudProviders,
   listProviderModels,
   loadAISettings,
   loadLocalProviderSnapshot,
+  loadOpenAICompatEndpointStatus,
   type LocalProviderSnapshot,
   type ModelInfo,
   saveAISettings,
   setCloudProviderKey,
+  setOpenAICompatEndpointKey,
+  testProviderModel,
 } from '../../../services/api/aiSettingsApi';
 import {
   creditsApi,
   type CreditTransaction,
   type TeamUsage,
 } from '../../../services/api/creditsApi';
+import { connectOpenRouterViaOAuth } from '../../../utils/openrouterOAuth';
 import {
   type AuthStyle,
   openhumanUpdateLocalAiSettings,
@@ -48,6 +53,7 @@ import {
 import { ConfirmationModal } from '../../intelligence/ConfirmationModal';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import { presentProviderSetupError, ProviderSetupErrorNotice } from './ProviderSetupErrorNotice';
 import { useReembedBackfillModal } from './useReembedBackfillModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +208,14 @@ const EMPTY_SETTINGS: AISettings = { cloudProviders: [], routing: EMPTY_ROUTING 
 
 function maskKeyLabel(hasKey: boolean): string {
   return hasKey ? '•••• configured' : 'Not configured';
+}
+
+function slugifyCustomProviderName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 /**
@@ -526,6 +540,7 @@ const ProviderKeyDialog = ({
   slug,
   label,
   isLocalRuntime,
+  oauthAction,
   onCancel,
   onSubmit,
 }: {
@@ -533,6 +548,7 @@ const ProviderKeyDialog = ({
   label: string;
   /** When true, render an "Endpoint URL" field instead of API key. */
   isLocalRuntime: boolean;
+  oauthAction?: { label: string; onClick: () => Promise<void> | void } | null;
   onCancel: () => void;
   /** Returns the entered value. For local runtimes this is the endpoint URL;
    *  for cloud providers it's the API key. */
@@ -540,7 +556,7 @@ const ProviderKeyDialog = ({
 }) => {
   const { t } = useT();
   const [value, setValue] = useState<string>(isLocalRuntime ? defaultEndpointFor(slug) : '');
-  const [phase, setPhase] = useState<'idle' | 'saving'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'oauth'>('idle');
   const [error, setError] = useState<string | null>(null);
   const busy = phase !== 'idle';
 
@@ -577,7 +593,30 @@ const ProviderKeyDialog = ({
     try {
       await onSubmit(trimmed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[ai-settings] provider setup failed', {
+        slug,
+        local_runtime: isLocalRuntime,
+        summary: presentProviderSetupError(message).summary,
+      });
+      setError(message);
+      setPhase('idle');
+    }
+  };
+
+  const handleOAuth = async () => {
+    if (!oauthAction) return;
+    setError(null);
+    setPhase('oauth');
+    try {
+      await oauthAction.onClick();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[ai-settings] provider oauth failed', {
+        slug,
+        summary: presentProviderSetupError(message).summary,
+      });
+      setError(message);
       setPhase('idle');
     }
   };
@@ -619,10 +658,26 @@ const ProviderKeyDialog = ({
             }}
             className={`rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60 ${isLocalRuntime ? 'font-mono' : ''}`}
           />
-          {error ? (
-            <p className="text-xs font-medium text-red-600 dark:text-red-300">{error}</p>
-          ) : null}
+          {error ? <ProviderSetupErrorNotice error={error} /> : null}
         </div>
+
+        {oauthAction ? (
+          <div className="mt-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/50 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+              Or
+            </div>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+              Sign in with OpenRouter and import a user-controlled API key using PKCE.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleOAuth()}
+              disabled={busy}
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-stone-900 dark:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50">
+              {phase === 'oauth' ? 'Connecting...' : oauthAction.label}
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-6 flex justify-end gap-2">
           <button
@@ -749,7 +804,7 @@ function summarizeSpendSample(transactions: CreditTransaction[]) {
   return { rows, total, avgRowUsd, sampleHours, spendPerHour, rowsPerHour };
 }
 
-function describeProvider(ref: ProviderRef, providers: CloudProvider[]): string {
+function describeProvider(ref: ProviderRef, providers: BackgroundLoopProviderView[]): string {
   if (ref.kind === 'openhuman') return 'OpenHuman';
   if (ref.kind === 'local') return `Local ${ref.model}`;
   const provider = providers.find(p => p.slug === ref.providerSlug);
@@ -820,12 +875,25 @@ const FormulaRow = ({ label, value, detail }: { label: string; value: string; de
   </div>
 );
 
-const BackgroundLoopControls = ({
+export type BackgroundLoopControlsView = 'all' | 'heartbeat' | 'ledger';
+
+/** Minimal cloud-provider shape consumed by the loop map's `describeProvider`
+ *  helper — only slug/label/id are read. Accepting this narrower shape lets
+ *  external panels (HeartbeatPanel, LedgerUsagePanel) feed in the API view
+ *  (`CloudProviderView`) without copying the AIPanel-internal extras
+ *  (`authStyle`, `maskedKey`). */
+export type BackgroundLoopProviderView = { id: string; slug: string; label: string };
+
+export const BackgroundLoopControls = ({
   routing,
   cloudProviders,
+  view = 'all',
+  hideHeader = false,
 }: {
   routing: RoutingMap;
-  cloudProviders: CloudProvider[];
+  cloudProviders: BackgroundLoopProviderView[];
+  view?: BackgroundLoopControlsView;
+  hideHeader?: boolean;
 }) => {
   const [settings, setSettings] = useState<HeartbeatSettings | null>(null);
   const [usage, setUsage] = useState<TeamUsage | null>(null);
@@ -1035,17 +1103,24 @@ const BackgroundLoopControls = ({
     },
   ];
 
+  const showHeartbeat = view === 'all' || view === 'heartbeat';
+  const showLedger = view === 'all' || view === 'ledger';
+  const gridCols =
+    view === 'all' ? 'lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]' : 'lg:grid-cols-1';
+
   return (
     <div className="space-y-4">
-      <div className="border-b border-stone-200 dark:border-neutral-800 pb-2">
-        <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-          Background loops
-        </h2>
-        <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-          See what runs without a chat message, pause heartbeat work, and inspect recent credit
-          ledger rows.
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="border-b border-stone-200 dark:border-neutral-800 pb-2">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            Background loops
+          </h2>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            See what runs without a chat message, pause heartbeat work, and inspect recent credit
+            ledger rows.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
@@ -1053,440 +1128,446 @@ const BackgroundLoopControls = ({
         </div>
       )}
 
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
-        <div className="space-y-3">
-          <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
+      <section className={`grid gap-3 ${gridCols}`}>
+        {showHeartbeat && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                    Heartbeat controls
+                  </div>
+                  <div className="text-xs text-stone-500 dark:text-neutral-400">
+                    Defaults off. Enabling starts the loop; disabling aborts the running task.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  disabled={loading}
+                  className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
+                  Refresh
+                </button>
+              </div>
+
+              {settings ? (
+                <div className="space-y-2">
+                  <LoopToggle
+                    label="Heartbeat loop"
+                    description="Master scheduler for planner + optional subconscious inference."
+                    checked={settings.enabled}
+                    busy={saving === 'enabled'}
+                    onToggle={() => void applyHeartbeatPatch({ enabled: !settings.enabled })}
+                  />
+                  <LoopToggle
+                    label="Subconscious inference"
+                    description="Runs model-backed task/reflection evaluation on heartbeat ticks."
+                    checked={settings.inference_enabled}
+                    busy={saving === 'inference_enabled'}
+                    onToggle={() =>
+                      void applyHeartbeatPatch({ inference_enabled: !settings.inference_enabled })
+                    }
+                  />
+                  <LoopToggle
+                    label="Calendar meeting checks"
+                    description="Calls calendar event list for active Google Calendar connections."
+                    checked={settings.notify_meetings}
+                    busy={saving === 'notify_meetings'}
+                    onToggle={() =>
+                      void applyHeartbeatPatch({ notify_meetings: !settings.notify_meetings })
+                    }
+                  />
+                  <div className="grid gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 md:grid-cols-3">
+                    <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
+                      <span>Calendar cap</span>
+                      <select
+                        value={maxCalendarConnectionsPerTick}
+                        disabled={saving === 'max_calendar_connections_per_tick'}
+                        onChange={e =>
+                          void applyHeartbeatPatch({
+                            max_calendar_connections_per_tick: Number(e.target.value),
+                          })
+                        }
+                        className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                        {[1, 2, 3, 5, 10].map(count => (
+                          <option key={count} value={count}>
+                            {count} conn/tick
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
+                      <span>Meeting lookahead</span>
+                      <select
+                        value={settings.meeting_lookahead_minutes}
+                        disabled={saving === 'meeting_lookahead_minutes'}
+                        onChange={e =>
+                          void applyHeartbeatPatch({
+                            meeting_lookahead_minutes: Number(e.target.value),
+                          })
+                        }
+                        className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                        {[15, 30, 60, 120, 240].map(minutes => (
+                          <option key={minutes} value={minutes}>
+                            {minutes} min
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
+                      <span>Reminder lookahead</span>
+                      <select
+                        value={settings.reminder_lookahead_minutes}
+                        disabled={saving === 'reminder_lookahead_minutes'}
+                        onChange={e =>
+                          void applyHeartbeatPatch({
+                            reminder_lookahead_minutes: Number(e.target.value),
+                          })
+                        }
+                        className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                        {[5, 15, 30, 60, 120].map(minutes => (
+                          <option key={minutes} value={minutes}>
+                            {minutes} min
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <LoopToggle
+                    label="Cron reminder checks"
+                    description="Scans enabled cron jobs for reminder-like upcoming items."
+                    checked={settings.notify_reminders}
+                    busy={saving === 'notify_reminders'}
+                    onToggle={() =>
+                      void applyHeartbeatPatch({ notify_reminders: !settings.notify_reminders })
+                    }
+                  />
+                  <LoopToggle
+                    label="Relevant notification checks"
+                    description="Promotes urgent local notifications into proactive alerts."
+                    checked={settings.notify_relevant_events}
+                    busy={saving === 'notify_relevant_events'}
+                    onToggle={() =>
+                      void applyHeartbeatPatch({
+                        notify_relevant_events: !settings.notify_relevant_events,
+                      })
+                    }
+                  />
+                  <LoopToggle
+                    label="External delivery"
+                    description="Lets heartbeat alerts send proactive messages to external channels."
+                    checked={settings.external_delivery_enabled}
+                    busy={saving === 'external_delivery_enabled'}
+                    onToggle={() =>
+                      void applyHeartbeatPatch({
+                        external_delivery_enabled: !settings.external_delivery_enabled,
+                      })
+                    }
+                  />
+
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2">
+                    <label
+                      className="text-xs font-medium text-stone-700 dark:text-neutral-200"
+                      htmlFor="heartbeat-interval">
+                      Interval
+                    </label>
+                    <select
+                      id="heartbeat-interval"
+                      value={settings.interval_minutes}
+                      disabled={saving === 'interval_minutes'}
+                      onChange={e =>
+                        void applyHeartbeatPatch({ interval_minutes: Number(e.target.value) })
+                      }
+                      className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                      {[5, 10, 15, 30, 60].map(minutes => (
+                        <option key={minutes} value={minutes}>
+                          {minutes} min
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void runPlannerNow()}
+                      disabled={runningTick}
+                      className="ml-auto rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
+                      {runningTick ? 'Running...' : 'Planner tick now'}
+                    </button>
+                  </div>
+
+                  {plannerSummary && (
+                    <div className="rounded-md border border-primary-100 bg-primary-50 dark:bg-primary-500/10 px-3 py-2 text-xs text-primary-900">
+                      Planner: {plannerSummary.source_events} source events,{' '}
+                      {plannerSummary.deliveries_sent} sent,{' '}
+                      {plannerSummary.deliveries_skipped_dedup} deduped.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-stone-500 dark:text-neutral-400">
+                  {loading ? 'Loading heartbeat controls...' : 'Heartbeat controls unavailable.'}
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60">
+              <div className="border-b border-stone-200 dark:border-neutral-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                Loop map
+              </div>
+              <div className="divide-y divide-stone-200 dark:divide-neutral-800">
+                {loops.map(loop => (
+                  <div key={loop.name} className="grid gap-2 px-3 py-3 md:grid-cols-[150px_1fr]">
+                    <div>
+                      <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                        {loop.name}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-stone-500 dark:text-neutral-400">
+                        <span>{loop.enabled ? 'on' : 'off'}</span>
+                        <span>{loop.cadence}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-stone-600 dark:text-neutral-300">
+                      <div>{loop.work}</div>
+                      <div className="mt-1 font-mono text-[11px] text-stone-500 dark:text-neutral-400">
+                        route: {loop.route}
+                      </div>
+                      <div className="mt-1 text-stone-500 dark:text-neutral-400">{loop.risk}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showLedger && (
+          <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  Heartbeat controls
+                  Recent usage ledger
                 </div>
                 <div className="text-xs text-stone-500 dark:text-neutral-400">
-                  Defaults off. Enabling starts the loop; disabling aborts the running task.
+                  Backend rows expose action/time today; source tags need backend support.
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => void refresh()}
                 disabled={loading}
-                className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
-                Refresh
+                className="rounded-md border border-stone-200 dark:border-neutral-800 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
+                Reload
               </button>
             </div>
 
-            {settings ? (
-              <div className="space-y-2">
-                <LoopToggle
-                  label="Heartbeat loop"
-                  description="Master scheduler for planner + optional subconscious inference."
-                  checked={settings.enabled}
-                  busy={saving === 'enabled'}
-                  onToggle={() => void applyHeartbeatPatch({ enabled: !settings.enabled })}
-                />
-                <LoopToggle
-                  label="Subconscious inference"
-                  description="Runs model-backed task/reflection evaluation on heartbeat ticks."
-                  checked={settings.inference_enabled}
-                  busy={saving === 'inference_enabled'}
-                  onToggle={() =>
-                    void applyHeartbeatPatch({ inference_enabled: !settings.inference_enabled })
-                  }
-                />
-                <LoopToggle
-                  label="Calendar meeting checks"
-                  description="Calls calendar event list for active Google Calendar connections."
-                  checked={settings.notify_meetings}
-                  busy={saving === 'notify_meetings'}
-                  onToggle={() =>
-                    void applyHeartbeatPatch({ notify_meetings: !settings.notify_meetings })
-                  }
-                />
-                <div className="grid gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 md:grid-cols-3">
-                  <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
-                    <span>Calendar cap</span>
-                    <select
-                      value={maxCalendarConnectionsPerTick}
-                      disabled={saving === 'max_calendar_connections_per_tick'}
-                      onChange={e =>
-                        void applyHeartbeatPatch({
-                          max_calendar_connections_per_tick: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                      {[1, 2, 3, 5, 10].map(count => (
-                        <option key={count} value={count}>
-                          {count} conn/tick
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
-                    <span>Meeting lookahead</span>
-                    <select
-                      value={settings.meeting_lookahead_minutes}
-                      disabled={saving === 'meeting_lookahead_minutes'}
-                      onChange={e =>
-                        void applyHeartbeatPatch({
-                          meeting_lookahead_minutes: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                      {[15, 30, 60, 120, 240].map(minutes => (
-                        <option key={minutes} value={minutes}>
-                          {minutes} min
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
-                    <span>Reminder lookahead</span>
-                    <select
-                      value={settings.reminder_lookahead_minutes}
-                      disabled={saving === 'reminder_lookahead_minutes'}
-                      onChange={e =>
-                        void applyHeartbeatPatch({
-                          reminder_lookahead_minutes: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                      {[5, 15, 30, 60, 120].map(minutes => (
-                        <option key={minutes} value={minutes}>
-                          {minutes} min
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <LoopToggle
-                  label="Cron reminder checks"
-                  description="Scans enabled cron jobs for reminder-like upcoming items."
-                  checked={settings.notify_reminders}
-                  busy={saving === 'notify_reminders'}
-                  onToggle={() =>
-                    void applyHeartbeatPatch({ notify_reminders: !settings.notify_reminders })
-                  }
-                />
-                <LoopToggle
-                  label="Relevant notification checks"
-                  description="Promotes urgent local notifications into proactive alerts."
-                  checked={settings.notify_relevant_events}
-                  busy={saving === 'notify_relevant_events'}
-                  onToggle={() =>
-                    void applyHeartbeatPatch({
-                      notify_relevant_events: !settings.notify_relevant_events,
-                    })
-                  }
-                />
-                <LoopToggle
-                  label="External delivery"
-                  description="Lets heartbeat alerts send proactive messages to external channels."
-                  checked={settings.external_delivery_enabled}
-                  busy={saving === 'external_delivery_enabled'}
-                  onToggle={() =>
-                    void applyHeartbeatPatch({
-                      external_delivery_enabled: !settings.external_delivery_enabled,
-                    })
-                  }
-                />
-
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2">
-                  <label
-                    className="text-xs font-medium text-stone-700 dark:text-neutral-200"
-                    htmlFor="heartbeat-interval">
-                    Interval
-                  </label>
-                  <select
-                    id="heartbeat-interval"
-                    value={settings.interval_minutes}
-                    disabled={saving === 'interval_minutes'}
-                    onChange={e =>
-                      void applyHeartbeatPatch({ interval_minutes: Number(e.target.value) })
-                    }
-                    className="rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                    {[5, 10, 15, 30, 60].map(minutes => (
-                      <option key={minutes} value={minutes}>
-                        {minutes} min
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void runPlannerNow()}
-                    disabled={runningTick}
-                    className="ml-auto rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
-                    {runningTick ? 'Running...' : 'Planner tick now'}
-                  </button>
-                </div>
-
-                {plannerSummary && (
-                  <div className="rounded-md border border-primary-100 bg-primary-50 dark:bg-primary-500/10 px-3 py-2 text-xs text-primary-900">
-                    Planner: {plannerSummary.source_events} source events,{' '}
-                    {plannerSummary.deliveries_sent} sent, {plannerSummary.deliveries_skipped_dedup}{' '}
-                    deduped.
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-xs text-stone-500 dark:text-neutral-400">
-                {loading ? 'Loading heartbeat controls...' : 'Heartbeat controls unavailable.'}
-              </div>
-            )}
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60">
-            <div className="border-b border-stone-200 dark:border-neutral-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-              Loop map
-            </div>
-            <div className="divide-y divide-stone-200 dark:divide-neutral-800">
-              {loops.map(loop => (
-                <div key={loop.name} className="grid gap-2 px-3 py-3 md:grid-cols-[150px_1fr]">
-                  <div>
-                    <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                      {loop.name}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-stone-500 dark:text-neutral-400">
-                      <span>{loop.enabled ? 'on' : 'off'}</span>
-                      <span>{loop.cadence}</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-stone-600 dark:text-neutral-300">
-                    <div>{loop.work}</div>
-                    <div className="mt-1 font-mono text-[11px] text-stone-500 dark:text-neutral-400">
-                      route: {loop.route}
-                    </div>
-                    <div className="mt-1 text-stone-500 dark:text-neutral-400">{loop.risk}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                Recent usage ledger
-              </div>
-              <div className="text-xs text-stone-500 dark:text-neutral-400">
-                Backend rows expose action/time today; source tags need backend support.
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              disabled={loading}
-              className="rounded-md border border-stone-200 dark:border-neutral-800 px-2 py-1 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60 disabled:opacity-50">
-              Reload
-            </button>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-            <MetricTile
-              label="Week budget"
-              value={usage ? formatUsd(usage.cycleBudgetUsd) : 'n/a'}
-              detail={`resets ${formatDateTime(usage?.cycleEndsAt)}`}
-            />
-            <MetricTile
-              label="Cycle remaining"
-              value={usage ? formatUsd(usage.remainingUsd) : 'n/a'}
-              detail={usage ? `${formatUsd(usage.cycleSpentUsd)} used` : undefined}
-            />
-            <MetricTile
-              label="Cycle total spend"
-              value={usage ? formatUsd(usage.insights.totals.totalUsd) : 'n/a'}
-              detail={
-                usage
-                  ? `inference ${formatUsd(usage.insights.totals.inferenceUsd)} + integrations ${formatUsd(usage.insights.totals.integrationsUsd)}`
-                  : undefined
-              }
-            />
-            <MetricTile
-              label="Avg spend row"
-              value={spendSample.avgRowUsd > 0 ? formatUsd(spendSample.avgRowUsd) : 'n/a'}
-              detail={`${spendRows.length} recent spend rows`}
-            />
-            <MetricTile
-              label="Bg API reads"
-              value={`${formatCount(backgroundApiReadsPerWeek)}/week`}
-              detail={`${formatCount(calendarPlannerCallsPerWeek)} planner + ${formatCount(composioConnectionScansPerWeek)} sync`}
-            />
-            <MetricTile
-              label="Bg wakeups"
-              value={`${formatCount(backgroundWakeupsPerWeek)}/week`}
-              detail={`${formatCount(memoryPollsPerWeek)} memory polls`}
-            />
-          </div>
-
-          <div className="mt-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-              Budget math
-            </div>
-            <div className="mt-2 grid gap-2">
-              <FormulaRow
-                label="Rows left"
-                value={estimatedRowsLeft !== null ? formatCount(estimatedRowsLeft) : 'n/a'}
-                detail={
-                  estimatedRowsLeft !== null
-                    ? `remaining / avg row = ${formatUsd(usage?.remainingUsd ?? 0)} / ${formatUsd(spendSample.avgRowUsd)}`
-                    : 'Need recent spend rows to estimate.'
-                }
+            <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+              <MetricTile
+                label="Week budget"
+                value={usage ? formatUsd(usage.cycleBudgetUsd) : 'n/a'}
+                detail={`resets ${formatDateTime(usage?.cycleEndsAt)}`}
               />
-              <FormulaRow
-                label="Rows per full week budget"
-                value={
-                  estimatedRowsPerBudget !== null ? formatCount(estimatedRowsPerBudget) : 'n/a'
-                }
-                detail={
-                  estimatedRowsPerBudget !== null
-                    ? `cycle budget / avg row = ${formatUsd(usage?.cycleBudgetUsd ?? 0)} / ${formatUsd(spendSample.avgRowUsd)}`
-                    : 'Need recent spend rows to estimate.'
-                }
+              <MetricTile
+                label="Cycle remaining"
+                value={usage ? formatUsd(usage.remainingUsd) : 'n/a'}
+                detail={usage ? `${formatUsd(usage.cycleSpentUsd)} used` : undefined}
               />
-              <FormulaRow
-                label="Sample burn rate"
-                value={
-                  spendSample.spendPerHour > 0 ? `${formatUsd(spendSample.spendPerHour)}/hr` : 'n/a'
-                }
-                detail={
-                  spendSample.sampleHours > 0
-                    ? `${formatCount(spendSample.rowsPerHour)} rows/hr across ${spendSample.sampleHours.toFixed(1)}h sample`
-                    : 'Need timestamps from at least two spend rows.'
-                }
-              />
-              <FormulaRow
-                label="Projected empty"
-                value={projectedExhaustAt}
-                detail={
-                  projectedHoursLeft !== null
-                    ? `${projectedHoursLeft.toFixed(1)}h after latest spend at recent burn rate`
-                    : 'No projection without recent hourly spend.'
-                }
-              />
-              <FormulaRow
-                label="API reads per $ remaining"
-                value={
-                  scheduledCallsPerRemainingDollar !== null
-                    ? `${formatCount(scheduledCallsPerRemainingDollar)} reads/$`
-                    : 'n/a'
-                }
+              <MetricTile
+                label="Cycle total spend"
+                value={usage ? formatUsd(usage.insights.totals.totalUsd) : 'n/a'}
                 detail={
                   usage
-                    ? `background API reads/week / remaining = ${formatCount(backgroundApiReadsPerWeek)} / ${formatUsd(usage.remainingUsd)}`
-                    : 'Need usage response to estimate.'
+                    ? `inference ${formatUsd(usage.insights.totals.inferenceUsd)} + integrations ${formatUsd(usage.insights.totals.integrationsUsd)}`
+                    : undefined
                 }
               />
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-              Loop call budget
-            </div>
-            <div className="mt-2 grid gap-2">
-              <FormulaRow
-                label="Heartbeat ticks"
-                value={`${formatCount(heartbeatTicksPerWeek)}/week`}
-                detail={`10080 min/week / ${heartbeatIntervalMinutes} min interval`}
+              <MetricTile
+                label="Avg spend row"
+                value={spendSample.avgRowUsd > 0 ? formatUsd(spendSample.avgRowUsd) : 'n/a'}
+                detail={`${spendRows.length} recent spend rows`}
               />
-              <FormulaRow
-                label="Calendar planner calls"
-                value={`${formatCount(calendarPlannerCallsPerWeek)}/week`}
-                detail={
-                  settings?.notify_meetings
-                    ? `ticks * (1 list_connections + ${calendarConnectionsPolled} GOOGLECALENDAR_EVENTS_LIST)`
-                    : 'Meeting collector disabled.'
-                }
-              />
-              <FormulaRow
-                label="Calendar fanout cap"
-                value={`${formatCount(calendarConnectionsPolled)}/${formatCount(activeCalendarConnections.length)} conn/tick`}
-                detail={`max_calendar_connections_per_tick = ${maxCalendarConnectionsPerTick}; skipped now = ${calendarConnectionsSkipped}`}
-              />
-              <FormulaRow
-                label="Subconscious model calls"
-                value={`${formatCount(subconsciousModelCallsPerWeek)}/week`}
-                detail={
-                  settings?.enabled && settings.inference_enabled
-                    ? 'one kind=subconscious_tick model call per heartbeat tick'
-                    : 'Heartbeat inference disabled.'
-                }
-              />
-              <FormulaRow
-                label="Composio sync scans"
-                value={`${formatCount(composioConnectionScansPerWeek)}/week`}
-                detail={`${activeConnections.length} active integration connection(s) scanned every ${COMPOSIO_PERIODIC_TICK_MINUTES} min`}
-              />
-              <FormulaRow
-                label="Total bg API read budget"
+              <MetricTile
+                label="Bg API reads"
                 value={`${formatCount(backgroundApiReadsPerWeek)}/week`}
-                detail={`calendar planner reads + periodic integration scans; excludes user-initiated chat tools`}
+                detail={`${formatCount(calendarPlannerCallsPerWeek)} planner + ${formatCount(composioConnectionScansPerWeek)} sync`}
               />
-              <FormulaRow
-                label="Memory worker polls"
-                value={`${formatCount(memoryPollsPerWeek)}/week max`}
-                detail={`${MEMORY_WORKERS} workers * ${MEMORY_POLL_SECONDS}s poll; LLM calls only for queued jobs`}
+              <MetricTile
+                label="Bg wakeups"
+                value={`${formatCount(backgroundWakeupsPerWeek)}/week`}
+                detail={`${formatCount(memoryPollsPerWeek)} memory polls`}
               />
+            </div>
+
+            <div className="mt-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                Budget math
+              </div>
+              <div className="mt-2 grid gap-2">
+                <FormulaRow
+                  label="Rows left"
+                  value={estimatedRowsLeft !== null ? formatCount(estimatedRowsLeft) : 'n/a'}
+                  detail={
+                    estimatedRowsLeft !== null
+                      ? `remaining / avg row = ${formatUsd(usage?.remainingUsd ?? 0)} / ${formatUsd(spendSample.avgRowUsd)}`
+                      : 'Need recent spend rows to estimate.'
+                  }
+                />
+                <FormulaRow
+                  label="Rows per full week budget"
+                  value={
+                    estimatedRowsPerBudget !== null ? formatCount(estimatedRowsPerBudget) : 'n/a'
+                  }
+                  detail={
+                    estimatedRowsPerBudget !== null
+                      ? `cycle budget / avg row = ${formatUsd(usage?.cycleBudgetUsd ?? 0)} / ${formatUsd(spendSample.avgRowUsd)}`
+                      : 'Need recent spend rows to estimate.'
+                  }
+                />
+                <FormulaRow
+                  label="Sample burn rate"
+                  value={
+                    spendSample.spendPerHour > 0
+                      ? `${formatUsd(spendSample.spendPerHour)}/hr`
+                      : 'n/a'
+                  }
+                  detail={
+                    spendSample.sampleHours > 0
+                      ? `${formatCount(spendSample.rowsPerHour)} rows/hr across ${spendSample.sampleHours.toFixed(1)}h sample`
+                      : 'Need timestamps from at least two spend rows.'
+                  }
+                />
+                <FormulaRow
+                  label="Projected empty"
+                  value={projectedExhaustAt}
+                  detail={
+                    projectedHoursLeft !== null
+                      ? `${projectedHoursLeft.toFixed(1)}h after latest spend at recent burn rate`
+                      : 'No projection without recent hourly spend.'
+                  }
+                />
+                <FormulaRow
+                  label="API reads per $ remaining"
+                  value={
+                    scheduledCallsPerRemainingDollar !== null
+                      ? `${formatCount(scheduledCallsPerRemainingDollar)} reads/$`
+                      : 'n/a'
+                  }
+                  detail={
+                    usage
+                      ? `background API reads/week / remaining = ${formatCount(backgroundApiReadsPerWeek)} / ${formatUsd(usage.remainingUsd)}`
+                      : 'Need usage response to estimate.'
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                Loop call budget
+              </div>
+              <div className="mt-2 grid gap-2">
+                <FormulaRow
+                  label="Heartbeat ticks"
+                  value={`${formatCount(heartbeatTicksPerWeek)}/week`}
+                  detail={`10080 min/week / ${heartbeatIntervalMinutes} min interval`}
+                />
+                <FormulaRow
+                  label="Calendar planner calls"
+                  value={`${formatCount(calendarPlannerCallsPerWeek)}/week`}
+                  detail={
+                    settings?.notify_meetings
+                      ? `ticks * (1 list_connections + ${calendarConnectionsPolled} GOOGLECALENDAR_EVENTS_LIST)`
+                      : 'Meeting collector disabled.'
+                  }
+                />
+                <FormulaRow
+                  label="Calendar fanout cap"
+                  value={`${formatCount(calendarConnectionsPolled)}/${formatCount(activeCalendarConnections.length)} conn/tick`}
+                  detail={`max_calendar_connections_per_tick = ${maxCalendarConnectionsPerTick}; skipped now = ${calendarConnectionsSkipped}`}
+                />
+                <FormulaRow
+                  label="Subconscious model calls"
+                  value={`${formatCount(subconsciousModelCallsPerWeek)}/week`}
+                  detail={
+                    settings?.enabled && settings.inference_enabled
+                      ? 'one kind=subconscious_tick model call per heartbeat tick'
+                      : 'Heartbeat inference disabled.'
+                  }
+                />
+                <FormulaRow
+                  label="Composio sync scans"
+                  value={`${formatCount(composioConnectionScansPerWeek)}/week`}
+                  detail={`${activeConnections.length} active integration connection(s) scanned every ${COMPOSIO_PERIODIC_TICK_MINUTES} min`}
+                />
+                <FormulaRow
+                  label="Total bg API read budget"
+                  value={`${formatCount(backgroundApiReadsPerWeek)}/week`}
+                  detail={`calendar planner reads + periodic integration scans; excludes user-initiated chat tools`}
+                />
+                <FormulaRow
+                  label="Memory worker polls"
+                  value={`${formatCount(memoryPollsPerWeek)}/week max`}
+                  detail={`${MEMORY_WORKERS} workers * ${MEMORY_POLL_SECONDS}s poll; LLM calls only for queued jobs`}
+                />
+              </div>
+            </div>
+
+            {latestSpend && (
+              <div className="mt-3 rounded-md border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-600 dark:text-neutral-300">
+                Latest spend: {formatUsd(spendAmount(latestSpend))} at{' '}
+                {new Date(latestSpend.createdAt).toLocaleString()} ({latestSpend.action})
+              </div>
+            )}
+
+            <div className="mt-3 space-y-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                  Top actions
+                </div>
+                <div className="mt-1 space-y-1">
+                  {actionSummary.length > 0 ? (
+                    actionSummary.map(([action, count, total]) => (
+                      <div
+                        key={action}
+                        className="flex items-center justify-between gap-2 text-xs text-stone-600 dark:text-neutral-300">
+                        <span className="truncate font-mono">{action}</span>
+                        <span className="shrink-0 text-stone-500 dark:text-neutral-400">
+                          {count} / {formatUsd(total)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-stone-500 dark:text-neutral-400">
+                      No spend rows loaded.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+                  Top hours
+                </div>
+                <div className="mt-1 space-y-1">
+                  {hourSummary.length > 0 ? (
+                    hourSummary.map(([hour, total]) => (
+                      <div
+                        key={hour}
+                        className="flex items-center justify-between gap-2 text-xs text-stone-600 dark:text-neutral-300">
+                        <span>{hour}</span>
+                        <span className="font-mono text-stone-500 dark:text-neutral-400">
+                          {formatUsd(total)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-stone-500 dark:text-neutral-400">
+                      No hourly spend yet.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-
-          {latestSpend && (
-            <div className="mt-3 rounded-md border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-600 dark:text-neutral-300">
-              Latest spend: {formatUsd(spendAmount(latestSpend))} at{' '}
-              {new Date(latestSpend.createdAt).toLocaleString()} ({latestSpend.action})
-            </div>
-          )}
-
-          <div className="mt-3 space-y-3">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-                Top actions
-              </div>
-              <div className="mt-1 space-y-1">
-                {actionSummary.length > 0 ? (
-                  actionSummary.map(([action, count, total]) => (
-                    <div
-                      key={action}
-                      className="flex items-center justify-between gap-2 text-xs text-stone-600 dark:text-neutral-300">
-                      <span className="truncate font-mono">{action}</span>
-                      <span className="shrink-0 text-stone-500 dark:text-neutral-400">
-                        {count} / {formatUsd(total)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-stone-500 dark:text-neutral-400">
-                    No spend rows loaded.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
-                Top hours
-              </div>
-              <div className="mt-1 space-y-1">
-                {hourSummary.length > 0 ? (
-                  hourSummary.map(([hour, total]) => (
-                    <div
-                      key={hour}
-                      className="flex items-center justify-between gap-2 text-xs text-stone-600 dark:text-neutral-300">
-                      <span>{hour}</span>
-                      <span className="font-mono text-stone-500 dark:text-neutral-400">
-                        {formatUsd(total)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-stone-500 dark:text-neutral-400">
-                    No hourly spend yet.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
     </div>
   );
@@ -1599,6 +1680,12 @@ function humanizeModelId(id: string): string {
   return id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function appendTemperatureToProviderString(provider: string, temperature: number | null): string {
+  if (temperature == null || !Number.isFinite(temperature)) return provider;
+  const rounded = Math.round(temperature * 100) / 100;
+  return `${provider}@${String(rounded)}`;
+}
+
 const CustomRoutingDialog = ({
   workload,
   initial,
@@ -1638,6 +1725,11 @@ const CustomRoutingDialog = ({
   const [cloudModelsLoading, setCloudModelsLoading] = useState(false);
   const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
   const [modelsKey, setModelsKey] = useState(0);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testReply, setTestReply] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testStartedAt, setTestStartedAt] = useState<string | null>(null);
+  const testRequestIdRef = useRef(0);
   // Optional temperature override for this workload. `null` = use provider/global default;
   // a finite number means "send `temperature: X` upstream for this workload only".
   const [temperature, setTemperature] = useState<number | null>(
@@ -1690,6 +1782,28 @@ const CustomRoutingDialog = ({
   }, [selectedSlug, modelsKey]);
 
   const canSave = source !== null && model.trim().length > 0;
+  const canTest = canSave && !cloudModelsLoading;
+
+  const resetTestState = () => {
+    testRequestIdRef.current += 1;
+    setTestReply(null);
+    setTestError(null);
+    setTestStartedAt(null);
+    setTestBusy(false);
+  };
+
+  const currentProviderString =
+    source == null
+      ? null
+      : source.kind === 'cloud'
+        ? appendTemperatureToProviderString(
+            `${source.providerSlug}:${model.trim()}`,
+            temperature == null || !Number.isFinite(temperature) ? null : temperature
+          )
+        : appendTemperatureToProviderString(
+            `ollama:${model.trim()}`,
+            temperature == null || !Number.isFinite(temperature) ? null : temperature
+          );
 
   const handleSave = () => {
     if (!source || !canSave) return;
@@ -1703,6 +1817,28 @@ const CustomRoutingDialog = ({
       });
     } else {
       onSubmit({ kind: 'local', model: model.trim(), temperature: temp });
+    }
+  };
+
+  const handleTest = async () => {
+    if (!currentProviderString || !canTest) return;
+    const requestId = testRequestIdRef.current + 1;
+    testRequestIdRef.current = requestId;
+    setTestBusy(true);
+    setTestReply(null);
+    setTestError(null);
+    setTestStartedAt(new Date().toLocaleTimeString());
+    try {
+      const result = await testProviderModel(workload.id, currentProviderString, 'Hello world');
+      if (testRequestIdRef.current !== requestId) return;
+      setTestReply(result.reply);
+    } catch (err) {
+      if (testRequestIdRef.current !== requestId) return;
+      setTestError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (testRequestIdRef.current === requestId) {
+        setTestBusy(false);
+      }
     }
   };
 
@@ -1758,6 +1894,7 @@ const CustomRoutingDialog = ({
                   const colonIdx = e.target.value.indexOf(':');
                   const kind = e.target.value.slice(0, colonIdx);
                   const slug = e.target.value.slice(colonIdx + 1);
+                  resetTestState();
                   if (kind === 'local') {
                     setSource({ kind: 'local' });
                     setModel(localModels[0]?.id ?? '');
@@ -1783,7 +1920,10 @@ const CustomRoutingDialog = ({
               {source?.kind === 'local' ? (
                 <select
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                   {localModels.map(m => (
                     <option key={m.id} value={m.id}>
@@ -1816,7 +1956,10 @@ const CustomRoutingDialog = ({
                   <input
                     type="text"
                     value={model}
-                    onChange={e => setModel(e.target.value)}
+                    onChange={e => {
+                      resetTestState();
+                      setModel(e.target.value);
+                    }}
                     placeholder={selectedCloud ? `${selectedCloud.slug} model id` : 'model-id'}
                     className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
@@ -1824,7 +1967,10 @@ const CustomRoutingDialog = ({
               ) : cloudModels.length > 0 ? (
                 <select
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                   {!model && <option value="">Select a model…</option>}
                   {/* Keep existing value selectable even if the provider no longer lists it */}
@@ -1841,7 +1987,10 @@ const CustomRoutingDialog = ({
                 <input
                   type="text"
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   placeholder={selectedCloud ? `${selectedCloud.slug} model id` : 'model-id'}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
@@ -1856,7 +2005,10 @@ const CustomRoutingDialog = ({
                   <input
                     type="checkbox"
                     checked={temperature != null}
-                    onChange={e => setTemperature(e.target.checked ? 0.7 : null)}
+                    onChange={e => {
+                      resetTestState();
+                      setTemperature(e.target.checked ? 0.7 : null);
+                    }}
                     className="h-3.5 w-3.5 rounded border-stone-300 dark:border-neutral-700 text-primary-500 focus:ring-primary-500"
                   />
                   Temperature override
@@ -1876,7 +2028,10 @@ const CustomRoutingDialog = ({
                     max={2}
                     step={0.05}
                     value={temperature}
-                    onChange={e => setTemperature(Number(e.target.value))}
+                    onChange={e => {
+                      resetTestState();
+                      setTemperature(Number(e.target.value));
+                    }}
                     className="flex-1 accent-primary-500"
                   />
                   <input
@@ -1888,7 +2043,10 @@ const CustomRoutingDialog = ({
                     value={temperature}
                     onChange={e => {
                       const v = Number(e.target.value);
-                      if (Number.isFinite(v)) setTemperature(Math.max(0, Math.min(2, v)));
+                      if (Number.isFinite(v)) {
+                        resetTestState();
+                        setTemperature(Math.max(0, Math.min(2, v)));
+                      }
                     }}
                     className="w-16 rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-mono text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
@@ -1898,6 +2056,51 @@ const CustomRoutingDialog = ({
                 Lower = more deterministic. Leave unchecked to use the provider default.
               </p>
             </div>
+
+            {(testBusy || testReply || testError || testStartedAt) && (
+              <div
+                role={testError ? 'alert' : 'status'}
+                className={`rounded-lg border px-3 py-2 text-xs ${
+                  testError
+                    ? 'border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 text-coral-700 dark:text-coral-300'
+                    : testBusy
+                      ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200'
+                      : 'border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 text-sage-800 dark:text-sage-200'
+                }`}>
+                <div className="font-semibold">
+                  {testError ? 'Test failed' : testBusy ? 'Testing model…' : 'Model response'}
+                </div>
+                <div className="mt-1 space-y-1">
+                  <div className="font-mono text-[11px] text-current/80">
+                    Provider: {currentProviderString ?? '—'}
+                  </div>
+                  <div className="font-mono text-[11px] text-current/80">Prompt: Hello world</div>
+                  {testStartedAt && (
+                    <div className="font-mono text-[11px] text-current/80">
+                      Started: {testStartedAt}
+                    </div>
+                  )}
+                </div>
+                {testBusy ? (
+                  <div className="mt-2 rounded-md border border-current/15 bg-white/50 px-3 py-2 text-[12px] dark:bg-black/10">
+                    Waiting for response from the selected model…
+                  </div>
+                ) : testError ? (
+                  <div className="mt-2 rounded-md border border-current/15 bg-white/50 px-3 py-2 font-mono text-[11px] whitespace-pre-wrap break-words dark:bg-black/10">
+                    {testError}
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-current/80">
+                      Response
+                    </div>
+                    <div className="rounded-md border border-current/15 bg-white/70 px-3 py-3 text-[13px] leading-relaxed text-stone-900 whitespace-pre-wrap break-words dark:bg-black/10 dark:text-neutral-100">
+                      {testReply}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1907,6 +2110,13 @@ const CustomRoutingDialog = ({
             onClick={onClose}
             className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 dark:bg-neutral-800/60 dark:hover:bg-neutral-800/60">
             {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleTest()}
+            disabled={!canTest || testBusy}
+            className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60 disabled:cursor-not-allowed disabled:opacity-50">
+            {testBusy ? 'Testing…' : 'Test'}
           </button>
           <button
             type="button"
@@ -1997,13 +2207,141 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const [customDialogFor, setCustomDialogFor] = useState<WorkloadId | null>(null);
   // Which provider slug's API-key dialog is currently open (null = closed).
   const [keyDialogFor, setKeyDialogFor] = useState<string | null>(null);
+  const [openAiCompatDialogOpen, setOpenAiCompatDialogOpen] = useState(false);
+  const [openAiCompatStatus, setOpenAiCompatStatus] = useState<{
+    baseUrl: string | null;
+    has_api_key: boolean;
+  }>({ baseUrl: null, has_api_key: false });
+  const [openAiCompatBusy, setOpenAiCompatBusy] = useState<string | null>(null);
   // When the user toggles LM Studio / Ollama (local runtimes), we
   // need to remember which label to attach to the upserted provider so the
   // chip can find it again. Cleared when the dialog closes.
   const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
+  const openRouterOauthAbortRef = useRef<AbortController | null>(null);
 
   const updateRouting = (id: WorkloadId, next: ProviderRef) =>
     setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
+
+  const connectProvider = useCallback(
+    async ({
+      slug,
+      localLabel = null,
+      value,
+      credentialMode,
+    }: {
+      slug: string;
+      localLabel?: string | null;
+      value: string;
+      credentialMode: 'api_key' | 'oauth' | 'endpoint';
+    }) => {
+      const isLocalRuntime = credentialMode === 'endpoint';
+      setBusyAction(`toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : slug}`);
+
+      try {
+        const trimmed = value.trim();
+        const endpoint = isLocalRuntime
+          ? (() => {
+              const url = new URL(trimmed);
+              if (!/^https?:$/.test(url.protocol)) {
+                throw new Error('Endpoint must start with http:// or https://');
+              }
+              if (url.pathname === '' || url.pathname === '/') {
+                url.pathname = '/v1';
+              }
+              return url.toString().replace(/\/$/, '');
+            })()
+          : defaultEndpointFor(slug);
+
+        const upserted: CloudProvider = {
+          id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
+          slug,
+          label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
+          endpoint,
+          authStyle: authStyleForSlug(slug),
+          maskedKey: maskKeyLabel(true),
+        };
+
+        const priorWireProviders = saved.cloudProviders.map(p => ({
+          id: p.id,
+          slug: p.slug,
+          label: p.label,
+          endpoint: p.endpoint,
+          auth_style: p.authStyle,
+        }));
+
+        if (!isLocalRuntime && slug !== 'openhuman') {
+          await setCloudProviderKey(slug, trimmed);
+        } else if (isLocalRuntime && slug === 'ollama') {
+          const baseUrl = endpoint.replace(/\/v1\/?$/, '');
+          await openhumanUpdateLocalAiSettings({
+            base_url: baseUrl,
+            provider: 'ollama',
+            runtime_enabled: true,
+            opt_in_confirmed: true,
+          });
+        } else if (isLocalRuntime && slug === 'lmstudio') {
+          await openhumanUpdateLocalAiSettings({
+            base_url: endpoint,
+            provider: 'lm_studio',
+            runtime_enabled: true,
+            opt_in_confirmed: true,
+          });
+        }
+
+        if (slug !== 'openhuman') {
+          const nextWireProviders = [
+            ...priorWireProviders.filter(p => p.slug !== slug),
+            {
+              id: upserted.id,
+              slug: upserted.slug,
+              label: upserted.label,
+              endpoint: upserted.endpoint,
+              auth_style: upserted.authStyle,
+            },
+          ];
+          await flushCloudProviders(nextWireProviders);
+          try {
+            await listProviderModels(slug);
+          } catch (probeErr) {
+            await flushCloudProviders(priorWireProviders).catch(() => {});
+            if (!isLocalRuntime && slug !== 'openhuman') {
+              await clearCloudProviderKey(slug).catch(() => {});
+            }
+            const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+            throw new Error(`Could not reach ${upserted.label}: ${msg}`);
+          }
+        }
+
+        setDraft({
+          ...draft,
+          cloudProviders: [...draft.cloudProviders.filter(p => p.slug !== slug), upserted],
+        });
+        setKeyDialogFor(null);
+        setPendingLocalLabel(null);
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [draft, saved.cloudProviders, setDraft]
+  );
+
+  useEffect(() => {
+    let active = true;
+    loadOpenAICompatEndpointStatus()
+      .then(status => {
+        if (active) {
+          setOpenAiCompatStatus(status);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOpenAiCompatStatus({ baseUrl: null, has_api_key: false });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // applyPreset removed alongside the Cloud / Local / Mixed preset pills —
   // the new Default/Custom binary toggle handles routing per workload.
@@ -2054,6 +2392,85 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               {t('settings.ai.llmProvidersDesc')}
             </p>
           </div>
+
+          <section className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-stone-50/80 dark:bg-neutral-900/70 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                  {t('settings.ai.openAiCompat.title')}
+                </h3>
+                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+                  {t('settings.ai.openAiCompat.description')}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    openAiCompatStatus.has_api_key
+                      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30'
+                      : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30'
+                  }`}>
+                  {openAiCompatStatus.has_api_key
+                    ? t('settings.ai.openAiCompat.keyConfigured')
+                    : t('settings.ai.openAiCompat.keyRequired')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOpenAiCompatDialogOpen(true)}
+                  disabled={openAiCompatBusy !== null}
+                  className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
+                  {openAiCompatStatus.has_api_key
+                    ? t('settings.ai.openAiCompat.rotateKey')
+                    : t('settings.ai.openAiCompat.setKey')}
+                </button>
+                {openAiCompatStatus.has_api_key ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenAiCompatBusy('clear');
+                      clearOpenAICompatEndpointKey()
+                        .then(() => {
+                          setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: false }));
+                        })
+                        .catch(err => {
+                          console.warn(
+                            '[ai-settings] clearOpenAICompatEndpointKey failed',
+                            err instanceof Error ? err.message : String(err)
+                          );
+                        })
+                        .finally(() => setOpenAiCompatBusy(null));
+                    }}
+                    disabled={openAiCompatBusy !== null}
+                    className="rounded-lg border border-stone-200 dark:border-neutral-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:opacity-50">
+                    {t('settings.ai.openAiCompat.clearKey')}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+                  {t('settings.ai.openAiCompat.baseUrlLabel')}
+                </label>
+                <input
+                  readOnly
+                  value={
+                    openAiCompatStatus.baseUrl ?? t('settings.ai.openAiCompat.baseUrlUnavailable')
+                  }
+                  className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+                  {t('settings.ai.openAiCompat.authHeaderLabel')}
+                </label>
+                <div className="mt-1 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-700 dark:text-neutral-300">
+                  {t('settings.ai.openAiCompat.authHeaderExample')}
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* ─── Provider chip-toggle list ────────────────────────────────── */}
           <section className="space-y-3">
@@ -2231,8 +2648,6 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           </section>
         </div>
         {/* end of Routing section */}
-
-        <BackgroundLoopControls routing={draft.routing} cloudProviders={draft.cloudProviders} />
       </div>
 
       {isDirty && (
@@ -2373,125 +2788,67 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           );
         })()}
 
+      {openAiCompatDialogOpen && (
+        <ProviderKeyDialog
+          slug="external-openai-compat"
+          label={t('settings.ai.openAiCompat.title')}
+          isLocalRuntime={false}
+          onCancel={() => setOpenAiCompatDialogOpen(false)}
+          onSubmit={async value => {
+            setOpenAiCompatBusy('save');
+            try {
+              await setOpenAICompatEndpointKey(value.trim());
+              setOpenAiCompatStatus(prev => ({ ...prev, has_api_key: true }));
+              setOpenAiCompatDialogOpen(false);
+            } finally {
+              setOpenAiCompatBusy(null);
+            }
+          }}
+        />
+      )}
+
       {keyDialogFor && (
         <ProviderKeyDialog
           slug={keyDialogFor}
           label={pendingLocalLabel ?? BUILTIN_PROVIDER_META[keyDialogFor]?.label ?? keyDialogFor}
           isLocalRuntime={Boolean(pendingLocalLabel)}
+          oauthAction={
+            keyDialogFor === 'openrouter' && !pendingLocalLabel
+              ? {
+                  label: 'Sign in with OpenRouter',
+                  onClick: async () => {
+                    const controller = new AbortController();
+                    openRouterOauthAbortRef.current = controller;
+                    try {
+                      const apiKey = await connectOpenRouterViaOAuth({ signal: controller.signal });
+                      await connectProvider({
+                        slug: 'openrouter',
+                        value: apiKey,
+                        credentialMode: 'oauth',
+                      });
+                    } finally {
+                      if (openRouterOauthAbortRef.current === controller) {
+                        openRouterOauthAbortRef.current = null;
+                      }
+                    }
+                  },
+                }
+              : null
+          }
           onCancel={() => {
+            openRouterOauthAbortRef.current?.abort();
+            openRouterOauthAbortRef.current = null;
             setKeyDialogFor(null);
             setPendingLocalLabel(null);
           }}
-          onSubmit={async value => {
-            const slug = keyDialogFor;
-            const localLabel = pendingLocalLabel;
-            const isLocalRuntime = Boolean(localLabel);
-            setBusyAction(
-              `toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : slug}`
-            );
-            try {
-              const trimmed = value.trim();
-              // Normalize local-runtime endpoints so the cloud_providers entry
-              // always carries the OpenAI-compatible `/v1` path that the
-              // `list_configured_models` probe expects. Without this,
-              // `http://host:11434` would pass validation, be stored verbatim,
-              // and silently fail model discovery until the user manually
-              // appended `/v1` — confusing because the UI would still mark the
-              // provider connected (caught in review).
-              const endpoint = isLocalRuntime
-                ? (() => {
-                    const url = new URL(trimmed); // throws on malformed → caught above
-                    if (!/^https?:$/.test(url.protocol)) {
-                      throw new Error('Endpoint must start with http:// or https://');
-                    }
-                    if (url.pathname === '' || url.pathname === '/') {
-                      url.pathname = '/v1';
-                    }
-                    return url.toString().replace(/\/$/, '');
-                  })()
-                : defaultEndpointFor(slug);
-              const upserted: CloudProvider = {
-                id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
-                slug,
-                label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
-                endpoint,
-                authStyle: authStyleForSlug(slug),
-                maskedKey: maskKeyLabel(true),
-              };
-
-              // Snapshot the prior persisted cloud_providers list so we can
-              // roll back to it if the live probe fails. `saved` reflects what
-              // is currently on disk (the eager-flush effect keeps it in sync
-              // with `draft`), so this is the right baseline to restore to.
-              const priorWireProviders = saved.cloudProviders.map(p => ({
-                id: p.id,
-                slug: p.slug,
-                label: p.label,
-                endpoint: p.endpoint,
-                auth_style: p.authStyle,
-              }));
-
-              // Persist the credential / endpoint BEFORE the probe, so the
-              // factory has everything it needs to actually answer it. Each
-              // step short-circuits and surfaces its own error via throw —
-              // ProviderKeyDialog.handleSave catches and keeps the dialog open
-              // so the user can fix the value and retry.
-              if (!isLocalRuntime && slug !== 'openhuman') {
-                await setCloudProviderKey(slug, trimmed);
-              } else if (isLocalRuntime && slug === 'ollama') {
-                // The Rust Ollama branch reads `config.local_ai.base_url`
-                // (not `cloud_providers[].endpoint`) when building the chat
-                // provider — persist it eagerly so chat routing actually hits
-                // the user-chosen host. Strip a trailing `/v1` since
-                // `make_ollama_provider` appends `/v1` itself.
-                const baseUrl = endpoint.replace(/\/v1\/?$/, '');
-                await openhumanUpdateLocalAiSettings({
-                  base_url: baseUrl,
-                  provider: 'ollama',
-                  runtime_enabled: true,
-                  opt_in_confirmed: true,
-                });
-              }
-
-              // Live verification: flush the new cloud_providers list to disk
-              // and call `/models` through the Rust controller. A reachable
-              // endpoint + valid auth header is the strongest check we can
-              // make without burning tokens. Skip the probe for the
-              // OpenHuman backend (session JWT, no /models endpoint to hit).
-              if (slug !== 'openhuman') {
-                const nextWireProviders = [
-                  ...priorWireProviders.filter(p => p.slug !== slug),
-                  {
-                    id: upserted.id,
-                    slug: upserted.slug,
-                    label: upserted.label,
-                    endpoint: upserted.endpoint,
-                    auth_style: upserted.authStyle,
-                  },
-                ];
-                await flushCloudProviders(nextWireProviders);
-                try {
-                  await listProviderModels(slug);
-                } catch (probeErr) {
-                  // Roll back so the UI / on-disk state never reflects a
-                  // provider we couldn't actually reach. The user sees the
-                  // error in the dialog and the chip stays in the OFF state.
-                  await flushCloudProviders(priorWireProviders).catch(() => {});
-                  if (!isLocalRuntime && slug !== 'openhuman') {
-                    await clearCloudProviderKey(slug).catch(() => {});
-                  }
-                  const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
-                  throw new Error(`Could not reach ${upserted.label}: ${msg}`);
-                }
-              }
-
-              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
-              setKeyDialogFor(null);
-              setPendingLocalLabel(null);
-            } finally {
-              setBusyAction(null);
-            }
-          }}
+          onSubmit={async value =>
+            await connectProvider({
+              slug: keyDialogFor,
+              localLabel: pendingLocalLabel,
+              value,
+              credentialMode: pendingLocalLabel ? 'endpoint' : 'api_key',
+            })
+          }
         />
       )}
     </div>
@@ -2516,21 +2873,33 @@ const CloudProviderEditor = ({
   onClearKey: (slug: string) => Promise<void> | void;
 }) => {
   const { t } = useT();
-  const defaultSlug: string =
-    initial?.slug ??
-    (['openai', 'anthropic', 'openrouter', 'orcarouter', 'custom'] as const).find(
-      s => !existingSlugs.includes(s)
-    ) ??
-    'custom';
-  const [slug, setSlug] = useState<string>(defaultSlug);
-  const [label, setLabel] = useState<string>(
-    initial?.label ?? BUILTIN_PROVIDER_META[defaultSlug]?.label ?? defaultSlug
-  );
-  const [endpoint, setEndpoint] = useState(initial?.endpoint ?? defaultEndpointFor(defaultSlug));
+  const [label, setLabel] = useState<string>(initial?.label ?? '');
+  const [endpoint, setEndpoint] = useState(initial?.endpoint ?? '');
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const isOpenHuman = slug === 'openhuman';
+  const slug = initial?.slug ?? slugifyCustomProviderName(label);
+  const hasReservedSlugCollision =
+    !initial &&
+    [
+      'cloud',
+      'openhuman',
+      'pid',
+      'openai',
+      'anthropic',
+      'openrouter',
+      'orcarouter',
+      'custom',
+      'ollama',
+      'lmstudio',
+    ].includes(slug);
+  const slugError = !slug
+    ? 'Enter a provider name to generate a slug.'
+    : existingSlugs.includes(slug)
+      ? 'That provider name is already in use.'
+      : hasReservedSlugCollision
+        ? 'Choose a different provider name.'
+        : null;
   const hasExistingKey = (initial?.maskedKey ?? '').startsWith('••••');
 
   return (
@@ -2549,79 +2918,61 @@ const CloudProviderEditor = ({
         </div>
         <div className="space-y-3 px-4 py-3">
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-              Provider slug
-            </label>
-            <select
-              value={slug}
-              onChange={e => {
-                const next = e.target.value;
-                setSlug(next);
-                setLabel(BUILTIN_PROVIDER_META[next]?.label ?? next);
-                if (!initial) {
-                  setEndpoint(defaultEndpointFor(next));
-                }
-              }}
-              disabled={!!initial}
-              className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 disabled:opacity-60 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200">
-              {(['openai', 'anthropic', 'openrouter', 'orcarouter', 'custom'] as const)
-                .filter(s => s === slug || !existingSlugs.includes(s))
-                .map(s => (
-                  <option key={s} value={s}>
-                    {BUILTIN_PROVIDER_META[s]?.label ?? s}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-              Display label
+            <label
+              htmlFor="cloud-provider-name"
+              className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+              Name
             </label>
             <input
+              id="cloud-provider-name"
               value={label}
               onChange={e => setLabel(e.target.value)}
               className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
               placeholder="My Provider"
             />
+            <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
+              Slug:{' '}
+              <span className="font-mono text-stone-700 dark:text-neutral-200">{slug || '—'}</span>
+            </div>
+            {slugError ? (
+              <div className="mt-1 text-[11px] text-coral-600 dark:text-coral-300">{slugError}</div>
+            ) : null}
           </div>
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-              Endpoint
+            <label
+              htmlFor="cloud-provider-openai-url"
+              className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+              OpenAI URL
             </label>
             <input
+              id="cloud-provider-openai-url"
               value={endpoint}
               onChange={e => setEndpoint(e.target.value)}
-              disabled={isOpenHuman}
               className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 disabled:opacity-60 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-              placeholder="https://api.example.com/v1"
+              placeholder="https://api.openai.com/v1"
             />
           </div>
-          {!isOpenHuman && (
-            <div>
-              <label className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-                <span>API key</span>
-                {hasExistingKey && (
-                  <button
-                    onClick={() => void onClearKey(slug)}
-                    className="text-[10px] font-medium normal-case text-coral-600 dark:text-coral-300 hover:text-coral-700 dark:text-coral-300">
-                    {t('settings.ai.clearStoredKey')}
-                  </button>
-                )}
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
-                placeholder={hasExistingKey ? 'Leave blank to keep existing key' : 'sk-...'}
-              />
-            </div>
-          )}
-          {submitError && (
-            <div className="rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300 break-words">
-              {submitError}
-            </div>
-          )}
+          <div>
+            <label className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+              <span>API key</span>
+              {hasExistingKey && (
+                <button
+                  onClick={() => void onClearKey(slug)}
+                  className="text-[10px] font-medium normal-case text-coral-600 dark:text-coral-300 hover:text-coral-700 dark:text-coral-300">
+                  {t('settings.ai.clearStoredKey')}
+                </button>
+              )}
+            </label>
+            <input
+              aria-label="API key"
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 font-mono text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 dark:text-neutral-500 dark:placeholder:text-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+              placeholder={hasExistingKey ? 'Leave blank to keep existing key' : 'sk-...'}
+            />
+          </div>
+          {submitError ? <ProviderSetupErrorNotice error={submitError} /> : null}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-stone-200 dark:border-neutral-800 px-4 py-3">
           <button
@@ -2635,13 +2986,16 @@ const CloudProviderEditor = ({
               setSaving(true);
               setSubmitError(null);
               try {
+                if (slugError) {
+                  throw new Error(slugError);
+                }
                 await onSubmit(
                   {
                     id: initial?.id ?? '',
                     slug,
                     label: label.trim() || slug,
                     endpoint: endpoint.trim(),
-                    authStyle: initial?.authStyle ?? authStyleForSlug(slug),
+                    authStyle: initial?.authStyle ?? 'bearer',
                     maskedKey: maskKeyLabel(hasExistingKey || apiKey.length > 0),
                   },
                   apiKey.trim()
@@ -2650,12 +3004,17 @@ const CloudProviderEditor = ({
                 // Caller throws when the live /models probe rejects — surface
                 // the failure inline and keep the dialog open so the user can
                 // fix the key/URL and retry.
-                setSubmitError(err instanceof Error ? err.message : String(err));
+                const message = err instanceof Error ? err.message : String(err);
+                console.warn('[ai-settings] cloud provider editor submit failed', {
+                  slug,
+                  summary: presentProviderSetupError(message).summary,
+                });
+                setSubmitError(message);
               } finally {
                 setSaving(false);
               }
             }}
-            disabled={saving || !endpoint.trim()}
+            disabled={saving || !endpoint.trim() || Boolean(slugError)}
             className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">
             {saving
               ? t('settings.ai.saving')

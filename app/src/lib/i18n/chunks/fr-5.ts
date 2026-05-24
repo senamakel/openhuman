@@ -212,6 +212,11 @@ const fr5: TranslationMap = {
   'settings.mascot.active': 'Actif',
   'settings.mascot.characterDesc': 'Description du personnage',
   'settings.mascot.characterHeading': 'Titre du personnage',
+  // TODO: translate custom GIF mascot strings.
+  'settings.mascot.customGifError':
+    'Enter an HTTPS .gif URL, loopback HTTP .gif URL, file:// .gif URL, or local .gif path.',
+  'settings.mascot.customGifHeading': 'Custom GIF avatar',
+  'settings.mascot.customGifLabel': 'Custom GIF avatar URL',
   'settings.mascot.colorDesc': 'Description de la couleur',
   'settings.mascot.colorHeading': 'Titre de la couleur',
   'settings.mascot.loadingLibrary': 'Chargement de la bibliothèque OpenHuman…',
@@ -448,6 +453,9 @@ const fr5: TranslationMap = {
   'webhooks.tunnels.toggleFailed': "Échec de la bascule de l'écho",
   'composio.authExpired': 'Authentification expirée',
   'composio.reconnect': 'Reconnecter',
+  'composio.previewBadge': 'Preview',
+  'composio.previewTooltip':
+    'Agent integration coming soon — you can connect, but the agent can’t use this toolkit yet.',
   'composio.directModeRequiresKey':
     "Échec de l'enregistrement. Le mode Direct nécessite une clé API non vide.",
   'composio.notYetRouted': 'pas encore routé',
@@ -489,6 +497,37 @@ const fr5: TranslationMap = {
   'settings.mascot.colorYellow': 'Yellow',
   'settings.mascot.libraryUnavailable': 'OpenHuman library unavailable',
   'settings.mascot.title': 'OpenHuman',
+  'settings.developerMenu.mcpServer.title': 'MCP Server',
+  'settings.developerMenu.mcpServer.desc': 'Configure external MCP clients to connect to OpenHuman',
+  'settings.developerMenu.autonomy.title': 'Autonomie de l’agent',
+  'settings.developerMenu.autonomy.desc':
+    'Limites de fréquence des actions des outils et seuils de sécurité',
+  'settings.mcpServer.title': 'MCP Server',
+  'settings.mcpServer.toolsSectionTitle': 'Available Tools',
+  'settings.mcpServer.toolsSectionDesc':
+    'Tools exposed via the MCP stdio server when running openhuman-core mcp',
+  'settings.mcpServer.configSectionTitle': 'Client Configuration',
+  'settings.mcpServer.configSectionDesc':
+    'Select your MCP client to generate the correct configuration snippet',
+  'settings.mcpServer.copySnippet': 'Copy to Clipboard',
+  'settings.mcpServer.copied': 'Copied!',
+  'settings.mcpServer.openConfigFile': 'Open Config File',
+  'settings.mcpServer.binaryPathNotFound':
+    'OpenHuman binary not found. If running from source, build with: cargo build --bin openhuman-core',
+  'settings.mcpServer.openConfigError': 'Failed to open config file',
+  'settings.mcpServer.clientClaudeDesktop': 'Claude Desktop',
+  'settings.mcpServer.clientCursor': 'Cursor',
+  'settings.mcpServer.clientCodex': 'Codex',
+  'settings.mcpServer.clientZed': 'Zed',
+  'settings.mcpServer.configFilePath': 'Config file',
+  'settings.mcpServer.clientSelectorAriaLabel': 'MCP client selector',
+  'settings.developerMenu.composio.title': 'Composio',
+  'settings.developerMenu.composio.desc':
+    'Routing mode, integration triggers, and trigger history archive.',
+  'settings.appearance.tabBarHeading': 'Bottom tab bar',
+  'settings.appearance.tabBarAlwaysShowLabels': 'Always show labels',
+  'settings.appearance.tabBarAlwaysShowLabelsDesc':
+    'When off, labels only appear on hover or for the active tab.',
 };
 
 export default fr5;

@@ -33,6 +33,14 @@ const ko3: TranslationMap = {
   'workspace.building': '빌드 중...',
   'workspace.buildSummaryTrees': '요약 트리 빌드',
   'workspace.viewVault': '볼트 보기',
+  'workspace.openingVaultTitle': 'Opening vault in Obsidian',
+  'workspace.openingVaultMessage':
+    "If Obsidian doesn't open, install it from obsidian.md or use Reveal Folder. Vault path:",
+  'workspace.openVaultFailedTitle': "Couldn't open vault in Obsidian",
+  'workspace.openVaultFailedMessage':
+    'Use Reveal Folder to open the vault directory directly. Vault path:',
+  'workspace.revealVaultFailed': "Couldn't reveal vault folder",
+  'workspace.revealFolder': 'Reveal Folder',
   'workspace.graphLoadFailed': '메모리 그래프를 불러오지 못했습니다',
   'workspace.loadingGraph': '메모리 그래프를 불러오는 중...',
   'workspace.graphViewMode': '메모리 그래프 보기 모드',
@@ -92,6 +100,8 @@ const ko3: TranslationMap = {
   'subconscious.failed': '실패',
   'subconscious.tickInterval': '틱 간격',
   'subconscious.runNow': '지금 실행',
+  'subconscious.providerUnavailableTitle': 'Subconscious 일시 중지됨',
+  'subconscious.providerSettings': 'AI 설정',
   'subconscious.approvalNeeded': '승인 필요',
   'subconscious.requiresApproval': '승인이 필요함',
   'subconscious.fixInConnections': '연결에서 수정',
@@ -376,5 +386,29 @@ const ko3: TranslationMap = {
   'channels.telegram.savedRestartRequired':
     '채널이 저장되었습니다. 활성화하려면 앱을 다시 시작하세요.',
   'channels.web.alwaysAvailable': '항상 사용 가능',
+  'channels.discord.displayName': 'Discord',
+  'channels.discord.description': 'Send and receive messages via Discord.',
+  'channels.discord.authMode.bot_token.description': 'Provide your own Discord bot token.',
+  'channels.discord.authMode.oauth.description':
+    'Install the OpenHuman bot to your Discord server via OAuth.',
+  'channels.discord.authMode.managed_dm.description':
+    'Link your personal Discord account to the OpenHuman bot.',
+  'channels.discord.fields.bot_token.label': 'Bot Token',
+  'channels.discord.fields.bot_token.placeholder': 'Your Discord bot token',
+  'channels.discord.fields.guild_id.label': 'Server (Guild) ID',
+  'channels.discord.fields.guild_id.placeholder': 'Optional: restrict to a specific server',
+  'channels.telegram.displayName': 'Telegram',
+  'channels.telegram.description': 'Send and receive messages via Telegram.',
+  'channels.telegram.authMode.managed_dm.description':
+    'Message the OpenHuman Telegram bot directly.',
+  'channels.telegram.authMode.bot_token.description':
+    'Provide your own Telegram Bot token from @BotFather.',
+  'channels.telegram.fields.bot_token.label': 'Bot Token',
+  'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+  'channels.telegram.fields.allowed_users.label': 'Allowed Users',
+  'channels.telegram.fields.allowed_users.placeholder': 'Comma-separated Telegram usernames',
+  'channels.web.displayName': 'Web',
+  'channels.web.description': 'Chat via the built-in web UI.',
+  'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
 };
 export default ko3;

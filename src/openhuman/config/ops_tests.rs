@@ -149,30 +149,47 @@ fn get_runtime_flags_reads_env_overrides() {
 }
 
 #[test]
-fn set_browser_allow_all_toggles_env_var() {
+fn set_browser_allow_all_rejects_enable_without_operator_override() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let before = std::env::var("OPENHUMAN_BROWSER_ALLOW_ALL").ok();
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
-    let _ = set_browser_allow_all(true);
-    assert!(env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL"));
+    unsafe {
+        std::env::remove_var(BROWSER_ALLOW_ALL_ENV);
+        std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV);
+    }
 
-    let _ = set_browser_allow_all(false);
-    assert!(!env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL"));
+    let err = set_browser_allow_all(true).expect_err("runtime enable should require override");
+    assert!(
+        err.contains("Refusing to enable OPENHUMAN_BROWSER_ALLOW_ALL via RPC"),
+        "unexpected error: {err}"
+    );
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
 
     unsafe {
         match before {
-            Some(v) => std::env::set_var("OPENHUMAN_BROWSER_ALLOW_ALL", v),
-            None => std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL"),
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
         }
     }
 }
 
 #[test]
-fn set_browser_allow_all_emits_security_audit_log() {
+fn set_browser_allow_all_toggles_env_var_when_operator_override_is_set() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let before = std::env::var("OPENHUMAN_BROWSER_ALLOW_ALL").ok();
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
-    let enable_outcome = set_browser_allow_all(true);
+    unsafe {
+        std::env::remove_var(BROWSER_ALLOW_ALL_ENV);
+        std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, "1");
+    }
+
+    let enable_outcome = set_browser_allow_all(true).expect("override should allow runtime enable");
     assert_eq!(enable_outcome.logs.len(), 1);
     let enable_log = &enable_outcome.logs[0];
     assert!(
@@ -184,8 +201,9 @@ fn set_browser_allow_all_emits_security_audit_log() {
         "enable log should mention enabled state: {enable_log}"
     );
     assert!(enable_outcome.value.browser_allow_all);
+    assert!(env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
 
-    let disable_outcome = set_browser_allow_all(false);
+    let disable_outcome = set_browser_allow_all(false).expect("runtime disable should always work");
     assert_eq!(disable_outcome.logs.len(), 1);
     let disable_log = &disable_outcome.logs[0];
     assert!(
@@ -197,11 +215,49 @@ fn set_browser_allow_all_emits_security_audit_log() {
         "disable log should mention disabled state: {disable_log}"
     );
     assert!(!disable_outcome.value.browser_allow_all);
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
 
     unsafe {
         match before {
-            Some(v) => std::env::set_var("OPENHUMAN_BROWSER_ALLOW_ALL", v),
-            None => std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL"),
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
+        }
+    }
+}
+
+#[test]
+fn set_browser_allow_all_disable_does_not_require_operator_override() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
+    let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
+
+    unsafe {
+        std::env::set_var(BROWSER_ALLOW_ALL_ENV, "1");
+        std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV);
+    }
+
+    let disable_outcome =
+        set_browser_allow_all(false).expect("runtime disable should not require override");
+    assert!(
+        disable_outcome.logs[0].contains("[SECURITY]"),
+        "disable log should be audit-tagged: {:?}",
+        disable_outcome.logs
+    );
+    assert!(!disable_outcome.value.browser_allow_all);
+    assert!(!env_flag_enabled(BROWSER_ALLOW_ALL_ENV));
+
+    unsafe {
+        match before {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_ENV),
+        }
+        match before_override {
+            Some(v) => std::env::set_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV, v),
+            None => std::env::remove_var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV),
         }
     }
 }
@@ -413,6 +469,131 @@ async fn apply_model_settings_empty_strings_clear_optional_fields() {
     let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
     assert!(cfg.api_url.is_none());
     assert!(cfg.default_model.is_none());
+}
+
+#[tokio::test]
+async fn apply_model_settings_preserves_existing_reserved_slug_cloud_providers() {
+    // Sentry TAURI-RUST-5 regression. The migration
+    // `unify_ai_provider_settings` seeds an "openhuman"-slug entry into
+    // `cloud_providers`. The frontend echoes the full cloud_providers
+    // list back on every settings save, but the schema handlers filter
+    // out reserved-slug entries before passing them through. Without
+    // this preservation step the filtered patch would silently delete
+    // the built-in entry — losing the `primary_cloud` referent and
+    // breaking inference routing.
+    use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    // Simulate the post-migration state: a built-in "openhuman" entry plus
+    // a user-added custom provider.
+    cfg.cloud_providers = vec![
+        CloudProviderCreds {
+            id: "openhuman-builtin".into(),
+            slug: "openhuman".into(),
+            label: "OpenHuman".into(),
+            endpoint: "https://api.tinyhumans.ai".into(),
+            auth_style: AuthStyle::OpenhumanJwt,
+            default_model: Some("reasoning-v1".into()),
+            ..Default::default()
+        },
+        CloudProviderCreds {
+            id: "myopenai-1".into(),
+            slug: "myopenai".into(),
+            label: "My OpenAI".into(),
+            endpoint: "https://api.openai.com".into(),
+            auth_style: AuthStyle::Bearer,
+            default_model: Some("gpt-4o".into()),
+            ..Default::default()
+        },
+    ];
+
+    // The patch arrives from the schema handler with the "openhuman"
+    // entry already filtered out (the schema handler drops reserved
+    // slugs silently). Only the user's custom provider is present, with
+    // the user's edit applied.
+    let patch = ModelSettingsPatch {
+        cloud_providers: Some(vec![CloudProviderCreds {
+            id: "myopenai-1".into(),
+            slug: "myopenai".into(),
+            label: "My OpenAI (edited)".into(),
+            endpoint: "https://api.openai.com/v1".into(),
+            auth_style: AuthStyle::Bearer,
+            default_model: Some("gpt-4o-mini".into()),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
+
+    // The user's edit is applied.
+    let myopenai = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "myopenai")
+        .expect("myopenai entry survives");
+    assert_eq!(myopenai.label, "My OpenAI (edited)");
+    assert_eq!(myopenai.default_model.as_deref(), Some("gpt-4o-mini"));
+
+    // And the built-in "openhuman" entry is still there.
+    let openhuman = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "openhuman")
+        .expect("openhuman built-in must be preserved across saves");
+    assert_eq!(openhuman.id, "openhuman-builtin");
+    assert_eq!(openhuman.endpoint, "https://api.tinyhumans.ai");
+}
+
+#[tokio::test]
+async fn apply_model_settings_does_not_double_add_reserved_entries() {
+    // Defensive: if a caller bypasses the schema handler (CLI / tests) and
+    // includes a reserved-slug entry in the patch, the preservation logic
+    // must not double-add it.
+    use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.cloud_providers = vec![CloudProviderCreds {
+        id: "openhuman-stored".into(),
+        slug: "openhuman".into(),
+        label: "OpenHuman (stored)".into(),
+        endpoint: "https://api.tinyhumans.ai".into(),
+        auth_style: AuthStyle::OpenhumanJwt,
+        default_model: Some("reasoning-v1".into()),
+        ..Default::default()
+    }];
+
+    let patch = ModelSettingsPatch {
+        cloud_providers: Some(vec![CloudProviderCreds {
+            id: "openhuman-from-patch".into(),
+            slug: "openhuman".into(),
+            label: "OpenHuman (from patch)".into(),
+            endpoint: "https://api.tinyhumans.ai".into(),
+            auth_style: AuthStyle::OpenhumanJwt,
+            default_model: Some("reasoning-v1".into()),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let _ = apply_model_settings(&mut cfg, patch).await.expect("apply");
+
+    // Exactly one "openhuman" entry survives; the patch's version wins
+    // (since it was already in `providers` before preservation ran).
+    let count = cfg
+        .cloud_providers
+        .iter()
+        .filter(|e| e.slug == "openhuman")
+        .count();
+    assert_eq!(count, 1, "no duplicate reserved-slug entries");
+    let entry = cfg
+        .cloud_providers
+        .iter()
+        .find(|e| e.slug == "openhuman")
+        .unwrap();
+    assert_eq!(entry.id, "openhuman-from-patch");
 }
 
 #[tokio::test]
@@ -946,4 +1127,107 @@ async fn apply_screen_intelligence_settings_clamps_baseline_fps() {
     .await
     .expect("low clamp");
     assert!((cfg.screen_intelligence.baseline_fps - 0.2).abs() < f32::EPSILON);
+}
+
+// ── apply_autonomy_settings ────────────────────────────────────
+
+#[tokio::test]
+async fn apply_autonomy_settings_persists_max_actions_per_hour() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let outcome = apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            max_actions_per_hour: Some(200),
+        },
+    )
+    .await
+    .expect("apply");
+    assert_eq!(cfg.autonomy.max_actions_per_hour, 200);
+    // Snapshot returned so the caller can echo the saved state.
+    assert!(outcome.value.get("config").is_some());
+    // Round-trip from disk: reload the saved TOML and confirm.
+    let on_disk = tokio::fs::read_to_string(&cfg.config_path).await.unwrap();
+    assert!(
+        on_disk.contains("max_actions_per_hour = 200"),
+        "expected TOML to contain max_actions_per_hour = 200, got:\n{on_disk}"
+    );
+}
+
+#[tokio::test]
+async fn apply_autonomy_settings_no_op_when_patch_empty() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let prior = cfg.autonomy.max_actions_per_hour;
+    let _ = apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            max_actions_per_hour: None,
+        },
+    )
+    .await
+    .expect("apply noop");
+    assert_eq!(cfg.autonomy.max_actions_per_hour, prior);
+}
+
+#[tokio::test]
+async fn apply_autonomy_settings_rejects_zero() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let err = apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            max_actions_per_hour: Some(0),
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        err.contains("at least 1"),
+        "expected validation error, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn apply_autonomy_settings_accepts_unlimited_sentinel() {
+    // u32::MAX is the new "unlimited" sentinel exposed by the UI as a
+    // preset. The upper cap was lifted in the same PR that defaulted
+    // fresh installs to u32::MAX; anything in [1, u32::MAX] should now
+    // round-trip cleanly.
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            max_actions_per_hour: Some(u32::MAX),
+        },
+    )
+    .await
+    .expect("u32::MAX (unlimited) should round-trip");
+    assert_eq!(cfg.autonomy.max_actions_per_hour, u32::MAX);
+}
+
+#[tokio::test]
+async fn load_and_apply_autonomy_settings_roundtrip() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+    }
+
+    let patch = AutonomySettingsPatch {
+        max_actions_per_hour: Some(500),
+    };
+    let outcome = load_and_apply_autonomy_settings(patch)
+        .await
+        .expect("apply");
+    assert!(outcome.value.get("config").is_some());
+
+    // Reload from scratch and confirm the saved value sticks.
+    let reloaded = load_config_with_timeout().await.expect("reload");
+    assert_eq!(reloaded.autonomy.max_actions_per_hour, 500);
+
+    unsafe {
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+    }
 }

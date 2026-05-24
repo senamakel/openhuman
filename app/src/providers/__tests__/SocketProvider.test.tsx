@@ -215,7 +215,7 @@ describe('SocketProvider — RPC failure dispatches (lines 62, 69-71, 73)', () =
     expect(setCoreMock).toHaveBeenCalledWith(expect.objectContaining({ value: 'unreachable' }));
   });
 
-  it('disconnects socket when token is a local session token', () => {
+  it('connects socket but skips sidecar backend-session RPC for a local session token', () => {
     setToken('eyJhbGciOiJub25lIn0.dGVzdA.local');
     render(
       <SocketProvider>
@@ -223,7 +223,10 @@ describe('SocketProvider — RPC failure dispatches (lines 62, 69-71, 73)', () =
       </SocketProvider>
     );
 
-    expect(vi.mocked(socketService.connect)).not.toHaveBeenCalled();
-    expect(vi.mocked(socketService.disconnect)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(socketService.connect)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(socketService.connect)).toHaveBeenCalledWith(
+      'eyJhbGciOiJub25lIn0.dGVzdA.local'
+    );
+    expect(vi.mocked(callCoreRpc)).not.toHaveBeenCalled();
   });
 });

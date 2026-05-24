@@ -1089,6 +1089,7 @@ const en: TranslationMap = {
   'voice.providers.chip.disableProvider': 'Disable',
   'voice.providers.chip.apiKeyLabel': 'API Key',
   'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
 
   // Voice provider modal
   'voice.modal.title': 'Configure',

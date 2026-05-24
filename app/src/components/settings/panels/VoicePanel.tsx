@@ -32,12 +32,13 @@ import { ELEVENLABS_VOICE_PRESETS, isCuratedVoicePreset } from './elevenlabsVoic
 /** Built-in voice provider slugs with display metadata. */
 const BUILTIN_VOICE_PROVIDER_META: Record<
   string,
-  { label: string; tone: string; capability: 'stt' | 'tts' | 'both' }
+  { label: string; tone: string; capability: 'stt' | 'tts' | 'both'; comingSoon?: boolean }
 > = {
   deepgram: {
     label: 'Deepgram',
     tone: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:ring-blue-700',
     capability: 'stt',
+    comingSoon: true,
   },
   elevenlabs: {
     label: 'ElevenLabs',
@@ -48,6 +49,7 @@ const BUILTIN_VOICE_PROVIDER_META: Record<
     label: 'OpenAI',
     tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-700',
     capability: 'both',
+    comingSoon: true,
   },
 };
 
@@ -504,82 +506,54 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                 </button>
               </div>
 
-              {/* Whisper — local STT, no API key needed */}
+              {/* Whisper — coming soon */}
               {(() => {
-                const whisperEnabled =
-                  sttProvider === 'whisper' ||
-                  (voiceSettings?.voiceProviders ?? []).some(p => p.slug === 'whisper');
                 const tone = LOCAL_VOICE_PROVIDER_TONE.whisper;
                 return (
                   <div
-                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${tone}`}>
-                    <span>{t('voice.providers.chip.whisper')}</span>
+                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 opacity-60 ${tone}`}>
+                    <span>
+                      {t('voice.providers.chip.whisper')}
+                      <span className="ml-1 text-[10px] opacity-70">
+                        ({t('voice.providers.chip.comingSoon')})
+                      </span>
+                    </span>
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={whisperEnabled}
-                      aria-label={
-                        whisperEnabled
-                          ? t('voice.providers.chip.disableWhisper')
-                          : t('voice.providers.chip.enableWhisper')
-                      }
-                      disabled={isSavingProviders}
-                      onClick={() => {
-                        if (whisperEnabled) {
-                          if (sttProvider === 'whisper') {
-                            onSttProviderChange('cloud');
-                          }
-                        } else {
-                          setPendingKeySlug('whisper');
-                          setPendingKeyValue('');
-                          setKeyTestResult(null);
-                        }
-                      }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${whisperEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-neutral-600'}`}>
+                      aria-checked={false}
+                      disabled
+                      className="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full bg-stone-300 dark:bg-neutral-600 disabled:cursor-not-allowed">
                       <span
                         aria-hidden
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${whisperEnabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                        className="inline-block h-3 w-3 transform rounded-full bg-white shadow translate-x-0.5"
                       />
                     </button>
                   </div>
                 );
               })()}
 
-              {/* Piper — local TTS, no API key needed */}
+              {/* Piper — coming soon */}
               {(() => {
-                const piperEnabled =
-                  ttsProvider === 'piper' ||
-                  (voiceSettings?.voiceProviders ?? []).some(p => p.slug === 'piper');
                 const tone = LOCAL_VOICE_PROVIDER_TONE.piper;
                 return (
                   <div
-                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${tone}`}>
-                    <span>{t('voice.providers.chip.piper')}</span>
+                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 opacity-60 ${tone}`}>
+                    <span>
+                      {t('voice.providers.chip.piper')}
+                      <span className="ml-1 text-[10px] opacity-70">
+                        ({t('voice.providers.chip.comingSoon')})
+                      </span>
+                    </span>
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={piperEnabled}
-                      aria-label={
-                        piperEnabled
-                          ? t('voice.providers.chip.disablePiper')
-                          : t('voice.providers.chip.enablePiper')
-                      }
-                      disabled={isSavingProviders}
-                      onClick={() => {
-                        if (piperEnabled) {
-                          if (ttsProvider === 'piper') {
-                            onTtsProviderChange('cloud');
-                          }
-                        } else {
-                          setPendingKeySlug('piper');
-                          setPendingKeyValue('');
-                          setKeyTestResult(null);
-                        }
-                      }}
-                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${piperEnabled ? 'bg-teal-500' : 'bg-stone-300 dark:bg-neutral-600'}`}>
+                      aria-checked={false}
+                      disabled
+                      className="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full bg-stone-300 dark:bg-neutral-600 disabled:cursor-not-allowed">
                       <span
                         aria-hidden
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${piperEnabled ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                        className="inline-block h-3 w-3 transform rounded-full bg-white shadow translate-x-0.5"
                       />
                     </button>
                   </div>
@@ -589,15 +563,30 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               {/* External providers: Deepgram, ElevenLabs, OpenAI */}
               {(
                 Object.entries(BUILTIN_VOICE_PROVIDER_META) as Array<
-                  [string, { label: string; tone: string; capability: 'stt' | 'tts' | 'both' }]
+                  [
+                    string,
+                    {
+                      label: string;
+                      tone: string;
+                      capability: 'stt' | 'tts' | 'both';
+                      comingSoon?: boolean;
+                    },
+                  ]
                 >
               ).map(([slug, meta]) => {
                 const enabled = (voiceSettings?.voiceProviders ?? []).some(p => p.slug === slug);
                 return (
                   <div
                     key={slug}
-                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${meta.tone}`}>
-                    <span>{meta.label}</span>
+                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${meta.comingSoon ? 'opacity-60' : ''} ${meta.tone}`}>
+                    <span>
+                      {meta.label}
+                      {meta.comingSoon && (
+                        <span className="ml-1 text-[10px] opacity-70">
+                          ({t('voice.providers.chip.comingSoon')})
+                        </span>
+                      )}
+                    </span>
                     <button
                       type="button"
                       role="switch"
@@ -608,15 +597,14 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                           ? `${t('voice.providers.chip.disableProvider')} ${meta.label}`
                           : `${t('voice.providers.chip.enableProvider')} ${meta.label}`
                       }
-                      disabled={isSavingPendingKey}
+                      disabled={isSavingPendingKey || !!meta.comingSoon}
                       onClick={() => {
+                        if (meta.comingSoon) return;
                         if (enabled) {
                           void handleRemoveProvider(slug);
-                          // Scrub routing if this provider was selected
                           if (sttProvider === slug) onSttProviderChange('cloud');
                           if (ttsProvider === slug) onTtsProviderChange('cloud');
                         } else {
-                          // Open inline API key form
                           setPendingKeySlug(slug);
                           setPendingKeyValue('');
                         }

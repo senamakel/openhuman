@@ -205,7 +205,8 @@ const en1: TranslationMap = {
   'skills.addAccount': 'Add Account',
   'skills.channels': 'Channels',
   'skills.integrations': 'Composio Integrations',
-  'skills.integrationsSubtitle': 'Agents use Composio to interact with your apps and services.',
+  'skills.integrationsSubtitle':
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',

@@ -32,10 +32,8 @@ use crate::openhuman::memory_store::content::{
     atomic::stage_summary, paths::slugify_source_id, read as content_read, SummaryComposeInput,
     SummaryTreeKind,
 };
-use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind};
 use crate::openhuman::memory_tree::tree::global::seal::append_daily_and_cascade;
-use crate::openhuman::memory_tree::tree::global::GLOBAL_TOKEN_BUDGET;
 use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
@@ -78,7 +76,7 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
         day_end
     );
 
-    let global = get_or_create_global_tree(config)?;
+    let global = crate::openhuman::memory_tree::tree::global::factory().get_or_create(config)?;
 
     // Idempotency: check for an existing L0 daily node whose time range
     // matches this day.
@@ -131,7 +129,7 @@ pub async fn end_of_day_digest(config: &Config, day: NaiveDate) -> Result<Digest
         tree_id: &global.id,
         tree_kind: TreeKind::Global,
         target_level: 0, // daily node lives at L0 on the global tree
-        token_budget: GLOBAL_TOKEN_BUDGET,
+        token_budget: crate::openhuman::memory_tree::tree::global::GLOBAL_TOKEN_BUDGET,
     };
     let output = match summarise(config, &inputs, &ctx).await {
         Ok(o) => o,

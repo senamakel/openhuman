@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::memory::query::backend;
 use crate::openhuman::memory_tree::retrieval::rpc::QuerySourceRequest;
-use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
@@ -68,20 +68,18 @@ impl Tool for MemoryTreeQuerySourceTool {
             None => None,
         };
         let resp = match req.source_id.as_deref() {
-            Some(source_id) => {
-                TreeFactory::source(source_id)
-                    .query(
-                        &cfg,
-                        req.time_window_days,
-                        req.query.as_deref(),
-                        req.limit.unwrap_or(10),
-                    )
-                    .await?
-            }
+            Some(source_id) => backend::query_profile(
+                &cfg,
+                crate::openhuman::memory_tree::tree::TreeProfile::Source,
+                Some(source_id),
+                req.time_window_days,
+                req.query.as_deref(),
+                req.limit.unwrap_or(10),
+            )
+            .await?,
             None => {
-                crate::openhuman::memory_tree::retrieval::source::query_source(
+                backend::query_source_kind(
                     &cfg,
-                    None,
                     source_kind,
                     req.time_window_days,
                     req.query.as_deref(),

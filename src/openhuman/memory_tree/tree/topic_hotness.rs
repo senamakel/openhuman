@@ -24,6 +24,7 @@
 use chrono::Utc;
 
 use crate::openhuman::memory_store::trees::types::EntityIndexStats;
+use crate::openhuman::memory_tree::tree::policy::TreePolicy;
 
 /// Pure hotness function — no I/O, no clocks unless the caller passes one.
 ///
@@ -37,50 +38,13 @@ pub fn hotness(entity_id: &str, idx: &EntityIndexStats) -> f32 {
 /// Deterministic variant — computes hotness as if the current wall clock
 /// were `now_ms`. Useful in tests so the recency term doesn't drift.
 pub fn hotness_at(entity_id: &str, idx: &EntityIndexStats, now_ms: i64) -> f32 {
-    let mention_weight = ((idx.mention_count_30d as f32) + 1.0).ln();
-    let source_weight = (idx.distinct_sources as f32) * 0.5;
-    let recency_weight = recency_decay(idx.last_seen_ms, now_ms);
-    let centrality = idx.graph_centrality.unwrap_or(0.0);
-    let query_weight = (idx.query_hits_30d as f32) * 2.0;
-
-    let total = mention_weight + source_weight + recency_weight + centrality + query_weight;
-    log::debug!(
-        "[tree_topic::hotness] id={} mentions={} sources={} recency={:.3} centrality={:.3} \
-         queries={} total={:.3}",
-        entity_id,
-        idx.mention_count_30d,
-        idx.distinct_sources,
-        recency_weight,
-        centrality,
-        idx.query_hits_30d,
-        total
-    );
-    total
+    TreePolicy::topic().topic_hotness(entity_id, idx, now_ms)
 }
 
 /// Recency decay helper. Operates on absolute epoch-millis so tests can
 /// pin the clock. Returns 0.0 when `last_seen_ms` is `None`.
 pub fn recency_decay(last_seen_ms: Option<i64>, now_ms: i64) -> f32 {
-    let Some(last_seen) = last_seen_ms else {
-        return 0.0;
-    };
-    let age_ms = (now_ms - last_seen).max(0);
-    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
-    let age_days = (age_ms as f32) / (DAY_MS as f32);
-
-    if age_days <= 1.0 {
-        1.0
-    } else if age_days <= 7.0 {
-        // 1.0 at day 1, 0.5 at day 7
-        let frac = (age_days - 1.0) / 6.0;
-        1.0 - 0.5 * frac
-    } else if age_days <= 30.0 {
-        // 0.5 at day 7, 0.0 at day 30
-        let frac = (age_days - 7.0) / 23.0;
-        0.5 - 0.5 * frac
-    } else {
-        0.0
-    }
+    TreePolicy::topic().topic_recency_decay(last_seen_ms, now_ms)
 }
 
 #[cfg(test)]

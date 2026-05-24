@@ -1,6 +1,7 @@
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::memory::query::backend;
 use crate::openhuman::memory_tree::retrieval::rpc::QueryTopicRequest;
-use crate::openhuman::memory_tree::tree::TreeFactory;
+use crate::openhuman::memory_tree::tree::TreeProfile;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -55,14 +56,15 @@ impl Tool for MemoryTreeQueryTopicTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_query_topic: load config failed: {e}"))?;
-        let resp = TreeFactory::topic(req.entity_id.as_str())
-            .query(
-                &cfg,
-                req.time_window_days,
-                req.query.as_deref(),
-                req.limit.unwrap_or(10),
-            )
-            .await?;
+        let resp = backend::query_profile(
+            &cfg,
+            TreeProfile::Topic,
+            Some(req.entity_id.as_str()),
+            req.time_window_days,
+            req.query.as_deref(),
+            req.limit.unwrap_or(10),
+        )
+        .await?;
         log::debug!(
             "[tool][memory_tree] query_topic returning hits={} total={}",
             resp.hits.len(),

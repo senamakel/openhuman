@@ -20,14 +20,11 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::content::SummaryTreeKind;
 use crate::openhuman::memory_store::content::paths::slugify_source_id;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
-use crate::openhuman::memory_tree::retrieval;
-use crate::openhuman::memory_tree::retrieval::{QueryResponse, RetrievalHit};
 use crate::openhuman::memory_tree::score::extract::build_summary_extractor;
 use crate::openhuman::memory_tree::sources::file as source_file;
 use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
 use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory_store::trees::archive_tree;
 
 /// Literal scope used for the singleton global tree.
@@ -41,7 +38,6 @@ pub enum TreeProfile {
     Source,
     Topic,
     Global,
-    Daily,
 }
 
 /// Factory/config object for one tree instance.
@@ -73,13 +69,6 @@ impl<'a> TreeFactory<'a> {
         }
     }
 
-    pub fn daily() -> Self {
-        Self {
-            profile: TreeProfile::Daily,
-            scope: Cow::Borrowed(GLOBAL_SCOPE),
-        }
-    }
-
     pub fn from_tree(tree: &'a Tree) -> Self {
         match tree.kind {
             TreeKind::Source => Self::source(tree.scope.as_str()),
@@ -96,7 +85,7 @@ impl<'a> TreeFactory<'a> {
         match self.profile {
             TreeProfile::Source => TreeKind::Source,
             TreeProfile::Topic => TreeKind::Topic,
-            TreeProfile::Global | TreeProfile::Daily => TreeKind::Global,
+            TreeProfile::Global => TreeKind::Global,
         }
     }
 
@@ -146,59 +135,6 @@ impl<'a> TreeFactory<'a> {
         Ok(tree)
     }
 
-    /// Query this tree profile through the generic retrieval surface.
-    pub async fn query(
-        &self,
-        config: &Config,
-        time_window_days: Option<u32>,
-        query: Option<&str>,
-        limit: usize,
-    ) -> Result<QueryResponse> {
-        match self.profile {
-            TreeProfile::Source => {
-                retrieval::source::query_source(
-                    config,
-                    Some(self.scope()),
-                    None::<SourceKind>,
-                    time_window_days,
-                    query,
-                    limit,
-                )
-                .await
-            }
-            TreeProfile::Topic => {
-                retrieval::topic::query_topic(config, self.scope(), time_window_days, query, limit)
-                    .await
-            }
-            TreeProfile::Global | TreeProfile::Daily => {
-                retrieval::global::query_global(config, time_window_days.unwrap_or(7)).await
-            }
-        }
-    }
-
-    /// Expand a summary node beneath this tree profile.
-    pub async fn drill_down(
-        &self,
-        config: &Config,
-        node_id: &str,
-        max_depth: u32,
-        query: Option<&str>,
-        limit: Option<usize>,
-    ) -> Result<Vec<RetrievalHit>> {
-        let _ = self;
-        retrieval::drill_down::drill_down(config, node_id, max_depth, query, limit).await
-    }
-
-    /// Fetch raw leaf chunks by id.
-    pub async fn fetch_leaves(
-        &self,
-        config: &Config,
-        chunk_ids: &[String],
-    ) -> Result<Vec<RetrievalHit>> {
-        let _ = self;
-        retrieval::fetch::fetch_leaves(config, chunk_ids).await
-    }
-
     /// Append one leaf to this tree profile using its default labeling policy.
     pub async fn insert_leaf(&self, config: &Config, leaf: &LeafRef) -> Result<Vec<String>> {
         let tree = self.get_or_create(config)?;
@@ -233,13 +169,10 @@ mod tests {
     }
 
     #[test]
-    fn global_and_daily_share_global_scope_and_kind() {
+    fn global_uses_global_scope_and_kind() {
         let global = TreeFactory::global();
-        let daily = TreeFactory::daily();
         assert_eq!(global.kind(), TreeKind::Global);
-        assert_eq!(daily.kind(), TreeKind::Global);
         assert_eq!(global.scope(), GLOBAL_SCOPE);
-        assert_eq!(daily.scope(), GLOBAL_SCOPE);
     }
 
     #[test]

@@ -6,6 +6,7 @@
 //! prefer the individual tools). The consolidated [`MemoryQueryTool`] is
 //! the recommended single entry point for the `memory` orchestration layer.
 
+mod backend;
 mod drill_down;
 mod fetch_leaves;
 mod ingest_document;

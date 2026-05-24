@@ -20,13 +20,10 @@ use chrono::Utc;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::trees::hotness::{distinct_sources_for, get_or_fresh, upsert};
-use crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree;
-use crate::openhuman::memory_store::trees::types::{
-    HotnessCounters, TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY,
-};
+use crate::openhuman::memory_store::trees::types::HotnessCounters;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
+use crate::openhuman::memory_tree::tree::policy::TreePolicy;
 use crate::openhuman::memory_tree::tree::topic::backfill::backfill_topic_tree;
-use crate::openhuman::memory_tree::tree::topic::hotness::hotness_at;
 use crate::openhuman::memory_tree::tree::store as src_store;
 
 /// Outcome of one curator invocation. Surfaced so the caller (typically
@@ -62,7 +59,7 @@ pub async fn maybe_spawn_topic_tree(config: &Config, entity_id: &str) -> Result<
     counters.last_updated_ms = now_ms;
 
     // 3. Decide whether to run the full recompute.
-    if counters.ingests_since_check < TOPIC_RECHECK_EVERY {
+    if counters.ingests_since_check < TreePolicy::topic().topic_recheck_every() {
         upsert(config, &counters)?;
         log::debug!(
             "[tree_topic::curator] bumped counters entity={} mentions={} ingests_since_check={}",
@@ -100,17 +97,17 @@ async fn run_full_recompute(
 
     // Compute hotness against the refreshed stats.
     let stats = counters.stats();
-    let h = hotness_at(entity_id, &stats, now_ms);
+    let h = TreePolicy::topic().topic_hotness(entity_id, &stats, now_ms);
 
     counters.last_hotness = Some(h);
     counters.ingests_since_check = 0;
 
-    let outcome = if h < TOPIC_CREATION_THRESHOLD {
+    let outcome = if h < TreePolicy::topic().topic_creation_threshold() {
         log::debug!(
             "[tree_topic::curator] below threshold entity={} hotness={:.3} threshold={}",
             entity_id,
             h,
-            TOPIC_CREATION_THRESHOLD
+            TreePolicy::topic().topic_creation_threshold()
         );
         SpawnOutcome::BelowThreshold { hotness: h }
     } else if let Some(existing) = existing_topic_tree(config, entity_id)? {
@@ -131,7 +128,7 @@ async fn run_full_recompute(
             entity_id,
             h
         );
-        let tree = get_or_create_topic_tree(config, entity_id)?;
+        let tree = crate::openhuman::memory_tree::tree::topic::factory(entity_id).get_or_create(config)?;
         let backfilled = backfill_topic_tree(config, &tree, entity_id).await?;
         SpawnOutcome::Spawned {
             hotness: h,

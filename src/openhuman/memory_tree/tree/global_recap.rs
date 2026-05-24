@@ -22,7 +22,6 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 use crate::openhuman::memory_store::trees::types::SummaryNode;
 use crate::openhuman::memory_tree::tree::store;
 
@@ -54,7 +53,7 @@ pub async fn recap(config: &Config, window: Duration) -> Result<Option<RecapOutp
         target_level
     );
 
-    let global = get_or_create_global_tree(config)?;
+    let global = crate::openhuman::memory_tree::tree::global::factory().get_or_create(config)?;
     let now = Utc::now();
     let window_start = now - window;
 
@@ -78,23 +77,6 @@ pub async fn recap(config: &Config, window: Duration) -> Result<Option<RecapOutp
 
     log::info!("[tree_global::recap] no global summaries yet — nothing to recap");
     Ok(None)
-}
-
-/// Map a window duration to the level whose node-granularity best matches
-/// the window. See module-level doc for the thresholds.
-pub fn pick_level(window: Duration) -> u32 {
-    // Direct comparisons keep the selection readable versus a table walk
-    // since there are only four bands. See module-level doc for the exact
-    // ceilings.
-    if window < Duration::days(2) {
-        0
-    } else if window < Duration::days(14) {
-        1
-    } else if window < Duration::days(60) {
-        2
-    } else {
-        3
-    }
 }
 
 /// Select every summary at the given level whose time range overlaps the
@@ -369,5 +351,18 @@ mod tests {
             1,
             "one weekly L1 node covers the window"
         );
+    }
+}
+/// Map a window duration to the level whose node-granularity best matches
+/// the window. See module-level doc for the thresholds.
+pub fn pick_level(window: Duration) -> u32 {
+    if window < Duration::days(2) {
+        0
+    } else if window < Duration::days(14) {
+        1
+    } else if window < Duration::days(60) {
+        2
+    } else {
+        3
     }
 }

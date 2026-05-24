@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::memory::query::backend;
 use crate::openhuman::memory_tree::retrieval::rpc::DrillDownRequest;
-use crate::openhuman::memory_tree::tree::TreeFactory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -60,15 +60,14 @@ impl Tool for MemoryTreeDrillDownTool {
         let cfg = config_rpc::load_config_with_timeout()
             .await
             .map_err(|e| anyhow::anyhow!("memory_tree_drill_down: load config failed: {e}"))?;
-        let hits = TreeFactory::global()
-            .drill_down(
-                &cfg,
-                &req.node_id,
-                req.max_depth.unwrap_or(1),
-                req.query.as_deref(),
-                req.limit,
-            )
-            .await?;
+        let hits = backend::drill_down(
+            &cfg,
+            &req.node_id,
+            req.max_depth.unwrap_or(1),
+            req.query.as_deref(),
+            req.limit,
+        )
+        .await?;
         log::debug!(
             "[tool][memory_tree] drill_down returning hits={}",
             hits.len()

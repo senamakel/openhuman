@@ -12,6 +12,8 @@ pub mod hotness;
 #[path = "topic_routing.rs"]
 pub mod routing;
 
+use crate::openhuman::memory_tree::tree::TreeFactory;
+
 pub use crate::openhuman::memory_store::trees::hotness as store;
 pub use crate::openhuman::memory_store::trees::registry;
 pub use crate::openhuman::memory_store::trees::types;
@@ -25,3 +27,8 @@ pub use crate::openhuman::memory_store::trees::{
 pub use curator::{maybe_spawn_topic_tree, SpawnOutcome};
 pub use hotness::{hotness, recency_decay};
 pub use routing::route_leaf_to_topic_trees;
+
+/// Canonical factory for one topic tree scope / entity id.
+pub fn factory(scope: &str) -> TreeFactory<'_> {
+    TreeFactory::topic(scope)
+}

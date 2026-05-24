@@ -142,7 +142,19 @@ const McpServersTab = () => {
   }
 
   return (
-    <div className="flex gap-4 h-full min-h-0">
+    <div className="flex flex-col gap-3 h-full min-h-0">
+      <div
+        role="status"
+        className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-amber-200/70 dark:bg-amber-500/30 text-amber-900 dark:text-amber-100 shrink-0 mt-0.5">
+          Alpha
+        </span>
+        <span className="leading-relaxed">
+          MCP server support is in early alpha. The Smithery registry, install
+          flow, and tool wiring may misbehave or change shape between releases.
+        </span>
+      </div>
+      <div className="flex gap-4 flex-1 min-h-0">
       {/* Left pane: installed list */}
       <div className="w-56 shrink-0 flex flex-col">
         {loadError && (
@@ -187,6 +199,7 @@ const McpServersTab = () => {
             onUninstalled={serverId => void handleUninstalled(serverId)}
           />
         )}
+      </div>
       </div>
     </div>
   );

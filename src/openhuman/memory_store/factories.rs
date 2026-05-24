@@ -266,16 +266,7 @@ pub fn create_memory(
     config: &MemoryConfig,
     workspace_dir: &Path,
 ) -> anyhow::Result<Box<dyn Memory>> {
-    create_memory_with_storage_and_routes(config, &[], None, workspace_dir)
-}
-
-/// Create a memory instance with an optional storage provider configuration.
-pub fn create_memory_with_storage(
-    config: &MemoryConfig,
-    storage_provider: Option<&StorageProviderConfig>,
-    workspace_dir: &Path,
-) -> anyhow::Result<Box<dyn Memory>> {
-    create_memory_full(config, &[], storage_provider, None, workspace_dir)
+    create_memory_full(config, &[], None, None, workspace_dir)
 }
 
 /// Create a memory instance honouring the unified per-workload embedding
@@ -298,24 +289,6 @@ pub fn create_memory_with_local_ai(
         embedding_routes,
         storage_provider,
         local_embedding_model,
-        workspace_dir,
-    )
-}
-
-/// Back-compat wrapper preserved for existing call sites that don't have a
-/// `LocalAiConfig` to pass. The local-AI opt-in is not honored on this path —
-/// use [`create_memory_with_local_ai`] when both sections are available.
-pub fn create_memory_with_storage_and_routes(
-    config: &MemoryConfig,
-    embedding_routes: &[EmbeddingRouteConfig],
-    storage_provider: Option<&StorageProviderConfig>,
-    workspace_dir: &Path,
-) -> anyhow::Result<Box<dyn Memory>> {
-    create_memory_full(
-        config,
-        embedding_routes,
-        storage_provider,
-        None,
         workspace_dir,
     )
 }

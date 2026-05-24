@@ -43,8 +43,7 @@ pub struct MemoryState(pub std::sync::Mutex<Option<MemoryClientRef>>);
 /// first `embed` call rather than at client construction.
 ///
 /// Callers that need a non-default embedder should construct the underlying
-/// store via [`crate::openhuman::memory::create_memory_with_storage_and_routes`]
-/// (or [`crate::openhuman::memory::create_memory_with_local_ai`]) with the
+/// store via [`crate::openhuman::memory::create_memory_with_local_ai`] with the
 /// appropriate `MemoryConfig.embedding_provider`.
 #[derive(Clone)]
 pub struct MemoryClient {
@@ -109,7 +108,7 @@ impl MemoryClient {
         // unauthenticated session produces a clear error on first embed rather
         // than blocking client construction. Callers that need the local
         // Ollama path should build their memory store via
-        // `create_memory_with_storage_and_routes` with the appropriate
+        // `create_memory_with_local_ai` with the appropriate
         // `MemoryConfig.embedding_provider`.
         let embedder: Arc<dyn EmbeddingProvider> = embeddings::default_embedding_provider();
 

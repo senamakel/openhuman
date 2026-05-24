@@ -39,8 +39,7 @@ pub use traits::{ObsidianFile, ObsidianRepresentable, VectorEmbeddable};
 pub use client::{MemoryClient, MemoryClientRef, MemoryState};
 pub use factories::{
     active_embedding_signature, create_memory, create_memory_for_migration,
-    create_memory_with_local_ai, create_memory_with_storage, create_memory_with_storage_and_routes,
-    effective_embedding_settings, effective_embedding_settings_probed,
+    create_memory_with_local_ai, effective_embedding_settings, effective_embedding_settings_probed,
     effective_memory_backend_name,
 };
 pub use types::{

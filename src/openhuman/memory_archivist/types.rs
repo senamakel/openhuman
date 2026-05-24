@@ -1,31 +1,34 @@
-//! Canonical archived-turn shape.
+//! Input shape for archivist.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// One archived conversation turn. Mirrors the legacy
-/// `memory_store::unified::fts5::EpisodicEntry` for migration parity, but
-/// rebuilt as a serde type so it can round-trip through YAML front-matter
-/// on disk.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct ArchivedTurn {
-    pub session_id: String,
-    /// Sequence number within `session_id`. Starts at 0 and increments on
-    /// every `record_turn` call for the same session.
-    pub seq: u32,
-    /// Wall-clock timestamp the turn was captured at (epoch milliseconds).
-    pub timestamp_ms: i64,
-    /// `"user"` / `"assistant"` / `"system"` / `"tool"` — free-form so the
-    /// archivist doesn't fight the harness's role taxonomy.
+/// One conversation turn. `tool_calls_json` carries the raw model-side
+/// tool-call payload when present; [`crate::openhuman::memory_archivist::clean_conversation`]
+/// strips it before the turn lands in the tree.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Turn {
+    /// `"user"` / `"assistant"` / `"system"` / `"tool"` — free-form so we
+    /// don't fight any specific harness's role taxonomy.
     pub role: String,
+    /// Natural-language body.
     pub content: String,
-    /// Optional lesson the post-turn hook extracted.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lesson: Option<String>,
-    /// Serialized tool-call payload (JSON). `None` when the turn issued no
-    /// tools.
+    /// Raw JSON of any tool invocations the turn issued. Dropped during
+    /// clipping.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_calls_json: Option<String>,
-    /// Cost in microdollars; 0 when not yet billed.
-    #[serde(default)]
-    pub cost_microdollars: u64,
+    /// Wall-clock timestamp the turn occurred. Used as the tree leaf
+    /// timestamp.
+    pub timestamp: DateTime<Utc>,
+}
+
+impl Turn {
+    pub fn new(role: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: role.into(),
+            content: content.into(),
+            tool_calls_json: None,
+            timestamp: Utc::now(),
+        }
+    }
 }

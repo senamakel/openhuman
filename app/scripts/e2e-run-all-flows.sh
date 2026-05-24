@@ -74,66 +74,48 @@ E2E_ARTIFACTS_DIR="${E2E_ARTIFACTS_DIR:-$APP_DIR/test/e2e/artifacts/$(date +%Y%m
 export E2E_ARTIFACTS_DIR
 
 # ---------------------------------------------------------------------------
-# Run tracking: parallel arrays indexed by position.
-# _spec_suite[i]    — suite name this spec belongs to
-# _spec_names[i]    — human-readable label
-# _spec_results[i]  — 0 (pass) or 1 (fail)
-# _spec_duration[i] — wall-clock seconds (integer)
+# Spec collection: this script no longer invokes the runner once per spec.
+# Instead `run()` accumulates spec paths into one list; at the very end we
+# hand the whole list to `e2e-run-session.sh`, which launches the app +
+# Appium + chromedriver ONCE and lets WDIO drive every spec inside a single
+# shared session. The old per-spec orchestration paid CEF cold-start tax on
+# every spec (~15-30s × 65 specs) and broke the contract in wdio.conf.ts
+# ("WDIO creates ONE session per worker ... state from spec N flows into
+# spec N+1"). Per-spec failure detail comes from WDIO's spec reporter now,
+# not from a bash-side per-spec exit-code table.
+#
+# `--bail` is forwarded by env (E2E_BAIL_ON_FAILURE=1) so wdio.conf.ts can
+# flip its `bail` count. Per-suite `--suite=` filtering is still honored at
+# the run() call site.
 # ---------------------------------------------------------------------------
-_spec_suite=()
-_spec_names=()
-_spec_results=()
-_spec_duration=()
-
-_BAILED=0
+_spec_paths=()    # collected spec paths, in declaration order
+_spec_suites=()   # parallel array: suite name per collected spec
+_spec_labels=()   # parallel array: human label per collected spec
 _RUN_START_EPOCH=$(date +%s)
 
 # ---------------------------------------------------------------------------
 # run SPEC LABEL SUITE
 #
-# Records start time, runs e2e-run-spec.sh, records end time and result.
-# Respects --bail: once _BAILED=1 all subsequent run() calls are no-ops
-# that record a synthetic skip (exit 2) so the finish summary is still full.
+# Appends the spec to the collected list; nothing runs yet. The actual WDIO
+# invocation happens at the bottom of the script.
 # ---------------------------------------------------------------------------
 run() {
   local spec="$1"
   local label="${2:-$1}"
   local suite="${3:-unknown}"
 
-  _spec_suite+=("$suite")
-  _spec_names+=("$label")
-
-  if [[ $_BAILED -eq 1 ]]; then
-    _spec_results+=(2)  # 2 = skipped due to bail
-    _spec_duration+=(0)
-    return
-  fi
-
-  local t_start t_end duration
-  t_start=$(date +%s)
-  if "$APP_DIR/scripts/e2e-run-spec.sh" "$spec" "$label"; then
-    _spec_results+=(0)
-  else
-    _spec_results+=(1)
-    if [[ $BAIL -eq 1 ]]; then
-      echo ""
-      echo "[e2e-run-all-flows] --bail: stopping after first failure ($label)"
-      _BAILED=1
-    fi
-    # Copy any failure logs into the artifacts directory
-    _copy_failure_logs "$label"
-  fi
-  t_end=$(date +%s)
-  duration=$(( t_end - t_start ))
-  _spec_duration+=("$duration")
+  _spec_paths+=("$spec")
+  _spec_suites+=("$suite")
+  _spec_labels+=("$label")
 }
 
 # ---------------------------------------------------------------------------
-# _copy_failure_logs LABEL
-# Copies /tmp/openhuman-e2e-app-*.log files into E2E_ARTIFACTS_DIR on failure.
+# _copy_failure_logs
+# Copies /tmp/openhuman-e2e-app-*.log files into E2E_ARTIFACTS_DIR once at
+# end-of-run. With a single shared session there's now only one app log to
+# capture (and Appium/chromedriver logs alongside).
 # ---------------------------------------------------------------------------
 _copy_failure_logs() {
-  local label="$1"
   local logs
   logs=$(ls /tmp/openhuman-e2e-app-*.log 2>/dev/null || true)
   if [[ -z "$logs" ]]; then
@@ -141,122 +123,63 @@ _copy_failure_logs() {
   fi
   mkdir -p "$E2E_ARTIFACTS_DIR"
   for f in $logs; do
-    local dest="$E2E_ARTIFACTS_DIR/$(basename "$f" .log)-${label}.log"
+    local dest="$E2E_ARTIFACTS_DIR/$(basename "$f" .log)-session.log"
     cp "$f" "$dest" 2>/dev/null || true
   done
-  echo "[e2e-run-all-flows] Failure logs copied to $E2E_ARTIFACTS_DIR"
+  echo "[e2e-run-all-flows] Session logs copied to $E2E_ARTIFACTS_DIR"
 }
 
 # ---------------------------------------------------------------------------
 # _mini_summary SUITE_NAME
-# Prints a one-line pass/fail summary for a completed suite.
+# Print how many specs were collected for this suite (pre-run; WDIO will
+# report per-spec pass/fail directly).
 # ---------------------------------------------------------------------------
 _mini_summary() {
   local suite="$1"
-  local pass=0 fail=0 skip=0
-  for i in "${!_spec_names[@]}"; do
-    if [[ "${_spec_suite[$i]}" != "$suite" ]]; then continue; fi
-    case "${_spec_results[$i]:-2}" in
-      0) (( pass++ )) || true ;;
-      1) (( fail++ )) || true ;;
-      2) (( skip++ )) || true ;;
-    esac
+  local count=0
+  for i in "${!_spec_labels[@]}"; do
+    [[ "${_spec_suites[$i]}" == "$suite" ]] && (( count++ )) || true
   done
-  local total=$(( pass + fail + skip ))
-  if [[ $fail -gt 0 ]]; then
-    printf "  [%s] %d/%d passed (%d failed)\n" "$suite" "$pass" "$total" "$fail"
-  elif [[ $skip -gt 0 ]]; then
-    printf "  [%s] %d/%d passed (%d skipped/bailed)\n" "$suite" "$pass" "$total" "$skip"
-  else
-    printf "  [%s] %d/%d passed\n" "$suite" "$pass" "$total"
-  fi
+  printf "  [%s] %d spec(s) queued\n" "$suite" "$count"
 }
 
 # ---------------------------------------------------------------------------
-# finish — print per-category table, totals, wall time, and hints.
-# Writes a Markdown summary to /tmp/e2e-summary.txt for CI job summaries.
+# finish — print wall time + a markdown summary for CI job summary.
+# Per-spec pass/fail comes from WDIO's spec reporter in the live output;
+# the bash orchestrator no longer tracks per-spec exit codes.
 # ---------------------------------------------------------------------------
+_WDIO_EXIT_CODE=0
 finish() {
   local t_end_epoch
   t_end_epoch=$(date +%s)
   local wall=$(( t_end_epoch - _RUN_START_EPOCH ))
   local wall_min=$(( wall / 60 ))
   local wall_sec=$(( wall % 60 ))
+  local collected=${#_spec_paths[@]}
 
-  local pass=0 fail=0 skip=0
   echo ""
   echo "══════════════════════════════════════════════════════════════════"
   printf "  E2E run summary  ($(uname -s))  suite=%s\n" "$SUITE"
   echo "══════════════════════════════════════════════════════════════════"
-
-  # --- per-spec rows ---
-  local prev_suite=""
-  for i in "${!_spec_names[@]}"; do
-    local cur_suite="${_spec_suite[$i]}"
-    if [[ "$cur_suite" != "$prev_suite" ]]; then
-      echo ""
-      printf "  ## %s\n" "$cur_suite"
-      prev_suite="$cur_suite"
-    fi
-    local dur="${_spec_duration[$i]:-0}"
-    case "${_spec_results[$i]:-2}" in
-      0)
-        printf "    ✓  %-45s  %3ds\n" "${_spec_names[$i]}" "$dur"
-        (( pass++ )) || true
-        ;;
-      1)
-        printf "    ✗  %-45s  %3ds\n" "${_spec_names[$i]}" "$dur"
-        (( fail++ )) || true
-        ;;
-      2)
-        printf "    -  %-45s  (skipped/bailed)\n" "${_spec_names[$i]}"
-        (( skip++ )) || true
-        ;;
-    esac
-  done
-
-  local total=$(( pass + fail + skip ))
-  echo ""
-  echo "──────────────────────────────────────────────────────────────────"
-  printf "  Passed: %-4d  Failed: %-4d  Skipped: %-4d  Total: %d\n" \
-    "$pass" "$fail" "$skip" "$total"
-  printf "  Wall time: %dm %02ds\n" "$wall_min" "$wall_sec"
+  printf "  Specs queued: %d\n" "$collected"
+  printf "  WDIO exit:    %d\n" "$_WDIO_EXIT_CODE"
+  printf "  Wall time:    %dm %02ds\n" "$wall_min" "$wall_sec"
   echo "══════════════════════════════════════════════════════════════════"
 
-  if [[ $fail -gt 0 ]]; then
-    echo ""
-    echo "  To re-run a single failing spec:"
-    echo "    bash app/scripts/e2e-run-session.sh test/e2e/specs/SPEC.spec.ts"
-    echo ""
-    echo "  Artifacts (if any):"
-    echo "    $E2E_ARTIFACTS_DIR"
-    echo ""
-  fi
+  _copy_failure_logs
 
-  # --- write /tmp/e2e-summary.txt for CI job summary ---
   {
     printf "## E2E Results ($(uname -s)) — suite=%s\n\n" "$SUITE"
-    printf "| Result | Count |\n"
-    printf "|--------|-------|\n"
-    printf "| Passed | %d |\n" "$pass"
-    printf "| Failed | %d |\n" "$fail"
-    printf "| Skipped | %d |\n" "$skip"
-    printf "| **Total** | **%d** |\n" "$total"
-    printf "\n**Wall time:** %dm %02ds\n\n" "$wall_min" "$wall_sec"
-
-    if [[ $fail -gt 0 ]]; then
-      printf "### Failed specs\n\n"
-      for i in "${!_spec_names[@]}"; do
-        if [[ "${_spec_results[$i]}" -eq 1 ]]; then
-          printf -- "- \`%s\`\n" "${_spec_names[$i]}"
-        fi
-      done
-      printf "\n"
-    fi
+    printf "| Field | Value |\n"
+    printf "|-------|-------|\n"
+    printf "| Specs queued | %d |\n" "$collected"
+    printf "| WDIO exit code | %d |\n" "$_WDIO_EXIT_CODE"
+    printf "| Wall time | %dm %02ds |\n" "$wall_min" "$wall_sec"
+    printf "\nPer-spec pass/fail is in the WDIO spec-reporter output above.\n"
   } > /tmp/e2e-summary.txt
 
-  if [[ $fail -gt 0 ]]; then
-    exit 1
+  if [[ $_WDIO_EXIT_CODE -ne 0 ]]; then
+    exit "$_WDIO_EXIT_CODE"
   fi
 }
 trap finish EXIT
@@ -455,3 +378,35 @@ if should_run_suite "journeys"; then
   run "test/e2e/specs/chat-conversation-history.spec.ts"           "chat-history"          "journeys"
   _mini_summary "journeys"
 fi
+
+# ---------------------------------------------------------------------------
+# Single shared WDIO session.
+#
+# All collected specs run inside one Appium/CEF session, restoring the
+# contract in wdio.conf.ts. Per-spec pass/fail comes from WDIO's spec
+# reporter (live stdout above). Exit code from e2e-run-session.sh is
+# propagated to the `finish` summary trap.
+#
+# `--bail` is forwarded via E2E_BAIL_ON_FAILURE (wdio.conf.ts flips its
+# `bail` count when this env is set).
+# ---------------------------------------------------------------------------
+if [[ ${#_spec_paths[@]} -eq 0 ]]; then
+  echo "[e2e-run-all-flows] no specs matched suite=$SUITE — nothing to run." >&2
+  exit 1
+fi
+
+echo ""
+echo "──────────────────────────────────────────────────────────────────"
+echo "  Launching single shared WDIO session for ${#_spec_paths[@]} spec(s)"
+echo "──────────────────────────────────────────────────────────────────"
+
+if [[ $BAIL -eq 1 ]]; then
+  export E2E_BAIL_ON_FAILURE=1
+fi
+
+set +e
+bash "$APP_DIR/scripts/e2e-run-session.sh" "${_spec_paths[@]}"
+_WDIO_EXIT_CODE=$?
+set -e
+
+# finish() trap will print the summary and exit with _WDIO_EXIT_CODE.

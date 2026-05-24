@@ -499,6 +499,20 @@ const pt1: TranslationMap = {
   'mcp.alphaBannerText':
     'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': 'No tools available.',
+  'mcp.setup.secretDialog.title': 'MCP Setup — Enter Secret',
+  'mcp.setup.secretDialog.bodyPrefix': 'The MCP setup agent needs',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
+  'mcp.setup.secretDialog.inputLabel': 'Value',
+  'mcp.setup.secretDialog.inputPlaceholder': 'Paste here',
+  'mcp.setup.secretDialog.show': 'Show',
+  'mcp.setup.secretDialog.hide': 'Hide',
+  'mcp.setup.secretDialog.submit': 'Submit',
+  'mcp.setup.secretDialog.cancel': 'Cancel',
+  'mcp.setup.secretDialog.submitting': 'Submitting…',
+  'mcp.setup.secretDialog.errorPrefix': 'Failed to submit:',
+  'mcp.setup.secretDialog.privacyNote':
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': 'Beta',
   'devices.betaText':
     'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',

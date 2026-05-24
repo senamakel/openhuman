@@ -128,6 +128,54 @@ async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and
 }
 
 #[tokio::test]
+async fn upsert_document_metadata_only_preserves_created_at_and_rewrites_sidecar() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let first_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta-sidecar",
+            "doc-a",
+            "Doc A",
+            "Initial body",
+        ))
+        .await
+        .unwrap();
+    let first_doc = memory
+        .load_documents_for_scope("test:meta-sidecar")
+        .await
+        .unwrap()[0]
+        .clone();
+    let sidecar = tmp.path().join(&first_doc.markdown_rel_path);
+    let first_markdown = std::fs::read_to_string(&sidecar).unwrap();
+    assert!(first_markdown.contains("Initial body"));
+
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    let second_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta-sidecar",
+            "doc-a",
+            "Doc A v2",
+            "Updated body",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(first_id, second_id);
+    let updated_doc = memory
+        .load_documents_for_scope("test:meta-sidecar")
+        .await
+        .unwrap()[0]
+        .clone();
+    assert_eq!(updated_doc.created_at, first_doc.created_at);
+    assert!(updated_doc.updated_at >= first_doc.updated_at);
+    let updated_markdown = std::fs::read_to_string(sidecar).unwrap();
+    assert!(updated_markdown.contains("Updated body"));
+    assert!(updated_markdown.contains("Doc A v2"));
+}
+
+#[tokio::test]
 async fn upsert_document_writes_vector_chunks_for_chunked_content() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

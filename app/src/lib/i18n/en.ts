@@ -1108,6 +1108,11 @@ const en: TranslationMap = {
   'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
   'voice.routing.testStt': 'Test STT',
   'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
 
   // External voice providers
   'voice.externalProviders.title': 'External Voice Providers',

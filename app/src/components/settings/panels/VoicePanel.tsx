@@ -27,6 +27,7 @@ import {
 } from '../../../utils/tauriCommands';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import { ELEVENLABS_VOICE_PRESETS, isCuratedVoicePreset } from './elevenlabsVoicePresets';
 
 /** Built-in voice provider slugs with display metadata. */
 const BUILTIN_VOICE_PROVIDER_META: Record<
@@ -89,10 +90,11 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   // Local provider selectors — initialised from voice_status, persisted via
   // openhumanVoiceSetProviders on change. Empty string until first load.
-  const [sttProvider, setSttProvider] = useState<'cloud' | 'whisper' | ''>('');
-  const [ttsProvider, setTtsProvider] = useState<'cloud' | 'piper' | ''>('');
+  const [sttProvider, setSttProvider] = useState<string>('');
+  const [ttsProvider, setTtsProvider] = useState<string>('');
   const [sttModel, setSttModel] = useState<string>('');
   const [ttsVoice, setTtsVoice] = useState<string>('');
+  const [elevenlabsVoiceId, setElevenlabsVoiceId] = useState<string>('JBFqnCBsd6RMkjVDRZzb');
   const [isSavingProviders, setIsSavingProviders] = useState(false);
   const [whisperInstall, setWhisperInstall] = useState<VoiceInstallStatus | null>(null);
   const [piperInstall, setPiperInstall] = useState<VoiceInstallStatus | null>(null);
@@ -200,8 +202,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
               : vs.ttsProvider.kind === 'local'
                 ? vs.ttsProvider.engine
                 : vs.ttsProvider.providerSlug;
-          setSttProvider(prev => prev || (sttStr as 'cloud' | 'whisper' | ''));
-          setTtsProvider(prev => prev || (ttsStr as 'cloud' | 'piper' | ''));
+          setSttProvider(prev => prev || sttStr);
+          setTtsProvider(prev => prev || ttsStr);
         })
         .catch(err => {
           if (process.env.NODE_ENV !== 'production') {
@@ -273,11 +275,11 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   );
 
   const onSttProviderChange = (next: string) => {
-    setSttProvider(next as 'cloud' | 'whisper' | '');
+    setSttProvider(next);
     void persistProviders({ stt_provider: next });
   };
   const onTtsProviderChange = (next: string) => {
-    setTtsProvider(next as 'cloud' | 'piper' | '');
+    setTtsProvider(next);
     void persistProviders({ tts_provider: next });
   };
 
@@ -1117,6 +1119,49 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                     )}
                     <p className="text-[11px] text-stone-500 dark:text-neutral-400 mt-0.5">
                       {t('voice.providers.piperVoicesDesc')}
+                    </p>
+                  </label>
+                )}
+
+                {/* ElevenLabs voice picker — shown when ElevenLabs is selected for TTS */}
+                {ttsProvider === 'elevenlabs' && (
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-stone-600 dark:text-neutral-300">
+                      {t('voice.routing.elevenlabsVoice')}
+                    </span>
+                    <select
+                      aria-label={t('voice.routing.elevenlabsVoiceAria')}
+                      data-testid="elevenlabs-voice-select"
+                      value={
+                        isCuratedVoicePreset(elevenlabsVoiceId) ? elevenlabsVoiceId : '__custom__'
+                      }
+                      disabled={isSavingProviders}
+                      onChange={e => {
+                        const next = e.target.value;
+                        if (next === '__custom__') return;
+                        setElevenlabsVoiceId(next);
+                      }}
+                      className="w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400">
+                      {ELEVENLABS_VOICE_PRESETS.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                      <option value="__custom__">{t('voice.providers.customVoiceOption')}</option>
+                    </select>
+                    {!isCuratedVoicePreset(elevenlabsVoiceId) && (
+                      <input
+                        aria-label={t('voice.routing.elevenlabsVoiceIdAria')}
+                        data-testid="elevenlabs-voice-input"
+                        value={elevenlabsVoiceId}
+                        placeholder="JBFqnCBsd6RMkjVDRZzb"
+                        disabled={isSavingProviders}
+                        onChange={e => setElevenlabsVoiceId(e.target.value)}
+                        className="mt-1 w-full rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                      />
+                    )}
+                    <p className="text-[11px] text-stone-500 dark:text-neutral-400 mt-0.5">
+                      {t('voice.routing.elevenlabsVoiceDesc')}
                     </p>
                   </label>
                 )}

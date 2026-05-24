@@ -275,7 +275,18 @@ jobs:
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         env:
           E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
+          # e2e-run-session.sh defaults CEF_PATH to $HOME/Library/Caches/tauri-cef
+          # (a macOS path). e2e-build.sh exports the same — fine while the build
+          # step ran every shard, but the new binary-cache short-circuit can skip
+          # the build entirely and leave CEF_PATH unset, so the runner can't find
+          # libcef.so. Point it at the actual Linux CEF cache location that the
+          # `Cache CEF binary distribution` step restored.
+          CEF_PATH: ${{ github.workspace }}/../../.cache/tauri-cef
         run: |
+          # Resolve against $HOME so the path inside the container is correct
+          # regardless of where github.workspace lands. The CEF cache step
+          # paths point at ~/.cache/tauri-cef on Linux.
+          export CEF_PATH="$HOME/.cache/tauri-cef"
           BAIL_FLAG=""
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"
@@ -784,6 +795,10 @@ jobs:
         env:
           E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
         run: |
+          # See Linux shard — binary cache can skip the build that would have
+          # exported CEF_PATH. Point at the Windows CEF cache location so
+          # e2e-run-session.sh finds libcef.dll for the LD-path equivalent.
+          export CEF_PATH="$HOME/AppData/Local/tauri-cef"
           BAIL_FLAG=""
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"

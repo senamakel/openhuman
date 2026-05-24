@@ -606,7 +606,9 @@ describe('AIPanel', () => {
     ).toBeInTheDocument();
     expect(within(alert).getByText('Technical details')).toBeInTheDocument();
     expect(within(alert).getByText(/provider returned 418/)).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: /Disconnect Team Gateway/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: /Disconnect Team Gateway/i })
+    ).not.toBeInTheDocument();
   });
 
   it('derives the custom provider slug from the entered name', async () => {
@@ -632,7 +634,9 @@ describe('AIPanel', () => {
     await waitFor(() =>
       expect(vi.mocked(setCloudProviderKey)).toHaveBeenCalledWith('my-team-gateway', 'sk-team-key')
     );
-    await waitFor(() => expect(vi.mocked(listProviderModels)).toHaveBeenCalledWith('my-team-gateway'));
+    await waitFor(() =>
+      expect(vi.mocked(listProviderModels)).toHaveBeenCalledWith('my-team-gateway')
+    );
   });
 
   // ─── local runtime: Ollama endpoint URL dialog ──────────────────────────────

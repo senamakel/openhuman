@@ -300,12 +300,10 @@ function McpComingSoonPanel() {
           />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-        MCP Servers
-      </h3>
+      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">MCP Servers</h3>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-        MCP server management is coming soon. This tab will be the home for discovering,
-        connecting, and monitoring your MCP server integrations.
+        MCP server management is coming soon. This tab will be the home for discovering, connecting,
+        and monitoring your MCP server integrations.
       </p>
       <span className="mt-4 inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400">
         Coming Soon

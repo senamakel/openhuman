@@ -261,10 +261,12 @@ async fn lm_studio_chat_with_history_falls_back_to_reasoning_content() {
     let reply = service
         .chat_with_history(
             &config,
-            vec![crate::openhuman::inference::local::ollama::OllamaChatMessage {
-                role: "user".to_string(),
-                content: "hi".to_string(),
-            }],
+            vec![
+                crate::openhuman::inference::local::ollama::OllamaChatMessage {
+                    role: "user".to_string(),
+                    content: "hi".to_string(),
+                },
+            ],
             None,
         )
         .await

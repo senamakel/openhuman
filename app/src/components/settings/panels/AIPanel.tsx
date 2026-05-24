@@ -1996,7 +1996,7 @@ const CustomRoutingDialog = ({
                     ? 'border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 text-coral-700 dark:text-coral-300'
                     : testBusy
                       ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200'
-                    : 'border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 text-sage-800 dark:text-sage-200'
+                      : 'border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10 text-sage-800 dark:text-sage-200'
                 }`}>
                 <div className="font-semibold">
                   {testError ? 'Test failed' : testBusy ? 'Testing model…' : 'Model response'}
@@ -2847,7 +2847,8 @@ const CloudProviderEditor = ({
               placeholder="My Provider"
             />
             <div className="mt-1 text-[11px] text-stone-500 dark:text-neutral-400">
-              Slug: <span className="font-mono text-stone-700 dark:text-neutral-200">{slug || '—'}</span>
+              Slug:{' '}
+              <span className="font-mono text-stone-700 dark:text-neutral-200">{slug || '—'}</span>
             </div>
             {slugError ? (
               <div className="mt-1 text-[11px] text-coral-600 dark:text-coral-300">{slugError}</div>

@@ -144,10 +144,10 @@ pub const BUILTIN_VOICE_PROVIDERS: &[BuiltinVoiceProvider] = &[
         slug: "elevenlabs",
         label: "ElevenLabs",
         endpoint: "https://api.elevenlabs.io/v1",
-        capability: VoiceCapability::Tts,
+        capability: VoiceCapability::Both,
         stt_api_style: SttApiStyle::OpenaiAudio,
         tts_api_style: TtsApiStyle::ElevenLabs,
-        default_stt_model: None,
+        default_stt_model: Some("scribe_v1"),
         default_tts_voice: Some("JBFqnCBsd6RMkjVDRZzb"),
     },
     BuiltinVoiceProvider {

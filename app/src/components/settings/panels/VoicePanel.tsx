@@ -41,7 +41,7 @@ const BUILTIN_VOICE_PROVIDER_META: Record<
   elevenlabs: {
     label: 'ElevenLabs',
     tone: 'bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:ring-purple-700',
-    capability: 'tts',
+    capability: 'both',
   },
   openai: {
     label: 'OpenAI',
@@ -307,7 +307,13 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
           stt_api_style: slug === 'deepgram' ? 'deepgram' : 'openai_audio',
           tts_api_style: slug === 'elevenlabs' ? 'elevenlabs' : 'openai_audio',
           default_stt_model:
-            slug === 'deepgram' ? 'nova-2' : slug === 'openai' ? 'whisper-1' : null,
+            slug === 'deepgram'
+              ? 'nova-2'
+              : slug === 'openai'
+                ? 'whisper-1'
+                : slug === 'elevenlabs'
+                  ? 'scribe_v1'
+                  : null,
           default_tts_voice:
             slug === 'openai' ? 'alloy' : slug === 'elevenlabs' ? 'JBFqnCBsd6RMkjVDRZzb' : null,
           has_api_key: false,

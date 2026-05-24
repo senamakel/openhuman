@@ -58,10 +58,9 @@ pub use schemas::{
 };
 pub use crate::openhuman::memory_store::{
     create_memory, create_memory_for_migration, create_memory_with_local_ai,
-    effective_embedding_settings, effective_embedding_settings_probed,
-    effective_memory_backend_name, MemoryClient, MemoryClientRef, MemoryItemKind, MemoryState,
-    NamespaceDocumentInput, NamespaceMemoryHit, NamespaceQueryResult, NamespaceRetrievalContext,
-    RetrievalScoreBreakdown, UnifiedMemory,
+    effective_embedding_settings, effective_memory_backend_name, MemoryClient, MemoryClientRef,
+    MemoryItemKind, MemoryState, NamespaceDocumentInput, NamespaceMemoryHit, NamespaceQueryResult,
+    NamespaceRetrievalContext, RetrievalScoreBreakdown, UnifiedMemory,
 };
 pub use sync_status::{
     all_memory_sync_status_controller_schemas, all_memory_sync_status_registered_controllers,

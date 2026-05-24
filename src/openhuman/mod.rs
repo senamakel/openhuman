@@ -56,6 +56,7 @@ pub mod memory_archivist;
 pub mod memory_entities;
 pub mod memory_graph;
 pub mod memory_store;
+pub mod memory_sync;
 pub mod memory_tools;
 pub mod memory_tree;
 pub mod migration;

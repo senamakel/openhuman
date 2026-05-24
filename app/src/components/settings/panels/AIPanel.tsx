@@ -1836,8 +1836,9 @@ const CustomRoutingDialog = ({
       if (testRequestIdRef.current !== requestId) return;
       setTestError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (testRequestIdRef.current !== requestId) return;
-      setTestBusy(false);
+      if (testRequestIdRef.current === requestId) {
+        setTestBusy(false);
+      }
     }
   };
 

@@ -108,7 +108,10 @@ export const mcpClientsApi = {
       method: 'openhuman.mcp_clients_installed_list',
       params: {},
     });
-    log('installed_list returned %d servers', Array.isArray(result.installed) ? result.installed.length : 0);
+    log(
+      'installed_list returned %d servers',
+      Array.isArray(result.installed) ? result.installed.length : 0
+    );
     // Guard against an unexpected envelope shape (e.g. core returns `{}` on
     // first launch before the MCP store is initialised, or upstream sends a
     // non-array value). Callers downstream call `.find` / `.map` on this

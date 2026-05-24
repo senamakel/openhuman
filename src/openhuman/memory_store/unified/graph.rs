@@ -514,6 +514,9 @@ impl UnifiedMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::embeddings::NoopEmbedding;
+    use std::sync::Arc;
+    use tempfile::TempDir;
 
     #[test]
     fn merge_graph_attrs_accumulates_evidence_and_dedupes_ids() {
@@ -579,5 +582,146 @@ mod tests {
         assert_eq!(value["orderIndex"], 2);
         assert_eq!(value["documentIds"], json!(["doc-1"]));
         assert_eq!(value["chunkIds"], json!(["doc-1:chunk-1"]));
+    }
+
+    fn test_memory() -> (TempDir, UnifiedMemory) {
+        let tmp = TempDir::new().unwrap();
+        let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+        (tmp, memory)
+    }
+
+    #[tokio::test]
+    async fn graph_upsert_namespace_merges_attrs_and_query_returns_json() {
+        let (_tmp, memory) = test_memory();
+        memory
+            .graph_upsert_namespace(
+                "team alpha/#1",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({
+                    "document_id": "doc-1",
+                    "chunk_id": "doc-1:chunk-1",
+                    "evidence_count": 1
+                }),
+            )
+            .await
+            .unwrap();
+        memory
+            .graph_upsert_namespace(
+                "team alpha/#1",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({
+                    "document_ids": ["doc-2"],
+                    "chunk_ids": ["doc-2:chunk-9"],
+                    "order_index": 2
+                }),
+            )
+            .await
+            .unwrap();
+
+        let rows = memory
+            .graph_query_namespace("team alpha/#1", Some("Alice"), Some("OWNS"))
+            .await
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["subject"], "ALICE");
+        assert_eq!(rows[0]["predicate"], "OWNS");
+        assert_eq!(rows[0]["object"], "PHOENIX");
+        assert_eq!(rows[0]["evidenceCount"], 2);
+        assert_eq!(rows[0]["orderIndex"], 2);
+        assert_eq!(rows[0]["documentIds"], json!(["doc-1", "doc-2"]));
+        assert_eq!(rows[0]["chunkIds"], json!(["doc-1:chunk-1", "doc-2:chunk-9"]));
+
+        let scoped = memory
+            .graph_relations_for_scope("team alpha/#1")
+            .await
+            .unwrap();
+        assert_eq!(scoped.len(), 1);
+        assert_eq!(scoped[0].namespace.as_deref(), Some("team_alpha/_1"));
+    }
+
+    #[tokio::test]
+    async fn graph_global_and_all_queries_include_expected_rows() {
+        let (_tmp, memory) = test_memory();
+        memory
+            .graph_upsert_global(
+                "Bob",
+                "MENTIONED",
+                "Launch",
+                &json!({"document_id": "doc-global"}),
+            )
+            .await
+            .unwrap();
+        memory
+            .graph_upsert_namespace(
+                "project",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({"document_id": "doc-local"}),
+            )
+            .await
+            .unwrap();
+
+        let global = memory
+            .graph_query_global(Some("Bob"), Some("MENTIONED"))
+            .await
+            .unwrap();
+        assert_eq!(global.len(), 1);
+        assert_eq!(global[0]["namespace"], Value::Null);
+        assert_eq!(global[0]["subject"], "BOB");
+
+        let all = memory
+            .graph_query_all(None, None)
+            .await
+            .unwrap();
+        assert_eq!(all.len(), 2);
+        assert!(all.iter().any(|row| row["subject"] == "ALICE"));
+        assert!(all.iter().any(|row| row["subject"] == "BOB"));
+    }
+
+    #[tokio::test]
+    async fn graph_remove_document_namespace_prunes_or_deletes_relations() {
+        let (_tmp, memory) = test_memory();
+        memory
+            .graph_upsert_namespace(
+                "cleanup",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({
+                    "document_ids": ["doc-1", "doc-2"],
+                    "chunk_ids": ["doc-1:chunk-1", "doc-2:chunk-2"]
+                }),
+            )
+            .await
+            .unwrap();
+        memory
+            .graph_upsert_namespace(
+                "cleanup",
+                "Alice",
+                "BLOCKED",
+                "Atlas",
+                &json!({
+                    "document_id": "doc-1",
+                    "chunk_id": "doc-1:chunk-9"
+                }),
+            )
+            .await
+            .unwrap();
+
+        memory
+            .graph_remove_document_namespace("cleanup", "doc-1")
+            .await
+            .unwrap();
+
+        let rows = memory.graph_query_namespace("cleanup", None, None).await.unwrap();
+        assert_eq!(rows.len(), 1, "single-doc relation should be deleted entirely");
+        assert_eq!(rows[0]["predicate"], "OWNS");
+        assert_eq!(rows[0]["documentIds"], json!(["doc-2"]));
+        assert_eq!(rows[0]["chunkIds"], json!(["doc-2:chunk-2"]));
     }
 }

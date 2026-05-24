@@ -145,6 +145,51 @@ async fn upsert_document_writes_vector_chunks_for_chunked_content() {
 }
 
 #[tokio::test]
+async fn upsert_document_reuses_document_id_preserves_created_at_and_replaces_vector_chunks() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let first_id = memory
+        .upsert_document(make_doc_input(
+            "test:update",
+            "doc-a",
+            "Doc A",
+            &"alpha ".repeat(400),
+        ))
+        .await
+        .unwrap();
+    let first_doc = memory.load_documents_for_scope("test:update").await.unwrap()[0].clone();
+    let first_chunk_count = count_vector_chunks(&memory, "test:update", &first_id);
+    assert!(first_chunk_count > 0);
+
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    let second_id = memory
+        .upsert_document(make_doc_input(
+            "test:update",
+            "doc-a",
+            "Doc A v2",
+            &"beta ".repeat(40),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(first_id, second_id, "upsert should reuse the existing document id");
+    let updated_doc = memory.load_documents_for_scope("test:update").await.unwrap()[0].clone();
+    assert_eq!(updated_doc.document_id, first_id);
+    assert_eq!(updated_doc.created_at, first_doc.created_at);
+    assert!(updated_doc.updated_at >= first_doc.updated_at);
+    assert_eq!(updated_doc.title, "Doc A v2");
+    assert_eq!(updated_doc.content, "beta ".repeat(40));
+    let second_chunk_count = count_vector_chunks(&memory, "test:update", &second_id);
+    assert!(second_chunk_count > 0);
+    assert!(
+        second_chunk_count <= first_chunk_count,
+        "replacing with shorter content should not leave stale vector chunks behind"
+    );
+}
+
+#[tokio::test]
 async fn delete_document_removes_doc_sidecar_and_is_idempotent() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

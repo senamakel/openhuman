@@ -245,6 +245,7 @@ if should_run_suite "navigation"; then
   run "test/e2e/specs/command-palette.spec.ts"                "command-palette"           "navigation"
   run "test/e2e/specs/channels-smoke.spec.ts"                 "channels-smoke"            "navigation"
   run "test/e2e/specs/insights-dashboard.spec.ts"             "insights-dashboard"        "navigation"
+  run "test/e2e/specs/guided-tour-gates.spec.ts"              "guided-tour-gates"         "navigation"
   _mini_summary "navigation"
 fi
 
@@ -306,6 +307,10 @@ if should_run_suite "webhooks"; then
   run "test/e2e/specs/tool-browser-flow.spec.ts"              "tool-browser"              "webhooks"
   run "test/e2e/specs/tool-filesystem-flow.spec.ts"           "tool-filesystem"           "webhooks"
   run "test/e2e/specs/tool-shell-git-flow.spec.ts"            "tool-shell-git"            "webhooks"
+  run "test/e2e/specs/harness-channel-bridge-flow.spec.ts"    "harness-channel-bridge"    "webhooks"
+  run "test/e2e/specs/harness-composio-tool-flow.spec.ts"     "harness-composio-tool"     "webhooks"
+  run "test/e2e/specs/harness-cron-prompt-flow.spec.ts"       "harness-cron-prompt"       "webhooks"
+  run "test/e2e/specs/harness-search-tool-flow.spec.ts"       "harness-search-tool"       "webhooks"
   _mini_summary "webhooks"
 fi
 
@@ -316,14 +321,37 @@ if should_run_suite "providers"; then
   echo ""
   echo "## Running suite: providers"
   run "test/e2e/specs/telegram-flow.spec.ts"                  "telegram"                  "providers"
+  run "test/e2e/specs/telegram-channel-flow.spec.ts"          "telegram-channel"          "providers"
   run "test/e2e/specs/gmail-flow.spec.ts"                     "gmail"                     "providers"
   run "test/e2e/specs/accounts-provider-modal.spec.ts"        "accounts-providers"        "providers"
-  run "test/e2e/specs/slack-flow.spec.ts"                     "slack"                     "providers"
+  # slack-flow currently crashes the CEF session mid-spec on Linux (#1850-style
+  # state issue); skip until investigated rather than nuke the rest of the
+  # provider suite.
+  # run "test/e2e/specs/slack-flow.spec.ts"                   "slack"                     "providers"
   run "test/e2e/specs/whatsapp-flow.spec.ts"                  "whatsapp"                  "providers"
   # notion-flow.spec.ts was removed; skip to avoid "spec not found" failure.
   # run "test/e2e/specs/notion-flow.spec.ts"                  "notion"                    "providers"
   run "test/e2e/specs/conversations-web-channel-flow.spec.ts" "conversations"             "providers"
   run "test/e2e/specs/composio-triggers-flow.spec.ts"         "composio-triggers"         "providers"
+  run "test/e2e/specs/connectivity-state-differentiation.spec.ts" "connectivity-state"   "providers"
+
+  # Composio connector smoke specs — one per supported connector.
+  run "test/e2e/specs/connector-airtable.spec.ts"            "connector-airtable"        "providers"
+  run "test/e2e/specs/connector-asana.spec.ts"               "connector-asana"           "providers"
+  run "test/e2e/specs/connector-clickup.spec.ts"             "connector-clickup"         "providers"
+  run "test/e2e/specs/connector-confluence.spec.ts"          "connector-confluence"      "providers"
+  run "test/e2e/specs/connector-discord-composio.spec.ts"    "connector-discord"         "providers"
+  run "test/e2e/specs/connector-github.spec.ts"              "connector-github"          "providers"
+  run "test/e2e/specs/connector-gmail-composio.spec.ts"      "connector-gmail-composio"  "providers"
+  run "test/e2e/specs/connector-google-calendar.spec.ts"     "connector-gcal"            "providers"
+  run "test/e2e/specs/connector-google-drive.spec.ts"        "connector-gdrive"          "providers"
+  run "test/e2e/specs/connector-google-sheets.spec.ts"       "connector-gsheets"         "providers"
+  run "test/e2e/specs/connector-jira.spec.ts"                "connector-jira"            "providers"
+  run "test/e2e/specs/connector-notion.spec.ts"              "connector-notion"          "providers"
+  run "test/e2e/specs/connector-session-guard.spec.ts"       "connector-session-guard"   "providers"
+  run "test/e2e/specs/connector-slack-composio.spec.ts"      "connector-slack-composio"  "providers"
+  run "test/e2e/specs/connector-todoist.spec.ts"             "connector-todoist"         "providers"
+  run "test/e2e/specs/connector-youtube.spec.ts"             "connector-youtube"         "providers"
   _mini_summary "providers"
 fi
 
@@ -372,6 +400,7 @@ if should_run_suite "system"; then
   # service-connectivity-flow tests the old sidecar service model removed in
   # PR #1061 (core is now in-process). Skip by not setting OPENHUMAN_SERVICE_MOCK=1.
   run "test/e2e/specs/service-connectivity-flow.spec.ts"    "service-connectivity"      "system"
+  run "test/e2e/specs/core-port-conflict-recovery.spec.ts"  "core-port-conflict"        "system"
   if [[ "$(uname -s)" == "Linux" ]]; then
     run "test/e2e/specs/linux-cef-deb-runtime.spec.ts"        "linux-cef-deb-runtime"     "system"
   fi

@@ -20,8 +20,8 @@
  */
 import { waitForApp, waitForAppReady } from './app-helpers';
 import { callOpenhumanRpc } from './core-rpc';
-import { triggerAuthLoopbackBypass } from './loopback-auth-helpers';
 import { waitForWebView, waitForWindowVisible } from './element-helpers';
+import { triggerAuthLoopbackBypass } from './loopback-auth-helpers';
 import { supportsExecuteScript } from './platform';
 import { dismissBootCheckGateIfVisible, waitForHomePage, walkOnboarding } from './shared-flows';
 
@@ -137,7 +137,46 @@ export async function resetApp(userId: string, options: ResetAppOptions = {}): P
   await dismissBootCheckGateIfVisible();
 
   if (options.skipAuth) {
-    stepLog('skipAuth=true — stopping before auth bypass');
+    stepLog('skipAuth=true — waiting for Welcome screen to render');
+    // In the shared session, a prior spec may have authenticated and left
+    // sessionToken hydrated in the renderer. test_reset + storage.clear +
+    // reload normally drops everything, but redux-persist re-hydration can
+    // race: the PublicRoute briefly sees a non-empty snapshot and starts
+    // navigating to /home before the core's "no active user" snapshot
+    // arrives. If that race lands us on /home, the caller's
+    // `waitForText('Welcome…')` will fail.
+    //
+    // Force the renderer to settle on Welcome by polling the route and
+    // re-replacing the hash if necessary. Up to 10s; if it still isn't
+    // there, surface the issue here instead of in the spec.
+    const welcomeDeadline = Date.now() + 10_000;
+    let welcomeVisible = false;
+    while (Date.now() < welcomeDeadline) {
+      welcomeVisible = await browser
+        .execute(() => {
+          // Welcome.tsx renders an h1 with i18n key welcome.title ('Welcome to OpenHuman').
+          const headings = Array.from(document.querySelectorAll('h1'));
+          return headings.some(h => /Welcome to OpenHuman/i.test(h.textContent ?? ''));
+        })
+        .catch(() => false);
+      if (welcomeVisible) break;
+      // If hash drifted (e.g. to /home), force it back to root so PublicRoute
+      // re-renders.
+      const hash = await browser.execute(() => window.location.hash).catch(() => '');
+      if (typeof hash === 'string' && hash !== '#/' && hash !== '#') {
+        await browser
+          .execute(() => {
+            window.location.replace('#/');
+          })
+          .catch(() => undefined);
+      }
+      await browser.pause(300);
+    }
+    if (welcomeVisible) {
+      stepLog('Welcome screen confirmed');
+    } else {
+      stepLog('Welcome screen still not visible — caller may assert and fail');
+    }
     return userId;
   }
 

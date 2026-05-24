@@ -1,6 +1,12 @@
 //! End-to-end: clean → compose → push the conversation into a tree as one
 //! leaf. Uses the [`crate::openhuman::memory_tree`] write contract so the
 //! archivist stays unaware of tree internals.
+//!
+//! The archivist intentionally writes one leaf per archived conversation
+//! rather than persisting another bespoke store. `chunk_id_for_session`
+//! hashes `(session_id, composed_markdown)` so retries are deterministic for
+//! the same conversation snapshot while distinct sessions or edits produce a
+//! fresh leaf id.
 
 use anyhow::Result;
 use chrono::Utc;
@@ -88,4 +94,31 @@ fn chunk_id_for_session(session_id: &str, md: &str) -> String {
 #[allow(dead_code)]
 fn _kind_compile_check(t: &Tree) -> TreeKind {
     t.kind
+}
+
+#[cfg(test)]
+mod tests {
+    use super::chunk_id_for_session;
+
+    #[test]
+    fn chunk_id_is_stable_for_same_session_and_markdown() {
+        let a = chunk_id_for_session("session-1", "## user\nhello\n");
+        let b = chunk_id_for_session("session-1", "## user\nhello\n");
+        assert_eq!(a, b);
+        assert!(a.starts_with("archivist:"));
+    }
+
+    #[test]
+    fn chunk_id_changes_when_session_changes() {
+        let a = chunk_id_for_session("session-1", "## user\nhello\n");
+        let b = chunk_id_for_session("session-2", "## user\nhello\n");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn chunk_id_changes_when_markdown_changes() {
+        let a = chunk_id_for_session("session-1", "## user\nhello\n");
+        let b = chunk_id_for_session("session-1", "## user\nhello again\n");
+        assert_ne!(a, b);
+    }
 }

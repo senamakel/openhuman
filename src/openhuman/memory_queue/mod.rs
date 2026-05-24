@@ -24,6 +24,11 @@
 //! All persistence lives in the same `chunks.db` as `mem_tree_chunks` so a
 //! producer can insert its side-effect and its follow-up job in one tx.
 //! See [`store::enqueue_tx`] for the in-tx producer entry point.
+//!
+//! This queue used to live under `openhuman::memory::jobs`; it now has a
+//! dedicated top-level home (`openhuman::memory_queue`) because it is an
+//! execution/runtime concern rather than a leaf of the memory policy API.
+//! `openhuman::memory` re-exports it as `memory::jobs` during the migration.
 
 mod handlers;
 mod redact;
@@ -120,3 +125,20 @@ pub use types::{
     Job, JobKind, JobOutcome, JobStatus, NewJob, NodeRef, SealPayload, TopicRoutePayload,
 };
 pub use worker::{start, wake_workers};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backfill_flag_roundtrip() {
+        set_backfill_in_progress(false);
+        assert!(!backfill_in_progress());
+
+        set_backfill_in_progress(true);
+        assert!(backfill_in_progress());
+
+        set_backfill_in_progress(false);
+        assert!(!backfill_in_progress());
+    }
+}

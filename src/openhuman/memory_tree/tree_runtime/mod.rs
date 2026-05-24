@@ -4,6 +4,11 @@
 //! Each hour, a background job drains buffered raw content, summarizes it into
 //! the hour leaf, and propagates updated summaries upward through the tree.
 //! Stored as markdown files in `memory/namespaces/{ns}/tree/`.
+//!
+//! This module was renamed from `memory::summarizer` to
+//! `memory_tree::tree_runtime` so it no longer collides conceptually with
+//! [`crate::openhuman::memory_tree::summarise`], which is only the single-call
+//! LLM fold primitive used during seals.
 
 pub mod bus;
 pub(crate) mod cli;

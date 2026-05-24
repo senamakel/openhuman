@@ -368,4 +368,30 @@ mod tests {
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].id, "user:m1");
     }
+
+    #[test]
+    fn persisted_channel_thread_id_ignores_blank_thread_ts() {
+        let without = persisted_channel_thread_id("slack", "alice", "general", None);
+        let with_blank = persisted_channel_thread_id("slack", "alice", "general", Some("   "));
+        assert_eq!(without, with_blank);
+    }
+
+    #[test]
+    fn channel_thread_title_uses_thread_suffix_only_for_non_telegram_threads() {
+        assert_eq!(
+            channel_thread_title("slack", "alice", "general", Some(" 123 ")),
+            "slack · alice · general · thread 123"
+        );
+        assert_eq!(
+            channel_thread_title("telegram", "alice", "chat-1", Some("123")),
+            "telegram · alice · chat-1"
+        );
+    }
+
+    #[test]
+    fn non_empty_trimmed_rejects_blank_strings() {
+        assert_eq!(non_empty_trimmed("  hello  "), Some("hello"));
+        assert_eq!(non_empty_trimmed("   "), None);
+        assert_eq!(non_empty_trimmed(""), None);
+    }
 }

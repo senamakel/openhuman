@@ -217,6 +217,10 @@ const en: TranslationMap = {
   'home.restartingCore': 'Restarting core…',
   'home.themeToggle.toLight': 'Switch to light mode',
   'home.themeToggle.toDark': 'Switch to dark mode',
+  'home.usageExhaustedTitle': "You've exhausted your usage",
+  'home.usageExhaustedBody':
+    "You're out of included usage for now. Start a subscription to unlock more ongoing capacity.",
+  'home.usageExhaustedCta': 'Get a subscription',
 
   // Chat / Conversations
   'chat.newThread': 'New thread',

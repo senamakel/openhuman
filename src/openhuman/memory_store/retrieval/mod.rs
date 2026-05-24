@@ -142,3 +142,102 @@ impl RetrievalFacade {
             .collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::embeddings::NoopEmbedding;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata};
+    use chrono::Utc;
+    use tempfile::TempDir;
+
+    fn test_config() -> (TempDir, Config) {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        (tmp, cfg)
+    }
+
+    fn test_facade(tmp: &TempDir) -> RetrievalFacade {
+        let unified = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+        RetrievalFacade::new(Arc::new(unified))
+    }
+
+    fn chunk(id: &str, source_kind: SourceKind, source_id: &str, owner: &str, tags: &[&str]) -> Chunk {
+        let ts = Utc::now();
+        Chunk {
+            id: id.into(),
+            content: format!("content for {id}"),
+            metadata: Metadata {
+                source_kind,
+                source_id: source_id.into(),
+                owner: owner.into(),
+                timestamp: ts,
+                time_range: (ts, ts),
+                tags: tags.iter().map(|s| (*s).to_string()).collect(),
+                source_ref: None,
+            },
+            token_count: 3,
+            seq_in_source: 0,
+            created_at: ts,
+        }
+    }
+
+    #[test]
+    fn param_tag_filters_default_to_no_constraints() {
+        let filters = ParamTagFilters::default();
+        assert!(filters.source_kind.is_none());
+        assert!(filters.source_id.is_none());
+        assert!(filters.owner.is_none());
+        assert!(filters.since_ms.is_none());
+        assert!(filters.until_ms.is_none());
+        assert!(filters.tags_all_of.is_none());
+        assert!(filters.limit.is_none());
+    }
+
+    #[test]
+    fn param_tag_search_filters_by_tags_all_of() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        upsert_chunks(
+            &cfg,
+            &[
+                chunk("c1", SourceKind::Chat, "slack:#eng", "alice", &["person:alice", "deploy"]),
+                chunk("c2", SourceKind::Chat, "slack:#eng", "alice", &["person:alice"]),
+                chunk("c3", SourceKind::Email, "gmail:thread-1", "bob", &["deploy"]),
+            ],
+        )
+        .unwrap();
+
+        let filters = ParamTagFilters {
+            tags_all_of: Some(vec!["person:alice".into(), "deploy".into()]),
+            ..ParamTagFilters::default()
+        };
+        let hits = facade.param_tag_search(&cfg, &filters).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "c1");
+    }
+
+    #[test]
+    fn param_tag_search_respects_source_kind_filter() {
+        let (tmp, cfg) = test_config();
+        let facade = test_facade(&tmp);
+        upsert_chunks(
+            &cfg,
+            &[
+                chunk("c1", SourceKind::Chat, "slack:#eng", "alice", &[]),
+                chunk("c2", SourceKind::Email, "gmail:thread-1", "alice", &[]),
+            ],
+        )
+        .unwrap();
+
+        let filters = ParamTagFilters {
+            source_kind: Some(SourceKind::Email),
+            ..ParamTagFilters::default()
+        };
+        let hits = facade.param_tag_search(&cfg, &filters).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "c2");
+    }
+}

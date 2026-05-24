@@ -115,7 +115,7 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Scheduled job management
     controllers.extend(crate::openhuman::cron::all_cron_registered_controllers());
     // MCP client subsystem: Smithery registry browser, local server install/connect, tool dispatch
-    controllers.extend(crate::openhuman::mcp_clients::all_mcp_clients_registered_controllers());
+    controllers.extend(crate::openhuman::mcp_registry::all_mcp_registry_registered_controllers());
     // Webview APIs bridge — proxies connector calls (Gmail, …) through
     // a WebSocket to the Tauri shell so curl reaches the live webview.
     controllers.extend(crate::openhuman::webview_apis::all_webview_apis_registered_controllers());
@@ -278,7 +278,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_controller_schemas());
     schemas.extend(crate::openhuman::composio::all_composio_controller_schemas());
     schemas.extend(crate::openhuman::cron::all_cron_controller_schemas());
-    schemas.extend(crate::openhuman::mcp_clients::all_mcp_clients_controller_schemas());
+    schemas.extend(crate::openhuman::mcp_registry::all_mcp_registry_controller_schemas());
     schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());
     schemas.extend(crate::openhuman::agent::all_agent_controller_schemas());
     schemas.extend(crate::openhuman::agent_experience::all_agent_experience_controller_schemas());

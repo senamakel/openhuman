@@ -397,7 +397,7 @@ fn handle_registry_search(params: Map<String, Value>) -> ControllerFuture {
         let page = read_optional_u32(&params, "page")?;
         let page_size = read_optional_u32(&params, "page_size")?;
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_registry_search(
+            crate::openhuman::mcp_registry::ops::mcp_clients_registry_search(
                 &config, query, page, page_size,
             )
             .await?,
@@ -410,7 +410,7 @@ fn handle_registry_get(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let qualified_name = read_required::<String>(&params, "qualified_name")?;
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_registry_get(&config, qualified_name)
+            crate::openhuman::mcp_registry::ops::mcp_clients_registry_get(&config, qualified_name)
                 .await?,
         )
     })
@@ -420,7 +420,7 @@ fn handle_installed_list(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let _ = params;
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::mcp_clients::ops::mcp_clients_installed_list(&config).await?)
+        to_json(crate::openhuman::mcp_registry::ops::mcp_clients_installed_list(&config).await?)
     })
 }
 
@@ -431,7 +431,7 @@ fn handle_install(params: Map<String, Value>) -> ControllerFuture {
         let env = read_required::<std::collections::HashMap<String, String>>(&params, "env")?;
         let config_value = read_optional_json(&params, "config")?;
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_install(
+            crate::openhuman::mcp_registry::ops::mcp_clients_install(
                 &config,
                 qualified_name,
                 env,
@@ -447,7 +447,7 @@ fn handle_uninstall(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let server_id = read_required::<String>(&params, "server_id")?;
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_uninstall(&config, server_id).await?,
+            crate::openhuman::mcp_registry::ops::mcp_clients_uninstall(&config, server_id).await?,
         )
     })
 }
@@ -456,14 +456,14 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let server_id = read_required::<String>(&params, "server_id")?;
-        to_json(crate::openhuman::mcp_clients::ops::mcp_clients_connect(&config, server_id).await?)
+        to_json(crate::openhuman::mcp_registry::ops::mcp_clients_connect(&config, server_id).await?)
     })
 }
 
 fn handle_disconnect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let server_id = read_required::<String>(&params, "server_id")?;
-        to_json(crate::openhuman::mcp_clients::ops::mcp_clients_disconnect(server_id).await?)
+        to_json(crate::openhuman::mcp_registry::ops::mcp_clients_disconnect(server_id).await?)
     })
 }
 
@@ -471,7 +471,7 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let _ = params;
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::mcp_clients::ops::mcp_clients_status(&config).await?)
+        to_json(crate::openhuman::mcp_registry::ops::mcp_clients_status(&config).await?)
     })
 }
 
@@ -484,7 +484,7 @@ fn handle_tool_call(params: Map<String, Value>) -> ControllerFuture {
             .cloned()
             .unwrap_or(Value::Object(Map::new()));
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_tool_call(
+            crate::openhuman::mcp_registry::ops::mcp_clients_tool_call(
                 server_id, tool_name, arguments,
             )
             .await?,
@@ -497,11 +497,11 @@ fn handle_config_assist(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let qualified_name = read_required::<String>(&params, "qualified_name")?;
         let user_message = read_required::<String>(&params, "user_message")?;
-        let history = read_optional::<Vec<crate::openhuman::mcp_clients::types::ChatTurn>>(
+        let history = read_optional::<Vec<crate::openhuman::mcp_registry::types::ChatTurn>>(
             &params, "history",
         )?;
         to_json(
-            crate::openhuman::mcp_clients::ops::mcp_clients_config_assist(
+            crate::openhuman::mcp_registry::ops::mcp_clients_config_assist(
                 &config,
                 qualified_name,
                 user_message,

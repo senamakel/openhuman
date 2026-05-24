@@ -1,7 +1,7 @@
 //! RPC handler implementations for the MCP clients domain.
 //!
 //! Each function maps 1-to-1 with a `schemas.rs` handler and is testable
-//! in isolation via the `FakeMcpTransport` in `client/mod.rs`.
+//! in isolation; live-process tests live in `tests/json_rpc_e2e.rs`.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn collect_required_env_keys_from_schema() {
-        use crate::openhuman::mcp_clients::types::{SmitheryConnection, SmitheryServerDetail};
+        use crate::openhuman::mcp_registry::types::{SmitheryConnection, SmitheryServerDetail};
         let detail = SmitheryServerDetail {
             qualified_name: "@test/s".to_string(),
             display_name: "T".to_string(),
@@ -610,6 +610,7 @@ mod tests {
                 published: true,
                 extra: Default::default(),
             }],
+            source: "smithery".to_string(),
             extra: Default::default(),
         };
         let keys = collect_required_env_keys(&detail);
@@ -627,7 +628,7 @@ mod tests {
 
     #[test]
     fn resolve_command_with_example_config() {
-        use crate::openhuman::mcp_clients::types::SmitheryConnection;
+        use crate::openhuman::mcp_registry::types::SmitheryConnection;
         let conn = SmitheryConnection {
             r#type: "stdio".to_string(),
             deployment_url: None,

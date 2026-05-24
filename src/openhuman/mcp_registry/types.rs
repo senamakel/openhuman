@@ -134,6 +134,12 @@ pub struct SmitheryServerSummary {
     pub use_count: u64,
     #[serde(default)]
     pub is_deployed: bool,
+    /// Upstream registry id (`"smithery"` | `"mcp_official"`). Always set
+    /// by the dispatcher in `super::registries` so the frontend can attribute
+    /// rows and the install path can route `registry_get` back to the
+    /// originating upstream.
+    #[serde(default)]
+    pub source: String,
     /// Raw extra fields preserved for future use.
     #[serde(flatten, default)]
     pub extra: std::collections::HashMap<String, Value>,
@@ -151,6 +157,9 @@ pub struct SmitheryServerDetail {
     pub icon_url: Option<String>,
     #[serde(default)]
     pub connections: Vec<SmitheryConnection>,
+    /// Upstream registry id (`"smithery"` | `"mcp_official"`).
+    #[serde(default)]
+    pub source: String,
     #[serde(flatten, default)]
     pub extra: std::collections::HashMap<String, Value>,
 }

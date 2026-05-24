@@ -25,6 +25,7 @@ import {
   setCloudProviderKey,
   setLocalRuntimeEnabled,
   setOpenAICompatEndpointKey,
+  testProviderModel,
 } from '../aiSettingsApi';
 
 // ─── Mock declarations (must be hoisted before imports) ───────────────────────
@@ -806,6 +807,35 @@ describe('listProviderModels', () => {
     const models = await listProviderModels('openai');
 
     expect(models).toEqual([]);
+  });
+});
+
+describe('testProviderModel', () => {
+  beforeEach(() => {
+    mockCallCoreRpc.mockReset();
+    mockIsTauri.mockReturnValue(true);
+  });
+
+  it('dispatches openhuman.inference_test_provider_model and returns the reply', async () => {
+    mockCallCoreRpc.mockResolvedValue({ result: { reply: 'Hello from model' } });
+
+    const result = await testProviderModel('reasoning', 'openai:gpt-4o');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.inference_test_provider_model',
+      params: { workload: 'reasoning', provider: 'openai:gpt-4o', prompt: 'Hello world' },
+      timeoutMs: 120000,
+    });
+    expect(result).toEqual({ reply: 'Hello from model' });
+  });
+
+  it('throws when not running in Tauri', async () => {
+    mockIsTauri.mockReturnValue(false);
+
+    await expect(testProviderModel('reasoning', 'openai:gpt-4o')).rejects.toThrow(
+      'Model testing is only available in the desktop app.'
+    );
+    expect(mockCallCoreRpc).not.toHaveBeenCalled();
   });
 });
 

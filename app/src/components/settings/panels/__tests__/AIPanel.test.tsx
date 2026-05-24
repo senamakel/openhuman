@@ -11,6 +11,7 @@ import {
   saveAISettings,
   setCloudProviderKey,
   setOpenAICompatEndpointKey,
+  testProviderModel,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { renderWithProviders } from '../../../../test/test-utils';
@@ -40,6 +41,7 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
   saveAISettings: vi.fn(),
   loadLocalProviderSnapshot: vi.fn(),
   setOpenAICompatEndpointKey: vi.fn(),
+  testProviderModel: vi.fn(),
   clearOpenAICompatEndpointKey: vi.fn().mockResolvedValue(undefined),
   setCloudProviderKey: vi.fn(),
   clearCloudProviderKey: vi.fn().mockResolvedValue(undefined),
@@ -203,6 +205,7 @@ describe('AIPanel', () => {
     vi.mocked(setOpenAICompatEndpointKey).mockResolvedValue(undefined);
     vi.mocked(clearOpenAICompatEndpointKey).mockResolvedValue(undefined);
     vi.mocked(setCloudProviderKey).mockResolvedValue(undefined);
+    vi.mocked(testProviderModel).mockResolvedValue({ reply: 'Hello from the selected model.' });
     vi.mocked(listProviderModels).mockResolvedValue([]);
     vi.mocked(openhumanHeartbeatSettingsGet).mockResolvedValue({
       result: { settings: baseHeartbeatSettings },
@@ -431,6 +434,8 @@ describe('AIPanel', () => {
 
     // The full CloudProviderEditor should appear (has "Add cloud provider" heading).
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
+    expect(screen.getByLabelText(/^Name$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/OpenAI URL/i)).toBeInTheDocument();
     // The simple ProviderKeyDialog should NOT appear.
     expect(screen.queryByRole('dialog', { name: /Connect Custom/i })).not.toBeInTheDocument();
   });
@@ -586,18 +591,48 @@ describe('AIPanel', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Team Gateway' } });
+    fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
+      target: { value: 'https://api.openai.com/v1' },
+    });
     fireEvent.change(screen.getByPlaceholderText('sk-...'), { target: { value: 'sk-test-key' } });
     fireEvent.click(screen.getByRole('button', { name: /Add provider/i }));
 
     const alert = await screen.findByRole('alert');
     expect(
       within(alert).getByText(
-        'Could not reach OpenAI: Provider teapot says no. Try another endpoint.'
+        'Could not reach Team Gateway: Provider teapot says no. Try another endpoint.'
       )
     ).toBeInTheDocument();
     expect(within(alert).getByText('Technical details')).toBeInTheDocument();
     expect(within(alert).getByText(/provider returned 418/)).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: /Disconnect OpenAI/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Disconnect Team Gateway/i })).not.toBeInTheDocument();
+  });
+
+  it('derives the custom provider slug from the entered name', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Connect Custom/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
+    await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'My Team Gateway' } });
+    expect(screen.getByText(/Slug:/i)).toHaveTextContent('Slug: my-team-gateway');
+
+    fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
+      target: { value: 'https://gateway.example.com/v1' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('sk-...'), { target: { value: 'sk-team-key' } });
+    fireEvent.click(screen.getByRole('button', { name: /Add provider/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(setCloudProviderKey)).toHaveBeenCalledWith('my-team-gateway', 'sk-team-key')
+    );
+    await waitFor(() => expect(vi.mocked(listProviderModels)).toHaveBeenCalledWith('my-team-gateway'));
   });
 
   // ─── local runtime: Ollama endpoint URL dialog ──────────────────────────────
@@ -664,6 +699,30 @@ describe('AIPanel', () => {
     });
   });
 
+  it('LM Studio save persists the local_ai provider and endpoint', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Connect LM Studio/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('switch', { name: /Connect LM Studio/i }));
+    const dialog = await screen.findByRole('dialog', { name: /Connect LM Studio/i });
+
+    fireEvent.change(within(dialog).getByLabelText(/Endpoint URL/i), {
+      target: { value: 'http://127.0.0.1:1234/v1' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() => expect(openhumanUpdateLocalAiSettingsMock).toHaveBeenCalled());
+    const [arg] = vi.mocked(openhumanUpdateLocalAiSettingsMock).mock.calls[0];
+    expect(arg).toMatchObject({
+      base_url: 'http://127.0.0.1:1234/v1',
+      provider: 'lm_studio',
+      runtime_enabled: true,
+      opt_in_confirmed: true,
+    });
+  });
+
   // ─── Custom routing dialog: per-workload temperature override ───────────────
 
   it('Custom routing dialog saves the routing change immediately from the modal', async () => {
@@ -722,6 +781,126 @@ describe('AIPanel', () => {
       model: 'gpt-4o',
       temperature: 0.2,
     });
+  });
+
+  it('Custom routing dialog can test the selected cloud model and show its reply', async () => {
+    const settingsWithOpenAI = {
+      cloudProviders: [
+        {
+          id: 'p_openai_1',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer' as const,
+          has_api_key: true,
+        },
+      ],
+      routing: {
+        ...baseSettings.routing,
+        reasoning: { kind: 'cloud' as const, providerSlug: 'openai', model: 'gpt-4o' },
+      },
+    };
+    vi.mocked(loadAISettings).mockResolvedValue(settingsWithOpenAI);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }, { id: 'gpt-4o-mini' }]);
+    vi.mocked(testProviderModel).mockResolvedValue({ reply: 'Hello from gpt-4o.' });
+
+    renderWithProviders(<AIPanel />);
+
+    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    expect(rowEl).not.toBeNull();
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(testProviderModel)).toHaveBeenCalledWith(
+        'reasoning',
+        'openai:gpt-4o',
+        'Hello world'
+      )
+    );
+    expect(await within(dialog).findByText('Model response')).toBeInTheDocument();
+    expect(within(dialog).getByText('Hello from gpt-4o.')).toBeInTheDocument();
+  });
+
+  it('Custom routing dialog shows in-flight test status immediately', async () => {
+    const settingsWithOpenAI = {
+      cloudProviders: [
+        {
+          id: 'p_openai_1',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer' as const,
+          has_api_key: true,
+        },
+      ],
+      routing: {
+        ...baseSettings.routing,
+        reasoning: { kind: 'cloud' as const, providerSlug: 'openai', model: 'gpt-4o' },
+      },
+    };
+    vi.mocked(loadAISettings).mockResolvedValue(settingsWithOpenAI);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+    let resolveTest: ((value: { reply: string }) => void) | null = null;
+    vi.mocked(testProviderModel).mockReturnValue(
+      new Promise(resolve => {
+        resolveTest = resolve;
+      })
+    );
+
+    renderWithProviders(<AIPanel />);
+
+    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    expect(rowEl).not.toBeNull();
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
+
+    expect(await within(dialog).findByText('Testing model…')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Provider: openai:gpt-4o/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Prompt: Hello world/i)).toBeInTheDocument();
+
+    resolveTest?.({ reply: 'Hello from gpt-4o.' });
+    expect(await within(dialog).findByText('Model response')).toBeInTheDocument();
+  });
+
+  it('Custom routing dialog shows test errors inline', async () => {
+    const settingsWithOpenAI = {
+      cloudProviders: [
+        {
+          id: 'p_openai_1',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer' as const,
+          has_api_key: true,
+        },
+      ],
+      routing: {
+        ...baseSettings.routing,
+        reasoning: { kind: 'cloud' as const, providerSlug: 'openai', model: 'gpt-4o' },
+      },
+    };
+    vi.mocked(loadAISettings).mockResolvedValue(settingsWithOpenAI);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+    vi.mocked(testProviderModel).mockRejectedValue(new Error('401 invalid api key'));
+
+    renderWithProviders(<AIPanel />);
+
+    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    expect(rowEl).not.toBeNull();
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('401 invalid api key');
   });
 
   it('renders background loop diagnostics with newest spend row and budget math', async () => {

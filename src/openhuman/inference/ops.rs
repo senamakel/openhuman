@@ -13,6 +13,11 @@ use tracing::{debug, error};
 
 const LOG_PREFIX: &str = "[inference::ops]";
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct InferenceTestProviderModelResult {
+    pub reply: String,
+}
+
 pub async fn inference_status(config: &Config) -> Result<RpcOutcome<LocalAiStatus>, String> {
     debug!("{LOG_PREFIX} status:start");
     let result = local_runtime::rpc::local_ai_status(config).await;
@@ -119,6 +124,88 @@ pub async fn inference_chat(
     match &result {
         Ok(outcome) => debug!(output_len = outcome.value.len(), "{LOG_PREFIX} chat:ok"),
         Err(err) => error!(error = %err, "{LOG_PREFIX} chat:error"),
+    }
+    result
+}
+
+pub async fn inference_test_provider_model(
+    config: &Config,
+    workload: &str,
+    provider: &str,
+    prompt: &str,
+) -> Result<RpcOutcome<InferenceTestProviderModelResult>, String> {
+    debug!(
+        workload,
+        provider,
+        prompt_len = prompt.len(),
+        "{LOG_PREFIX} test_provider_model:start"
+    );
+    let result = if provider.trim().starts_with("lmstudio:") || provider.trim().starts_with("ollama:") {
+        let mut effective = config.clone();
+        let (local_kind, raw_model) = provider
+            .split_once(':')
+            .ok_or_else(|| "invalid local provider string".to_string())?;
+        let (model, temperature_override) = match raw_model.rsplit_once('@') {
+            Some((head, tail)) => match tail.trim().parse::<f64>() {
+                Ok(temp) if !head.trim().is_empty() => (head.trim().to_string(), Some(temp)),
+                _ => (raw_model.trim().to_string(), None),
+            },
+            None => (raw_model.trim().to_string(), None),
+        };
+        if model.is_empty() {
+            return Err("model must not be empty".to_string());
+        }
+        if let Some(temp) = temperature_override {
+            effective.default_temperature = temp;
+        }
+        if local_kind == "lmstudio" {
+            effective.local_ai.provider = "lm_studio".to_string();
+            if let Some(entry) = config.cloud_providers.iter().find(|e| e.slug == "lmstudio") {
+                effective.local_ai.base_url = Some(entry.endpoint.clone());
+            }
+        } else {
+            effective.local_ai.provider = "ollama".to_string();
+            if let Some(entry) = config.cloud_providers.iter().find(|e| e.slug == "ollama") {
+                effective.local_ai.base_url =
+                    Some(entry.endpoint.trim_end_matches("/").trim_end_matches("/v1").to_string());
+            }
+        }
+        effective.local_ai.chat_model_id = model;
+        let messages = vec![LocalAiChatMessage {
+            role: "user".to_string(),
+            content: prompt.to_string(),
+        }];
+        local_runtime::rpc::local_ai_chat(&effective, messages, None)
+            .await
+            .map(|outcome| {
+                RpcOutcome::single_log(
+                    InferenceTestProviderModelResult { reply: outcome.value },
+                    "provider model test completed",
+                )
+            })
+    } else {
+        let (chat_provider, model) =
+            crate::openhuman::inference::provider::factory::create_chat_provider_from_string(
+                workload, provider, config,
+            )
+            .map_err(|e| e.to_string())?;
+        chat_provider
+            .simple_chat(prompt, &model, config.default_temperature)
+            .await
+            .map_err(|e| e.to_string())
+            .map(|reply| {
+                RpcOutcome::single_log(
+                    InferenceTestProviderModelResult { reply },
+                    "provider model test completed",
+                )
+            })
+    };
+    match &result {
+        Ok(outcome) => debug!(
+            output_len = outcome.value.reply.len(),
+            "{LOG_PREFIX} test_provider_model:ok"
+        ),
+        Err(err) => error!(error = %err, "{LOG_PREFIX} test_provider_model:error"),
     }
     result
 }

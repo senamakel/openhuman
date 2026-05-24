@@ -187,6 +187,26 @@ pub(crate) struct LmStudioChatChoice {
 pub(crate) struct LmStudioChatResponseMessage {
     #[serde(default)]
     pub content: Option<String>,
+    #[serde(default)]
+    pub reasoning_content: Option<String>,
+}
+
+impl LmStudioChatResponseMessage {
+    pub(crate) fn effective_content(&self) -> String {
+        self.content
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string)
+            .or_else(|| {
+                self.reasoning_content
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToString::to_string)
+            })
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -227,5 +247,14 @@ mod tests {
             normalize_lm_studio_base_url("http://127.0.0.1:1234/v1/models").as_deref(),
             Some("http://127.0.0.1:1234/v1")
         );
+    }
+
+    #[test]
+    fn effective_content_falls_back_to_reasoning_content() {
+        let msg = LmStudioChatResponseMessage {
+            content: Some("".into()),
+            reasoning_content: Some("thinking text".into()),
+        };
+        assert_eq!(msg.effective_content(), "thinking text");
     }
 }

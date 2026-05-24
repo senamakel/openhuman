@@ -64,6 +64,15 @@ async fn inference_chat_rejects_empty_messages() {
 }
 
 #[tokio::test]
+async fn inference_test_provider_model_uses_local_runtime_branch_for_lmstudio_prefix() {
+    let (config, _tmp) = disabled_config();
+    let err = inference_test_provider_model(&config, "reasoning", "lmstudio:test-model", "Hello")
+        .await
+        .expect_err("lmstudio local test should fail when local ai is disabled");
+    assert!(err.contains("local ai is disabled"));
+}
+
+#[tokio::test]
 async fn inference_should_react_short_circuits_for_empty_message() {
     let (config, _tmp) = disabled_config();
     let outcome = inference_should_react(&config, "   ", "web")

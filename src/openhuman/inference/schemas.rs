@@ -45,6 +45,13 @@ struct InferenceChatParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct InferenceTestProviderModelParams {
+    workload: String,
+    provider: String,
+    prompt: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct InferenceShouldReactParams {
     message: String,
     channel_type: String,
@@ -147,6 +154,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("vision_prompt"),
         schemas("embed"),
         schemas("chat"),
+        schemas("test_provider_model"),
         schemas("should_react"),
         schemas("analyze_sentiment"),
     ]
@@ -225,6 +233,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("chat"),
             handler: handle_inference_chat,
+        },
+        RegisteredController {
+            schema: schemas("test_provider_model"),
+            handler: handle_inference_test_provider_model,
         },
         RegisteredController {
             schema: schemas("should_react"),
@@ -431,6 +443,17 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 optional_u64("max_tokens", "Optional max output tokens."),
+            ],
+            outputs: vec![json_output("reply", "Assistant reply text.")],
+        },
+        "test_provider_model" => ControllerSchema {
+            namespace: "inference",
+            function: "test_provider_model",
+            description: "Run a one-off Hello-world style test against an explicit provider:model binding without saving routing changes.",
+            inputs: vec![
+                required_string("workload", "Workload id context (chat, reasoning, coding, etc.)."),
+                required_string("provider", "Explicit provider string like 'openai:gpt-4o' or 'ollama:llama3.1:8b'."),
+                optional_string("prompt", "Optional prompt text to send; defaults to 'Hello world'."),
             ],
             outputs: vec![json_output("reply", "Assistant reply text.")],
         },
@@ -800,6 +823,22 @@ fn handle_inference_chat(params: Map<String, Value>) -> ControllerFuture {
         to_json(
             crate::openhuman::inference::rpc::inference_chat(&config, messages, p.max_tokens)
                 .await?,
+        )
+    })
+}
+
+fn handle_inference_test_provider_model(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<InferenceTestProviderModelParams>(params)?;
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(
+            crate::openhuman::inference::rpc::inference_test_provider_model(
+                &config,
+                &p.workload,
+                &p.provider,
+                p.prompt.as_deref().unwrap_or("Hello world"),
+            )
+            .await?,
         )
     })
 }

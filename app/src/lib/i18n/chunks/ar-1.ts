@@ -511,6 +511,22 @@ const ar1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'مسار التنقل',
+  'settings.betaBuild': 'إصدار تجريبي - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (قريبًا)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'استخدم ChatGPT Plus/Pro (اشتراك) أو مفتاح OpenAI API، ولا تحتاج إلى كليهما.',
+  'onboarding.apiKeys.openaiOauthOpening': 'جارٍ فتح تسجيل الدخول…',
+  'onboarding.apiKeys.finishSignIn': 'أكمل تسجيل الدخول إلى ChatGPT',
+  'onboarding.apiKeys.orApiKey': 'أو مفتاح API',
+  'calls.title': 'المكالمات',
+  'calls.comingSoonBody': 'المكالمات المدعومة بالذكاء الاصطناعي قادمة قريبًا. ترقّبها.',
+  'rewards.referralSection.retry': 'إعادة المحاولة',
+  'devOptions.sentryDisabled': '(لا يوجد معرّف — تم تعطيل Sentry في هذا الإصدار)',
+  'home.usageExhaustedTitle': 'لقد استنفدت حصتك',
+  'home.usageExhaustedBody': 'لقد نفدت حصتك المضمنة حالياً. ابدأ اشتراكاً لفتح سعة إضافية مستمرة.',
+  'home.usageExhaustedCta': 'ابدأ الاشتراك',
 };
 
 export default ar1;

@@ -520,5 +520,22 @@ const ko1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': '이동 경로',
+  'settings.betaBuild': '베타 빌드 - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (출시 예정)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'ChatGPT Plus/Pro 구독 또는 OpenAI API 키를 사용할 수 있으며, 둘 다 필요하지는 않습니다.',
+  'onboarding.apiKeys.openaiOauthOpening': '로그인 여는 중…',
+  'onboarding.apiKeys.finishSignIn': 'ChatGPT 로그인 완료',
+  'onboarding.apiKeys.orApiKey': '또는 API 키',
+  'calls.title': '통화',
+  'calls.comingSoonBody': 'AI 지원 통화가 곧 제공됩니다. 기대해 주세요.',
+  'rewards.referralSection.retry': '다시 시도',
+  'devOptions.sentryDisabled': '(ID 없음 — 이 빌드에서는 Sentry가 비활성화됨)',
+  'home.usageExhaustedTitle': '사용 한도를 모두 소진했습니다',
+  'home.usageExhaustedBody':
+    '현재 포함된 사용량을 모두 소진했습니다. 더 많은 지속 용량을 사용하려면 구독을 시작하세요.',
+  'home.usageExhaustedCta': '구독 시작',
 };
 export default ko1;

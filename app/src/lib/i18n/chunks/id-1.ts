@@ -523,6 +523,23 @@ const id1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'Jejak navigasi',
+  'settings.betaBuild': 'Build beta - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (segera hadir)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'Gunakan ChatGPT Plus/Pro (langganan) atau kunci API OpenAI — tidak perlu keduanya.',
+  'onboarding.apiKeys.openaiOauthOpening': 'Membuka masuk…',
+  'onboarding.apiKeys.finishSignIn': 'Selesaikan masuk ChatGPT',
+  'onboarding.apiKeys.orApiKey': 'atau kunci API',
+  'calls.title': 'Panggilan',
+  'calls.comingSoonBody': 'Panggilan berbantuan AI akan segera hadir. Nantikan.',
+  'rewards.referralSection.retry': 'Coba lagi',
+  'devOptions.sentryDisabled': '(tanpa ID — Sentry dinonaktifkan pada build ini)',
+  'home.usageExhaustedTitle': 'Jatah penggunaan Anda telah habis',
+  'home.usageExhaustedBody':
+    'Kuota penggunaan yang termasuk saat ini sudah habis. Mulai langganan untuk membuka kapasitas berkelanjutan yang lebih besar.',
+  'home.usageExhaustedCta': 'Mulai berlangganan',
 };
 
 export default id1;

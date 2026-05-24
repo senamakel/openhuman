@@ -532,6 +532,23 @@ const pt1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'Trilha de navegação',
+  'settings.betaBuild': 'Build beta - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (em breve)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'Use ChatGPT Plus/Pro (assinatura) ou uma chave de API da OpenAI — não são necessários os dois.',
+  'onboarding.apiKeys.openaiOauthOpening': 'Abrindo login…',
+  'onboarding.apiKeys.finishSignIn': 'Concluir login do ChatGPT',
+  'onboarding.apiKeys.orApiKey': 'ou chave de API',
+  'calls.title': 'Chamadas',
+  'calls.comingSoonBody': 'As chamadas com IA chegarão em breve. Fique ligado.',
+  'rewards.referralSection.retry': 'Tentar novamente',
+  'devOptions.sentryDisabled': '(sem ID — o Sentry está desativado nesta build)',
+  'home.usageExhaustedTitle': 'Você esgotou seu uso',
+  'home.usageExhaustedBody':
+    'Seu uso incluído acabou por enquanto. Inicie uma assinatura para desbloquear mais capacidade contínua.',
+  'home.usageExhaustedCta': 'Assinar',
 };
 
 export default pt1;

@@ -517,6 +517,23 @@ const hi1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'ब्रेडक्रंब नेविगेशन',
+  'settings.betaBuild': 'बीटा बिल्ड - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (जल्द आ रहा है)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'आप ChatGPT Plus/Pro सदस्यता या OpenAI API कुंजी में से किसी एक का उपयोग कर सकते हैं — दोनों आवश्यक नहीं हैं।',
+  'onboarding.apiKeys.openaiOauthOpening': 'साइन-इन खोल रहा है…',
+  'onboarding.apiKeys.finishSignIn': 'ChatGPT साइन-इन पूरा करें',
+  'onboarding.apiKeys.orApiKey': 'या API कुंजी',
+  'calls.title': 'कॉल',
+  'calls.comingSoonBody': 'AI-सहायित कॉल जल्द आ रही हैं। जुड़े रहें।',
+  'rewards.referralSection.retry': 'पुनः प्रयास करें',
+  'devOptions.sentryDisabled': '(कोई ID नहीं — इस बिल्ड में Sentry अक्षम है)',
+  'home.usageExhaustedTitle': 'आपका उपयोग समाप्त हो गया है',
+  'home.usageExhaustedBody':
+    'आपकी शामिल उपयोग सीमा अभी समाप्त हो चुकी है। अधिक निरंतर क्षमता अनलॉक करने के लिए सदस्यता शुरू करें।',
+  'home.usageExhaustedCta': 'सदस्यता शुरू करें',
 };
 
 export default hi1;

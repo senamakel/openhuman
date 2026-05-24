@@ -504,6 +504,22 @@ const zhCN1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': '面包屑导航',
+  'settings.betaBuild': '测试版构建 - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent（即将推出）',
+  'onboarding.apiKeys.openaiOauthHint':
+    '可以使用 ChatGPT Plus/Pro 订阅或 OpenAI API 密钥，无需两者都提供。',
+  'onboarding.apiKeys.openaiOauthOpening': '打开登录…',
+  'onboarding.apiKeys.finishSignIn': '完成 ChatGPT 登录',
+  'onboarding.apiKeys.orApiKey': '或 API 密钥',
+  'calls.title': '通话',
+  'calls.comingSoonBody': 'AI 辅助通话即将推出，敬请期待。',
+  'rewards.referralSection.retry': '重试',
+  'devOptions.sentryDisabled': '（无 ID，当前构建已禁用 Sentry）',
+  'home.usageExhaustedTitle': '您的使用额度已耗尽',
+  'home.usageExhaustedBody': '您当前已用完包含的使用额度。开始订阅以解锁更多持续容量。',
+  'home.usageExhaustedCta': '开始订阅',
 };
 
 export default zhCN1;

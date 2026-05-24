@@ -520,6 +520,23 @@ const bn1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'ব্রেডক্রাম্ব নেভিগেশন',
+  'settings.betaBuild': 'বেটা বিল্ড - v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (শীঘ্রই আসছে)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'ChatGPT Plus/Pro (সাবস্ক্রিপশন) বা OpenAI API কী ব্যবহার করুন — দুটিই প্রয়োজন নয়।',
+  'onboarding.apiKeys.openaiOauthOpening': 'সাইন-ইন খোলা হচ্ছে…',
+  'onboarding.apiKeys.finishSignIn': 'ChatGPT সাইন-ইন সম্পূর্ণ করুন',
+  'onboarding.apiKeys.orApiKey': 'অথবা API কী',
+  'calls.title': 'কল',
+  'calls.comingSoonBody': 'AI-সহায়িত কল শিগগিরই আসছে। সঙ্গে থাকুন।',
+  'rewards.referralSection.retry': 'আবার চেষ্টা করুন',
+  'devOptions.sentryDisabled': '(কোনো আইডি নেই — এই বিল্ডে Sentry নিষ্ক্রিয়)',
+  'home.usageExhaustedTitle': 'আপনার ব্যবহার শেষ হয়ে গেছে',
+  'home.usageExhaustedBody':
+    'আপাতত আপনার অন্তর্ভুক্ত ব্যবহার শেষ। আরও ধারাবাহিক সক্ষমতা আনলক করতে একটি সাবস্ক্রিপশন শুরু করুন।',
+  'home.usageExhaustedCta': 'সাবস্ক্রিপশন শুরু করুন',
 };
 
 export default bn1;

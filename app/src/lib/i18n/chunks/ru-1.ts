@@ -522,6 +522,23 @@ const ru1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'common.breadcrumb': 'Навигационная цепочка',
+  'settings.betaBuild': 'Бета-сборка — v{version}',
+  'migration.vendor.openclaw': 'OpenClaw',
+  'migration.vendor.hermes': 'Hermes Agent (скоро)',
+  'onboarding.apiKeys.openaiOauthHint':
+    'Используйте ChatGPT Plus/Pro (подписка) или ключ API OpenAI — оба варианта не требуются одновременно.',
+  'onboarding.apiKeys.openaiOauthOpening': 'Открывается вход…',
+  'onboarding.apiKeys.finishSignIn': 'Завершить вход в ChatGPT',
+  'onboarding.apiKeys.orApiKey': 'или ключ API',
+  'calls.title': 'Звонки',
+  'calls.comingSoonBody': 'Звонки с поддержкой ИИ скоро появятся. Следите за обновлениями.',
+  'rewards.referralSection.retry': 'Повторить',
+  'devOptions.sentryDisabled': '(без идентификатора — Sentry отключён в этой сборке)',
+  'home.usageExhaustedTitle': 'Вы исчерпали лимит использования',
+  'home.usageExhaustedBody':
+    'Включённый объём использования пока исчерпан. Оформите подписку, чтобы получить больше постоянной мощности.',
+  'home.usageExhaustedCta': 'Оформить подписку',
 };
 
 export default ru1;

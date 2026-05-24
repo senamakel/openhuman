@@ -90,8 +90,7 @@ pub fn create_embedding_provider_with_credentials(
             Ok(Box::new(OpenAiEmbedding::new(url, api_key, model, dims)))
         }
         name if name.starts_with("custom:") => {
-            let url = custom_endpoint
-                .unwrap_or_else(|| name.strip_prefix("custom:").unwrap_or(""));
+            let url = custom_endpoint.unwrap_or_else(|| name.strip_prefix("custom:").unwrap_or(""));
             Ok(Box::new(OpenAiEmbedding::new(url, api_key, model, dims)))
         }
         "none" => Ok(Box::new(NoopEmbedding)),

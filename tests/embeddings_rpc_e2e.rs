@@ -97,13 +97,15 @@ chat_onboarding_completed = true
 [secrets]
 encrypt = false
 "#;
-    std::fs::write(config_dir.join("config.toml"), cfg)
-        .expect("write embeddings e2e config.toml");
+    std::fs::write(config_dir.join("config.toml"), cfg).expect("write embeddings e2e config.toml");
 }
 
 // ── HTTP server helpers ───────────────────────────────────────────────────────
 
-async fn serve_on_ephemeral() -> (SocketAddr, tokio::task::JoinHandle<Result<(), std::io::Error>>) {
+async fn serve_on_ephemeral() -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
     ensure_test_rpc_auth();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -180,7 +182,12 @@ async fn setup_embeddings_test() -> (
     let (addr, join) = serve_on_ephemeral().await;
     let rpc_base = format!("http://{addr}");
 
-    (rpc_base, tmp, (home_guard, workspace_guard, backend_guard, vite_guard), join)
+    (
+        rpc_base,
+        tmp,
+        (home_guard, workspace_guard, backend_guard, vite_guard),
+        join,
+    )
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -369,7 +376,13 @@ async fn embeddings_set_and_clear_api_key() {
     );
 
     // get_settings should now show has_api_key=true for voyage
-    let get_resp = post_json_rpc(&rpc_base, 21, "openhuman.embeddings_get_settings", json!({})).await;
+    let get_resp = post_json_rpc(
+        &rpc_base,
+        21,
+        "openhuman.embeddings_get_settings",
+        json!({}),
+    )
+    .await;
     let get_result = assert_no_rpc_error(&get_resp, "get_settings after set_api_key");
     let get_inner = get_result.get("result").unwrap_or(get_result);
     let providers = get_inner
@@ -403,8 +416,13 @@ async fn embeddings_set_and_clear_api_key() {
     );
 
     // has_api_key should be false again
-    let get2_resp =
-        post_json_rpc(&rpc_base, 23, "openhuman.embeddings_get_settings", json!({})).await;
+    let get2_resp = post_json_rpc(
+        &rpc_base,
+        23,
+        "openhuman.embeddings_get_settings",
+        json!({}),
+    )
+    .await;
     let get2_result = assert_no_rpc_error(&get2_resp, "get_settings after clear_api_key");
     let get2_inner = get2_result.get("result").unwrap_or(get2_result);
     let providers2 = get2_inner

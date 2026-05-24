@@ -27,11 +27,7 @@ impl CohereEmbedding {
         } else {
             model.to_string()
         };
-        let dims = if dims == 0 {
-            COHERE_DEFAULT_DIMS
-        } else {
-            dims
-        };
+        let dims = if dims == 0 { COHERE_DEFAULT_DIMS } else { dims };
 
         Self {
             api_key: api_key.to_string(),

@@ -176,10 +176,7 @@ const EmbeddingsPanel = () => {
   async function handleDimsChange(dims: number) {
     setStatus({ kind: 'saving' });
     try {
-      const result = await updateEmbeddingsSettings({
-        dimensions: dims,
-        confirm_wipe: false,
-      });
+      const result = await updateEmbeddingsSettings({ dimensions: dims, confirm_wipe: false });
       if (result.error === 'EMBEDDINGS_DIMENSION_CHANGE_REQUIRES_WIPE') {
         setPendingWipe({ dimensions: dims });
         setStatus({ kind: 'idle' });
@@ -310,9 +307,7 @@ const EmbeddingsPanel = () => {
     try {
       const result = await testEmbeddingsConnection();
       if (result.success) {
-        setStatus({
-          kind: 'saved',
-        });
+        setStatus({ kind: 'saved' });
       } else {
         setStatus({ kind: 'error', message: result.error ?? 'Test failed' });
       }
@@ -399,64 +394,66 @@ const EmbeddingsPanel = () => {
         </div>
 
         {/* Model & dimensions (for active provider with catalog models) */}
-        {currentModels.length > 0 && selectedProvider !== 'custom' && selectedProvider !== 'none' && (
-          <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 space-y-3">
-            {currentModels.length > 1 && (
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-neutral-200 mb-1">
-                  {t('settings.embeddings.model')}
-                </label>
-                <select
-                  value={settings.model}
-                  onChange={e => void handleModelChange(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                  {currentModels.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.label} ({m.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+        {currentModels.length > 0 &&
+          selectedProvider !== 'custom' &&
+          selectedProvider !== 'none' && (
+            <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 space-y-3">
+              {currentModels.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-neutral-200 mb-1">
+                    {t('settings.embeddings.model')}
+                  </label>
+                  <select
+                    value={settings.model}
+                    onChange={e => void handleModelChange(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                    {currentModels.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.label} ({m.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-            {allowedDims.length > 1 && (
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-neutral-200 mb-1">
-                  {t('settings.embeddings.dimensions')}
-                </label>
-                <select
-                  value={settings.dimensions}
-                  onChange={e => void handleDimsChange(Number(e.target.value))}
-                  className="w-full px-2 py-1.5 rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                  {allowedDims.map(d => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+              {allowedDims.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-neutral-200 mb-1">
+                    {t('settings.embeddings.dimensions')}
+                  </label>
+                  <select
+                    value={settings.dimensions}
+                    onChange={e => void handleDimsChange(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 rounded-md border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                    {allowedDims.map(d => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-            {/* Active provider info + actions */}
-            <div className="flex items-center gap-2 pt-1">
-              {currentEntry?.requires_api_key && currentEntry.has_api_key && (
+              {/* Active provider info + actions */}
+              <div className="flex items-center gap-2 pt-1">
+                {currentEntry?.requires_api_key && currentEntry.has_api_key && (
+                  <button
+                    type="button"
+                    onClick={() => void handleClearKey()}
+                    className="px-2.5 py-1 rounded-md border border-coral-200 dark:border-coral-500/30 text-[11px] text-coral-600 dark:text-coral-300 hover:bg-coral-50 dark:hover:bg-coral-500/10">
+                    {t('settings.embeddings.clearKey')}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => void handleClearKey()}
-                  className="px-2.5 py-1 rounded-md border border-coral-200 dark:border-coral-500/30 text-[11px] text-coral-600 dark:text-coral-300 hover:bg-coral-50 dark:hover:bg-coral-500/10">
-                  {t('settings.embeddings.clearKey')}
+                  onClick={() => void handleTestConnection()}
+                  disabled={selectedProvider === 'none'}
+                  className="px-2.5 py-1 rounded-md border border-stone-200 dark:border-neutral-800 text-[11px] text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-50">
+                  {t('settings.embeddings.testConnection')}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void handleTestConnection()}
-                disabled={selectedProvider === 'none'}
-                className="px-2.5 py-1 rounded-md border border-stone-200 dark:border-neutral-800 text-[11px] text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-50">
-                {t('settings.embeddings.testConnection')}
-              </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Status bar */}
         <div
@@ -531,7 +528,8 @@ const EmbeddingsPanel = () => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-stone-600 dark:text-neutral-300 mb-1">
-                    {t('settings.embeddings.apiKeyLabel').replace('{provider}', 'API')} ({t('settings.embeddings.optional')})
+                    {t('settings.embeddings.apiKeyLabel').replace('{provider}', 'API')} (
+                    {t('settings.embeddings.optional')})
                   </label>
                   <input
                     type={setupShowKey ? 'text' : 'password'}
@@ -550,7 +548,10 @@ const EmbeddingsPanel = () => {
                 </p>
                 <div>
                   <label className="block text-[11px] font-medium text-stone-600 dark:text-neutral-300 mb-1">
-                    {t('settings.embeddings.apiKeyLabel').replace('{provider}', setupProvider.label)}
+                    {t('settings.embeddings.apiKeyLabel').replace(
+                      '{provider}',
+                      setupProvider.label
+                    )}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -586,11 +587,11 @@ const EmbeddingsPanel = () => {
                 {setupTestResult.success
                   ? t('settings.embeddings.testSuccess').replace(
                       '{dims}',
-                      String(setupTestResult.actual_dimensions ?? '?'),
+                      String(setupTestResult.actual_dimensions ?? '?')
                     )
                   : t('settings.embeddings.testFailed').replace(
                       '{error}',
-                      setupTestResult.error ?? '',
+                      setupTestResult.error ?? ''
                     )}
               </div>
             )}
@@ -616,7 +617,9 @@ const EmbeddingsPanel = () => {
                   (setupProvider.slug !== 'custom' && !setupKey.trim())
                 }
                 className="px-3 py-1.5 rounded-lg text-xs font-medium border border-stone-200 dark:border-neutral-700 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800 disabled:opacity-40">
-                {setupTesting ? t('settings.embeddings.testing') : t('settings.embeddings.testConnection')}
+                {setupTesting
+                  ? t('settings.embeddings.testing')
+                  : t('settings.embeddings.testConnection')}
               </button>
 
               <div className="flex gap-2">
@@ -637,11 +640,15 @@ const EmbeddingsPanel = () => {
                   }}
                   disabled={
                     setupSaving ||
-                    (setupProvider.slug !== 'custom' && !setupKey.trim() && !setupProvider.has_api_key) ||
+                    (setupProvider.slug !== 'custom' &&
+                      !setupKey.trim() &&
+                      !setupProvider.has_api_key) ||
                     (setupProvider.slug === 'custom' && !customEndpoint.trim())
                   }
                   className="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40">
-                  {setupSaving ? t('settings.embeddings.saving') : t('settings.embeddings.saveAndSwitch')}
+                  {setupSaving
+                    ? t('settings.embeddings.saving')
+                    : t('settings.embeddings.saveAndSwitch')}
                 </button>
               </div>
             </div>

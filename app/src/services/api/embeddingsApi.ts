@@ -80,10 +80,7 @@ export async function updateEmbeddingsSettings(params: {
   return 'result' in raw ? raw.result : raw;
 }
 
-export async function setEmbeddingsApiKey(
-  provider: string,
-  apiKey: string,
-): Promise<void> {
+export async function setEmbeddingsApiKey(provider: string, apiKey: string): Promise<void> {
   await callCoreRpc({
     method: CORE_RPC_METHODS.embeddingsSetApiKey,
     params: { provider, api_key: apiKey },
@@ -91,10 +88,7 @@ export async function setEmbeddingsApiKey(
 }
 
 export async function clearEmbeddingsApiKey(provider: string): Promise<void> {
-  await callCoreRpc({
-    method: CORE_RPC_METHODS.embeddingsClearApiKey,
-    params: { provider },
-  });
+  await callCoreRpc({ method: CORE_RPC_METHODS.embeddingsClearApiKey, params: { provider } });
 }
 
 export async function testEmbeddingsConnection(params?: {

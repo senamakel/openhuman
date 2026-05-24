@@ -12,9 +12,7 @@ use super::factory::create_embedding_provider_with_credentials;
 const LOG_PREFIX: &str = "[embeddings::rpc]";
 
 /// Returns the current embedding settings plus the provider catalog.
-pub async fn get_settings(
-    config: &Config,
-) -> Result<RpcOutcome<serde_json::Value>, String> {
+pub async fn get_settings(config: &Config) -> Result<RpcOutcome<serde_json::Value>, String> {
     let provider = &config.memory.embedding_provider;
     let model = &config.memory.embedding_model;
     let dimensions = config.memory.embedding_dimensions;
@@ -60,7 +58,10 @@ pub async fn get_settings(
         "{LOG_PREFIX} get_settings"
     );
 
-    Ok(RpcOutcome::new(payload, vec!["embeddings settings loaded".into()]))
+    Ok(RpcOutcome::new(
+        payload,
+        vec!["embeddings settings loaded".into()],
+    ))
 }
 
 /// Updates embedding provider/model/dimensions. If the embedding signature
@@ -84,8 +85,12 @@ pub async fn update_settings(
         config.memory.embedding_dimensions,
     );
 
-    let new_provider = provider.clone().unwrap_or_else(|| config.memory.embedding_provider.clone());
-    let new_model = model.clone().unwrap_or_else(|| config.memory.embedding_model.clone());
+    let new_provider = provider
+        .clone()
+        .unwrap_or_else(|| config.memory.embedding_provider.clone());
+    let new_model = model
+        .clone()
+        .unwrap_or_else(|| config.memory.embedding_model.clone());
     let new_dims = dimensions.unwrap_or(config.memory.embedding_dimensions);
     let new_sig = format_embedding_signature(&new_provider, &new_model, new_dims);
 
@@ -105,9 +110,10 @@ pub async fn update_settings(
             "message": "Changing embedding dimensions invalidates all stored vectors. \
                         Pass confirm_wipe=true to wipe memory and apply.",
         });
-        return Ok(RpcOutcome::new(payload, vec![
-            "embedding dimension change requires wipe confirmation".into(),
-        ]));
+        return Ok(RpcOutcome::new(
+            payload,
+            vec!["embedding dimension change requires wipe confirmation".into()],
+        ));
     }
 
     if dims_changed {
@@ -169,9 +175,12 @@ pub async fn update_settings(
         "new_signature": new_sig,
     });
 
-    Ok(RpcOutcome::new(payload, vec![
-        format!("embeddings settings updated (sig_changed={sig_changed})"),
-    ]))
+    Ok(RpcOutcome::new(
+        payload,
+        vec![format!(
+            "embeddings settings updated (sig_changed={sig_changed})"
+        )],
+    ))
 }
 
 /// Stores an API key for a specific embedding provider.
@@ -189,19 +198,10 @@ pub async fn set_api_key(
 
     let cred_provider = format!("embeddings:{provider_slug}");
     let auth = AuthService::from_config(config);
-    auth.store_provider_token(
-        &cred_provider,
-        "default",
-        api_key,
-        HashMap::new(),
-        true,
-    )
-    .map_err(|e| format!("failed to store embedding API key: {e}"))?;
+    auth.store_provider_token(&cred_provider, "default", api_key, HashMap::new(), true)
+        .map_err(|e| format!("failed to store embedding API key: {e}"))?;
 
-    tracing::info!(
-        provider = provider_slug,
-        "{LOG_PREFIX} set_api_key stored"
-    );
+    tracing::info!(provider = provider_slug, "{LOG_PREFIX} set_api_key stored");
 
     Ok(RpcOutcome::new(
         serde_json::json!({ "stored": true, "provider": provider_slug }),
@@ -249,7 +249,9 @@ pub async fn embed(
     let api_key = resolve_api_key(config, provider_name);
 
     let custom_endpoint = if provider_name.starts_with("custom:") {
-        provider_name.strip_prefix("custom:").map(|s: &str| s.to_string())
+        provider_name
+            .strip_prefix("custom:")
+            .map(|s: &str| s.to_string())
     } else {
         None
     };
@@ -270,10 +272,7 @@ pub async fn embed(
     .map_err(|e| e.to_string())?;
 
     let refs: Vec<&str> = inputs.iter().map(|s| s.as_str()).collect();
-    let vectors = embedder
-        .embed(&refs)
-        .await
-        .map_err(|e| e.to_string())?;
+    let vectors = embedder.embed(&refs).await.map_err(|e| e.to_string())?;
 
     let actual_dims = vectors.first().map(|v| v.len()).unwrap_or(0);
 
@@ -348,7 +347,10 @@ pub async fn test_connection(
                 "requested_dimensions": dims,
                 "actual_dimensions": actual_dims,
             });
-            Ok(RpcOutcome::new(payload, vec!["connection test passed".into()]))
+            Ok(RpcOutcome::new(
+                payload,
+                vec!["connection test passed".into()],
+            ))
         }
         Err(e) => {
             let payload = serde_json::json!({
@@ -357,7 +359,10 @@ pub async fn test_connection(
                 "model": model,
                 "error": e.to_string(),
             });
-            Ok(RpcOutcome::new(payload, vec![format!("connection test failed: {e}")]))
+            Ok(RpcOutcome::new(
+                payload,
+                vec![format!("connection test failed: {e}")],
+            ))
         }
     }
 }

@@ -164,12 +164,8 @@ pub fn find_provider(slug: &str) -> Option<&'static EmbeddingProviderEntry> {
     CATALOG.iter().find(|e| e.slug == slug)
 }
 
-pub fn find_model(
-    provider_slug: &str,
-    model_id: &str,
-) -> Option<&'static EmbeddingModelPreset> {
-    find_provider(provider_slug)
-        .and_then(|p| p.models.iter().find(|m| m.id == model_id))
+pub fn find_model(provider_slug: &str, model_id: &str) -> Option<&'static EmbeddingModelPreset> {
+    find_provider(provider_slug).and_then(|p| p.models.iter().find(|m| m.id == model_id))
 }
 
 pub fn default_model_for(provider_slug: &str) -> Option<&'static EmbeddingModelPreset> {

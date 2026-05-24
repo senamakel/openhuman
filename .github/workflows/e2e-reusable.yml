@@ -248,14 +248,14 @@ jobs:
           cp -a app/src-tauri/target/debug/OpenHuman "$STAGE/repo/app/src-tauri/target/debug/"
           cp -a app/dist/. "$STAGE/repo/app/dist/"
           cp -a "$HOME/Library/Caches/tauri-cef" "$STAGE/home/Library/Caches/tauri-cef"
-          tar --zstd -cf e2e-build-linux.tar.zst -C "$STAGE" repo home
-          ls -lh e2e-build-linux.tar.zst
+          tar -czf e2e-build-linux.tar.gz -C "$STAGE" repo home
+          ls -lh e2e-build-linux.tar.gz
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v5
         with:
           name: e2e-build-linux-${{ github.run_id }}
-          path: e2e-build-linux.tar.zst
+          path: e2e-build-linux.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -317,14 +317,14 @@ jobs:
 
       - name: Restore build artifact into workspace + $HOME
         run: |
-          tar --zstd -xf e2e-build-linux.tar.zst
+          tar -xzf e2e-build-linux.tar.gz
           # The artifact contains: repo/{app/src-tauri/target/debug/OpenHuman, app/dist/...}
           # and home/Library/Caches/tauri-cef/...
           mkdir -p app/src-tauri/target/debug app/dist "$HOME/Library/Caches"
           cp -a repo/app/src-tauri/target/debug/OpenHuman app/src-tauri/target/debug/
           cp -a repo/app/dist/. app/dist/
           cp -a home/Library/Caches/tauri-cef "$HOME/Library/Caches/"
-          rm -rf repo home e2e-build-linux.tar.zst
+          rm -rf repo home e2e-build-linux.tar.gz
           chmod +x app/src-tauri/target/debug/OpenHuman
           ls -la app/src-tauri/target/debug/OpenHuman app/dist | head
           ls -la "$HOME/Library/Caches/tauri-cef" | head

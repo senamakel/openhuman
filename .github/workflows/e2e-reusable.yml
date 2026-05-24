@@ -274,6 +274,7 @@ jobs:
           - { name: foundation, suites: "auth,navigation,system" }
           - { name: chat, suites: "chat,skills,journeys" }
           - { name: integrations, suites: "providers,webhooks,notifications" }
+          - { name: connectors, suites: "connectors" }
           - { name: commerce, suites: "payments,settings" }
     steps:
       - name: Checkout code

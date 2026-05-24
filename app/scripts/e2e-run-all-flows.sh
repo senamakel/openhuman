@@ -57,7 +57,7 @@ for arg in "$@"; do
   esac
 done
 
-VALID_SUITES="auth navigation chat skills notifications webhooks providers payments settings system journeys all"
+VALID_SUITES="auth navigation chat skills notifications webhooks providers connectors payments settings system journeys all"
 
 # Accept comma-separated suite lists, e.g. --suite=auth,navigation,system.
 # CI sharding passes one such list per matrix shard so a few parallel jobs
@@ -334,25 +334,38 @@ if should_run_suite "providers"; then
   run "test/e2e/specs/conversations-web-channel-flow.spec.ts" "conversations"             "providers"
   run "test/e2e/specs/composio-triggers-flow.spec.ts"         "composio-triggers"         "providers"
   run "test/e2e/specs/connectivity-state-differentiation.spec.ts" "connectivity-state"   "providers"
-
-  # Composio connector smoke specs — one per supported connector.
-  run "test/e2e/specs/connector-airtable.spec.ts"            "connector-airtable"        "providers"
-  run "test/e2e/specs/connector-asana.spec.ts"               "connector-asana"           "providers"
-  run "test/e2e/specs/connector-clickup.spec.ts"             "connector-clickup"         "providers"
-  run "test/e2e/specs/connector-confluence.spec.ts"          "connector-confluence"      "providers"
-  run "test/e2e/specs/connector-discord-composio.spec.ts"    "connector-discord"         "providers"
-  run "test/e2e/specs/connector-github.spec.ts"              "connector-github"          "providers"
-  run "test/e2e/specs/connector-gmail-composio.spec.ts"      "connector-gmail-composio"  "providers"
-  run "test/e2e/specs/connector-google-calendar.spec.ts"     "connector-gcal"            "providers"
-  run "test/e2e/specs/connector-google-drive.spec.ts"        "connector-gdrive"          "providers"
-  run "test/e2e/specs/connector-google-sheets.spec.ts"       "connector-gsheets"         "providers"
-  run "test/e2e/specs/connector-jira.spec.ts"                "connector-jira"            "providers"
-  run "test/e2e/specs/connector-notion.spec.ts"              "connector-notion"          "providers"
-  run "test/e2e/specs/connector-session-guard.spec.ts"       "connector-session-guard"   "providers"
-  run "test/e2e/specs/connector-slack-composio.spec.ts"      "connector-slack-composio"  "providers"
-  run "test/e2e/specs/connector-todoist.spec.ts"             "connector-todoist"         "providers"
-  run "test/e2e/specs/connector-youtube.spec.ts"             "connector-youtube"         "providers"
   _mini_summary "providers"
+fi
+
+# ---------------------------------------------------------------------------
+# Composio connector smoke specs.
+#
+# Split out of the `providers` suite into its own `connectors` shard so the
+# 17 connector specs don't share a CEF session with the heavier provider
+# flows (slack/whatsapp/etc.). The shared CEF process leaks resources over
+# ~30+ specs and the second half of the suite hits 'A sessionId is
+# required' / __simulateDeepLink-not-ready errors mid-run.
+# ---------------------------------------------------------------------------
+if should_run_suite "connectors"; then
+  echo ""
+  echo "## Running suite: connectors"
+  run "test/e2e/specs/connector-airtable.spec.ts"            "connector-airtable"        "connectors"
+  run "test/e2e/specs/connector-asana.spec.ts"               "connector-asana"           "connectors"
+  run "test/e2e/specs/connector-clickup.spec.ts"             "connector-clickup"         "connectors"
+  run "test/e2e/specs/connector-confluence.spec.ts"          "connector-confluence"      "connectors"
+  run "test/e2e/specs/connector-discord-composio.spec.ts"    "connector-discord"         "connectors"
+  run "test/e2e/specs/connector-github.spec.ts"              "connector-github"          "connectors"
+  run "test/e2e/specs/connector-gmail-composio.spec.ts"      "connector-gmail-composio"  "connectors"
+  run "test/e2e/specs/connector-google-calendar.spec.ts"     "connector-gcal"            "connectors"
+  run "test/e2e/specs/connector-google-drive.spec.ts"        "connector-gdrive"          "connectors"
+  run "test/e2e/specs/connector-google-sheets.spec.ts"       "connector-gsheets"         "connectors"
+  run "test/e2e/specs/connector-jira.spec.ts"                "connector-jira"            "connectors"
+  run "test/e2e/specs/connector-notion.spec.ts"              "connector-notion"          "connectors"
+  run "test/e2e/specs/connector-session-guard.spec.ts"       "connector-session-guard"   "connectors"
+  run "test/e2e/specs/connector-slack-composio.spec.ts"      "connector-slack-composio"  "connectors"
+  run "test/e2e/specs/connector-todoist.spec.ts"             "connector-todoist"         "connectors"
+  run "test/e2e/specs/connector-youtube.spec.ts"             "connector-youtube"         "connectors"
+  _mini_summary "connectors"
 fi
 
 # ---------------------------------------------------------------------------

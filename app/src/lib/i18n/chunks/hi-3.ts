@@ -214,6 +214,9 @@ const hi3: TranslationMap = {
   'about.update.status.default': 'अपडेट चेक करें',
   'welcome.connectionFailed': 'कनेक्शन विफल: {status} {statusText}',
   'welcome.connectionFailedMsg': 'कनेक्शन विफल: {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'chat.agentChatDesc': 'एजेंट के साथ डायरेक्ट चैट सेशन खोलें।',
   'channels.activeRouteValue': '{channel} द्वारा {authMode}',
   'privacy.dataKind.messages': 'मैसेज',
@@ -403,6 +406,7 @@ const hi3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 
 export default hi3;

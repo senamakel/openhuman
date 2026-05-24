@@ -1,30 +1,41 @@
 import createDebug from 'debug';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
 import { oauthProviderConfigs } from '../components/oauth/providerConfigs';
 import RotatingTetrahedronCanvas from '../components/RotatingTetrahedronCanvas';
 import Button from '../components/ui/Button';
 import { useT } from '../lib/i18n/I18nContext';
+import { useCoreState } from '../providers/CoreStateProvider';
 import { clearBackendUrlCache } from '../services/backendUrl';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
 import { resetCoreMode } from '../store/coreModeSlice';
 import { useDeepLinkAuthState } from '../store/deepLinkAuthState';
-import { useAppDispatch } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { resolveTheme, setThemeMode, type ThemeMode } from '../store/themeSlice';
 import { clearAllAppData } from '../utils/clearAllAppData';
 import { clearStoredCoreMode, clearStoredCoreToken, storeRpcUrl } from '../utils/configPersistence';
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../utils/links';
+import { createLocalSessionToken, LOCAL_SESSION_USER } from '../utils/localSession';
 import { openUrl } from '../utils/openUrl';
 
 const log = createDebug('app:welcome');
 
 const Welcome = () => {
   const { t } = useT();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { storeSessionToken } = useCoreState();
   const { isProcessing, errorMessage, requiresAppDataReset } = useDeepLinkAuthState();
+  const themeMode = useAppSelector(state => state.theme?.mode ?? 'system') as ThemeMode;
+  const resolvedTheme = resolveTheme(themeMode);
+  const isDark = resolvedTheme === 'dark';
 
   const [isClearingAppData, setIsClearingAppData] = useState(false);
+  const [isLocalSigningIn, setIsLocalSigningIn] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [localLoginError, setLocalLoginError] = useState<string | null>(null);
 
   const handleClearAppData = async () => {
     setIsClearingAppData(true);
@@ -52,10 +63,69 @@ const Welcome = () => {
     dispatch(resetCoreMode());
   };
 
+  const handleLocalLogin = async () => {
+    setIsLocalSigningIn(true);
+    setLocalLoginError(null);
+    try {
+      log('[welcome] local session login requested');
+      await storeSessionToken(createLocalSessionToken(), LOCAL_SESSION_USER);
+      navigate('/onboarding/custom/inference', { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log('[welcome] local session login failed: %s', message);
+      setLocalLoginError(message || 'Could not start a local session.');
+      setIsLocalSigningIn(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    dispatch(setThemeMode(isDark ? 'light' : 'dark'));
+  };
+
   return (
     <div className="min-h-full flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-8 animate-fade-up">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-9" aria-hidden="true" />
+            <div className="w-9" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
+              title={isDark ? t('home.themeToggle.toLight') : t('home.themeToggle.toDark')}
+              className="p-2 rounded-full text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 hover:bg-stone-100 dark:hover:bg-neutral-800/60 transition-colors">
+              {isDark ? (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <circle cx="12" cy="12" r="4" />
+                  <path
+                    strokeLinecap="round"
+                    d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="flex justify-center mb-6">
             <div className="h-20 w-20">
               <RotatingTetrahedronCanvas />
@@ -158,7 +228,7 @@ const Welcome = () => {
           )}
         </div>
 
-        <div className="mt-4 px-2">
+        <div className="mt-4 px-2 space-y-2">
           <Button
             variant="secondary"
             size="md"
@@ -166,6 +236,21 @@ const Welcome = () => {
             className="w-full py-3">
             {t('welcome.selectRuntime')}
           </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleLocalLogin}
+            disabled={isLocalSigningIn}
+            className="w-full py-3">
+            {isLocalSigningIn
+              ? t('welcome.localSessionStarting')
+              : t('welcome.continueLocallyExperimental')}
+          </Button>
+          {localLoginError ? (
+            <p className="text-[11px] leading-4 text-center font-medium text-red-700">
+              {localLoginError}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

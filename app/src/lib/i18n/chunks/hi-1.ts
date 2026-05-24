@@ -83,6 +83,8 @@ const hi1: TranslationMap = {
   'settings.clearAppDataDesc': 'साइन आउट करें और सारा लोकल ऐप डेटा हमेशा के लिए मिटाएं',
   'settings.logOut': 'लॉग आउट',
   'settings.logOutDesc': 'अपने अकाउंट से साइन आउट करें',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'भाषा',
   'settings.languageDesc': 'ऐप इंटरफेस की डिस्प्ले भाषा',
   'settings.alerts': 'अलर्ट',
@@ -517,6 +519,18 @@ const hi1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'skills.composio.noApiKeyTitle': 'No Composio API Key Configured',
+  'skills.composio.noApiKeyDescription':
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
+  'skills.composio.noApiKeyCta': 'Open in Settings',
+  'rewards.localUnavailable':
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
+  'rewards.localUnavailableCta': 'Open Account Settings',
+  'channels.localManagedUnavailable': 'Managed channels are not available for local users.',
+  'settings.search.localManagedUnavailable':
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
+  'devices.comingSoonDescription':
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': 'ब्रेडक्रंब नेविगेशन',
   'settings.betaBuild': 'बीटा बिल्ड - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',

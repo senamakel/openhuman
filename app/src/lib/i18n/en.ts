@@ -90,6 +90,8 @@ const en: TranslationMap = {
   'settings.clearAppDataDesc': 'Sign out and permanently clear all local app data',
   'settings.logOut': 'Log out',
   'settings.logOutDesc': 'Sign out of your account',
+  'settings.exitLocalSession': 'Exit local session',
+  'settings.exitLocalSessionDesc': 'Return to the sign-in screen',
   'settings.language': 'Language',
   'settings.betaBuild': 'Beta build - v{version}',
   'settings.languageDesc': 'Display language for the app interface',
@@ -251,6 +253,10 @@ const en: TranslationMap = {
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
+  'skills.composio.noApiKeyTitle': 'No Composio API Key Configured',
+  'skills.composio.noApiKeyDescription':
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
+  'skills.composio.noApiKeyCta': 'Open in Settings',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Channels',
   'skills.tabs.mcp': 'MCP Servers',
@@ -277,6 +283,9 @@ const en: TranslationMap = {
   'rewards.title': 'Rewards',
   'rewards.referrals': 'Referrals',
   'rewards.coupons': 'Redeem',
+  'rewards.localUnavailable':
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
+  'rewards.localUnavailableCta': 'Open Account Settings',
   'rewards.credits': 'Credits',
   'rewards.referralCode': 'Your referral code',
   'rewards.copyCode': 'Copy code',
@@ -420,6 +429,7 @@ const en: TranslationMap = {
   'channels.configure': 'Configure Channel',
   'channels.setup': 'Setup',
   'channels.noChannels': 'No channels configured',
+  'channels.localManagedUnavailable': 'Managed channels are not available for local users.',
   'channels.addChannel': 'Add Channel',
   'channels.status.connected': 'Connected',
   'channels.status.disconnected': 'Disconnected',
@@ -584,6 +594,8 @@ const en: TranslationMap = {
   'settings.search.engineManagedLabel': 'OpenHuman Managed',
   'settings.search.engineManagedDesc':
     'Default. Routed through the OpenHuman backend — no API key required.',
+  'settings.search.localManagedUnavailable':
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
@@ -667,6 +679,8 @@ const en: TranslationMap = {
   'devices.betaBadge': 'Beta',
   'devices.betaText':
     'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
+  'devices.comingSoonDescription':
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'devices.title': 'Devices',
   'devices.pairIphone': 'Pair iPhone',
   'devices.noPaired': 'No paired devices',
@@ -1700,6 +1714,10 @@ const en: TranslationMap = {
   // Welcome: connection error messages
   'welcome.connectionFailed': 'Connection failed: {status} {statusText}',
   'welcome.connectionFailedMsg': 'Connection failed: {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
 
   // Chat: Agent chat panel description
   'chat.agentChatDesc': 'Open a direct chat session with the agent.',

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOAuthConnectionListener } from '../../hooks/useOAuthConnectionListener';
 import { useT } from '../../lib/i18n/I18nContext';
+import { useCoreState } from '../../providers/CoreStateProvider';
 import { channelConnectionsApi } from '../../services/api/channelConnectionsApi';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
@@ -18,6 +19,7 @@ import type {
   ChannelConnectionStatus,
   ChannelDefinition,
 } from '../../types/channels';
+import { isLocalSessionToken } from '../../utils/localSession';
 import { openUrl } from '../../utils/openUrl';
 import { restartCoreProcess } from '../../utils/tauriCommands/core';
 import ChannelFieldInput from './ChannelFieldInput';
@@ -33,6 +35,11 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
   const { t } = useT();
   const dispatch = useAppDispatch();
   const channelConnections = useAppSelector(state => state.channelConnections);
+  const { snapshot } = useCoreState();
+  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
+  const visibleAuthModes = definition.auth_modes.filter(
+    spec => !isLocalSession || (spec.mode !== 'managed_dm' && spec.mode !== 'oauth')
+  );
 
   const MANAGED_DM_CONNECTING_MESSAGE = t('channels.telegram.managedDmConnecting');
   const MANAGED_DM_TIMEOUT_MESSAGE = t('channels.telegram.managedDmTimeout');
@@ -340,7 +347,13 @@ const TelegramConfig = ({ definition }: TelegramConfigProps) => {
         </div>
       )}
 
-      {definition.auth_modes.map(spec => {
+      {isLocalSession && visibleAuthModes.length !== definition.auth_modes.length && (
+        <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-4 py-3 text-sm text-stone-700 dark:text-neutral-200">
+          {t('channels.localManagedUnavailable')}
+        </div>
+      )}
+
+      {visibleAuthModes.map(spec => {
         const compositeKey = `telegram:${spec.mode}`;
         const connection = channelConnections.connections.telegram?.[spec.mode];
         const status: ChannelConnectionStatus = connection?.status ?? 'disconnected';

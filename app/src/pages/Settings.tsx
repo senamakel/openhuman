@@ -15,7 +15,7 @@ import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePanel';
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
-import DevicesPanel from '../components/settings/panels/DevicesPanel';
+import DevicesComingSoonPanel from '../components/settings/panels/DevicesComingSoonPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
 import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
@@ -450,7 +450,7 @@ const Settings = () => {
         <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
         <Route path="composio-routing" element={wrapSettingsPage(<ComposioPanel />)} />
         {/* Mobile devices */}
-        <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
+        <Route path="devices" element={wrapSettingsPage(<DevicesComingSoonPanel />)} />
         {/* About / updates */}
         <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
         {/* Fallback */}

@@ -215,6 +215,9 @@ const id3: TranslationMap = {
   'about.update.status.default': 'Periksa pembaruan',
   'welcome.connectionFailed': 'Koneksi gagal: {status} {statusText}',
   'welcome.connectionFailedMsg': 'Koneksi gagal: {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'chat.agentChatDesc': 'Buka sesi chat langsung dengan agen.',
   'channels.activeRouteValue': '{channel} lewat {authMode}',
   'privacy.dataKind.messages': 'Pesan',
@@ -406,6 +409,7 @@ const id3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 
 export default id3;

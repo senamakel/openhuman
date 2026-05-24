@@ -8,6 +8,7 @@ import {
   type ComposioToolkitMeta,
   KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
+import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PillTabBar from '../components/PillTabBar';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
@@ -35,6 +36,7 @@ import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
 import { useAgentReadyComposioToolkits, useComposioIntegrations } from '../lib/composio/hooks';
 import { canonicalizeComposioToolkitSlug } from '../lib/composio/toolkitSlug';
 import { type ComposioConnection, deriveComposioState } from '../lib/composio/types';
+import { getCoreStateSnapshot } from '../lib/coreState/store';
 import { useT } from '../lib/i18n/I18nContext';
 import { channelConnectionsApi } from '../services/api/channelConnectionsApi';
 import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
@@ -43,7 +45,8 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
 import type { ToastNotification } from '../types/intelligence';
 import { IS_DEV } from '../utils/config';
-import { subconsciousEscalationsDismiss } from '../utils/tauriCommands';
+import { isLocalSessionToken } from '../utils/localSession';
+import { openhumanComposioGetMode, subconsciousEscalationsDismiss } from '../utils/tauriCommands';
 
 function channelStatusLabel(status: ChannelConnectionStatus, t: (key: string) => string): string {
   switch (status) {
@@ -286,8 +289,8 @@ function ChannelTile({ def, status, icon, testId, onOpen }: ChannelTileProps) {
 function McpComingSoonPanel() {
   const { t } = useT();
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 dark:border-neutral-700 bg-stone-50/80 dark:bg-neutral-900/80 px-6 py-16 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-500/10">
+    <EmptyStateCard
+      icon={
         <svg
           className="h-7 w-7 text-primary-500"
           fill="none"
@@ -300,17 +303,38 @@ function McpComingSoonPanel() {
             d="M6.75 7.5h10.5m-10.5 4.5h10.5m-10.5 4.5h6m-9.75 3h13.5A2.25 2.25 0 0 0 19.5 17.25V6.75A2.25 2.25 0 0 0 17.25 4.5H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5A2.25 2.25 0 0 0 6.75 19.5Z"
           />
         </svg>
-      </div>
-      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
-        {t('skills.mcpComingSoon.title')}
-      </h3>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-        {t('skills.mcpComingSoon.description')}
-      </p>
-      <span className="mt-4 inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400">
-        {t('common.comingSoon')}
-      </span>
-    </div>
+      }
+      title={t('skills.mcpComingSoon.title')}
+      description={t('skills.mcpComingSoon.description')}
+      footer={
+        <span className="mt-4 inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400">
+          {t('common.comingSoon')}
+        </span>
+      }
+    />
+  );
+}
+
+function ComposioApiKeyEmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useT();
+  return (
+    <EmptyStateCard
+      className="mx-1 mb-3 py-10"
+      icon={
+        <svg
+          className="h-7 w-7 text-primary-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7Z" />
+        </svg>
+      }
+      title={t('skills.composio.noApiKeyTitle')}
+      description={t('skills.composio.noApiKeyDescription')}
+      actionLabel={t('skills.composio.noApiKeyCta')}
+      onAction={onOpenSettings}
+    />
   );
 }
 
@@ -362,6 +386,7 @@ export default function Skills() {
   const channelIcons = useMemo(() => getChannelIcons(t), [t]);
   const location = useLocation();
   const navigate = useNavigate();
+  const isLocalSession = isLocalSessionToken(getCoreStateSnapshot().snapshot.sessionToken);
   const [activeTab, setActiveTab] = useState<ConnectionsTab>('composio');
   const dispatch = useAppDispatch();
   const [defaultChannelBusy, setDefaultChannelBusy] = useState<ChannelType | null>(null);
@@ -432,6 +457,8 @@ export default function Skills() {
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [uninstallCandidate, setUninstallCandidate] = useState<SkillSummary | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const [hasComposioApiKey, setHasComposioApiKey] = useState<boolean | null>(null);
+  const showLocalComposioApiKeyBanner = isLocalSession && hasComposioApiKey === false;
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     const newToast: ToastNotification = { ...toast, id: `toast-${Date.now()}-${Math.random()}` };
     setToasts(prev => [...prev, newToast]);
@@ -510,6 +537,29 @@ export default function Skills() {
       cancelled = true;
     };
   }, [refreshDiscoveredSkills]);
+
+  useEffect(() => {
+    if (!isLocalSession) {
+      setHasComposioApiKey(null);
+      return;
+    }
+    let cancelled = false;
+    void openhumanComposioGetMode()
+      .then(res => {
+        if (!cancelled) {
+          setHasComposioApiKey(Boolean(res.result?.api_key_set));
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.warn('[skills][composio] failed to load composio mode status:', err);
+          setHasComposioApiKey(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLocalSession]);
 
   const bestChannelStatus = (channelId: ChannelType): ChannelConnectionStatus => {
     const conns = channelConnections.connections[channelId];
@@ -1016,41 +1066,49 @@ export default function Skills() {
                         {t('skills.integrationsSubtitle')}
                       </p>
                     </div>
-                    <div className="space-y-3 px-1 pb-3">
-                      <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
-                      <SkillCategoryFilter
-                        categories={availableCategories}
-                        selected={selectedCategory}
-                        onChange={setSelectedCategory}
+                    {showLocalComposioApiKeyBanner && (
+                      <ComposioApiKeyEmptyState
+                        onOpenSettings={() => navigate('/settings/composio-routing')}
                       />
-                    </div>
-                    {composioSortedEntries.length > 0 ? (
-                      <div
-                        className="grid gap-2 sm:gap-3"
-                        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(5.5rem, 1fr))' }}>
-                        {composioSortedEntries.map(({ meta, connection }) => (
-                          <div key={meta.slug} data-testid={`skill-row-composio-${meta.slug}`}>
-                            <ComposioConnectorTile
-                              meta={meta}
-                              connection={connection}
-                              hasComposioError={Boolean(composioError)}
-                              isAgentReady={
-                                agentReadyLoading ||
-                                Boolean(agentReadyError) ||
-                                agentReadyToolkits.has(meta.slug)
-                              }
-                              testId={`skill-install-composio-${meta.slug}`}
-                              onOpen={() => setComposioModalToolkit(meta)}
-                              onRetryGlobal={() => void refreshComposio()}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
-                        {t('skills.noResults')}
-                      </p>
                     )}
+                    {!showLocalComposioApiKeyBanner && (
+                      <div className="space-y-3 px-1 pb-3">
+                        <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
+                        <SkillCategoryFilter
+                          categories={availableCategories}
+                          selected={selectedCategory}
+                          onChange={setSelectedCategory}
+                        />
+                      </div>
+                    )}
+                    {!showLocalComposioApiKeyBanner &&
+                      (composioSortedEntries.length > 0 ? (
+                        <div
+                          className="grid gap-2 sm:gap-3"
+                          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(5.5rem, 1fr))' }}>
+                          {composioSortedEntries.map(({ meta, connection }) => (
+                            <div key={meta.slug} data-testid={`skill-row-composio-${meta.slug}`}>
+                              <ComposioConnectorTile
+                                meta={meta}
+                                connection={connection}
+                                hasComposioError={Boolean(composioError)}
+                                isAgentReady={
+                                  agentReadyLoading ||
+                                  Boolean(agentReadyError) ||
+                                  agentReadyToolkits.has(meta.slug)
+                                }
+                                testId={`skill-install-composio-${meta.slug}`}
+                                onOpen={() => setComposioModalToolkit(meta)}
+                                onRetryGlobal={() => void refreshComposio()}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
+                          {t('skills.noResults')}
+                        </p>
+                      ))}
                   </div>
                 )}
 

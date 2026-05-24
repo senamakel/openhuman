@@ -186,9 +186,15 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
                 method,
                 sanitized_reason
             );
-            // Scrub before publishing — subscribers log `reason`, and the
-            // upstream error string could include API keys / tokens from
-            // pasted-through provider replies.
+            // pasted-through provider replies. `sanitize_api_error` runs
+            // `scrub_secret_patterns` and truncates.
+            //
+            // Local-session protection is handled by `SessionExpiredSubscriber`
+            // in `src/openhuman/credentials/bus.rs` — it checks `is_local_session_token`
+            // after config load and short-circuits teardown with
+            // `scheduler_gate::set_signed_out(false)`. Duplicating that check
+            // here would pull a domain concern into the transport layer and would
+            // add an extra config-load round-trip on every 401.
             crate::core::event_bus::publish_global(
                 crate::core::event_bus::DomainEvent::SessionExpired {
                     source: format!("jsonrpc.invoke_method:{method}"),

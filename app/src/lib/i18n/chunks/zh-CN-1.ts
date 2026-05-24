@@ -83,6 +83,8 @@ const zhCN1: TranslationMap = {
   'settings.clearAppDataDesc': '退出登录并永久清除所有本地应用数据',
   'settings.logOut': '退出登录',
   'settings.logOutDesc': '退出当前账户',
+  'settings.exitLocalSession': '退出本地会话',
+  'settings.exitLocalSessionDesc': '返回登录页面',
   'settings.language': '语言',
   'settings.languageDesc': '应用界面显示语言',
   'settings.alerts': '通知',
@@ -504,6 +506,18 @@ const zhCN1: TranslationMap = {
     'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unlimited (default)',
   'triggers.toggleFailed': '{action} failed for {trigger}: {message}',
+  'skills.composio.noApiKeyTitle': 'No Composio API Key Configured',
+  'skills.composio.noApiKeyDescription':
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
+  'skills.composio.noApiKeyCta': 'Open in Settings',
+  'rewards.localUnavailable':
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
+  'rewards.localUnavailableCta': 'Open Account Settings',
+  'channels.localManagedUnavailable': 'Managed channels are not available for local users.',
+  'settings.search.localManagedUnavailable':
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
+  'devices.comingSoonDescription':
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': '面包屑导航',
   'settings.betaBuild': '测试版构建 - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',

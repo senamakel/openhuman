@@ -211,6 +211,9 @@ const ar3: TranslationMap = {
   'about.update.status.default': 'التحقق من التحديثات',
   'welcome.connectionFailed': 'فشل الاتصال: {status} {statusText}',
   'welcome.connectionFailedMsg': 'فشل الاتصال: {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'chat.agentChatDesc': 'فتح جلسة محادثة مباشرة مع الوكيل.',
   'channels.activeRouteValue': '{channel} عبر {authMode}',
   'privacy.dataKind.messages': 'الرسائل',
@@ -398,6 +401,7 @@ const ar3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 
 export default ar3;

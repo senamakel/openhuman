@@ -225,8 +225,13 @@ jobs:
       - name: Cache CEF binary distribution
         uses: actions/cache@v5
         with:
+          # e2e-build.sh + ensure-tauri-cli.sh always export
+          # CEF_PATH=$HOME/Library/Caches/tauri-cef regardless of OS, so the
+          # cef-dll-sys download lands there on Linux/Windows too. Cache the
+          # actual download location so the cache hits when the binary-cache
+          # short-circuit skips the build step.
           path: |
-            ~/.cache/tauri-cef
+            ~/Library/Caches/tauri-cef
           key: cef-x86_64-unknown-linux-gnu-${{ hashFiles('app/src-tauri/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-unknown-linux-gnu-
@@ -275,18 +280,13 @@ jobs:
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         env:
           E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
-          # e2e-run-session.sh defaults CEF_PATH to $HOME/Library/Caches/tauri-cef
-          # (a macOS path). e2e-build.sh exports the same — fine while the build
-          # step ran every shard, but the new binary-cache short-circuit can skip
-          # the build entirely and leave CEF_PATH unset, so the runner can't find
-          # libcef.so. Point it at the actual Linux CEF cache location that the
-          # `Cache CEF binary distribution` step restored.
-          CEF_PATH: ${{ github.workspace }}/../../.cache/tauri-cef
         run: |
-          # Resolve against $HOME so the path inside the container is correct
-          # regardless of where github.workspace lands. The CEF cache step
-          # paths point at ~/.cache/tauri-cef on Linux.
-          export CEF_PATH="$HOME/.cache/tauri-cef"
+          # Pin CEF_PATH to the actual download location used by
+          # ensure-tauri-cli.sh + e2e-build.sh. The default in
+          # e2e-run-session.sh already points here on macOS but Linux
+          # needs the explicit export when the binary-cache short-circuit
+          # skips the build step (which would otherwise have exported it).
+          export CEF_PATH="$HOME/Library/Caches/tauri-cef"
           BAIL_FLAG=""
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"
@@ -743,8 +743,12 @@ jobs:
       - name: Cache CEF binary distribution
         uses: actions/cache@v5
         with:
+          # ensure-tauri-cli.sh + e2e-build.sh both export
+          # CEF_PATH=$HOME/Library/Caches/tauri-cef regardless of OS; on
+          # Windows under Git Bash that resolves under the user profile and
+          # is the actual download target.
           path: |
-            ~/AppData/Local/tauri-cef
+            ~/Library/Caches/tauri-cef
           key: cef-x86_64-pc-windows-msvc-${{ hashFiles('app/src-tauri/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-pc-windows-msvc-
@@ -775,8 +779,9 @@ jobs:
 
       # Binary cache — see Linux full job for rationale. Windows is built
       # with --debug --no-bundle so the .exe + frontend dist are what the
-      # runner needs at launch. CEF runtime DLLs come from the separate
-      # `~/AppData/Local/tauri-cef` cache step above.
+      # runner needs at launch. CEF runtime DLLs come from the dedicated
+      # CEF cache step above (now correctly pointing at the actual download
+      # location, ~/Library/Caches/tauri-cef).
       - name: Cache built E2E binary (Windows)
         id: e2e-binary-cache
         uses: actions/cache@v5
@@ -796,9 +801,9 @@ jobs:
           E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
         run: |
           # See Linux shard — binary cache can skip the build that would have
-          # exported CEF_PATH. Point at the Windows CEF cache location so
-          # e2e-run-session.sh finds libcef.dll for the LD-path equivalent.
-          export CEF_PATH="$HOME/AppData/Local/tauri-cef"
+          # exported CEF_PATH. e2e-build.sh + ensure-tauri-cli.sh always
+          # download CEF to $HOME/Library/Caches/tauri-cef regardless of OS.
+          export CEF_PATH="$HOME/Library/Caches/tauri-cef"
           BAIL_FLAG=""
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"

@@ -1698,7 +1698,9 @@ const WorkloadRow = ({
             {resolved}
           </div>
         ) : (
-          <div className="text-[11px] text-stone-400 dark:text-neutral-500">{t('settings.ai.workload.noModel')}</div>
+          <div className="text-[11px] text-stone-400 dark:text-neutral-500">
+            {t('settings.ai.workload.noModel')}
+          </div>
         )}
       </div>
       <button
@@ -2477,7 +2479,9 @@ const GlobalOwnModelSelector = ({
                     {p.label}
                   </option>
                 ))}
-                {localAvailable ? <option value="local:">{t('settings.ai.provider.ollama')}</option> : null}
+                {localAvailable ? (
+                  <option value="local:">{t('settings.ai.provider.ollama')}</option>
+                ) : null}
               </select>
             </div>
 
@@ -2511,7 +2515,11 @@ const GlobalOwnModelSelector = ({
                 <input
                   value={model}
                   onChange={e => setModel(e.target.value)}
-                  placeholder={cloudModelsLoading ? t('settings.ai.globalModel.loadingModels') : t('settings.ai.globalModel.enterModelId')}
+                  placeholder={
+                    cloudModelsLoading
+                      ? t('settings.ai.globalModel.loadingModels')
+                      : t('settings.ai.globalModel.enterModelId')
+                  }
                   className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100"
                 />
               )}
@@ -2530,7 +2538,11 @@ const GlobalOwnModelSelector = ({
               disabled={!canApply || saving || isSaved}
               onClick={() => void applySelection(source, model)}
               className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
-              {saving ? t('settings.ai.globalModel.saving') : isSaved ? t('settings.ai.globalModel.saved') : t('common.save')}
+              {saving
+                ? t('settings.ai.globalModel.saving')
+                : isSaved
+                  ? t('settings.ai.globalModel.saved')
+                  : t('common.save')}
             </button>
           </div>
         </>

@@ -270,7 +270,10 @@ pub(crate) fn create_local_chat_provider_from_string(
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
     let p = provider.trim();
-    log::debug!("[providers][chat-factory] create_local_chat_provider_from_string provider={}", p);
+    log::debug!(
+        "[providers][chat-factory] create_local_chat_provider_from_string provider={}",
+        p
+    );
 
     if let Some(model_with_temp) = p.strip_prefix(OLLAMA_PROVIDER_PREFIX) {
         let (model, temperature_override) = split_model_and_temperature(model_with_temp);
@@ -280,7 +283,11 @@ pub(crate) fn create_local_chat_provider_from_string(
                 p
             );
         }
-        log::debug!("[providers][chat-factory] local:ollama model={} temp={:?}", model, temperature_override);
+        log::debug!(
+            "[providers][chat-factory] local:ollama model={} temp={:?}",
+            model,
+            temperature_override
+        );
         return make_ollama_provider(&model, temperature_override, config);
     }
 
@@ -292,7 +299,11 @@ pub(crate) fn create_local_chat_provider_from_string(
                 p
             );
         }
-        log::debug!("[providers][chat-factory] local:lmstudio model={} temp={:?}", model, temperature_override);
+        log::debug!(
+            "[providers][chat-factory] local:lmstudio model={} temp={:?}",
+            model,
+            temperature_override
+        );
         return make_lm_studio_provider(&model, temperature_override, config);
     }
 

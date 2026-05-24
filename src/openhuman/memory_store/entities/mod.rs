@@ -31,3 +31,25 @@ pub use crate::openhuman::memory::score::store::{
     clear_entity_index_for_node, count_entity_index, index_entities, index_entity,
     list_entity_ids_for_node, lookup_entity, EntityHit,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_hit_reexport_is_constructible() {
+        let hit = EntityHit {
+            entity_id: "person:alice".into(),
+            node_id: "chunk-1".into(),
+            node_kind: "leaf".into(),
+            entity_kind: crate::openhuman::memory::score::extract::EntityKind::Person,
+            surface: "Alice".into(),
+            score: 1.0,
+            timestamp_ms: 123,
+            tree_id: Some("tree-1".into()),
+            is_user: false,
+        };
+        assert_eq!(hit.entity_id, "person:alice");
+        assert_eq!(hit.node_kind, "leaf");
+    }
+}

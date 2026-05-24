@@ -1921,6 +1921,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn list_chunks_filters_by_source_kind_and_applies_limit_offset() {
+        let (_tmp, cfg) = test_config();
+        seed_chat_chunk(&cfg, "slack:#a", "first chat").await;
+        seed_chat_chunk(&cfg, "slack:#b", "second chat").await;
+
+        let filtered = list_chunks_rpc(
+            &cfg,
+            ChunkFilter {
+                source_kinds: Some(vec!["chat".into()]),
+                limit: Some(1),
+                offset: Some(1),
+                ..ChunkFilter::default()
+            },
+        )
+        .await
+        .unwrap()
+        .value;
+        assert_eq!(filtered.chunks.len(), 1);
+        assert_eq!(filtered.total, 2);
+        assert!(filtered.chunks.iter().all(|c| c.source_kind == "chat"));
+    }
+
+    #[tokio::test]
     async fn list_sources_aggregates() {
         let (_tmp, cfg) = test_config();
         seed_chat_chunk(&cfg, "slack:#a", "x").await;
@@ -1955,6 +1978,25 @@ mod tests {
             refs.iter().any(|r| r.entity_id.contains("alice")),
             "expected alice entity in index, got: {refs:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn chunks_for_entity_returns_leaf_chunk_ids_only() {
+        let (_tmp, cfg) = test_config();
+        seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
+        let chunk_id = list_chunks_rpc(&cfg, ChunkFilter::default())
+            .await
+            .unwrap()
+            .value
+            .chunks[0]
+            .id
+            .clone();
+
+        let rows = chunks_for_entity_rpc(&cfg, "email:alice@example.com".into())
+            .await
+            .unwrap()
+            .value;
+        assert_eq!(rows, vec![chunk_id]);
     }
 
     #[tokio::test]
@@ -2038,6 +2080,46 @@ mod tests {
                 .unwrap_or("")
                 .contains("phoenix")
         }));
+    }
+
+    #[tokio::test]
+    async fn read_chunk_row_returns_preview_and_metadata() {
+        let (_tmp, cfg) = test_config();
+        seed_chat_chunk(
+            &cfg,
+            "slack:#eng",
+            "phoenix migration scheduled friday with context and source refs",
+        )
+        .await;
+        let chunk = list_chunks_rpc(&cfg, ChunkFilter::default())
+            .await
+            .unwrap()
+            .value
+            .chunks
+            .into_iter()
+            .next()
+            .expect("seeded chunk");
+
+        let row = read_chunk_row(&cfg, &chunk.id).unwrap().expect("chunk row");
+        assert_eq!(row.id, chunk.id);
+        assert_eq!(row.source_kind, "chat");
+        assert_eq!(row.source_id, "slack:#eng");
+        assert_eq!(row.source_ref.as_deref(), Some("slack://x"));
+        assert_eq!(row.owner, "alice");
+        assert_eq!(row.lifecycle_status, "pending_extraction");
+        assert!(row.content_path.is_some());
+        assert!(
+            row.content_preview
+                .as_deref()
+                .unwrap_or("")
+                .contains("phoenix migration scheduled friday")
+        );
+    }
+
+    #[test]
+    fn read_chunk_row_returns_none_for_missing_chunk() {
+        let (_tmp, cfg) = test_config();
+        assert!(read_chunk_row(&cfg, "missing-chunk").unwrap().is_none());
     }
 
     #[tokio::test]

@@ -253,18 +253,17 @@ describe('AIPanel', () => {
     expect(managedSwitch).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('renders Managed, Default, and Custom routing controls', async () => {
+  it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
     renderWithProviders(<AIPanel />);
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
-    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
-    expect(rowEl).not.toBeNull();
-    expect(within(rowEl as HTMLElement).getByRole('button', { name: 'Managed' })).toBeInTheDocument();
-    expect(within(rowEl as HTMLElement).getByRole('button', { name: 'Default' })).toBeInTheDocument();
-    expect(within(rowEl as HTMLElement).getByRole('button', { name: 'Custom' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Managed/i })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument();
   });
 
-  it('renders all nine workload labels', async () => {
+  it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
       'Chat',
@@ -272,7 +271,6 @@ describe('AIPanel', () => {
       'Agentic',
       'Coding',
       'Memory summarization',
-      'Embeddings',
       'Heartbeat',
       /Learning/,
       'Subconscious',
@@ -320,20 +318,7 @@ describe('AIPanel', () => {
     // Wait for load.
     await waitFor(() => expect(screen.getAllByText(/Anthropic/i).length).toBeGreaterThan(0));
 
-    // Trigger a routing change so the SaveBar appears, then save.
-    // Click the "Managed" button specifically on the Reasoning row (which is
-    // currently set to custom cloud routing) to switch it back to OpenHuman.
-    const reasoningRow = screen
-      .getByText('Reasoning')
-      .closest('[class*="flex items-center justify-between"]');
-    fireEvent.click(within(reasoningRow as HTMLElement).getByText('Managed'));
-
-    // SaveBar should appear.
-    await waitFor(() => expect(screen.getByText(/unsaved change/i)).toBeInTheDocument());
-
-    // Click Save in the SaveBar.
-    const saveButton = screen.getByRole('button', { name: /^Save$/i });
-    fireEvent.click(saveButton);
+    fireEvent.click(screen.getByRole('button', { name: /Managed/i }));
 
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
@@ -406,23 +391,16 @@ describe('AIPanel', () => {
     );
   });
 
-  it('clicking the Custom chip (when disabled) opens the CloudProviderEditor, not the key dialog', async () => {
-    // Load with no custom provider → chip is off.
+  it('clicking Add Custom Provider opens the CloudProviderEditor', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getAllByText(/Custom/i).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
 
-    // Find the "Connect Custom" switch and click it.
-    const connectSwitch = screen.getByRole('switch', { name: /Connect Custom/i });
-    fireEvent.click(connectSwitch);
-
-    // The full CloudProviderEditor should appear (has "Add cloud provider" heading).
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     expect(screen.getByLabelText(/^Name$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/OpenAI URL/i)).toBeInTheDocument();
-    // The simple ProviderKeyDialog should NOT appear.
-    expect(screen.queryByRole('dialog', { name: /Connect Custom/i })).not.toBeInTheDocument();
   });
 
   // ─── chip toggle: toggle OFF scrubs routing entries ──────────────────────────
@@ -464,11 +442,6 @@ describe('AIPanel', () => {
     // Toggle OFF.
     fireEvent.click(screen.getByRole('switch', { name: /Disconnect OpenAI/i }));
 
-    // A SaveBar must appear because the draft changed.
-    await waitFor(() => expect(screen.getByText(/unsaved change/i)).toBeInTheDocument());
-
-    // Save to capture the nextSettings arg.
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
     const [, nextSettings] = vi.mocked(saveAISettings).mock.calls[0];
@@ -571,10 +544,10 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Custom/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Team Gateway' } });
     fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
@@ -601,10 +574,10 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Custom/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Custom/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'My Team Gateway' } });
@@ -735,13 +708,11 @@ describe('AIPanel', () => {
     vi.mocked(saveAISettings).mockResolvedValue(undefined);
     renderWithProviders(<AIPanel />);
 
-    // Wait for the Reasoning workload row (identified by its unique
-    // description text), then click its "Custom" segment to open the
-    // Custom routing dialog.
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
 
@@ -795,10 +766,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -841,10 +813,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -880,10 +853,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    const reasoningRow = await screen.findByText(/Main chat agent/i);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Custom/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));

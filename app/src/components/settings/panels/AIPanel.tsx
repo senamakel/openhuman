@@ -2504,8 +2504,7 @@ interface AIPanelProps {
 const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
-  const { saved, draft, setDraft, isDirty, save, persist, discard, loading, error, reload } =
-    useAISettings();
+  const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
   // Logic lives in a unit-testable hook (see useReembedBackfillModal).
   const { reembed, handleSave, dismissReembed } = useReembedBackfillModal(save);
@@ -2523,14 +2522,6 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   // chip can find it again. Cleared when the dialog closes.
   const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
   const openRouterOauthAbortRef = useRef<AbortController | null>(null);
-
-  const updateRouting = useCallback(
-    async (id: WorkloadId, next: ProviderRef) => {
-      const nextDraft = { ...draft, routing: { ...draft.routing, [id]: next } };
-      await persist(nextDraft);
-    },
-    [draft, persist]
-  );
 
   const connectProvider = useCallback(
     async ({
@@ -2961,9 +2952,9 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 cloudProviders={draft.cloudProviders}
                 localModels={installed}
                 ollamaRunning={ollama.state === 'running'}
-                onApply={next =>
-                  void persist({ ...draft, routing: routingWithAllWorkloads(next) })
-                }
+                onApply={async next => {
+                  await persist({ ...draft, routing: routingWithAllWorkloads(next) });
+                }}
               />
             ) : null}
 

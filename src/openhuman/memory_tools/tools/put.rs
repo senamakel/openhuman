@@ -245,10 +245,7 @@ mod tests {
             .expect("stored bash rule should be present");
         assert_eq!(stored.priority, ToolMemoryPriority::High);
         assert_eq!(stored.source, ToolMemorySource::UserExplicit);
-        assert_eq!(
-            stored.tags,
-            vec!["safety".to_string(), "shell".to_string()]
-        );
+        assert_eq!(stored.tags, vec!["safety".to_string(), "shell".to_string()]);
     }
 
     #[tokio::test]

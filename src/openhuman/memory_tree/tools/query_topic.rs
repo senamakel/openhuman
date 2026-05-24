@@ -72,3 +72,17 @@ impl Tool for MemoryTreeQueryTopicTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_requires_entity_id() {
+        let tool = MemoryTreeQueryTopicTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["entity_id"]));
+        assert_eq!(schema["properties"]["time_window_days"]["minimum"], 0);
+    }
+}

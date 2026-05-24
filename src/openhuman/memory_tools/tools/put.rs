@@ -98,3 +98,48 @@ impl Tool for MemoryToolsPutTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_priority_defaults_to_normal() {
+        assert_eq!(parse_priority(None), ToolMemoryPriority::Normal);
+        assert_eq!(parse_priority(Some("normal")), ToolMemoryPriority::Normal);
+        assert_eq!(parse_priority(Some("unknown")), ToolMemoryPriority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_accepts_critical_and_high_case_insensitively() {
+        assert_eq!(parse_priority(Some("critical")), ToolMemoryPriority::Critical);
+        assert_eq!(parse_priority(Some("CRITICAL")), ToolMemoryPriority::Critical);
+        assert_eq!(parse_priority(Some("high")), ToolMemoryPriority::High);
+        assert_eq!(parse_priority(Some("HiGh")), ToolMemoryPriority::High);
+    }
+
+    #[test]
+    fn args_default_tags_to_empty() {
+        let args: Args = serde_json::from_value(json!({
+            "tool_name": "bash",
+            "rule": "Never run rm -rf"
+        }))
+        .unwrap();
+        assert_eq!(args.tool_name, "bash");
+        assert_eq!(args.rule, "Never run rm -rf");
+        assert!(args.priority.is_none());
+        assert!(args.tags.is_empty());
+    }
+
+    #[test]
+    fn parameters_schema_describes_priority_enum() {
+        let tool = MemoryToolsPutTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["tool_name", "rule"]));
+        assert_eq!(
+            schema["properties"]["priority"]["enum"],
+            json!(["critical", "high", "normal"])
+        );
+    }
+}

@@ -51,3 +51,17 @@ impl Tool for MemoryTreeQueryGlobalTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_requires_time_window_days() {
+        let tool = MemoryTreeQueryGlobalTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["time_window_days"]));
+        assert_eq!(schema["properties"]["time_window_days"]["minimum"], 1);
+    }
+}

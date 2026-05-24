@@ -79,3 +79,27 @@ impl Tool for MemoryTreeSearchEntitiesTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parameters_schema_requires_query() {
+        let tool = MemoryTreeSearchEntitiesTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["required"], json!(["query"]));
+        assert_eq!(schema["properties"]["limit"]["description"].is_string(), true);
+    }
+
+    #[test]
+    fn kind_enum_contains_expected_memory_entity_kinds() {
+        let tool = MemoryTreeSearchEntitiesTool;
+        let schema = tool.parameters_schema();
+        let kinds = schema["properties"]["kinds"]["items"]["enum"].as_array().unwrap();
+        for required in ["email", "person", "organization", "topic"] {
+            assert!(kinds.iter().any(|v| v == required), "missing kind {required}");
+        }
+    }
+}

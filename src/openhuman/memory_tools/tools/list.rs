@@ -60,3 +60,24 @@ impl Tool for MemoryToolsListTool {
         Ok(ToolResult::success(json))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn args_require_tool_name() {
+        let args: Args = serde_json::from_value(json!({ "tool_name": "bash" })).unwrap();
+        assert_eq!(args.tool_name, "bash");
+    }
+
+    #[test]
+    fn parameters_schema_requires_tool_name() {
+        let tool = MemoryToolsListTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        assert_eq!(schema["required"], json!(["tool_name"]));
+        assert_eq!(schema["properties"]["tool_name"]["type"], "string");
+    }
+}

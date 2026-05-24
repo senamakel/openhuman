@@ -1031,7 +1031,7 @@ const en: TranslationMap = {
     'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': 'Speech-to-Text Provider',
   'voice.providers.sttProviderAria': 'STT provider',
-  'voice.providers.cloudWhisperProxy': 'Cloud (Whisper proxy)',
+  'voice.providers.cloudWhisperProxy': 'OpenHuman (Managed)',
   'voice.providers.localWhisper': 'Local Whisper',
   'voice.providers.installRequired': ' (install required)',
   'voice.providers.whisperInstalledTitle': 'Whisper is installed. Click to reinstall.',
@@ -1049,7 +1049,7 @@ const en: TranslationMap = {
   'voice.providers.whisperModelLargeTurbo': 'Large v3 Turbo (1.5 GB, best accuracy)',
   'voice.providers.ttsProvider': 'Text-to-Speech Provider',
   'voice.providers.ttsProviderAria': 'TTS provider',
-  'voice.providers.cloudElevenLabsProxy': 'Cloud (ElevenLabs proxy)',
+  'voice.providers.cloudElevenLabsProxy': 'OpenHuman (Managed)',
   'voice.providers.localPiper': 'Local Piper',
   'voice.providers.piperInstalledTitle': 'Piper is installed. Click to reinstall.',
   'voice.providers.piperDownloadTitle':
@@ -1075,6 +1075,52 @@ const en: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB · Alan (male)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB · Jenny Dioco (female)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB · Northern English (male)',
+
+  // Voice provider chips (new chip-toggle UI)
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+
+  // Voice provider modal
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+
+  // Voice routing section
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+
+  // External voice providers
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
 
   // Autocomplete
   'autocomplete.title': 'Autocomplete',

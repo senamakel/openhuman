@@ -335,8 +335,8 @@ fn crate_temp_id() -> String {
 mod tests {
     use super::*;
     use crate::openhuman::memory::chunk_types::{Chunk, Metadata, SourceKind};
-    use crate::openhuman::memory::content_store::atomic::{sha256_hex, write_if_new};
-    use crate::openhuman::memory::content_store::compose::compose_chunk_file;
+    use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
+    use crate::openhuman::memory_store::content::compose::compose_chunk_file;
     use chrono::TimeZone;
     use tempfile::TempDir;
 
@@ -430,10 +430,10 @@ mod tests {
     /// Write a summary .md file to disk with empty tags and verify rewriting works.
     #[test]
     fn rewrite_summary_tags_preserves_body_and_replaces_tags() {
-        use crate::openhuman::memory::content_store::compose::{
+        use crate::openhuman::memory_store::content::compose::{
             compose_summary_md, SummaryComposeInput,
         };
-        use crate::openhuman::memory::content_store::paths::SummaryTreeKind;
+        use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
 
         let dir = TempDir::new().unwrap();
         let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
@@ -483,7 +483,7 @@ mod tests {
         assert!(updated.ends_with(body));
 
         // Body sha unchanged
-        use crate::openhuman::memory::content_store::compose::split_front_matter;
+        use crate::openhuman::memory_store::content::compose::split_front_matter;
         let (_, body_after) = split_front_matter(&updated).unwrap();
         let sha = sha256_hex(body_after.as_bytes());
         let expected_sha = sha256_hex(body.as_bytes());

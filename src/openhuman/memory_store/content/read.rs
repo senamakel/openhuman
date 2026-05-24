@@ -340,8 +340,8 @@ pub fn read_summary_body(
 mod tests {
     use super::*;
     use crate::openhuman::memory::chunk_types::{Chunk, Metadata, SourceKind};
-    use crate::openhuman::memory::content_store::atomic::{sha256_hex, write_if_new};
-    use crate::openhuman::memory::content_store::compose::compose_chunk_file;
+    use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
+    use crate::openhuman::memory_store::content::compose::compose_chunk_file;
     use chrono::TimeZone;
     use tempfile::TempDir;
 
@@ -412,11 +412,11 @@ mod tests {
     // ─── summary read / verify tests ─────────────────────────────────────────
 
     fn write_summary_file(dir: &TempDir, body: &str) -> (std::path::PathBuf, String) {
-        use crate::openhuman::memory::content_store::atomic::{sha256_hex, write_if_new};
-        use crate::openhuman::memory::content_store::compose::{
+        use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
+        use crate::openhuman::memory_store::content::compose::{
             compose_summary_md, SummaryComposeInput,
         };
-        use crate::openhuman::memory::content_store::paths::SummaryTreeKind;
+        use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
         use chrono::TimeZone;
         let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
         let input = SummaryComposeInput {

@@ -230,8 +230,8 @@ fn uuid_v4_hex() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::content_store::compose::SummaryComposeInput;
-    use crate::openhuman::memory::content_store::paths::SummaryTreeKind;
+    use crate::openhuman::memory_store::content::compose::SummaryComposeInput;
+    use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
     use tempfile::TempDir;
 
     #[test]

@@ -11,7 +11,7 @@
 //! union of: chunks, content (md files), trees (Source/Global/Topic),
 //! vectors, AND contacts.
 
-pub use crate::openhuman::people::store::{get as get_store, init as init_store, PeopleStore};
+pub use crate::openhuman::people::store::{PeopleStore, get as get_store, init as init_store};
 pub use crate::openhuman::people::types::{
     AddressBookContact, Handle, Interaction, Person, PersonId, ScoreComponents,
 };
@@ -49,10 +49,11 @@ pub async fn lookup_contact(handle: &Handle) -> Option<PersonId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn contact_facade_fail_softs_when_store_is_uninitialized() {
-        let missing = get_contact(PersonId("missing".into())).await;
+        let missing = get_contact(PersonId(Uuid::nil())).await;
         assert!(missing.is_none());
 
         let listed = list_contacts().await;

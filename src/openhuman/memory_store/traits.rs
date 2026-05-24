@@ -179,19 +179,23 @@ mod tests {
     use chrono::Utc;
 
     fn sample_chunk() -> Chunk {
+        let ts = Utc::now();
         Chunk {
             id: "chunk-1".into(),
             content: "hello world".into(),
             metadata: Metadata {
                 source_kind: SourceKind::Chat,
                 source_id: "slack:#eng".into(),
-                timestamp: Utc::now(),
+                timestamp: ts,
+                time_range: (ts, ts),
                 owner: "alice".into(),
                 source_ref: None,
                 tags: vec!["person:alice".into()],
             },
             seq_in_source: 7,
             token_count: 2,
+            created_at: ts,
+            partial_message: false,
         }
     }
 
@@ -231,7 +235,10 @@ mod tests {
         assert_eq!(node.memory_kind(), MemoryKind::Tree);
         assert_eq!(node.embeddable_text(), "summary body");
         let obsidian = node.to_obsidian();
-        assert_eq!(obsidian.relative_path, PathBuf::from("summaries/summary-1.md"));
+        assert_eq!(
+            obsidian.relative_path,
+            PathBuf::from("summaries/summary-1.md")
+        );
         assert!(obsidian.markdown.contains("tree_id: tree-1"));
         assert!(obsidian.markdown.contains("summary body"));
     }

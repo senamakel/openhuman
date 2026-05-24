@@ -1,7 +1,7 @@
 //! RPC operation wrappers for the tree summarizer.
 
 use chrono::{DateTime, Utc};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree_runtime::{engine, store, types::*};
@@ -199,7 +199,10 @@ mod tests {
     fn create_provider_requires_local_ai_runtime() {
         let mut cfg = Config::default();
         cfg.local_ai.runtime_enabled = false;
-        let err = create_provider(&cfg).unwrap_err();
+        let err = match create_provider(&cfg) {
+            Ok(_) => panic!("runtime-disabled config should fail"),
+            Err(err) => err,
+        };
         assert!(err.contains("requires local_ai to be enabled"));
     }
 

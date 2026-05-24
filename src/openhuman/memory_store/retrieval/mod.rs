@@ -31,10 +31,10 @@ use std::sync::Arc;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::retrieval::types::RetrievalHit;
+use crate::openhuman::memory_store::UnifiedMemory;
 use crate::openhuman::memory_store::chunks::store::list_chunks;
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory_store::types::NamespaceMemoryHit;
-use crate::openhuman::memory_store::UnifiedMemory;
 
 /// Optional filter set for `param_tag_search`. All `Some` fields are AND-ed
 /// together; `None` fields are unconstrained.
@@ -138,7 +138,11 @@ impl RetrievalFacade {
         }
         Ok(rows
             .into_iter()
-            .filter(|c| required.iter().all(|t| c.metadata.tags.iter().any(|ct| ct == t)))
+            .filter(|c| {
+                required
+                    .iter()
+                    .all(|t| c.metadata.tags.iter().any(|ct| ct == t))
+            })
             .collect())
     }
 }
@@ -164,7 +168,13 @@ mod tests {
         RetrievalFacade::new(Arc::new(unified))
     }
 
-    fn chunk(id: &str, source_kind: SourceKind, source_id: &str, owner: &str, tags: &[&str]) -> Chunk {
+    fn chunk(
+        id: &str,
+        source_kind: SourceKind,
+        source_id: &str,
+        owner: &str,
+        tags: &[&str],
+    ) -> Chunk {
         let ts = Utc::now();
         Chunk {
             id: id.into(),
@@ -181,6 +191,7 @@ mod tests {
             token_count: 3,
             seq_in_source: 0,
             created_at: ts,
+            partial_message: false,
         }
     }
 
@@ -203,9 +214,27 @@ mod tests {
         upsert_chunks(
             &cfg,
             &[
-                chunk("c1", SourceKind::Chat, "slack:#eng", "alice", &["person:alice", "deploy"]),
-                chunk("c2", SourceKind::Chat, "slack:#eng", "alice", &["person:alice"]),
-                chunk("c3", SourceKind::Email, "gmail:thread-1", "bob", &["deploy"]),
+                chunk(
+                    "c1",
+                    SourceKind::Chat,
+                    "slack:#eng",
+                    "alice",
+                    &["person:alice", "deploy"],
+                ),
+                chunk(
+                    "c2",
+                    SourceKind::Chat,
+                    "slack:#eng",
+                    "alice",
+                    &["person:alice"],
+                ),
+                chunk(
+                    "c3",
+                    SourceKind::Email,
+                    "gmail:thread-1",
+                    "bob",
+                    &["deploy"],
+                ),
             ],
         )
         .unwrap();

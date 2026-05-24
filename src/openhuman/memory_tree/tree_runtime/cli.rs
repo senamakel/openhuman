@@ -108,7 +108,9 @@ fn run_ingest(args: &[String]) -> Result<()> {
     let (opts, rest) = parse_opts(args)?;
 
     if rest.iter().any(|a| is_help(a)) || rest.is_empty() {
-        println!("Usage: openhuman tree-summarizer ingest <namespace> [--content <text>] [--file <path>] [-v]");
+        println!(
+            "Usage: openhuman tree-summarizer ingest <namespace> [--content <text>] [--file <path>] [-v]"
+        );
         println!();
         println!("Append content to the summarization buffer for a namespace.");
         println!();
@@ -188,10 +190,11 @@ fn run_summarize(args: &[String]) -> Result<()> {
     let rt = build_runtime()?;
     rt.block_on(async {
         let config = load_config().await?;
-        let outcome =
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(&config, namespace)
-                .await
-                .map_err(anyhow::Error::msg)?;
+        let outcome = crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(
+            &config, namespace,
+        )
+        .await
+        .map_err(anyhow::Error::msg)?;
 
         println!(
             "{}",
@@ -273,10 +276,11 @@ fn run_status(args: &[String]) -> Result<()> {
     let rt = build_runtime()?;
     rt.block_on(async {
         let config = load_config().await?;
-        let outcome =
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(&config, namespace)
-                .await
-                .map_err(anyhow::Error::msg)?;
+        let outcome = crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(
+            &config, namespace,
+        )
+        .await
+        .map_err(anyhow::Error::msg)?;
 
         println!(
             "{}",
@@ -310,10 +314,11 @@ fn run_rebuild(args: &[String]) -> Result<()> {
     let rt = build_runtime()?;
     rt.block_on(async {
         let config = load_config().await?;
-        let outcome =
-            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(&config, namespace)
-                .await
-                .map_err(anyhow::Error::msg)?;
+        let outcome = crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(
+            &config, namespace,
+        )
+        .await
+        .map_err(anyhow::Error::msg)?;
 
         println!(
             "{}",
@@ -419,7 +424,10 @@ mod tests {
 
     #[test]
     fn parse_opts_errors_when_flag_value_is_missing() {
-        let err = parse_opts(&["--content".to_string()]).unwrap_err();
+        let err = match parse_opts(&["--content".to_string()]) {
+            Ok(_) => panic!("missing --content value should fail"),
+            Err(err) => err,
+        };
         assert!(err.to_string().contains("missing value for --content"));
     }
 }

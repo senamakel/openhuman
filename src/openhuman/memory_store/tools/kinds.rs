@@ -2,7 +2,7 @@
 //! [`MemoryKind`] so an agent can plan a fan-out without hard-coding.
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::openhuman::memory_store::MemoryKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
@@ -48,7 +48,7 @@ mod tests {
     async fn execute_returns_all_memory_kinds() {
         let tool = MemoryStoreKindsTool;
         let result = tool.execute(Value::Null).await.unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result.output()).unwrap();
         let expected: Vec<&str> = MemoryKind::ALL.iter().map(|k| k.as_str()).collect();
         assert_eq!(parsed["kinds"], json!(expected));
     }

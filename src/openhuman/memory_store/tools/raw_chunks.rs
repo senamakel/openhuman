@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_store::chunks::store::{list_chunks, ListChunksQuery};
+use crate::openhuman::memory_store::chunks::store::{ListChunksQuery, list_chunks};
 use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 
@@ -115,6 +115,7 @@ impl Tool for MemoryStoreRawChunksTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -149,5 +150,51 @@ mod tests {
             json!(["chat", "email", "document"])
         );
         assert_eq!(schema["properties"]["limit"]["maximum"], 1000);
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_invalid_source_kind() {
+        let tool = MemoryStoreRawChunksTool;
+        let err = tool
+            .execute(json!({
+                "source_kind": "not-real"
+            }))
+            .await
+            .expect_err("invalid source kind should fail");
+        assert!(err.to_string().contains("memory_store_raw_chunks:"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_wrong_type_for_limit() {
+        let tool = MemoryStoreRawChunksTool;
+        let err = tool
+            .execute(json!({
+                "limit": "ten"
+            }))
+            .await
+            .expect_err("wrong limit type should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_store_raw_chunks")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_array() {
+        let tool = MemoryStoreRawChunksTool;
+        let result = tool
+            .execute(json!({
+                "source_kind": "document",
+                "limit": 2
+            }))
+            .await
+            .expect("valid raw_chunks request should succeed");
+        assert!(!result.is_error);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool result should be json");
+        assert!(
+            parsed.is_array(),
+            "raw_chunks should serialize a JSON array"
+        );
     }
 }

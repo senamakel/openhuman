@@ -68,7 +68,7 @@ Branch SHA at handoff: `2bad1f046` (`revert: drop Escape press in openConnectorM
 
 `.github/workflows/e2e-reusable.yml` defines three Linux job tiers:
 
-```
+```text
 e2e-linux         (smoke + mega-flow only, runs when inputs.full == false)
 rust-e2e-linux    (Rust-side `tests/*_e2e.rs` against mock backend)
 build-linux-full  (one job: cargo tauri build + tar artifact, uploads)
@@ -83,7 +83,7 @@ on the build job to keep cold builds fast.
 
 ### Shard layout
 
-```
+```text
 foundation   = auth,navigation,system          (~21 specs)
 chat         = chat,skills,journeys            (~19 specs)
 providers    = providers,notifications         (~14 specs)

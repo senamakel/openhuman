@@ -563,6 +563,45 @@ mod tests {
     }
 
     #[test]
+    fn merge_graph_attrs_recovers_from_invalid_existing_json_and_negative_evidence() {
+        let incoming = json!({
+            "evidence_count": -4,
+            "document_id": "doc-2",
+            "chunk_id": "doc-2:chunk-9",
+            "order_index": 8
+        });
+
+        let merged = UnifiedMemory::merge_graph_attrs(Some("not-json"), &incoming, 11.0);
+        assert_eq!(
+            merged["evidence_count"],
+            json!(1),
+            "negative evidence should clamp to the minimum count"
+        );
+        assert_eq!(merged["document_ids"], json!(["doc-2"]));
+        assert_eq!(merged["chunk_ids"], json!(["doc-2:chunk-9"]));
+        assert_eq!(merged["order_index"], json!(8));
+        assert_eq!(merged["created_at"], json!(11.0));
+        assert_eq!(merged["updated_at"], json!(11.0));
+    }
+
+    #[test]
+    fn graph_relation_from_parts_defaults_invalid_attrs_payload() {
+        let record = UnifiedMemory::graph_relation_from_parts(
+            None,
+            "Alice".into(),
+            "OWNS".into(),
+            "Phoenix".into(),
+            "not-json",
+            7.5,
+        );
+        assert_eq!(record.evidence_count, 1);
+        assert_eq!(record.order_index, None);
+        assert!(record.document_ids.is_empty());
+        assert!(record.chunk_ids.is_empty());
+        assert_eq!(record.attrs, json!({}));
+    }
+
+    #[test]
     fn graph_relation_to_json_uses_expected_public_keys() {
         let value = UnifiedMemory::graph_relation_to_json(GraphRelationRecord {
             namespace: None,
@@ -684,6 +723,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn graph_relations_for_scope_includes_global_rows_and_sorts_newest_first() {
+        let (_tmp, memory) = test_memory();
+        memory
+            .graph_upsert_namespace(
+                "scope-a",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({"document_id": "doc-local"}),
+            )
+            .await
+            .unwrap();
+        memory
+            .graph_upsert_global(
+                "Bob",
+                "MENTIONED",
+                "Launch",
+                &json!({"document_id": "doc-global"}),
+            )
+            .await
+            .unwrap();
+
+        let scoped = memory.graph_relations_for_scope("scope-a").await.unwrap();
+        assert_eq!(scoped.len(), 2);
+        assert!(scoped.iter().any(|row| row.namespace.as_deref() == Some("scope-a")));
+        assert!(scoped.iter().any(|row| row.namespace.is_none()));
+        assert!(
+            scoped[0].updated_at >= scoped[1].updated_at,
+            "scope queries should stay sorted newest-first across namespace+global rows"
+        );
+    }
+
+    #[tokio::test]
     async fn graph_remove_document_namespace_prunes_or_deletes_relations() {
         let (_tmp, memory) = test_memory();
         memory
@@ -721,6 +793,34 @@ mod tests {
         let rows = memory.graph_query_namespace("cleanup", None, None).await.unwrap();
         assert_eq!(rows.len(), 1, "single-doc relation should be deleted entirely");
         assert_eq!(rows[0]["predicate"], "OWNS");
+        assert_eq!(rows[0]["documentIds"], json!(["doc-2"]));
+        assert_eq!(rows[0]["chunkIds"], json!(["doc-2:chunk-2"]));
+    }
+
+    #[tokio::test]
+    async fn graph_remove_document_namespace_is_noop_for_unrelated_document() {
+        let (_tmp, memory) = test_memory();
+        memory
+            .graph_upsert_namespace(
+                "cleanup",
+                "Alice",
+                "OWNS",
+                "Phoenix",
+                &json!({
+                    "document_ids": ["doc-2"],
+                    "chunk_ids": ["doc-2:chunk-2"]
+                }),
+            )
+            .await
+            .unwrap();
+
+        memory
+            .graph_remove_document_namespace("cleanup", "doc-missing")
+            .await
+            .unwrap();
+
+        let rows = memory.graph_query_namespace("cleanup", None, None).await.unwrap();
+        assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["documentIds"], json!(["doc-2"]));
         assert_eq!(rows[0]["chunkIds"], json!(["doc-2:chunk-2"]));
     }

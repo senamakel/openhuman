@@ -19,6 +19,7 @@
 pub mod chunks;
 pub mod content;
 pub mod types;
+pub mod vectors;
 pub mod unified;
 
 pub mod agentmemory;

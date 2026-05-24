@@ -37,7 +37,9 @@ pub mod retrieval;
 pub mod schema;
 pub mod score;
 pub mod summarizer;
+pub mod tree_global;
 pub mod tree_rpc;
+pub mod tree_topic;
 pub mod util;
 
 pub use ingestion::{

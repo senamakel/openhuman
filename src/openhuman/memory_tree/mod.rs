@@ -27,8 +27,12 @@ pub mod sources;
 pub mod summarise;
 pub mod tools;
 pub mod tree;
-pub mod tree_global;
-pub mod tree_topic;
+
+// Kind-specific tree building (Global, Topic) is policy and lives in the
+// memory orchestrator module. Re-exported here for backwards-compatible
+// `memory_tree::tree_{global,topic}::*` paths during the migration.
+pub use crate::openhuman::memory::tree_global;
+pub use crate::openhuman::memory::tree_topic;
 
 // Re-export controller registries — moved to memory but keep export names stable.
 pub use crate::openhuman::memory::retrieval::{

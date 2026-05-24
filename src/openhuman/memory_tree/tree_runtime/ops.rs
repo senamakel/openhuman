@@ -194,6 +194,15 @@ fn create_local_ai_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
+    use tempfile::TempDir;
+
+    fn config_in_tempdir() -> (TempDir, Config) {
+        let tmp = TempDir::new().expect("tempdir");
+        let mut cfg = Config::default();
+        cfg.workspace_dir = tmp.path().to_path_buf();
+        (tmp, cfg)
+    }
 
     #[test]
     fn create_provider_requires_local_ai_runtime() {
@@ -212,5 +221,86 @@ mod tests {
         cfg.local_ai.runtime_enabled = true;
         let provider = create_local_ai_provider(&cfg).expect("provider");
         let _ = provider;
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_ingest_rejects_blank_content() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let err = tree_summarizer_ingest(&cfg, "team", "   ", None, None)
+            .await
+            .expect_err("blank content should be rejected");
+        assert!(err.contains("content must not be empty"));
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_ingest_writes_buffer_and_reports_metadata() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let ts = chrono::Utc
+            .with_ymd_and_hms(2026, 5, 24, 12, 30, 0)
+            .unwrap();
+        let meta = json!({"source": "unit-test"});
+        let outcome =
+            tree_summarizer_ingest(&cfg, "Team / Notes", "hello world", Some(ts), Some(&meta))
+                .await
+                .expect("ingest should succeed");
+
+        assert_eq!(
+            outcome.logs,
+            vec!["content buffered for namespace 'Team / Notes'".to_string()]
+        );
+        assert_eq!(outcome.value["buffered"], true);
+        assert_eq!(outcome.value["namespace"], "Team / Notes");
+        assert_eq!(
+            outcome.value["tokens"],
+            json!(estimate_tokens("hello world"))
+        );
+        assert_eq!(outcome.value["has_metadata"], true);
+
+        let path = outcome.value["path"]
+            .as_str()
+            .expect("path string in response");
+        let written = std::fs::read_to_string(path).expect("buffer file should exist");
+        assert!(written.contains("hello world"));
+        assert!(written.contains("\"source\":\"unit-test\""));
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_status_reports_empty_tree_defaults() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let outcome = tree_summarizer_status(&cfg, "fresh-ns")
+            .await
+            .expect("status on fresh namespace");
+        assert_eq!(
+            outcome.logs,
+            vec!["tree status for namespace 'fresh-ns'".to_string()]
+        );
+        assert_eq!(outcome.value["namespace"], "fresh-ns");
+        assert_eq!(outcome.value["total_nodes"], 0);
+        assert_eq!(outcome.value["depth"], 0);
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_query_errors_when_node_is_missing() {
+        let (_tmp, cfg) = config_in_tempdir();
+        let err = tree_summarizer_query(&cfg, "fresh-ns", Some("root"))
+            .await
+            .expect_err("missing node should error");
+        assert!(err.contains("node 'root' not found in namespace 'fresh-ns'"));
+    }
+
+    #[tokio::test]
+    async fn tree_summarizer_run_and_rebuild_require_local_ai() {
+        let (_tmp, mut cfg) = config_in_tempdir();
+        cfg.local_ai.runtime_enabled = false;
+
+        let run_err = tree_summarizer_run(&cfg, "team")
+            .await
+            .expect_err("run should require local ai");
+        assert!(run_err.contains("requires local_ai to be enabled"));
+
+        let rebuild_err = tree_summarizer_rebuild(&cfg, "team")
+            .await
+            .expect_err("rebuild should require local ai");
+        assert!(rebuild_err.contains("requires local_ai to be enabled"));
     }
 }

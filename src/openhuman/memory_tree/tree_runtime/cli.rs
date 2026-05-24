@@ -430,4 +430,40 @@ mod tests {
         };
         assert!(err.to_string().contains("missing value for --content"));
     }
+
+    #[test]
+    fn top_level_command_help_and_unknown_subcommand_behave() {
+        assert!(run_tree_summarizer_command(&[]).is_ok());
+        assert!(run_tree_summarizer_command(&["--help".to_string()]).is_ok());
+
+        let err = run_tree_summarizer_command(&["bogus".to_string()])
+            .expect_err("unknown subcommand should fail");
+        assert!(
+            err.to_string()
+                .contains("unknown tree-summarizer subcommand")
+        );
+    }
+
+    #[test]
+    fn subcommand_argument_validation_errors_without_running_runtime() {
+        let err = run_ingest(&["ns".to_string()])
+            .expect_err("ingest without content or file should fail");
+        assert!(
+            err.to_string()
+                .contains("either --content or --file is required")
+        );
+
+        let err = run_ingest(&["ns".to_string(), "--content".to_string(), "   ".to_string()])
+            .expect_err("blank content should fail");
+        assert!(err.to_string().contains("content is empty"));
+    }
+
+    #[test]
+    fn help_paths_for_subcommands_return_ok() {
+        assert!(run_ingest(&["--help".to_string()]).is_ok());
+        assert!(run_summarize(&["--help".to_string()]).is_ok());
+        assert!(run_query(&["--help".to_string()]).is_ok());
+        assert!(run_status(&["--help".to_string()]).is_ok());
+        assert!(run_rebuild(&["--help".to_string()]).is_ok());
+    }
 }

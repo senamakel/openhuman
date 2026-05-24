@@ -18,6 +18,7 @@
 
 pub mod chunks;
 pub mod content;
+pub mod retrieval;
 pub mod trees;
 pub mod trees_global;
 pub mod trees_topic;

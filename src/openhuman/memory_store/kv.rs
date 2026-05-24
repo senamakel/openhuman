@@ -1,15 +1,18 @@
-//! Key-value storage backed by the `kv_global` and `kv_namespace` tables.
+//! Key-value storage — `kv_global` + `kv_namespace` tables.
 //!
-//! Provides global and namespace-scoped get/set/delete/list, plus internal
-//! record loaders used by the retrieval pipeline.
+//! Lifted out of `unified/` so KV is a peer of `trees/`, `vectors/`, and
+//! the other first-class memory_store submodules. The `impl UnifiedMemory`
+//! block stays here because the methods still operate on the unified
+//! SQLite connection; once `Memory` trait callers migrate to a per-kind
+//! backend, the `UnifiedMemory` impl shrinks to a thin shim and the bulk
+//! of this file moves to free functions.
 
 use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
 use crate::openhuman::memory::safety;
 use crate::openhuman::memory_store::types::MemoryKvRecord;
-
-use super::UnifiedMemory;
+use crate::openhuman::memory_store::unified::UnifiedMemory;
 
 impl UnifiedMemory {
     /// Insert or update a global key-value pair.

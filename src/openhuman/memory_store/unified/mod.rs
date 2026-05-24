@@ -26,7 +26,6 @@ pub mod fts5;
 mod graph;
 mod helpers;
 mod init;
-mod kv;
 pub mod profile;
 mod query;
 pub mod segments;

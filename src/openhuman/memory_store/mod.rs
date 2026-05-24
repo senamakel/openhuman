@@ -19,7 +19,9 @@
 pub mod chunks;
 pub mod contacts;
 pub mod content;
+pub mod entities;
 pub mod kinds;
+pub mod kv;
 pub mod retrieval;
 pub mod tools;
 pub mod traits;

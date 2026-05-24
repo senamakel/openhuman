@@ -22,7 +22,6 @@ use crate::openhuman::memory_store::chunks::types::Chunk;
 use crate::openhuman::memory_store::contacts::Person;
 use crate::openhuman::memory_store::kinds::MemoryKind;
 use crate::openhuman::memory_store::trees::{SummaryNode, Tree};
-use crate::openhuman::memory_store::types::StoredMemoryDocument;
 
 /// A rendered Obsidian markdown file: where it lives in the vault and what
 /// bytes to write. Vault path is relative to the content-store root.
@@ -168,31 +167,7 @@ impl ObsidianRepresentable for Person {
     }
 }
 
-// ---- impls: StoredMemoryDocument ------------------------------------------
-
-impl VectorEmbeddable for StoredMemoryDocument {
-    fn memory_kind(&self) -> MemoryKind {
-        MemoryKind::Document
-    }
-
-    fn embeddable_text(&self) -> String {
-        if self.title.is_empty() {
-            self.content.clone()
-        } else {
-            format!("{}\n\n{}", self.title, self.content)
-        }
-    }
-}
-
-impl ObsidianRepresentable for StoredMemoryDocument {
-    fn to_obsidian(&self) -> ObsidianFile {
-        let markdown = format!(
-            "---\ndocument_id: {}\nnamespace: {}\nkey: {}\ncategory: {}\n---\n\n# {}\n\n{}\n",
-            self.document_id, self.namespace, self.key, self.category, self.title, self.content
-        );
-        ObsidianFile {
-            relative_path: PathBuf::from("documents").join(format!("{}.md", self.document_id)),
-            markdown,
-        }
-    }
-}
+// Documents are no longer a first-class MemoryKind — the md backend
+// (`content/`) is the canonical persistence for any document body. Anything
+// that historically used `StoredMemoryDocument` should land its body as a
+// raw md file and reference it via path.

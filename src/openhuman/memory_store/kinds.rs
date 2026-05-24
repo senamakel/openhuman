@@ -18,23 +18,23 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum MemoryKind {
     /// On-disk raw markdown file (the content store). One file per
-    /// canonicalized source chunk OR per summary node.
-    Content,
-    /// SQLite chunk row (canonicalized payload + provenance + tags). The
-    /// "leaf" unit of the summary tree.
+    /// canonicalized source chunk OR per summary node. Source of truth
+    /// for all content bodies.
+    Raw,
+    /// SQLite chunk row — metadata + tags + raw-md pointer + lifecycle.
+    /// Bodies live in `Raw`; the chunk row is the index entry.
     Chunk,
-    /// Sealed summary tree node — Source, Global, or Topic flavor. Tree
-    /// flavor is carried separately on the row (`TreeKind`).
+    /// Canonical entity row in `mem_tree_entity_index` — every entity
+    /// occurrence per tree node. The substrate `memory_graph` derives
+    /// co-occurrence edges from.
+    Entity,
+    /// Sealed summary tree node — Source, Global, or Topic flavor.
     Tree,
     /// Dense vector embedding row in the local vector DB.
     Vector,
-    /// Namespace document persisted by `UnifiedMemory` (preferences,
-    /// learnings, structured docs the LLM stored explicitly).
-    Document,
-    /// Namespace key-value record persisted by `UnifiedMemory`.
+    /// Key-value record (global or namespace-scoped). Lives in the
+    /// `kv_global` / `kv_namespace` tables.
     Kv,
-    /// Graph relation row persisted by `UnifiedMemory`.
-    Graph,
     /// Address-book contact (`people::Person`) routed through the contacts
     /// facade.
     Contact,
@@ -44,13 +44,12 @@ impl MemoryKind {
     /// Snake-case discriminant used in RPC payloads, logs, and tool args.
     pub fn as_str(self) -> &'static str {
         match self {
-            MemoryKind::Content => "content",
+            MemoryKind::Raw => "raw",
             MemoryKind::Chunk => "chunk",
+            MemoryKind::Entity => "entity",
             MemoryKind::Tree => "tree",
             MemoryKind::Vector => "vector",
-            MemoryKind::Document => "document",
             MemoryKind::Kv => "kv",
-            MemoryKind::Graph => "graph",
             MemoryKind::Contact => "contact",
         }
     }
@@ -58,26 +57,24 @@ impl MemoryKind {
     /// Every variant, in stable declaration order. Useful for fan-out
     /// retrieval and for surfacing the kind catalog to LLM tools.
     pub const ALL: &'static [MemoryKind] = &[
-        MemoryKind::Content,
+        MemoryKind::Raw,
         MemoryKind::Chunk,
+        MemoryKind::Entity,
         MemoryKind::Tree,
         MemoryKind::Vector,
-        MemoryKind::Document,
         MemoryKind::Kv,
-        MemoryKind::Graph,
         MemoryKind::Contact,
     ];
 }
 
 /// Per-kind canonical Rust type aliases — one stop to find "what struct
-/// represents a Tree row?", "what struct represents a Contact?", etc. Aliases
-/// (not re-exports) so the documentation lives here and the source-of-truth
-/// types stay in their owning modules.
+/// represents a Tree row?", "what struct represents a Contact?", etc.
+/// Aliases (not re-exports) so the documentation lives here and the
+/// source-of-truth types stay in their owning modules.
 pub mod types {
     pub use crate::openhuman::memory_store::chunks::types::Chunk;
     pub use crate::openhuman::memory_store::contacts::Person as Contact;
+    pub use crate::openhuman::memory_store::entities::EntityHit as Entity;
     pub use crate::openhuman::memory_store::trees::{SummaryNode as TreeNode, Tree, TreeKind};
-    pub use crate::openhuman::memory_store::types::{
-        GraphRelationRecord as Graph, MemoryKvRecord as Kv, StoredMemoryDocument as Document,
-    };
+    pub use crate::openhuman::memory_store::types::MemoryKvRecord as Kv;
 }

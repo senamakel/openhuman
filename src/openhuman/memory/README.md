@@ -46,7 +46,7 @@ one job. memory orchestrates and routes between them.
 | [`stm_recall/`](stm_recall/) | Short-term recall: cross-session FTS5 lookup + ranking. |
 | [`ingestion/`](ingestion/) | Document ingestion queue + extraction (entities, relations, embeddings) — feeds UnifiedMemory documents. |
 | [`canonicalize/`](../memory_sync/canonicalize/) | Source → canonical markdown (chat / email / document). Implemented in `memory_sync/canonicalize` and used at ingest time. |
-| [`chat/`](chat/) | Chat-source canonicalisation helpers. |
+| [`chat/`](chat.rs) | Chat-source canonicalisation helpers. |
 | [`conversations/`](../memory_conversations/) | Workspace-backed JSONL chat thread/message history. Re-exported here from `memory_conversations`. |
 | [`read_rpc.rs`](read_rpc.rs) | RPC handlers for memory reads. |
 | [`tree_rpc.rs`](tree_rpc.rs) | RPC handlers for tree ingest + introspection. |

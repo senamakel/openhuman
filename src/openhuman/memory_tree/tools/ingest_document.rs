@@ -143,8 +143,47 @@ impl Tool for MemoryTreeIngestDocumentTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
+    use crate::openhuman::memory_store::chunks::types::SourceRef;
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap();
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            if let Some(previous) = self.previous.as_ref() {
+                std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+            } else {
+                std::env::remove_var("OPENHUMAN_WORKSPACE");
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn parameters_schema_requires_title_body_and_source_id() {
@@ -255,23 +294,88 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_success_path_returns_ingest_confirmation_after_validation() {
+    async fn execute_success_path_roundtrips_document_chunk() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, cfg) = isolated_config(&tmp).await;
         let tool = MemoryTreeIngestDocumentTool;
         let result = tool
             .execute(json!({
                 "title": "Doc title",
-                "body": "Body text",
+                "body": "Body text with a memorable launch detail.",
                 "source_id": "doc-1",
                 "provider": "web",
+                "source_ref": "https://example.test/doc-1",
                 "owner": "owner-1"
             }))
             .await
-            .expect("valid request should succeed in the local test environment");
+            .expect("valid request should succeed in the isolated test environment");
         assert!(!result.is_error);
         let text = result.text();
         assert!(
             text.contains("Ingested document \"Doc title\" as source_id=doc-1."),
             "unexpected success payload: {text}"
         );
+
+        let listed = rpc::list_chunks_rpc(
+            &cfg,
+            rpc::ListChunksRequest {
+                source_kind: Some("document".into()),
+                source_id: Some("doc-1".into()),
+                owner: Some("owner-1".into()),
+                limit: Some(10),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("list chunks after tool execute")
+        .value
+        .chunks;
+        assert_eq!(listed.len(), 1);
+        assert!(
+            listed[0]
+                .content
+                .contains("Body text with a memorable launch detail."),
+            "stored chunk missing document body: {}",
+            listed[0].content
+        );
+        assert_eq!(listed[0].metadata.owner, "owner-1");
+        assert_eq!(
+            listed[0].metadata.source_ref,
+            Some(SourceRef::new("https://example.test/doc-1"))
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_duplicate_source_id_reports_zero_new_chunks() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, cfg) = isolated_config(&tmp).await;
+        let tool = MemoryTreeIngestDocumentTool;
+        let args = json!({
+            "title": "Doc title",
+            "body": "Body text",
+            "source_id": "doc-dup"
+        });
+
+        let first = tool.execute(args.clone()).await.expect("first execute");
+        let second = tool.execute(args).await.expect("second execute");
+        assert!(!first.is_error);
+        assert!(!second.is_error);
+        assert!(first.text().contains("1 chunks created and indexed."));
+        assert!(second.text().contains("0 chunks created and indexed."));
+
+        let listed = rpc::list_chunks_rpc(
+            &cfg,
+            rpc::ListChunksRequest {
+                source_kind: Some("document".into()),
+                source_id: Some("doc-dup".into()),
+                limit: Some(10),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("list chunks after duplicate execute")
+        .value
+        .chunks;
+        assert_eq!(listed.len(), 1, "duplicate source_id should not create extra chunks");
     }
 }

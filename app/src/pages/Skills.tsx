@@ -4,13 +4,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
 import McpServersTab from '../components/channels/mcp/McpServersTab';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
-import PillTabBar from '../components/PillTabBar';
 import {
   composioToolkitMeta,
   type ComposioToolkitMeta,
   KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PillTabBar from '../components/PillTabBar';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import CreateSkillModal from '../components/skills/CreateSkillModal';
 import InstallSkillDialog from '../components/skills/InstallSkillDialog';
@@ -37,8 +37,8 @@ import { useAgentReadyComposioToolkits, useComposioIntegrations } from '../lib/c
 import { canonicalizeComposioToolkitSlug } from '../lib/composio/toolkitSlug';
 import { type ComposioConnection, deriveComposioState } from '../lib/composio/types';
 import { useT } from '../lib/i18n/I18nContext';
-import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
 import { channelConnectionsApi } from '../services/api/channelConnectionsApi';
+import { skillsApi, type SkillSummary } from '../services/api/skillsApi';
 import { setDefaultMessagingChannel } from '../store/channelConnectionsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import type { ChannelConnectionStatus, ChannelDefinition, ChannelType } from '../types/channels';
@@ -935,8 +935,7 @@ export default function Skills() {
                       <div className="grid grid-cols-2 gap-2">
                         {channelDefs.map(def => {
                           const channelId = def.id as ChannelType;
-                          const selected =
-                            channelConnections.defaultMessagingChannel === channelId;
+                          const selected = channelConnections.defaultMessagingChannel === channelId;
                           return (
                             <button
                               key={channelId}
@@ -960,58 +959,58 @@ export default function Skills() {
                 {/* <MeetingBotsCard onToast={addToast} /> */}
 
                 {activeTab === 'composio' && (
-                <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
-                  <div className="px-1 pb-3 pt-1">
-                    <div className="flex items-center gap-2">
-                      <h2
-                        className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
-                        data-walkthrough="skills-grid">
-                        {t('skills.integrations')}
-                      </h2>
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 border border-primary-100 dark:border-primary-800/50">
-                        Powered by Composio
-                      </span>
+                  <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up">
+                    <div className="px-1 pb-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        <h2
+                          className="text-sm font-semibold text-stone-900 dark:text-neutral-100"
+                          data-walkthrough="skills-grid">
+                          {t('skills.integrations')}
+                        </h2>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 border border-primary-100 dark:border-primary-800/50">
+                          Powered by Composio
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                        {t('skills.integrationsSubtitle')}
+                      </p>
                     </div>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
-                      {t('skills.integrationsSubtitle')}
-                    </p>
-                  </div>
-                  <div className="space-y-3 px-1 pb-3">
-                    <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
-                    <SkillCategoryFilter
-                      categories={availableCategories}
-                      selected={selectedCategory}
-                      onChange={setSelectedCategory}
-                    />
-                  </div>
-                  {composioSortedEntries.length > 0 ? (
-                    <div
-                      className="grid gap-2 sm:gap-3"
-                      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(5.5rem, 1fr))' }}>
-                      {composioSortedEntries.map(({ meta, connection }) => (
-                        <div key={meta.slug} data-testid={`skill-row-composio-${meta.slug}`}>
-                          <ComposioConnectorTile
-                            meta={meta}
-                            connection={connection}
-                            hasComposioError={Boolean(composioError)}
-                            isAgentReady={
-                              agentReadyLoading ||
-                              Boolean(agentReadyError) ||
-                              agentReadyToolkits.has(meta.slug)
-                            }
-                            testId={`skill-install-composio-${meta.slug}`}
-                            onOpen={() => setComposioModalToolkit(meta)}
-                            onRetryGlobal={() => void refreshComposio()}
-                          />
-                        </div>
-                      ))}
+                    <div className="space-y-3 px-1 pb-3">
+                      <SkillSearchBar value={searchQuery} onChange={setSearchQuery} />
+                      <SkillCategoryFilter
+                        categories={availableCategories}
+                        selected={selectedCategory}
+                        onChange={setSelectedCategory}
+                      />
                     </div>
-                  ) : (
-                    <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
-                      {t('skills.noResults')}
-                    </p>
-                  )}
-                </div>
+                    {composioSortedEntries.length > 0 ? (
+                      <div
+                        className="grid gap-2 sm:gap-3"
+                        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(5.5rem, 1fr))' }}>
+                        {composioSortedEntries.map(({ meta, connection }) => (
+                          <div key={meta.slug} data-testid={`skill-row-composio-${meta.slug}`}>
+                            <ComposioConnectorTile
+                              meta={meta}
+                              connection={connection}
+                              hasComposioError={Boolean(composioError)}
+                              isAgentReady={
+                                agentReadyLoading ||
+                                Boolean(agentReadyError) ||
+                                agentReadyToolkits.has(meta.slug)
+                              }
+                              testId={`skill-install-composio-${meta.slug}`}
+                              onOpen={() => setComposioModalToolkit(meta)}
+                              onRetryGlobal={() => void refreshComposio()}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="px-1 py-4 text-center text-xs text-stone-400 dark:text-neutral-500">
+                        {t('skills.noResults')}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}

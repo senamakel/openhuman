@@ -264,8 +264,8 @@ const DevicesPanel = () => {
           Beta
         </span>
         <p className="text-xs text-stone-500 dark:text-neutral-400">
-          This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as
-          a remote client.
+          This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a
+          remote client.
         </p>
       </div>
 

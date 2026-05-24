@@ -519,8 +519,7 @@ const en: TranslationMap = {
   'settings.search.engineParallelDesc':
     'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave Search',
-  'settings.search.engineBraveDesc':
-    'Direct Brave Search API: web, news, image, and video tools.',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
   'settings.search.statusConfigured': 'Configured',
   'settings.search.statusNeedsKey': 'Needs API key',
   'settings.search.fallbackToManaged':
@@ -1501,9 +1500,11 @@ const en: TranslationMap = {
   'composio.connect.scope.read': 'Read',
   'composio.connect.scope.readHint': 'Allow the agent to read data from this connection.',
   'composio.connect.scope.write': 'Write',
-  'composio.connect.scope.writeHint': 'Allow the agent to create or modify data through this connection.',
+  'composio.connect.scope.writeHint':
+    'Allow the agent to create or modify data through this connection.',
   'composio.connect.scope.admin': 'Admin',
-  'composio.connect.scope.adminHint': 'Allow the agent to manage settings, permissions, or destructive actions.',
+  'composio.connect.scope.adminHint':
+    'Allow the agent to manage settings, permissions, or destructive actions.',
   'composio.connect.subdomainInvalid':
     'Enter the short subdomain only (e.g. "acme"), not the full URL. It should contain only letters, numbers, and hyphens.',
   'composio.connect.subdomainRequired': 'Please enter your Atlassian subdomain to continue.',

@@ -150,56 +150,56 @@ const McpServersTab = () => {
           Alpha
         </span>
         <span className="leading-relaxed">
-          MCP server support is in early alpha. The Smithery registry, install
-          flow, and tool wiring may misbehave or change shape between releases.
+          MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring
+          may misbehave or change shape between releases.
         </span>
       </div>
       <div className="flex gap-4 flex-1 min-h-0">
-      {/* Left pane: installed list */}
-      <div className="w-56 shrink-0 flex flex-col">
-        {loadError && (
-          <div className="mb-2 rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
-            {loadError}
-          </div>
-        )}
-        <InstalledServerList
-          servers={servers}
-          statuses={statuses}
-          selectedId={selectedServerId}
-          onSelect={handleSelectServer}
-          onBrowseCatalog={handleBrowseCatalog}
-        />
-      </div>
-
-      {/* Right pane */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {rightPane.mode === 'none' && (
-          <div className="h-full flex items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
-            Select a server or browse the catalog.
-          </div>
-        )}
-
-        {rightPane.mode === 'catalog' && (
-          <McpCatalogBrowser onSelectInstall={handleSelectInstall} />
-        )}
-
-        {rightPane.mode === 'install' && (
-          <InstallDialog
-            qualifiedName={rightPane.qualifiedName}
-            prefillEnv={rightPane.prefillEnv}
-            onSuccess={server => void handleInstallSuccess(server)}
-            onCancel={() => setRightPane({ mode: 'catalog' })}
+        {/* Left pane: installed list */}
+        <div className="w-56 shrink-0 flex flex-col">
+          {loadError && (
+            <div className="mb-2 rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
+              {loadError}
+            </div>
+          )}
+          <InstalledServerList
+            servers={servers}
+            statuses={statuses}
+            selectedId={selectedServerId}
+            onSelect={handleSelectServer}
+            onBrowseCatalog={handleBrowseCatalog}
           />
-        )}
+        </div>
 
-        {rightPane.mode === 'detail' && selectedServer && (
-          <InstalledServerDetail
-            server={selectedServer}
-            connStatus={selectedConnStatus}
-            onUninstalled={serverId => void handleUninstalled(serverId)}
-          />
-        )}
-      </div>
+        {/* Right pane */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          {rightPane.mode === 'none' && (
+            <div className="h-full flex items-center justify-center text-sm text-stone-400 dark:text-neutral-500">
+              Select a server or browse the catalog.
+            </div>
+          )}
+
+          {rightPane.mode === 'catalog' && (
+            <McpCatalogBrowser onSelectInstall={handleSelectInstall} />
+          )}
+
+          {rightPane.mode === 'install' && (
+            <InstallDialog
+              qualifiedName={rightPane.qualifiedName}
+              prefillEnv={rightPane.prefillEnv}
+              onSuccess={server => void handleInstallSuccess(server)}
+              onCancel={() => setRightPane({ mode: 'catalog' })}
+            />
+          )}
+
+          {rightPane.mode === 'detail' && selectedServer && (
+            <InstalledServerDetail
+              server={selectedServer}
+              connStatus={selectedConnStatus}
+              onUninstalled={serverId => void handleUninstalled(serverId)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -66,10 +66,7 @@ const SearchPanel = () => {
       })
       .catch(err => {
         if (cancelled) return;
-        setStatus({
-          kind: 'error',
-          message: err instanceof Error ? err.message : String(err),
-        });
+        setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
       });
     return () => {
       cancelled = true;

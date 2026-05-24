@@ -2,7 +2,7 @@ import debug from 'debug';
 import { type FC, useMemo } from 'react';
 
 import type { ToolTimelineEntry, ToolTimelineEntryStatus } from '../../store/chatRuntimeSlice';
-import { YellowMascot, type MascotFace } from './Mascot';
+import { type MascotFace, YellowMascot } from './Mascot';
 import type { MascotColor } from './Mascot/mascotPalette';
 
 const subMascotLog = debug('human:sub-mascots');

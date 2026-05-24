@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import {
-  type AISettings,
-  loadAISettings,
-} from '../../../services/api/aiSettingsApi';
+import { type AISettings, loadAISettings } from '../../../services/api/aiSettingsApi';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { BackgroundLoopControls } from './AIPanel';
@@ -51,9 +48,7 @@ const HeartbeatPanel = () => {
             cloudProviders={snapshot.cloudProviders}
           />
         ) : (
-          <div className="text-xs text-stone-500 dark:text-neutral-400">
-            {t('common.loading')}
-          </div>
+          <div className="text-xs text-stone-500 dark:text-neutral-400">{t('common.loading')}</div>
         )}
       </div>
     </div>

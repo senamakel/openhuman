@@ -183,9 +183,7 @@ const AppearancePanel = () => {
               <span
                 aria-hidden
                 className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
-                  labelsAlwaysVisible
-                    ? 'bg-primary-500'
-                    : 'bg-neutral-300 dark:bg-neutral-700'
+                  labelsAlwaysVisible ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-700'
                 }`}>
                 <span
                   className={`absolute top-0.5 inline-block w-5 h-5 rounded-full bg-white shadow transition-transform ${

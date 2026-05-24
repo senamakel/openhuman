@@ -126,7 +126,9 @@ export default function TriggerToggles({
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const actionWord = existing ? t('common.disable') : t('common.enable');
-        setRowError(`${actionWord} failed for ${formatTriggerLabel(entry.slug, { toolkit: toolkitName || toolkitSlug })}: ${msg}`);
+        setRowError(
+          `${actionWord} failed for ${formatTriggerLabel(entry.slug, { toolkit: toolkitName || toolkitSlug })}: ${msg}`
+        );
       } finally {
         setPendingSignature(null);
       }
@@ -199,7 +201,9 @@ export default function TriggerToggles({
                 ? t('composio.triggers.needsConfiguration')
                 : '';
           const action = enabled ? t('common.disable') : t('common.enable');
-          const triggerName = formatTriggerLabel(entry.slug, { toolkit: toolkitName || toolkitSlug });
+          const triggerName = formatTriggerLabel(entry.slug, {
+            toolkit: toolkitName || toolkitSlug,
+          });
           const ariaLabel =
             entry.scope === 'github_repo' && entry.repo
               ? `${action} ${triggerName} for ${entry.repo.owner}/${entry.repo.repo}`

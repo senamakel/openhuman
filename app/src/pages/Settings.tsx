@@ -5,9 +5,6 @@ import LogoutAndClearActions from '../components/settings/LogoutAndClearActions'
 import AboutPanel from '../components/settings/panels/AboutPanel';
 import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
-import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
-import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
-import SearchPanel from '../components/settings/panels/SearchPanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
 import AutocompletePanel from '../components/settings/panels/AutocompletePanel';
@@ -19,6 +16,8 @@ import ComposioTriagePanel from '../components/settings/panels/ComposioTriagePan
 import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import DeveloperOptionsPanel from '../components/settings/panels/DeveloperOptionsPanel';
 import DevicesPanel from '../components/settings/panels/DevicesPanel';
+import HeartbeatPanel from '../components/settings/panels/HeartbeatPanel';
+import LedgerUsagePanel from '../components/settings/panels/LedgerUsagePanel';
 import LocalModelDebugPanel from '../components/settings/panels/LocalModelDebugPanel';
 import MascotPanel from '../components/settings/panels/MascotPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
@@ -30,6 +29,7 @@ import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
 import ScreenAwarenessDebugPanel from '../components/settings/panels/ScreenAwarenessDebugPanel';
 import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
+import SearchPanel from '../components/settings/panels/SearchPanel';
 import TeamInvitesPanel from '../components/settings/panels/TeamInvitesPanel';
 import TeamManagementPanel from '../components/settings/panels/TeamManagementPanel';
 import TeamMembersPanel from '../components/settings/panels/TeamMembersPanel';
@@ -416,10 +416,7 @@ const Settings = () => {
           path="notification-routing"
           element={<Navigate to="/settings/notifications#routing" replace />}
         />
-        <Route
-          path="llm"
-          element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })}
-        />
+        <Route path="llm" element={wrapSettingsPage(<AIPanel />, { maxWidthClass: 'max-w-4xl' })} />
         <Route
           path="heartbeat"
           element={wrapSettingsPage(<HeartbeatPanel />, { maxWidthClass: 'max-w-4xl' })}

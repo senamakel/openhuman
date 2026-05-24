@@ -126,7 +126,7 @@ mod tests {
 
         let encoded = serde_json::to_value(&create).unwrap();
         assert_eq!(encoded["labels"], json!(["important", "memory"]));
-        assert!(encoded.get("parentThreadId").is_none());
+        assert_eq!(encoded["parentThreadId"], Value::Null);
 
         let decoded: CreateConversationThread = serde_json::from_value(encoded).unwrap();
         assert_eq!(

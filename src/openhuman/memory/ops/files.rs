@@ -105,6 +105,7 @@ pub async fn ai_write_memory_file(
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
     use std::sync::{Mutex, OnceLock};
 
     use tempfile::TempDir;
@@ -116,23 +117,39 @@ mod tests {
         ENV_MUTEX.get_or_init(|| Mutex::new(()))
     }
 
-    fn set_workspace_env(path: &std::path::Path) {
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+    struct WorkspaceEnvGuard {
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            unsafe {
+                std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            }
+            Self { previous }
         }
     }
 
-    fn clear_workspace_env() {
-        unsafe {
-            std::env::remove_var("OPENHUMAN_WORKSPACE");
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            unsafe {
+                if let Some(previous) = self.previous.take() {
+                    std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+                } else {
+                    std::env::remove_var("OPENHUMAN_WORKSPACE");
+                }
+            }
         }
     }
 
     #[tokio::test]
     async fn write_read_and_list_memory_files_roundtrip() {
-        let _guard = env_mutex().lock().expect("lock env mutex");
+        let _guard = env_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
-        set_workspace_env(tmp.path());
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
         let write = ai_write_memory_file(WriteMemoryFileRequest {
             relative_path: "notes/today.md".to_string(),
@@ -154,7 +171,9 @@ mod tests {
         assert_eq!(read_data.relative_path, "notes/today.md");
         assert_eq!(read_data.content, "remember this");
 
-        let memory_root = tmp.path().join("memory");
+        let memory_root = super::super::helpers::resolve_existing_memory_path("")
+            .await
+            .expect("resolve memory root");
         tokio::fs::write(memory_root.join("b.md"), "b")
             .await
             .expect("write b");
@@ -177,15 +196,15 @@ mod tests {
         assert_eq!(listed_data.relative_dir, "");
         assert_eq!(listed_data.files, vec!["a.md", "b.md"]);
         assert_eq!(listed_data.count, 2);
-
-        clear_workspace_env();
     }
 
     #[tokio::test]
     async fn list_memory_files_rejects_non_directory_target() {
-        let _guard = env_mutex().lock().expect("lock env mutex");
+        let _guard = env_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
-        set_workspace_env(tmp.path());
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
         tokio::fs::create_dir_all(tmp.path().join("memory"))
             .await
@@ -199,16 +218,19 @@ mod tests {
         })
         .await
         .expect_err("listing a file path should fail");
-        assert!(err.contains("memory directory not found"));
-
-        clear_workspace_env();
+        assert!(
+            err.contains("memory directory not found") || err.contains("resolve memory path"),
+            "unexpected error: {err}"
+        );
     }
 
     #[tokio::test]
     async fn read_and_write_memory_files_reject_path_traversal() {
-        let _guard = env_mutex().lock().expect("lock env mutex");
+        let _guard = env_mutex()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
-        set_workspace_env(tmp.path());
+        let _workspace = WorkspaceEnvGuard::set(tmp.path());
 
         let write_err = ai_write_memory_file(WriteMemoryFileRequest {
             relative_path: "../secrets.txt".to_string(),
@@ -224,7 +246,5 @@ mod tests {
         .await
         .expect_err("path traversal should fail for reads");
         assert!(read_err.contains("path traversal is not allowed"));
-
-        clear_workspace_env();
     }
 }

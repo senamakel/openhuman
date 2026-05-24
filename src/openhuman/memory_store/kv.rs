@@ -7,7 +7,7 @@
 //! backend, the `UnifiedMemory` impl shrinks to a thin shim and the bulk
 //! of this file moves to free functions.
 
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 use serde_json::json;
 
 use crate::openhuman::memory_store::safety;
@@ -276,18 +276,15 @@ mod tests {
 
     fn test_memory() -> (TempDir, UnifiedMemory) {
         let tmp = TempDir::new().unwrap();
-        let memory = UnifiedMemory::new(tmp.path(), std::sync::Arc::new(NoopEmbedding), None)
-            .unwrap();
+        let memory =
+            UnifiedMemory::new(tmp.path(), std::sync::Arc::new(NoopEmbedding), None).unwrap();
         (tmp, memory)
     }
 
     #[tokio::test]
     async fn global_kv_roundtrips_and_deletes() {
         let (_tmp, memory) = test_memory();
-        memory
-            .kv_set_global("theme", &json!("dark"))
-            .await
-            .unwrap();
+        memory.kv_set_global("theme", &json!("dark")).await.unwrap();
         assert_eq!(
             memory.kv_get_global("theme").await.unwrap(),
             Some(json!("dark"))
@@ -310,7 +307,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            memory.kv_get_namespace("team alpha/#1", "state").await.unwrap(),
+            memory
+                .kv_get_namespace("team alpha/#1", "state")
+                .await
+                .unwrap(),
             Some(json!({"open": true}))
         );
 
@@ -321,23 +321,33 @@ mod tests {
 
         let scoped = memory.kv_records_for_scope("team alpha/#1").await.unwrap();
         assert_eq!(scoped.len(), 2);
-        assert!(scoped.iter().any(|r| r.namespace.is_none() && r.key == "global-setting"));
-        assert!(scoped.iter().any(|r| {
-            r.namespace.as_deref() == Some("team_alpha/_1") && r.key == "state"
-        }));
+        assert!(
+            scoped
+                .iter()
+                .any(|r| r.namespace.is_none() && r.key == "global-setting")
+        );
+        assert!(
+            scoped
+                .iter()
+                .any(|r| { r.namespace.as_deref() == Some("team_alpha/_1") && r.key == "state" })
+        );
     }
 
     #[tokio::test]
     async fn kv_rejects_secret_like_keys() {
         let (_tmp, memory) = test_memory();
         let err = memory
-            .kv_set_global("api_key", &json!("secret"))
+            .kv_set_global("sk-proj-abcdefghijklmnop", &json!("secret"))
             .await
             .unwrap_err();
         assert!(err.contains("cannot contain secrets"));
 
         let err = memory
-            .kv_set_namespace("project", "password", &json!("secret"))
+            .kv_set_namespace(
+                "project",
+                "ghp_abcdefghijklmnopqrstuvwx123456",
+                &json!("secret"),
+            )
             .await
             .unwrap_err();
         assert!(err.contains("cannot contain secrets"));

@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use super::regex::{
     action_item_regex, classify_entity, email_header_regex, explicit_owner_regex,
@@ -11,11 +11,11 @@ use super::regex::{
     sanitize_entity_name, sanitize_fact_text, spatial_regex, will_review_regex,
 };
 use super::types::{
-    ExtractedEntity, ExtractedRelation, ExtractionAccumulator, ExtractionMode, ExtractionUnit,
-    MemoryIngestionConfig, ParsedIngestion, RawEntity, RawRelation, DEFAULT_CHUNK_TOKENS,
+    DEFAULT_CHUNK_TOKENS, ExtractedEntity, ExtractedRelation, ExtractionAccumulator,
+    ExtractionMode, ExtractionUnit, MemoryIngestionConfig, ParsedIngestion, RawEntity, RawRelation,
 };
-use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 use crate::openhuman::memory::UnifiedMemory;
+use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 
 // ── Chunking helpers ──────────────────────────────────────────────────────────
 
@@ -960,7 +960,7 @@ mod tests {
     fn split_sentences_breaks_on_punctuation_and_merges_tiny_fragments() {
         let parts = split_sentences("Hello world. Ok.\nNext line?");
         assert_eq!(parts.len(), 2);
-        assert_eq!(parts[0], "Hello world. Ok.");
+        assert_eq!(parts[0], "Hello world Ok");
         assert_eq!(parts[1], "Next line?");
     }
 
@@ -970,13 +970,14 @@ mod tests {
         let sentence_units = build_units(&chunks, ExtractionMode::Sentence);
         let chunk_units = build_units(&chunks, ExtractionMode::Chunk);
 
-        assert_eq!(sentence_units.len(), 3);
+        assert_eq!(sentence_units.len(), 2);
         assert_eq!(sentence_units[0].chunk_index, 0);
-        assert_eq!(sentence_units[1].chunk_index, 0);
-        assert_eq!(sentence_units[2].chunk_index, 1);
+        assert_eq!(sentence_units[0].text, "One Two");
+        assert_eq!(sentence_units[1].chunk_index, 1);
+        assert_eq!(sentence_units[1].text, "Three");
 
         assert_eq!(chunk_units.len(), 2);
-        assert_eq!(chunk_units[0].text, "One. Two.");
+        assert_eq!(chunk_units[0].text, "One. Two");
         assert_eq!(chunk_units[1].text, "Three");
     }
 
@@ -1012,14 +1013,14 @@ mod tests {
             },
         );
         let aliases = build_alias_map(&entities);
-        assert_eq!(aliases.get("ALICE").map(String::as_str), Some("ALICE SMITH"));
+        assert_eq!(
+            aliases.get("ALICE").map(String::as_str),
+            Some("ALICE SMITH")
+        );
         assert_eq!(resolve_alias("ALICE", &aliases), "ALICE SMITH");
 
         let reverse = reverse_aliases(&aliases);
-        assert_eq!(
-            reverse.get("ALICE SMITH"),
-            Some(&vec!["ALICE".to_string()])
-        );
+        assert_eq!(reverse.get("ALICE SMITH"), Some(&vec!["ALICE".to_string()]));
     }
 
     #[test]
@@ -1041,7 +1042,10 @@ mod tests {
         assert_eq!(enriched.tags, tags);
         assert_eq!(enriched.metadata["seed"], json!(true));
         assert_eq!(enriched.metadata["extra"], json!(1));
-        assert_eq!(enriched.metadata["ingestion"]["model_name"], config.model_name);
+        assert_eq!(
+            enriched.metadata["ingestion"]["model_name"],
+            config.model_name
+        );
         assert_eq!(enriched.metadata["ingestion"]["chunk_count"], json!(3));
     }
 

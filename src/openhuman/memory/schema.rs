@@ -207,26 +207,31 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "list_chunks" => ControllerSchema {
             namespace: NAMESPACE,
             function: "list_chunks",
-            description:
-                "Paginated list of chunks with optional filters by source kind / source id / \
+            description: "Paginated list of chunks with optional filters by source kind / source id / \
                  entity ids / time window / keyword. Returns chunks plus total match count for \
                  pagination.",
             inputs: vec![
                 FieldSchema {
                     name: "source_kinds",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::String)))),
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
                     comment: "Restrict to one or more source kinds (chat / email / document).",
                     required: false,
                 },
                 FieldSchema {
                     name: "source_ids",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::String)))),
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
                     comment: "Restrict to one or more logical source ids.",
                     required: false,
                 },
                 FieldSchema {
                     name: "entity_ids",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::String)))),
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
                     comment: "Restrict to chunks indexed against any of these canonical entity ids.",
                     required: false,
                 },
@@ -296,8 +301,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "list_sources" => ControllerSchema {
             namespace: NAMESPACE,
             function: "list_sources",
-            description:
-                "Distinct (source_kind, source_id) pairs with chunk counts and most-recent timestamps. \
+            description: "Distinct (source_kind, source_id) pairs with chunk counts and most-recent timestamps. \
                  `display_name` is computed from the source_id (un-slug + strip user email when known).",
             inputs: vec![FieldSchema {
                 name: "user_email_hint",
@@ -316,8 +320,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "search" => ControllerSchema {
             namespace: NAMESPACE,
             function: "search",
-            description:
-                "Keyword LIKE-search over chunk bodies. Cheap, deterministic; useful as a \
+            description: "Keyword LIKE-search over chunk bodies. Cheap, deterministic; useful as a \
                  fallback when semantic recall is unavailable.",
             inputs: vec![
                 FieldSchema {
@@ -343,8 +346,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "recall" => ControllerSchema {
             namespace: NAMESPACE,
             function: "recall",
-            description:
-                "Semantic recall — runs the Phase 4 cosine rerank against the query embedding \
+            description: "Semantic recall — runs the Phase 4 cosine rerank against the query embedding \
                  and returns leaf chunks (not summaries) for UI display.",
             inputs: vec![
                 FieldSchema {
@@ -395,14 +397,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "chunks_for_entity" => ControllerSchema {
             namespace: NAMESPACE,
             function: "chunks_for_entity",
-            description:
-                "Return chunk IDs that reference an entity_id (inverse of entity_index_for). \
+            description: "Return chunk IDs that reference an entity_id (inverse of entity_index_for). \
                  Used by the Memory tab's People/Topics lenses to filter the chunk list.",
             inputs: vec![FieldSchema {
                 name: "entity_id",
                 ty: TypeSchema::String,
-                comment:
-                    "Canonical entity id (e.g. `person:Steven Enamakel`, \
+                comment: "Canonical entity id (e.g. `person:Steven Enamakel`, \
                      `email:alice@example.com`).",
                 required: true,
             }],
@@ -416,8 +416,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "top_entities" => ControllerSchema {
             namespace: NAMESPACE,
             function: "top_entities",
-            description:
-                "Most-frequent canonical entities across the workspace, optionally narrowed by kind.",
+            description: "Most-frequent canonical entities across the workspace, optionally narrowed by kind.",
             inputs: vec![
                 FieldSchema {
                     name: "kind",
@@ -442,8 +441,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "chunk_score" => ControllerSchema {
             namespace: NAMESPACE,
             function: "chunk_score",
-            description:
-                "Score breakdown stored in `mem_tree_score` for one chunk — used by the Memory \
+            description: "Score breakdown stored in `mem_tree_score` for one chunk — used by the Memory \
                  tab's 'why was this kept / dropped' panel.",
             inputs: vec![FieldSchema {
                 name: "chunk_id",
@@ -461,8 +459,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "delete_chunk" => ControllerSchema {
             namespace: NAMESPACE,
             function: "delete_chunk",
-            description:
-                "Purge one chunk plus its score row, entity-index rows, and on-disk .md file. \
+            description: "Purge one chunk plus its score row, entity-index rows, and on-disk .md file. \
                  Idempotent — missing chunk returns deleted=false. Does NOT cascade through \
                  sealed summaries; UIs warn the user.",
             inputs: vec![FieldSchema {
@@ -509,8 +506,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "set_llm" => ControllerSchema {
             namespace: NAMESPACE,
             function: "set_llm",
-            description:
-                "Update the LLM backend selector and (optionally) per-role model choices \
+            description: "Update the LLM backend selector and (optionally) per-role model choices \
                  (`cloud_model`, `extract_model`, `summariser_model`) and persist the \
                  result to config.toml in a single atomic write. Absent model fields \
                  leave the corresponding config key unchanged so a caller flipping just \
@@ -1003,8 +999,9 @@ mod tests {
     fn set_llm_schema_exposes_backend_update_fields() {
         let schema = schemas("set_llm");
         let names: Vec<&str> = schema.inputs.iter().map(|f| f.name).collect();
-        assert!(names.contains(&"mode"));
+        assert!(names.contains(&"backend"));
         assert!(names.contains(&"cloud_model"));
-        assert!(names.contains(&"local_model"));
+        assert!(names.contains(&"extract_model"));
+        assert!(names.contains(&"summariser_model"));
     }
 }

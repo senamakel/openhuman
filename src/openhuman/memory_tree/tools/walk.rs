@@ -772,8 +772,11 @@ mod tests {
             _model: &str,
             _temp: f64,
         ) -> anyhow::Result<String> {
-            let next = self.responses.lock().unwrap().drain(0..1).next();
-            next.ok_or_else(|| anyhow::anyhow!("StubProvider: no more scripted responses"))
+            let mut responses = self.responses.lock().unwrap();
+            if responses.is_empty() {
+                return Err(anyhow::anyhow!("StubProvider: no more scripted responses"));
+            }
+            Ok(responses.remove(0))
         }
 
         async fn chat_with_history(
@@ -782,8 +785,11 @@ mod tests {
             _model: &str,
             _temp: f64,
         ) -> anyhow::Result<String> {
-            let next = self.responses.lock().unwrap().drain(0..1).next();
-            next.ok_or_else(|| anyhow::anyhow!("StubProvider: no more scripted responses"))
+            let mut responses = self.responses.lock().unwrap();
+            if responses.is_empty() {
+                return Err(anyhow::anyhow!("StubProvider: no more scripted responses"));
+            }
+            Ok(responses.remove(0))
         }
     }
 

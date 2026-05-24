@@ -13,7 +13,6 @@
 //! - `memory_store::trees*`   — summary-tree persistence
 
 // Legacy memory modules
-pub mod chunker;
 pub mod conversations;
 pub mod global;
 pub mod ingestion;

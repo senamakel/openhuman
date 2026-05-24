@@ -22,7 +22,6 @@
 //! Phases 2-4 (#708 scoring, #709 summary trees, #710 retrieval) build on
 //! top of these chunks without modifying the Phase 1 surface.
 
-pub mod chunker;
 pub mod sources;
 pub mod summarise;
 pub mod tools;

@@ -23,7 +23,7 @@ use crate::openhuman::memory_store::content as content_store;
 use crate::openhuman::memory::jobs::{self, ExtractChunkPayload, NewJob};
 use crate::openhuman::memory::score::{self, ScoreResult, ScoringConfig};
 use crate::openhuman::memory::util::redact::redact;
-use crate::openhuman::memory_tree::chunker::{chunk_markdown, ChunkerInput, ChunkerOptions};
+use crate::openhuman::memory_store::chunker::{chunk_markdown, ChunkerInput, ChunkerOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BODY_PREVIEW_MAX_BYTES: usize = 2048;

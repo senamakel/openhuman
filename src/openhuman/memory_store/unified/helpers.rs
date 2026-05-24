@@ -2,7 +2,7 @@
 //! cosine similarity, markdown chunking, text/predicate normalization, JSON
 //! attribute merging, and recency scoring.
 
-use crate::openhuman::memory::chunker::chunk_markdown;
+use crate::openhuman::memory_store::chunker::chunk_semantic as chunk_markdown;
 
 use super::UnifiedMemory;
 

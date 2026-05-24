@@ -60,8 +60,12 @@ permissions:
   contents: read
 
 jobs:
+  # Smoke/mega-flow gate for PR/push (full=false). The full-suite path lives in
+  # `e2e-linux-full` below, which fans out across 4 parallel shards via
+  # `e2e-run-all-flows.sh --suite=<list>`. Splitting the two prevents the
+  # smoke job from paying matrix overhead for a 2-spec run.
   e2e-linux:
-    if: inputs.run_linux
+    if: inputs.run_linux && !inputs.full
     name: E2E (Linux / Appium Chromium)
     runs-on: ubuntu-22.04
     container:
@@ -148,18 +152,6 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x960x24" \
             bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
-      - name: Run E2E (full suite)
-        if: ${{ inputs.full }}
-        env:
-          E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
-        run: |
-          BAIL_FLAG=""
-          if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
-            BAIL_FLAG="--bail"
-          fi
-          xvfb-run -a --server-args="-screen 0 1280x960x24" \
-            bash app/scripts/e2e-run-all-flows.sh --skip-preflight $BAIL_FLAG
-
       - name: Upload E2E failure artifacts
         if: failure()
         uses: actions/upload-artifact@v5
@@ -175,6 +167,123 @@ jobs:
         if: always()
         run: |
           echo "## E2E Results (${{ runner.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/e2e-summary.txt ]; then
+            cat /tmp/e2e-summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No summary file found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Full-suite Linux runs are sharded across 4 parallel jobs by suite group.
+  # `e2e-run-all-flows.sh --suite=<csv>` accepts a comma-separated list, so
+  # each shard runs roughly a quarter of the ~80 specs. With Swatinem
+  # rust-cache + the CEF cache restored on every job, the per-shard build
+  # step is fast (~1-3 min). Longest shard dominates wall clock — expect
+  # ~20-25 min vs the ~60-min serial baseline.
+  e2e-linux-full:
+    if: inputs.run_linux && inputs.full
+    name: E2E (Linux full / ${{ matrix.shard.name }})
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tinyhumansai/openhuman_ci:latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - { name: foundation, suites: "auth,navigation,system" }
+          - { name: chat, suites: "chat,skills,journeys" }
+          - { name: integrations, suites: "providers,webhooks,notifications" }
+          - { name: commerce, suites: "payments,settings" }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            app/src-tauri -> target
+          cache-on-failure: true
+          # Shared key across shards so the first shard to populate the cache
+          # warms it for the others within the same run.
+          key: e2e-linux-unified
+
+      - name: Cache CEF binary distribution
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/tauri-cef
+          key: cef-x86_64-unknown-linux-gnu-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            cef-x86_64-unknown-linux-gnu-
+
+      - name: Cache Appium global install
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.appium
+            /usr/local/lib/node_modules/appium
+          key: appium3-chromium-${{ runner.os }}-v1
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure .env exists for E2E build
+        run: |
+          touch .env
+          touch app/.env
+
+      - name: Install Appium and chromium driver
+        run: |
+          if ! command -v appium >/dev/null 2>&1; then
+            npm install -g appium@3
+          fi
+          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+
+      - name: Build E2E app
+        run: pnpm --filter openhuman-app test:e2e:build
+
+      - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
+        env:
+          E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
+        run: |
+          BAIL_FLAG=""
+          if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
+            BAIL_FLAG="--bail"
+          fi
+          xvfb-run -a --server-args="-screen 0 1280x960x24" \
+            bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
+              --suite=${{ matrix.shard.suites }} $BAIL_FLAG
+
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-failure-logs-${{ runner.os }}-${{ matrix.shard.name }}-${{ github.run_id }}
+          path: |
+            /tmp/openhuman-e2e-app-*.log
+            app/test/e2e/artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## E2E Results (${{ runner.os }} / ${{ matrix.shard.name }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f /tmp/e2e-summary.txt ]; then
             cat /tmp/e2e-summary.txt >> $GITHUB_STEP_SUMMARY
@@ -236,7 +345,7 @@ jobs:
       # /tmp/openhuman-rust-e2e-mock.log for local docker repro.
 
   e2e-macos:
-    if: inputs.run_macos
+    if: inputs.run_macos && !inputs.full
     name: E2E (macOS / Appium Chromium)
     runs-on: macos-latest
     timeout-minutes: 90
@@ -326,20 +435,15 @@ jobs:
             app/src-tauri/target/debug/bundle/macos/OpenHuman.app
 
       - name: Run E2E (smoke + mega-flow)
-        if: ${{ !inputs.full }}
         run: |
           bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
           bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
-
-      - name: Run E2E (full suite)
-        if: ${{ inputs.full }}
-        run: bash app/scripts/e2e-run-session.sh
 
       # Artifact uploads intentionally omitted — see e2e-linux for the
       # reusable-workflow-is-also-used-by-releases rationale.
 
   e2e-windows:
-    if: inputs.run_windows
+    if: inputs.run_windows && !inputs.full
     name: E2E (Windows / Appium Chromium)
     runs-on: windows-latest
     timeout-minutes: 90
@@ -411,16 +515,248 @@ jobs:
         run: pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E (smoke + mega-flow)
-        if: ${{ !inputs.full }}
         shell: bash
         run: |
           bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
           bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
-      - name: Run E2E (full suite)
-        if: ${{ inputs.full }}
-        shell: bash
-        run: bash app/scripts/e2e-run-session.sh
-
       # Artifact uploads intentionally omitted — see e2e-linux for the
       # reusable-workflow-is-also-used-by-releases rationale.
+
+  # ---------------------------------------------------------------------------
+  # Full-suite macOS — sharded matrix mirroring e2e-linux-full.
+  # ---------------------------------------------------------------------------
+  e2e-macos-full:
+    if: inputs.run_macos && inputs.full
+    name: E2E (macOS full / ${{ matrix.shard.name }})
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - { name: foundation, suites: "auth,navigation,system" }
+          - { name: chat, suites: "chat,skills,journeys" }
+          - { name: integrations, suites: "providers,webhooks,notifications" }
+          - { name: commerce, suites: "payments,settings" }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 24.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install Rust (rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@1.93.0
+
+      - name: Verify cargo resolves to real toolchain
+        run: cargo --version
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            app/src-tauri -> target
+          cache-on-failure: true
+          key: e2e-macos-unified-v2
+
+      - name: Cache CEF binary distribution
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/tauri-cef
+          key: cef-aarch64-apple-darwin-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            cef-aarch64-apple-darwin-
+
+      - name: Cache Appium global install
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.appium
+          key: appium3-chromium-${{ runner.os }}-v1
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure .env exists for E2E build
+        run: |
+          touch .env
+          touch app/.env
+
+      - name: Install Appium and chromium driver
+        run: |
+          if ! command -v appium >/dev/null 2>&1; then
+            npm install -g appium@3
+          fi
+          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+
+      - name: Build E2E app
+        run: pnpm --filter openhuman-app test:e2e:build
+
+      - name: Adhoc-sign the .app bundle
+        run: |
+          codesign --force --deep --sign - \
+            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+          codesign --verify --deep --verbose=2 \
+            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+
+      - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
+        env:
+          E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
+        run: |
+          BAIL_FLAG=""
+          if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
+            BAIL_FLAG="--bail"
+          fi
+          bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
+            --suite=${{ matrix.shard.suites }} $BAIL_FLAG
+
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-failure-logs-${{ runner.os }}-${{ matrix.shard.name }}-${{ github.run_id }}
+          path: |
+            /tmp/openhuman-e2e-app-*.log
+            app/test/e2e/artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## E2E Results (${{ runner.os }} / ${{ matrix.shard.name }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/e2e-summary.txt ]; then
+            cat /tmp/e2e-summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No summary file found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Full-suite Windows — sharded matrix mirroring e2e-linux-full.
+  # ---------------------------------------------------------------------------
+  e2e-windows-full:
+    if: inputs.run_windows && inputs.full
+    name: E2E (Windows full / ${{ matrix.shard.name }})
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - { name: foundation, suites: "auth,navigation,system" }
+          - { name: chat, suites: "chat,skills,journeys" }
+          - { name: integrations, suites: "providers,webhooks,notifications" }
+          - { name: commerce, suites: "payments,settings" }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 24.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install Rust (rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@1.93.0
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            app/src-tauri -> target
+          cache-on-failure: true
+          key: e2e-windows-unified
+
+      - name: Cache CEF binary distribution
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/AppData/Local/tauri-cef
+          key: cef-x86_64-pc-windows-msvc-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            cef-x86_64-pc-windows-msvc-
+
+      - name: Cache Appium global install
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.appium
+          key: appium3-chromium-${{ runner.os }}-v1
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure .env exists for E2E build
+        shell: bash
+        run: |
+          touch .env
+          touch app/.env
+
+      - name: Install Appium and chromium driver
+        shell: bash
+        run: |
+          if ! command -v appium >/dev/null 2>&1; then
+            npm install -g appium@3
+          fi
+          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+
+      - name: Build E2E app
+        run: pnpm --filter openhuman-app test:e2e:build
+
+      - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
+        shell: bash
+        env:
+          E2E_BAIL_ON_FAILURE: ${{ vars.E2E_BAIL_ON_FAILURE || '' }}
+        run: |
+          BAIL_FLAG=""
+          if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
+            BAIL_FLAG="--bail"
+          fi
+          bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
+            --suite=${{ matrix.shard.suites }} $BAIL_FLAG
+
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-failure-logs-${{ runner.os }}-${{ matrix.shard.name }}-${{ github.run_id }}
+          path: |
+            /tmp/openhuman-e2e-app-*.log
+            app/test/e2e/artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## E2E Results (${{ runner.os }} / ${{ matrix.shard.name }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/e2e-summary.txt ]; then
+            cat /tmp/e2e-summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No summary file found." >> $GITHUB_STEP_SUMMARY
+          fi

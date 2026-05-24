@@ -58,14 +58,21 @@ for arg in "$@"; do
 done
 
 VALID_SUITES="auth navigation chat skills notifications webhooks providers payments settings system journeys all"
-SUITE_VALID=0
-for s in $VALID_SUITES; do
-  [[ "$SUITE" == "$s" ]] && SUITE_VALID=1 && break
+
+# Accept comma-separated suite lists, e.g. --suite=auth,navigation,system.
+# CI sharding passes one such list per matrix shard so a few parallel jobs
+# can cover the whole suite. `all` short-circuits to "everything".
+IFS=',' read -r -a _REQUESTED_SUITES <<< "$SUITE"
+for req in "${_REQUESTED_SUITES[@]}"; do
+  match=0
+  for s in $VALID_SUITES; do
+    [[ "$req" == "$s" ]] && match=1 && break
+  done
+  if [[ $match -eq 0 ]]; then
+    echo "Invalid suite: '$req'. Valid values: $VALID_SUITES" >&2
+    exit 1
+  fi
 done
-if [[ $SUITE_VALID -eq 0 ]]; then
-  echo "Invalid suite: '$SUITE'. Valid values: $VALID_SUITES" >&2
-  exit 1
-fi
 
 # ---------------------------------------------------------------------------
 # Artifacts directory
@@ -204,7 +211,11 @@ fi
 # Returns 0 (true) if this suite should run given --suite flag.
 # ---------------------------------------------------------------------------
 should_run_suite() {
-  [[ "$SUITE" == "all" || "$SUITE" == "$1" ]]
+  local want="$1"
+  for req in "${_REQUESTED_SUITES[@]}"; do
+    [[ "$req" == "all" || "$req" == "$want" ]] && return 0
+  done
+  return 1
 }
 
 # ---------------------------------------------------------------------------

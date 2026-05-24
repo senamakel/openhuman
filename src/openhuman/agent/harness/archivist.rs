@@ -199,6 +199,7 @@ impl ArchivistHook {
         timestamp: f64,
         user_message: &str,
         current_episodic_id: i64,
+        current_seq: Option<u32>,
     ) -> Option<ConversationSegment> {
         let now = Self::now_timestamp();
 
@@ -233,6 +234,7 @@ impl ArchivistHook {
                             conn,
                             &segment.segment_id,
                             current_episodic_id,
+                            current_seq,
                             timestamp,
                             now,
                         ) {
@@ -261,6 +263,7 @@ impl ArchivistHook {
                             session_id,
                             "global",
                             current_episodic_id,
+                            current_seq,
                             timestamp,
                             now,
                         ) {
@@ -285,6 +288,7 @@ impl ArchivistHook {
                     session_id,
                     "global",
                     current_episodic_id,
+                    current_seq,
                     timestamp,
                     now,
                 ) {
@@ -579,7 +583,10 @@ impl PostTurnHook for ArchivistHook {
 
         // Dual-write into memory_archivist::store (md-backed) so we can
         // validate the FTS5 → md migration before flipping the read side.
-        // Best-effort: a write failure here must not break the turn.
+        // Best-effort: a write failure here must not break the turn. The
+        // user turn's assigned seq is captured into `current_seq` so the
+        // segment ops can store it alongside the FTS5 episodic id.
+        let mut current_seq: Option<u32> = None;
         if let Some(cfg) = self.config.as_ref() {
             let ts_ms = (timestamp * 1000.0) as i64;
             let user_turn = crate::openhuman::memory_archivist::ArchivedTurn {
@@ -592,10 +599,11 @@ impl PostTurnHook for ArchivistHook {
                 tool_calls_json: None,
                 cost_microdollars: 0,
             };
-            if let Err(e) =
-                crate::openhuman::memory_archivist::store::record_turn(cfg, user_turn)
-            {
-                tracing::warn!("[archivist] memory_archivist user dual-write failed: {e}");
+            match crate::openhuman::memory_archivist::store::record_turn(cfg, user_turn) {
+                Ok(stored) => current_seq = Some(stored.seq),
+                Err(e) => {
+                    tracing::warn!("[archivist] memory_archivist user dual-write failed: {e}");
+                }
             }
             // Assistant turn carries the tool_calls_json + lesson the FTS5
             // insert just wrote. Re-derive locally so we don't depend on
@@ -631,6 +639,7 @@ impl PostTurnHook for ArchivistHook {
             timestamp,
             &ctx.user_message,
             current_episodic_id,
+            current_seq,
         );
 
         // Run async recap + embed + segment-tree ingest on the closed segment

@@ -32,7 +32,7 @@ pub mod vectors;
 pub mod unified;
 
 mod client;
-mod factories;
+pub mod factories;
 mod memory_trait;
 
 pub use kinds::MemoryKind;

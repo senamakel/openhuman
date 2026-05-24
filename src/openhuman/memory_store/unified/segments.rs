@@ -26,7 +26,13 @@ CREATE TABLE IF NOT EXISTS conversation_segments (
     topic_keywords TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at REAL NOT NULL,
-    updated_at REAL NOT NULL
+    updated_at REAL NOT NULL,
+    -- Per-session sequence numbers from memory_archivist::store, populated
+    -- alongside start_episodic_id / end_episodic_id during the FTS5 -> md
+    -- migration. Once STM recall switches its segment-span dedup to use
+    -- (session_id, seq) the legacy episodic_id columns can be dropped.
+    start_seq INTEGER,
+    end_seq INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_segments_session
@@ -102,7 +108,25 @@ pub struct ConversationSegment {
     pub status: SegmentStatus,
     pub created_at: f64,
     pub updated_at: f64,
+    /// Per-session seq number assigned by `memory_archivist::store::record_turn`
+    /// for the user turn that opened this segment. `None` on legacy rows
+    /// written before the FTS5 -> md migration began.
+    #[serde(default)]
+    pub start_seq: Option<u32>,
+    /// Per-session seq for the latest turn appended to this segment.
+    /// `None` while the segment has no appended turns OR on legacy rows.
+    #[serde(default)]
+    pub end_seq: Option<u32>,
 }
+
+/// Idempotent migrations applied alongside [`SEGMENTS_INIT_SQL`] for
+/// databases created before the `(start_seq, end_seq)` columns existed.
+/// Each statement either applies cleanly or fails with "duplicate column",
+/// both of which are safe to swallow.
+pub const SEGMENTS_MIGRATIONS_SQL: &[&str] = &[
+    "ALTER TABLE conversation_segments ADD COLUMN start_seq INTEGER",
+    "ALTER TABLE conversation_segments ADD COLUMN end_seq INTEGER",
+];
 
 /// Boundary detection configuration.
 #[derive(Debug, Clone)]
@@ -181,20 +205,22 @@ pub fn segment_create(
     session_id: &str,
     namespace: &str,
     start_episodic_id: i64,
+    start_seq: Option<u32>,
     start_timestamp: f64,
     now: f64,
 ) -> anyhow::Result<()> {
     let conn = conn.lock();
     conn.execute(
         "INSERT INTO conversation_segments
-         (segment_id, session_id, namespace, start_episodic_id, start_timestamp,
-          turn_count, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 1, 'open', ?6, ?6)",
+         (segment_id, session_id, namespace, start_episodic_id, start_seq,
+          start_timestamp, turn_count, status, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'open', ?7, ?7)",
         params![
             segment_id,
             session_id,
             namespace,
             start_episodic_id,
+            start_seq,
             start_timestamp,
             now
         ],
@@ -203,11 +229,12 @@ pub fn segment_create(
     Ok(())
 }
 
-/// Increment turn count and update the latest episodic ID / timestamp.
+/// Increment turn count and update the latest episodic ID + seq + timestamp.
 pub fn segment_append_turn(
     conn: &Arc<Mutex<Connection>>,
     segment_id: &str,
     episodic_id: i64,
+    end_seq: Option<u32>,
     timestamp: f64,
     now: f64,
 ) -> anyhow::Result<()> {
@@ -216,10 +243,11 @@ pub fn segment_append_turn(
         "UPDATE conversation_segments
          SET turn_count = turn_count + 1,
              end_episodic_id = ?2,
-             end_timestamp = ?3,
-             updated_at = ?4
+             end_seq = ?3,
+             end_timestamp = ?4,
+             updated_at = ?5
          WHERE segment_id = ?1",
-        params![segment_id, episodic_id, timestamp, now],
+        params![segment_id, episodic_id, end_seq, timestamp, now],
     )?;
     Ok(())
 }
@@ -348,7 +376,8 @@ pub fn open_segment_for_session(
         .query_row(
             "SELECT segment_id, session_id, namespace, start_episodic_id, end_episodic_id,
                     start_timestamp, end_timestamp, turn_count, summary, embedding,
-                    topic_keywords, status, created_at, updated_at
+                    topic_keywords, status, created_at, updated_at,
+                    start_seq, end_seq
              FROM conversation_segments
              WHERE session_id = ?1 AND status = 'open'
              ORDER BY created_at DESC
@@ -370,7 +399,8 @@ pub fn segments_by_namespace(
     let mut stmt = conn.prepare(
         "SELECT segment_id, session_id, namespace, start_episodic_id, end_episodic_id,
                 start_timestamp, end_timestamp, turn_count, summary, embedding,
-                topic_keywords, status, created_at, updated_at
+                topic_keywords, status, created_at, updated_at,
+                    start_seq, end_seq
          FROM conversation_segments
          WHERE namespace = ?1
          ORDER BY updated_at DESC
@@ -392,7 +422,8 @@ pub fn segment_get(
         .query_row(
             "SELECT segment_id, session_id, namespace, start_episodic_id, end_episodic_id,
                     start_timestamp, end_timestamp, turn_count, summary, embedding,
-                    topic_keywords, status, created_at, updated_at
+                    topic_keywords, status, created_at, updated_at,
+                    start_seq, end_seq
              FROM conversation_segments
              WHERE segment_id = ?1",
             params![segment_id],
@@ -411,7 +442,8 @@ pub fn segments_pending_summary(
     let mut stmt = conn.prepare(
         "SELECT segment_id, session_id, namespace, start_episodic_id, end_episodic_id,
                 start_timestamp, end_timestamp, turn_count, summary, embedding,
-                topic_keywords, status, created_at, updated_at
+                topic_keywords, status, created_at, updated_at,
+                    start_seq, end_seq
          FROM conversation_segments
          WHERE status = 'closed'
          ORDER BY created_at ASC
@@ -536,6 +568,8 @@ fn row_to_segment(row: &rusqlite::Row<'_>) -> rusqlite::Result<ConversationSegme
         status: SegmentStatus::parse_or_default(&status_str),
         created_at: row.get(12)?,
         updated_at: row.get(13)?,
+        start_seq: row.get::<_, Option<i64>>(14)?.map(|v| v.max(0) as u32),
+        end_seq: row.get::<_, Option<i64>>(15)?.map(|v| v.max(0) as u32),
     })
 }
 

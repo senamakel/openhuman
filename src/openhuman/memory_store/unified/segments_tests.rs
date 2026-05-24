@@ -14,7 +14,7 @@ fn setup_db() -> Arc<Mutex<Connection>> {
 #[test]
 fn create_and_get_segment() {
     let conn = setup_db();
-    segment_create(&conn, "seg-1", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-1", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
     let seg = segment_get(&conn, "seg-1").unwrap().unwrap();
     assert_eq!(seg.session_id, "s1");
     assert_eq!(seg.turn_count, 1);
@@ -24,7 +24,7 @@ fn create_and_get_segment() {
 #[test]
 fn segment_embeddings_are_scoped_by_model_signature() {
     let conn = setup_db();
-    segment_create(&conn, "seg-embed", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-embed", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
 
     segment_embedding_upsert(
         &conn,
@@ -62,9 +62,9 @@ fn segment_embeddings_are_scoped_by_model_signature() {
 #[test]
 fn append_and_close_segment() {
     let conn = setup_db();
-    segment_create(&conn, "seg-2", "s1", "global", 1, 1000.0, 1000.0).unwrap();
-    segment_append_turn(&conn, "seg-2", 2, 1005.0, 1005.0).unwrap();
-    segment_append_turn(&conn, "seg-2", 3, 1010.0, 1010.0).unwrap();
+    segment_create(&conn, "seg-2", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
+    segment_append_turn(&conn, "seg-2", 2, None, 1005.0, 1005.0).unwrap();
+    segment_append_turn(&conn, "seg-2", 3, None, 1010.0, 1010.0).unwrap();
 
     let seg = segment_get(&conn, "seg-2").unwrap().unwrap();
     assert_eq!(seg.turn_count, 3);
@@ -78,9 +78,9 @@ fn append_and_close_segment() {
 #[test]
 fn open_segment_for_session_returns_latest() {
     let conn = setup_db();
-    segment_create(&conn, "seg-a", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-a", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
     segment_close(&conn, "seg-a", 1001.0).unwrap();
-    segment_create(&conn, "seg-b", "s1", "global", 5, 1010.0, 1010.0).unwrap();
+    segment_create(&conn, "seg-b", "s1", "global", 5, None, 1010.0, 1010.0).unwrap();
 
     let open = open_segment_for_session(&conn, "s1").unwrap();
     assert!(open.is_some());
@@ -109,6 +109,8 @@ fn boundary_detection_time_gap() {
         status: SegmentStatus::Open,
         created_at: 1000.0,
         updated_at: 1050.0,
+        start_seq: None,
+        end_seq: None,
     };
 
     // Within time gap — continue.
@@ -141,6 +143,8 @@ fn boundary_detection_explicit_marker() {
         status: SegmentStatus::Open,
         created_at: 1000.0,
         updated_at: 1000.0,
+        start_seq: None,
+        end_seq: None,
     };
 
     let decision = detect_boundary(
@@ -177,6 +181,8 @@ fn boundary_detection_turn_count() {
         status: SegmentStatus::Open,
         created_at: 1000.0,
         updated_at: 1010.0,
+        start_seq: None,
+        end_seq: None,
     };
 
     let decision = detect_boundary(&config, &seg, 1011.0, "next", None);
@@ -204,6 +210,8 @@ fn boundary_detection_embedding_drift() {
         status: SegmentStatus::Open,
         created_at: 1000.0,
         updated_at: 1000.0,
+        start_seq: None,
+        end_seq: None,
     };
 
     // Similar direction — continue.
@@ -231,7 +239,7 @@ fn incremental_mean_embedding_works() {
 #[test]
 fn summary_set_and_read() {
     let conn = setup_db();
-    segment_create(&conn, "seg-s", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-s", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
     segment_close(&conn, "seg-s", 1001.0).unwrap();
     segment_set_summary(&conn, "seg-s", "Discussed deployment strategy", 1002.0).unwrap();
     let seg = segment_get(&conn, "seg-s").unwrap().unwrap();
@@ -246,9 +254,9 @@ fn summary_set_and_read() {
 fn segments_by_namespace_returns_most_recent_first() {
     let conn = setup_db();
     // Create three segments with different updated_at timestamps.
-    segment_create(&conn, "seg-ns-1", "s1", "myns", 1, 1000.0, 1000.0).unwrap();
-    segment_create(&conn, "seg-ns-2", "s1", "myns", 5, 2000.0, 2000.0).unwrap();
-    segment_create(&conn, "seg-ns-3", "s1", "myns", 10, 3000.0, 3000.0).unwrap();
+    segment_create(&conn, "seg-ns-1", "s1", "myns", 1, None, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-ns-2", "s1", "myns", 5, None, 2000.0, 2000.0).unwrap();
+    segment_create(&conn, "seg-ns-3", "s1", "myns", 10, None, 3000.0, 3000.0).unwrap();
 
     // Append a turn to seg-ns-1 with a later timestamp to bump its updated_at.
     // Leave seg-ns-3 as the most recently created (highest updated_at).
@@ -261,7 +269,7 @@ fn segments_by_namespace_returns_most_recent_first() {
     assert_eq!(segs[2].segment_id, "seg-ns-1");
 
     // Bump seg-ns-1's updated_at by appending a turn.
-    segment_append_turn(&conn, "seg-ns-1", 2, 9000.0, 9000.0).unwrap();
+    segment_append_turn(&conn, "seg-ns-1", 2, None, 9000.0, 9000.0).unwrap();
     let segs = segments_by_namespace(&conn, "myns", 10).unwrap();
     assert_eq!(segs[0].segment_id, "seg-ns-1");
 }
@@ -270,14 +278,14 @@ fn segments_by_namespace_returns_most_recent_first() {
 fn segments_pending_summary_only_returns_closed() {
     let conn = setup_db();
     // Open segment — should NOT appear.
-    segment_create(&conn, "seg-open", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-open", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
 
     // Closed segment — SHOULD appear.
-    segment_create(&conn, "seg-closed", "s2", "global", 5, 2000.0, 2000.0).unwrap();
+    segment_create(&conn, "seg-closed", "s2", "global", 5, None, 2000.0, 2000.0).unwrap();
     segment_close(&conn, "seg-closed", 2001.0).unwrap();
 
     // Summarised segment — should NOT appear (only status='closed' is pending).
-    segment_create(&conn, "seg-summ", "s3", "global", 10, 3000.0, 3000.0).unwrap();
+    segment_create(&conn, "seg-summ", "s3", "global", 10, None, 3000.0, 3000.0).unwrap();
     segment_close(&conn, "seg-summ", 3001.0).unwrap();
     segment_set_summary(&conn, "seg-summ", "A summary", 3002.0).unwrap();
 
@@ -294,7 +302,7 @@ fn segments_pending_summary_only_returns_closed() {
 #[test]
 fn segment_set_embedding_roundtrip() {
     let conn = setup_db();
-    segment_create(&conn, "seg-emb", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-emb", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
 
     let embedding = vec![0.1_f32, 0.2, 0.3, 0.4, 0.5];
     segment_set_embedding(&conn, "seg-emb", &embedding, 1001.0).unwrap();
@@ -313,7 +321,7 @@ fn segment_set_embedding_roundtrip() {
 #[test]
 fn segment_set_keywords_stores_and_reads() {
     let conn = setup_db();
-    segment_create(&conn, "seg-kw", "s1", "global", 1, 1000.0, 1000.0).unwrap();
+    segment_create(&conn, "seg-kw", "s1", "global", 1, None, 1000.0, 1000.0).unwrap();
 
     let keywords = "rust,memory,performance";
     segment_set_keywords(&conn, "seg-kw", keywords, 1001.0).unwrap();
@@ -344,6 +352,8 @@ fn boundary_no_false_positive_on_short_messages() {
         status: SegmentStatus::Open,
         created_at: 1000.0,
         updated_at: 1010.0,
+        start_seq: None,
+        end_seq: None,
     };
 
     // Short single-word messages must not trigger explicit marker detection.

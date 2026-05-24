@@ -144,6 +144,19 @@ impl UnifiedMemory {
         // Conversation segmentation tables.
         conn.execute_batch(super::segments::SEGMENTS_INIT_SQL)?;
 
+        // Backfill the (start_seq, end_seq) columns on existing databases
+        // — fresh installs get them from SEGMENTS_INIT_SQL above; older DBs
+        // need the ALTER TABLEs. Idempotent: a duplicate-column error is
+        // expected and logged at trace level.
+        for sql in super::segments::SEGMENTS_MIGRATIONS_SQL {
+            match conn.execute(sql, []) {
+                Ok(_) => tracing::debug!("[segments:init] applied: {sql}"),
+                Err(e) => {
+                    tracing::trace!("[segments:init] skipped (probably already exists): {e}")
+                }
+            }
+        }
+
         // Event extraction tables.
         conn.execute_batch(super::events::EVENTS_INIT_SQL)?;
 

@@ -237,10 +237,6 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
   useEffect(() => {
     void loadData(true);
-    const timer = window.setInterval(() => {
-      void loadData(false);
-    }, 15000);
-    return () => window.clearInterval(timer);
   }, []);
 
   const persistProviders = async (

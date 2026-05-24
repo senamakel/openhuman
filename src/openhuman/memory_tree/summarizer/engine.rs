@@ -278,7 +278,7 @@ pub async fn rebuild_tree(
 // ── Internal ───────────────────────────────────────────────────────────
 
 /// Re-summarize a single non-leaf node from its children.
-async fn propagate_node(
+pub(crate) async fn propagate_node(
     config: &Config,
     provider: &dyn Provider,
     namespace: &str,
@@ -430,7 +430,7 @@ async fn summarize_to_limit(
 ///
 /// Buffer filenames are `{timestamp_millis}_{uuid}.md`. We extract the timestamp
 /// and derive the hour ID for each entry.
-fn group_by_hour(entries: &[(String, String)]) -> BTreeMap<String, Vec<String>> {
+pub(crate) fn group_by_hour(entries: &[(String, String)]) -> BTreeMap<String, Vec<String>> {
     let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
     for (filename, content) in entries {
@@ -609,3 +609,7 @@ fn discover_active_namespaces(config: &Config) -> Vec<String> {
     }
     active
 }
+
+#[cfg(test)]
+#[path = "engine_tests.rs"]
+mod tests;

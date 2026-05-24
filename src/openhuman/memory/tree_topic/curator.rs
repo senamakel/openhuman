@@ -156,9 +156,7 @@ mod tests {
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
     use crate::openhuman::memory_store::trees::hotness::get;
-    use crate::openhuman::memory_store::trees::{
-        TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY,
-    };
+    use crate::openhuman::memory_store::trees::{TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY};
     use crate::openhuman::memory_tree::score::extract::EntityKind;
     use crate::openhuman::memory_tree::score::resolver::CanonicalEntity;
     use crate::openhuman::memory_tree::score::store::index_entity;

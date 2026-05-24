@@ -34,13 +34,12 @@ use crate::openhuman::memory_store::chunks::store::{
     count_chunks, count_chunks_by_lifecycle_status, CHUNK_STATUS_BUFFERED,
 };
 use crate::openhuman::memory_store::trees::{
-    hotness,
-    store as tree_store,
+    hotness, store as tree_store,
     types::{HotnessCounters, TreeKind},
 };
+use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{query_source, query_topic, search_entities};
 use crate::openhuman::memory_tree::score::store::lookup_entity;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -76,7 +75,12 @@ impl EventCollector {
     }
 
     fn count_by<F: Fn(&DomainEvent) -> bool>(&self, pred: F) -> usize {
-        self.events.lock().unwrap().iter().filter(|e| pred(e)).count()
+        self.events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| pred(e))
+            .count()
     }
 }
 
@@ -198,7 +202,10 @@ async fn single_batch_sync_to_tree() {
 
     // Entity index.
     let alice_hits = lookup_entity(&cfg, "email:alice@example.com", None).unwrap();
-    assert!(!alice_hits.is_empty(), "alice should be in the entity index");
+    assert!(
+        !alice_hits.is_empty(),
+        "alice should be in the entity index"
+    );
 
     // Completion event.
     emit_sync_stage(
@@ -242,16 +249,18 @@ async fn multi_batch_volume_builds_full_tree() {
         let result = ingest_chat(&cfg, source_id, "alice", vec!["gmail".into()], batch)
             .await
             .unwrap();
-        assert!(result.chunks_written >= 1, "batch {i} should produce chunks");
+        assert!(
+            result.chunks_written >= 1,
+            "batch {i} should produce chunks"
+        );
     }
 
     let total_chunks = count_chunks(&cfg).unwrap();
     assert!(total_chunks >= 20, "got {total_chunks}");
 
     tokio::task::yield_now().await;
-    let canonicalized = collector.count_by(|e| {
-        matches!(e, DomainEvent::DocumentCanonicalized { .. })
-    });
+    let canonicalized =
+        collector.count_by(|e| matches!(e, DomainEvent::DocumentCanonicalized { .. }));
     assert!(canonicalized >= 20);
 
     // Drain all jobs.
@@ -283,17 +292,15 @@ async fn multi_batch_volume_builds_full_tree() {
     // Entity search.
     let matches = search_entities(&cfg, "alice", None, 10).await.unwrap();
     assert!(!matches.is_empty());
-    assert!(matches.iter().any(|m| m.canonical_id == "email:alice@example.com"));
+    assert!(matches
+        .iter()
+        .any(|m| m.canonical_id == "email:alice@example.com"));
 
     // ── Global digest ──────────────────────────────────────────────────
 
-    let provider: Arc<dyn ChatProvider> =
-        Arc::new(StaticChatProvider::new("daily digest summary"));
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new("daily digest summary"));
 
-    let digest_day = Utc
-        .timestamp_millis_opt(base_ts)
-        .unwrap()
-        .date_naive();
+    let digest_day = Utc.timestamp_millis_opt(base_ts).unwrap().date_naive();
 
     let digest_outcome = test_override::with_provider(Arc::clone(&provider), async {
         end_of_day_digest(&cfg, digest_day).await.unwrap()
@@ -301,7 +308,11 @@ async fn multi_batch_volume_builds_full_tree() {
     .await;
 
     match &digest_outcome {
-        DigestOutcome::Emitted { source_count, daily_id, .. } => {
+        DigestOutcome::Emitted {
+            source_count,
+            daily_id,
+            ..
+        } => {
             assert!(*source_count >= 1);
             assert!(!daily_id.is_empty());
         }
@@ -323,7 +334,9 @@ async fn multi_batch_volume_builds_full_tree() {
     hotness::upsert(&cfg, &counters).unwrap();
 
     let spawn = test_override::with_provider(Arc::clone(&provider), async {
-        force_recompute(&cfg, "email:alice@example.com").await.unwrap()
+        force_recompute(&cfg, "email:alice@example.com")
+            .await
+            .unwrap()
     })
     .await;
 

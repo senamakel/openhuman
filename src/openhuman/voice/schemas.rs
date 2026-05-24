@@ -492,6 +492,10 @@ pub fn voice_schemas(function: &str) -> ControllerSchema {
                     "provider",
                     "Provider string to test (e.g. 'deepgram:nova-2').",
                 ),
+                optional_bool(
+                    "validate_only",
+                    "When true, only validate the API key without synthesizing/transcribing.",
+                ),
             ],
             outputs: vec![json_output(
                 "result",

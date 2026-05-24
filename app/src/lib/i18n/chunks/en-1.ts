@@ -436,6 +436,37 @@ const en1: TranslationMap = {
     'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
     'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
+  'settings.heartbeat.title': 'Heartbeat & loops',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
+  'settings.ledgerUsage.title': 'Usage ledger',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
+  'settings.search.title': 'Search engine',
+  'settings.search.menuDesc':
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
+  'settings.search.description':
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
+  'settings.search.engineAria': 'Search engine',
+  'settings.search.engineManagedLabel': 'OpenHuman Managed',
+  'settings.search.engineManagedDesc':
+    'Default. Routed through the OpenHuman backend — no API key required.',
+  'settings.search.engineParallelLabel': 'Parallel',
+  'settings.search.engineParallelDesc':
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
+  'settings.search.engineBraveLabel': 'Brave Search',
+  'settings.search.engineBraveDesc':
+    'Direct Brave Search API: web, news, image, and video tools.',
+  'settings.search.statusConfigured': 'Configured',
+  'settings.search.statusNeedsKey': 'Needs API key',
+  'settings.search.fallbackToManaged':
+    'No key configured — search will fall back to Managed until a key is saved.',
+  'settings.search.getApiKey': 'Get API key',
+  'settings.search.save': 'Save',
+  'settings.search.clear': 'Clear',
+  'settings.search.show': 'Show',
+  'settings.search.hide': 'Hide',
+  'settings.search.statusSaving': 'Saving…',
+  'settings.search.statusSaved': 'Saved.',
+  'settings.search.statusError': 'Failed',
   'settings.ai.overview': 'AI System Overview',
   // Settings menu: Appearance + Mascot (#2225)
   'settings.appearance': 'Appearance',

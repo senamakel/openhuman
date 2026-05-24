@@ -183,6 +183,9 @@ const en5: TranslationMap = {
   'settings.developerMenu.localModelDebug.title': 'Local Model Debug',
   'settings.developerMenu.localModelDebug.desc':
     'Ollama config, asset downloads, model tests, and diagnostics',
+  'settings.developerMenu.composio.title': 'Composio',
+  'settings.developerMenu.composio.desc':
+    'Routing mode, integration triggers, and trigger history archive.',
   'settings.developerMenu.webhooks.title': 'Webhooks',
   'settings.developerMenu.webhooks.desc':
     'Inspect runtime webhook registrations and captured request logs',

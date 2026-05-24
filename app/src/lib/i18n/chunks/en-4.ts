@@ -202,6 +202,9 @@ const en4: TranslationMap = {
   'pages.settings.aiSection.description':
     'Language model providers, local Ollama, and voice (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
+  'pages.settings.composioSection.title': 'Composio',
+  'pages.settings.composioSection.description':
+    'Routing, triggers, and history for integrations powered by Composio.',
   'pages.settings.features.desktopCompanion': 'Desktop Companion',
   'pages.settings.features.desktopCompanionDesc':
     'Voice assistant with screen awareness — listens, sees, speaks, points',

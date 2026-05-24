@@ -9,7 +9,7 @@ use anyhow::Result;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
-use crate::openhuman::memory_tree::tree::types::{Tree, TreeKind};
+use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
 use crate::openhuman::memory_tree::tree_global::GLOBAL_SCOPE;
 
 /// Return the workspace's singleton global tree, creating it lazily on
@@ -26,7 +26,7 @@ pub fn get_or_create_global_tree(config: &Config) -> Result<Tree> {
 mod tests {
     use super::*;
     use crate::openhuman::memory_tree::tree::store;
-    use crate::openhuman::memory_tree::tree::types::TreeStatus;
+    use crate::openhuman::memory_store::trees::types::TreeStatus;
     use chrono::Utc;
     use tempfile::TempDir;
 
@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn race_recovery_returns_existing_row() {
-        use crate::openhuman::memory_tree::tree::types::Tree;
+        use crate::openhuman::memory_store::trees::types::Tree;
         let (_tmp, cfg) = test_config();
         let pre_existing = Tree {
             id: "global:preexisting".into(),

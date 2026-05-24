@@ -16,7 +16,7 @@ pub mod email_clean;
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::memory::chunk_types::{Metadata, SourceRef};
+use crate::openhuman::memory_store::chunks::types::{Metadata, SourceRef};
 
 /// Output of a canonicaliser — one per logical source record
 /// (a chat batch, an email, a document).

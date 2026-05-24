@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_tree::tree::types::{Tree, TreeKind, TreeStatus};
+use crate::openhuman::memory_store::trees::types::{Tree, TreeKind, TreeStatus};
 
 /// Generic get-or-create. All three tree flavors (Source, Global, Topic)
 /// share UNIQUE(kind, scope) and the same race-recovery dance — there's

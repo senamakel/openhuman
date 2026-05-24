@@ -22,7 +22,7 @@ use tempfile::TempDir;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
-use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory::jobs::testing::drain_until_idle;
 use crate::openhuman::memory::retrieval::{

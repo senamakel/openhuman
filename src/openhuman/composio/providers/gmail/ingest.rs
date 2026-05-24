@@ -23,8 +23,8 @@ use serde_json::Value;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::canonicalize::email::{EmailMessage, EmailThread};
 use crate::openhuman::memory::canonicalize::email_clean::{extract_email, parse_message_date};
-use crate::openhuman::memory::chunk_store::{set_chunk_raw_refs, RawRef};
-use crate::openhuman::memory::content_store::raw::{
+use crate::openhuman::memory_store::chunks::store::{set_chunk_raw_refs, RawRef};
+use crate::openhuman::memory_store::content::raw::{
     self as raw_store, raw_rel_path, slug_account_email, RawItem, RawKind,
 };
 use crate::openhuman::memory::ingest_pipeline::{ingest_email, IngestResult};

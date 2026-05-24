@@ -30,7 +30,7 @@ use parse::{enrich_document_metadata, parse_document};
 use serde_json::json;
 use types::ParsedIngestion;
 
-use crate::openhuman::memory::store::types::NamespaceDocumentInput;
+use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 use crate::openhuman::memory::UnifiedMemory;
 
 impl UnifiedMemory {

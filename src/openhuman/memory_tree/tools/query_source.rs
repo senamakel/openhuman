@@ -1,5 +1,5 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::retrieval;
 use crate::openhuman::memory::retrieval::rpc::QuerySourceRequest;
 use crate::openhuman::tools::traits::{Tool, ToolResult};

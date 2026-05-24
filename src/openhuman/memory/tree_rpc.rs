@@ -14,8 +14,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
-use crate::openhuman::memory::chunk_store::{self, ListChunksQuery};
-use crate::openhuman::memory::chunk_types::{Chunk, SourceKind};
+use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};
+use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory::ingest_pipeline::{
     ingest_chat as do_ingest_chat, ingest_document as do_ingest_document,
     ingest_email as do_ingest_email, IngestResult,

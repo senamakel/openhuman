@@ -5,13 +5,12 @@
 //! operations. It integrates vector search, keyword search, and relational data to provide
 //! a unified memory interface for AI agents.
 //!
-//! Phase 3 of the memory_tree cleanup: the following modules were moved from
-//! `memory_tree` into this module:
-//! `canonicalize`, `chat`, `content_store`, `ingest_pipeline`, `jobs`,
-//! `read_rpc`, `retrieval`, `tree_rpc`, `schema`, `score`, `chunk_store`,
-//! `summarizer`, `chunk_types`, `util`.
-//! The tree-specific `chunker`, `tree/*`, `sources/`, `summarise`, and the
-//! `tools/` (including `ingest_document`) stayed under `memory_tree`.
+//! Storage is consolidated in `memory_store`:
+//! - `memory_store::unified`  — SQLite unified memory
+//! - `memory_store::chunks`   — SQLite chunk + type layer
+//! - `memory_store::content`  — on-disk .md content store
+//! - `memory_store::vectors`  — local vector/embedding store
+//! - `memory_store::trees*`   — summary-tree persistence
 
 // Legacy memory modules
 pub mod chunker;
@@ -24,7 +23,6 @@ pub mod rpc_models;
 pub mod safety;
 pub mod schemas;
 pub mod stm_recall;
-pub mod store;
 pub mod sync_status;
 pub mod tool_memory;
 pub mod traits;
@@ -32,9 +30,6 @@ pub mod traits;
 // Modules moved from memory_tree (Phase 3)
 pub mod canonicalize;
 pub mod chat;
-pub mod chunk_store;
-pub mod chunk_types;
-pub mod content_store;
 pub mod ingest_pipeline;
 pub mod jobs;
 pub mod read_rpc;
@@ -44,6 +39,7 @@ pub mod score;
 pub mod summarizer;
 pub mod tree_rpc;
 pub mod util;
+
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,
     IngestionState, IngestionStatusSnapshot, MemoryIngestionConfig, MemoryIngestionRequest,
@@ -56,7 +52,7 @@ pub use schemas::{
     all_controller_schemas as all_memory_controller_schemas,
     all_registered_controllers as all_memory_registered_controllers,
 };
-pub use store::{
+pub use crate::openhuman::memory_store::{
     create_memory, create_memory_for_migration, create_memory_with_local_ai,
     create_memory_with_storage, create_memory_with_storage_and_routes,
     effective_embedding_settings, effective_embedding_settings_probed,

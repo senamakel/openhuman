@@ -3,7 +3,7 @@
 
 use super::{interaction, metadata_weight, source_weight, token_count, unique_words};
 use super::{ScoreSignals, SignalWeights};
-use crate::openhuman::memory::chunk_types::Metadata;
+use crate::openhuman::memory_store::chunks::types::Metadata;
 use crate::openhuman::memory::score::extract::ExtractedEntities;
 
 /// Compute all signals for a chunk.
@@ -95,7 +95,7 @@ pub fn combine_cheap_only(signals: &ScoreSignals, w: &SignalWeights) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_types::SourceKind;
+    use crate::openhuman::memory_store::chunks::types::SourceKind;
     use crate::openhuman::memory::score::extract::{
         EntityKind, ExtractedEntities, ExtractedEntity,
     };

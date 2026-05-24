@@ -31,9 +31,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::{self as chunk_store, with_connection};
-use crate::openhuman::memory::chunk_types::SourceKind;
-use crate::openhuman::memory::content_store::read as content_read;
+use crate::openhuman::memory_store::chunks::store::{self as chunk_store, with_connection};
+use crate::openhuman::memory_store::chunks::types::SourceKind;
+use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory::retrieval::types::NodeKind;
 use crate::openhuman::memory::score::store as score_store;
 use crate::rpc::RpcOutcome;
@@ -46,7 +46,7 @@ const MAX_LIST_LIMIT: u32 = 1_000;
 
 /// Wire-shape chunk returned by the read RPCs.
 ///
-/// Distinct from [`crate::openhuman::memory::chunk_types::Chunk`] in two
+/// Distinct from [`crate::openhuman::memory_store::chunks::types::Chunk`] in two
 /// ways: serialised timestamps are ms-since-epoch (matches the rest of the
 /// JSON-RPC surface) and the body is replaced with a `≤500-char preview`
 /// + a flag indicating whether the row has an embedding. UIs needing the
@@ -1371,7 +1371,7 @@ pub async fn wipe_all_rpc(config: &Config) -> Result<RpcOutcome<WipeAllResponse>
 /// keyed under [`crate::openhuman::composio::providers::sync_state::KV_NAMESPACE`].
 ///
 /// We open the SQLite file directly rather than going through
-/// [`crate::openhuman::memory::store::client::MemoryClientRef`] so
+/// [`crate::openhuman::memory_store::client::MemoryClientRef`] so
 /// `wipe_all` stays a pure synchronous operation runnable from
 /// `spawn_blocking` without dragging in the full memory-store init
 /// path. The `kv_namespace` table is created up-front by

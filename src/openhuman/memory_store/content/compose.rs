@@ -38,7 +38,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::openhuman::memory::chunk_types::{Chunk, SourceKind};
+use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory_store::content::paths::{
     slugify_source_id, summary_filename, SummaryTreeKind,
 };
@@ -624,7 +624,7 @@ fn yaml_scalar(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_types::{Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::types::{Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory_store::content::paths::SummaryTreeKind;
     use chrono::TimeZone;
 

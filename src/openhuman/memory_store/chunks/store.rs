@@ -36,7 +36,7 @@ use std::time::{Duration, Instant};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind, SourceRef};
-use crate::openhuman::memory::content_store::StagedChunk;
+use crate::openhuman::memory_store::content::StagedChunk;
 
 const DB_DIR: &str = "memory_tree";
 const DB_FILE: &str = "chunks.db";
@@ -1290,7 +1290,7 @@ fn migrate_legacy_embeddings_to_sidecar(conn: &Connection, config: &Config) -> R
         return Ok(());
     }
 
-    let (provider, model, dims) = crate::openhuman::memory::store::effective_embedding_settings(
+    let (provider, model, dims) = crate::openhuman::memory_store::effective_embedding_settings(
         &config.memory,
         config.workload_local_model("embeddings").as_deref(),
     );
@@ -1334,7 +1334,7 @@ fn migrate_legacy_embeddings_to_sidecar(conn: &Connection, config: &Config) -> R
                 set_chunk_embedding_for_signature_tx(&tx, &id, &sig, &vec)?;
                 copied_chunks += 1;
             } else {
-                crate::openhuman::memory_tree::tree::store::set_summary_embedding_for_signature_tx(
+                crate::openhuman::memory_store::trees::store::set_summary_embedding_for_signature_tx(
                     &tx, &id, &sig, &vec,
                 )?;
                 copied_summaries += 1;
@@ -1546,7 +1546,7 @@ fn add_column_if_missing(conn: &Connection, table: &str, name: &str, sql_type: &
 /// same resolution.
 pub(crate) fn tree_active_signature(config: &Config) -> String {
     let local_model = config.workload_local_model("embeddings");
-    crate::openhuman::memory::store::active_embedding_signature(
+    crate::openhuman::memory_store::active_embedding_signature(
         &config.memory,
         local_model.as_deref(),
     )

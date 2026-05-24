@@ -18,9 +18,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::memory::chunk_types::{Chunk, SourceKind};
+use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory::score::extract::EntityKind;
-use crate::openhuman::memory_tree::tree::types::{SummaryNode, Tree, TreeKind};
+use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind};
 
 /// Whether a hit represents a leaf (raw chunk) or a summary node.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]

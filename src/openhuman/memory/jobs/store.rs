@@ -22,7 +22,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use uuid::Uuid;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory::jobs::redact::scrub_for_log;
 use crate::openhuman::memory::jobs::types::{Job, JobKind, JobStatus, NewJob};
 

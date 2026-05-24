@@ -132,7 +132,7 @@ pub fn raw_kind_dir(content_root: &Path, source_id: &str, kind: RawKind) -> Path
 
 /// Forward-slash relative path of a raw file under `<content_root>/`,
 /// e.g. `"raw/gmail-acct/emails/1700000000000_msg-1.md"`. Used by
-/// callers that record a [`crate::openhuman::memory::chunk_store::RawRef`]
+/// callers that record a [`crate::openhuman::memory_store::chunks::store::RawRef`]
 /// so reads can resolve the file later without re-deriving the layout.
 pub fn raw_rel_path(source_id: &str, kind: RawKind, created_at_ms: i64, uid: &str) -> String {
     let slug = slugify_source_id(source_id);

@@ -23,8 +23,8 @@ use std::collections::VecDeque;
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::{get_chunk, get_chunk_embedding};
-use crate::openhuman::memory::content_store::read as content_read;
+use crate::openhuman::memory_store::chunks::store::{get_chunk, get_chunk_embedding};
+use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory::retrieval::types::{hit_from_chunk, hit_from_summary, RetrievalHit};
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, cosine_similarity};
 use crate::openhuman::memory_tree::tree::store;
@@ -256,12 +256,12 @@ fn walk_with_embeddings(
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
-    use crate::openhuman::memory_tree::tree::types::TreeKind;
+    use crate::openhuman::memory_store::trees::types::TreeKind;
     use chrono::Utc;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -299,7 +299,7 @@ mod tests {
                     tags: vec![],
                     source_ref: Some(SourceRef::new("slack://x")),
                 },
-                token_count: crate::openhuman::memory_tree::tree::types::INPUT_TOKEN_BUDGET * 6
+                token_count: crate::openhuman::memory_store::trees::types::INPUT_TOKEN_BUDGET * 6
                     / 10,
                 seq_in_source: seq,
                 created_at: ts,
@@ -309,9 +309,9 @@ mod tests {
             // Stage to disk so `hydrate_leaf_inputs` can read the full body
             // via `read_chunk_body` during the seal triggered by `append_leaf`.
             let staged = content_store::stage_chunks(&content_root, &[c.clone()]).unwrap();
-            crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+            crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
                 let tx = conn.unchecked_transaction()?;
-                crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
                 tx.commit()?;
                 Ok(())
             })
@@ -319,7 +319,7 @@ mod tests {
             leaf_ids.push(c.id.clone());
             let leaf = LeafRef {
                 chunk_id: c.id.clone(),
-                token_count: crate::openhuman::memory_tree::tree::types::INPUT_TOKEN_BUDGET * 6
+                token_count: crate::openhuman::memory_store::trees::types::INPUT_TOKEN_BUDGET * 6
                     / 10,
                 timestamp: ts,
                 content: c.content.clone(),
@@ -424,9 +424,9 @@ mod tests {
     // (or similar — the key invariant is that BFS returns all siblings at
     // one depth before any descendant at a deeper depth).
 
-    use crate::openhuman::memory::chunk_store::with_connection;
+    use crate::openhuman::memory_store::chunks::store::with_connection;
     use crate::openhuman::memory_tree::tree::store as tree_store;
-    use crate::openhuman::memory_tree::tree::types::{SummaryNode, Tree, TreeStatus};
+    use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeStatus};
 
     /// Build a tiny 2-level tree directly via store inserts so we can
     /// assert BFS ordering without needing ~100 leaves to cascade L1→L2
@@ -493,9 +493,9 @@ mod tests {
         let content_root = cfg.memory_tree_content_root();
         std::fs::create_dir_all(&content_root).unwrap();
         let staged = content_store::stage_chunks(&content_root, &all_leaves).unwrap();
-        crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })

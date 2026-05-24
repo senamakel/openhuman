@@ -17,7 +17,7 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::trees_topic::types::HotnessCounters;
 
 /// Fetch the hotness row for `entity_id`, or `None` if the entity has

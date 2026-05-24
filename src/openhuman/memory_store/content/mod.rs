@@ -22,7 +22,7 @@ pub mod tags;
 
 use std::path::Path;
 
-use crate::openhuman::memory::chunk_types::Chunk;
+use crate::openhuman::memory_store::chunks::types::Chunk;
 
 pub use atomic::StagedSummary;
 pub use compose::SummaryComposeInput;
@@ -70,7 +70,7 @@ pub fn update_summary_tags(
 ///
 /// `content_root` — absolute path to the root of the content store.
 pub fn stage_chunks(content_root: &Path, chunks: &[Chunk]) -> anyhow::Result<Vec<StagedChunk>> {
-    use crate::openhuman::memory::chunk_types::SourceKind;
+    use crate::openhuman::memory_store::chunks::types::SourceKind;
     let mut staged = Vec::with_capacity(chunks.len());
 
     for chunk in chunks {
@@ -128,7 +128,7 @@ pub fn stage_chunks(content_root: &Path, chunks: &[Chunk]) -> anyhow::Result<Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_types::{Metadata, SourceKind};
+    use crate::openhuman::memory_store::chunks::types::{Metadata, SourceKind};
     use chrono::TimeZone;
     use tempfile::TempDir;
 

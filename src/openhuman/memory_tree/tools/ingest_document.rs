@@ -1,6 +1,6 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::memory::canonicalize::document::DocumentInput;
-use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::tree_rpc as rpc;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;

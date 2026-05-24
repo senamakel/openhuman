@@ -17,7 +17,7 @@ use chrono::{DateTime, Duration, Utc};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::bucket_seal::{cascade_all_from, LabelStrategy};
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_tree::tree::types::DEFAULT_FLUSH_AGE_SECS;
+use crate::openhuman::memory_store::trees::types::DEFAULT_FLUSH_AGE_SECS;
 
 /// Seal every buffer whose oldest item is older than `max_age`. Returns
 /// the number of individual seal calls (not trees) that fired. When the
@@ -80,8 +80,8 @@ pub async fn force_flush_tree(
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LeafRef};
@@ -93,9 +93,9 @@ mod tests {
         std::fs::create_dir_all(&content_root).expect("create content_root for test");
         let staged = content_store::stage_chunks(&content_root, chunks)
             .expect("stage_chunks for test chunks");
-        crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })
@@ -189,11 +189,11 @@ mod tests {
         // Plant a stale L1 buffer holding a single (synthetic) child id.
         // No L0 chunks — the only thing flush could touch is the L1 buffer.
         let old_ts = Utc::now() - Duration::days(10);
-        crate::openhuman::memory::chunk_store::with_connection(&cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(&cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory_tree::tree::store::upsert_buffer_tx(
+            crate::openhuman::memory_store::trees::store::upsert_buffer_tx(
                 &tx,
-                &crate::openhuman::memory_tree::tree::types::Buffer {
+                &crate::openhuman::memory_store::trees::types::Buffer {
                     tree_id: tree.id.clone(),
                     level: 1,
                     item_ids: vec!["fake-l1-child".into()],

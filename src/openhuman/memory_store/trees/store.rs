@@ -21,8 +21,8 @@ use chrono::{DateTime, TimeZone, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::with_connection;
-use crate::openhuman::memory::content_store::StagedSummary;
+use crate::openhuman::memory_store::chunks::store::with_connection;
+use crate::openhuman::memory_store::content::StagedSummary;
 use crate::openhuman::memory::score::embed::{decode_optional_blob, pack_checked};
 use crate::openhuman::memory_store::trees::types::{Buffer, SummaryNode, Tree, TreeKind, TreeStatus};
 
@@ -261,7 +261,7 @@ pub(crate) fn insert_summary_tx(
 /// at the active signature (via [`set_summary_embedding_for_signature`])
 /// instead of the legacy `mem_tree_summaries.embedding` column. The signature
 /// is resolved internally from `config` via the shared
-/// [`crate::openhuman::memory::chunk_store::tree_active_signature`] — same
+/// [`crate::openhuman::memory_store::chunks::store::tree_active_signature`] — same
 /// resolution as the chunk path. Returns `1` on success (one sidecar row
 /// written/updated); the legacy "0 if id unknown" count no longer applies
 /// since the sidecar upsert does not join the parent summary row.
@@ -270,7 +270,7 @@ pub fn set_summary_embedding(
     summary_id: &str,
     embedding: &[f32],
 ) -> Result<usize> {
-    let signature = crate::openhuman::memory::chunk_store::tree_active_signature(config);
+    let signature = crate::openhuman::memory_store::chunks::store::tree_active_signature(config);
     log::debug!(
         "[tree::store] set_summary_embedding: summary_id={summary_id} sig={signature} dims={}",
         embedding.len()
@@ -287,7 +287,7 @@ pub fn set_summary_embedding(
 /// vector exists under the active signature — graceful absence during the §7
 /// backfill window, never a cross-space read.
 pub fn get_summary_embedding(config: &Config, summary_id: &str) -> Result<Option<Vec<f32>>> {
-    let signature = crate::openhuman::memory::chunk_store::tree_active_signature(config);
+    let signature = crate::openhuman::memory_store::chunks::store::tree_active_signature(config);
     get_summary_embedding_for_signature(config, summary_id, &signature)
 }
 
@@ -347,8 +347,8 @@ pub fn mark_summary_reembed_skipped(
     reason: &str,
 ) -> Result<()> {
     let summary_id =
-        crate::openhuman::memory::chunk_store::validate_reembed_skip_key("summary_id", summary_id)?;
-    let model_signature = crate::openhuman::memory::chunk_store::validate_reembed_skip_key(
+        crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key("summary_id", summary_id)?;
+    let model_signature = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
         "model_signature",
         model_signature,
     )?;
@@ -372,15 +372,15 @@ pub fn mark_summary_reembed_skipped(
 
 /// Remove a single summary tombstone so re-embed backfill can retry the row.
 ///
-/// Idempotent — see [`crate::openhuman::memory::chunk_store::clear_chunk_reembed_skipped`].
+/// Idempotent — see [`crate::openhuman::memory_store::chunks::store::clear_chunk_reembed_skipped`].
 pub fn clear_summary_reembed_skipped(
     config: &Config,
     summary_id: &str,
     model_signature: &str,
 ) -> Result<()> {
     let summary_id =
-        crate::openhuman::memory::chunk_store::validate_reembed_skip_key("summary_id", summary_id)?;
-    let model_signature = crate::openhuman::memory::chunk_store::validate_reembed_skip_key(
+        crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key("summary_id", summary_id)?;
+    let model_signature = crate::openhuman::memory_store::chunks::store::validate_reembed_skip_key(
         "model_signature",
         model_signature,
     )?;

@@ -8,7 +8,7 @@ use anyhow::Result;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::sources::file;
 use crate::openhuman::memory_tree::tree::registry::get_or_create_tree;
-use crate::openhuman::memory_tree::tree::types::{Tree, TreeKind};
+use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
 
 /// Look up the source tree for `scope`, or create a new one.
 ///

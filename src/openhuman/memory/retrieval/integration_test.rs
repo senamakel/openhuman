@@ -15,7 +15,7 @@ use tempfile::TempDir;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
-use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory::retrieval::{
     drill_down, fetch_leaves, query_global, query_source, query_topic, search_entities,
@@ -164,7 +164,7 @@ async fn topic_entity_surfaces_after_ingest() {
 /// handler, so the test drains the queue before inspecting.
 #[tokio::test]
 async fn ingest_populates_chunk_embeddings() {
-    use crate::openhuman::memory::chunk_store::get_chunk_embedding;
+    use crate::openhuman::memory_store::chunks::store::get_chunk_embedding;
     use crate::openhuman::memory::jobs::drain_until_idle;
     use crate::openhuman::memory::score::embed::EMBEDDING_DIM;
 
@@ -193,8 +193,8 @@ async fn ingest_populates_chunk_embeddings() {
 #[tokio::test]
 async fn seal_populates_summary_embedding() {
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::content_store;
     use crate::openhuman::memory::score::embed::EMBEDDING_DIM;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
@@ -232,9 +232,9 @@ async fn seal_populates_summary_embedding() {
         std::fs::create_dir_all(&content_root).expect("create content_root for test");
         let staged = content_store::stage_chunks(&content_root, &[c1.clone(), c2.clone()])
             .expect("stage_chunks for test chunks");
-        crate::openhuman::memory::chunk_store::with_connection(&cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(&cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })

@@ -21,7 +21,7 @@ use super::ProviderUserProfile;
 use crate::openhuman::learning::candidate::{
     self as learning_candidate, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
-use crate::openhuman::memory::store::profile::{self, FacetType};
+use crate::openhuman::memory_store::profile::{self, FacetType};
 use rusqlite::params;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -534,7 +534,7 @@ fn now_secs() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::store::profile::{profile_load_all, PROFILE_INIT_SQL};
+    use crate::openhuman::memory_store::profile::{profile_load_all, PROFILE_INIT_SQL};
     use parking_lot::Mutex;
     use rusqlite::Connection;
     use serde_json::json;

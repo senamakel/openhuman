@@ -11,17 +11,21 @@
 //! live in [`crate::openhuman::memory_tree::tree_global`] and
 //! [`crate::openhuman::memory_tree::tree_topic`] respectively; both
 //! import generic primitives from this module.
+//!
+//! Persistence (store + types) has moved to `memory_store::trees`.
 
 pub mod bucket_seal;
 pub mod flush;
 pub mod registry;
-pub mod store;
-pub mod types;
+
+// Re-export persistence from memory_store so callers using tree::store / tree::types still work.
+pub use crate::openhuman::memory_store::trees::store;
+pub use crate::openhuman::memory_store::trees::types;
 
 pub use bucket_seal::{append_leaf, append_leaf_deferred, LabelStrategy, LeafRef};
 pub use registry::{get_or_create_tree, new_summary_id, new_tree_id};
-pub use store::{get_summary_embedding, set_summary_embedding};
-pub use types::{
+pub use crate::openhuman::memory_store::trees::{get_summary_embedding, set_summary_embedding};
+pub use crate::openhuman::memory_store::trees::{
     Buffer, SummaryNode, Tree, TreeKind, TreeStatus, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET,
     SUMMARY_FANOUT,
 };

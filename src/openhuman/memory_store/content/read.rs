@@ -143,7 +143,7 @@ pub fn read_chunk_body(
     config: &crate::openhuman::config::Config,
     chunk_id: &str,
 ) -> anyhow::Result<String> {
-    use crate::openhuman::memory::chunk_store::{get_chunk_content_pointers, get_chunk_raw_refs};
+    use crate::openhuman::memory_store::chunks::store::{get_chunk_content_pointers, get_chunk_raw_refs};
 
     // Path 1: chunk has raw-archive pointers (today: email). Read each
     // referenced file, slice by byte range, join with `\n\n` (the
@@ -230,7 +230,7 @@ use anyhow::Context as _;
 /// missing raw file doesn't take the whole chunk down.
 fn read_chunk_body_from_raw(
     config: &crate::openhuman::config::Config,
-    refs: &[crate::openhuman::memory::chunk_store::RawRef],
+    refs: &[crate::openhuman::memory_store::chunks::store::RawRef],
 ) -> anyhow::Result<String> {
     let content_root = config.memory_tree_content_root();
     let mut parts: Vec<String> = Vec::with_capacity(refs.len());
@@ -287,7 +287,7 @@ pub fn read_summary_body(
     config: &crate::openhuman::config::Config,
     summary_id: &str,
 ) -> anyhow::Result<String> {
-    use crate::openhuman::memory::chunk_store::get_summary_content_pointers;
+    use crate::openhuman::memory_store::chunks::store::get_summary_content_pointers;
 
     let pointers = get_summary_content_pointers(config, summary_id)?.ok_or_else(|| {
         anyhow::anyhow!(
@@ -339,7 +339,7 @@ pub fn read_summary_body(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_types::{Chunk, Metadata, SourceKind};
+    use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind};
     use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
     use crate::openhuman::memory_store::content::compose::compose_chunk_file;
     use chrono::TimeZone;

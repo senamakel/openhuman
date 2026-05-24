@@ -13,7 +13,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
 
-use crate::openhuman::memory::store::types::NamespaceDocumentInput;
+use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 
 const REDACTED_SECRET: &str = "[REDACTED_SECRET]";
 const REDACTED_PRIVATE_KEY: &str = "[REDACTED_PRIVATE_KEY]";

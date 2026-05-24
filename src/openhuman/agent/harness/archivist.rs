@@ -22,14 +22,14 @@ use crate::openhuman::memory::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory::chat::{ChatConsumer, ChatProvider};
 use crate::openhuman::memory::ingest_pipeline;
 use crate::openhuman::memory::score::embed::{build_embedder_from_config, Embedder};
-use crate::openhuman::memory::store::events::{self, EventRecord, EventType};
-use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
-use crate::openhuman::memory::store::profile::{self, FacetType};
-use crate::openhuman::memory::store::segments::{
+use crate::openhuman::memory_store::events::{self, EventRecord, EventType};
+use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
+use crate::openhuman::memory_store::profile::{self, FacetType};
+use crate::openhuman::memory_store::segments::{
     self, BoundaryConfig, BoundaryDecision, ConversationSegment,
 };
 use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
-use crate::openhuman::memory_tree::tree::types::TreeKind;
+use crate::openhuman::memory_store::trees::types::TreeKind;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use rusqlite::Connection;
@@ -645,7 +645,7 @@ impl ArchivistHook {
             .iter()
             .filter(|e| !e.content.trim().is_empty())
             .map(|e| {
-                use crate::openhuman::memory::chunk_types::approx_token_count;
+                use crate::openhuman::memory_store::chunks::types::approx_token_count;
                 let content = e.content.clone();
                 let token_count = approx_token_count(&content);
                 let ts = chrono::DateTime::from_timestamp(e.timestamp as i64, 0)
@@ -856,7 +856,7 @@ impl ArchivistHook {
     async fn pipe_segment_to_tree(
         &self,
         config: &Config,
-        segment: &crate::openhuman::memory::store::segments::ConversationSegment,
+        segment: &crate::openhuman::memory_store::segments::ConversationSegment,
         session_id: &str,
         entries: &[&fts5::EpisodicEntry],
     ) {

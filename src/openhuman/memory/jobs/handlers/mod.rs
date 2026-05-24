@@ -12,8 +12,8 @@
 use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store;
-use crate::openhuman::memory::content_store::{
+use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory_store::content::{
     self as content_store, read as content_read, tags as content_tags,
 };
 use crate::openhuman::memory::jobs::store;
@@ -376,7 +376,7 @@ async fn handle_append_buffer(config: &Config, job: &Job) -> Result<JobOutcome> 
 async fn handle_seal(config: &Config, job: &Job) -> Result<JobOutcome> {
     use crate::openhuman::memory_tree::tree::bucket_seal::{seal_one_level, should_seal};
     use crate::openhuman::memory_tree::tree::store as src_store;
-    use crate::openhuman::memory_tree::tree::types::TreeKind;
+    use crate::openhuman::memory_store::trees::types::TreeKind;
 
     let payload: SealPayload =
         serde_json::from_str(&job.payload_json).context("parse Seal payload")?;
@@ -460,7 +460,7 @@ async fn handle_topic_route(config: &Config, job: &Job) -> Result<JobOutcome> {
             chunk_id.clone()
         }
         NodeRef::Summary { summary_id } => {
-            if crate::openhuman::memory_tree::tree::store::get_summary(config, summary_id)?
+            if crate::openhuman::memory_store::trees::store::get_summary(config, summary_id)?
                 .is_none()
             {
                 log::warn!("[memory::jobs] topic_route summary missing summary_id={summary_id}");
@@ -478,9 +478,9 @@ async fn handle_topic_route(config: &Config, job: &Job) -> Result<JobOutcome> {
 
     for entity_id in entity_ids {
         let _ = curator::maybe_spawn_topic_tree(config, &entity_id).await?;
-        if let Some(tree) = crate::openhuman::memory_tree::tree::store::get_tree_by_scope(
+        if let Some(tree) = crate::openhuman::memory_store::trees::store::get_tree_by_scope(
             config,
-            crate::openhuman::memory_tree::tree::types::TreeKind::Topic,
+            crate::openhuman::memory_store::trees::types::TreeKind::Topic,
             &entity_id,
         )? {
             let job = NewJob::append_buffer(&AppendBufferPayload {
@@ -524,7 +524,7 @@ async fn handle_flush_stale(config: &Config, job: &Job) -> Result<JobOutcome> {
     // that set max_age_secs explicitly.
     let age_secs = payload.max_age_secs.unwrap_or(L0_DEFAULT_FLUSH_AGE_SECS);
     let cutoff = chrono::Utc::now() - chrono::Duration::seconds(age_secs);
-    let buffers = crate::openhuman::memory_tree::tree::store::list_stale_buffers(config, cutoff)?;
+    let buffers = crate::openhuman::memory_store::trees::store::list_stale_buffers(config, cutoff)?;
     for buf in buffers {
         let seal = SealPayload {
             tree_id: buf.tree_id.clone(),
@@ -761,7 +761,7 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
             chunk_store::set_chunk_embedding_for_signature_tx(&tx, id, &active_sig, v)?;
         }
         for (id, v) in &summary_vecs {
-            crate::openhuman::memory_tree::tree::store::set_summary_embedding_for_signature_tx(
+            crate::openhuman::memory_store::trees::store::set_summary_embedding_for_signature_tx(
                 &tx,
                 id,
                 &active_sig,
@@ -790,8 +790,8 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_store::with_connection;
-    use crate::openhuman::memory::content_store;
+    use crate::openhuman::memory_store::chunks::store::with_connection;
+    use crate::openhuman::memory_store::content as content_store;
     use crate::openhuman::memory::jobs::store::{count_by_status, count_total};
     use crate::openhuman::memory::jobs::types::JobStatus;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
@@ -850,9 +850,9 @@ mod tests {
     /// fire `handle_seal` and inspect the result.
     async fn seed_source_tree_ready_to_seal(
         cfg: &Config,
-    ) -> crate::openhuman::memory_tree::tree::types::Tree {
-        use crate::openhuman::memory::chunk_store::upsert_chunks;
-        use crate::openhuman::memory::chunk_types::{
+    ) -> crate::openhuman::memory_store::trees::types::Tree {
+        use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
         let tree = get_or_create_source_tree(cfg, "slack:#eng").unwrap();
@@ -883,7 +883,7 @@ mod tests {
         let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
         with_connection(cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })
@@ -960,14 +960,14 @@ mod tests {
         // Spawn a topic tree directly via the registry (skipping curator's
         // hotness gate — we just need a TreeKind::Topic with leaves).
         let topic_tree =
-            crate::openhuman::memory_tree::tree_topic::registry::get_or_create_topic_tree(
+            crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree(
                 &cfg,
                 "topic:phoenix-migration",
             )
             .unwrap();
         // Push a single 10k-token leaf so L0 is gate-ready.
-        use crate::openhuman::memory::chunk_store::upsert_chunks;
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
         let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
@@ -996,7 +996,7 @@ mod tests {
         let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
         with_connection(&cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })
@@ -1037,7 +1037,7 @@ mod tests {
 
         // 1. Create a target topic tree with a clean L0 buffer.
         let topic_tree =
-            crate::openhuman::memory_tree::tree_topic::registry::get_or_create_topic_tree(
+            crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree(
                 &cfg,
                 "email:alice@example.com",
             )
@@ -1049,8 +1049,8 @@ mod tests {
         //    is to create a separate source tree, push two 6k leaves into
         //    it, and let the seal produce a summary we can address.
         let source_tree = get_or_create_source_tree(&cfg, "slack:#eng").unwrap();
-        use crate::openhuman::memory::chunk_store::upsert_chunks;
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
         use crate::openhuman::memory_tree::tree::bucket_seal::seal_one_level;
@@ -1081,7 +1081,7 @@ mod tests {
             let staged = content_store::stage_chunks(&content_root, &[chunk.clone()]).unwrap();
             with_connection(&cfg, |conn| {
                 let tx = conn.unchecked_transaction()?;
-                crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+                crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
                 tx.commit()?;
                 Ok(())
             })
@@ -1159,11 +1159,11 @@ mod tests {
     /// deterministic effects are what this test pins.)
     #[tokio::test]
     async fn reembed_backfill_repopulates_then_completes() {
-        use crate::openhuman::memory::chunk_store::{
+        use crate::openhuman::memory_store::chunks::store::{
             get_chunk_embedding_for_signature, tree_active_signature, upsert_chunks,
             upsert_staged_chunks_tx,
         };
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
 
@@ -1263,11 +1263,11 @@ mod tests {
     ///      is covered (or the chain would re-arm on every config save).
     #[tokio::test]
     async fn reembed_backfill_tombstones_orphan_and_terminates() {
-        use crate::openhuman::memory::chunk_store::{
+        use crate::openhuman::memory_store::chunks::store::{
             get_chunk_content_path, get_chunk_embedding_for_signature, tree_active_signature,
             upsert_chunks, upsert_staged_chunks_tx,
         };
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
 
@@ -1378,11 +1378,11 @@ mod tests {
     /// #2358: clearing a tombstone re-opens the row for the backfill worklist.
     #[tokio::test]
     async fn clear_chunk_reembed_skipped_reopens_worklist() {
-        use crate::openhuman::memory::chunk_store::{
+        use crate::openhuman::memory_store::chunks::store::{
             clear_chunk_reembed_skipped, get_chunk_content_path, mark_chunk_reembed_skipped,
             tree_active_signature, upsert_chunks, upsert_staged_chunks_tx,
         };
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
 
@@ -1451,8 +1451,8 @@ mod tests {
     /// empty/covered space.
     #[tokio::test]
     async fn ensure_reembed_backfill_enqueues_only_when_uncovered() {
-        use crate::openhuman::memory::chunk_store::{upsert_chunks, upsert_staged_chunks_tx};
-        use crate::openhuman::memory::chunk_types::{
+        use crate::openhuman::memory_store::chunks::store::{upsert_chunks, upsert_staged_chunks_tx};
+        use crate::openhuman::memory_store::chunks::types::{
             chunk_id, Chunk, Metadata, SourceKind, SourceRef,
         };
         use crate::openhuman::memory::jobs::ensure_reembed_backfill;

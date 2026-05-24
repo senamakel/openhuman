@@ -71,9 +71,9 @@ pub fn backfill_in_progress() -> bool {
 /// covered space enqueues nothing. Errors are logged, never propagated —
 /// a failed enqueue must not fail the user's settings save.
 pub fn ensure_reembed_backfill(config: &crate::openhuman::config::Config) {
-    let sig = crate::openhuman::memory::chunk_store::tree_active_signature(config);
-    let result = crate::openhuman::memory::chunk_store::with_connection(config, |conn| {
-        Ok(crate::openhuman::memory::chunk_store::has_uncovered_reembed_work(conn, &sig)?)
+    let sig = crate::openhuman::memory_store::chunks::store::tree_active_signature(config);
+    let result = crate::openhuman::memory_store::chunks::store::with_connection(config, |conn| {
+        Ok(crate::openhuman::memory_store::chunks::store::has_uncovered_reembed_work(conn, &sig)?)
     });
     match result {
         Ok(true) => {

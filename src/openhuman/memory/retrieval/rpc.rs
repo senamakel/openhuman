@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_types::SourceKind;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::retrieval::{
     drill_down::drill_down,
     fetch::fetch_leaves,
@@ -307,8 +307,8 @@ mod tests {
     //! initialises the schema idempotently on first access, so read-only
     //! calls return empty responses rather than erroring.
     use super::*;
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceRef};
     use crate::openhuman::memory::content_store;
     use chrono::{TimeZone, Utc};
     use tempfile::TempDir;
@@ -318,9 +318,9 @@ mod tests {
         std::fs::create_dir_all(&content_root).expect("create content_root for test");
         let staged = content_store::stage_chunks(&content_root, chunks)
             .expect("stage_chunks for test chunks");
-        crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })

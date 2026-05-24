@@ -25,22 +25,28 @@
 //! — `append_leaf` from [`super::super::tree::bucket_seal`] takes a
 //! `&Tree` so it works for any `TreeKind`. The Phase 3c code only adds
 //! the hotness layer and the per-entity fan-out.
+//!
+//! Persistence (store, types, registry) has moved to
+//! `memory_store::trees_topic`.
 
 pub mod backfill;
 pub mod curator;
 pub mod hotness;
-pub mod registry;
 pub mod routing;
-pub mod store;
-pub mod types;
+
+// Re-export persistence submodules from memory_store so callers using
+// tree_topic::store/types/registry still work.
+pub use crate::openhuman::memory_store::trees_topic::registry;
+pub use crate::openhuman::memory_store::trees_topic::store;
+pub use crate::openhuman::memory_store::trees_topic::types;
 
 pub use curator::{maybe_spawn_topic_tree, SpawnOutcome};
 pub use hotness::{hotness, recency_decay};
-pub use registry::{
+pub use crate::openhuman::memory_store::trees_topic::{
     archive_topic_tree, force_create_topic_tree, get_or_create_topic_tree, list_topic_trees,
 };
 pub use routing::route_leaf_to_topic_trees;
-pub use types::{
+pub use crate::openhuman::memory_store::trees_topic::{
     EntityIndexStats, HotnessCounters, TOPIC_ARCHIVE_THRESHOLD, TOPIC_CREATION_THRESHOLD,
     TOPIC_RECHECK_EVERY,
 };

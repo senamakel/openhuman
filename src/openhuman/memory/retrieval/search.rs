@@ -19,7 +19,7 @@ use anyhow::{Context, Result};
 use rusqlite::params_from_iter;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::with_connection;
+use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory::retrieval::types::EntityMatch;
 use crate::openhuman::memory::score::extract::EntityKind;
 

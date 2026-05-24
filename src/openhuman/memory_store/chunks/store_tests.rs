@@ -414,7 +414,7 @@ fn legacy_embeddings_migrate_to_sidecar_once() {
 
     // Resolve the active signature/dims exactly as the migration does —
     // base-independent, never hard-coded (see the brittle-literal lesson).
-    let (p, m, dims) = crate::openhuman::memory::store::effective_embedding_settings(
+    let (p, m, dims) = crate::openhuman::memory_store::effective_embedding_settings(
         &cfg.memory,
         cfg.workload_local_model("embeddings").as_deref(),
     );
@@ -714,7 +714,7 @@ fn clear_reembed_skipped_for_signature_removes_all_tombstones_for_sig() {
         Ok(())
     })
     .unwrap();
-    crate::openhuman::memory_tree::tree::store::mark_summary_reembed_skipped(
+    crate::openhuman::memory_store::trees::store::mark_summary_reembed_skipped(
         &cfg,
         summary_id,
         &sig,

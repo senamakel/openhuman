@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use self::extract::{EntityExtractor, ExtractedEntities};
 use self::resolver::{canonicalise, CanonicalEntity};
 use self::signals::{ScoreSignals, SignalWeights};
-use crate::openhuman::memory::chunk_types::{approx_token_count, Chunk, SourceKind};
+use crate::openhuman::memory_store::chunks::types::{approx_token_count, Chunk, SourceKind};
 
 /// Default drop threshold. Chunks with `total < DEFAULT_DROP_THRESHOLD`
 /// are tombstoned and never reach the chunk store.

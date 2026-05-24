@@ -14,7 +14,7 @@ use super::compose::{
     split_front_matter,
 };
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::get_summary_content_pointers;
+use crate::openhuman::memory_store::chunks::store::get_summary_content_pointers;
 use crate::openhuman::memory::score::store::list_entity_ids_for_node;
 
 /// Rewrite the `tags:` block in a chunk's on-disk `.md` file.
@@ -334,7 +334,7 @@ fn crate_temp_id() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory::chunk_types::{Chunk, Metadata, SourceKind};
+    use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind};
     use crate::openhuman::memory_store::content::atomic::{sha256_hex, write_if_new};
     use crate::openhuman::memory_store::content::compose::compose_chunk_file;
     use chrono::TimeZone;

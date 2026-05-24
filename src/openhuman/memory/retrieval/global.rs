@@ -14,9 +14,9 @@ use chrono::Duration;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
-use crate::openhuman::memory_tree::tree::types::TreeKind;
+use crate::openhuman::memory_store::trees::types::TreeKind;
 use crate::openhuman::memory_tree::tree_global::recap::{recap, RecapOutput};
-use crate::openhuman::memory_tree::tree_global::registry::get_or_create_global_tree;
+use crate::openhuman::memory_store::trees_global::registry::get_or_create_global_tree;
 
 /// Return the global digest for the given window in days. Always returns a
 /// [`QueryResponse`]; the response is empty if the global tree has no
@@ -88,8 +88,8 @@ fn recap_to_hits(recap: RecapOutput, tree_id: &str, tree_scope: &str) -> Vec<Ret
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::content_store;
     use crate::openhuman::memory_tree::sources::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf, LabelStrategy, LeafRef};
@@ -103,9 +103,9 @@ mod tests {
         std::fs::create_dir_all(&content_root).expect("create content_root for test");
         let staged = content_store::stage_chunks(&content_root, chunks)
             .expect("stage_chunks for test chunks");
-        crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+        crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
             let tx = conn.unchecked_transaction()?;
-            crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+            crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
             tx.commit()?;
             Ok(())
         })

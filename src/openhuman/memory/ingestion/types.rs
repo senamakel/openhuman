@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::openhuman::memory::store::types::NamespaceDocumentInput;
+use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 
 /// Default extraction backend label reported in ingestion metadata.
 pub const DEFAULT_MEMORY_EXTRACTION_MODEL: &str = "heuristic-only";

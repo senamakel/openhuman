@@ -39,8 +39,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::Transaction;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::chunk_store::with_connection;
-use crate::openhuman::memory::content_store::{
+use crate::openhuman::memory_store::chunks::store::with_connection;
+use crate::openhuman::memory_store::content::{
     atomic::stage_summary, paths::slugify_source_id, SummaryComposeInput, SummaryTreeKind,
 };
 use crate::openhuman::memory::score::embed::build_embedder_from_config;
@@ -51,7 +51,7 @@ use crate::openhuman::memory_tree::summarise::{
 };
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
-use crate::openhuman::memory_tree::tree::types::{
+use crate::openhuman::memory_store::trees::types::{
     Buffer, SummaryNode, Tree, TreeKind, INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT,
 };
 
@@ -539,7 +539,7 @@ pub(crate) async fn seal_one_level(
                 // We still yield `None` (so `compose_summary_md`
                 // takes the sanitised-id fallback) but a warn log
                 // makes the SQL error visible for diagnosis.
-                match crate::openhuman::memory::chunk_store::get_chunk_raw_refs(config, chunk_id) {
+                match crate::openhuman::memory_store::chunks::store::get_chunk_raw_refs(config, chunk_id) {
                     Ok(Some(refs)) if !refs.is_empty() => {
                         // RawRef::path is a forward-slash relative path
                         // under content_root, e.g.
@@ -602,7 +602,7 @@ pub(crate) async fn seal_one_level(
     // without manual configuration. Best-effort and idempotent — never
     // overwrites an existing file.
     if let Err(err) =
-        crate::openhuman::memory::content_store::obsidian::ensure_obsidian_defaults(&content_root)
+        crate::openhuman::memory_store::content::obsidian::ensure_obsidian_defaults(&content_root)
     {
         log::warn!(
             "[tree::bucket_seal] ensure_obsidian_defaults failed: {err:#} — \
@@ -648,7 +648,7 @@ pub(crate) async fn seal_one_level(
             &tx,
             &node,
             Some(&staged),
-            &crate::openhuman::memory::chunk_store::tree_active_signature(config),
+            &crate::openhuman::memory_store::chunks::store::tree_active_signature(config),
         )?;
         // Forward-compat: index any entities the summariser emitted into
         // `mem_tree_entity_index` so Phase 4 retrieval can resolve
@@ -772,7 +772,7 @@ pub(crate) async fn seal_one_level(
 /// HTTP 500 from Ollama rather than auto-truncating, which would
 /// abort the seal transaction.
 fn truncate_for_embed(text: &str, max_tokens: u32) -> String {
-    let approx = crate::openhuman::memory::chunk_types::approx_token_count(text);
+    let approx = crate::openhuman::memory_store::chunks::types::approx_token_count(text);
     if approx <= max_tokens {
         return text.to_string();
     }
@@ -805,8 +805,8 @@ fn hydrate_inputs(config: &Config, level: u32, item_ids: &[String]) -> Result<Ve
 }
 
 fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory::chunk_store::get_chunk;
-    use crate::openhuman::memory::content_store::read as content_read;
+    use crate::openhuman::memory_store::chunks::store::get_chunk;
+    use crate::openhuman::memory_store::content::read as content_read;
     use crate::openhuman::memory::score::store::{get_score, list_entity_ids_for_node};
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(chunk_ids.len());
@@ -853,7 +853,7 @@ fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<Summ
 }
 
 fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec<SummaryInput>> {
-    use crate::openhuman::memory::content_store::read as content_read;
+    use crate::openhuman::memory_store::content::read as content_read;
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(summary_ids.len());
     for id in summary_ids {

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::store::GraphRelationRecord;
+use crate::openhuman::memory_store::GraphRelationRecord;
 use crate::openhuman::memory::{
     MemoryClient, MemoryClientRef, MemoryDocumentSummary, MemoryItemKind, MemoryRetrievalChunk,
     MemoryRetrievalContext, MemoryRetrievalEntity, MemoryRetrievalRelation, NamespaceMemoryHit,

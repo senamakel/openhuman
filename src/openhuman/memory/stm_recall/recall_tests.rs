@@ -3,10 +3,10 @@
 use super::*;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use crate::openhuman::memory::store::events::EVENTS_INIT_SQL;
-use crate::openhuman::memory::store::fts5;
-use crate::openhuman::memory::store::profile::PROFILE_INIT_SQL;
-use crate::openhuman::memory::store::segments::SEGMENTS_INIT_SQL;
+use crate::openhuman::memory_store::events::EVENTS_INIT_SQL;
+use crate::openhuman::memory_store::fts5;
+use crate::openhuman::memory_store::profile::PROFILE_INIT_SQL;
+use crate::openhuman::memory_store::segments::SEGMENTS_INIT_SQL;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection};
 use std::sync::Arc;

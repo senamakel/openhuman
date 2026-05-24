@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{email_clean, normalize_source_ref, CanonicalisedSource};
-use crate::openhuman::memory::chunk_types::{Metadata, SourceKind};
+use crate::openhuman::memory_store::chunks::types::{Metadata, SourceKind};
 
 /// One email in a thread.
 #[derive(Clone, Debug, Serialize, Deserialize)]

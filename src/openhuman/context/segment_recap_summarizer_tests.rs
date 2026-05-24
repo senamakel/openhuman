@@ -16,7 +16,7 @@ use crate::openhuman::agent::hooks::{PostTurnHook as _, TurnContext};
 use crate::openhuman::context::summarizer::{Summarizer, SummaryStats};
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 use crate::openhuman::memory::chat::ChatPrompt;
-use crate::openhuman::memory::store::{fts5, segments as seg};
+use crate::openhuman::memory_store::{fts5, segments as seg};
 use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -29,9 +29,9 @@ fn setup_conn() -> Arc<Mutex<Connection>> {
     let conn = Connection::open_in_memory().unwrap();
     conn.execute_batch(fts5::EPISODIC_INIT_SQL).unwrap();
     conn.execute_batch(seg::SEGMENTS_INIT_SQL).unwrap();
-    conn.execute_batch(crate::openhuman::memory::store::events::EVENTS_INIT_SQL)
+    conn.execute_batch(crate::openhuman::memory_store::events::EVENTS_INIT_SQL)
         .unwrap();
-    conn.execute_batch(crate::openhuman::memory::store::profile::PROFILE_INIT_SQL)
+    conn.execute_batch(crate::openhuman::memory_store::profile::PROFILE_INIT_SQL)
         .unwrap();
     Arc::new(Mutex::new(conn))
 }

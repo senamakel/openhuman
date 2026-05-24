@@ -13,16 +13,16 @@ use tempfile::TempDir;
 /// can find the on-disk file during seals. Tests that call `upsert_chunks`
 /// and then trigger a seal MUST also call this helper; otherwise
 /// `hydrate_leaf_inputs` will fail with "no content_path for chunk_id".
-fn stage_test_chunks(cfg: &Config, chunks: &[crate::openhuman::memory::chunk_types::Chunk]) {
+fn stage_test_chunks(cfg: &Config, chunks: &[crate::openhuman::memory_store::chunks::types::Chunk]) {
     let content_root = cfg.memory_tree_content_root();
     std::fs::create_dir_all(&content_root).expect("create content_root for test");
     let staged =
         content_store::stage_chunks(&content_root, chunks).expect("stage_chunks for test chunks");
     // Record the content_path + content_sha256 pointers in SQLite so the
     // store's `get_chunk_content_pointers` can resolve them later.
-    crate::openhuman::memory::chunk_store::with_connection(cfg, |conn| {
+    crate::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
         let tx = conn.unchecked_transaction()?;
-        crate::openhuman::memory::chunk_store::upsert_staged_chunks_tx(&tx, &staged)?;
+        crate::openhuman::memory_store::chunks::store::upsert_staged_chunks_tx(&tx, &staged)?;
         tx.commit()?;
         Ok(())
     })
@@ -78,8 +78,8 @@ async fn append_below_budget_does_not_seal() {
 
 #[tokio::test]
 async fn crossing_budget_triggers_seal() {
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
@@ -169,7 +169,7 @@ async fn crossing_budget_triggers_seal() {
     assert!(t.last_sealed_at.is_some());
 
     // Leaf → parent backlink populated for both children.
-    use crate::openhuman::memory::chunk_store::with_connection;
+    use crate::openhuman::memory_store::chunks::store::with_connection;
     let parent: Option<String> = with_connection(&cfg, |conn| {
         let p: Option<String> = conn
             .query_row(
@@ -186,9 +186,9 @@ async fn crossing_budget_triggers_seal() {
 
 #[tokio::test]
 async fn fanout_at_l1_triggers_l2_seal() {
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
-    use crate::openhuman::memory_tree::tree::types::SUMMARY_FANOUT;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::trees::types::SUMMARY_FANOUT;
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
@@ -278,9 +278,9 @@ async fn fanout_at_l1_triggers_l2_seal() {
 
 #[tokio::test]
 async fn upper_level_does_not_seal_below_fanout() {
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
-    use crate::openhuman::memory_tree::tree::types::SUMMARY_FANOUT;
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::trees::types::SUMMARY_FANOUT;
     use chrono::TimeZone;
 
     let (_tmp, cfg) = test_config();
@@ -364,8 +364,8 @@ fn seed_leaf(
     entities: Vec<String>,
     topics: Vec<String>,
 ) -> LeafRef {
-    use crate::openhuman::memory::chunk_store::upsert_chunks;
-    use crate::openhuman::memory::chunk_types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
+    use crate::openhuman::memory_store::chunks::store::upsert_chunks;
+    use crate::openhuman::memory_store::chunks::types::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
     use crate::openhuman::memory::score::extract::EntityKind;
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
@@ -590,7 +590,7 @@ async fn seal_with_empty_strategy_leaves_labels_empty() {
 
 #[tokio::test]
 async fn topic_tree_seal_persists_topic_kind_not_source() {
-    use crate::openhuman::memory_tree::tree::types::TreeStatus;
+    use crate::openhuman::memory_store::trees::types::TreeStatus;
 
     let (_tmp, cfg) = test_config();
     // Build a topic tree directly — `seal_one_level` runs for both
@@ -632,7 +632,7 @@ fn scope_slug_non_gmail_uses_full_scope() {
     // slack:#eng and discord:#eng must NOT produce the same scope slug.
     // Previously, stripping everything before ':' made both → "eng".
     // After Fix K, only gmail: strips the prefix — others use the full string.
-    use crate::openhuman::memory::content_store::paths::slugify_source_id;
+    use crate::openhuman::memory_store::content::paths::slugify_source_id;
 
     // Verify that the slug logic produces distinct values for different platforms.
     let slack_slug = slugify_source_id("slack:#eng");

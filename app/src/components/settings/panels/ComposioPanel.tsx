@@ -197,7 +197,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
       <div>
         {!embedded && (
           <SettingsHeader
-            title="Composio"
+            title={t('settings.composio.title')}
             showBackButton
             onBack={navigateBack}
             breadcrumbs={breadcrumbs}
@@ -216,7 +216,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
     <div>
       {!embedded && (
         <SettingsHeader
-          title="Composio"
+          title={t('settings.composio.title')}
           showBackButton
           onBack={navigateBack}
           breadcrumbs={breadcrumbs}
@@ -301,7 +301,7 @@ const ComposioPanel = ({ embedded = false }: ComposioPanelProps = {}) => {
               placeholder={
                 apiKeyStored
                   ? t('settings.composio.apiKeyStoredPlaceholder')
-                  : 'ck_live_xxxxxxxxxxxxxxxx'
+                  : t('settings.composio.apiKeyExamplePlaceholder')
               }
               className="w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
             />

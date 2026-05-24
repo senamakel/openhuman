@@ -52,6 +52,7 @@ const en: TranslationMap = {
   'common.showLess': 'Show less',
   'common.submit': 'Submit',
   'common.continue': 'Continue',
+  'common.comingSoon': 'Coming Soon',
 
   // Settings Home
   'settings.general': 'General',
@@ -1817,6 +1818,9 @@ const en: TranslationMap = {
   'settings.ai.openAiCompat.setKey': 'Set key',
   'settings.ai.openAiCompat.title': 'OpenAI-compatible endpoint',
   'settings.ai.providerLabel': 'Provider',
+  'skills.mcpComingSoon.title': 'MCP Servers',
+  'skills.mcpComingSoon.description':
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.ai.routing': 'Routing',
   'settings.ai.routingCustom': 'Custom routing',
   'settings.ai.routingDefault': 'Default',

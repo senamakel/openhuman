@@ -1745,11 +1745,11 @@ const CustomRoutingDialog = ({
   const canSave = source !== null && model.trim().length > 0;
   const canTest = canSave && !cloudModelsLoading;
 
-  useEffect(() => {
+  const resetTestState = () => {
     setTestReply(null);
     setTestError(null);
     setTestStartedAt(null);
-  }, [source, model, temperature]);
+  };
 
   const currentProviderString =
     source == null
@@ -1847,6 +1847,7 @@ const CustomRoutingDialog = ({
                   const colonIdx = e.target.value.indexOf(':');
                   const kind = e.target.value.slice(0, colonIdx);
                   const slug = e.target.value.slice(colonIdx + 1);
+                  resetTestState();
                   if (kind === 'local') {
                     setSource({ kind: 'local' });
                     setModel(localModels[0]?.id ?? '');
@@ -1872,7 +1873,10 @@ const CustomRoutingDialog = ({
               {source?.kind === 'local' ? (
                 <select
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                   {localModels.map(m => (
                     <option key={m.id} value={m.id}>
@@ -1905,7 +1909,10 @@ const CustomRoutingDialog = ({
                   <input
                     type="text"
                     value={model}
-                    onChange={e => setModel(e.target.value)}
+                    onChange={e => {
+                      resetTestState();
+                      setModel(e.target.value);
+                    }}
                     placeholder={selectedCloud ? `${selectedCloud.slug} model id` : 'model-id'}
                     className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
@@ -1913,7 +1920,10 @@ const CustomRoutingDialog = ({
               ) : cloudModels.length > 0 ? (
                 <select
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                   {!model && <option value="">Select a model…</option>}
                   {/* Keep existing value selectable even if the provider no longer lists it */}
@@ -1930,7 +1940,10 @@ const CustomRoutingDialog = ({
                 <input
                   type="text"
                   value={model}
-                  onChange={e => setModel(e.target.value)}
+                  onChange={e => {
+                    resetTestState();
+                    setModel(e.target.value);
+                  }}
                   placeholder={selectedCloud ? `${selectedCloud.slug} model id` : 'model-id'}
                   className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-mono text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
@@ -1945,7 +1958,10 @@ const CustomRoutingDialog = ({
                   <input
                     type="checkbox"
                     checked={temperature != null}
-                    onChange={e => setTemperature(e.target.checked ? 0.7 : null)}
+                    onChange={e => {
+                      resetTestState();
+                      setTemperature(e.target.checked ? 0.7 : null);
+                    }}
                     className="h-3.5 w-3.5 rounded border-stone-300 dark:border-neutral-700 text-primary-500 focus:ring-primary-500"
                   />
                   Temperature override
@@ -1965,7 +1981,10 @@ const CustomRoutingDialog = ({
                     max={2}
                     step={0.05}
                     value={temperature}
-                    onChange={e => setTemperature(Number(e.target.value))}
+                    onChange={e => {
+                      resetTestState();
+                      setTemperature(Number(e.target.value));
+                    }}
                     className="flex-1 accent-primary-500"
                   />
                   <input
@@ -1977,7 +1996,10 @@ const CustomRoutingDialog = ({
                     value={temperature}
                     onChange={e => {
                       const v = Number(e.target.value);
-                      if (Number.isFinite(v)) setTemperature(Math.max(0, Math.min(2, v)));
+                      if (Number.isFinite(v)) {
+                        resetTestState();
+                        setTemperature(Math.max(0, Math.min(2, v)));
+                      }
                     }}
                     className="w-16 rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-mono text-stone-900 dark:text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />

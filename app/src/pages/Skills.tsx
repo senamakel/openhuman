@@ -284,6 +284,7 @@ function ChannelTile({ def, status, icon, testId, onOpen }: ChannelTileProps) {
 }
 
 function McpComingSoonPanel() {
+  const { t } = useT();
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 dark:border-neutral-700 bg-stone-50/80 dark:bg-neutral-900/80 px-6 py-16 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-500/10">
@@ -300,13 +301,14 @@ function McpComingSoonPanel() {
           />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">MCP Servers</h3>
+      <h3 className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+        {t('skills.mcpComingSoon.title')}
+      </h3>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-stone-500 dark:text-neutral-400">
-        MCP server management is coming soon. This tab will be the home for discovering, connecting,
-        and monitoring your MCP server integrations.
+        {t('skills.mcpComingSoon.description')}
       </p>
       <span className="mt-4 inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-500/10 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400">
-        Coming Soon
+        {t('common.comingSoon')}
       </span>
     </div>
   );

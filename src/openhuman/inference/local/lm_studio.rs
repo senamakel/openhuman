@@ -195,15 +195,15 @@ impl LmStudioChatResponseMessage {
     pub(crate) fn effective_content(&self) -> String {
         self.content
             .as_deref()
-            .map(str::trim)
+            .map(crate::openhuman::inference::provider::compatible_parse::strip_think_tags)
+            .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .map(ToString::to_string)
             .or_else(|| {
                 self.reasoning_content
                     .as_deref()
-                    .map(str::trim)
+                    .map(crate::openhuman::inference::provider::compatible_parse::strip_think_tags)
+                    .map(|value| value.trim().to_string())
                     .filter(|value| !value.is_empty())
-                    .map(ToString::to_string)
             })
             .unwrap_or_default()
     }
@@ -256,5 +256,14 @@ mod tests {
             reasoning_content: Some("thinking text".into()),
         };
         assert_eq!(msg.effective_content(), "thinking text");
+    }
+
+    #[test]
+    fn effective_content_strips_think_tags() {
+        let msg = LmStudioChatResponseMessage {
+            content: Some("<think>hidden</think>Visible reply".into()),
+            reasoning_content: None,
+        };
+        assert_eq!(msg.effective_content(), "Visible reply");
     }
 }

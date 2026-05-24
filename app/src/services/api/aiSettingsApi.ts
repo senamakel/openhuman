@@ -390,7 +390,12 @@ export async function testProviderModel(
     params: { workload, provider, prompt },
     timeoutMs: PROVIDER_MODEL_TEST_TIMEOUT_MS,
   });
-  return res?.result ?? { reply: '' };
+  if (!res?.result) {
+    throw new Error(
+      `Model test RPC returned no result for ${workload} via ${provider} (openhuman.inference_test_provider_model).`
+    );
+  }
+  return res.result;
 }
 
 // ─── Local provider façade (Ollama install / detect / model manage) ───────

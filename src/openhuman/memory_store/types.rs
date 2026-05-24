@@ -139,3 +139,52 @@ pub struct NamespaceRetrievalContext {
     pub context_text: String,
     pub hits: Vec<NamespaceMemoryHit>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn global_namespace_constant_is_stable() {
+        assert_eq!(GLOBAL_NAMESPACE, "global");
+    }
+
+    #[test]
+    fn memory_item_kind_serde_uses_snake_case() {
+        let json_value = serde_json::to_string(&MemoryItemKind::Document).unwrap();
+        assert_eq!(json_value, "\"document\"");
+        let decoded: MemoryItemKind = serde_json::from_str("\"episodic\"").unwrap();
+        assert_eq!(decoded, MemoryItemKind::Episodic);
+    }
+
+    #[test]
+    fn namespace_document_input_defaults_optional_fields() {
+        let value = json!({
+            "namespace": "global",
+            "key": "note-1",
+            "title": "Title",
+            "content": "Body",
+            "source_type": "manual",
+            "priority": "normal",
+            "metadata": {},
+            "category": "core"
+        });
+        let parsed: NamespaceDocumentInput = serde_json::from_value(value).unwrap();
+        assert!(parsed.tags.is_empty());
+        assert_eq!(parsed.metadata, json!({}));
+        assert!(parsed.session_id.is_none());
+        assert!(parsed.document_id.is_none());
+    }
+
+    #[test]
+    fn retrieval_score_breakdown_default_is_zeroed() {
+        let breakdown = RetrievalScoreBreakdown::default();
+        assert_eq!(breakdown.keyword_relevance, 0.0);
+        assert_eq!(breakdown.vector_similarity, 0.0);
+        assert_eq!(breakdown.graph_relevance, 0.0);
+        assert_eq!(breakdown.episodic_relevance, 0.0);
+        assert_eq!(breakdown.freshness, 0.0);
+        assert_eq!(breakdown.final_score, 0.0);
+    }
+}

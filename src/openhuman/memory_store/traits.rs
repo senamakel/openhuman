@@ -171,3 +171,68 @@ impl ObsidianRepresentable for Person {
 // (`content/`) is the canonical persistence for any document body. Anything
 // that historically used `StoredMemoryDocument` should land its body as a
 // raw md file and reference it via path.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::memory_store::chunks::types::{Metadata, SourceKind};
+    use chrono::Utc;
+
+    fn sample_chunk() -> Chunk {
+        Chunk {
+            id: "chunk-1".into(),
+            content: "hello world".into(),
+            metadata: Metadata {
+                source_kind: SourceKind::Chat,
+                source_id: "slack:#eng".into(),
+                timestamp: Utc::now(),
+                owner: "alice".into(),
+                source_ref: None,
+                tags: vec!["person:alice".into()],
+            },
+            seq_in_source: 7,
+            token_count: 2,
+        }
+    }
+
+    #[test]
+    fn chunk_traits_render_expected_kind_and_obsidian_path() {
+        let chunk = sample_chunk();
+        assert_eq!(chunk.memory_kind(), MemoryKind::Chunk);
+        assert_eq!(chunk.embeddable_text(), "hello world");
+
+        let obsidian = chunk.to_obsidian();
+        assert_eq!(obsidian.relative_path, PathBuf::from("chunks/chunk-1.md"));
+        assert!(obsidian.markdown.contains("source_kind: chat"));
+        assert!(obsidian.markdown.contains("source_id: slack:#eng"));
+        assert!(obsidian.markdown.contains("hello world"));
+    }
+
+    #[test]
+    fn summary_node_traits_render_expected_kind_and_path() {
+        let node = SummaryNode {
+            id: "summary-1".into(),
+            tree_id: "tree-1".into(),
+            tree_kind: crate::openhuman::memory_store::trees::TreeKind::Source,
+            level: 1,
+            parent_id: None,
+            child_ids: vec!["chunk-1".into()],
+            content: "summary body".into(),
+            token_count: 3,
+            entities: vec![],
+            topics: vec![],
+            time_range_start: Utc::now(),
+            time_range_end: Utc::now(),
+            score: 0.5,
+            sealed_at: Utc::now(),
+            deleted: false,
+            embedding: None,
+        };
+        assert_eq!(node.memory_kind(), MemoryKind::Tree);
+        assert_eq!(node.embeddable_text(), "summary body");
+        let obsidian = node.to_obsidian();
+        assert_eq!(obsidian.relative_path, PathBuf::from("summaries/summary-1.md"));
+        assert!(obsidian.markdown.contains("tree_id: tree-1"));
+        assert!(obsidian.markdown.contains("summary body"));
+    }
+}

@@ -65,5 +65,7 @@ pub fn enabled_registries() -> Vec<Box<dyn Registry>> {
 /// Resolve a registry by [`Registry::source`] id. Used by `registry_get` to
 /// route a fetch back to the upstream that produced the qualified name.
 pub fn registry_for_source(source: &str) -> Option<Box<dyn Registry>> {
-    enabled_registries().into_iter().find(|r| r.source() == source)
+    enabled_registries()
+        .into_iter()
+        .find(|r| r.source() == source)
 }

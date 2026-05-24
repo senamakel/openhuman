@@ -104,19 +104,13 @@ async fn unknown_tool_call_returns_error() {
 
     connections::connect(&cfg, &server).await.expect("connect");
 
-    let err = connections::call_tool(
-        &server.server_id,
-        "does_not_exist",
-        serde_json::json!({}),
-    )
-    .await
-    .expect_err("stub rejects unknown tools");
+    let err = connections::call_tool(&server.server_id, "does_not_exist", serde_json::json!({}))
+        .await
+        .expect_err("stub rejects unknown tools");
     assert!(
-        err.to_lowercase().contains("unknown tool")
-            || err.contains("error"),
+        err.to_lowercase().contains("unknown tool") || err.contains("error"),
         "expected unknown-tool error, got: {err}"
     );
 
     let _ = connections::disconnect(&server.server_id).await;
 }
-

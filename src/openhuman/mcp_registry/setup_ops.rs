@@ -104,7 +104,9 @@ pub async fn mcp_setup_request_secret(
         key_name
     );
 
-    setup::await_fulfillment(&r, rx).await.map_err(|e| e.to_string())?;
+    setup::await_fulfillment(&r, rx)
+        .await
+        .map_err(|e| e.to_string())?;
 
     tracing::info!("[mcp-setup] request_secret fulfilled ref={}", r.as_str());
     Ok(RpcOutcome::new(
@@ -119,8 +121,7 @@ pub async fn mcp_setup_submit_secret(
     ref_id: String,
     value: String,
 ) -> Result<RpcOutcome<Value>, String> {
-    let r = SecretRef::parse(&ref_id)
-        .ok_or_else(|| format!("invalid ref_id `{ref_id}`"))?;
+    let r = SecretRef::parse(&ref_id).ok_or_else(|| format!("invalid ref_id `{ref_id}`"))?;
     let ok = setup::fulfill(&r, value).await;
     if !ok {
         return Err(format!("ref {} unknown or already submitted", r.as_str()));

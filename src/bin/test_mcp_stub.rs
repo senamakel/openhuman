@@ -87,16 +87,10 @@ fn main() {
                 }
             }),
             "tools/call" => {
-                let tool = params
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
+                let tool = params.get("name").and_then(Value::as_str).unwrap_or("");
                 let args = params.get("arguments").cloned().unwrap_or(Value::Null);
                 if tool == "echo" {
-                    let msg = args
-                        .get("message")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
+                    let msg = args.get("message").and_then(Value::as_str).unwrap_or("");
                     json!({
                         "jsonrpc": "2.0",
                         "id": id,

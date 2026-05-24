@@ -26,9 +26,7 @@ use serde_json::Value;
 use crate::openhuman::config::Config;
 
 use super::super::store;
-use super::super::types::{
-    SmitheryConnection, SmitheryServerDetail, SmitheryServerSummary,
-};
+use super::super::types::{SmitheryConnection, SmitheryServerDetail, SmitheryServerSummary};
 use super::{Registry, SOURCE_MCP_OFFICIAL};
 
 const DEFAULT_BASE: &str = "https://registry.modelcontextprotocol.io";

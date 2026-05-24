@@ -1,17 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SecretPromptDialog } from './SecretPromptDialog';
+
 const callCoreRpc = vi.fn();
 vi.mock('../../services/coreRpcClient', () => ({
   callCoreRpc: (...args: unknown[]) => callCoreRpc(...args),
 }));
 
-import { SecretPromptDialog } from './SecretPromptDialog';
-
 function dispatchRequest(detail: { refId: string; keyName: string; prompt: string }) {
-  window.dispatchEvent(
-    new CustomEvent('openhuman:mcp-setup-secret-requested', { detail })
-  );
+  window.dispatchEvent(new CustomEvent('openhuman:mcp-setup-secret-requested', { detail }));
 }
 
 describe('SecretPromptDialog', () => {

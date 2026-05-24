@@ -63,10 +63,7 @@ pub async fn registry_search(
 /// Fetch a server detail. If `qualified_name` starts with `"<source>::"` we
 /// route directly to that registry; otherwise every enabled registry is
 /// tried in order and the first success wins.
-pub async fn registry_get(
-    config: &Config,
-    qualified_name: &str,
-) -> Result<SmitheryServerDetail> {
+pub async fn registry_get(config: &Config, qualified_name: &str) -> Result<SmitheryServerDetail> {
     if let Some((source, rest)) = qualified_name.split_once(SOURCE_SEPARATOR) {
         if let Some(registry) = registry_for_source(source) {
             tracing::debug!("[mcp-registry] get routed source={source} qualified={rest}");

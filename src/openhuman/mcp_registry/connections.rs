@@ -176,7 +176,9 @@ pub async fn all_status(config: &Config) -> Vec<ConnStatus> {
 pub async fn all_connected_tools() -> Vec<(String, String, McpTool)> {
     let snapshot: Vec<(String, Arc<Connection>)> = {
         let map = connections().read().await;
-        map.iter().map(|(id, c)| (id.clone(), Arc::clone(c))).collect()
+        map.iter()
+            .map(|(id, c)| (id.clone(), Arc::clone(c)))
+            .collect()
     };
 
     let mut out: Vec<(String, String, McpTool)> = Vec::new();

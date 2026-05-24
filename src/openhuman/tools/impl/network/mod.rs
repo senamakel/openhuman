@@ -19,8 +19,8 @@ pub use gmail_unsubscribe::GmailUnsubscribeTool;
 pub use http_request::HttpRequestTool;
 pub use mcp::{McpCallTool, McpListServersTool, McpListToolsTool};
 pub use mcp_setup::{
-    McpSetupGetTool, McpSetupInstallAndConnectTool, McpSetupRequestSecretTool,
-    McpSetupSearchTool, McpSetupTestConnectionTool,
+    McpSetupGetTool, McpSetupInstallAndConnectTool, McpSetupRequestSecretTool, McpSetupSearchTool,
+    McpSetupTestConnectionTool,
 };
 pub use polymarket::PolymarketTool;
 pub use web_fetch::WebFetchTool;

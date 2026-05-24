@@ -366,7 +366,10 @@ mod tests {
     #[test]
     fn names_are_stable() {
         let cfg = Arc::new(Config::default());
-        assert_eq!(McpSetupSearchTool::new(cfg.clone()).name(), "mcp_setup_search");
+        assert_eq!(
+            McpSetupSearchTool::new(cfg.clone()).name(),
+            "mcp_setup_search"
+        );
         assert_eq!(McpSetupGetTool::new(cfg.clone()).name(), "mcp_setup_get");
         assert_eq!(
             McpSetupRequestSecretTool::new().name(),

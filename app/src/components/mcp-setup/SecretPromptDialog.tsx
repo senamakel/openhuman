@@ -9,17 +9,12 @@
 // state — no logging, no Redux, no persistence on this side. The MCP setup
 // agent only sees the opaque `ref://<hex>` ref returned by
 // `mcp_setup_request_secret`; the raw value never enters the LLM context.
-
 import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../services/coreRpcClient';
 
-type Request = {
-  refId: string;
-  keyName: string;
-  prompt: string;
-};
+type Request = { refId: string; keyName: string; prompt: string };
 
 export function SecretPromptDialog() {
   const { t } = useT();
@@ -141,9 +136,7 @@ export function SecretPromptDialog() {
                 onClick={() => setReveal(v => !v)}
                 disabled={submitting}
                 className="px-3 py-2 text-xs font-medium text-stone-600 dark:text-neutral-300 rounded-lg border border-stone-300 dark:border-neutral-700 hover:bg-stone-100 dark:hover:bg-neutral-800">
-                {reveal
-                  ? t('mcp.setup.secretDialog.hide')
-                  : t('mcp.setup.secretDialog.show')}
+                {reveal ? t('mcp.setup.secretDialog.hide') : t('mcp.setup.secretDialog.show')}
               </button>
             </div>
             <p className="text-[11px] text-stone-500 dark:text-neutral-500 mt-2">

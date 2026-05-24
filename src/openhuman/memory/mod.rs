@@ -7,9 +7,11 @@
 //!
 //! Phase 3 of the memory_tree cleanup: the following modules were moved from
 //! `memory_tree` into this module:
-//! `canonicalize`, `chat`, `ingest_chunker`, `content_store`, `ingest_pipeline`,
-//! `jobs`, `read_rpc`, `retrieval`, `rpc`, `tree_schemas`, `score`, `chunk_store`,
-//! `summarizer`, `chunk_types`, `util`, `tools`.
+//! `canonicalize`, `chat`, `content_store`, `ingest_pipeline`, `jobs`,
+//! `read_rpc`, `retrieval`, `tree_rpc`, `schema`, `score`, `chunk_store`,
+//! `summarizer`, `chunk_types`, `util`.
+//! The tree-specific `chunker`, `tree/*`, `sources/`, `summarise`, and the
+//! `tools/` (including `ingest_document`) stayed under `memory_tree`.
 
 // Legacy memory modules
 pub mod chunker;
@@ -33,16 +35,14 @@ pub mod chat;
 pub mod chunk_store;
 pub mod chunk_types;
 pub mod content_store;
-pub mod ingest_chunker;
 pub mod ingest_pipeline;
 pub mod jobs;
 pub mod read_rpc;
 pub mod retrieval;
+pub mod schema;
 pub mod score;
 pub mod summarizer;
-pub mod tools;
 pub mod tree_rpc;
-pub mod tree_schemas;
 pub mod util;
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,

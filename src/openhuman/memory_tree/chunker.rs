@@ -84,7 +84,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
             // Document: run the existing paragraph splitter directly on the
             // whole blob. No message-unit concept.
             log::debug!(
-                "[memory::ingest_chunker] document source_id_hash={} len={} — paragraph split",
+                "[memory_tree::chunker] document source_id_hash={} len={} — paragraph split",
                 redact(&input.source_id),
                 input.markdown.len()
             );
@@ -115,7 +115,7 @@ pub fn chunk_markdown(input: &ChunkerInput, opts: &ChunkerOptions) -> Vec<Chunk>
     }
 
     log::debug!(
-        "[memory::ingest_chunker] source_kind={} source_id_hash={} len={} units={}",
+        "[memory_tree::chunker] source_kind={} source_id_hash={} len={} units={}",
         input.source_kind.as_str(),
         redact(&input.source_id),
         input.markdown.len(),

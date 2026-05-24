@@ -22,6 +22,7 @@
 //! Phases 2-4 (#708 scoring, #709 summary trees, #710 retrieval) build on
 //! top of these chunks without modifying the Phase 1 surface.
 
+pub mod chunker;
 pub mod sources;
 pub mod summarise;
 pub mod tools;
@@ -33,10 +34,10 @@ pub mod tree_topic;
 pub use crate::openhuman::memory::retrieval::{
     all_retrieval_controller_schemas, all_retrieval_registered_controllers,
 };
-pub use crate::openhuman::memory::summarizer::{
-    all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
-};
-pub use crate::openhuman::memory::tree_schemas::{
+pub use crate::openhuman::memory::schema::{
     all_controller_schemas as all_memory_tree_controller_schemas,
     all_registered_controllers as all_memory_tree_registered_controllers,
+};
+pub use crate::openhuman::memory::summarizer::{
+    all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
 };

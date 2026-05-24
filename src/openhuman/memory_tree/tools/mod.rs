@@ -9,6 +9,7 @@
 
 mod drill_down;
 mod fetch_leaves;
+mod ingest_document;
 mod query_global;
 mod query_source;
 mod query_topic;
@@ -19,8 +20,7 @@ pub mod walk;
 // (e.g. tool registration in ops.rs).
 pub use drill_down::MemoryTreeDrillDownTool;
 pub use fetch_leaves::MemoryTreeFetchLeavesTool;
-// MemoryTreeIngestDocumentTool moved to memory::tools
-pub use crate::openhuman::memory::tools::MemoryTreeIngestDocumentTool;
+pub use ingest_document::MemoryTreeIngestDocumentTool;
 pub use query_global::MemoryTreeQueryGlobalTool;
 pub use query_source::MemoryTreeQuerySourceTool;
 pub use query_topic::MemoryTreeQueryTopicTool;

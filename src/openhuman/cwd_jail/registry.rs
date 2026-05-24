@@ -107,7 +107,9 @@ impl JailRegistry {
     /// Create a new jail directory. Returns the persisted record.
     pub fn create(&self, label: impl Into<String>) -> io::Result<JailRecord> {
         let label = label.into();
-        log::debug!("[cwd_jail] registry.create label={label:?}");
+        // Label is free-form user input — log only its length so we get
+        // a useful breadcrumb without leaking arbitrary text into logs.
+        log::debug!("[cwd_jail] registry.create label_len={}", label.len());
 
         // Loop until we find an id not already in the index. After a
         // process restart in the same second, the time+counter id can
@@ -135,7 +137,16 @@ impl JailRegistry {
             notes: None,
         };
         idx.records.insert(id.clone(), record.clone());
-        self.persist(&idx)?;
+        // Roll back both the in-memory insert and the freshly-created
+        // directory if persistence fails — otherwise the registry would
+        // expose a record through get()/list() that does not exist on
+        // disk, and a subsequent reopen would silently lose it.
+        if let Err(e) = self.persist(&idx) {
+            idx.records.remove(&id);
+            let _ = fs::remove_dir_all(&record.dir);
+            log::warn!("[cwd_jail] registry.create persist failed; rolled back: {e}");
+            return Err(e);
+        }
         log::debug!(
             "[cwd_jail] registry.create id={id} dir={}",
             record.dir.display()
@@ -177,16 +188,29 @@ impl JailRegistry {
     /// are derived from `id` (stable), not `label`, for the same reason.
     pub fn rename(&self, id: &str, new_label: impl Into<String>) -> io::Result<JailRecord> {
         let new_label = new_label.into();
-        log::debug!("[cwd_jail] registry.rename id={id} label={new_label:?}");
+        log::debug!(
+            "[cwd_jail] registry.rename id={id} new_label_len={}",
+            new_label.len()
+        );
         let mut idx = self.index.lock().unwrap();
         let record = idx
             .records
             .get_mut(id)
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
-        record.label = new_label;
-        record.updated_at_unix = now_unix();
+        // Snapshot the prior label/timestamp so we can revert on
+        // persist failure — without that the in-memory record would
+        // diverge from disk.
+        let prev_label = std::mem::replace(&mut record.label, new_label);
+        let prev_updated = std::mem::replace(&mut record.updated_at_unix, now_unix());
         let cloned = record.clone();
-        self.persist(&idx)?;
+        if let Err(e) = self.persist(&idx) {
+            if let Some(r) = idx.records.get_mut(id) {
+                r.label = prev_label;
+                r.updated_at_unix = prev_updated;
+            }
+            log::warn!("[cwd_jail] registry.rename persist failed; rolled back: {e}");
+            return Err(e);
+        }
         Ok(cloned)
     }
 
@@ -201,10 +225,17 @@ impl JailRegistry {
             .records
             .get_mut(id)
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
-        record.notes = notes;
-        record.updated_at_unix = now_unix();
+        let prev_notes = std::mem::replace(&mut record.notes, notes);
+        let prev_updated = std::mem::replace(&mut record.updated_at_unix, now_unix());
         let cloned = record.clone();
-        self.persist(&idx)?;
+        if let Err(e) = self.persist(&idx) {
+            if let Some(r) = idx.records.get_mut(id) {
+                r.notes = prev_notes;
+                r.updated_at_unix = prev_updated;
+            }
+            log::warn!("[cwd_jail] registry.set_notes persist failed; rolled back: {e}");
+            return Err(e);
+        }
         Ok(cloned)
     }
 
@@ -258,8 +289,17 @@ impl JailRegistry {
             fs::remove_dir_all(&record.dir)?;
         }
         // Disk side succeeded — now remove from the index and persist.
+        // If persist fails here the directory is already gone, so we
+        // can't fully roll back; we keep the in-memory removal aligned
+        // with disk reality and surface the error.
         idx.records.remove(id);
-        self.persist(&idx)?;
+        if let Err(e) = self.persist(&idx) {
+            log::warn!(
+                "[cwd_jail] registry.delete persist failed after dir removal; \
+                 index.json may resurrect id={id} on next reopen: {e}"
+            );
+            return Err(e);
+        }
         Ok(())
     }
 

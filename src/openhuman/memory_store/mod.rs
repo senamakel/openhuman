@@ -23,6 +23,7 @@ pub mod entities;
 pub mod kinds;
 pub mod kv;
 pub mod retrieval;
+pub mod safety;
 pub mod tools;
 pub mod traits;
 pub mod trees;

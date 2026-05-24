@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
-use crate::openhuman::memory::safety;
+use crate::openhuman::memory_store::safety;
 use crate::openhuman::memory_store::types::{NamespaceDocumentInput, StoredMemoryDocument};
 
 use super::UnifiedMemory;

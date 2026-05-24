@@ -19,7 +19,6 @@ pub mod ingestion;
 pub mod ops;
 pub mod preferences;
 pub mod rpc_models;
-pub mod safety;
 pub mod schemas;
 pub mod stm_recall;
 pub mod sync_status;

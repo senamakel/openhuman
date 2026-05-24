@@ -1,4 +1,4 @@
-use crate::openhuman::memory::safety;
+use crate::openhuman::memory_store::safety;
 use crate::openhuman::memory::{Memory, MemoryCategory};
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;

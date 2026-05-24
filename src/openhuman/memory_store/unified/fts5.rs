@@ -10,7 +10,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::openhuman::memory::safety;
+use crate::openhuman::memory_store::safety;
 
 /// A single episodic record (one turn or event).
 #[derive(Debug, Clone, Serialize, Deserialize)]

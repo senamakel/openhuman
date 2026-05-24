@@ -960,7 +960,7 @@ mod tests {
         // Spawn a topic tree directly via the registry (skipping curator's
         // hotness gate — we just need a TreeKind::Topic with leaves).
         let topic_tree =
-            crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree(
+            crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
                 &cfg,
                 "topic:phoenix-migration",
             )
@@ -1037,7 +1037,7 @@ mod tests {
 
         // 1. Create a target topic tree with a clean L0 buffer.
         let topic_tree =
-            crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree(
+            crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree(
                 &cfg,
                 "email:alice@example.com",
             )

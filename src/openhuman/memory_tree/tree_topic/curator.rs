@@ -23,11 +23,11 @@ use crate::openhuman::memory_tree::tree::store as src_store;
 use crate::openhuman::memory_store::trees::types::{Tree, TreeKind};
 use crate::openhuman::memory_tree::tree_topic::backfill::backfill_topic_tree;
 use crate::openhuman::memory_tree::tree_topic::hotness::hotness_at;
-use crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree;
-use crate::openhuman::memory_store::trees_topic::store::{
+use crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree;
+use crate::openhuman::memory_store::trees::hotness::{
     distinct_sources_for, get_or_fresh, upsert,
 };
-use crate::openhuman::memory_store::trees_topic::types::{
+use crate::openhuman::memory_store::trees::types::{
     HotnessCounters, TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY,
 };
 
@@ -160,7 +160,7 @@ mod tests {
     use crate::openhuman::memory::score::extract::EntityKind;
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
-    use crate::openhuman::memory_store::trees_topic::store::get;
+    use crate::openhuman::memory_store::trees::hotness::get;
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

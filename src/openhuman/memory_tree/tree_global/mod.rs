@@ -25,7 +25,7 @@
 //! - [`digest::end_of_day_digest`] — build one L0 daily node, cascade-seal
 //! - [`recap::recap`] — select the right level for a time window
 //!
-//! Persistence (registry) has moved to `memory_store::trees_global`.
+//! Persistence (registry) has moved to `memory_store::trees`.
 
 pub mod digest;
 pub mod recap;
@@ -33,11 +33,11 @@ pub mod seal;
 
 // Re-export persistence registry from memory_store so callers using
 // tree_global::registry:: still work.
-pub use crate::openhuman::memory_store::trees_global::registry;
+pub use crate::openhuman::memory_store::trees::registry;
 
 pub use digest::{end_of_day_digest, DigestOutcome};
 pub use recap::{recap, RecapOutput};
-pub use crate::openhuman::memory_store::trees_global::get_or_create_global_tree;
+pub use crate::openhuman::memory_store::trees::get_or_create_global_tree;
 
 /// Number of L0 (daily) nodes that seal into one L1 (weekly) node.
 pub const WEEKLY_SEAL_THRESHOLD: usize = 7;

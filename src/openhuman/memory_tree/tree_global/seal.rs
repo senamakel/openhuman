@@ -413,7 +413,7 @@ fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec
 mod tests {
     use super::*;
     use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
-    use crate::openhuman::memory_store::trees_global::registry::get_or_create_global_tree;
+    use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
     use chrono::TimeZone;
     use std::sync::Arc;
     use tempfile::TempDir;

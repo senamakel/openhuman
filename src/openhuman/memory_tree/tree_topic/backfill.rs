@@ -182,7 +182,7 @@ mod tests {
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
     use crate::openhuman::memory_tree::tree::store as src_store;
-    use crate::openhuman::memory_store::trees_topic::registry::get_or_create_topic_tree;
+    use crate::openhuman::memory_store::trees::registry::get_or_create_topic_tree;
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;

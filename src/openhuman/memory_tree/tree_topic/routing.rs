@@ -118,10 +118,10 @@ mod tests {
     use crate::openhuman::memory::score::extract::EntityKind;
     use crate::openhuman::memory::score::resolver::CanonicalEntity;
     use crate::openhuman::memory::score::store::index_entity;
-    use crate::openhuman::memory_store::trees_topic::registry::{
+    use crate::openhuman::memory_store::trees::registry::{
         archive_topic_tree, get_or_create_topic_tree,
     };
-    use crate::openhuman::memory_store::trees_topic::store::get as get_hotness;
+    use crate::openhuman::memory_store::trees::hotness::get as get_hotness;
     use chrono::{TimeZone, Utc};
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -180,7 +180,7 @@ mod tests {
         route_leaf_to_topic_trees(&cfg, &leaf, &[]).await.unwrap();
         // No hotness rows were created.
         assert_eq!(
-            crate::openhuman::memory_store::trees_topic::store::count(&cfg).unwrap(),
+            crate::openhuman::memory_store::trees::hotness::count(&cfg).unwrap(),
             0
         );
     }
@@ -285,14 +285,14 @@ mod tests {
         // to keep hotness above `TOPIC_CREATION_THRESHOLD` once the index
         // is queried (two indexed sources below → distinct_sources → 2).
         let mut counters =
-            crate::openhuman::memory_store::trees_topic::types::HotnessCounters::fresh(entity_id, 0);
+            crate::openhuman::memory_store::trees::types::HotnessCounters::fresh(entity_id, 0);
         counters.mention_count_30d = 1_000;
         counters.distinct_sources = 2;
         counters.last_seen_ms = Some(Utc::now().timestamp_millis());
         counters.query_hits_30d = 5;
         counters.ingests_since_check =
-            crate::openhuman::memory_store::trees_topic::types::TOPIC_RECHECK_EVERY - 1;
-        crate::openhuman::memory_store::trees_topic::store::upsert(&cfg, &counters).unwrap();
+            crate::openhuman::memory_store::trees::types::TOPIC_RECHECK_EVERY - 1;
+        crate::openhuman::memory_store::trees::hotness::upsert(&cfg, &counters).unwrap();
 
         // Seed leaves in slack and gmail referencing Alice. Anchor the
         // timestamps to "now" so the 30-day backfill window

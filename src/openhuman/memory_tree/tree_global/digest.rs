@@ -36,7 +36,7 @@ use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, Summar
 use crate::openhuman::memory_tree::tree::registry::new_summary_id;
 use crate::openhuman::memory_tree::tree::store;
 use crate::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind};
-use crate::openhuman::memory_store::trees_global::registry::get_or_create_global_tree;
+use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 use crate::openhuman::memory_tree::tree_global::seal::append_daily_and_cascade;
 use crate::openhuman::memory_tree::tree_global::GLOBAL_TOKEN_BUDGET;
 

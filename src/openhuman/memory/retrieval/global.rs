@@ -16,7 +16,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
 use crate::openhuman::memory_store::trees::types::TreeKind;
 use crate::openhuman::memory_tree::tree_global::recap::{recap, RecapOutput};
-use crate::openhuman::memory_store::trees_global::registry::get_or_create_global_tree;
+use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 
 /// Return the global digest for the given window in days. Always returns a
 /// [`QueryResponse`]; the response is empty if the global tree has no

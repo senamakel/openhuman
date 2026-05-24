@@ -24,7 +24,7 @@ use chrono::{DateTime, Duration, Utc};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_tree::tree::store;
 use crate::openhuman::memory_store::trees::types::SummaryNode;
-use crate::openhuman::memory_store::trees_global::registry::get_or_create_global_tree;
+use crate::openhuman::memory_store::trees::registry::get_or_create_global_tree;
 
 /// Aggregated recap returned to the caller.
 #[derive(Debug, Clone)]

@@ -1,16 +1,10 @@
-//! SQLite persistence for topic-tree-specific state (#709 Phase 3c).
+//! Entity-hotness counter persistence (`mem_tree_entity_hotness` table).
 //!
-//! The only new table owned here is `mem_tree_entity_hotness` — the
-//! per-entity counter block driving lazy materialisation. Tree rows and
-//! summary nodes are reused from [`super::super::tree::store`] via
-//! the shared `mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`
-//! tables, which already carry a `kind` column that discriminates
-//! `source` from `topic`. No schema additions for those tables in Phase
-//! 3c — only the new hotness table.
-//!
-//! Schema for `mem_tree_entity_hotness` is declared in
-//! [`super::super::store::SCHEMA`] (the sibling Phase 1 store file) so
-//! migrations all run through the same `with_connection` entry point.
+//! Previously at `memory_store::trees_topic::store`. Folded into `trees/`
+//! because hotness is the only state that differentiates topic trees from
+//! source/global trees, and even then it's a side-table — not a tree row.
+//! Keeping it next to tree storage makes "what does memory_store know about
+//! trees?" a single-directory answer.
 
 use anyhow::{Context, Result};
 use chrono::Utc;
@@ -18,7 +12,7 @@ use rusqlite::{params, OptionalExtension};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::store::with_connection;
-use crate::openhuman::memory_store::trees_topic::types::HotnessCounters;
+use crate::openhuman::memory_store::trees::types::HotnessCounters;
 
 /// Fetch the hotness row for `entity_id`, or `None` if the entity has
 /// never been seen. Callers usually want [`get_or_fresh`] instead.
@@ -92,8 +86,6 @@ pub fn upsert(config: &Config, counters: &HotnessCounters) -> Result<()> {
 }
 
 /// Count `(node_id) → DISTINCT tree_id` in the entity index for `entity_id`.
-/// Used by the curator to refresh `distinct_sources` during the periodic
-/// hotness recompute without rescanning every chunk.
 pub fn distinct_sources_for(config: &Config, entity_id: &str) -> Result<u32> {
     with_connection(config, |conn| {
         let n: i64 = conn
@@ -161,7 +153,6 @@ mod tests {
         assert_eq!(c.mention_count_30d, 0);
         assert_eq!(c.distinct_sources, 0);
         assert!(c.last_hotness.is_none());
-        // Not persisted — still zero rows in the table.
         assert_eq!(count(&cfg).unwrap(), 0);
     }
 
@@ -183,63 +174,5 @@ mod tests {
         let got = get(&cfg, &c.entity_id).unwrap().unwrap();
         assert_eq!(got, c);
         assert_eq!(count(&cfg).unwrap(), 1);
-    }
-
-    #[test]
-    fn upsert_is_idempotent_and_updates_fields() {
-        let (_tmp, cfg) = test_config();
-        let mut c = HotnessCounters::fresh("email:alice@example.com", 0);
-        c.mention_count_30d = 1;
-        upsert(&cfg, &c).unwrap();
-        c.mention_count_30d = 99;
-        c.last_updated_ms = 500;
-        upsert(&cfg, &c).unwrap();
-        assert_eq!(count(&cfg).unwrap(), 1);
-        let got = get(&cfg, "email:alice@example.com").unwrap().unwrap();
-        assert_eq!(got.mention_count_30d, 99);
-        assert_eq!(got.last_updated_ms, 500);
-    }
-
-    #[test]
-    fn distinct_sources_counts_trees() {
-        use crate::openhuman::memory::score::extract::EntityKind;
-        use crate::openhuman::memory::score::resolver::CanonicalEntity;
-        use crate::openhuman::memory::score::store::index_entity;
-        let (_tmp, cfg) = test_config();
-        let e = CanonicalEntity {
-            canonical_id: "email:alice@example.com".into(),
-            kind: EntityKind::Email,
-            surface: "alice@example.com".into(),
-            span_start: 0,
-            span_end: 17,
-            score: 1.0,
-        };
-        index_entity(&cfg, &e, "chunk-1", "leaf", 1000, Some("source:slack")).unwrap();
-        index_entity(&cfg, &e, "chunk-2", "leaf", 2000, Some("source:gmail")).unwrap();
-        index_entity(&cfg, &e, "chunk-3", "leaf", 3000, Some("source:slack")).unwrap();
-        // 3 rows but only 2 distinct tree_ids.
-        let n = distinct_sources_for(&cfg, "email:alice@example.com").unwrap();
-        assert_eq!(n, 2);
-    }
-
-    #[test]
-    fn distinct_sources_ignores_null_tree_id() {
-        use crate::openhuman::memory::score::extract::EntityKind;
-        use crate::openhuman::memory::score::resolver::CanonicalEntity;
-        use crate::openhuman::memory::score::store::index_entity;
-        let (_tmp, cfg) = test_config();
-        let e = CanonicalEntity {
-            canonical_id: "email:alice@example.com".into(),
-            kind: EntityKind::Email,
-            surface: "alice@example.com".into(),
-            span_start: 0,
-            span_end: 17,
-            score: 1.0,
-        };
-        // tree_id = None — should not count toward distinct_sources.
-        index_entity(&cfg, &e, "chunk-1", "leaf", 1000, None).unwrap();
-        index_entity(&cfg, &e, "chunk-2", "leaf", 2000, Some("source:slack")).unwrap();
-        let n = distinct_sources_for(&cfg, "email:alice@example.com").unwrap();
-        assert_eq!(n, 1);
     }
 }

@@ -23,7 +23,7 @@
 
 use chrono::Utc;
 
-use crate::openhuman::memory_store::trees_topic::types::EntityIndexStats;
+use crate::openhuman::memory_store::trees::types::EntityIndexStats;
 
 /// Pure hotness function — no I/O, no clocks unless the caller passes one.
 ///
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn spike_of_mentions_pushes_over_creation_threshold() {
-        use crate::openhuman::memory_store::trees_topic::types::TOPIC_CREATION_THRESHOLD;
+        use crate::openhuman::memory_store::trees::types::TOPIC_CREATION_THRESHOLD;
         let now_ms = 1_700_000_000_000;
         // 100 mentions across 5 sources, 3 recent query hits, seen today.
         let s = EntityIndexStats {

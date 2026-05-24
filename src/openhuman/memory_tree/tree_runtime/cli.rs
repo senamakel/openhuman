@@ -493,12 +493,16 @@ mod tests {
         };
         assert!(err.to_string().contains("missing value for --content"));
 
-        let err =
-            parse_opts(&["--file".to_string()]).expect_err("missing --file value should fail");
+        let err = match parse_opts(&["--file".to_string()]) {
+            Ok(_) => panic!("missing --file value should fail"),
+            Err(err) => err,
+        };
         assert!(err.to_string().contains("missing value for --file"));
 
-        let err = parse_opts(&["--node-id".to_string()])
-            .expect_err("missing --node-id value should fail");
+        let err = match parse_opts(&["--node-id".to_string()]) {
+            Ok(_) => panic!("missing --node-id value should fail"),
+            Err(err) => err,
+        };
         assert!(err.to_string().contains("missing value for --node-id"));
     }
 

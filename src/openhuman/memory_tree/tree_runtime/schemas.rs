@@ -176,7 +176,7 @@ fn handle_ingest(params: Map<String, Value>) -> ControllerFuture {
         let timestamp = read_optional_timestamp(&params, "timestamp")?;
         let metadata = read_optional::<Value>(&params, "metadata")?;
         to_json(
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_ingest(
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_ingest(
                 &config,
                 &namespace,
                 &content,
@@ -193,7 +193,7 @@ fn handle_run(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_run(&config, &namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(&config, &namespace)
                 .await?,
         )
     })
@@ -205,7 +205,7 @@ fn handle_query(params: Map<String, Value>) -> ControllerFuture {
         let namespace = read_required::<String>(&params, "namespace")?;
         let node_id = read_optional::<String>(&params, "node_id")?;
         to_json(
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_query(
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_query(
                 &config,
                 &namespace,
                 node_id.as_deref(),
@@ -220,7 +220,7 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_status(&config, &namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(&config, &namespace)
                 .await?,
         )
     })
@@ -231,7 +231,7 @@ fn handle_rebuild(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let namespace = read_required::<String>(&params, "namespace")?;
         to_json(
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_rebuild(&config, &namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(&config, &namespace)
                 .await?,
         )
     })

@@ -152,7 +152,7 @@ fn run_ingest(args: &[String]) -> Result<()> {
     let rt = build_runtime()?;
     rt.block_on(async {
         let config = load_config().await?;
-        let outcome = crate::openhuman::memory::summarizer::rpc::tree_summarizer_ingest(
+        let outcome = crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_ingest(
             &config, namespace, &content, None, None,
         )
         .await
@@ -189,7 +189,7 @@ fn run_summarize(args: &[String]) -> Result<()> {
     rt.block_on(async {
         let config = load_config().await?;
         let outcome =
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_run(&config, namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_run(&config, namespace)
                 .await
                 .map_err(anyhow::Error::msg)?;
 
@@ -238,7 +238,7 @@ fn run_query(args: &[String]) -> Result<()> {
     let rt = build_runtime()?;
     rt.block_on(async {
         let config = load_config().await?;
-        let outcome = crate::openhuman::memory::summarizer::rpc::tree_summarizer_query(
+        let outcome = crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_query(
             &config, namespace, node_id,
         )
         .await
@@ -274,7 +274,7 @@ fn run_status(args: &[String]) -> Result<()> {
     rt.block_on(async {
         let config = load_config().await?;
         let outcome =
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_status(&config, namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_status(&config, namespace)
                 .await
                 .map_err(anyhow::Error::msg)?;
 
@@ -311,7 +311,7 @@ fn run_rebuild(args: &[String]) -> Result<()> {
     rt.block_on(async {
         let config = load_config().await?;
         let outcome =
-            crate::openhuman::memory::summarizer::rpc::tree_summarizer_rebuild(&config, namespace)
+            crate::openhuman::memory_tree::tree_runtime::rpc::tree_summarizer_rebuild(&config, namespace)
                 .await
                 .map_err(anyhow::Error::msg)?;
 

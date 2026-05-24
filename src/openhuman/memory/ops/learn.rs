@@ -112,7 +112,7 @@ pub async fn memory_learn_all(
             namespace
         );
         let outcome =
-            crate::openhuman::memory::summarizer::ops::tree_summarizer_run(&config, namespace)
+            crate::openhuman::memory_tree::tree_runtime::ops::tree_summarizer_run(&config, namespace)
                 .await;
         match outcome {
             Ok(_) => {

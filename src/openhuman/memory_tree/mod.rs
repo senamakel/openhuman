@@ -26,6 +26,7 @@ pub mod global;
 pub mod io;
 pub mod sources;
 pub mod summarise;
+pub mod tree_runtime;
 pub mod tools;
 pub mod topic;
 pub mod tree;
@@ -43,6 +44,6 @@ pub use crate::openhuman::memory::schema::{
     all_controller_schemas as all_memory_tree_controller_schemas,
     all_registered_controllers as all_memory_tree_registered_controllers,
 };
-pub use crate::openhuman::memory::summarizer::{
+pub use crate::openhuman::memory_tree::tree_runtime::{
     all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
 };

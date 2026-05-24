@@ -13,7 +13,7 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::summarizer::types::{
+use crate::openhuman::memory_tree::tree_runtime::types::{
     derive_parent_id, estimate_tokens, level_from_node_id, node_id_to_path, NodeLevel, TreeNode,
     TreeStatus,
 };

@@ -10,7 +10,6 @@
 //! layer down in [`memory_store`](crate::openhuman::memory_store).
 
 // Legacy memory modules
-pub mod conversations;
 pub mod global;
 pub mod ingestion;
 pub mod ops;
@@ -27,14 +26,20 @@ pub use crate::openhuman::memory_tools as tool_memory;
 // Modules moved from memory_tree (Phase 3)
 pub mod chat;
 pub mod ingest_pipeline;
-pub mod jobs;
 pub mod read_rpc;
 pub mod retrieval;
 pub mod schema;
 pub mod score;
-pub mod summarizer;
 pub mod tree_rpc;
 pub mod util;
+
+// Conversation storage moved to top-level `memory_conversations`. Re-exported
+// here so existing `memory::conversations::*` paths still resolve during the
+// migration.
+pub use crate::openhuman::memory_conversations as conversations;
+// Async memory job queue moved to top-level `memory_queue`. Re-exported here
+// so existing `memory::jobs::*` paths still resolve during the migration.
+pub use crate::openhuman::memory_queue as jobs;
 
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,

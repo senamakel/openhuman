@@ -105,29 +105,20 @@ impl ScoringConfig {
         }
     }
 
-    /// Build a [`ScoringConfig`] from the workspace [`Config`]. The
-    /// resolution rules match `build_summary_extractor`:
+    /// Build a [`ScoringConfig`] from the workspace [`Config`].
     ///
-    /// - `llm_backend = "cloud"` (default): always wires the LLM extractor
-    ///   against the cloud provider, using the configured
-    ///   `cloud_llm_model` (defaulting to `summarization-v1`).
-    /// - `llm_backend = "local"`: wires the LLM extractor only when both
-    ///   `llm_extractor_endpoint` and `llm_extractor_model` are set;
-    ///   otherwise falls back to [`Self::default_regex_only`].
-    ///
-    /// Construction errors in the chat provider (rare — only client-builder
-    /// failures) fall back to regex-only with a warn log; scoring never
-    /// blocks on LLM availability.
+    /// The LLM extractor follows the unified summarization workload routing.
+    /// Construction errors fall back to regex-only with a warn log; scoring
+    /// never blocks on LLM availability.
     pub fn from_config(config: &crate::openhuman::config::Config) -> Self {
-        use crate::openhuman::memory::chat::build_chat_provider;
+        use crate::openhuman::memory::chat::build_chat_runtime;
 
-        let model = match extract::resolve_extractor_model(config) {
-            Some(m) => m,
-            None => {
-                log::debug!(
-                    "[memory::score] llm_extractor not resolvable for memory_provider={:?} \
-                     — using regex-only",
-                    config.memory_provider.as_deref().unwrap_or("cloud")
+        let (provider, model) = match build_chat_runtime(config) {
+            Ok(runtime) => runtime,
+            Err(err) => {
+                log::warn!(
+                    "[memory::score] build_chat_runtime failed: {err:#} — \
+                     falling back to regex-only"
                 );
                 return Self::default_regex_only();
             }
@@ -139,23 +130,12 @@ impl ScoringConfig {
             ..extract::LlmExtractorConfig::default()
         };
 
-        match build_chat_provider(config) {
-            Ok(provider) => {
-                log::info!(
-                    "[memory::score] using LlmEntityExtractor provider={} model={}",
-                    provider.name(),
-                    model
-                );
-                Self::with_llm_extractor(Arc::new(extract::LlmEntityExtractor::new(cfg, provider)))
-            }
-            Err(err) => {
-                log::warn!(
-                    "[memory::score] build_chat_provider failed: {err:#} — \
-                     falling back to regex-only"
-                );
-                Self::default_regex_only()
-            }
-        }
+        log::info!(
+            "[memory::score] using LlmEntityExtractor provider={} model={}",
+            provider.name(),
+            model
+        );
+        Self::with_llm_extractor(Arc::new(extract::LlmEntityExtractor::new(cfg, provider)))
     }
 }
 

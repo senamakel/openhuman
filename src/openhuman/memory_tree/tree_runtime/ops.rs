@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::summarizer::{engine, store, types::*};
+use crate::openhuman::memory_tree::tree_runtime::{engine, store, types::*};
 use crate::rpc::RpcOutcome;
 
 /// Append raw content to the ingestion buffer.

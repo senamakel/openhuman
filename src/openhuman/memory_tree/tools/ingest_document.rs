@@ -1,7 +1,7 @@
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::openhuman::memory::tree_rpc as rpc;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
+use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -143,6 +143,7 @@ impl Tool for MemoryTreeIngestDocumentTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -165,5 +166,112 @@ mod tests {
     #[test]
     fn source_kind_document_string_is_expected() {
         assert_eq!(SourceKind::Document.as_str(), "document");
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_title_before_config_load() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let err = tool
+            .execute(json!({
+                "body": "Body text",
+                "source_id": "doc-1"
+            }))
+            .await
+            .expect_err("missing title should fail");
+        assert!(
+            err.to_string()
+                .contains("ingest_document: missing required field `title`")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_body_before_config_load() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let err = tool
+            .execute(json!({
+                "title": "Doc title",
+                "source_id": "doc-1"
+            }))
+            .await
+            .expect_err("missing body should fail");
+        assert!(
+            err.to_string()
+                .contains("ingest_document: missing required field `body`")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_source_id_before_config_load() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let err = tool
+            .execute(json!({
+                "title": "Doc title",
+                "body": "Body text"
+            }))
+            .await
+            .expect_err("missing source_id should fail");
+        assert!(
+            err.to_string()
+                .contains("ingest_document: missing required field `source_id`")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_blank_required_fields() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let result = tool
+            .execute(json!({
+                "title": "   ",
+                "body": "Body text",
+                "source_id": "doc-1"
+            }))
+            .await
+            .expect("blank title should return ToolResult error, not anyhow failure");
+        assert!(result.is_error);
+        assert_eq!(
+            result.text(),
+            "ingest_document: title, body, and source_id must be non-empty"
+        );
+
+        let result = tool
+            .execute(json!({
+                "title": "Doc title",
+                "body": "   ",
+                "source_id": "doc-1"
+            }))
+            .await
+            .expect("blank body should return ToolResult error");
+        assert!(result.is_error);
+
+        let result = tool
+            .execute(json!({
+                "title": "Doc title",
+                "body": "Body text",
+                "source_id": "   "
+            }))
+            .await
+            .expect("blank source_id should return ToolResult error");
+        assert!(result.is_error);
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_ingest_confirmation_after_validation() {
+        let tool = MemoryTreeIngestDocumentTool;
+        let result = tool
+            .execute(json!({
+                "title": "Doc title",
+                "body": "Body text",
+                "source_id": "doc-1",
+                "provider": "web",
+                "owner": "owner-1"
+            }))
+            .await
+            .expect("valid request should succeed in the local test environment");
+        assert!(!result.is_error);
+        let text = result.text();
+        assert!(
+            text.contains("Ingested document \"Doc title\" as source_id=doc-1."),
+            "unexpected success payload: {text}"
+        );
     }
 }

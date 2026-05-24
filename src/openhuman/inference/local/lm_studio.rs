@@ -225,7 +225,11 @@ impl LmStudioChatResponseMessage {
             return reasoning;
         }
 
-        tracing::trace!(source = "none", output_chars = 0, "[lm-studio] effective content empty");
+        tracing::trace!(
+            source = "none",
+            output_chars = 0,
+            "[lm-studio] effective content empty"
+        );
         String::new()
     }
 }

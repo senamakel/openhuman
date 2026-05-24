@@ -156,4 +156,46 @@ mod tests {
         let b = default_backend();
         assert!(!b.name().is_empty());
     }
+
+    #[test]
+    fn default_backend_is_cached() {
+        // OnceLock guarantees the same Arc on every call.
+        let a = default_backend();
+        let b = default_backend();
+        assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn encapsulate_uses_default_backend() {
+        let dir = std::env::temp_dir();
+        let jail = Jail::new(&dir, "default-spawn");
+        let cmd = if cfg!(windows) {
+            let mut c = Command::new("cmd");
+            c.args(["/C", "exit"]);
+            c
+        } else {
+            Command::new("true")
+        };
+        // Must succeed via whichever platform backend is detected (or
+        // noop). The point of the test is that we go through the public
+        // `encapsulate` entry rather than `encapsulate_with`.
+        let mut child = encapsulate(&jail, cmd).expect("encapsulate spawn");
+        let _ = child.wait().expect("wait");
+    }
+
+    #[test]
+    fn canonicalize_or_log_does_not_panic_on_missing() {
+        // The lossy helper is supposed to log + continue rather than
+        // propagate. Verify it doesn't panic for the missing-root case.
+        let mut jail = Jail::new("/no/such/place", "lossy");
+        jail.canonicalize_or_log();
+        // root stays as-is on failure.
+        assert_eq!(jail.root, std::path::PathBuf::from("/no/such/place"));
+    }
+
+    #[test]
+    fn noop_backend_metadata() {
+        assert_eq!(NoopBackend.name(), "noop");
+        assert!(NoopBackend.is_available());
+    }
 }

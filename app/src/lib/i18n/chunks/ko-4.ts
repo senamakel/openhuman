@@ -165,6 +165,8 @@ const ko4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'LLM 설명',
   'pages.settings.ai.voice': '음성',
   'pages.settings.ai.voiceDesc': '음성 설명',
+  'pages.settings.ai.embeddings': '임베딩',
+  'pages.settings.ai.embeddingsDesc': '메모리 검색을 위한 벡터 인코딩 모델',
   'pages.settings.aiSection.description': '언어 모델 제공업체, 로컬 Ollama 및 음성(STT / TTS).',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.features.messagingChannels': '메시징 채널',

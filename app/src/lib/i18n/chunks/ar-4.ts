@@ -186,6 +186,8 @@ const ar4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'وصف LLM',
   'pages.settings.ai.voice': 'الصوت',
   'pages.settings.ai.voiceDesc': 'وصف الصوت',
+  'pages.settings.ai.embeddings': 'التضمينات',
+  'pages.settings.ai.embeddingsDesc': 'نموذج ترميز المتجهات لاسترجاع الذاكرة',
   'pages.settings.aiSection.description': 'مزودو نماذج اللغة وOllama المحلي والصوت (STT / TTS).',
   'pages.settings.aiSection.title': 'الذكاء الاصطناعي',
   'pages.settings.features.desktopCompanion': 'الرفيق المكتبي',

@@ -193,6 +193,8 @@ const de4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'Llm absch',
   'pages.settings.ai.voice': 'Stimme',
   'pages.settings.ai.voiceDesc': 'Sprachbeschreibung',
+  'pages.settings.ai.embeddings': 'Embeddings',
+  'pages.settings.ai.embeddingsDesc': 'Vektorkodierungsmodell für den Speicherabruf',
   'pages.settings.aiSection.description':
     'Sprachmodellanbieter, lokal Ollama und Sprache (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',

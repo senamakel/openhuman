@@ -186,6 +186,8 @@ const bn4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'LLM বিবরণ',
   'pages.settings.ai.voice': 'ভয়েস',
   'pages.settings.ai.voiceDesc': 'ভয়েস বিবরণ',
+  'pages.settings.ai.embeddings': 'এমবেডিংস',
+  'pages.settings.ai.embeddingsDesc': 'মেমরি পুনরুদ্ধারের জন্য ভেক্টর এনকোডিং মডেল',
   'pages.settings.aiSection.description':
     'ল্যাঙ্গুয়েজ মডেল প্রোভাইডার, লোকাল Ollama, এবং ভয়েস (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',

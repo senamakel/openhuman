@@ -187,6 +187,8 @@ const ru4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'Описание LLM',
   'pages.settings.ai.voice': 'Голос',
   'pages.settings.ai.voiceDesc': 'Описание голоса',
+  'pages.settings.ai.embeddings': 'Эмбеддинги',
+  'pages.settings.ai.embeddingsDesc': 'Модель векторного кодирования для извлечения из памяти',
   'pages.settings.aiSection.description': 'Языковые модели, локальный Ollama и голос (STT / TTS).',
   'pages.settings.aiSection.title': 'ИИ',
   'pages.settings.features.desktopCompanion': 'Десктоп-спутник',

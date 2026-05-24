@@ -182,6 +182,8 @@ const zhCN4: TranslationMap = {
   'pages.settings.ai.llmDesc': '选择并配置语言模型提供商',
   'pages.settings.ai.voice': '语音',
   'pages.settings.ai.voiceDesc': '配置语音输入和输出',
+  'pages.settings.ai.embeddings': '向量嵌入',
+  'pages.settings.ai.embeddingsDesc': '用于记忆检索的向量编码模型',
   'pages.settings.aiSection.description': '语言模型提供商、本地 Ollama 以及语音（STT / TTS）。',
   'pages.settings.aiSection.title': 'AI',
   'pages.settings.features.desktopCompanion': '桌面伴侣',

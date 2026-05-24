@@ -291,7 +291,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
           tts_api_style: slug === 'elevenlabs' ? 'elevenlabs' : 'openai_audio',
           default_stt_model:
             slug === 'deepgram' ? 'nova-2' : slug === 'openai' ? 'whisper-1' : null,
-          default_tts_voice: slug === 'openai' ? 'alloy' : null,
+          default_tts_voice:
+            slug === 'openai' ? 'alloy' : slug === 'elevenlabs' ? 'JBFqnCBsd6RMkjVDRZzb' : null,
           has_api_key: false,
         };
         if (apiKey) {

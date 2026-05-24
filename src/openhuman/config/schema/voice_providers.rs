@@ -148,7 +148,7 @@ pub const BUILTIN_VOICE_PROVIDERS: &[BuiltinVoiceProvider] = &[
         stt_api_style: SttApiStyle::OpenaiAudio,
         tts_api_style: TtsApiStyle::ElevenLabs,
         default_stt_model: None,
-        default_tts_voice: None,
+        default_tts_voice: Some("JBFqnCBsd6RMkjVDRZzb"),
     },
     BuiltinVoiceProvider {
         slug: "openai",

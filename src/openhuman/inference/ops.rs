@@ -124,11 +124,13 @@ pub async fn inference_test_provider_model(
     );
     let result =
         if provider.trim().starts_with("lmstudio:") || provider.trim().starts_with("ollama:") {
+            log::debug!("{LOG_PREFIX} test_provider_model: routing to local provider={provider}");
             let (chat_provider, model) =
             crate::openhuman::inference::provider::factory::create_local_chat_provider_from_string(
                 provider, config,
             )
             .map_err(|e| e.to_string())?;
+            log::debug!("{LOG_PREFIX} test_provider_model: invoking local model={model}");
             chat_provider
                 .simple_chat(prompt, &model, config.default_temperature)
                 .await

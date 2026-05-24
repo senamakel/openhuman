@@ -1698,7 +1698,7 @@ const WorkloadRow = ({
             {resolved}
           </div>
         ) : (
-          <div className="text-[11px] text-stone-400 dark:text-neutral-500">No model selected</div>
+          <div className="text-[11px] text-stone-400 dark:text-neutral-500">{t('settings.ai.workload.noModel')}</div>
         )}
       </div>
       <button
@@ -1709,7 +1709,7 @@ const WorkloadRow = ({
             ? 'bg-stone-100 text-stone-700 ring-1 ring-stone-300 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700'
             : 'bg-stone-100 text-stone-700 hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700'
         }`}>
-        {isCustom ? 'Change Model' : 'Choose Model'}
+        {isCustom ? t('settings.ai.workload.changeModel') : t('settings.ai.workload.chooseModel')}
       </button>
     </div>
   );
@@ -1747,7 +1747,7 @@ function providerRefSignature(ref: ProviderRef): string {
 
 function inferRoutingMode(routing: RoutingMap): RoutingMode {
   const refs = ROUTING_WORKLOAD_IDS.map(id => routing[id]);
-  if (refs.every(ref => ref.kind === 'openhuman')) {
+  if (refs.every(ref => ref.kind === 'openhuman' || ref.kind === 'default')) {
     return 'managed';
   }
   const first = refs[0];
@@ -2330,6 +2330,7 @@ const GlobalOwnModelSelector = ({
   ollamaRunning: boolean;
   onApply: (next: ProviderRef) => Promise<void>;
 }) => {
+  const { t } = useT();
   const customCloud = cloudProviders.filter(p => p.slug !== 'openhuman');
   const localAvailable = ollamaRunning && localModels.length > 0;
 
@@ -2412,40 +2413,42 @@ const GlobalOwnModelSelector = ({
   const applySelection = async (nextSource: CustomDialogSource | null, nextModel: string) => {
     if (!nextSource || !nextModel.trim()) return;
     setSaving(true);
-    if (nextSource.kind === 'local') {
-      await onApply({ kind: 'local', model: nextModel.trim() });
-    } else {
-      await onApply({
-        kind: 'cloud',
-        providerSlug: nextSource.providerSlug,
-        model: nextModel.trim(),
-      });
+    try {
+      if (nextSource.kind === 'local') {
+        await onApply({ kind: 'local', model: nextModel.trim() });
+      } else {
+        await onApply({
+          kind: 'cloud',
+          providerSlug: nextSource.providerSlug,
+          model: nextModel.trim(),
+        });
+      }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
     <div className="space-y-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
       <div className="space-y-1">
         <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-          Choose one model for everything
+          {t('settings.ai.globalModel.title')}
         </div>
         <p className="text-xs text-amber-700 dark:text-amber-200">
-          This routes all inference through one model. It is simpler, but it can be inefficient for
-          cost and quality because lightweight and heavy tasks will all use the same route.
+          {t('settings.ai.globalModel.desc')}
         </p>
       </div>
 
       {customCloud.length === 0 && !localAvailable ? (
         <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-          Add or connect a provider first. Then you can route every workload through one model here.
+          {t('settings.ai.globalModel.noProviders')}
         </div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
-                Provider
+                {t('settings.ai.globalModel.provider')}
               </label>
               <select
                 value={
@@ -2474,13 +2477,13 @@ const GlobalOwnModelSelector = ({
                     {p.label}
                   </option>
                 ))}
-                {localAvailable ? <option value="local:">Ollama</option> : null}
+                {localAvailable ? <option value="local:">{t('settings.ai.provider.ollama')}</option> : null}
               </select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
-                Model
+                {t('settings.ai.globalModel.model')}
               </label>
               {source?.kind === 'local' ? (
                 <select
@@ -2508,7 +2511,7 @@ const GlobalOwnModelSelector = ({
                 <input
                   value={model}
                   onChange={e => setModel(e.target.value)}
-                  placeholder={cloudModelsLoading ? 'Loading models…' : 'Enter model id'}
+                  placeholder={cloudModelsLoading ? t('settings.ai.globalModel.loadingModels') : t('settings.ai.globalModel.enterModelId')}
                   className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100"
                 />
               )}
@@ -2518,9 +2521,7 @@ const GlobalOwnModelSelector = ({
             </div>
           </div>
           <div className="rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 text-xs text-stone-500 dark:text-neutral-400">
-            Applies the same provider + model to chat, reasoning, coding, memory, heartbeat,
-            learning, and subconscious. Embeddings are configured separately. Changes save when you
-            click save.
+            {t('settings.ai.globalModel.appliesToAll')}
           </div>
 
           <div className="flex justify-end">
@@ -2529,7 +2530,7 @@ const GlobalOwnModelSelector = ({
               disabled={!canApply || saving || isSaved}
               onClick={() => void applySelection(source, model)}
               className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-medium text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50">
-              {saving ? 'Saving…' : isSaved ? 'Saved' : 'Save'}
+              {saving ? t('settings.ai.globalModel.saving') : isSaved ? t('settings.ai.globalModel.saved') : t('common.save')}
             </button>
           </div>
         </>
@@ -2751,7 +2752,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               <ProviderToggleChip
                 key="openhuman"
                 slug="openhuman"
-                label="Managed"
+                label={t('settings.ai.routing.managed')}
                 enabled
                 locked
                 onToggle={() => {}}
@@ -2905,7 +2906,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 type="button"
                 onClick={() => setEditing('new')}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2 text-xs font-medium text-primary-900 ring-1 ring-primary-200 transition-colors hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-100 dark:ring-primary-500/30 dark:hover:bg-primary-500/20">
-                Add Custom Provider
+                {t('settings.ai.routing.addCustomProvider')}
               </button>
             </div>
           </section>
@@ -2944,11 +2945,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
                 }`}>
                 <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  Managed
+                  {t('settings.ai.routing.managed')}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
-                  OpenHuman will run all inference in the cloud, choose the best model for the task,
-                  optimize for cost, and keep the safest routing defaults.
+                  {t('settings.ai.routing.managedDesc')}
                 </p>
               </button>
 
@@ -2961,12 +2961,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
                 }`}>
                 <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  Use Your Own Models
+                  {t('settings.ai.routing.useYourOwn')}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
-                  Choose one provider + model and route every workload through it. This is simple,
-                  but it can be inefficient because lightweight and heavyweight inference all share
-                  the same route.
+                  {t('settings.ai.routing.useYourOwnDesc')}
                 </p>
               </button>
 
@@ -2979,19 +2977,17 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                     : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800'
                 }`}>
                 <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                  Advanced
+                  {t('settings.ai.routing.advanced')}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-neutral-300">
-                  Pick different models for different tasks. This is the best option for tight cost
-                  optimization and the most control.
+                  {t('settings.ai.routing.advancedDesc')}
                 </p>
               </button>
             </div>
 
             {effectiveRoutingMode === 'managed' ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                OpenHuman will handle all inference for every workload and automatically choose the
-                best route for cost, quality, and security.
+                {t('settings.ai.routing.managedMsg')}
               </div>
             ) : null}
 
@@ -3011,20 +3007,17 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             {effectiveRoutingMode === 'custom' ? (
               <>
                 <div className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-                  Fine-grained routing gives you the best cost optimization and the most control.
-                  Use the rows below to decide which workloads stay Managed, which use your shared
-                  default, and which pin to a specific model.
+                  {t('settings.ai.routing.customDesc')}
                 </div>
 
                 <div className="space-y-3">
                   <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3">
                     <div className="border-b border-stone-200 dark:border-neutral-800 py-3">
                       <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                        Chat and Conversations
+                        {t('settings.ai.routing.chatAndConversations')}
                       </div>
                       <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                        Models used during direct user interaction, replies, reasoning, agent loops,
-                        and coding help.
+                        {t('settings.ai.routing.chatDesc')}
                       </div>
                     </div>
                     <div className="divide-y divide-stone-200 dark:divide-neutral-800">
@@ -3043,11 +3036,10 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                   <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-3">
                     <div className="border-b border-stone-200 dark:border-neutral-800 py-3">
                       <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-                        Background Tasks
+                        {t('settings.ai.routing.backgroundTasks')}
                       </div>
                       <div className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-                        Models used outside the main conversation flow for summarization, heartbeat,
-                        learning, and subconscious evaluation.
+                        {t('settings.ai.routing.bgTasksDesc')}
                       </div>
                     </div>
                     <div className="divide-y divide-stone-200 dark:divide-neutral-800">

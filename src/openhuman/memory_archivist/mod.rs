@@ -42,10 +42,12 @@
 
 pub mod clip;
 pub mod compose;
+pub mod store;
 pub mod tree_writer;
 pub mod types;
 
 pub use clip::clean_conversation;
 pub use compose::compose_conversation_md;
+pub use store::{record_turn, session_entries};
 pub use tree_writer::archive_to_tree;
-pub use types::Turn;
+pub use types::{ArchivedTurn, Turn};

@@ -578,6 +578,52 @@ impl PostTurnHook for ArchivistHook {
 
         tracing::debug!("[archivist] episodic rows written: session={session_id}");
 
+        // Dual-write into memory_archivist::store (md-backed) so we can
+        // validate the FTS5 → md migration before flipping the read side.
+        // Best-effort: a write failure here must not break the turn.
+        if let Some(cfg) = self.config.as_ref() {
+            let ts_ms = (timestamp * 1000.0) as i64;
+            let user_turn = crate::openhuman::memory_archivist::ArchivedTurn {
+                session_id: session_id.to_string(),
+                seq: 0, // assigned by record_turn
+                timestamp_ms: ts_ms,
+                role: "user".to_string(),
+                content: ctx.user_message.clone(),
+                lesson: None,
+                tool_calls_json: None,
+                cost_microdollars: 0,
+            };
+            if let Err(e) =
+                crate::openhuman::memory_archivist::store::record_turn(cfg, user_turn)
+            {
+                tracing::warn!("[archivist] memory_archivist user dual-write failed: {e}");
+            }
+            // Assistant turn carries the tool_calls_json + lesson the FTS5
+            // insert just wrote. Re-derive locally so we don't depend on
+            // FTS5 having returned.
+            let assistant_lesson = extract_lesson_from_tools(&ctx.tool_calls);
+            let assistant_tool_calls = if ctx.tool_calls.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_string(&ctx.tool_calls).unwrap_or_default())
+            };
+            let assistant_turn = crate::openhuman::memory_archivist::ArchivedTurn {
+                session_id: session_id.to_string(),
+                seq: 0,
+                timestamp_ms: ts_ms + 1,
+                role: "assistant".to_string(),
+                content: ctx.assistant_response.clone(),
+                lesson: assistant_lesson,
+                tool_calls_json: assistant_tool_calls,
+                cost_microdollars: 0,
+            };
+            if let Err(e) =
+                crate::openhuman::memory_archivist::store::record_turn(cfg, assistant_turn)
+            {
+                tracing::warn!("[archivist] memory_archivist assistant dual-write failed: {e}");
+            }
+        }
+
         // Manage conversation segmentation (sync boundary detection + SQLite
         // operations). Returns the just-closed segment when a boundary fired.
         let closed_segment = self.manage_segment_sync(

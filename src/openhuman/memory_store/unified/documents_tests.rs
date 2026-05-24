@@ -303,6 +303,45 @@ async fn delete_document_removes_doc_sidecar_and_is_idempotent() {
 }
 
 #[tokio::test]
+async fn delete_document_succeeds_when_sidecar_is_already_missing() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let document_id = memory
+        .upsert_document(make_doc_input(
+            "test:delete-missing-sidecar",
+            "doc-a",
+            "Doc A",
+            "Delete me",
+        ))
+        .await
+        .unwrap();
+
+    let docs = memory
+        .load_documents_for_scope("test:delete-missing-sidecar")
+        .await
+        .unwrap();
+    assert_eq!(docs.len(), 1);
+    let sidecar = tmp.path().join(&docs[0].markdown_rel_path);
+    assert!(sidecar.exists());
+    std::fs::remove_file(&sidecar).unwrap();
+    assert!(!sidecar.exists());
+
+    let deleted = memory
+        .delete_document("test:delete-missing-sidecar", &document_id)
+        .await
+        .unwrap();
+    assert_eq!(deleted["deleted"], json!(true));
+    assert!(
+        memory
+            .load_documents_for_scope("test:delete-missing-sidecar")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn clear_namespace_removes_all_data_and_preserves_other_namespaces() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

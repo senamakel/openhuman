@@ -639,6 +639,10 @@ const en: TranslationMap = {
     'Switching embedding provider, model, or dimensions will erase all stored memory vectors. Memory must be rebuilt before recall works again. This cannot be undone.',
   'settings.embeddings.cancel': 'Cancel',
   'settings.embeddings.confirmWipe': 'Wipe & apply',
+  'settings.embeddings.setupTitle': 'Set up {provider}',
+  'settings.embeddings.saveAndSwitch': 'Save & switch',
+  'settings.embeddings.optional': 'optional',
+  'settings.embeddings.clearKey': 'Clear API key',
   'pages.settings.ai.embeddings': 'Embeddings',
   'pages.settings.ai.embeddingsDesc': 'Vector encoding model for memory retrieval',
 

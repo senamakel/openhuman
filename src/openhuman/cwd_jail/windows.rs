@@ -37,14 +37,14 @@ use std::ptr;
 use windows_sys::core::PWSTR;
 use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, HLOCAL};
 use windows_sys::Win32::Security::Authorization::{
-    SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS, SE_FILE_OBJECT,
-    TRUSTEE_IS_GROUP, TRUSTEE_IS_SID, TRUSTEE_W,
+    GetNamedSecurityInfoW, SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W, SET_ACCESS,
+    SE_FILE_OBJECT, TRUSTEE_IS_GROUP, TRUSTEE_IS_SID, TRUSTEE_W,
 };
 use windows_sys::Win32::Security::Isolation::{
     CreateAppContainerProfile, DeriveAppContainerSidFromAppContainerName,
 };
 use windows_sys::Win32::Security::{
-    ACL, DACL_SECURITY_INFORMATION, PSID, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
+    FreeSid, ACL, DACL_SECURITY_INFORMATION, PSID, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
 };
 
 // Well-known Win32 access masks. `windows-sys` has moved these constants
@@ -223,6 +223,30 @@ unsafe fn spawn_in_container(jail: &Jail, cmd: Command) -> io::Result<Child> {
 unsafe fn grant_sid_access(path: &Path, sid: PSID, access: u32) -> io::Result<()> {
     let path_w = to_wide(&path.to_string_lossy());
 
+    // First, fetch the *existing* DACL from the path. Passing
+    // `ptr::null_mut()` as the old-ACL argument to `SetEntriesInAclW`
+    // would build a fresh DACL containing only the AppContainer ACE,
+    // and `SetNamedSecurityInfoW` would then replace the entire DACL —
+    // locking out the owner / SYSTEM / Administrators. Merge instead.
+    let mut sd_ptr: *mut std::ffi::c_void = ptr::null_mut();
+    let mut existing_dacl: *mut ACL = ptr::null_mut();
+    let mut dacl_present: i32 = 0;
+    let rc = GetNamedSecurityInfoW(
+        path_w.as_ptr(),
+        SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION,
+        ptr::null_mut(),
+        ptr::null_mut(),
+        &mut existing_dacl,
+        ptr::null_mut(),
+        &mut sd_ptr,
+    );
+    if rc != 0 {
+        return Err(io::Error::from_raw_os_error(rc as i32));
+    }
+    let _sd_guard = LocalGuard(sd_ptr as HLOCAL);
+    let _ = dacl_present;
+
     let mut ea: EXPLICIT_ACCESS_W = std::mem::zeroed();
     ea.grfAccessPermissions = access;
     ea.grfAccessMode = SET_ACCESS;
@@ -236,7 +260,7 @@ unsafe fn grant_sid_access(path: &Path, sid: PSID, access: u32) -> io::Result<()
     };
 
     let mut new_acl: *mut ACL = ptr::null_mut();
-    let rc = SetEntriesInAclW(1, &mut ea, ptr::null_mut(), &mut new_acl);
+    let rc = SetEntriesInAclW(1, &mut ea, existing_dacl, &mut new_acl);
     if rc != 0 {
         return Err(io::Error::from_raw_os_error(rc as i32));
     }
@@ -331,12 +355,14 @@ struct SidGuard(PSID);
 impl Drop for SidGuard {
     fn drop(&mut self) {
         if !self.0.is_null() {
+            // MSDN: SIDs returned by both `CreateAppContainerProfile`
+            // and `DeriveAppContainerSidFromAppContainerName` must be
+            // freed with `FreeSid`. The older comment that said
+            // `LocalFree` is "safer" was wrong — the buffers are not
+            // necessarily LocalAlloc-backed, and using the wrong free
+            // function corrupts the heap on some Windows builds.
             unsafe {
-                // CreateAppContainerProfile-allocated SIDs are freed with
-                // FreeSid; DeriveAppContainerSidFromAppContainerName SIDs
-                // are freed with LocalFree. We use LocalFree as the safer
-                // common path — both are LocalAlloc-backed in practice.
-                LocalFree(self.0 as HLOCAL);
+                FreeSid(self.0);
             }
         }
     }

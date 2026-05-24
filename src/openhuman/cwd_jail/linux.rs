@@ -2,9 +2,10 @@
 //!
 //! Reuses the existing [`crate::openhuman::security::landlock`] implementation
 //! but wraps it behind the [`JailBackend`] trait so callers don't have to
-//! plumb `SecurityConfig`. The actual ruleset application happens *in the
-//! parent process* before `exec`, so the child inherits the restrictions —
-//! same model used by Chromium's Linux sandbox.
+//! plumb `SecurityConfig`. Landlock is applied via `pre_exec`, which runs
+//! in the *child* process after `fork()` and before `exec()` — the parent
+//! retains its broader privileges, the child gets the ruleset before any
+//! user code runs. Same model used by Chromium's Linux sandbox.
 
 #![cfg(target_os = "linux")]
 
@@ -58,7 +59,8 @@ impl JailBackend for LandlockBackend {
                 cmd.pre_exec(move || {
                     let mut ruleset = Ruleset::default()
                         .handle_access(
-                            AccessFs::ReadFile
+                            AccessFs::Execute
+                                | AccessFs::ReadFile
                                 | AccessFs::WriteFile
                                 | AccessFs::ReadDir
                                 | AccessFs::RemoveDir
@@ -75,7 +77,8 @@ impl JailBackend for LandlockBackend {
                     ruleset = ruleset
                         .add_rule(PathBeneath::new(
                             root_fd,
-                            AccessFs::ReadFile
+                            AccessFs::Execute
+                                | AccessFs::ReadFile
                                 | AccessFs::WriteFile
                                 | AccessFs::ReadDir
                                 | AccessFs::RemoveFile
@@ -85,12 +88,18 @@ impl JailBackend for LandlockBackend {
                         ))
                         .map_err(|e| std::io::Error::other(e.to_string()))?;
 
+                    // read_only paths also need Execute so the child can
+                    // run binaries it found there (e.g. /usr/bin/sh).
+                    // Without it, Landlock blocks `execve` on anything
+                    // outside `root`.
                     for ro in &read_only {
                         if let Ok(fd) = PathFd::new(ro) {
                             ruleset = ruleset
                                 .add_rule(PathBeneath::new(
                                     fd,
-                                    AccessFs::ReadFile | AccessFs::ReadDir,
+                                    AccessFs::Execute
+                                        | AccessFs::ReadFile
+                                        | AccessFs::ReadDir,
                                 ))
                                 .map_err(|e| std::io::Error::other(e.to_string()))?;
                         }

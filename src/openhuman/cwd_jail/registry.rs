@@ -1,4 +1,4 @@
-//! Jail registry — manage many spawnd workspaces side-by-side.
+//! Jail registry — manage many jailed workspaces side-by-side.
 //!
 //! A [`JailRegistry`] is rooted at a single base directory (typically
 //! `~/.openhuman/jails/` or `<workspace>/jails/`) and owns every active
@@ -74,15 +74,18 @@ impl JailRegistry {
         fs::create_dir_all(&base)?;
         let idx_path = base.join(INDEX_FILENAME);
         let index = if idx_path.exists() {
+            log::debug!("[cwd_jail] registry.open loading index {}", idx_path.display());
             let raw = fs::read(&idx_path)?;
             serde_json::from_slice::<Index>(&raw)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
         } else {
+            log::debug!("[cwd_jail] registry.open fresh index at {}", base.display());
             Index {
                 records: BTreeMap::new(),
                 schema_version: INDEX_SCHEMA_VERSION,
             }
         };
+        log::debug!("[cwd_jail] registry.open base={} records={}", base.display(), index.records.len());
         Ok(Self {
             base,
             index: Mutex::new(index),
@@ -97,9 +100,23 @@ impl JailRegistry {
     /// Create a new jail directory. Returns the persisted record.
     pub fn create(&self, label: impl Into<String>) -> io::Result<JailRecord> {
         let label = label.into();
-        let id = generate_id();
-        let dir = self.base.join(&id);
-        fs::create_dir_all(&dir)?;
+        log::debug!("[cwd_jail] registry.create label={label:?}");
+
+        // Loop until we find an id not already in the index. After a
+        // process restart in the same second, the time+counter id can
+        // repeat — without this loop we would silently overwrite an
+        // existing record.
+        let mut idx = self.index.lock().unwrap();
+        let (id, dir) = loop {
+            let candidate = generate_id();
+            if !idx.records.contains_key(&candidate) {
+                let dir = self.base.join(&candidate);
+                fs::create_dir_all(&dir)?;
+                break (candidate, dir);
+            }
+            log::trace!("[cwd_jail] id collision, regenerating");
+        };
+
         let now = now_unix();
         let record = JailRecord {
             id: id.clone(),
@@ -110,9 +127,9 @@ impl JailRegistry {
             updated_at_unix: now,
             notes: None,
         };
-        let mut idx = self.index.lock().unwrap();
-        idx.records.insert(id, record.clone());
+        idx.records.insert(id.clone(), record.clone());
         self.persist(&idx)?;
+        log::debug!("[cwd_jail] registry.create id={id} dir={}", record.dir.display());
         Ok(record)
     }
 
@@ -150,6 +167,7 @@ impl JailRegistry {
     /// are derived from `id` (stable), not `label`, for the same reason.
     pub fn rename(&self, id: &str, new_label: impl Into<String>) -> io::Result<JailRecord> {
         let new_label = new_label.into();
+        log::debug!("[cwd_jail] registry.rename id={id} label={new_label:?}");
         let mut idx = self.index.lock().unwrap();
         let record = idx
             .records
@@ -164,6 +182,7 @@ impl JailRegistry {
 
     /// Update the free-form notes field.
     pub fn set_notes(&self, id: &str, notes: Option<String>) -> io::Result<JailRecord> {
+        log::debug!("[cwd_jail] registry.set_notes id={id} has_notes={}", notes.is_some());
         let mut idx = self.index.lock().unwrap();
         let record = idx
             .records
@@ -180,12 +199,18 @@ impl JailRegistry {
     ///
     /// Refuses to delete a jail whose directory is not under `self.base` —
     /// belt-and-suspenders against a corrupted index pointing at `/`.
+    /// Disk deletion happens *before* the in-memory record is removed,
+    /// so a filesystem error doesn't leave the registry in a state
+    /// where the entry is gone in-memory but the directory survives on
+    /// disk until the next `open()` reload.
     pub fn delete(&self, id: &str) -> io::Result<()> {
         let mut idx = self.index.lock().unwrap();
         let record = idx
             .records
-            .remove(id)
+            .get(id)
+            .cloned()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
+        log::debug!("[cwd_jail] registry.delete id={id} dir={}", record.dir.display());
 
         let resolved = record
             .dir
@@ -196,10 +221,14 @@ impl JailRegistry {
             .canonicalize()
             .unwrap_or_else(|_| self.base.clone());
         if !resolved.starts_with(&resolved_base) {
-            // Put it back; this index entry is suspicious — don't touch
-            // anything on disk.
-            idx.records.insert(id.to_string(), record);
-            self.persist(&idx)?;
+            // Index is suspicious — don't touch anything on disk and
+            // leave the in-memory record alone too. The caller can
+            // diagnose and fix.
+            log::warn!(
+                "[cwd_jail] refusing delete: dir {} not under base {}",
+                resolved.display(),
+                resolved_base.display()
+            );
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 format!(
@@ -212,6 +241,8 @@ impl JailRegistry {
         if record.dir.exists() {
             fs::remove_dir_all(&record.dir)?;
         }
+        // Disk side succeeded — now remove from the index and persist.
+        idx.records.remove(id);
         self.persist(&idx)?;
         Ok(())
     }
@@ -221,6 +252,7 @@ impl JailRegistry {
     pub fn clear(&self) -> io::Result<usize> {
         let ids: Vec<String> = self.index.lock().unwrap().records.keys().cloned().collect();
         let n = ids.len();
+        log::debug!("[cwd_jail] registry.clear dropping n={n}");
         for id in ids {
             self.delete(&id)?;
         }
@@ -231,11 +263,8 @@ impl JailRegistry {
     /// Convenience wrapper — the same effect as
     /// `spawn(&Jail::new(record.dir, record.label), cmd)`.
     pub fn spawn_in(&self, id: &str, cmd: Command) -> io::Result<Child> {
-        let record = self
-            .get(id)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
-        let mut jail = Jail::new(&record.dir, &record.label);
-        jail.canonicalize()?;
+        let jail = self.jail_for(id)?;
+        log::debug!("[cwd_jail] registry.spawn_in id={id}");
         default_backend().spawn(&jail, cmd)
     }
 
@@ -246,12 +275,48 @@ impl JailRegistry {
         backend: &dyn JailBackend,
         cmd: Command,
     ) -> io::Result<Child> {
+        let jail = self.jail_for(id)?;
+        log::debug!("[cwd_jail] registry.spawn_in_with id={id} backend={}", backend.name());
+        spawn_with(backend, &jail, cmd)
+    }
+
+    /// Build a canonicalized [`Jail`] for the given id, refusing if the
+    /// persisted record points outside `self.base`. Centralizes the
+    /// containment check so both `spawn_in` and `spawn_in_with` are
+    /// protected against a corrupted index that could otherwise be used
+    /// to bypass the directory jail root.
+    fn jail_for(&self, id: &str) -> io::Result<Jail> {
         let record = self
             .get(id)
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no jail {id}")))?;
+
+        let resolved = record
+            .dir
+            .canonicalize()
+            .unwrap_or_else(|_| record.dir.clone());
+        let resolved_base = self
+            .base
+            .canonicalize()
+            .unwrap_or_else(|_| self.base.clone());
+        if !resolved.starts_with(&resolved_base) {
+            log::warn!(
+                "[cwd_jail] refusing spawn: jail {id} dir {} not under base {}",
+                resolved.display(),
+                resolved_base.display()
+            );
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "jail {id} dir {} is outside registry base {}",
+                    resolved.display(),
+                    resolved_base.display()
+                ),
+            ));
+        }
+
         let mut jail = Jail::new(&record.dir, &record.label);
         jail.canonicalize()?;
-        spawn_with(backend, &jail, cmd)
+        Ok(jail)
     }
 
     /// Atomic-rename write of the index. Falls back to direct write on
@@ -264,9 +329,13 @@ impl JailRegistry {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         fs::write(&tmp, &bytes)?;
         match fs::rename(&tmp, &path) {
-            Ok(()) => Ok(()),
-            Err(_) => {
+            Ok(()) => {
+                log::trace!("[cwd_jail] registry.persist atomic-rename n={}", idx.records.len());
+                Ok(())
+            }
+            Err(e) => {
                 // Fallback: direct overwrite.
+                log::debug!("[cwd_jail] registry.persist rename failed ({e}); falling back to overwrite");
                 fs::write(&path, &bytes)?;
                 let _ = fs::remove_file(&tmp);
                 Ok(())
@@ -292,296 +361,7 @@ fn generate_id() -> String {
     format!("j{ts:x}{n:x}")
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn tempdir(tag: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!(
-            "openhuman-registry-{}-{}-{}",
-            tag,
-            std::process::id(),
-            now_unix()
-        ));
-        fs::create_dir_all(&p).unwrap();
-        p
-    }
-
-    #[test]
-    fn create_list_get_roundtrip() {
-        let base = tempdir("crud");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("alpha").unwrap();
-        let b = reg.create("beta").unwrap();
-        assert_ne!(a.id, b.id);
-        assert!(a.dir.exists());
-        assert!(b.dir.exists());
-        let listed = reg.list();
-        assert_eq!(listed.len(), 2);
-        assert_eq!(reg.get(&a.id).unwrap().label, "alpha");
-        assert_eq!(reg.get(&b.id).unwrap().label, "beta");
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn rename_changes_label_not_id_or_dir() {
-        let base = tempdir("rename");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("old").unwrap();
-        let renamed = reg.rename(&a.id, "new").unwrap();
-        assert_eq!(renamed.id, a.id);
-        assert_eq!(renamed.dir, a.dir);
-        assert_eq!(renamed.label, "new");
-        assert!(renamed.updated_at_unix >= a.updated_at_unix);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn delete_removes_dir_and_record() {
-        let base = tempdir("delete");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("doomed").unwrap();
-        let dir = a.dir.clone();
-        assert!(dir.exists());
-        reg.delete(&a.id).unwrap();
-        assert!(!dir.exists());
-        assert!(reg.get(&a.id).is_none());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn delete_missing_errors() {
-        let base = tempdir("missing");
-        let reg = JailRegistry::open(&base).unwrap();
-        let err = reg.delete("nope").unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn index_persists_across_reopen() {
-        let base = tempdir("persist");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("persistent").unwrap();
-        drop(reg);
-        let reg2 = JailRegistry::open(&base).unwrap();
-        let listed = reg2.list();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].id, a.id);
-        assert_eq!(listed[0].label, "persistent");
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn find_by_label_substring() {
-        let base = tempdir("find");
-        let reg = JailRegistry::open(&base).unwrap();
-        reg.create("agent-alpha").unwrap();
-        reg.create("agent-beta").unwrap();
-        reg.create("tool-gamma").unwrap();
-        assert_eq!(reg.find_by_label("AGENT").len(), 2);
-        assert_eq!(reg.find_by_label("gamma").len(), 1);
-        assert_eq!(reg.find_by_label("nope").len(), 0);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn clear_drops_everything() {
-        let base = tempdir("clear");
-        let reg = JailRegistry::open(&base).unwrap();
-        reg.create("a").unwrap();
-        reg.create("b").unwrap();
-        reg.create("c").unwrap();
-        let n = reg.clear().unwrap();
-        assert_eq!(n, 3);
-        assert_eq!(reg.list().len(), 0);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn parallel_jails_have_distinct_dirs() {
-        let base = tempdir("parallel");
-        let reg = JailRegistry::open(&base).unwrap();
-        let jails: Vec<_> = (0..5)
-            .map(|i| reg.create(format!("p{i}")).unwrap())
-            .collect();
-        let mut dirs: Vec<_> = jails.iter().map(|r| r.dir.clone()).collect();
-        dirs.sort();
-        dirs.dedup();
-        assert_eq!(dirs.len(), 5);
-        for r in &jails {
-            assert!(r.dir.exists());
-        }
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn set_notes_roundtrips() {
-        let base = tempdir("notes");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("with-notes").unwrap();
-        assert!(a.notes.is_none());
-        let updated = reg.set_notes(&a.id, Some("hello".into())).unwrap();
-        assert_eq!(updated.notes.as_deref(), Some("hello"));
-        let cleared = reg.set_notes(&a.id, None).unwrap();
-        assert!(cleared.notes.is_none());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn set_notes_on_missing_id_errors() {
-        let base = tempdir("notes-missing");
-        let reg = JailRegistry::open(&base).unwrap();
-        let err = reg.set_notes("nope", Some("x".into())).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn rename_on_missing_id_errors() {
-        let base = tempdir("rename-missing");
-        let reg = JailRegistry::open(&base).unwrap();
-        let err = reg.rename("nope", "x").unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn delete_twice_second_is_not_found() {
-        let base = tempdir("delete-twice");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("once").unwrap();
-        reg.delete(&a.id).unwrap();
-        let err = reg.delete(&a.id).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn spawn_in_with_missing_id_errors() {
-        let base = tempdir("spawn-missing");
-        let reg = JailRegistry::open(&base).unwrap();
-        let err = reg
-            .spawn_in_with("nope", &super::super::NoopBackend, Command::new("true"))
-            .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn spawn_in_uses_default_backend() {
-        let base = tempdir("spawn-default");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("def").unwrap();
-        let cmd = if cfg!(windows) {
-            let mut c = Command::new("cmd");
-            c.args(["/C", "exit"]);
-            c
-        } else {
-            Command::new("true")
-        };
-        // spawn_in() uses the default platform backend — must succeed on
-        // whatever sandbox is auto-picked (or noop fallback).
-        let mut child = reg.spawn_in(&a.id, cmd).unwrap();
-        let _ = child.wait().unwrap();
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn clear_on_empty_registry_is_zero() {
-        let base = tempdir("empty-clear");
-        let reg = JailRegistry::open(&base).unwrap();
-        assert_eq!(reg.clear().unwrap(), 0);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn find_by_label_on_empty_registry() {
-        let base = tempdir("empty-find");
-        let reg = JailRegistry::open(&base).unwrap();
-        assert!(reg.find_by_label("anything").is_empty());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn open_creates_base_directory_if_missing() {
-        let base = std::env::temp_dir().join(format!(
-            "oh-reg-mkdir-{}-{}",
-            std::process::id(),
-            now_unix()
-        ));
-        assert!(!base.exists());
-        let reg = JailRegistry::open(&base).unwrap();
-        assert!(base.exists());
-        assert!(reg.list().is_empty());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn corrupt_index_returns_invalid_data() {
-        let base = tempdir("corrupt");
-        fs::write(base.join("index.json"), b"this is not json").unwrap();
-        let err = JailRegistry::open(&base).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn persist_writes_index_file() {
-        let base = tempdir("persist-file");
-        let reg = JailRegistry::open(&base).unwrap();
-        reg.create("x").unwrap();
-        let path = base.join("index.json");
-        assert!(path.exists());
-        let raw = fs::read_to_string(&path).unwrap();
-        assert!(raw.contains("\"label\": \"x\""));
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn base_accessor_returns_open_dir() {
-        let base = tempdir("base-accessor");
-        let reg = JailRegistry::open(&base).unwrap();
-        assert_eq!(reg.base(), base.as_path());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn delete_refuses_path_outside_base() {
-        // Corrupt the index so a record points at /tmp directly (outside
-        // base). delete() should refuse and roll back.
-        let base = tempdir("escape");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("escape").unwrap();
-        // Reach into the mutex and rewrite the dir to escape base.
-        {
-            let mut idx = reg.index.lock().unwrap();
-            idx.records.get_mut(&a.id).unwrap().dir = std::env::temp_dir();
-        }
-        let err = reg.delete(&a.id).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        // /tmp itself must still exist; the record must still be there
-        // (delete rolled it back).
-        assert!(std::env::temp_dir().exists());
-        assert!(reg.get(&a.id).is_some());
-        fs::remove_dir_all(&base).ok();
-    }
-
-    #[test]
-    fn spawn_in_uses_record_dir_as_root() {
-        let base = tempdir("spawn");
-        let reg = JailRegistry::open(&base).unwrap();
-        let a = reg.create("spawn-target").unwrap();
-        let mut cmd = Command::new(if cfg!(windows) { "cmd" } else { "true" });
-        if cfg!(windows) {
-            cmd.args(["/C", "exit"]);
-        }
-        // Use noop so this works regardless of OS sandbox availability.
-        let mut child = reg
-            .spawn_in_with(&a.id, &super::super::NoopBackend, cmd)
-            .unwrap();
-        let status = child.wait().unwrap();
-        assert!(status.success() || cfg!(windows));
-        fs::remove_dir_all(&base).ok();
-    }
-}
+#[path = "registry_test.rs"]
+mod tests;

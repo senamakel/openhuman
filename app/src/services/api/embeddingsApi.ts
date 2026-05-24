@@ -58,11 +58,11 @@ export interface EmbeddingsTestResult {
 // ─── API calls ───────────────────────────────────────────────────────────────
 
 export async function loadEmbeddingsSettings(): Promise<EmbeddingsSettings> {
-  const result = await callCoreRpc<{ value: EmbeddingsSettings }>({
+  const raw = await callCoreRpc<EmbeddingsSettings | { result: EmbeddingsSettings }>({
     method: CORE_RPC_METHODS.embeddingsGetSettings,
     params: {},
   });
-  return result.value;
+  return 'result' in raw ? raw.result : raw;
 }
 
 export async function updateEmbeddingsSettings(params: {
@@ -73,11 +73,11 @@ export async function updateEmbeddingsSettings(params: {
   rate_limit_per_min?: number;
   confirm_wipe?: boolean;
 }): Promise<EmbeddingsUpdateResult> {
-  const result = await callCoreRpc<{ value: EmbeddingsUpdateResult }>({
+  const raw = await callCoreRpc<EmbeddingsUpdateResult | { result: EmbeddingsUpdateResult }>({
     method: CORE_RPC_METHODS.embeddingsUpdateSettings,
     params,
   });
-  return result.value;
+  return 'result' in raw ? raw.result : raw;
 }
 
 export async function setEmbeddingsApiKey(
@@ -102,9 +102,9 @@ export async function testEmbeddingsConnection(params?: {
   model?: string;
   dimensions?: number;
 }): Promise<EmbeddingsTestResult> {
-  const result = await callCoreRpc<{ value: EmbeddingsTestResult }>({
+  const raw = await callCoreRpc<EmbeddingsTestResult | { result: EmbeddingsTestResult }>({
     method: CORE_RPC_METHODS.embeddingsTestConnection,
     params: params ?? {},
   });
-  return result.value;
+  return 'result' in raw ? raw.result : raw;
 }

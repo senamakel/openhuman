@@ -330,6 +330,37 @@ fn empty_query_embedding_skips_arm2_but_preserves_arm1_fts5_hits() {
 }
 
 #[test]
+fn missing_query_embedding_skips_arm2_but_preserves_arm1_fts5_hits() {
+    let conn = setup_conn();
+    let now = now_ts();
+
+    insert_episodic(
+        &conn,
+        "other-session",
+        now - 100.0,
+        "user",
+        "Rust ownership and borrowing notes",
+    );
+
+    let opts = StmRecallOpts {
+        exclude_session: "current-session",
+        query: Some("Rust ownership"),
+        model_signature: None,
+    };
+    let block = stm_recall(&conn, &opts, None).unwrap();
+
+    assert_eq!(
+        block.cosine_candidates, 0,
+        "missing query embedding should skip Arm 2 entirely"
+    );
+    assert!(block.fts5_candidates > 0, "Arm 1 should still run");
+    assert!(
+        block.items.iter().any(|it| matches!(it, StmItem::EpisodicTurn { .. })),
+        "FTS5 hits should still surface episodic turns when Arm 2 is skipped"
+    );
+}
+
+#[test]
 fn arm2_sql_filter_excludes_null_summary_segments() {
     let conn = setup_conn();
     let now = now_ts();

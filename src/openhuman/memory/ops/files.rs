@@ -102,3 +102,129 @@ pub async fn ai_write_memory_file(
         None,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Mutex, OnceLock};
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    fn env_mutex() -> &'static Mutex<()> {
+        static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_MUTEX.get_or_init(|| Mutex::new(()))
+    }
+
+    fn set_workspace_env(path: &std::path::Path) {
+        unsafe {
+            std::env::set_var("OPENHUMAN_WORKSPACE", path);
+        }
+    }
+
+    fn clear_workspace_env() {
+        unsafe {
+            std::env::remove_var("OPENHUMAN_WORKSPACE");
+        }
+    }
+
+    #[tokio::test]
+    async fn write_read_and_list_memory_files_roundtrip() {
+        let _guard = env_mutex().lock().expect("lock env mutex");
+        let tmp = TempDir::new().expect("tempdir");
+        set_workspace_env(tmp.path());
+
+        let write = ai_write_memory_file(WriteMemoryFileRequest {
+            relative_path: "notes/today.md".to_string(),
+            content: "remember this".to_string(),
+        })
+        .await
+        .expect("write should succeed");
+        let write_data = write.value.data.expect("write data");
+        assert_eq!(write_data.relative_path, "notes/today.md");
+        assert!(write_data.written);
+        assert_eq!(write_data.bytes_written, "remember this".len());
+
+        let read = ai_read_memory_file(ReadMemoryFileRequest {
+            relative_path: "notes/today.md".to_string(),
+        })
+        .await
+        .expect("read should succeed");
+        let read_data = read.value.data.expect("read data");
+        assert_eq!(read_data.relative_path, "notes/today.md");
+        assert_eq!(read_data.content, "remember this");
+
+        let memory_root = tmp.path().join("memory");
+        tokio::fs::write(memory_root.join("b.md"), "b")
+            .await
+            .expect("write b");
+        tokio::fs::write(memory_root.join("a.md"), "a")
+            .await
+            .expect("write a");
+        tokio::fs::create_dir_all(memory_root.join("nested"))
+            .await
+            .expect("create nested dir");
+        tokio::fs::write(memory_root.join("nested").join("hidden.md"), "hidden")
+            .await
+            .expect("write nested file");
+
+        let listed = ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: String::new(),
+        })
+        .await
+        .expect("list should succeed");
+        let listed_data = listed.value.data.expect("list data");
+        assert_eq!(listed_data.relative_dir, "");
+        assert_eq!(listed_data.files, vec!["a.md", "b.md"]);
+        assert_eq!(listed_data.count, 2);
+
+        clear_workspace_env();
+    }
+
+    #[tokio::test]
+    async fn list_memory_files_rejects_non_directory_target() {
+        let _guard = env_mutex().lock().expect("lock env mutex");
+        let tmp = TempDir::new().expect("tempdir");
+        set_workspace_env(tmp.path());
+
+        tokio::fs::create_dir_all(tmp.path().join("memory"))
+            .await
+            .expect("create memory root");
+        tokio::fs::write(tmp.path().join("memory").join("single.md"), "hello")
+            .await
+            .expect("write file");
+
+        let err = ai_list_memory_files(ListMemoryFilesRequest {
+            relative_dir: "single.md".to_string(),
+        })
+        .await
+        .expect_err("listing a file path should fail");
+        assert!(err.contains("memory directory not found"));
+
+        clear_workspace_env();
+    }
+
+    #[tokio::test]
+    async fn read_and_write_memory_files_reject_path_traversal() {
+        let _guard = env_mutex().lock().expect("lock env mutex");
+        let tmp = TempDir::new().expect("tempdir");
+        set_workspace_env(tmp.path());
+
+        let write_err = ai_write_memory_file(WriteMemoryFileRequest {
+            relative_path: "../secrets.txt".to_string(),
+            content: "nope".to_string(),
+        })
+        .await
+        .expect_err("path traversal should fail for writes");
+        assert!(write_err.contains("path traversal is not allowed"));
+
+        let read_err = ai_read_memory_file(ReadMemoryFileRequest {
+            relative_path: "../secrets.txt".to_string(),
+        })
+        .await
+        .expect_err("path traversal should fail for reads");
+        assert!(read_err.contains("path traversal is not allowed"));
+
+        clear_workspace_env();
+    }
+}

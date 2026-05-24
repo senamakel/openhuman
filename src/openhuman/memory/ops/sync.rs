@@ -110,3 +110,42 @@ pub async fn memory_ingestion_status() -> Result<RpcOutcome<IngestionStatusResul
         vec![],
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn sync_channel_params_deserialize_channel_id() {
+        let params: SyncChannelParams =
+            serde_json::from_value(json!({"channel_id": "channel-1"})).unwrap();
+        assert_eq!(params.channel_id, "channel-1");
+    }
+
+    #[test]
+    fn ingestion_status_result_default_is_idle() {
+        let status = IngestionStatusResult::default();
+        assert!(!status.running);
+        assert!(status.current_document_id.is_none());
+        assert!(status.current_title.is_none());
+        assert!(status.current_namespace.is_none());
+        assert_eq!(status.queue_depth, 0);
+        assert!(status.last_completed_at.is_none());
+        assert!(status.last_document_id.is_none());
+        assert!(status.last_success.is_none());
+    }
+
+    #[test]
+    fn sync_result_structs_serialize_expected_fields() {
+        let one = serde_json::to_value(SyncChannelResult {
+            requested: true,
+            channel_id: "abc".into(),
+        })
+        .unwrap();
+        assert_eq!(one, json!({"requested": true, "channel_id": "abc"}));
+
+        let all = serde_json::to_value(SyncAllResult { requested: true }).unwrap();
+        assert_eq!(all, json!({"requested": true}));
+    }
+}

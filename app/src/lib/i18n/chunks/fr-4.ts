@@ -189,7 +189,8 @@ const fr4: TranslationMap = {
   'pages.settings.ai.voice': 'Voix',
   'pages.settings.ai.voiceDesc': 'Description de la voix',
   'pages.settings.ai.embeddings': 'Embeddings',
-  'pages.settings.ai.embeddingsDesc': "Modèle d'encodage vectoriel pour la récupération de la mémoire",
+  'pages.settings.ai.embeddingsDesc':
+    "Modèle d'encodage vectoriel pour la récupération de la mémoire",
   'pages.settings.aiSection.description':
     'Fournisseurs de modèles de langage, Ollama local et voix (STT / TTS).',
   'pages.settings.aiSection.title': 'IA',

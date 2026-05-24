@@ -500,7 +500,8 @@ const ru1: TranslationMap = {
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
-  'settings.embeddings.keyStoredEncrypted': 'Ваш API-ключ хранится в зашифрованном виде на этом устройстве.',
+  'settings.embeddings.keyStoredEncrypted':
+    'Ваш API-ключ хранится в зашифрованном виде на этом устройстве.',
   'settings.embeddings.show': 'Показать',
   'settings.embeddings.hide': 'Скрыть',
   'settings.embeddings.save': 'Сохранить',

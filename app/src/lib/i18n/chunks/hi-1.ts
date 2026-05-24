@@ -495,7 +495,8 @@ const hi1: TranslationMap = {
   'settings.embeddings.apiKeyLabel': '{provider} API कुंजी',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'अपनी API कुंजी पेस्ट करें…',
-  'settings.embeddings.keyStoredEncrypted': 'आपकी API कुंजी इस डिवाइस पर एन्क्रिप्टेड स्टोर की गई है।',
+  'settings.embeddings.keyStoredEncrypted':
+    'आपकी API कुंजी इस डिवाइस पर एन्क्रिप्टेड स्टोर की गई है।',
   'settings.embeddings.show': 'दिखाएँ',
   'settings.embeddings.hide': 'छिपाएँ',
   'settings.embeddings.save': 'सहेजें',

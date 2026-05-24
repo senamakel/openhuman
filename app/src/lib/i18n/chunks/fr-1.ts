@@ -512,7 +512,8 @@ const fr1: TranslationMap = {
   'settings.embeddings.apiKeyLabel': 'Clé API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'Collez votre clé API…',
-  'settings.embeddings.keyStoredEncrypted': 'Votre clé API est stockée de manière chiffrée sur cet appareil.',
+  'settings.embeddings.keyStoredEncrypted':
+    'Votre clé API est stockée de manière chiffrée sur cet appareil.',
   'settings.embeddings.show': 'Afficher',
   'settings.embeddings.hide': 'Masquer',
   'settings.embeddings.save': 'Enregistrer',

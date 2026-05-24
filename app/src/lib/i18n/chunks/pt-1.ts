@@ -510,7 +510,8 @@ const pt1: TranslationMap = {
   'settings.embeddings.apiKeyLabel': 'Chave API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'Cole sua chave API…',
-  'settings.embeddings.keyStoredEncrypted': 'Sua chave API é armazenada criptografada neste dispositivo.',
+  'settings.embeddings.keyStoredEncrypted':
+    'Sua chave API é armazenada criptografada neste dispositivo.',
   'settings.embeddings.show': 'Mostrar',
   'settings.embeddings.hide': 'Ocultar',
   'settings.embeddings.save': 'Salvar',

@@ -508,7 +508,8 @@ const de1: TranslationMap = {
   'settings.embeddings.apiKeyLabel': '{provider} API-Schlüssel',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'API-Schlüssel einfügen…',
-  'settings.embeddings.keyStoredEncrypted': 'Ihr API-Schlüssel wird verschlüsselt auf diesem Gerät gespeichert.',
+  'settings.embeddings.keyStoredEncrypted':
+    'Ihr API-Schlüssel wird verschlüsselt auf diesem Gerät gespeichert.',
   'settings.embeddings.show': 'Anzeigen',
   'settings.embeddings.hide': 'Verbergen',
   'settings.embeddings.save': 'Speichern',

@@ -30,6 +30,89 @@ fn make_doc_input(
 }
 
 #[tokio::test]
+async fn list_documents_without_namespace_returns_all_docs_across_namespaces() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input("test:one", "doc-a", "Doc A", "A body"))
+        .await
+        .unwrap();
+    memory
+        .upsert_document(make_doc_input("test:two", "doc-b", "Doc B", "B body"))
+        .await
+        .unwrap();
+
+    let docs = memory.list_documents(None).await.unwrap();
+    assert_eq!(docs["count"].as_u64().unwrap(), 2);
+    let namespaces: std::collections::BTreeSet<_> = docs["documents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|doc| doc["namespace"].as_str())
+        .collect();
+    assert!(namespaces.contains("test_one"));
+    assert!(namespaces.contains("test_two"));
+}
+
+#[tokio::test]
+async fn list_namespaces_returns_distinct_sorted_sanitized_namespaces() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input("team alpha/#1", "doc-a", "Doc A", "A body"))
+        .await
+        .unwrap();
+    memory
+        .upsert_document(make_doc_input("team alpha/#1", "doc-b", "Doc B", "B body"))
+        .await
+        .unwrap();
+    memory
+        .upsert_document(make_doc_input("zeta", "doc-c", "Doc C", "C body"))
+        .await
+        .unwrap();
+
+    let namespaces = memory.list_namespaces().await.unwrap();
+    assert_eq!(
+        namespaces,
+        vec!["team_alpha/_1".to_string(), "zeta".to_string()]
+    );
+}
+
+#[tokio::test]
+async fn upsert_document_metadata_only_reuses_document_id_for_same_namespace_and_key() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    let first_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta",
+            "doc-a",
+            "Doc A",
+            "Initial body",
+        ))
+        .await
+        .unwrap();
+    let second_id = memory
+        .upsert_document_metadata_only(make_doc_input(
+            "test:meta",
+            "doc-a",
+            "Doc A v2",
+            "Updated body",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(first_id, second_id, "metadata-only upsert should reuse the document id");
+    let docs = memory.load_documents_for_scope("test:meta").await.unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].document_id, first_id);
+    assert_eq!(docs[0].title, "Doc A v2");
+    assert_eq!(docs[0].content, "Updated body");
+}
+
+#[tokio::test]
 async fn clear_namespace_removes_all_data_and_preserves_other_namespaces() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();

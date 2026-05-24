@@ -843,9 +843,7 @@ pub async fn apply_autonomy_settings(
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     if let Some(v) = update.max_actions_per_hour {
         if v == 0 {
-            return Err(format!(
-                "max_actions_per_hour must be at least 1 (got {v})"
-            ));
+            return Err(format!("max_actions_per_hour must be at least 1 (got {v})"));
         }
         config.autonomy.max_actions_per_hour = v;
     }

@@ -493,7 +493,7 @@ const ru1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'Эмбеддинги',
   'settings.embeddings.description':
-    'Выберите провайдера эмбеддингов, который преобразует память в векторы для семантического поиска. Изменение провайдера, модели или размерности делает сохранённые векторы недействительными и требует полного сброса памяти.',
+    'Выберите провайдера эмбеддингов, который преобразует память в векторы для семантического поиска. Изменение размерности эмбеддингов требует полного сброса памяти.',
   'settings.embeddings.providerAria': 'Провайдер эмбеддингов',
   'settings.embeddings.statusConfigured': 'Настроено',
   'settings.embeddings.statusNeedsKey': 'Нужен API-ключ',
@@ -521,7 +521,7 @@ const ru1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'Ошибка',
   'settings.embeddings.wipeTitle': 'Сбросить векторы памяти?',
   'settings.embeddings.wipeBody':
-    'Изменение провайдера эмбеддингов, модели или размерности удалит все сохранённые векторы памяти. Память должна быть перестроена, прежде чем поиск снова заработает. Это действие нельзя отменить.',
+    'Переход на другую размерность эмбеддингов удалит все сохранённые векторы памяти. Память должна быть перестроена, прежде чем поиск снова заработает. Это действие нельзя отменить.',
   'settings.embeddings.cancel': 'Отмена',
   'settings.embeddings.confirmWipe': 'Очистить и применить',
   'settings.embeddings.setupTitle': 'Настройка {provider}',

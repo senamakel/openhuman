@@ -96,7 +96,6 @@ pub async fn update_settings(
 
     let old_dims = config.memory.embedding_dimensions;
     let dims_changed = new_dims != old_dims;
-    let sig_changed = new_sig != old_sig;
 
     // Only require a wipe when dimensions actually change — switching
     // provider/model at the same dimensionality keeps vectors comparable.
@@ -152,6 +151,15 @@ pub async fn update_settings(
             config.memory.embedding_provider = format!("custom:{ep}");
         }
     }
+
+    // Recompute signature after all mutations so an endpoint-only change
+    // (which rewrites the provider string) is captured for backfill.
+    let new_sig = format_embedding_signature(
+        &config.memory.embedding_provider,
+        &config.memory.embedding_model,
+        config.memory.embedding_dimensions,
+    );
+    let sig_changed = new_sig != old_sig;
 
     config.save().await.map_err(|e| e.to_string())?;
 
@@ -353,6 +361,12 @@ pub async fn test_connection(
             ))
         }
         Err(e) => {
+            tracing::warn!(
+                provider = provider_tag,
+                model,
+                error = %e,
+                "{LOG_PREFIX} test_connection failed"
+            );
             let payload = serde_json::json!({
                 "success": false,
                 "provider": provider_tag,

@@ -491,7 +491,7 @@ const bn1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'এমবেডিংস',
   'settings.embeddings.description':
-    'কোন এমবেডিং প্রদানকারী মেমরিকে সিমান্টিক সার্চের জন্য ভেক্টরে রূপান্তর করে তা চয়ন করুন। প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সংরক্ষিত ভেক্টর অবৈধ হয়ে যায় এবং সম্পূর্ণ মেমরি রিসেট প্রয়োজন।',
+    'কোন এমবেডিং প্রদানকারী মেমরিকে সিমান্টিক সার্চের জন্য ভেক্টরে রূপান্তর করে তা চয়ন করুন। এমবেডিং মাত্রা পরিবর্তন করলে সম্পূর্ণ মেমরি রিসেট প্রয়োজন।',
   'settings.embeddings.providerAria': 'এমবেডিং প্রদানকারী',
   'settings.embeddings.statusConfigured': 'কনফিগার করা হয়েছে',
   'settings.embeddings.statusNeedsKey': 'API কী প্রয়োজন',
@@ -518,7 +518,7 @@ const bn1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'ব্যর্থ',
   'settings.embeddings.wipeTitle': 'মেমরি ভেক্টর রিসেট করবেন?',
   'settings.embeddings.wipeBody':
-    'এমবেডিং প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সমস্ত সংরক্ষিত মেমরি ভেক্টর মুছে যাবে। পুনরুদ্ধার কাজ করার আগে মেমরি পুনর্নির্মাণ করতে হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
+    'ভিন্ন এমবেডিং মাত্রায় পরিবর্তন করলে সমস্ত সংরক্ষিত মেমরি ভেক্টর মুছে যাবে। পুনরুদ্ধার কাজ করার আগে মেমরি পুনর্নির্মাণ করতে হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
   'settings.embeddings.cancel': 'বাতিল',
   'settings.embeddings.confirmWipe': 'মুছুন এবং প্রয়োগ করুন',
   'settings.embeddings.setupTitle': '{provider} সেটআপ',

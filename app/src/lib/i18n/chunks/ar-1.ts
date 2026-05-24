@@ -482,7 +482,7 @@ const ar1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'التضمينات',
   'settings.embeddings.description':
-    'اختر مزود التضمينات الذي يحول الذاكرة إلى متجهات للبحث الدلالي. تغيير المزود أو النموذج أو الأبعاد يبطل المتجهات المخزنة ويتطلب إعادة تعيين كاملة للذاكرة.',
+    'اختر مزود التضمينات الذي يحول الذاكرة إلى متجهات للبحث الدلالي. تغيير أبعاد التضمينات يتطلب إعادة تعيين كاملة للذاكرة.',
   'settings.embeddings.providerAria': 'مزود التضمينات',
   'settings.embeddings.statusConfigured': 'تم التهيئة',
   'settings.embeddings.statusNeedsKey': 'يحتاج مفتاح API',
@@ -509,7 +509,7 @@ const ar1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'فشل',
   'settings.embeddings.wipeTitle': 'إعادة تعيين متجهات الذاكرة؟',
   'settings.embeddings.wipeBody':
-    'سيؤدي تغيير مزود التضمينات أو النموذج أو الأبعاد إلى مسح جميع متجهات الذاكرة المخزنة. يجب إعادة بناء الذاكرة قبل أن يعمل الاسترجاع مرة أخرى. لا يمكن التراجع عن هذا.',
+    'سيؤدي التبديل إلى أبعاد تضمينات مختلفة إلى مسح جميع متجهات الذاكرة المخزنة. يجب إعادة بناء الذاكرة قبل أن يعمل الاسترجاع مرة أخرى. لا يمكن التراجع عن هذا.',
   'settings.embeddings.cancel': 'إلغاء',
   'settings.embeddings.confirmWipe': 'مسح وتطبيق',
   'settings.embeddings.setupTitle': 'إعداد {provider}',

@@ -494,7 +494,7 @@ const id1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
-    'Pilih penyedia embedding yang mengubah memori menjadi vektor untuk pencarian semantik. Mengubah penyedia, model, atau dimensi membatalkan vektor yang tersimpan dan memerlukan reset memori penuh.',
+    'Pilih penyedia embedding yang mengubah memori menjadi vektor untuk pencarian semantik. Mengubah dimensi embedding memerlukan reset memori penuh.',
   'settings.embeddings.providerAria': 'Penyedia embedding',
   'settings.embeddings.statusConfigured': 'Dikonfigurasi',
   'settings.embeddings.statusNeedsKey': 'Perlu kunci API',
@@ -521,7 +521,7 @@ const id1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'Gagal',
   'settings.embeddings.wipeTitle': 'Reset vektor memori?',
   'settings.embeddings.wipeBody':
-    'Mengubah penyedia embedding, model, atau dimensi akan menghapus semua vektor memori yang tersimpan. Memori harus dibangun ulang sebelum pencarian berfungsi kembali. Ini tidak dapat dibatalkan.',
+    'Beralih ke dimensi embedding yang berbeda akan menghapus semua vektor memori yang tersimpan. Memori harus dibangun ulang sebelum pencarian berfungsi kembali. Ini tidak dapat dibatalkan.',
   'settings.embeddings.cancel': 'Batal',
   'settings.embeddings.confirmWipe': 'Hapus & terapkan',
   'settings.embeddings.setupTitle': 'Siapkan {provider}',

@@ -503,7 +503,7 @@ const pt1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
-    'Escolha qual provedor de embeddings converte memória em vetores para busca semântica. Alterar o provedor, modelo ou dimensões invalida vetores armazenados e requer uma redefinição completa da memória.',
+    'Escolha qual provedor de embeddings converte memória em vetores para busca semântica. Alterar as dimensões de embeddings requer uma redefinição completa da memória.',
   'settings.embeddings.providerAria': 'Provedor de embeddings',
   'settings.embeddings.statusConfigured': 'Configurado',
   'settings.embeddings.statusNeedsKey': 'Precisa de chave API',
@@ -531,7 +531,7 @@ const pt1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'Falhou',
   'settings.embeddings.wipeTitle': 'Redefinir vetores de memória?',
   'settings.embeddings.wipeBody':
-    'Alterar o provedor de embeddings, modelo ou dimensões apagará todos os vetores de memória armazenados. A memória deve ser reconstruída antes que a recuperação funcione novamente. Isso não pode ser desfeito.',
+    'Mudar para dimensões de embeddings diferentes apagará todos os vetores de memória armazenados. A memória deve ser reconstruída antes que a recuperação funcione novamente. Isso não pode ser desfeito.',
   'settings.embeddings.cancel': 'Cancelar',
   'settings.embeddings.confirmWipe': 'Limpar e aplicar',
   'settings.embeddings.setupTitle': 'Configurar {provider}',

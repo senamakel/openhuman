@@ -491,7 +491,7 @@ const ko1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': '임베딩',
   'settings.embeddings.description':
-    '시맨틱 검색을 위해 메모리를 벡터로 변환할 임베딩 제공자를 선택하세요. 제공자, 모델 또는 차원을 변경하면 저장된 벡터가 무효화되며 전체 메모리 초기화가 필요합니다.',
+    '시맨틱 검색을 위해 메모리를 벡터로 변환할 임베딩 제공자를 선택하세요. 임베딩 차원을 변경하면 전체 메모리 초기화가 필요합니다.',
   'settings.embeddings.providerAria': '임베딩 제공자',
   'settings.embeddings.statusConfigured': '구성됨',
   'settings.embeddings.statusNeedsKey': 'API 키 필요',
@@ -518,7 +518,7 @@ const ko1: TranslationMap = {
   'settings.embeddings.errorPrefix': '실패',
   'settings.embeddings.wipeTitle': '메모리 벡터를 초기화하시겠습니까?',
   'settings.embeddings.wipeBody':
-    '임베딩 제공자, 모델 또는 차원을 변경하면 저장된 모든 메모리 벡터가 삭제됩니다. 검색이 다시 작동하려면 메모리를 재구축해야 합니다. 이 작업은 취소할 수 없습니다.',
+    '다른 임베딩 차원으로 전환하면 저장된 모든 메모리 벡터가 삭제됩니다. 검색이 다시 작동하려면 메모리를 재구축해야 합니다. 이 작업은 취소할 수 없습니다.',
   'settings.embeddings.cancel': '취소',
   'settings.embeddings.confirmWipe': '삭제 및 적용',
   'settings.embeddings.setupTitle': '{provider} 설정',

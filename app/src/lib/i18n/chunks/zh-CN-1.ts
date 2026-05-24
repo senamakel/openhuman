@@ -475,7 +475,7 @@ const zhCN1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': '向量嵌入',
   'settings.embeddings.description':
-    '选择将记忆转换为语义搜索向量的嵌入提供商。更改提供商、模型或维度会使已存储的向量无效，需要完全重置记忆。',
+    '选择将记忆转换为语义搜索向量的嵌入提供商。更改嵌入维度需要完全重置记忆。',
   'settings.embeddings.providerAria': '嵌入提供商',
   'settings.embeddings.statusConfigured': '已配置',
   'settings.embeddings.statusNeedsKey': '需要 API 密钥',
@@ -502,7 +502,7 @@ const zhCN1: TranslationMap = {
   'settings.embeddings.errorPrefix': '失败',
   'settings.embeddings.wipeTitle': '重置记忆向量？',
   'settings.embeddings.wipeBody':
-    '更改嵌入提供商、模型或维度将删除所有已存储的记忆向量。记忆必须重新构建后检索才能再次工作。此操作无法撤消。',
+    '切换到不同的嵌入维度将删除所有已存储的记忆向量。记忆必须重新构建后检索才能再次工作。此操作无法撤消。',
   'settings.embeddings.cancel': '取消',
   'settings.embeddings.confirmWipe': '清除并应用',
   'settings.embeddings.setupTitle': '设置 {provider}',

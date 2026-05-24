@@ -488,7 +488,7 @@ const hi1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'एम्बेडिंग्स',
   'settings.embeddings.description':
-    'चुनें कि कौन सा एम्बेडिंग प्रदाता मेमोरी को सिमेंटिक सर्च के लिए वेक्टर में बदलता है। प्रदाता, मॉडल या आयाम बदलने से संग्रहीत वेक्टर अमान्य हो जाते हैं और पूर्ण मेमरी रीसेट की आवश्यकता होती है।',
+    'चुनें कि कौन सा एम्बेडिंग प्रदाता मेमोरी को सिमेंटिक सर्च के लिए वेक्टर में बदलता है। एम्बेडिंग आयाम बदलने से पूर्ण मेमरी रीसेट की आवश्यकता होती है।',
   'settings.embeddings.providerAria': 'एम्बेडिंग प्रदाता',
   'settings.embeddings.statusConfigured': 'कॉन्फ़िगर किया गया',
   'settings.embeddings.statusNeedsKey': 'API कुंजी चाहिए',
@@ -516,7 +516,7 @@ const hi1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'विफल',
   'settings.embeddings.wipeTitle': 'मेमोरी वेक्टर रीसेट करें?',
   'settings.embeddings.wipeBody':
-    'एम्बेडिंग प्रदाता, मॉडल या आयाम बदलने से सभी संग्रहीत मेमोरी वेक्टर मिट जाएंगे। पुनर्प्राप्ति फिर से काम करने से पहले मेमोरी को फिर से बनाना होगा। यह पूर्ववत नहीं किया जा सकता।',
+    'अलग एम्बेडिंग आयामों पर स्विच करने से सभी संग्रहीत मेमोरी वेक्टर मिट जाएंगे। पुनर्प्राप्ति फिर से काम करने से पहले मेमोरी को फिर से बनाना होगा। यह पूर्ववत नहीं किया जा सकता।',
   'settings.embeddings.cancel': 'रद्द करें',
   'settings.embeddings.confirmWipe': 'मिटाएँ और लागू करें',
   'settings.embeddings.setupTitle': '{provider} सेटअप',

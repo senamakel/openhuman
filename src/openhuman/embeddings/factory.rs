@@ -45,6 +45,9 @@ pub fn create_embedding_provider(
             dims,
         ))),
         "cohere" => Ok(Box::new(CohereEmbedding::new("", model, dims))),
+        "custom" => Err(anyhow::anyhow!(
+            "custom embedding provider requires an endpoint — use \"custom:<url>\" or pass custom_endpoint"
+        )),
         name if name.starts_with("custom:") => {
             let base_url = name.strip_prefix("custom:").unwrap_or("");
             Ok(Box::new(OpenAiEmbedding::new(base_url, "", model, dims)))

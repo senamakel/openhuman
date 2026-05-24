@@ -621,7 +621,7 @@ const en: TranslationMap = {
   // ─── Embeddings settings ───────────────────────────────────
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
-    'Choose which embedding provider converts memory into vectors for semantic search. Changing the provider, model, or dimensions invalidates stored vectors and requires a full memory reset.',
+    'Choose which embedding provider converts memory into vectors for semantic search. Changing embedding dimensions requires a full memory reset.',
   'settings.embeddings.providerAria': 'Embedding provider',
   'settings.embeddings.statusConfigured': 'Configured',
   'settings.embeddings.statusNeedsKey': 'Needs API key',
@@ -648,7 +648,7 @@ const en: TranslationMap = {
   'settings.embeddings.errorPrefix': 'Failed',
   'settings.embeddings.wipeTitle': 'Reset memory vectors?',
   'settings.embeddings.wipeBody':
-    'Switching embedding provider, model, or dimensions will erase all stored memory vectors. Memory must be rebuilt before recall works again. This cannot be undone.',
+    'Switching to different embedding dimensions will erase all stored memory vectors. Memory must be rebuilt before recall works again. This cannot be undone.',
   'settings.embeddings.cancel': 'Cancel',
   'settings.embeddings.confirmWipe': 'Wipe & apply',
   'settings.embeddings.setupTitle': 'Set up {provider}',

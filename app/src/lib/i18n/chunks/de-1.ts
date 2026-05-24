@@ -501,7 +501,7 @@ const de1: TranslationMap = {
   'settings.search.placeholderBrave': 'BSA...',
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
-    'Wählen Sie den Embedding-Anbieter, der Erinnerungen in Vektoren für die semantische Suche umwandelt. Das Ändern des Anbieters, Modells oder der Dimensionen macht gespeicherte Vektoren ungültig und erfordert einen vollständigen Speicher-Reset.',
+    'Wählen Sie den Embedding-Anbieter, der Erinnerungen in Vektoren für die semantische Suche umwandelt. Das Ändern der Embedding-Dimensionen erfordert einen vollständigen Speicher-Reset.',
   'settings.embeddings.providerAria': 'Embedding-Anbieter',
   'settings.embeddings.statusConfigured': 'Konfiguriert',
   'settings.embeddings.statusNeedsKey': 'API-Schlüssel benötigt',
@@ -529,7 +529,7 @@ const de1: TranslationMap = {
   'settings.embeddings.errorPrefix': 'Fehlgeschlagen',
   'settings.embeddings.wipeTitle': 'Speichervektoren zurücksetzen?',
   'settings.embeddings.wipeBody':
-    'Das Ändern des Embedding-Anbieters, Modells oder der Dimensionen löscht alle gespeicherten Speichervektoren. Der Speicher muss neu aufgebaut werden, bevor die Abfrage wieder funktioniert. Dies kann nicht rückgängig gemacht werden.',
+    'Das Wechseln zu anderen Embedding-Dimensionen löscht alle gespeicherten Speichervektoren. Der Speicher muss neu aufgebaut werden, bevor die Abfrage wieder funktioniert. Dies kann nicht rückgängig gemacht werden.',
   'settings.embeddings.cancel': 'Abbrechen',
   'settings.embeddings.confirmWipe': 'Löschen & anwenden',
   'settings.embeddings.setupTitle': '{provider} einrichten',

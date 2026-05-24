@@ -18,6 +18,9 @@
 
 pub mod chunks;
 pub mod content;
+pub mod trees;
+pub mod trees_global;
+pub mod trees_topic;
 pub mod types;
 pub mod vectors;
 pub mod unified;

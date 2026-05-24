@@ -26,6 +26,13 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("status"),
         schemas("tool_call"),
         schemas("config_assist"),
+        // Setup-agent surface (mcp_setup namespace, lives in setup_ops.rs).
+        setup_schemas("search"),
+        setup_schemas("get"),
+        setup_schemas("request_secret"),
+        setup_schemas("submit_secret"),
+        setup_schemas("test_connection"),
+        setup_schemas("install_and_connect"),
     ]
 }
 
@@ -70,6 +77,30 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("config_assist"),
             handler: handle_config_assist,
+        },
+        RegisteredController {
+            schema: setup_schemas("search"),
+            handler: handle_setup_search,
+        },
+        RegisteredController {
+            schema: setup_schemas("get"),
+            handler: handle_setup_get,
+        },
+        RegisteredController {
+            schema: setup_schemas("request_secret"),
+            handler: handle_setup_request_secret,
+        },
+        RegisteredController {
+            schema: setup_schemas("submit_secret"),
+            handler: handle_setup_submit_secret,
+        },
+        RegisteredController {
+            schema: setup_schemas("test_connection"),
+            handler: handle_setup_test_connection,
+        },
+        RegisteredController {
+            schema: setup_schemas("install_and_connect"),
+            handler: handle_setup_install_and_connect,
         },
     ]
 }
@@ -368,6 +399,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
             ],
         },
 
+        // Handled by setup_schemas() — surface a clearer error rather than
+        // falling through to the generic unknown sink.
+        "setup_search"
+        | "setup_get"
+        | "setup_request_secret"
+        | "setup_submit_secret"
+        | "setup_test_connection"
+        | "setup_install_and_connect" => setup_schemas(function.trim_start_matches("setup_")),
+
         _other => ControllerSchema {
             namespace: "mcp_clients",
             function: "unknown",
@@ -512,6 +552,331 @@ fn handle_config_assist(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+// ── mcp_setup_* schemas + handlers ────────────────────────────────────────────
+
+/// All setup-agent schemas under the `mcp_setup` RPC namespace. Kept in a
+/// separate function so the setup surface can evolve independently of the
+/// existing `mcp_clients_*` controllers.
+pub fn setup_schemas(function: &str) -> ControllerSchema {
+    match function {
+        "search" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "search",
+            description: "Search all enabled MCP registries (Smithery + official).",
+            inputs: vec![
+                FieldSchema {
+                    name: "query",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Free-text search query.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "page",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "1-based page number (default: 1).",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "page_size",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Results per page (default: 20).",
+                    required: false,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "servers",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Ref("SmitheryServerSummary"))),
+                    comment: "Merged summaries; each row tagged with its `source` (`smithery` | `mcp_official`).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "page",
+                    ty: TypeSchema::U64,
+                    comment: "Current page number.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "total_pages",
+                    ty: TypeSchema::U64,
+                    comment: "Upper-bound page count across registries.",
+                    required: true,
+                },
+            ],
+        },
+        "get" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "get",
+            description: "Fetch full details for one server. Adds `required_env_keys` derived from the connection schema.",
+            inputs: vec![FieldSchema {
+                name: "qualified_name",
+                ty: TypeSchema::String,
+                comment: "Registry qualified name. May be prefixed with `<source>::` to pin a registry.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "server",
+                ty: TypeSchema::Ref("SmitheryServerDetail"),
+                comment: "Full detail with `required_env_keys` injected.",
+                required: true,
+            }],
+        },
+        "request_secret" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "request_secret",
+            description: "Ask the user out-of-band for a secret value. Blocks until the UI submits via `submit_secret` (5-minute timeout). Returns an opaque ref; the raw value never enters the agent's context.",
+            inputs: vec![
+                FieldSchema {
+                    name: "key_name",
+                    ty: TypeSchema::String,
+                    comment: "Display name of the env var (e.g. `NOTION_API_KEY`).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "prompt",
+                    ty: TypeSchema::String,
+                    comment: "Plain-English instruction shown to the user in the native input box.",
+                    required: true,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "ref",
+                    ty: TypeSchema::String,
+                    comment: "Opaque handle like `secret://<hex>`. Pass back via `test_connection` / `install_and_connect`.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "key_name",
+                    ty: TypeSchema::String,
+                    comment: "Echoed key name.",
+                    required: true,
+                },
+            ],
+        },
+        "submit_secret" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "submit_secret",
+            description: "UI-side: fulfill a pending `request_secret` with the user-entered value. Not intended for agent use.",
+            inputs: vec![
+                FieldSchema {
+                    name: "ref_id",
+                    ty: TypeSchema::String,
+                    comment: "The `secret://<hex>` ref returned by `request_secret`.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "value",
+                    ty: TypeSchema::String,
+                    comment: "Raw secret value. NEVER log this.",
+                    required: true,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "ref",
+                    ty: TypeSchema::String,
+                    comment: "Echoed ref.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "fulfilled",
+                    ty: TypeSchema::Bool,
+                    comment: "True on success.",
+                    required: true,
+                },
+            ],
+        },
+        "test_connection" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "test_connection",
+            description: "Dry-run install: spawn a candidate server in a scratch process with the supplied secret refs, list its tools, tear down. Nothing persisted.",
+            inputs: vec![
+                FieldSchema {
+                    name: "qualified_name",
+                    ty: TypeSchema::String,
+                    comment: "Registry qualified name.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "env_refs",
+                    ty: TypeSchema::Map(Box::new(TypeSchema::String)),
+                    comment: "Map `{ENV_KEY: secret://<hex>}` produced by `request_secret`.",
+                    required: true,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "ok",
+                    ty: TypeSchema::Bool,
+                    comment: "True if initialize + tools/list succeeded.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tools",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::Ref(
+                        "McpRemoteTool",
+                    ))))),
+                    comment: "Tools advertised by the candidate. Present iff `ok`.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "error",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Error string. Present iff `ok` is false.",
+                    required: false,
+                },
+            ],
+        },
+        "install_and_connect" => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "install_and_connect",
+            description: "Commit: persist the install + secrets (consuming the refs), then connect immediately and return the tool list.",
+            inputs: vec![
+                FieldSchema {
+                    name: "qualified_name",
+                    ty: TypeSchema::String,
+                    comment: "Registry qualified name.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "env_refs",
+                    ty: TypeSchema::Map(Box::new(TypeSchema::String)),
+                    comment: "Map `{ENV_KEY: secret://<hex>}`. Refs are consumed (removed from the in-memory map) on success.",
+                    required: true,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "server_id",
+                    ty: TypeSchema::String,
+                    comment: "Freshly-minted server UUID.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "status",
+                    ty: TypeSchema::String,
+                    comment: "`connected` or `installed_disconnected` (install succeeded, connect failed).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tools",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::Ref(
+                        "McpTool",
+                    ))))),
+                    comment: "Tool list iff `status == connected`.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "error",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Connect error iff `status != connected`.",
+                    required: false,
+                },
+            ],
+        },
+        _ => ControllerSchema {
+            namespace: "mcp_setup",
+            function: "unknown",
+            description: "Unknown mcp_setup controller function.",
+            inputs: vec![FieldSchema {
+                name: "function",
+                ty: TypeSchema::String,
+                comment: "Unknown function requested for schema lookup.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "error",
+                ty: TypeSchema::String,
+                comment: "Lookup error details.",
+                required: true,
+            }],
+        },
+    }
+}
+
+fn handle_setup_search(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let query = read_optional_string(&params, "query")?;
+        let page = read_optional_u32(&params, "page")?;
+        let page_size = read_optional_u32(&params, "page_size")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_search(
+                &config, query, page, page_size,
+            )
+            .await?,
+        )
+    })
+}
+
+fn handle_setup_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let qualified_name = read_required::<String>(&params, "qualified_name")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_get(&config, qualified_name)
+                .await?,
+        )
+    })
+}
+
+fn handle_setup_request_secret(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let key_name = read_required::<String>(&params, "key_name")?;
+        let prompt = read_required::<String>(&params, "prompt")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_request_secret(key_name, prompt)
+                .await?,
+        )
+    })
+}
+
+fn handle_setup_submit_secret(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let ref_id = read_required::<String>(&params, "ref_id")?;
+        let value = read_required::<String>(&params, "value")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_submit_secret(ref_id, value)
+                .await?,
+        )
+    })
+}
+
+fn handle_setup_test_connection(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let qualified_name = read_required::<String>(&params, "qualified_name")?;
+        let env_refs =
+            read_required::<std::collections::HashMap<String, String>>(&params, "env_refs")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_test_connection(
+                &config,
+                qualified_name,
+                env_refs,
+            )
+            .await?,
+        )
+    })
+}
+
+fn handle_setup_install_and_connect(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let qualified_name = read_required::<String>(&params, "qualified_name")?;
+        let env_refs =
+            read_required::<std::collections::HashMap<String, String>>(&params, "env_refs")?;
+        to_json(
+            crate::openhuman::mcp_registry::setup_ops::mcp_setup_install_and_connect(
+                &config,
+                qualified_name,
+                env_refs,
+            )
+            .await?,
+        )
+    })
+}
+
 // ── Param helpers ─────────────────────────────────────────────────────────────
 
 fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
@@ -644,21 +1009,36 @@ mod tests {
     // ── all_controller_schemas / all_registered_controllers ────────────────────
 
     #[test]
-    fn all_controller_schemas_covers_ten_methods() {
+    fn all_controller_schemas_covers_expected_methods() {
         let schemas = all_controller_schemas();
-        assert_eq!(schemas.len(), 10);
+        // 10 mcp_clients + 6 mcp_setup
+        assert_eq!(schemas.len(), 16);
+        let mcp_clients_count = schemas
+            .iter()
+            .filter(|s| s.namespace == "mcp_clients")
+            .count();
+        let mcp_setup_count = schemas
+            .iter()
+            .filter(|s| s.namespace == "mcp_setup")
+            .count();
+        assert_eq!(mcp_clients_count, 10);
+        assert_eq!(mcp_setup_count, 6);
     }
 
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 10);
+        assert_eq!(controllers.len(), 16);
     }
 
     #[test]
-    fn all_registered_controllers_all_use_mcp_clients_namespace() {
+    fn all_registered_controllers_use_expected_namespaces() {
         for c in all_registered_controllers() {
-            assert_eq!(c.schema.namespace, "mcp_clients");
+            assert!(
+                matches!(c.schema.namespace, "mcp_clients" | "mcp_setup"),
+                "unexpected namespace {}",
+                c.schema.namespace
+            );
         }
     }
 

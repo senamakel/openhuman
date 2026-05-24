@@ -395,6 +395,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "mcp_clients" => Some(
             "Browse the Smithery.ai MCP registry, install MCP servers locally, manage their stdio connections, and expose their tools to the agent.",
         ),
+        "mcp_setup" => Some(
+            "MCP setup agent surface: search registries, request secrets out-of-band (opaque refs, no raw values in agent context), test, and install + connect.",
+        ),
         "decrypt" => Some("Decrypt secure values managed by secret storage."),
         "doctor" => Some("Run diagnostics for workspace and runtime health."),
         "encrypt" => Some("Encrypt secure values managed by secret storage."),

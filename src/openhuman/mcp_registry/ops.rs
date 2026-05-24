@@ -184,7 +184,7 @@ pub async fn mcp_clients_install(
 }
 
 /// Resolve the launch command from the qualified name and optional registry connection metadata.
-fn resolve_command(
+pub(super) fn resolve_command(
     qualified_name: &str,
     stdio_conn: Option<&super::types::SmitheryConnection>,
 ) -> (CommandKind, String, Vec<String>) {

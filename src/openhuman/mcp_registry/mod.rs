@@ -57,6 +57,8 @@ mod ops;
 mod registries;
 mod registry;
 mod schemas;
+pub mod setup;
+mod setup_ops;
 pub mod store;
 pub mod types;
 

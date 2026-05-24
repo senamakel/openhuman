@@ -36,6 +36,7 @@ import {
   type CreditTransaction,
   type TeamUsage,
 } from '../../../services/api/creditsApi';
+import { connectOpenRouterViaOAuth } from '../../../utils/openrouterOAuth';
 import {
   type AuthStyle,
   openhumanUpdateLocalAiSettings,
@@ -530,6 +531,7 @@ const ProviderKeyDialog = ({
   slug,
   label,
   isLocalRuntime,
+  oauthAction,
   onCancel,
   onSubmit,
 }: {
@@ -537,6 +539,7 @@ const ProviderKeyDialog = ({
   label: string;
   /** When true, render an "Endpoint URL" field instead of API key. */
   isLocalRuntime: boolean;
+  oauthAction?: { label: string; onClick: () => Promise<void> | void } | null;
   onCancel: () => void;
   /** Returns the entered value. For local runtimes this is the endpoint URL;
    *  for cloud providers it's the API key. */
@@ -544,7 +547,7 @@ const ProviderKeyDialog = ({
 }) => {
   const { t } = useT();
   const [value, setValue] = useState<string>(isLocalRuntime ? defaultEndpointFor(slug) : '');
-  const [phase, setPhase] = useState<'idle' | 'saving'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'oauth'>('idle');
   const [error, setError] = useState<string | null>(null);
   const busy = phase !== 'idle';
 
@@ -592,6 +595,23 @@ const ProviderKeyDialog = ({
     }
   };
 
+  const handleOAuth = async () => {
+    if (!oauthAction) return;
+    setError(null);
+    setPhase('oauth');
+    try {
+      await oauthAction.onClick();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[ai-settings] provider oauth failed', {
+        slug,
+        summary: presentProviderSetupError(message).summary,
+      });
+      setError(message);
+      setPhase('idle');
+    }
+  };
+
   return (
     <div
       role="dialog"
@@ -631,6 +651,24 @@ const ProviderKeyDialog = ({
           />
           {error ? <ProviderSetupErrorNotice error={error} /> : null}
         </div>
+
+        {oauthAction ? (
+          <div className="mt-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/50 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+              Or
+            </div>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+              Sign in with OpenRouter and import a user-controlled API key using PKCE.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleOAuth()}
+              disabled={busy}
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-stone-900 dark:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50">
+              {phase === 'oauth' ? 'Connecting...' : oauthAction.label}
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-6 flex justify-end gap-2">
           <button
@@ -2041,9 +2079,106 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   // need to remember which label to attach to the upserted provider so the
   // chip can find it again. Cleared when the dialog closes.
   const [pendingLocalLabel, setPendingLocalLabel] = useState<string | null>(null);
+  const openRouterOauthAbortRef = useRef<AbortController | null>(null);
 
   const updateRouting = (id: WorkloadId, next: ProviderRef) =>
     setDraft({ ...draft, routing: { ...draft.routing, [id]: next } });
+
+  const connectProvider = useCallback(
+    async ({
+      slug,
+      localLabel = null,
+      value,
+      credentialMode,
+    }: {
+      slug: string;
+      localLabel?: string | null;
+      value: string;
+      credentialMode: 'api_key' | 'oauth' | 'endpoint';
+    }) => {
+      const isLocalRuntime = credentialMode === 'endpoint';
+      setBusyAction(`toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : slug}`);
+
+      try {
+        const trimmed = value.trim();
+        const endpoint = isLocalRuntime
+          ? (() => {
+              const url = new URL(trimmed);
+              if (!/^https?:$/.test(url.protocol)) {
+                throw new Error('Endpoint must start with http:// or https://');
+              }
+              if (url.pathname === '' || url.pathname === '/') {
+                url.pathname = '/v1';
+              }
+              return url.toString().replace(/\/$/, '');
+            })()
+          : defaultEndpointFor(slug);
+
+        const upserted: CloudProvider = {
+          id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
+          slug,
+          label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
+          endpoint,
+          authStyle: authStyleForSlug(slug),
+          maskedKey: maskKeyLabel(true),
+        };
+
+        const priorWireProviders = saved.cloudProviders.map(p => ({
+          id: p.id,
+          slug: p.slug,
+          label: p.label,
+          endpoint: p.endpoint,
+          auth_style: p.authStyle,
+        }));
+
+        if (!isLocalRuntime && slug !== 'openhuman') {
+          await setCloudProviderKey(slug, trimmed);
+        } else if (isLocalRuntime && slug === 'ollama') {
+          const baseUrl = endpoint.replace(/\/v1\/?$/, '');
+          await openhumanUpdateLocalAiSettings({
+            base_url: baseUrl,
+            provider: 'ollama',
+            runtime_enabled: true,
+            opt_in_confirmed: true,
+          });
+        }
+
+        if (slug !== 'openhuman') {
+          const nextWireProviders = [
+            ...priorWireProviders.filter(p => p.slug !== slug),
+            {
+              id: upserted.id,
+              slug: upserted.slug,
+              label: upserted.label,
+              endpoint: upserted.endpoint,
+              auth_style: upserted.authStyle,
+            },
+          ];
+          await flushCloudProviders(nextWireProviders);
+          try {
+            await listProviderModels(slug);
+          } catch (probeErr) {
+            await flushCloudProviders(priorWireProviders).catch(() => {});
+            if (!isLocalRuntime && slug !== 'openhuman') {
+              await clearCloudProviderKey(slug).catch(() => {});
+            }
+            const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+            throw new Error(`Could not reach ${upserted.label}: ${msg}`);
+          }
+        }
+
+        setDraft({
+          ...draft,
+          cloudProviders: [...draft.cloudProviders.filter(p => p.slug !== slug), upserted],
+        });
+        setKeyDialogFor(null);
+        setPendingLocalLabel(null);
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [draft, saved.cloudProviders, setDraft]
+  );
 
   useEffect(() => {
     let active = true;
@@ -2532,120 +2667,43 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           slug={keyDialogFor}
           label={pendingLocalLabel ?? BUILTIN_PROVIDER_META[keyDialogFor]?.label ?? keyDialogFor}
           isLocalRuntime={Boolean(pendingLocalLabel)}
+          oauthAction={
+            keyDialogFor === 'openrouter' && !pendingLocalLabel
+              ? {
+                  label: 'Sign in with OpenRouter',
+                  onClick: async () => {
+                    const controller = new AbortController();
+                    openRouterOauthAbortRef.current = controller;
+                    try {
+                      const apiKey = await connectOpenRouterViaOAuth({ signal: controller.signal });
+                      await connectProvider({
+                        slug: 'openrouter',
+                        value: apiKey,
+                        credentialMode: 'oauth',
+                      });
+                    } finally {
+                      if (openRouterOauthAbortRef.current === controller) {
+                        openRouterOauthAbortRef.current = null;
+                      }
+                    }
+                  },
+                }
+              : null
+          }
           onCancel={() => {
+            openRouterOauthAbortRef.current?.abort();
+            openRouterOauthAbortRef.current = null;
             setKeyDialogFor(null);
             setPendingLocalLabel(null);
           }}
-          onSubmit={async value => {
-            const slug = keyDialogFor;
-            const localLabel = pendingLocalLabel;
-            const isLocalRuntime = Boolean(localLabel);
-            setBusyAction(
-              `toggle-${localLabel ? localLabel.toLowerCase().replace(/\s/g, '') : slug}`
-            );
-            try {
-              const trimmed = value.trim();
-              // Normalize local-runtime endpoints so the cloud_providers entry
-              // always carries the OpenAI-compatible `/v1` path that the
-              // `list_configured_models` probe expects. Without this,
-              // `http://host:11434` would pass validation, be stored verbatim,
-              // and silently fail model discovery until the user manually
-              // appended `/v1` — confusing because the UI would still mark the
-              // provider connected (caught in review).
-              const endpoint = isLocalRuntime
-                ? (() => {
-                    const url = new URL(trimmed); // throws on malformed → caught above
-                    if (!/^https?:$/.test(url.protocol)) {
-                      throw new Error('Endpoint must start with http:// or https://');
-                    }
-                    if (url.pathname === '' || url.pathname === '/') {
-                      url.pathname = '/v1';
-                    }
-                    return url.toString().replace(/\/$/, '');
-                  })()
-                : defaultEndpointFor(slug);
-              const upserted: CloudProvider = {
-                id: `p_${slug}_${Math.random().toString(36).slice(2, 7)}`,
-                slug,
-                label: localLabel ?? BUILTIN_PROVIDER_META[slug]?.label ?? slug,
-                endpoint,
-                authStyle: authStyleForSlug(slug),
-                maskedKey: maskKeyLabel(true),
-              };
-
-              // Snapshot the prior persisted cloud_providers list so we can
-              // roll back to it if the live probe fails. `saved` reflects what
-              // is currently on disk (the eager-flush effect keeps it in sync
-              // with `draft`), so this is the right baseline to restore to.
-              const priorWireProviders = saved.cloudProviders.map(p => ({
-                id: p.id,
-                slug: p.slug,
-                label: p.label,
-                endpoint: p.endpoint,
-                auth_style: p.authStyle,
-              }));
-
-              // Persist the credential / endpoint BEFORE the probe, so the
-              // factory has everything it needs to actually answer it. Each
-              // step short-circuits and surfaces its own error via throw —
-              // ProviderKeyDialog.handleSave catches and keeps the dialog open
-              // so the user can fix the value and retry.
-              if (!isLocalRuntime && slug !== 'openhuman') {
-                await setCloudProviderKey(slug, trimmed);
-              } else if (isLocalRuntime && slug === 'ollama') {
-                // The Rust Ollama branch reads `config.local_ai.base_url`
-                // (not `cloud_providers[].endpoint`) when building the chat
-                // provider — persist it eagerly so chat routing actually hits
-                // the user-chosen host. Strip a trailing `/v1` since
-                // `make_ollama_provider` appends `/v1` itself.
-                const baseUrl = endpoint.replace(/\/v1\/?$/, '');
-                await openhumanUpdateLocalAiSettings({
-                  base_url: baseUrl,
-                  provider: 'ollama',
-                  runtime_enabled: true,
-                  opt_in_confirmed: true,
-                });
-              }
-
-              // Live verification: flush the new cloud_providers list to disk
-              // and call `/models` through the Rust controller. A reachable
-              // endpoint + valid auth header is the strongest check we can
-              // make without burning tokens. Skip the probe for the
-              // OpenHuman backend (session JWT, no /models endpoint to hit).
-              if (slug !== 'openhuman') {
-                const nextWireProviders = [
-                  ...priorWireProviders.filter(p => p.slug !== slug),
-                  {
-                    id: upserted.id,
-                    slug: upserted.slug,
-                    label: upserted.label,
-                    endpoint: upserted.endpoint,
-                    auth_style: upserted.authStyle,
-                  },
-                ];
-                await flushCloudProviders(nextWireProviders);
-                try {
-                  await listProviderModels(slug);
-                } catch (probeErr) {
-                  // Roll back so the UI / on-disk state never reflects a
-                  // provider we couldn't actually reach. The user sees the
-                  // error in the dialog and the chip stays in the OFF state.
-                  await flushCloudProviders(priorWireProviders).catch(() => {});
-                  if (!isLocalRuntime && slug !== 'openhuman') {
-                    await clearCloudProviderKey(slug).catch(() => {});
-                  }
-                  const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
-                  throw new Error(`Could not reach ${upserted.label}: ${msg}`);
-                }
-              }
-
-              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
-              setKeyDialogFor(null);
-              setPendingLocalLabel(null);
-            } finally {
-              setBusyAction(null);
-            }
-          }}
+          onSubmit={async value =>
+            await connectProvider({
+              slug: keyDialogFor,
+              localLabel: pendingLocalLabel,
+              value,
+              credentialMode: pendingLocalLabel ? 'endpoint' : 'api_key',
+            })
+          }
         />
       )}
     </div>

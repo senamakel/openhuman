@@ -14,6 +14,7 @@ import {
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { renderWithProviders } from '../../../../test/test-utils';
+import { connectOpenRouterViaOAuth } from '../../../../utils/openrouterOAuth';
 // Lazy import so the typed mock is available to individual tests.
 import { openhumanUpdateLocalAiSettings as openhumanUpdateLocalAiSettingsMock } from '../../../../utils/tauriCommands/config';
 import {
@@ -88,6 +89,8 @@ vi.mock('../../../../utils/tauriCommands/config', async () => {
       .mockResolvedValue({ result: { config: {}, workspace_dir: '', config_path: '' }, logs: [] }),
   };
 });
+
+vi.mock('../../../../utils/openrouterOAuth', () => ({ connectOpenRouterViaOAuth: vi.fn() }));
 
 const baseSettings = {
   cloudProviders: [
@@ -204,6 +207,7 @@ describe('AIPanel', () => {
     vi.mocked(clearOpenAICompatEndpointKey).mockResolvedValue(undefined);
     vi.mocked(setCloudProviderKey).mockResolvedValue(undefined);
     vi.mocked(listProviderModels).mockResolvedValue([]);
+    vi.mocked(connectOpenRouterViaOAuth).mockResolvedValue('sk-or-oauth');
     vi.mocked(openhumanHeartbeatSettingsGet).mockResolvedValue({
       result: { settings: baseHeartbeatSettings },
       logs: [],
@@ -416,6 +420,45 @@ describe('AIPanel', () => {
     );
     // The input for the API key should be visible.
     expect(screen.getByLabelText(/API key/i)).toBeInTheDocument();
+  });
+
+  it('clicking the OpenRouter chip shows both API key entry and the OAuth button', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Connect OpenRouter/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenRouter/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
+    expect(within(dialog).getByLabelText(/API key/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i })
+    ).toBeInTheDocument();
+  });
+
+  it('stores the OpenRouter OAuth key and enables the provider chip', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+    vi.mocked(connectOpenRouterViaOAuth).mockResolvedValue('sk-or-from-oauth');
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Connect OpenRouter/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenRouter/i }));
+    const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i }));
+
+    await waitFor(() => expect(connectOpenRouterViaOAuth).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(setCloudProviderKey).toHaveBeenCalledWith('openrouter', 'sk-or-from-oauth')
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Disconnect OpenRouter/i })).toBeInTheDocument()
+    );
   });
 
   it('clicking the Custom chip (when disabled) opens the CloudProviderEditor, not the key dialog', async () => {

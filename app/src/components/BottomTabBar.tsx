@@ -137,7 +137,10 @@ const BottomTabBar = () => {
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
   const unreadCount = useAppSelector(state => selectUnreadCount(state.notifications.items));
   const companionActive = useAppSelector(selectCompanionSessionActive);
-  const tabBarLabels = useAppSelector(state => state.theme.tabBarLabels);
+  // `state.theme` is undefined in some test fixtures that build a minimal
+  // store without the theme slice; default to the historical 'hover' behavior
+  // so an absent theme branch can't crash the bar.
+  const tabBarLabels = useAppSelector(state => state.theme?.tabBarLabels ?? 'hover');
   const labelsAlwaysVisible = tabBarLabels === 'always';
 
   const hiddenPaths = ['/', '/login'];

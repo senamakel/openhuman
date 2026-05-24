@@ -70,6 +70,7 @@ impl Tool for MemoryTreeFetchLeavesTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
 
     #[test]
@@ -93,5 +94,50 @@ mod tests {
         assert_eq!(ids[..take].len(), 20);
         assert_eq!(ids[..take].first().map(String::as_str), Some("chunk-0"));
         assert_eq!(ids[..take].last().map(String::as_str), Some("chunk-19"));
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_missing_chunk_ids() {
+        let tool = MemoryTreeFetchLeavesTool;
+        let err = tool
+            .execute(json!({}))
+            .await
+            .expect_err("missing chunk_ids should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_fetch_leaves")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_rejects_wrong_type_for_chunk_ids() {
+        let tool = MemoryTreeFetchLeavesTool;
+        let err = tool
+            .execute(json!({"chunk_ids": "not-an-array"}))
+            .await
+            .expect_err("wrong chunk_ids type should fail");
+        assert!(
+            err.to_string()
+                .contains("invalid arguments for memory_tree_fetch_leaves")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_success_path_returns_json_array() {
+        let tool = MemoryTreeFetchLeavesTool;
+        let result = tool
+            .execute(json!({
+                "chunk_ids": ["chunk-does-not-exist-1", "chunk-does-not-exist-2"]
+            }))
+            .await
+            .expect("valid fetch_leaves request should succeed");
+        assert!(!result.is_error);
+        let payload = result.text();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&payload).expect("result should be valid json");
+        assert!(
+            parsed.is_array(),
+            "fetch_leaves should serialize a JSON array"
+        );
     }
 }

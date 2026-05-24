@@ -384,3 +384,42 @@ fn print_help() {
     println!("  openhuman tree-summarizer query my-ns 2024/03/15");
     println!("  openhuman tree-summarizer status my-ns");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_help_matches_supported_aliases() {
+        assert!(is_help("-h"));
+        assert!(is_help("--help"));
+        assert!(is_help("help"));
+        assert!(!is_help("run"));
+    }
+
+    #[test]
+    fn parse_opts_collects_known_flags_and_rest_args() {
+        let args = vec![
+            "--content".to_string(),
+            "hello".to_string(),
+            "--file".to_string(),
+            "notes.md".to_string(),
+            "--node-id".to_string(),
+            "2024/03/15".to_string(),
+            "--verbose".to_string(),
+            "namespace".to_string(),
+        ];
+        let (opts, rest) = parse_opts(&args).unwrap();
+        assert!(opts.verbose);
+        assert_eq!(opts.content.as_deref(), Some("hello"));
+        assert_eq!(opts.file.as_deref(), Some("notes.md"));
+        assert_eq!(opts.node_id.as_deref(), Some("2024/03/15"));
+        assert_eq!(rest, vec!["namespace".to_string()]);
+    }
+
+    #[test]
+    fn parse_opts_errors_when_flag_value_is_missing() {
+        let err = parse_opts(&["--content".to_string()]).unwrap_err();
+        assert!(err.to_string().contains("missing value for --content"));
+    }
+}

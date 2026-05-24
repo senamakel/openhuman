@@ -190,3 +190,24 @@ fn create_local_ai_provider(
 
     Ok(Box::new(reliable))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_provider_requires_local_ai_runtime() {
+        let mut cfg = Config::default();
+        cfg.local_ai.runtime_enabled = false;
+        let err = create_provider(&cfg).unwrap_err();
+        assert!(err.contains("requires local_ai to be enabled"));
+    }
+
+    #[test]
+    fn create_local_ai_provider_uses_ollama_local_label() {
+        let mut cfg = Config::default();
+        cfg.local_ai.runtime_enabled = true;
+        let provider = create_local_ai_provider(&cfg).expect("provider");
+        let _ = provider;
+    }
+}

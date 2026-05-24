@@ -26,3 +26,17 @@ pub use types::{
     INPUT_TOKEN_BUDGET, OUTPUT_TOKEN_BUDGET, SUMMARY_FANOUT, TOPIC_ARCHIVE_THRESHOLD,
     TOPIC_CREATION_THRESHOLD, TOPIC_RECHECK_EVERY,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tree_module_reexports_expected_constants() {
+        assert_eq!(INPUT_TOKEN_BUDGET, 50_000);
+        assert_eq!(OUTPUT_TOKEN_BUDGET, 5_000);
+        assert_eq!(SUMMARY_FANOUT, 10);
+        assert!(TOPIC_CREATION_THRESHOLD > TOPIC_ARCHIVE_THRESHOLD);
+        assert!(TOPIC_RECHECK_EVERY > 0);
+    }
+}

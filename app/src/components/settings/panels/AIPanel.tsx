@@ -1662,6 +1662,7 @@ const WorkloadRow = ({
   cloudProviders,
   onCustomClick,
 }: WorkloadRowProps & { onCustomClick: () => void }) => {
+  const { t } = useT();
   const selectedCloud =
     ref_.kind === 'cloud' ? cloudProviders.find(c => c.slug === ref_.providerSlug) : undefined;
   const isCustom = ref_.kind === 'cloud' || ref_.kind === 'local';

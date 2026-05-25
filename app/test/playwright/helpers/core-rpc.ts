@@ -108,6 +108,27 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
     .toMatch(/^#\/home/);
 }
 
+export async function resetCoreForWebGuest(): Promise<void> {
+  await resetCoreForWebUser('guest');
+}
+
+export async function bootRuntimeReadyGuestPage(page: Page): Promise<void> {
+  await resetCoreForWebGuest();
+  await seedBrowserCoreMode(page);
+  await page.goto('/#/');
+  await page.waitForSelector('#root');
+}
+
+export async function signInViaCallbackToken(page: Page, token: string): Promise<void> {
+  await completeAuthCallback(page, token);
+  await waitForAppReady(page);
+}
+
+export async function signInViaBypassUser(page: Page, userId: string): Promise<void> {
+  await completeAuthCallback(page, buildBypassJwt(userId));
+  await waitForAppReady(page);
+}
+
 export async function bootAuthenticatedPage(page: Page, userId: string, hash: string = '/home'): Promise<void> {
   await resetCoreForWebUser(userId);
   await seedBrowserCoreMode(page);

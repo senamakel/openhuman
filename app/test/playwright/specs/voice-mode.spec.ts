@@ -44,6 +44,7 @@ async function installGetUserMediaError(page: Page, name: string): Promise<void>
 }
 
 async function restoreGetUserMedia(page: Page): Promise<void> {
+  if (page.isClosed()) return;
   await page.evaluate(() => {
     const mediaDevices = navigator.mediaDevices as MediaDevices & {
       __e2e_original_getUserMedia?: MediaDevices['getUserMedia'];
@@ -83,9 +84,9 @@ test.describe('Voice mode integration', () => {
   test('permission-denied getUserMedia shows a specific voice-transcription error', async ({
     page,
   }) => {
-    await installGetUserMediaError(page, 'NotAllowedError');
     try {
       await switchChatIntoMicComposer(page);
+      await installGetUserMediaError(page, 'NotAllowedError');
       await page.getByRole('button', { name: 'Start recording' }).click();
 
       const errorBanner = page.locator('[data-chat-send-error-code="voice_transcription"]');
@@ -100,9 +101,9 @@ test.describe('Voice mode integration', () => {
   test('missing-device getUserMedia shows a specific unavailable-device error', async ({
     page,
   }) => {
-    await installGetUserMediaError(page, 'NotFoundError');
     try {
       await switchChatIntoMicComposer(page);
+      await installGetUserMediaError(page, 'NotFoundError');
       await page.getByRole('button', { name: 'Start recording' }).click();
 
       const errorBanner = page.locator('[data-chat-send-error-code="voice_transcription"]');

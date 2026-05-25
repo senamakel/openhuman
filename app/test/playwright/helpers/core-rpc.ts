@@ -150,3 +150,11 @@ export async function waitForAppReady(page: Page): Promise<void> {
     .toBeGreaterThan(20);
   await expect(page.getByText(/Select a Runtime|Connect to Your Runtime/)).toHaveCount(0);
 }
+
+export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
+  const skipButton = page.getByRole('button', { name: /Skip|Skip tour/i });
+  if ((await skipButton.count()) === 0) return;
+  if (!(await skipButton.first().isVisible().catch(() => false))) return;
+  await skipButton.first().click();
+  await expect(skipButton.first()).toHaveCount(0, { timeout: 5_000 });
+}

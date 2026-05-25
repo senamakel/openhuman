@@ -163,6 +163,9 @@ mod tests {
 
     #[tokio::test]
     async fn kv_handlers_roundtrip_scoped_values() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         ensure_memory_client();
         let namespace = unique_namespace("kv-graph-kv");
         let key = format!(
@@ -216,6 +219,9 @@ mod tests {
 
     #[tokio::test]
     async fn graph_handlers_roundtrip_relation_rows() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         ensure_memory_client();
         let namespace = unique_namespace("kv-graph-rel");
         let subject = format!(

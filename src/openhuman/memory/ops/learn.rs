@@ -245,6 +245,9 @@ mod tests {
 
     #[tokio::test]
     async fn memory_learn_all_is_noop_for_explicit_empty_namespace_list() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         ensure_memory_client();
         let outcome = memory_learn_all(LearnAllParams {
             namespaces: Some(vec![]),
@@ -258,6 +261,9 @@ mod tests {
 
     #[tokio::test]
     async fn memory_learn_all_is_noop_when_requested_namespaces_do_not_exist() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         ensure_memory_client();
         let missing = format!(
             "missing{}",
@@ -274,6 +280,9 @@ mod tests {
 
     #[tokio::test]
     async fn memory_learn_all_filters_missing_namespaces_and_dedupes_requested_order() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         let namespace_a = seed_namespace("memory-learn-a").await;
         let namespace_b = seed_namespace("memory-learn-b").await;
         let missing = format!(
@@ -304,6 +313,9 @@ mod tests {
 
     #[tokio::test]
     async fn memory_learn_all_requires_local_ai_once_existing_namespace_is_selected() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         let namespace = seed_namespace("memory-learn-runtime").await;
         let tmp = TempDir::new().expect("tempdir");
         let _workspace = write_config_with_runtime_enabled(tmp.path(), false).await;
@@ -319,6 +331,9 @@ mod tests {
 
     #[tokio::test]
     async fn memory_learn_all_uses_all_namespaces_when_none_is_requested() {
+        let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
+            .lock()
+            .await;
         let namespace_a = seed_namespace("memory-learn-all-a").await;
         let namespace_b = seed_namespace("memory-learn-all-b").await;
         let tmp = TempDir::new().expect("tempdir");

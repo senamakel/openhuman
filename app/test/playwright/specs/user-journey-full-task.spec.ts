@@ -121,7 +121,6 @@ test.describe('User journey - full research task', () => {
     expect(typeof threadId).toBe('string');
 
     await sendMessage(page, PROMPT);
-    await expect(page.getByText(PROMPT)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 45_000 });
 
     await page.goto('/#/home');

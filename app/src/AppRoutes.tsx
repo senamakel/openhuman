@@ -17,6 +17,7 @@ import Rewards from './pages/Rewards';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import Welcome from './pages/Welcome';
+import WebCallbackPage from './pages/WebCallbackPage';
 
 const AppRoutes = () => {
   // Mobile target (iOS or Android): pair → Human/Chat/Settings only.
@@ -36,6 +37,9 @@ const AppRoutes = () => {
           </PublicRoute>
         }
       />
+
+      <Route path="/callback/:kind" element={<WebCallbackPage />} />
+      <Route path="/callback/:kind/:status" element={<WebCallbackPage />} />
 
       {/* Onboarding (full-page stepper, gated by onboarding_completed) */}
       <Route

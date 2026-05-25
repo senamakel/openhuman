@@ -586,8 +586,8 @@ const bn5: TranslationMap = {
   'settings.autocomplete.shared.none': 'কোনটিই',
   'settings.autocomplete.shared.notApplicable': 'n/a',
   'settings.autocomplete.shared.unknown': 'অজানা',
-  'settings.billing.autoRecharge.expires': 'এই সপ্তাহে ব্যবহৃত $__PH1__ এর ${date} {date}',
-  'settings.billing.autoRecharge.spentThisWeek': 'মেয়াদ শেষ',
+  'settings.billing.autoRecharge.expires': '{date} এ মেয়াদ শেষ',
+  'settings.billing.autoRecharge.spentThisWeek': 'এই সপ্তাহে ${spent} / ${limit} ব্যবহৃত',
   'settings.localModel.deviceCapability.disabledLowercase': 'অক্ষম',
   'settings.localModel.deviceCapability.presetDetails':
     'চ্যাট: {chatModel} · দৃষ্টি: {visionModel} · লক্ষ্য RAM: {targetRamGb} GB',

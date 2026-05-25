@@ -303,7 +303,7 @@ const it4: TranslationMap = {
   'settings.ai.localOllama': 'Locale (Ollama)',
   'settings.ai.modelLabel': 'Modello',
   'settings.ai.noCustomProviders': 'Nessun provider personalizzato',
-  'settings.ai.openAiCompat.authHeaderExample': 'Autorizzazione: Portatore <la tua chiave>',
+  'settings.ai.openAiCompat.authHeaderExample': 'Authorization: Bearer <la tua chiave>',
   'settings.ai.openAiCompat.authHeaderLabel': 'Intestazione autenticazione',
   'settings.ai.openAiCompat.baseUrlLabel': 'Base URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'Non disponibile',

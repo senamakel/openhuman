@@ -286,11 +286,11 @@ const hi5: TranslationMap = {
   'skills.create.name': 'नाम',
   'skills.create.namePlaceholder': 'जैसे Trade Journal',
   'skills.create.scope': 'स्कोप',
-  'skills.create.scopeProjectHint': '/.खुलामानव/कौशल/',
+  'skills.create.scopeProjectHint': '/.openhuman/skills/',
   'skills.create.scopeUserHint':
     '~/.openhuman/skills/<slug>/SKILL.md में लिखा जाता है — सभी वर्कस्पेस में उपलब्ध।',
   'skills.create.slugLabel': 'स्लग लेबल',
-  'skills.create.subtitle': 'कौशल.एमडी',
+  'skills.create.subtitle': 'SKILL.md',
   'skills.create.tags': 'टैग्स',
   'skills.create.title': 'नया स्किल',
   'skills.detail.allowedTools': 'अनुमत टूल्स',
@@ -506,7 +506,7 @@ const hi5: TranslationMap = {
   'settings.mcpServer.copied': 'नकल की गई!',
   'settings.mcpServer.openConfigFile': 'कॉन्फ़िग फ़ाइल खोलें',
   'settings.mcpServer.binaryPathNotFound':
-    'OpenHuman बाइनरी नहीं मिली. यदि स्रोत से चल रहा है, तो इसके साथ निर्माण करें: कार्गो बिल्ड --बिन ओपनहुमन-कोर',
+    'OpenHuman बाइनरी नहीं मिली. यदि स्रोत से चल रहा है, तो इसके साथ निर्माण करें: cargo build --bin openhuman-core',
   'settings.mcpServer.openConfigError': 'कॉन्फ़िग फ़ाइल खोलने में विफल',
   'settings.mcpServer.clientClaudeDesktop': 'क्लाउड डेस्कटॉप',
   'settings.mcpServer.clientCursor': 'कर्सर',
@@ -603,7 +603,7 @@ const hi5: TranslationMap = {
   'settings.localModel.download.embeddingVectors': 'वेक्टर: {count}',
   'settings.localModel.download.notAvailable': 'एन/ए',
   'settings.localModel.download.summaryHelper':
-    'रस्ट कोर के माध्यम से `open human.inference_summarize` को कॉल करता है',
+    'रस्ट कोर के माध्यम से `openhuman.inference_summarize` को कॉल करता है',
   'settings.localModel.download.transcript': 'प्रतिलेख:',
   'settings.localModel.download.ttsOutput': 'आउटपुट: {outputPath}',
   'settings.localModel.download.ttsVoice': 'आवाज़: {voiceId}',
@@ -661,7 +661,7 @@ const hi5: TranslationMap = {
     'केवल सीधे `.md` लिंक काम करते हैं। GitHub के लिए, एक फ़ाइल से लिंक करें (github.com/owner/repo/blob/.../SKILL.md) - ट्री और रेपो रूट स्थापित नहीं हैं।',
   'skills.install.errors.unsupportedUrlTitle': 'URL फॉर्म समर्थित नहीं है',
   'skills.install.errors.writeFailedHint':
-    'कार्यक्षेत्र कौशल निर्देशिका लिखने योग्य नहीं थी. `<workspace>/.open human/skills/` के लिए फ़ाइल सिस्टम अनुमतियाँ जाँचें।',
+    'कार्यक्षेत्र कौशल निर्देशिका लिखने योग्य नहीं थी. `<workspace>/.openhuman/skills/` के लिए फ़ाइल सिस्टम अनुमतियाँ जाँचें।',
   'skills.install.errors.writeFailedTitle': 'SKILL.md नहीं लिख सका',
   'skills.install.fetchingPrefix': 'ला रहा है',
   'skills.install.fetchingSuffix':

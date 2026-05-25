@@ -300,7 +300,7 @@ const hi4: TranslationMap = {
   'settings.ai.localOllama': 'लोकल (Ollama)',
   'settings.ai.modelLabel': 'मॉडल',
   'settings.ai.noCustomProviders': 'कोई कस्टम प्रोवाइडर नहीं',
-  'settings.ai.openAiCompat.authHeaderExample': 'प्राधिकरण: वाहक <आपकी कुंजी>',
+  'settings.ai.openAiCompat.authHeaderExample': 'Authorization: Bearer <आपकी कुंजी>',
   'settings.ai.openAiCompat.authHeaderLabel': 'प्रामाणिक शीर्षलेख',
   'settings.ai.openAiCompat.baseUrlLabel': 'आधार URL',
   'settings.ai.openAiCompat.baseUrlUnavailable': 'अनुपलब्ध',

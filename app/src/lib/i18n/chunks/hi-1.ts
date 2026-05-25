@@ -242,6 +242,7 @@ const hi1: TranslationMap = {
   'onboarding.custom.stepperVoice': 'वॉइस',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': 'सर्च',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': 'मेमोरी',
   'onboarding.custom.stepCounter': 'स्टेप {n} / {total}',
   'onboarding.custom.defaultTitle': 'डिफ़ॉल्ट',
@@ -280,6 +281,13 @@ const hi1: TranslationMap = {
     'OpenHuman मैनेज्ड सर्च बैकएंड इस्तेमाल करता है। कोई key नहीं चाहिए।',
   'onboarding.custom.search.configureDesc':
     'अपनी सर्च प्रोवाइडर key लाएं (Tavily, Brave, आदि)। Settings › Tools में कॉन्फिगर करें।',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': 'मेमोरी',
   'onboarding.custom.memory.subtitle':
     'OpenHuman आपका कॉन्टेक्स्ट, पसंद और पुरानी बातें कैसे याद रखता है।',
@@ -522,6 +530,8 @@ const hi1: TranslationMap = {
   'settings.embeddings.setupTitle': '{provider} सेटअप',
   'settings.embeddings.saveAndSwitch': 'सहेजें और बदलें',
   'settings.embeddings.optional': 'वैकल्पिक',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'API कुंजी साफ़ करें',
   'mcp.alphaBadge': 'अल्फ़ा',
   'mcp.alphaBannerText':

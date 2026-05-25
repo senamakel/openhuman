@@ -172,14 +172,14 @@ mod tests {
         let f = TreeFactory::source("gmail:alice@example.com|bob@example.com");
         assert_eq!(
             f.scope_slug(),
-            "alice-at-example-dot-com-bob-at-example-dot-com"
+            "alice-example-com-bob-example-com"
         );
     }
 
     #[test]
     fn topic_scope_slug_keeps_canonical_prefix() {
         let f = TreeFactory::topic("email:alice@example.com");
-        assert_eq!(f.scope_slug(), "email-alice-at-example-dot-com");
+        assert_eq!(f.scope_slug(), "email-alice-example-com");
         assert_eq!(f.summary_tree_kind(), SummaryTreeKind::Topic);
     }
 }

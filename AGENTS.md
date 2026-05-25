@@ -70,6 +70,11 @@ pnpm rust:check         # same as above
 # whisper-rs / llama.cpp on macOS Tahoe (Apple Silicon) fail with `-mcpu=native`.
 # Workaround for `cargo check`/`cargo test`:
 GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml
+
+# PR maintenance
+pnpm pr:sync-main --help        # inspect options
+pnpm pr:sync-main               # dry-run: scan open PRs targeting main
+pnpm pr:sync-main --execute     # merge latest main into each matching PR branch and push
 ```
 
 **Tests**: Vitest in `app/` (`pnpm test`, `pnpm test:coverage`); Rust via `pnpm test:rust` (runs `scripts/test-rust-with-mock.sh`).

@@ -3376,7 +3376,7 @@ const en: TranslationMap = {
     'Configure AI triage settings for Composio integration triggers',
   'memory.sourceFilterAria': 'Filter by source',
   'calls.comingSoonDescription': 'AI-assisted calls are coming soon. Stay tuned.',
-  'vault.title': 'Knowledge vaults',
+  'vault.title': 'Knowledge vaults (Experimental)',
   'vault.description': 'Point at a local folder; files are chunked and mirrored into memory.',
   'vault.add': 'Add vault',
   'vault.added': 'Vault added',

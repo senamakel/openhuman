@@ -256,10 +256,7 @@ mod tests {
         let buf = vec![0x80; 11];
         match decode_varint(&buf, 0).unwrap_err() {
             YuanbaoError::ProtoDecode(m) => {
-                assert!(
-                    m.contains("too long") || m.contains("overflow"),
-                    "got {m}"
-                );
+                assert!(m.contains("too long") || m.contains("overflow"), "got {m}");
             }
             other => panic!("unexpected {other:?}"),
         }

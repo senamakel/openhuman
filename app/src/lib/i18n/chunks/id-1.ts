@@ -245,6 +245,7 @@ const id1: TranslationMap = {
   'onboarding.custom.stepperVoice': 'Suara',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': 'Pencarian',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': 'Memori',
   'onboarding.custom.stepCounter': 'Langkah {n} dari {total}',
   'onboarding.custom.defaultTitle': 'Bawaan',
@@ -284,6 +285,13 @@ const id1: TranslationMap = {
     'OpenHuman menggunakan backend pencarian terkelola. Tidak perlu key.',
   'onboarding.custom.search.configureDesc':
     'Bawa key penyedia pencarian Anda sendiri (Tavily, Brave, dll.). Konfigurasi di Pengaturan › Alat.',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': 'Memori',
   'onboarding.custom.memory.subtitle':
     'Cara OpenHuman mengingat konteks, preferensi, dan percakapan sebelumnya.',
@@ -527,6 +535,8 @@ const id1: TranslationMap = {
   'settings.embeddings.setupTitle': 'Siapkan {provider}',
   'settings.embeddings.saveAndSwitch': 'Simpan & ganti',
   'settings.embeddings.optional': 'opsional',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'Hapus kunci API',
   'mcp.alphaBadge': 'Alfa',
   'mcp.alphaBannerText':

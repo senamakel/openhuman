@@ -236,6 +236,7 @@ const zhCN1: TranslationMap = {
   'onboarding.custom.stepperVoice': '语音',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': '搜索',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': '记忆',
   'onboarding.custom.stepCounter': '第 {n} 步，共 {total} 步',
   'onboarding.custom.defaultTitle': '默认',
@@ -271,6 +272,13 @@ const zhCN1: TranslationMap = {
   'onboarding.custom.search.defaultDesc': 'OpenHuman 使用托管搜索后端。无需密钥。',
   'onboarding.custom.search.configureDesc':
     '使用你自己的搜索提供商密钥（Tavily、Brave 等）。在设置 › 工具中配置。',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': '记忆',
   'onboarding.custom.memory.subtitle': 'OpenHuman 如何记住你的上下文、偏好和历史对话。',
   'onboarding.custom.memory.defaultDesc': 'OpenHuman 会自动管理记忆存储和检索。无需设置。',
@@ -508,6 +516,8 @@ const zhCN1: TranslationMap = {
   'settings.embeddings.setupTitle': '设置 {provider}',
   'settings.embeddings.saveAndSwitch': '保存并切换',
   'settings.embeddings.optional': '可选',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': '清除 API 密钥',
   'mcp.alphaBadge': '阿尔法',
   'mcp.alphaBannerText':

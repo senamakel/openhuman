@@ -251,6 +251,7 @@ const fr1: TranslationMap = {
   'onboarding.custom.stepperVoice': 'Voix',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': 'Recherche',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': 'Mémoire',
   'onboarding.custom.stepCounter': 'Étape {n} sur {total}',
   'onboarding.custom.defaultTitle': 'Par défaut',
@@ -291,6 +292,13 @@ const fr1: TranslationMap = {
     'OpenHuman utilise un backend de recherche géré. Aucune clé nécessaire.',
   'onboarding.custom.search.configureDesc':
     'Utilise ta propre clé de fournisseur de recherche (Tavily, Brave, etc.). À configurer dans Paramètres › Outils.',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': 'Mémoire',
   'onboarding.custom.memory.subtitle':
     'Comment OpenHuman mémorise ton contexte, tes préférences et tes conversations passées.',
@@ -539,6 +547,8 @@ const fr1: TranslationMap = {
   'settings.embeddings.setupTitle': 'Configurer {provider}',
   'settings.embeddings.saveAndSwitch': 'Enregistrer et changer',
   'settings.embeddings.optional': 'optionnel',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'Effacer la clé API',
   'mcp.alphaBadge': 'Alpha',
   'mcp.alphaBannerText':

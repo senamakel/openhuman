@@ -243,6 +243,7 @@ const ko1: TranslationMap = {
   'onboarding.custom.stepperVoice': '음성',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': '검색',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': '메모리',
   'onboarding.custom.stepCounter': '{total}단계 중 {n}단계',
   'onboarding.custom.defaultTitle': '기본값',
@@ -283,6 +284,13 @@ const ko1: TranslationMap = {
     'OpenHuman은 관리형 검색 백엔드를 사용합니다. 키가 필요 없습니다.',
   'onboarding.custom.search.configureDesc':
     '직접 검색 제공업체 키(Tavily, Brave 등)를 가져오세요. 설정 › 도구에서 구성할 수 있습니다.',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': '메모리',
   'onboarding.custom.memory.subtitle':
     'OpenHuman이 사용자의 컨텍스트, 선호도, 이전 대화를 기억하는 방식입니다.',
@@ -524,6 +532,8 @@ const ko1: TranslationMap = {
   'settings.embeddings.setupTitle': '{provider} 설정',
   'settings.embeddings.saveAndSwitch': '저장 및 전환',
   'settings.embeddings.optional': '선택사항',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'API 키 삭제',
   'mcp.alphaBadge': '알파',
   'mcp.alphaBannerText':

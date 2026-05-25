@@ -298,6 +298,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
       await persistProviders({ stt_provider: sttProvider, tts_provider: ttsProvider });
       setSavedSttProvider(sttProvider);
       setSavedTtsProvider(ttsProvider);
+      setNotice(t('voice.providers.saved'));
+      void loadData(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('voice.providers.failedToSave'));
     } finally {

@@ -802,6 +802,7 @@ fn handle_voice_set_providers(params: Map<String, Value>) -> ControllerFuture {
         {
             validate_stt_provider(stt)?;
             config.local_ai.stt_provider = stt.to_string();
+            config.stt_provider = Some(stt.to_string());
         }
         if let Some(tts) = p
             .tts_provider
@@ -811,6 +812,7 @@ fn handle_voice_set_providers(params: Map<String, Value>) -> ControllerFuture {
         {
             validate_tts_provider(tts)?;
             config.local_ai.tts_provider = tts.to_string();
+            config.tts_provider = Some(tts.to_string());
         }
         if let Some(model) = p
             .stt_model

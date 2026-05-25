@@ -172,16 +172,38 @@ export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
   const skipButton = page.getByRole('button', { name: /Skip|Skip tour/i });
   const portal = page.locator('#react-joyride-portal');
   const deadline = Date.now() + 5_000;
+  const markCompleted = async () => {
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem('openhuman:walkthrough_completed', 'true');
+        localStorage.removeItem('openhuman:walkthrough_pending');
+      } catch {}
+    });
+  };
 
   while (Date.now() < deadline) {
     if ((await portal.count()) === 0) return;
     if ((await skipButton.count()) > 0 && (await skipButton.first().isVisible().catch(() => false))) {
       await skipButton.first().click({ force: true });
-      await expect(portal).toHaveCount(0, { timeout: 5_000 });
-      return;
+      await markCompleted();
+      try {
+        await expect
+          .poll(async () => {
+            const visible = await skipButton.first().isVisible().catch(() => false);
+            return !visible;
+          }, { timeout: 5_000 })
+          .toBe(true);
+        return;
+      } catch {
+        // Some routes keep the Joyride portal mounted even after the tour is
+        // dismissed. Keep looping so we can re-check visibility and fall back
+        // to the persisted completion flag below.
+      }
     }
     await page.waitForTimeout(100);
   }
+
+  await markCompleted();
 }
 
 async function waitForAuthenticatedSnapshot(page: Page): Promise<void> {

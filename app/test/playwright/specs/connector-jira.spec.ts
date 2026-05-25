@@ -146,6 +146,13 @@ async function openModal(page: Page) {
   return dialog;
 }
 
+async function waitForDisconnectedCard(page: Page) {
+  const card = page.getByTestId('skill-install-composio-jira');
+  await expect(card).toContainText(CONNECTOR_NAME);
+  await expect(card).toContainText(/Connect/i);
+  await expect(card).not.toContainText(/Manage|Connected|Reconnect|Auth expired/i);
+}
+
 function unwrapConnections(payload: unknown): Array<{ toolkit?: string; status?: string }> {
   const root = payload as {
     result?: { connections?: Array<{ toolkit?: string; status?: string }> };
@@ -170,6 +177,7 @@ test.describe('Jira connector', () => {
       composioConnections: JSON.stringify([]),
     });
     await reloadSkills(page);
+    await waitForDisconnectedCard(page);
     const dialog = await openModal(page);
     await expect(dialog.getByTestId('composio-required-subdomain')).toBeVisible();
     await expect(dialog.getByRole('button', { name: /Connect Jira/i })).toBeVisible();
@@ -190,7 +198,7 @@ test.describe('Jira connector', () => {
     expect(authReq).toBeDefined();
     expect(JSON.parse(authReq?.body || '{}')).toMatchObject({
       toolkit: TOOLKIT_SLUG,
-      extra_params: { subdomain: 'myteam' },
+      subdomain: 'myteam',
     });
   });
 

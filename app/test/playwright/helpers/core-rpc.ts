@@ -182,8 +182,11 @@ export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
         .isVisible()
         .catch(() => false))
     ) {
-      await skipButton.first().click({ force: true });
       await markCompleted();
+      await skipButton
+        .first()
+        .click({ force: true, timeout: 1_000 })
+        .catch(() => {});
       try {
         await expect
           .poll(

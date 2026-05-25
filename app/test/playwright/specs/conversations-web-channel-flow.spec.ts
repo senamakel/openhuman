@@ -118,8 +118,12 @@ test.describe('Conversations web channel flow', () => {
     await createNewThread(page);
     await sendMessage(page, PROMPT);
 
-    await expect(page.getByText(PROMPT)).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(REPLY)).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('p').filter({ hasText: PROMPT }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.locator('p').filter({ hasText: REPLY }).first()).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expect
       .poll(async () => {

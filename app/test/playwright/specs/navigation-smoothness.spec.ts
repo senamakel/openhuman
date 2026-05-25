@@ -57,9 +57,8 @@ test.describe('Navigation Smoothness', () => {
   test('final state is /home with correct content', async ({ page }) => {
     await page.goto('/#/home');
     await waitForAppReady(page);
-    await expect(
-      page.getByText(/Ask your assistant anything|Your device is connected/)
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ask your assistant anything/i })).toBeVisible();
+    await expect(page.getByText(/Your device is connected/i)).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/home/);
   });
 });

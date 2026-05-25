@@ -118,7 +118,7 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         run: |
@@ -128,19 +128,20 @@ jobs:
       - name: Install Appium and chromium driver
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
           # `appium driver list --installed` can miss cached installs on some
           # Appium builds; install idempotently and ignore "already installed".
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       - name: Build E2E app
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E (mega-flow)
         if: ${{ !inputs.full }}
         run: |
-          xvfb-run -a --server-args="-screen 0 1280x960x24" \
+          bash scripts/ci-cancel-aware.sh \
+            xvfb-run -a --server-args="-screen 0 1280x960x24" \
             bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
       - name: Upload E2E failure artifacts
@@ -217,7 +218,7 @@ jobs:
             cef-x86_64-unknown-linux-gnu-v2-
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         run: |
@@ -225,7 +226,7 @@ jobs:
           touch app/.env
 
       - name: Build E2E app
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       - name: Package build artifact
         run: |
@@ -293,14 +294,14 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies (for test harness only)
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Install Appium and chromium driver
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       - name: Download build artifact
         uses: actions/download-artifact@v5
@@ -331,7 +332,8 @@ jobs:
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"
           fi
-          xvfb-run -a --server-args="-screen 0 1280x960x24" \
+          bash scripts/ci-cancel-aware.sh \
+            xvfb-run -a --server-args="-screen 0 1280x960x24" \
             bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
               --suite=${{ matrix.shard.suites }} $BAIL_FLAG
 
@@ -397,7 +399,7 @@ jobs:
           key: rust-e2e-linux
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for tests
         run: |
@@ -405,7 +407,7 @@ jobs:
           touch app/.env
 
       - name: Run Rust E2E suite (tests/*_e2e.rs vs mock backend)
-        run: pnpm test:rust:e2e
+        run: bash scripts/ci-cancel-aware.sh pnpm test:rust:e2e
 
       # No artifact uploads here either — same release-workflow reuse
       # concern as the Tauri job above. Mock-backend log lives at
@@ -474,7 +476,7 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         run: |
@@ -484,14 +486,14 @@ jobs:
       - name: Install Appium and chromium driver
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
           # `appium driver list --installed` can miss cached installs on some
           # Appium builds; install idempotently and ignore "already installed".
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       - name: Build E2E app
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       # macOS rejects dynamic-framework loads from unsigned bundles — adhoc
       # signing satisfies the loader without a real developer-ID cert.
@@ -504,7 +506,7 @@ jobs:
 
       - name: Run E2E (mega-flow)
         run: |
-          bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
       # Artifact uploads intentionally omitted — see e2e-linux for the
       # reusable-workflow-is-also-used-by-releases rationale.
@@ -561,7 +563,7 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         shell: bash
@@ -573,19 +575,19 @@ jobs:
         shell: bash
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
           # `appium driver list --installed` can miss cached installs on some
           # Appium builds; install idempotently and ignore "already installed".
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       - name: Build E2E app
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E (mega-flow)
         shell: bash
         run: |
-          bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
       # Artifact uploads intentionally omitted — see e2e-linux for the
       # reusable-workflow-is-also-used-by-releases rationale.
@@ -666,7 +668,7 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         run: |
@@ -676,9 +678,9 @@ jobs:
       - name: Install Appium and chromium driver
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       # Binary cache — see Linux full job for the rationale. Mac caches the
       # entire .app bundle (self-contained including frontend assets + CEF
@@ -693,7 +695,7 @@ jobs:
 
       - name: Build E2E app
         if: steps.e2e-binary-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       # Adhoc-sign runs unconditionally — codesign is idempotent and a
       # restored .app bundle from cache also needs to be (re-)signed for
@@ -713,7 +715,7 @@ jobs:
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"
           fi
-          bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
             --suite=${{ matrix.shard.suites }} $BAIL_FLAG
 
       - name: Upload E2E failure artifacts
@@ -807,7 +809,7 @@ jobs:
           key: appium3-chromium-${{ runner.os }}-v1
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
 
       - name: Ensure .env exists for E2E build
         shell: bash
@@ -819,9 +821,9 @@ jobs:
         shell: bash
         run: |
           if ! command -v appium >/dev/null 2>&1; then
-            npm install -g appium@3
+            bash scripts/ci-cancel-aware.sh npm install -g appium@3
           fi
-          appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
+          bash scripts/ci-cancel-aware.sh appium driver install --source=npm appium-chromium-driver >/dev/null 2>&1 || true
 
       # Binary cache — see Linux full job for rationale. Windows is built
       # with --debug --no-bundle so the .exe + frontend dist are what the
@@ -841,7 +843,7 @@ jobs:
       # hit (see Linux full job for the rationale).
       - name: Build E2E app
         if: steps.e2e-binary-cache.outputs.cache-hit != 'true' || steps.cef-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter openhuman-app test:e2e:build
+        run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         shell: bash
@@ -856,7 +858,7 @@ jobs:
           if [[ "${E2E_BAIL_ON_FAILURE:-}" == "1" ]]; then
             BAIL_FLAG="--bail"
           fi
-          bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-run-all-flows.sh --skip-preflight \
             --suite=${{ matrix.shard.suites }} $BAIL_FLAG
 
       - name: Upload E2E failure artifacts

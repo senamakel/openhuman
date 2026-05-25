@@ -547,7 +547,7 @@ jobs:
           # baked elsewhere — see prepare-build.outputs.short_sha comment.
           OPENHUMAN_BUILD_SHA: ${{ needs.prepare-build.outputs.short_sha }}
           OPENHUMAN_APP_ENV: production
-        run: cargo build --release --bin openhuman-core
+        run: bash scripts/ci-cancel-aware.sh cargo build --release --bin openhuman-core
       - name: Package and upload tarball to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

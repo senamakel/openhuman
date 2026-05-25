@@ -42,10 +42,10 @@ Both ingest endpoints fire on every scan tick; both are `tokio::spawn` fire-and-
 
 ## Why two paths
 
-| Path | Backing store | Strength | Use it for |
-|------|---------------|----------|------------|
-| **Direct** | `whatsapp_data.db` (SQLite) | Exact, structured, paginated | "List my WhatsApp chats", "show the last 50 messages with Alice", "search for `invoice` across WhatsApp" |
-| **Memory tree** | Per-source memory tree + embeddings | Semantic, cross-source | "Summarise this week of WhatsApp", "find action items across email and WhatsApp", "what did the team agree on?" |
+| Path            | Backing store                       | Strength                     | Use it for                                                                                                      |
+| --------------- | ----------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Direct**      | `whatsapp_data.db` (SQLite)         | Exact, structured, paginated | "List my WhatsApp chats", "show the last 50 messages with Alice", "search for `invoice` across WhatsApp"        |
+| **Memory tree** | Per-source memory tree + embeddings | Semantic, cross-source       | "Summarise this week of WhatsApp", "find action items across email and WhatsApp", "what did the team agree on?" |
 
 The same scan tick populates both stores. Idempotency keys make the dual-write safe to retry:
 

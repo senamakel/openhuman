@@ -19,18 +19,18 @@ unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
 
 ## Cross-cutting modules
 
-| Path | Role |
-| --- | --- |
-| [`mod.rs`](mod.rs) | Module root + public re-exports. |
-| [`README.md`](README.md) | You are here. |
-| [`kinds.rs`](kinds.rs) | `MemoryKind` enum — the authoritative catalog: Raw / Chunk / Entity / Tree / Vector / Kv / Contact — plus per-kind type aliases. |
-| [`traits.rs`](traits.rs) | `VectorEmbeddable` + `ObsidianRepresentable` + `ObsidianFile`. Every stored kind implements both — the compiler enforces "everything in memory_store is vector and obsidian compatible". |
-| [`types.rs`](types.rs) | Shared serde types used across submodules: `NamespaceDocumentInput`, `NamespaceMemoryHit`, `NamespaceQueryResult`, `NamespaceRetrievalContext`, `RetrievalScoreBreakdown`, `MemoryItemKind`, `MemoryKvRecord`. |
-| [`memory_trait.rs`](memory_trait.rs) | `impl Memory for UnifiedMemory` — bridges the generic `Memory` trait surface onto the unified store. |
-| [`client.rs`](client.rs) | `MemoryClient` / `MemoryClientRef` / `MemoryState`. Async wrapper over `UnifiedMemory` used by RPC controllers; owns the singleton ingestion-queue handle. |
-| [`factories.rs`](factories.rs) | `create_memory*` constructors. Selects the embedding provider per the `MemoryConfig`, probes Ollama health, and builds a `Box<dyn Memory>` over `UnifiedMemory`. |
-| [`retrieval/`](retrieval/) | `RetrievalFacade` — single import surface over the four retrieval modes (tree-walk, vector, keyword, param/tag). |
-| [`tools/`](tools/) | Agent tools that read directly from memory_store: `memory_store_raw_search`, `memory_store_raw_chunks`, `memory_store_kinds`. |
+| Path                                 | Role                                                                                                                                                                                                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`mod.rs`](mod.rs)                   | Module root + public re-exports.                                                                                                                                                                               |
+| [`README.md`](README.md)             | You are here.                                                                                                                                                                                                  |
+| [`kinds.rs`](kinds.rs)               | `MemoryKind` enum — the authoritative catalog: Raw / Chunk / Entity / Tree / Vector / Kv / Contact — plus per-kind type aliases.                                                                               |
+| [`traits.rs`](traits.rs)             | `VectorEmbeddable` + `ObsidianRepresentable` + `ObsidianFile`. Every stored kind implements both — the compiler enforces "everything in memory_store is vector and obsidian compatible".                       |
+| [`types.rs`](types.rs)               | Shared serde types used across submodules: `NamespaceDocumentInput`, `NamespaceMemoryHit`, `NamespaceQueryResult`, `NamespaceRetrievalContext`, `RetrievalScoreBreakdown`, `MemoryItemKind`, `MemoryKvRecord`. |
+| [`memory_trait.rs`](memory_trait.rs) | `impl Memory for UnifiedMemory` — bridges the generic `Memory` trait surface onto the unified store.                                                                                                           |
+| [`client.rs`](client.rs)             | `MemoryClient` / `MemoryClientRef` / `MemoryState`. Async wrapper over `UnifiedMemory` used by RPC controllers; owns the singleton ingestion-queue handle.                                                     |
+| [`factories.rs`](factories.rs)       | `create_memory*` constructors. Selects the embedding provider per the `MemoryConfig`, probes Ollama health, and builds a `Box<dyn Memory>` over `UnifiedMemory`.                                               |
+| [`retrieval/`](retrieval/)           | `RetrievalFacade` — single import surface over the four retrieval modes (tree-walk, vector, keyword, param/tag).                                                                                               |
+| [`tools/`](tools/)                   | Agent tools that read directly from memory_store: `memory_store_raw_search`, `memory_store_raw_chunks`, `memory_store_kinds`.                                                                                  |
 
 ## Storage submodules
 

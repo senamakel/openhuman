@@ -251,10 +251,16 @@ mod tests {
 
     #[test]
     fn varint_too_long_errors() {
-        // 11 continuation bytes overflows the 64-bit shift guard.
+        // 11 continuation bytes — the 10th byte (0x80) triggers the overflow
+        // guard before the loop even reaches the 11th.
         let buf = vec![0x80; 11];
         match decode_varint(&buf, 0).unwrap_err() {
-            YuanbaoError::ProtoDecode(m) => assert!(m.contains("too long"), "got {m}"),
+            YuanbaoError::ProtoDecode(m) => {
+                assert!(
+                    m.contains("too long") || m.contains("overflow"),
+                    "got {m}"
+                );
+            }
             other => panic!("unexpected {other:?}"),
         }
     }

@@ -195,6 +195,13 @@ const de3: TranslationMap = {
   'bootCheck.restartUpdateCore': 'Runtime neu starten/aktualisieren',
   'bootCheck.unexpectedError': 'Unerwarteter Boot-Check-Fehler',
   'bootCheck.actionFailed': 'Etwas ist schief gelaufen. Bitte versuche es erneut.',
+  'bootCheck.portConflictTitle': 'App-Engine konnte nicht gestartet werden',
+  'bootCheck.portConflictBody':
+    'Ein anderer Prozess nutzt den Netzwerkport, den OpenHuman benötigt. Wir versuchen, das automatisch zu beheben.',
+  'bootCheck.portConflictFixButton': 'Automatisch beheben',
+  'bootCheck.portConflictFixing': 'Wird behoben…',
+  'bootCheck.portConflictFixFailed':
+    'Automatische Behebung fehlgeschlagen. Bitte starten Sie Ihren Computer neu und versuchen Sie es erneut.',
   'notifications.justNow': 'gerade jetzt',
   'notifications.minAgo': 'Vor {n}m',
   'notifications.hrAgo': 'Vor {n}h',

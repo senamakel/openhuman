@@ -190,6 +190,13 @@ const ru3: TranslationMap = {
   'bootCheck.restartUpdateCore': 'Перезапустить / обновить среду',
   'bootCheck.unexpectedError': 'Неожиданная ошибка при загрузке',
   'bootCheck.actionFailed': 'Что-то пошло не так. Попробуй ещё раз.',
+  'bootCheck.portConflictTitle': 'Не удалось запустить движок приложения',
+  'bootCheck.portConflictBody':
+    'Другой процесс использует сетевой порт, необходимый OpenHuman. Попробуем устранить это автоматически.',
+  'bootCheck.portConflictFixButton': 'Исправить автоматически',
+  'bootCheck.portConflictFixing': 'Исправление…',
+  'bootCheck.portConflictFixFailed':
+    'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
   'notifications.justNow': 'только что',
   'notifications.minAgo': '{n} мин назад',
   'notifications.hrAgo': '{n} ч назад',

@@ -513,7 +513,8 @@ mod tests {
     }
 
     fn unique_namespace(prefix: &str) -> String {
-        format!("{prefix}-{}", uuid::Uuid::new_v4())
+        let short = &uuid::Uuid::new_v4().as_simple().to_string()[..12];
+        format!("{prefix}{short}")
     }
 
     fn sample_put(namespace: String, key: String, title: &str, content: &str) -> PutDocParams {
@@ -536,7 +537,10 @@ mod tests {
     async fn direct_document_handlers_roundtrip_through_namespace() {
         ensure_memory_client();
         let namespace = unique_namespace("memory-docs-direct");
-        let key = format!("note-{}", uuid::Uuid::new_v4());
+        let key = format!(
+            "note{}",
+            &uuid::Uuid::new_v4().as_simple().to_string()[..12]
+        );
 
         let put = doc_put(sample_put(
             namespace.clone(),
@@ -611,7 +615,7 @@ mod tests {
     async fn envelope_memory_handlers_report_counts_and_statuses() {
         ensure_memory_client();
         let namespace = unique_namespace("memory-docs-envelope");
-        let key = format!("env-{}", uuid::Uuid::new_v4());
+        let key = format!("env{}", &uuid::Uuid::new_v4().as_simple().to_string()[..12]);
 
         let _ = memory_init(MemoryInitRequest { jwt_token: None })
             .await

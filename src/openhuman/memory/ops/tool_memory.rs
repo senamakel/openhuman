@@ -196,7 +196,8 @@ mod tests {
     }
 
     fn unique_tool_name() -> String {
-        format!("tool-memory-{}", uuid::Uuid::new_v4())
+        let short = &uuid::Uuid::new_v4().as_simple().to_string()[..12];
+        format!("toolmem{short}")
     }
 
     #[tokio::test]

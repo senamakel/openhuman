@@ -188,6 +188,13 @@ const ko3: TranslationMap = {
   'bootCheck.restartUpdateCore': '런타임 다시 시작 / 업데이트',
   'bootCheck.unexpectedError': '예상치 못한 부트 체크 오류',
   'bootCheck.actionFailed': '문제가 발생했습니다. 다시 시도해 주세요.',
+  'bootCheck.portConflictTitle': '앱 엔진을 시작할 수 없습니다',
+  'bootCheck.portConflictBody':
+    '다른 프로세스가 OpenHuman에 필요한 네트워크 포트를 사용 중입니다. 자동으로 문제를 해결해 드리겠습니다.',
+  'bootCheck.portConflictFixButton': '자동 수정',
+  'bootCheck.portConflictFixing': '수정 중…',
+  'bootCheck.portConflictFixFailed':
+    '자동 수정에 실패했습니다. 컴퓨터를 재시작한 후 다시 시도해 주세요.',
   'notifications.justNow': '방금 전',
   'notifications.minAgo': '{n}분 전',
   'notifications.hrAgo': '{n}시간 전',

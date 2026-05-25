@@ -189,6 +189,13 @@ const hi3: TranslationMap = {
   'bootCheck.restartUpdateCore': 'रनटाइम रीस्टार्ट / अपडेट करें',
   'bootCheck.unexpectedError': 'अनपेक्षित बूट-चेक एरर',
   'bootCheck.actionFailed': 'कुछ गड़बड़ हो गई। दोबारा कोशिश करें।',
+  'bootCheck.portConflictTitle': 'ऐप इंजन शुरू नहीं हो सका',
+  'bootCheck.portConflictBody':
+    'कोई अन्य प्रक्रिया उस नेटवर्क पोर्ट का उपयोग कर रही है जो OpenHuman को चाहिए। हम इसे स्वचालित रूप से ठीक करने का प्रयास करेंगे।',
+  'bootCheck.portConflictFixButton': 'स्वचालित रूप से ठीक करें',
+  'bootCheck.portConflictFixing': 'ठीक हो रहा है…',
+  'bootCheck.portConflictFixFailed':
+    'स्वचालित सुधार काम नहीं आया। कृपया अपना कंप्यूटर पुनः आरंभ करें और पुनः प्रयास करें।',
   'notifications.justNow': 'अभी-अभी',
   'notifications.minAgo': '{n}मि. पहले',
   'notifications.hrAgo': '{n}घं. पहले',

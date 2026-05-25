@@ -1673,8 +1673,8 @@ mod tests {
     use crate::openhuman::memory_queue::drain_until_idle;
     use crate::openhuman::memory_store::unified::UnifiedMemory;
     use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
-    use crate::openhuman::memory_sync::composio::providers::slack::SlackMessage;
     use crate::openhuman::memory_sync::composio::providers::slack::ingest::ingest_page_into_memory_tree as ingest_slack_page;
+    use crate::openhuman::memory_sync::composio::providers::slack::SlackMessage;
     use chrono::{TimeZone, Utc};
     use rusqlite::params;
     use std::sync::Arc;
@@ -2059,10 +2059,9 @@ mod tests {
             .await
             .unwrap()
             .value;
-        assert!(
-            top.iter()
-                .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2)
-        );
+        assert!(top
+            .iter()
+            .any(|e| e.entity_id == "email:alice@example.com" && e.count >= 2));
     }
 
     #[tokio::test]
@@ -2158,12 +2157,11 @@ mod tests {
         assert_eq!(row.owner, "alice");
         assert_eq!(row.lifecycle_status, "pending_extraction");
         assert!(row.content_path.is_some());
-        assert!(
-            row.content_preview
-                .as_deref()
-                .unwrap_or("")
-                .contains("phoenix migration scheduled friday")
-        );
+        assert!(row
+            .content_preview
+            .as_deref()
+            .unwrap_or("")
+            .contains("phoenix migration scheduled friday"));
     }
 
     #[tokio::test]

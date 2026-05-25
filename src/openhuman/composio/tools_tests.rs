@@ -1,8 +1,8 @@
 use super::*;
 use crate::openhuman::composio::providers::tool_scope::{CuratedTool, ToolScope};
 use crate::openhuman::composio::providers::{
-    ComposioProvider, ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason,
-    registry::register_provider,
+    registry::register_provider, ComposioProvider, ProviderContext, ProviderUserProfile,
+    SyncOutcome, SyncReason,
 };
 use async_trait::async_trait;
 use std::path::Path;
@@ -159,11 +159,10 @@ fn list_toolkits_tool_metadata_is_stable() {
     let s = t.parameters_schema();
     assert_eq!(s["type"], "object");
     // No required inputs.
-    assert!(
-        s.get("required")
-            .and_then(|r| r.as_array())
-            .map_or(true, |a| a.is_empty())
-    );
+    assert!(s
+        .get("required")
+        .and_then(|r| r.as_array())
+        .map_or(true, |a| a.is_empty()));
 }
 
 #[test]

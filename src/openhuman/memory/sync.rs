@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::core::event_bus::{
-    DomainEvent, EventHandler, SubscriptionHandle, publish_global, subscribe_global,
+    publish_global, subscribe_global, DomainEvent, EventHandler, SubscriptionHandle,
 };
 
 /// Why a sync run was requested.

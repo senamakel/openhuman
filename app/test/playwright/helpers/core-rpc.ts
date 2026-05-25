@@ -127,7 +127,7 @@ export async function bootAuthenticatedPage(
 ): Promise<void> {
   await resetCoreForWebUser(userId);
   await seedBrowserCoreMode(page);
-  await page.goto(`/#${hash}`);
+  await page.goto('/#/home');
   await waitForAuthenticatedSnapshot(page);
   await page.goto(`/#${hash}`);
   await waitForAppReady(page);

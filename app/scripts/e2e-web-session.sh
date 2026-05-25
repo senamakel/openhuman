@@ -7,6 +7,8 @@ APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$APP_DIR/.." && pwd)"
 cd "$APP_DIR"
 
+RUST_HOST_TRIPLE="${RUST_HOST_TRIPLE:-$(rustc -vV | awk '/^host: / { print $2 }')}"
+E2E_WEB_CORE_TARGET_DIR="${E2E_WEB_CORE_TARGET_DIR:-$REPO_ROOT/target/e2e-web-${RUST_HOST_TRIPLE}}"
 E2E_MOCK_PORT="${E2E_MOCK_PORT:-18473}"
 OPENHUMAN_CORE_PORT="${OPENHUMAN_CORE_PORT:-17788}"
 E2E_WEB_PORT="${E2E_WEB_PORT:-4173}"
@@ -20,6 +22,7 @@ if [ ! -d "${OPENHUMAN_WORKSPACE}" ] || [[ "${OPENHUMAN_WORKSPACE}" == /tmp/* ]]
   CREATED_TEMP_WORKSPACE="$OPENHUMAN_WORKSPACE"
 fi
 export OPENHUMAN_WORKSPACE
+export OPENHUMAN_KEYRING_BACKEND="${OPENHUMAN_KEYRING_BACKEND:-file}"
 
 MOCK_PID=""
 CORE_PID=""
@@ -99,7 +102,7 @@ node "$REPO_ROOT/scripts/mock-api-server.mjs" --port "$E2E_MOCK_PORT" >"$OPENHUM
 MOCK_PID=$!
 wait_for_http "http://127.0.0.1:${E2E_MOCK_PORT}/__admin/health" "mock backend"
 
-OPENHUMAN_CORE_BIN="$REPO_ROOT/target/debug/openhuman-core"
+OPENHUMAN_CORE_BIN="$E2E_WEB_CORE_TARGET_DIR/debug/openhuman-core"
 if [ ! -x "$OPENHUMAN_CORE_BIN" ]; then
   echo "ERROR: standalone core binary is missing at $OPENHUMAN_CORE_BIN. Run pnpm test:e2e:web:build first." >&2
   exit 1

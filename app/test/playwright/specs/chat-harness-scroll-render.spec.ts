@@ -140,7 +140,8 @@ test.describe('Chat Harness - Scroll Render', () => {
     await expect(page.getByText('the docs')).toBeVisible();
     expect(tags.scrollHeight).toBeGreaterThanOrEqual(tags.clientHeight);
     if (tags.scrollHeight > tags.clientHeight) {
-      expect(tags.scrollHeight - (tags.scrollTop + tags.clientHeight)).toBeLessThan(40);
+      const initialRemaining = tags.scrollHeight - (tags.scrollTop + tags.clientHeight);
+      expect(initialRemaining).toBeLessThan(40);
 
       const targetTop = Math.max(0, tags.scrollTop - Math.floor(tags.clientHeight / 2));
       await page.evaluate(nextTop => {
@@ -164,9 +165,10 @@ test.describe('Chat Harness - Scroll Render', () => {
       });
 
       expect(Math.abs(afterScrollUp.scrollTop - targetTop)).toBeLessThan(40);
+      expect(afterScrollUp.scrollTop).toBeLessThan(tags.scrollTop - 20);
       expect(
         afterScrollUp.scrollHeight - (afterScrollUp.scrollTop + afterScrollUp.clientHeight)
-      ).toBeGreaterThan(50);
+      ).toBeGreaterThan(initialRemaining + 10);
     }
   });
 });

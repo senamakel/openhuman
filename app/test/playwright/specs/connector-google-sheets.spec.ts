@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -19,9 +19,7 @@ type RequestLogEntry = { method?: string; url?: string; body?: string };
 async function mockFetch(path: string, init?: RequestInit) {
   const response = await fetch(MOCK_BASE + path, init);
   if (!response.ok) {
-    throw new Error(
-      'mock request failed: ' + response.status + ' ' + path
-    );
+    throw new Error('mock request failed: ' + response.status + ' ' + path);
   }
   return response.json() as Promise<{ data?: unknown }>;
 }
@@ -73,7 +71,9 @@ async function bootSkillsPage(page: Page, userId: string) {
   await page.evaluate(() => {
     window.location.hash = '/skills';
   });
-  await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+  await expect
+    .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+    .toContain('/skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
   const heading = page.getByRole('heading', { name: 'Composio Integrations' });
@@ -81,18 +81,21 @@ async function bootSkillsPage(page: Page, userId: string) {
     const connectionsButton = page.getByRole('button', { name: 'Connections' });
     if (await connectionsButton.isVisible().catch(() => false)) {
       await connectionsButton.click({ force: true });
-      await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+      await expect
+        .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+        .toContain('/skills');
       await waitForAppReady(page);
       await dismissWalkthroughIfPresent(page);
     }
   }
-  await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 async function reloadSkills(page: Page) {
   await ensureComposioSurface(page);
 }
-
 
 async function ensureComposioSurface(page: Page) {
   const heading = page.getByRole('heading', { name: 'Composio Integrations' });
@@ -100,7 +103,9 @@ async function ensureComposioSurface(page: Page) {
     await page.evaluate(() => {
       window.location.hash = '/skills';
     });
-    await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+    await expect
+      .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+      .toContain('/skills');
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
     if (await heading.isVisible().catch(() => false)) {
@@ -179,8 +184,7 @@ test.describe('Google Sheets connector', () => {
     const requests = await getRequestLog();
     const authReq = requests.find(
       request =>
-        request.method === 'POST' &&
-        request.url?.includes('/agent-integrations/composio/authorize')
+        request.method === 'POST' && request.url?.includes('/agent-integrations/composio/authorize')
     );
     expect(authReq).toBeDefined();
     expect(JSON.parse(authReq?.body || '{}')).toMatchObject({ toolkit: TOOLKIT_SLUG });
@@ -195,17 +199,12 @@ test.describe('Google Sheets connector', () => {
   });
 
   test.skip('keeps the session alive after composio_sync', async ({ page }) => {
-    await callCoreRpc('openhuman.composio_sync', {
-      connection_id: CONNECTION_ID,
-    });
+    await callCoreRpc('openhuman.composio_sync', { connection_id: CONNECTION_ID });
     await assertSessionNotNuked(page);
   });
 
   test('routes composio_execute without blanking the app', async ({ page }) => {
-    await callCoreRpc('openhuman.composio_execute', {
-      tool: ACTION,
-      arguments: {},
-    });
+    await callCoreRpc('openhuman.composio_execute', { tool: ACTION, arguments: {} });
     await assertSessionNotNuked(page);
   });
 
@@ -221,7 +220,9 @@ test.describe('Google Sheets connector', () => {
   test('shows expired-auth state without logging out', async ({ page }) => {
     await seedConnector('EXPIRED');
     await reloadSkills(page);
-    await expect(page.getByTestId('skill-install-composio-' + TOOLKIT_SLUG)).toContainText(/Auth expired|Reconnect/i);
+    await expect(page.getByTestId('skill-install-composio-' + TOOLKIT_SLUG)).toContainText(
+      /Auth expired|Reconnect/i
+    );
     const dialog = await openConnectorModal(page);
     await expect(dialog).toContainText(CONNECTOR_NAME);
     await assertSessionNotNuked(page);

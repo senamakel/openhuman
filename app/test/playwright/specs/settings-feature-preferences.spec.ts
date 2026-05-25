@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -42,11 +42,7 @@ async function getDefaultMessagingChannel(page: Page): Promise<string | null> {
 async function getMascotVoiceId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const win = window as unknown as {
-      __OPENHUMAN_STORE__?: {
-        getState?: () => {
-          mascot: { voiceId?: string | null };
-        };
-      };
+      __OPENHUMAN_STORE__?: { getState?: () => { mascot: { voiceId?: string | null } } };
     };
     const state = win.__OPENHUMAN_STORE__?.getState?.();
     if (!state) {
@@ -169,8 +165,9 @@ test.describe('Settings - Feature Preferences', () => {
 
     await expect(page.getByText('Mascot Voice')).toBeVisible();
     test.skip(
-      (await page.locator('[data-testid="mascot-voice-select"] option[value="__custom__"]').count()) ===
-        0,
+      (await page
+        .locator('[data-testid="mascot-voice-select"] option[value="__custom__"]')
+        .count()) === 0,
       'custom mascot voice option is unavailable in this build'
     );
 

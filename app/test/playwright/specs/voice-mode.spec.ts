@@ -3,10 +3,7 @@ import { expect, test } from '@playwright/test';
 import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
 
 test.describe('Voice mode integration', () => {
-  test.skip(
-    'chat voice toggle UI was removed; migrate against the mascot voice path instead',
-    async () => {}
-  );
+  test.skip('chat voice toggle UI was removed; migrate against the mascot voice path instead', async () => {});
 });
 
 test.describe('Voice mode - offline STT contract (voice_status RPC)', () => {

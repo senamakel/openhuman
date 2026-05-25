@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -29,9 +29,7 @@ type EnableTriggerResult = {
   connection_id?: string;
 };
 
-type DisableTriggerResult = {
-  deleted?: boolean;
-};
+type DisableTriggerResult = { deleted?: boolean };
 
 async function mockFetch(path: string, init?: RequestInit) {
   const response = await fetch(MOCK_BASE + path, init);
@@ -60,7 +58,9 @@ async function setMockBehavior(behavior: Record<string, unknown>) {
 async function bootSkillsPage(page: Page, userId: string) {
   await resetMock();
   await setMockBehavior({
-    composioConnections: JSON.stringify([{ id: CONNECTION_ID, toolkit: TOOLKIT_SLUG, status: 'ACTIVE' }]),
+    composioConnections: JSON.stringify([
+      { id: CONNECTION_ID, toolkit: TOOLKIT_SLUG, status: 'ACTIVE' },
+    ]),
     composioAvailableTriggers: JSON.stringify([
       { slug: 'GMAIL_NEW_GMAIL_MESSAGE', scope: 'static' },
       { slug: 'SLACK_NEW_MESSAGE', scope: 'static', requiredConfigKeys: ['channel'] },
@@ -101,10 +101,7 @@ async function openGmailManageModal(page: Page) {
 }
 
 function unwrapTriggers(payload: unknown): ActiveTrigger[] {
-  const root = payload as {
-    result?: { triggers?: ActiveTrigger[] };
-    triggers?: ActiveTrigger[];
-  };
+  const root = payload as { result?: { triggers?: ActiveTrigger[] }; triggers?: ActiveTrigger[] };
   return root.result?.triggers ?? root.triggers ?? [];
 }
 
@@ -170,9 +167,7 @@ test.describe('Composio triggers flow', () => {
     expect(triggerId).toBeTruthy();
 
     const disabled = unwrapDisableTrigger(
-      await callCoreRpc<unknown>('openhuman.composio_disable_trigger', {
-        trigger_id: triggerId,
-      })
+      await callCoreRpc<unknown>('openhuman.composio_disable_trigger', { trigger_id: triggerId })
     );
     expect(disabled.deleted).toBe(true);
 

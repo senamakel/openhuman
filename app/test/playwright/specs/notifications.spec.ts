@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -47,9 +47,7 @@ test.describe('Notifications', () => {
 
     const result = await callCoreRpc<{ items?: Array<{ title?: string }> }>(
       'openhuman.notification_list',
-      {
-        limit: 20,
-      }
+      { limit: 20 }
     );
 
     expect(result.items?.some(item => item.title === title)).toBe(true);
@@ -70,7 +68,10 @@ test.describe('Notifications', () => {
 
     await expect
       .poll(async () => {
-        const after = await callCoreRpc<Record<string, unknown>>('openhuman.notification_stats', {});
+        const after = await callCoreRpc<Record<string, unknown>>(
+          'openhuman.notification_stats',
+          {}
+        );
         return getUnreadCount(after);
       })
       .toBeLessThanOrEqual(initialUnread);

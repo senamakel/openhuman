@@ -16,8 +16,8 @@ import Onboarding from './pages/onboarding/Onboarding';
 import Rewards from './pages/Rewards';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
-import Welcome from './pages/Welcome';
 import WebCallbackPage from './pages/WebCallbackPage';
+import Welcome from './pages/Welcome';
 
 const AppRoutes = () => {
   // Mobile target (iOS or Android): pair → Human/Chat/Settings only.

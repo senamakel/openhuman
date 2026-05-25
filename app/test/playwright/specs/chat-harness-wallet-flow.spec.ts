@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -90,7 +90,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -123,7 +125,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -162,10 +166,9 @@ test.describe('Chat Harness - Wallet Flow', () => {
 
     await expect
       .poll(async () => {
-        const wallet = await callCoreRpc<{ result?: { configured?: boolean; accounts?: unknown[] } }>(
-          'openhuman.wallet_status',
-          {}
-        );
+        const wallet = await callCoreRpc<{
+          result?: { configured?: boolean; accounts?: unknown[] };
+        }>('openhuman.wallet_status', {});
         return {
           configured: Boolean(wallet.result?.configured),
           accountCount: wallet.result?.accounts?.length ?? 0,
@@ -181,7 +184,9 @@ test.describe('Chat Harness - Wallet Flow', () => {
     await sendMessage(page, WALLET_PROMPT);
 
     await expect(
-      page.getByText(/Prepared a wallet quote for John\..*wallet-quote-canary-8d13|Done\.\s*wallet-quote-canary-8d13/i)
+      page.getByText(
+        /Prepared a wallet quote for John\..*wallet-quote-canary-8d13|Done\.\s*wallet-quote-canary-8d13/i
+      )
     ).toBeVisible({ timeout: 40_000 });
   });
 });

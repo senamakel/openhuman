@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -63,7 +63,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -96,7 +98,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -151,7 +155,9 @@ test.describe('Chat Tool Call Flow', () => {
       .not.toEqual([]);
 
     void names;
-    expect((await toolTimelineNames(page, threadId)).some(name => name.includes('web_fetch'))).toBe(true);
+    expect((await toolTimelineNames(page, threadId)).some(name => name.includes('web_fetch'))).toBe(
+      true
+    );
 
     await expect
       .poll(async () => {

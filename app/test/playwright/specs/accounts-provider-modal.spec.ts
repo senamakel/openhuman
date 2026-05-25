@@ -48,7 +48,9 @@ async function registeredProviders(page: import('@playwright/test').Page): Promi
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState: () => { accounts?: { accounts?: Record<string, { provider?: string }> } } };
+        __OPENHUMAN_STORE__?: {
+          getState: () => { accounts?: { accounts?: Record<string, { provider?: string }> } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     const accounts = store?.getState()?.accounts?.accounts ?? {};

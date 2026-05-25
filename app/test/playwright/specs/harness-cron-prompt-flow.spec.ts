@@ -1,6 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
-import { bootAuthenticatedPage, dismissWalkthroughIfPresent, waitForAppReady } from '../helpers/core-rpc';
+import {
+  bootAuthenticatedPage,
+  dismissWalkthroughIfPresent,
+  waitForAppReady,
+} from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
 const USER_ID = 'pw-harness-cron-prompt-flow';
@@ -45,7 +49,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -78,7 +84,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -105,7 +113,9 @@ test.describe('Harness - Cron prompt-flow', () => {
     await createNewThread(page);
   });
 
-  test('natural-language create flow yields a final reply and may persist a job', async ({ page }) => {
+  test('natural-language create flow yields a final reply and may persist a job', async ({
+    page,
+  }) => {
     const CANARY = 'canary-cron-create-a1b2';
     await setMockBehavior(
       'llmForcedResponses',
@@ -166,14 +176,14 @@ test.describe('Harness - Cron prompt-flow', () => {
         {
           content: '',
           toolCalls: [
-          {
-            id: 'call_cron_update_1',
-            name: 'cron_update',
-            arguments: JSON.stringify({
-              id: 'morning_reminder_update_test',
-              schedule: '0 8 * * *',
-            }),
-          },
+            {
+              id: 'call_cron_update_1',
+              name: 'cron_update',
+              arguments: JSON.stringify({
+                id: 'morning_reminder_update_test',
+                schedule: '0 8 * * *',
+              }),
+            },
           ],
         },
         { content: `Done! I have changed your morning reminder to 8am. ${CANARY}` },
@@ -194,13 +204,13 @@ test.describe('Harness - Cron prompt-flow', () => {
         {
           content: '',
           toolCalls: [
-          {
-            id: 'call_cron_remove_1',
-            name: 'cron_remove',
-            arguments: JSON.stringify({ id: 'morning_reminder_delete_test' }),
-          },
-        ],
-      },
+            {
+              id: 'call_cron_remove_1',
+              name: 'cron_remove',
+              arguments: JSON.stringify({ id: 'morning_reminder_delete_test' }),
+            },
+          ],
+        },
         { content: `Done! I have deleted the morning reminder. ${CANARY}` },
       ])
     );

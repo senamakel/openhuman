@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -27,7 +27,9 @@ async function registeredProviders(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState: () => { accounts?: { accounts?: Record<string, { provider?: string }> } } };
+        __OPENHUMAN_STORE__?: {
+          getState: () => { accounts?: { accounts?: Record<string, { provider?: string }> } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     const accounts = store?.getState()?.accounts?.accounts ?? {};

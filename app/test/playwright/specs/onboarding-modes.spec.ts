@@ -1,10 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
-import {
-  bootAuthenticatedPage,
-  callCoreRpc,
-  waitForAppReady,
-} from '../helpers/core-rpc';
+import { bootAuthenticatedPage, callCoreRpc, waitForAppReady } from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
 

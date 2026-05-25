@@ -6,14 +6,18 @@ import {
   waitForAppReady,
 } from '../helpers/core-rpc';
 
-async function getDefaultMessagingChannel(page: import('@playwright/test').Page): Promise<string | null> {
+async function getDefaultMessagingChannel(
+  page: import('@playwright/test').Page
+): Promise<string | null> {
   return page.evaluate(() => {
     const win = window as unknown as {
       __OPENHUMAN_STORE__?: {
         getState?: () => { channelConnections?: { defaultMessagingChannel?: string | null } };
       };
     };
-    return win.__OPENHUMAN_STORE__?.getState?.().channelConnections?.defaultMessagingChannel ?? null;
+    return (
+      win.__OPENHUMAN_STORE__?.getState?.().channelConnections?.defaultMessagingChannel ?? null
+    );
   });
 }
 

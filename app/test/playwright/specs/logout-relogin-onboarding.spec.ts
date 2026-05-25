@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -30,11 +30,7 @@ async function waitForOnboardingRoute(page: Page): Promise<void> {
 
 async function signInToOnboarding(page: Page, userId: string): Promise<void> {
   const payload = Buffer.from(
-    JSON.stringify({
-      sub: userId,
-      userId,
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    })
+    JSON.stringify({ sub: userId, userId, exp: Math.floor(Date.now() / 1000) + 3600 })
   ).toString('base64url');
   const token = `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.${payload}.sig`;
   await callCoreRpc('openhuman.auth_store_session', { token });

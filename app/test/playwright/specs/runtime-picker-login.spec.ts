@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -41,7 +41,12 @@ async function waitForMockRequest(method: string, pathFragment: string, timeoutM
 }
 
 async function openRuntimePicker(page: Page): Promise<void> {
-  if (await page.getByText('Connect to Your Runtime').isVisible().catch(() => false)) {
+  if (
+    await page
+      .getByText('Connect to Your Runtime')
+      .isVisible()
+      .catch(() => false)
+  ) {
     return;
   }
   await dismissWalkthroughIfPresent(page);
@@ -58,7 +63,10 @@ test.describe('Runtime picker -> login -> logout', () => {
   test('runtime picker validates cloud URL/token inputs and unreachable hosts', async ({
     page,
   }) => {
-    test.skip(true, 'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet');
+    test.skip(
+      true,
+      'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet'
+    );
     await openRuntimePicker(page);
 
     await page.getByText('Run on the Cloud (Complex)').click();
@@ -80,7 +88,10 @@ test.describe('Runtime picker -> login -> logout', () => {
   });
 
   test('returning to cloud-mode guest state keeps provider login available', async ({ page }) => {
-    test.skip(true, 'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet');
+    test.skip(
+      true,
+      'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet'
+    );
     await openRuntimePicker(page);
 
     await page.getByText('Run on the Cloud (Complex)').click();
@@ -97,9 +108,7 @@ test.describe('Runtime picker -> login -> logout', () => {
     await signInViaBypassUser(page, 'pw-runtime-picker-login');
     await dismissWalkthroughIfPresent(page);
 
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toMatch(/^#\/home/);
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/home/);
     await expect(await waitForMockRequest('GET', '/auth/me')).toBeTruthy();
 
     await page.goto('/#/settings/account');

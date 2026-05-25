@@ -1,10 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import {
-  bootAuthenticatedPage,
-  callCoreRpc,
-  waitForAppReady,
-} from '../helpers/core-rpc';
+import { bootAuthenticatedPage, callCoreRpc, waitForAppReady } from '../helpers/core-rpc';
 
 test.describe('Tauri commands', () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -39,8 +35,7 @@ test.describe('Tauri commands', () => {
   test('openhuman.about_app_list round-trips over core RPC', async () => {
     const res = await callCoreRpc<unknown>('openhuman.about_app_list', {});
     const root = (res ?? {}) as Record<string, unknown>;
-    const payload =
-      root && typeof root === 'object' && 'result' in root ? root.result : root;
+    const payload = root && typeof root === 'object' && 'result' in root ? root.result : root;
     expect(Array.isArray(payload)).toBe(true);
     expect((payload as unknown[]).length).toBeGreaterThan(0);
   });

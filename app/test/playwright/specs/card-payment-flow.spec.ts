@@ -32,8 +32,6 @@ test.describe('Card Payment Flow', () => {
     } else {
       await page.getByRole('button', { name: 'Settings' }).first().click({ force: true });
     }
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toContain('/settings');
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toContain('/settings');
   });
 });

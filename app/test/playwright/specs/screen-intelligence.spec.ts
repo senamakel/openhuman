@@ -12,7 +12,11 @@ test.describe('Screen Intelligence', () => {
   });
 
   test('debug route reaches a stable success or unsupported/failure state', async ({ page }) => {
-    await bootAuthenticatedPage(page, 'pw-screen-intelligence-debug', '/settings/screen-awareness-debug');
+    await bootAuthenticatedPage(
+      page,
+      'pw-screen-intelligence-debug',
+      '/settings/screen-awareness-debug'
+    );
     await waitForAppReady(page);
 
     const text = await page.locator('#root').innerText();

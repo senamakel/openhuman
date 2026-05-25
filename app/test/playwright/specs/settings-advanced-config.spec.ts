@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -14,8 +14,7 @@ async function emulateTauriRuntime(page: Page): Promise<void> {
     };
     win.isTauri = true;
     win.__TAURI_INTERNALS__ = win.__TAURI_INTERNALS__ ?? {};
-    win.__TAURI_INTERNALS__.invoke =
-      win.__TAURI_INTERNALS__.invoke ?? (async () => null);
+    win.__TAURI_INTERNALS__.invoke = win.__TAURI_INTERNALS__.invoke ?? (async () => null);
   });
 }
 
@@ -23,7 +22,10 @@ async function waitForAdvancedRouteReady(page: Page): Promise<void> {
   await page.waitForSelector('#root', { state: 'attached' });
   await expect
     .poll(async () => {
-      const text = await page.locator('#root').innerText().catch(() => '');
+      const text = await page
+        .locator('#root')
+        .innerText()
+        .catch(() => '');
       return text.trim().length;
     })
     .toBeGreaterThan(20);
@@ -36,7 +38,10 @@ async function gotoSettingsRoute(page: Page, hash: string): Promise<void> {
   await dismissWalkthroughIfPresent(page);
 }
 
-function providerEnabledToggle(page: Page, providerName: 'gmail' | 'slack' | 'discord' | 'whatsapp'): Locator {
+function providerEnabledToggle(
+  page: Page,
+  providerName: 'gmail' | 'slack' | 'discord' | 'whatsapp'
+): Locator {
   const providerOrder = ['gmail', 'slack', 'discord', 'whatsapp'] as const;
   const index = providerOrder.indexOf(providerName);
   if (index < 0) {
@@ -151,15 +156,9 @@ test.describe('Settings - Advanced Config', () => {
           'openhuman.composio_get_mode',
           {}
         );
-        return {
-          mode: mode.result?.mode ?? null,
-          apiKeySet: Boolean(mode.result?.api_key_set),
-        };
+        return { mode: mode.result?.mode ?? null, apiKeySet: Boolean(mode.result?.api_key_set) };
       })
-      .toEqual({
-        mode: 'direct',
-        apiKeySet: true,
-      });
+      .toEqual({ mode: 'direct', apiKeySet: true });
 
     await callCoreRpc('openhuman.composio_clear_api_key', {});
     const backend = await callCoreRpc<{ result?: { mode?: string; api_key_set?: boolean } }>(
@@ -182,20 +181,14 @@ test.describe('Settings - Advanced Config', () => {
         page.evaluate(() => {
           const raw = window.localStorage.getItem('openhuman.settings.agentChat.history');
           if (!raw) return null;
-          const payload = JSON.parse(raw) as {
-            modelOverride?: string;
-            temperature?: string;
-          };
+          const payload = JSON.parse(raw) as { modelOverride?: string; temperature?: string };
           return {
             modelOverride: payload.modelOverride ?? null,
             temperature: payload.temperature ?? null,
           };
         })
       )
-      .toEqual({
-        modelOverride: 'gpt-4.1-mini',
-        temperature: '0.2',
-      });
+      .toEqual({ modelOverride: 'gpt-4.1-mini', temperature: '0.2' });
   });
 
   test('mounts the remaining advanced settings routes', async ({ page }) => {

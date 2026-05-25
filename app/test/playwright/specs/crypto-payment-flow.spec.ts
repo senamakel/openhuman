@@ -22,9 +22,11 @@ test.describe('Crypto Payment Flow', () => {
   test('opening-browser status copy is shown on mount', async ({ page }) => {
     await waitForAppReady(page);
     await expect(
-      page.getByText(
-        /Opening your browser|If your browser did not open, use the button above\.|The browser could not be opened automatically\./
-      ).first()
+      page
+        .getByText(
+          /Opening your browser|If your browser did not open, use the button above\.|The browser could not be opened automatically\./
+        )
+        .first()
     ).toBeVisible();
   });
 });

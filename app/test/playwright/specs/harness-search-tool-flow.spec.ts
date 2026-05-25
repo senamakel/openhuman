@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -49,7 +49,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -82,7 +84,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -173,7 +177,9 @@ test.describe('Harness - Search tool-flow', () => {
 
     await sendMessage(page, 'search for Rust async best practices');
     await expect(page.getByText(CANARY)).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/Here are the top results for Rust async best practices/i)).toBeVisible();
+    await expect(
+      page.getByText(/Here are the top results for Rust async best practices/i)
+    ).toBeVisible();
 
     const log = await requests();
     const llmHits = log.filter(
@@ -197,9 +203,7 @@ test.describe('Harness - Search tool-flow', () => {
           },
         ],
       },
-      {
-        content: `The README says: ${FILE_SNIPPET}. ${CANARY}`,
-      },
+      { content: `The README says: ${FILE_SNIPPET}. ${CANARY}` },
     ];
     await setMockBehavior('llmForcedResponses', JSON.stringify(forced));
     await setMockBehavior('llmStreamChunkDelayMs', '10');

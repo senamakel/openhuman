@@ -88,7 +88,11 @@ test.describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
 
     await callCoreRpc<unknown>('openhuman.webhooks_delete_tunnel', { id: tunnelId });
     expect(
-      await waitForRequest('DELETE', `/webhooks/core/${encodeURIComponent(String(tunnelId))}`, 10_000)
+      await waitForRequest(
+        'DELETE',
+        `/webhooks/core/${encodeURIComponent(String(tunnelId))}`,
+        10_000
+      )
     ).toBeDefined();
 
     const relisted = await callCoreRpc<unknown>('openhuman.webhooks_list_tunnels', {});
@@ -105,6 +109,10 @@ test.describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
       .toContain('/settings/webhooks-triggers');
 
     const text = await page.locator('#root').innerText();
-    expect(['ComposeIO Triggers', 'ComposeIO', 'Archive', 'Refresh'].some(marker => text.includes(marker))).toBe(true);
+    expect(
+      ['ComposeIO Triggers', 'ComposeIO', 'Archive', 'Refresh'].some(marker =>
+        text.includes(marker)
+      )
+    ).toBe(true);
   });
 });

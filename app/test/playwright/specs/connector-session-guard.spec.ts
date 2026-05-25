@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -61,7 +61,9 @@ async function bootSkillsPage(page: Page, userId: string) {
   await page.evaluate(() => {
     window.location.hash = '/skills';
   });
-  await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+  await expect
+    .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+    .toContain('/skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
   const heading = page.getByRole('heading', { name: 'Composio Integrations' });
@@ -69,18 +71,21 @@ async function bootSkillsPage(page: Page, userId: string) {
     const connectionsButton = page.getByRole('button', { name: 'Connections' });
     if (await connectionsButton.isVisible().catch(() => false)) {
       await connectionsButton.click({ force: true });
-      await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+      await expect
+        .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+        .toContain('/skills');
       await waitForAppReady(page);
       await dismissWalkthroughIfPresent(page);
     }
   }
-  await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 async function reloadSkills(page: Page) {
   await ensureComposioSurface(page);
 }
-
 
 async function ensureComposioSurface(page: Page) {
   const heading = page.getByRole('heading', { name: 'Composio Integrations' });
@@ -88,7 +93,9 @@ async function ensureComposioSurface(page: Page) {
     await page.evaluate(() => {
       window.location.hash = '/skills';
     });
-    await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+    await expect
+      .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
+      .toContain('/skills');
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
     if (await heading.isVisible().catch(() => false)) {
@@ -177,9 +184,7 @@ test.describe('Connector session guard', () => {
     await setMockBehavior({ composioSyncFails: '1' });
     for (const [index, toolkit] of GUARD_TOOLKITS.entries()) {
       await expect(
-        callCoreRpc('openhuman.composio_sync', {
-          connection_id: `c-guard-${index}`,
-        })
+        callCoreRpc('openhuman.composio_sync', { connection_id: `c-guard-${index}` })
       ).rejects.toThrow(/failed/i);
     }
     await assertSessionNotNuked(page);

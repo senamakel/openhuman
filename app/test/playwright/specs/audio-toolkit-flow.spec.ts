@@ -1,7 +1,6 @@
+import { expect, test } from '@playwright/test';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-
-import { expect, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
 
@@ -18,12 +17,10 @@ test.describe('Audio toolkit flow', () => {
   });
 
   test('generates an mp3 artifact and captures the email attachment in the workspace', async () => {
-    let generatedAndEmailed:
-      | {
-          audio: { output_path: string; file_name: string; bytes_written: number; format: string };
-          email: { mode: string; capture_path?: string | null; attachment_name: string };
-        }
-      | null = null;
+    let generatedAndEmailed: {
+      audio: { output_path: string; file_name: string; bytes_written: number; format: string };
+      email: { mode: string; capture_path?: string | null; attachment_name: string };
+    } | null = null;
 
     try {
       const response = await callCoreRpc<{
@@ -46,7 +43,12 @@ test.describe('Audio toolkit flow', () => {
         response.result && 'audio' in response.result
           ? response.result
           : (response as unknown as {
-              audio: { output_path: string; file_name: string; bytes_written: number; format: string };
+              audio: {
+                output_path: string;
+                file_name: string;
+                bytes_written: number;
+                format: string;
+              };
               email: { mode: string; capture_path?: string | null; attachment_name: string };
             });
     } catch (error) {
@@ -60,7 +62,11 @@ test.describe('Audio toolkit flow', () => {
       expect(generatedAndEmailed.email.mode).toBe('capture');
       expect(generatedAndEmailed.email.capture_path).toBeTruthy();
 
-      const audioPath = path.join(workspaceDir(), 'workspace', generatedAndEmailed.audio.output_path);
+      const audioPath = path.join(
+        workspaceDir(),
+        'workspace',
+        generatedAndEmailed.audio.output_path
+      );
       const capturePath = path.join(
         workspaceDir(),
         'workspace',
@@ -71,7 +77,9 @@ test.describe('Audio toolkit flow', () => {
 
       expect(audioStat.size).toBeGreaterThan(0);
       expect(emailWire).toContain('Subject: Your weekly audio briefing');
-      expect(emailWire).toContain(generatedAndEmailed.email.attachment_name ?? 'weekly-briefing.mp3');
+      expect(emailWire).toContain(
+        generatedAndEmailed.email.attachment_name ?? 'weekly-briefing.mp3'
+      );
       return;
     }
 

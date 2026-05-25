@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -118,8 +118,7 @@ test.describe('Gmail Integration Flows', () => {
     const requests = await getRequestLog();
     const authReq = requests.find(
       request =>
-        request.method === 'POST' &&
-        request.url?.includes('/agent-integrations/composio/authorize')
+        request.method === 'POST' && request.url?.includes('/agent-integrations/composio/authorize')
     );
     expect(authReq).toBeDefined();
   });
@@ -139,10 +138,7 @@ test.describe('Gmail Integration Flows', () => {
   });
 
   test('execute and disconnect routes do not blank the skills page', async ({ page }) => {
-    await callCoreRpc('openhuman.composio_execute', {
-      tool: ACTION,
-      arguments: {},
-    });
+    await callCoreRpc('openhuman.composio_execute', { tool: ACTION, arguments: {} });
     await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible();
 
     await callCoreRpc('openhuman.composio_delete_connection', { connection_id: CONNECTION_ID });

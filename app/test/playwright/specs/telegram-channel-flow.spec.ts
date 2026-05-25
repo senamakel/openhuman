@@ -48,11 +48,7 @@ async function connectTelegramBot(opts: {
     status?: string;
     restart_required?: boolean;
     message?: string;
-  }>('openhuman.channels_connect', {
-    channel: 'telegram',
-    authMode: 'bot_token',
-    credentials,
-  });
+  }>('openhuman.channels_connect', { channel: 'telegram', authMode: 'bot_token', credentials });
 }
 
 async function disconnectTelegramBot() {
@@ -84,10 +80,7 @@ async function getTelegramChannelStatus(): Promise<TelegramStatusEntry | null> {
 test.describe('Telegram channel - connect / disconnect RPC flow', () => {
   test.beforeEach(async ({ page }) => {
     await bootAuthenticatedPage(page, 'pw-telegram-channel-flow', '/home');
-    await setMockBehavior({
-      telegramBotUsername: BOT_USERNAME,
-      telegramPollDelayMs: '0',
-    });
+    await setMockBehavior({ telegramBotUsername: BOT_USERNAME, telegramPollDelayMs: '0' });
     await resetTelegramMock();
   });
 
@@ -131,9 +124,7 @@ test.describe('Telegram channel - connect / disconnect RPC flow', () => {
     ) as Record<string, unknown> | undefined;
     expect(botTokenSpec).toBeDefined();
     const fields = Array.isArray(botTokenSpec?.fields) ? (botTokenSpec?.fields as unknown[]) : [];
-    expect(fields.some(field => (field as Record<string, unknown>).key === 'bot_token')).toBe(
-      true
-    );
+    expect(fields.some(field => (field as Record<string, unknown>).key === 'bot_token')).toBe(true);
   });
 
   test('bot-token connect happy path stores credentials and status shows connected', async () => {

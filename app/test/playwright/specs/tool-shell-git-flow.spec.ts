@@ -1,8 +1,7 @@
 import * as path from 'node:path';
+import { expect, test } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
-
-import { expect, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
 
@@ -119,9 +118,7 @@ test.describe('System tools - Shell + Git', () => {
 
   test('denial envelope is structurally consistent for invalid write args', async () => {
     await expect(
-      callCoreRpc('openhuman.memory_write_file', {
-        content: 'no path provided',
-      })
+      callCoreRpc('openhuman.memory_write_file', { content: 'no path provided' })
     ).rejects.toThrow();
 
     await expect(

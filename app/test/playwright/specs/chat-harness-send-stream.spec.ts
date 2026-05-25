@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -52,7 +52,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -85,7 +87,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -108,7 +112,9 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
 test.describe('Chat Harness - Send Stream', () => {
   test('streams a reply, logs a streaming request, and persists the thread', async ({ page }) => {
     await resetMock();
-    const streamScript = REPLY_PIECES.map(text => ({ text, delayMs: 60 })).concat([{ finish: 'stop' }]);
+    const streamScript = REPLY_PIECES.map(text => ({ text, delayMs: 60 })).concat([
+      { finish: 'stop' },
+    ]);
 
     await setMockBehavior('llmStreamScript', JSON.stringify(streamScript));
     await openChat(page);

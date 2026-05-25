@@ -15,6 +15,8 @@ test.describe('Multi-round tool conversation smoke', () => {
     expect(String(hash)).toContain('/chat');
 
     const text = await page.locator('#root').innerText();
-    expect(['Threads', 'New thread', 'Type a message', 'Chat'].some(marker => text.includes(marker))).toBe(true);
+    expect(
+      ['Threads', 'New thread', 'Type a message', 'Chat'].some(marker => text.includes(marker))
+    ).toBe(true);
   });
 });

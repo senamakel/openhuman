@@ -67,9 +67,7 @@ test.describe('Memory subsystem round-trip', () => {
       content: TEST_CONTENT,
     });
 
-    await callCoreRpc<unknown>('openhuman.memory_clear_namespace', {
-      namespace: TEST_NAMESPACE,
-    });
+    await callCoreRpc<unknown>('openhuman.memory_clear_namespace', { namespace: TEST_NAMESPACE });
 
     const recallAfterForget = await callCoreRpc<unknown>('openhuman.memory_recall_memories', {
       namespace: TEST_NAMESPACE,

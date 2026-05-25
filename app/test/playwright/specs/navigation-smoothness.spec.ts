@@ -19,7 +19,10 @@ const routes: RouteCheck[] = [
 ];
 
 async function rootTextLength(page: import('@playwright/test').Page): Promise<number> {
-  return page.locator('#root').innerText().then(text => text.length);
+  return page
+    .locator('#root')
+    .innerText()
+    .then(text => text.length);
 }
 
 async function verifyRouteLoaded(
@@ -54,9 +57,9 @@ test.describe('Navigation Smoothness', () => {
   test('final state is /home with correct content', async ({ page }) => {
     await page.goto('/#/home');
     await waitForAppReady(page);
-    await expect(page.getByText(/Ask your assistant anything|Your device is connected/)).toBeVisible();
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toMatch(/^#\/home/);
+    await expect(
+      page.getByText(/Ask your assistant anything|Your device is connected/)
+    ).toBeVisible();
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/home/);
   });
 });

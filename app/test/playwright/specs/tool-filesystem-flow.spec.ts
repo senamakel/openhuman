@@ -1,7 +1,6 @@
+import { expect, test } from '@playwright/test';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-
-import { expect, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
 
@@ -47,7 +46,12 @@ test.describe('System tools - Filesystem', () => {
     expect(data?.bytes_written).toBe(Buffer.byteLength(TEST_CONTENT, 'utf8'));
     expect(data?.relative_path).toBe(TEST_RELATIVE_PATH);
 
-    const diskPath = path.join(workspaceDir(), 'workspace', 'memory', data?.relative_path ?? TEST_RELATIVE_PATH);
+    const diskPath = path.join(
+      workspaceDir(),
+      'workspace',
+      'memory',
+      data?.relative_path ?? TEST_RELATIVE_PATH
+    );
     const diskContents = await fs.readFile(diskPath, 'utf8');
     const diskStat = await fs.stat(diskPath);
     expect(diskContents).toBe(TEST_CONTENT);

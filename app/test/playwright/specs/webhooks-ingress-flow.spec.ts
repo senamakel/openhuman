@@ -53,9 +53,7 @@ test.describe('Webhooks ingress surface (stub-level)', () => {
       const unregister = await callCoreRpc<{
         result?: { registrations?: unknown[] };
         logs?: string[];
-      }>('openhuman.webhooks_unregister_echo', {
-        tunnel_uuid: tunnelUuid,
-      });
+      }>('openhuman.webhooks_unregister_echo', { tunnel_uuid: tunnelUuid });
       expect(unregister.result?.registrations ?? []).toEqual([]);
     } catch {
       // Router initialization is socket-backed and can be absent in this lane.

@@ -1,6 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
-import { bootRuntimeReadyGuestPage, dismissWalkthroughIfPresent, signInViaBypassUser } from '../helpers/core-rpc';
+import {
+  bootRuntimeReadyGuestPage,
+  dismissWalkthroughIfPresent,
+  signInViaBypassUser,
+} from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
 
@@ -39,9 +43,7 @@ test.describe('Auth & Access Control', () => {
   test('authenticated sign-in reaches home', async ({ page }) => {
     await signInViaBypassUser(page, 'pw-auth-access-token');
 
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toMatch(/^#\/home/);
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/home/);
     await expect(await waitForMockRequest('GET', '/auth/me')).toBeTruthy();
   });
 
@@ -51,14 +53,13 @@ test.describe('Auth & Access Control', () => {
 
     await signInViaBypassUser(page, 'pw-auth-access-second');
 
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toMatch(/^#\/home/);
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/home/);
     await expect
       .poll(async () => {
         const requests = await mockRequests();
-        return requests.filter(request => request.method === 'GET' && request.url.includes('/auth/me'))
-          .length;
+        return requests.filter(
+          request => request.method === 'GET' && request.url.includes('/auth/me')
+        ).length;
       })
       .toBeGreaterThanOrEqual(2);
   });

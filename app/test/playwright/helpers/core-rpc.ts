@@ -15,28 +15,19 @@ interface JsonRpcFailure {
 
 function buildBypassJwt(userId: string): string {
   const payload = Buffer.from(
-    JSON.stringify({
-      sub: userId,
-      userId,
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    })
+    JSON.stringify({ sub: userId, userId, exp: Math.floor(Date.now() / 1000) + 3600 })
   ).toString('base64url');
   return `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.${payload}.sig`;
 }
 
-export async function callCoreRpc<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+export async function callCoreRpc<T>(
+  method: string,
+  params: Record<string, unknown> = {}
+): Promise<T> {
   const response = await fetch(CORE_RPC_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${CORE_RPC_TOKEN}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: nextRpcId++,
-      method,
-      params,
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${CORE_RPC_TOKEN}` },
+    body: JSON.stringify({ jsonrpc: '2.0', id: nextRpcId++, method, params }),
   });
 
   if (!response.ok) {
@@ -53,9 +44,7 @@ export async function callCoreRpc<T>(method: string, params: Record<string, unkn
 export async function resetCoreForWebUser(userId: string): Promise<void> {
   await callCoreRpc('openhuman.auth_clear_session', {});
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
-  await callCoreRpc('openhuman.auth_store_session', {
-    token: buildBypassJwt(userId),
-  });
+  await callCoreRpc('openhuman.auth_store_session', { token: buildBypassJwt(userId) });
 }
 
 export async function seedBrowserCoreMode(page: Page): Promise<void> {
@@ -65,10 +54,7 @@ export async function seedBrowserCoreMode(page: Page): Promise<void> {
       window.localStorage.setItem('openhuman_core_rpc_url', rpcUrl);
       window.localStorage.setItem('openhuman_core_rpc_token', token);
     },
-    {
-      rpcUrl: CORE_RPC_URL,
-      token: CORE_RPC_TOKEN,
-    }
+    { rpcUrl: CORE_RPC_URL, token: CORE_RPC_TOKEN }
   );
 }
 
@@ -79,10 +65,7 @@ async function applyBrowserCoreModeInPage(page: Page): Promise<void> {
       window.localStorage.setItem('openhuman_core_rpc_url', rpcUrl);
       window.localStorage.setItem('openhuman_core_rpc_token', token);
     },
-    {
-      rpcUrl: CORE_RPC_URL,
-      token: CORE_RPC_TOKEN,
-    }
+    { rpcUrl: CORE_RPC_URL, token: CORE_RPC_TOKEN }
   );
 }
 
@@ -100,7 +83,9 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
       .then(count => count > 0)
       .catch(() => false);
     if (!runtimePickerVisible) {
-      throw new Error('auth callback did not reach /home and no runtime picker fallback was available');
+      throw new Error(
+        'auth callback did not reach /home and no runtime picker fallback was available'
+      );
     }
   }
 
@@ -135,7 +120,11 @@ export async function signInViaBypassUser(page: Page, userId: string): Promise<v
   await waitForAppReady(page);
 }
 
-export async function bootAuthenticatedPage(page: Page, userId: string, hash: string = '/home'): Promise<void> {
+export async function bootAuthenticatedPage(
+  page: Page,
+  userId: string,
+  hash: string = '/home'
+): Promise<void> {
   await resetCoreForWebUser(userId);
   await seedBrowserCoreMode(page);
   await page.goto(`/#${hash}`);
@@ -148,7 +137,10 @@ export async function waitForAppReady(page: Page): Promise<void> {
   await page.waitForSelector('#root');
   await expect
     .poll(async () => {
-      const text = await page.locator('#root').innerText().catch(() => '');
+      const text = await page
+        .locator('#root')
+        .innerText()
+        .catch(() => '');
       return text.trim().length;
     })
     .toBeGreaterThan(20);
@@ -183,15 +175,27 @@ export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
 
   while (Date.now() < deadline) {
     if ((await portal.count()) === 0) return;
-    if ((await skipButton.count()) > 0 && (await skipButton.first().isVisible().catch(() => false))) {
+    if (
+      (await skipButton.count()) > 0 &&
+      (await skipButton
+        .first()
+        .isVisible()
+        .catch(() => false))
+    ) {
       await skipButton.first().click({ force: true });
       await markCompleted();
       try {
         await expect
-          .poll(async () => {
-            const visible = await skipButton.first().isVisible().catch(() => false);
-            return !visible;
-          }, { timeout: 5_000 })
+          .poll(
+            async () => {
+              const visible = await skipButton
+                .first()
+                .isVisible()
+                .catch(() => false);
+              return !visible;
+            },
+            { timeout: 5_000 }
+          )
           .toBe(true);
         return;
       } catch {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -38,7 +38,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -71,7 +73,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -114,14 +118,15 @@ test.describe('Chat Tool Error Recovery', () => {
             window as unknown as {
               __OPENHUMAN_STORE__?: {
                 getState?: () => {
-                  chatRuntime?: {
-                    inferenceTurnLifecycleByThread?: Record<string, string | null>;
-                  };
+                  chatRuntime?: { inferenceTurnLifecycleByThread?: Record<string, string | null> };
                 };
               };
             }
           ).__OPENHUMAN_STORE__;
-          return store?.getState?.().chatRuntime?.inferenceTurnLifecycleByThread?.[currentThreadId] ?? null;
+          return (
+            store?.getState?.().chatRuntime?.inferenceTurnLifecycleByThread?.[currentThreadId] ??
+            null
+          );
         }, threadId);
         return lifecycle;
       })

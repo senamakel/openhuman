@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -57,7 +57,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -87,7 +89,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -121,15 +125,15 @@ test.describe('Chat Harness - Scroll Render', () => {
     await expect(page.getByText(CANARY_CODE)).toBeVisible({ timeout: 20_000 });
 
     const tags = await page.evaluate(() => {
-        const column = document.querySelector(
-          'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
-        ) as HTMLElement | null;
-        return {
-          scrollTop: column?.scrollTop ?? 0,
-          scrollHeight: column?.scrollHeight ?? 0,
-          clientHeight: column?.clientHeight ?? 0,
-        };
-      });
+      const column = document.querySelector(
+        'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
+      ) as HTMLElement | null;
+      return {
+        scrollTop: column?.scrollTop ?? 0,
+        scrollHeight: column?.scrollHeight ?? 0,
+        clientHeight: column?.clientHeight ?? 0,
+      };
+    });
 
     await expect(page.getByText(CANARY_BOLD)).toBeVisible();
     await expect(page.getByText(CANARY_CODE)).toBeVisible();

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -73,7 +73,9 @@ async function selectedThreadId(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const store = (
       window as unknown as {
-        __OPENHUMAN_STORE__?: { getState?: () => { thread?: { selectedThreadId?: string | null } } };
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
       }
     ).__OPENHUMAN_STORE__;
     return store?.getState?.().thread?.selectedThreadId ?? null;
@@ -106,7 +108,9 @@ async function waitForSocketConnected(page: Page): Promise<void> {
         page.evaluate(() => {
           const store = (
             window as unknown as {
-              __OPENHUMAN_STORE__?: { getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } } };
+              __OPENHUMAN_STORE__?: {
+                getState?: () => { socket?: { byUser?: Record<string, { status?: string }> } };
+              };
             }
           ).__OPENHUMAN_STORE__;
           const byUser = store?.getState?.().socket?.byUser ?? {};
@@ -155,9 +159,11 @@ test.describe('Chat Multi Tool Round', () => {
     await expect(page.getByText(CANARY_FINAL)).toBeVisible({ timeout: 50_000 });
 
     await expect
-      .poll(async () => (await toolTimelineNames(page, threadId)).some(name => name.includes('web_fetch')), {
-        timeout: 20_000,
-      })
+      .poll(
+        async () =>
+          (await toolTimelineNames(page, threadId)).some(name => name.includes('web_fetch')),
+        { timeout: 20_000 }
+      )
       .toBe(true);
 
     const names = await toolTimelineNames(page, threadId);

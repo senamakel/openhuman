@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -15,8 +15,7 @@ async function emulateTauriRuntime(page: Page): Promise<void> {
     };
     win.isTauri = true;
     win.__TAURI_INTERNALS__ = win.__TAURI_INTERNALS__ ?? {};
-    win.__TAURI_INTERNALS__.invoke =
-      win.__TAURI_INTERNALS__.invoke ?? (async () => null);
+    win.__TAURI_INTERNALS__.invoke = win.__TAURI_INTERNALS__.invoke ?? (async () => null);
   });
 }
 
@@ -63,14 +62,12 @@ test.describe('Settings - Account Preferences', () => {
           accountCount: wallet.result?.accounts?.length ?? 0,
         };
       })
-      .toEqual({
-        configured: true,
-        accountCount: expect.any(Number),
-      });
+      .toEqual({ configured: true, accountCount: expect.any(Number) });
 
-    const wallet = await callCoreRpc<{
-      result?: { configured?: boolean; accounts?: unknown[] };
-    }>('openhuman.wallet_status', {});
+    const wallet = await callCoreRpc<{ result?: { configured?: boolean; accounts?: unknown[] } }>(
+      'openhuman.wallet_status',
+      {}
+    );
     expect(wallet.result?.configured).toBe(true);
     expect((wallet.result?.accounts ?? []).length).toBeGreaterThan(0);
   });
@@ -110,10 +107,7 @@ test.describe('Settings - Account Preferences', () => {
           meetHandoff: Boolean(meet.result?.auto_orchestrator_handoff),
         };
       })
-      .toEqual({
-        analyticsEnabled: !initialAnalytics,
-        meetHandoff: !initialMeet,
-      });
+      .toEqual({ analyticsEnabled: !initialAnalytics, meetHandoff: !initialMeet });
 
     const snapshot = await callCoreRpc<{
       result?: { analyticsEnabled?: boolean; meetAutoOrchestratorHandoff?: boolean };
@@ -133,8 +127,6 @@ test.describe('Settings - Account Preferences', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Back to settings' }).click();
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toContain('/settings');
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toContain('/settings');
   });
 });

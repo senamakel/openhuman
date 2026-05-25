@@ -56,7 +56,7 @@ impl TreePolicy {
         log::debug!(
             "[tree_topic::hotness] id={} mentions={} sources={} recency={:.3} centrality={:.3} \
              queries={} total={:.3}",
-            entity_id,
+            crate::openhuman::memory::util::redact::redact(entity_id),
             idx.mention_count_30d,
             idx.distinct_sources,
             recency_weight,

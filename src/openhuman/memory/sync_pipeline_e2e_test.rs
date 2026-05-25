@@ -126,14 +126,14 @@ fn large_body(seq: u32) -> String {
     )
 }
 
-fn mk_batch(source: &str, label: &str, seq: u32, body: &str) -> ChatBatch {
+fn mk_batch(source: &str, label: &str, seq: u32, body: &str, base_ts: i64) -> ChatBatch {
     ChatBatch {
         platform: source.into(),
         channel_label: label.into(),
         messages: vec![ChatMessage {
             author: "alice".into(),
             timestamp: Utc
-                .timestamp_millis_opt(1_700_000_000_000 + (seq as i64) * 60_000)
+                .timestamp_millis_opt(base_ts + (seq as i64) * 60_000)
                 .unwrap(),
             text: body.into(),
             source_ref: Some(format!("{source}://msg/{seq}")),
@@ -167,7 +167,7 @@ async fn single_batch_sync_to_tree() {
     );
 
     let source_id = "gmail:alice-thread-1";
-    let batch = mk_batch("gmail", "inbox", 1, &substantive_body(1));
+    let batch = mk_batch("gmail", "inbox", 1, &substantive_body(1), 1_700_000_000_000);
     let result = ingest_chat(&cfg, source_id, "alice", vec!["gmail".into()], batch)
         .await
         .unwrap();
@@ -181,7 +181,8 @@ async fn single_batch_sync_to_tree() {
     // DocumentCanonicalized event.
     tokio::task::yield_now().await;
     let canonicalized_count = collector.count_by(|e| {
-        matches!(e, DomainEvent::DocumentCanonicalized { source_kind, .. } if source_kind == "chat")
+        matches!(e, DomainEvent::DocumentCanonicalized { source_kind, source_id: sid, .. }
+            if source_kind == "chat" && sid == "gmail:alice-thread-1")
     });
     assert!(canonicalized_count >= 1);
 
@@ -245,7 +246,7 @@ async fn multi_batch_volume_builds_full_tree() {
 
     // Ingest 30 batches with large bodies to cross the 50k token seal threshold.
     for i in 0..30u32 {
-        let batch = mk_batch("gmail", "inbox", i, &large_body(i));
+        let batch = mk_batch("gmail", "inbox", i, &large_body(i), base_ts);
         let result = ingest_chat(&cfg, source_id, "alice", vec!["gmail".into()], batch)
             .await
             .unwrap();
@@ -259,8 +260,10 @@ async fn multi_batch_volume_builds_full_tree() {
     assert!(total_chunks >= 20, "got {total_chunks}");
 
     tokio::task::yield_now().await;
-    let canonicalized =
-        collector.count_by(|e| matches!(e, DomainEvent::DocumentCanonicalized { .. }));
+    let canonicalized = collector.count_by(|e| {
+        matches!(e, DomainEvent::DocumentCanonicalized { source_id: sid, .. }
+            if sid == "gmail:alice-volume")
+    });
     assert!(canonicalized >= 20);
 
     // Drain all jobs.
@@ -360,5 +363,8 @@ async fn multi_batch_volume_builds_full_tree() {
 
     // Verify event stream.
     tokio::task::yield_now().await;
-    assert!(collector.count_by(|e| matches!(e, DomainEvent::DocumentCanonicalized { .. })) >= 20);
+    assert!(
+        collector.count_by(|e| matches!(e, DomainEvent::DocumentCanonicalized { source_id: sid, .. }
+            if sid == "gmail:alice-volume")) >= 20
+    );
 }

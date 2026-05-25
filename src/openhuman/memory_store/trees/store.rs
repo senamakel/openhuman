@@ -21,12 +21,12 @@ use chrono::{DateTime, TimeZone, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::score::embed::{decode_optional_blob, pack_checked};
 use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::StagedSummary;
 use crate::openhuman::memory_store::trees::types::{
     Buffer, SummaryNode, Tree, TreeKind, TreeStatus,
 };
+use crate::openhuman::memory_tree::score::embed::{decode_optional_blob, pack_checked};
 
 fn ms_to_utc(ms: i64) -> rusqlite::Result<DateTime<Utc>> {
     Utc.timestamp_millis_opt(ms).single().ok_or_else(|| {

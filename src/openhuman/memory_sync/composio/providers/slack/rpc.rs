@@ -17,12 +17,14 @@ use serde::{Deserialize, Serialize};
 use crate::openhuman::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
-use crate::openhuman::memory_sync::composio::providers::registry::get_provider;
-use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
-use crate::openhuman::memory_sync::composio::providers::{ProviderContext, SyncOutcome, SyncReason};
 use crate::openhuman::composio::types::ComposioConnectionsResponse;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::global::client_if_ready;
+use crate::openhuman::memory_sync::composio::providers::registry::get_provider;
+use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
+use crate::openhuman::memory_sync::composio::providers::{
+    ProviderContext, SyncOutcome, SyncReason,
+};
 use crate::rpc::RpcOutcome;
 
 /// Optional connection-id override for the trigger. When absent, all

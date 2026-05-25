@@ -17,7 +17,9 @@ pub mod bus;
 pub mod periodic;
 pub mod providers;
 
-use crate::openhuman::composio::client::{create_composio_client, direct_list_connections, ComposioClientKind};
+use crate::openhuman::composio::client::{
+    create_composio_client, direct_list_connections, ComposioClientKind,
+};
 use crate::openhuman::composio::types::ComposioConnection;
 use crate::openhuman::config::Config;
 
@@ -43,7 +45,8 @@ pub struct SyncTarget {
 pub async fn list_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, String> {
     init_default_composio_sync_providers();
 
-    let kind = create_composio_client(config).map_err(|e| format!("create_composio_client: {e:#}"))?;
+    let kind =
+        create_composio_client(config).map_err(|e| format!("create_composio_client: {e:#}"))?;
     let response = match kind {
         ComposioClientKind::Backend(client) => client
             .list_connections()
@@ -73,10 +76,15 @@ pub async fn run_connection_sync(
         .await?
         .into_iter()
         .find(|target| target.connection_id == connection_id)
-        .ok_or_else(|| format!("no provider-backed active sync target for connection_id={connection_id}"))?;
+        .ok_or_else(|| {
+            format!("no provider-backed active sync target for connection_id={connection_id}")
+        })?;
 
     let provider = get_composio_sync_provider(&target.toolkit).ok_or_else(|| {
-        format!("no native memory sync provider registered for toolkit '{}'", target.toolkit)
+        format!(
+            "no native memory sync provider registered for toolkit '{}'",
+            target.toolkit
+        )
     })?;
 
     let ctx = ProviderContext {

@@ -23,7 +23,9 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use super::sync;
-use crate::openhuman::memory_sync::composio::providers::sync_state::{persist_single_item, SyncState};
+use crate::openhuman::memory_sync::composio::providers::sync_state::{
+    persist_single_item, SyncState,
+};
 use crate::openhuman::memory_sync::composio::providers::{
     pick_str, ComposioProvider, CuratedTool, ProviderContext, ProviderUserProfile, SyncOutcome,
     SyncReason,

@@ -12,22 +12,22 @@
 use anyhow::{Context, Result};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::tree_global::digest::{self, DigestOutcome};
+use crate::openhuman::memory::tree_source::get_or_create_source_tree;
+use crate::openhuman::memory::tree_topic::curator;
 use crate::openhuman::memory_queue::store;
 use crate::openhuman::memory_queue::types::{
     AppendBufferPayload, AppendTarget, DigestDailyPayload, ExtractChunkPayload, FlushStalePayload,
     Job, JobKind, JobOutcome, NewJob, NodeRef, ReembedBackfillPayload, SealPayload,
     TopicRoutePayload,
 };
-use crate::openhuman::memory_tree::score;
-use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, pack_checked};
-use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::openhuman::memory_store::content::{
     self as content_store, read as content_read, tags as content_tags,
 };
-use crate::openhuman::memory::tree_global::digest::{self, DigestOutcome};
-use crate::openhuman::memory::tree_source::get_or_create_source_tree;
-use crate::openhuman::memory::tree_topic::curator;
+use crate::openhuman::memory_tree::score;
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, pack_checked};
+use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_tree::tree::store as summary_store;
 use crate::openhuman::memory_tree::tree::{LeafRef, TreeFactory};
 
@@ -784,11 +784,11 @@ async fn handle_reembed_backfill(config: &Config, job: &Job) -> Result<JobOutcom
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_queue::store::{count_by_status, count_total};
     use crate::openhuman::memory_queue::types::JobStatus;
     use crate::openhuman::memory_store::chunks::store::with_connection;
     use crate::openhuman::memory_store::content as content_store;
-    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
     use crate::openhuman::memory_tree::tree::bucket_seal::{append_leaf_deferred, LeafRef};
     use crate::openhuman::memory_tree::tree::store as src_store;
     use chrono::TimeZone;

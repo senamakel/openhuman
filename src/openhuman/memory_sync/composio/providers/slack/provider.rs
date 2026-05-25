@@ -44,12 +44,12 @@ use super::users::SlackUsers;
 // `ComposioClient` is no longer referenced directly — actions dispatch
 // through `ProviderContext::execute` which resolves the client via the
 // mode-aware factory per call (#1710).
+use crate::openhuman::composio::types::ComposioExecuteResponse;
 use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
 use crate::openhuman::memory_sync::composio::providers::{
     pick_str, ComposioProvider, CuratedTool, ProviderContext, ProviderUserProfile, SyncOutcome,
     SyncReason,
 };
-use crate::openhuman::composio::types::ComposioExecuteResponse;
 
 /// Composio action slug for channel listing.
 const ACTION_LIST_CONVERSATIONS: &str = "SLACK_LIST_CONVERSATIONS";

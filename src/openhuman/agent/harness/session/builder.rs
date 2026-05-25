@@ -22,9 +22,7 @@ use crate::openhuman::context::{ContextManager, ProviderSummarizer, SegmentRecap
 use crate::openhuman::inference::provider::{self, Provider};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store;
-use crate::openhuman::memory_tools::{
-    ToolMemoryCaptureHook, ToolMemoryRule, ToolMemoryStore,
-};
+use crate::openhuman::memory_tools::{ToolMemoryCaptureHook, ToolMemoryRule, ToolMemoryStore};
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool, ToolSpec};
 use anyhow::Result;
@@ -1146,9 +1144,7 @@ impl Agent {
             }
 
             if config.learning.tool_memory_capture_enabled {
-                post_turn_hooks.push(Arc::new(
-                    ToolMemoryCaptureHook::new(memory.clone(), true),
-                ));
+                post_turn_hooks.push(Arc::new(ToolMemoryCaptureHook::new(memory.clone(), true)));
                 log::info!("[learning] tool_memory_capture hook registered");
             }
 

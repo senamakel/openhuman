@@ -49,11 +49,11 @@ use tokio::time::interval;
 
 use crate::openhuman::config::rpc as config_rpc;
 
+use super::providers::{get_provider, ProviderContext, SyncReason};
 use crate::openhuman::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
 use crate::openhuman::composio::ops;
-use super::providers::{get_provider, ProviderContext, SyncReason};
 
 /// How often the scheduler wakes up to look for due syncs. Independent
 /// from per-provider `sync_interval_secs` — this just bounds how long

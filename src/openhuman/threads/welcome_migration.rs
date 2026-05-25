@@ -18,8 +18,8 @@
 use std::fs;
 use std::path::Path;
 
-use serde_json::{json, Value};
 use crate::openhuman::memory_conversations as conversations;
+use serde_json::{json, Value};
 
 const MIGRATION_MARKER: &str = "state/migrations/welcome_to_orchestrator_v1.done";
 const WELCOME_THREAD_LABEL: &str = "onboarding";

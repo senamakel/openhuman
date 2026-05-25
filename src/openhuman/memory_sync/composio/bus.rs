@@ -57,10 +57,10 @@ use crate::openhuman::composio::trigger_history;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT;
 
+use super::providers::{get_provider, ProviderContext};
 use crate::openhuman::composio::client::ComposioClient;
 use crate::openhuman::composio::ops;
 use crate::openhuman::composio::FetchConnectedIntegrationsStatus;
-use super::providers::{get_provider, ProviderContext};
 
 /// Env var that **disables** the triage pipeline. The pipeline is
 /// enabled by default; set to `1`/`true`/`yes` to opt out (e.g. for
@@ -512,8 +512,7 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
                     // collapses both to `Vec::new()` and would
                     // otherwise hide auth/backend failures from
                     // incident triage.
-                    match ops::fetch_connected_integrations_status(ctx.config.as_ref()).await
-                    {
+                    match ops::fetch_connected_integrations_status(ctx.config.as_ref()).await {
                         FetchConnectedIntegrationsStatus::Authoritative(entries) => {
                             tracing::debug!(
                                 toolkit = %toolkit,

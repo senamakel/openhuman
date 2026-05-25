@@ -192,8 +192,9 @@ impl SystemPromptBuilder {
         // Insert before the tool-catalogue section so these rules appear
         // adjacent to the tool listings and survive tail-biased trimming.
         // Falls back to push when no tools section is present.
-        let section: Box<dyn PromptSection> =
-            Box::new(crate::openhuman::memory_tools::ToolMemoryRulesSection::new(rules));
+        let section: Box<dyn PromptSection> = Box::new(
+            crate::openhuman::memory_tools::ToolMemoryRulesSection::new(rules),
+        );
         let tools_idx = self
             .sections
             .iter()

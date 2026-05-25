@@ -30,11 +30,11 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_tree::retrieval::types::RetrievalHit;
 use crate::openhuman::memory_store::chunks::store::list_chunks;
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory_store::types::NamespaceMemoryHit;
 use crate::openhuman::memory_store::UnifiedMemory;
+use crate::openhuman::memory_tree::retrieval::types::RetrievalHit;
 
 /// Optional filter set for `param_tag_search`. All `Some` fields are AND-ed
 /// together; `None` fields are unconstrained.

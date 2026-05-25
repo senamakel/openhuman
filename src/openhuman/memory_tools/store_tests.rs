@@ -5,9 +5,7 @@ use std::sync::Arc;
 
 use super::*;
 use crate::openhuman::memory_tools::test_helpers::MockMemory;
-use crate::openhuman::memory_tools::types::{
-    ToolMemoryPriority, ToolMemoryRule, ToolMemorySource,
-};
+use crate::openhuman::memory_tools::types::{ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
 
 fn fresh_store() -> ToolMemoryStore {
     ToolMemoryStore::new(Arc::new(MockMemory::default()))

@@ -240,6 +240,10 @@ const de5: TranslationMap = {
   'settings.mascot.active': 'Aktiv',
   'settings.mascot.characterDesc': 'Charakterbeschreibung',
   'settings.mascot.characterHeading': 'Zeichenüberschrift',
+  'settings.mascot.customGifError':
+    'Gib eine HTTPS-.gif-URL, eine Loopback-HTTP-.gif-URL, eine file://-.gif-URL oder einen lokalen .gif-Pfad ein.',
+  'settings.mascot.customGifHeading': 'Eigener GIF-Avatar',
+  'settings.mascot.customGifLabel': 'URL des eigenen GIF-Avatars',
   'settings.mascot.colorDesc': 'Farbbeschreibung',
   'settings.mascot.colorHeading': 'Farbüberschrift',
   'settings.mascot.loadingLibrary': 'OpenHuman-Bibliothek wird geladen…',
@@ -527,10 +531,6 @@ const de5: TranslationMap = {
   'settings.mascot.colorGreen': 'Grün',
   'settings.mascot.colorNavy': 'Marine',
   'settings.mascot.colorYellow': 'Gelb',
-  'settings.mascot.customGifError':
-    'GIF konnte nicht geladen werden. Bitte überprüfe die URL und versuche es erneut.',
-  'settings.mascot.customGifHeading': 'Benutzerdefinierter GIF-Avatar',
-  'settings.mascot.customGifLabel': 'URL für benutzerdefinierten GIF-Avatar',
   'settings.mascot.libraryUnavailable': 'OpenHuman Bibliothek nicht verfügbar',
   'settings.mascot.title': 'OpenHuman',
   'settings.developerMenu.composio.title': 'Composio',

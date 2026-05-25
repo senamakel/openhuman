@@ -38,7 +38,7 @@ unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
 | --- | --- |
 | [`content/`](content/) | **Source of truth** for chunk + summary bodies as on-disk `.md` files. Atomic writes, path layout, YAML front-matter compose/parse, tag rewrites, Obsidian vault defaults. See [`content/README.md`](content/README.md). |
 | [`chunks/`](chunks/) | Full chunk lifecycle. `types.rs` (`Chunk`, `Metadata`, `SourceKind`, `RawRef`, `ListChunksQuery`) + `store.rs` (SQLite persistence + connection cache) + `produce.rs` (source-kind dispatch chunker used by the ingest pipeline) + `semantic.rs` (heading/paragraph-aware chunker). |
-| [`entities/`](entities/) | Thin re-export of `memory::score::store` — `index_entity`, `index_entities`, `lookup_entity`, `list_entity_ids_for_node`, `clear_entity_index_for_node`, `count_entity_index`, `EntityHit`. Reads/writes the `mem_tree_entity_index` table. |
+| [`entities/`](entities/) | Thin re-export of `memory_tree::score::store` — `index_entity`, `index_entities`, `lookup_entity`, `list_entity_ids_for_node`, `clear_entity_index_for_node`, `count_entity_index`, `EntityHit`. Reads/writes the `mem_tree_entity_index` table. |
 | [`trees/`](trees/) | `store.rs` (`mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`), `types.rs` (Tree / SummaryNode / TreeKind / TreeStatus / Buffer + topic hotness types), `registry.rs` (kind-parameterized helpers), `hotness.rs` (entity hotness side-table). |
 | [`vectors/`](vectors/) | Standalone vector store. `VectorStore` over SQLite, byte-codec for f32 vectors, cosine similarity. |
 | [`kv.rs`](kv.rs) | Global + namespace key-value (`kv_global`, `kv_namespace` tables). |
@@ -56,5 +56,5 @@ unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
 - **No upward dependencies.** memory_store does not depend on
   `memory_tree`, `memory_tools`, or `memory`. The one documented exception
   is `retrieval::RetrievalFacade::tree_walk`, which delegates to
-  `memory::retrieval::drill_down`; revisit when drill_down's policy bits
+  `memory_tree::retrieval::drill_down`; revisit when drill_down's policy bits
   can be cleanly separated from its pure traversal.

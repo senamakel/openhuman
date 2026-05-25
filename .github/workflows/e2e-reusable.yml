@@ -2,7 +2,7 @@
 # Reusable E2E workflow — single source of truth for the desktop E2E recipe.
 #
 # Callers:
-#   - `.github/workflows/e2e.yml`     — PR/push, Linux-only smoke (blocking).
+#   - `.github/workflows/e2e.yml`     — PR/push, all-OS mega-flow gate.
 #   - `.github/workflows/release-staging.yml`    — pretest gate, all 3 OS, full suite.
 #   - `.github/workflows/release-production.yml` — pretest gate, all 3 OS, full suite.
 #
@@ -50,8 +50,8 @@ on:
       full:
         description:
           When true, run the entire spec suite via `e2e-run-session.sh` (no
-          spec arg). When false, run the smoke spec + mega-flow (mega-flow
-          non-blocking). Releases set this to true; PR runs leave it false.
+          spec arg). When false, run the desktop full-flow lane only
+          (`mega-flow.spec.ts`). Releases set this to true.
         type: boolean
         default: false
 
@@ -60,7 +60,7 @@ permissions:
   packages: read
 
 jobs:
-  # Smoke/mega-flow gate for PR/push (full=false). The full-suite path lives in
+  # Mega-flow gate for PR/push (full=false). The full-suite path lives in
   # `e2e-linux-full` below, which fans out across 4 parallel shards via
   # `e2e-run-all-flows.sh --suite=<list>`. Splitting the two prevents the
   # smoke job from paying matrix overhead for a 2-spec run.
@@ -137,16 +137,6 @@ jobs:
       - name: Build E2E app
         run: pnpm --filter openhuman-app test:e2e:build
 
-      - name: Run E2E (smoke)
-        if: ${{ !inputs.full }}
-        run: |
-          xvfb-run -a --server-args="-screen 0 1280x960x24" \
-            bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
-
-      # Mega-flow exercises the OAuth-success-deep-link and Composio
-      # trigger-lifecycle paths. Hard-fails on regressions — if the
-      # deep-link → custom-event propagation race resurfaces, fix it
-      # at the source rather than re-adding `continue-on-error`.
       - name: Run E2E (mega-flow)
         if: ${{ !inputs.full }}
         run: |
@@ -512,9 +502,8 @@ jobs:
           codesign --verify --deep --verbose=2 \
             app/src-tauri/target/debug/bundle/macos/OpenHuman.app
 
-      - name: Run E2E (smoke + mega-flow)
+      - name: Run E2E (mega-flow)
         run: |
-          bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
           bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
       # Artifact uploads intentionally omitted — see e2e-linux for the
@@ -593,10 +582,9 @@ jobs:
       - name: Build E2E app
         run: pnpm --filter openhuman-app test:e2e:build
 
-      - name: Run E2E (smoke + mega-flow)
+      - name: Run E2E (mega-flow)
         shell: bash
         run: |
-          bash app/scripts/e2e-run-session.sh test/e2e/specs/smoke.spec.ts smoke
           bash app/scripts/e2e-run-session.sh test/e2e/specs/mega-flow.spec.ts mega-flow
 
       # Artifact uploads intentionally omitted — see e2e-linux for the

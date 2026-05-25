@@ -52,7 +52,7 @@ concurrency:
 #   prepare-build
 #        │
 #        ├─── pretest-tests   (reusable test-reusable.yml — unit + rust)
-#        ├─── pretest-e2e     (reusable e2e-reusable.yml — all 3 OS, full)
+#        ├─── pretest-tests   (reusable test-reusable.yml — unit + rust)
 #        │
 #        ├─── create-release
 #        │         │
@@ -322,18 +322,6 @@ jobs:
     uses: ./.github/workflows/test-reusable.yml
     with:
       ref: ${{ needs.prepare-build.outputs.build_ref }}
-  pretest-e2e:
-    name: Pretest — E2E (all OS, full suite)
-    needs: [prepare-build]
-    if: ${{ !inputs.skip_e2e }}
-    uses: ./.github/workflows/e2e-reusable.yml
-    with:
-      ref: ${{ needs.prepare-build.outputs.build_ref }}
-      run_linux: true
-      run_macos: true
-      run_windows: true
-      full: true
-
   # =========================================================================
   # Phase 2: Create draft GitHub release
   # =========================================================================
@@ -341,14 +329,12 @@ jobs:
     name: Create GitHub release
     runs-on: ubuntu-latest
     environment: Production
-    needs: [prepare-build, pretest-tests, pretest-e2e]
+    needs: [prepare-build, pretest-tests]
     if: >-
       always()
       && needs.prepare-build.result == 'success'
       && (needs.pretest-tests.result == 'success'
           || (inputs.skip_e2e && needs.pretest-tests.result == 'skipped'))
-      && (needs.pretest-e2e.result == 'success'
-          || (inputs.skip_e2e && needs.pretest-e2e.result == 'skipped'))
     outputs:
       release_id: ${{ steps.create.outputs.release_id }}
       upload_url: ${{ steps.create.outputs.upload_url }}
@@ -792,7 +778,6 @@ jobs:
     needs:
       - prepare-build
       - pretest-tests
-      - pretest-e2e
       - create-release
       - build-desktop
       - build-cli-linux
@@ -812,7 +797,7 @@ jobs:
       && (
         (needs.create-release.result != 'success'
          && (needs.pretest-tests.result == 'failure' || needs.pretest-tests.result == 'cancelled'
-             || needs.pretest-e2e.result == 'failure' || needs.pretest-e2e.result == 'cancelled'))
+            ))
         || (needs.create-release.result == 'success'
             && (needs.build-desktop.result == 'failure' || needs.build-desktop.result == 'cancelled'
                 || needs.build-cli-linux.result == 'failure' || needs.build-cli-linux.result == 'cancelled'

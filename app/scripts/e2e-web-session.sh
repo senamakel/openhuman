@@ -108,7 +108,7 @@ fi
 export OPENHUMAN_CORE_TOKEN="$PW_CORE_RPC_TOKEN"
 export OPENHUMAN_TELEGRAM_BOT_API_BASE="http://127.0.0.1:${E2E_MOCK_PORT}"
 
-"$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" --jsonrpc-only \
+"$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
   >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
 CORE_PID=$!
 wait_for_http "http://127.0.0.1:${OPENHUMAN_CORE_PORT}/health" "standalone core"

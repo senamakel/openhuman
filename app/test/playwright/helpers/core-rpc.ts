@@ -155,11 +155,18 @@ export async function waitForAppReady(page: Page): Promise<void> {
 
 export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
   const skipButton = page.getByRole('button', { name: /Skip|Skip tour/i });
-  if ((await skipButton.count()) === 0) return;
-  if (!(await skipButton.first().isVisible().catch(() => false))) return;
-  await skipButton.first().click();
-  await expect(skipButton.first()).toHaveCount(0, { timeout: 5_000 });
-  await expect(page.locator('#react-joyride-portal')).toHaveCount(0, { timeout: 5_000 });
+  const portal = page.locator('#react-joyride-portal');
+  const deadline = Date.now() + 5_000;
+
+  while (Date.now() < deadline) {
+    if ((await portal.count()) === 0) return;
+    if ((await skipButton.count()) > 0 && (await skipButton.first().isVisible().catch(() => false))) {
+      await skipButton.first().click({ force: true });
+      await expect(portal).toHaveCount(0, { timeout: 5_000 });
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
 }
 
 async function waitForAuthenticatedSnapshot(page: Page): Promise<void> {

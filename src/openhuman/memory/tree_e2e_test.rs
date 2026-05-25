@@ -28,6 +28,7 @@ use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{
     query_global, query_source, query_topic, search_entities,
 };
+use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
 
 fn test_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();
@@ -359,6 +360,138 @@ async fn full_pipeline_ingest_to_retrieval() {
             source_resp.hits.len(),
             global_resp.hits.len(),
             topic_resp.hits.len(),
+            entity_matches.len()
+        );
+    })
+    .await;
+}
+
+/// When `embeddings_provider = "none"`, the full ingest → retrieval pipeline
+/// must still work end-to-end. Semantic rerank degrades to recency ordering
+/// (InertEmbedder produces zero vectors → cosine similarity = 0), but chunks
+/// are still written with valid zero-vector embeddings, and source-tree
+/// retrieval succeeds via the recency fallback path.
+///
+/// This guards against regressions where disabling embeddings causes panics,
+/// schema mismatches, or silent data loss in the memory subsystem.
+#[tokio::test]
+async fn pipeline_works_with_embeddings_disabled() {
+    let (_tmp, mut cfg) = test_config();
+    cfg.embeddings_provider = Some("none".into());
+
+    // Verify the factory returns InertEmbedder for this config.
+    let embedder = build_embedder_from_config(&cfg).expect("factory must succeed for 'none'");
+    assert_eq!(
+        embedder.name(),
+        "inert",
+        "embeddings_provider=none must route to InertEmbedder"
+    );
+
+    let provider: Arc<dyn ChatProvider> = Arc::new(StaticChatProvider::new(
+        r#"{"summary":"bob@example.com discussed the quarterly review.","entities":["email:bob@example.com"],"topics":["quarterly","review"]}"#,
+    ));
+
+    test_override::with_provider(Arc::clone(&provider), async {
+        // ── Ingest a heavy batch to cross the seal threshold ────────────
+        let source_id = "slack:#disabled-embed-test";
+        let result = ingest_chat(
+            &cfg,
+            source_id,
+            "bob",
+            vec!["test".into()],
+            heavy_batch("slack", "#disabled-embed-test", 0),
+        )
+        .await
+        .expect("ingest_chat must succeed with embeddings disabled");
+
+        assert!(
+            result.chunks_written >= 1,
+            "ingest must write at least one chunk even with embeddings disabled"
+        );
+
+        log::debug!(
+            "[tree_e2e_test::embeddings_disabled] ingest: chunks_written={} dropped={}",
+            result.chunks_written,
+            result.chunks_dropped
+        );
+
+        // ── Drain the async job queue ───────────────────────────────────
+        drain_until_idle(&cfg)
+            .await
+            .expect("drain_until_idle must succeed with embeddings disabled");
+
+        // ── Source-tree retrieval without a query (recency only) ─────────
+        use crate::openhuman::memory_store::chunks::types::SourceKind;
+        let recency_resp = query_source(&cfg, None, Some(SourceKind::Chat), None, None, 20)
+            .await
+            .expect("query_source (recency) must succeed with embeddings disabled");
+
+        log::debug!(
+            "[tree_e2e_test::embeddings_disabled] query_source (recency): total={} hits={}",
+            recency_resp.total,
+            recency_resp.hits.len()
+        );
+
+        assert!(
+            recency_resp.total >= recency_resp.hits.len(),
+            "query_source total must be >= hits.len()"
+        );
+
+        // ── Source-tree retrieval WITH a query (semantic rerank path) ────
+        // This exercises the codepath where build_embedder_from_config is
+        // called internally. With InertEmbedder, the rerank degrades to
+        // recency ordering but must not error.
+        let semantic_resp = query_source(
+            &cfg,
+            None,
+            Some(SourceKind::Chat),
+            None,
+            Some("quarterly review"),
+            20,
+        )
+        .await
+        .expect(
+            "query_source (semantic) must succeed with embeddings disabled — \
+             InertEmbedder should degrade gracefully to recency ordering",
+        );
+
+        log::debug!(
+            "[tree_e2e_test::embeddings_disabled] query_source (semantic): total={} hits={}",
+            semantic_resp.total,
+            semantic_resp.hits.len()
+        );
+
+        assert!(
+            semantic_resp.total >= semantic_resp.hits.len(),
+            "query_source total must be >= hits.len()"
+        );
+
+        // ── Global digest should also succeed ───────────────────────────
+        let today = Utc::now().date_naive();
+        let digest_outcome = end_of_day_digest(&cfg, today)
+            .await
+            .expect("end_of_day_digest must succeed with embeddings disabled");
+
+        log::debug!(
+            "[tree_e2e_test::embeddings_disabled] digest outcome: {:?}",
+            digest_outcome
+        );
+
+        // ── Entity search (keyword-based, no embeddings needed) ─────────
+        let entity_matches = search_entities(&cfg, "bob", None, 10)
+            .await
+            .expect("search_entities must succeed with embeddings disabled");
+
+        log::debug!(
+            "[tree_e2e_test::embeddings_disabled] search_entities('bob'): {} matches",
+            entity_matches.len()
+        );
+
+        log::info!(
+            "[tree_e2e_test] pipeline_works_with_embeddings_disabled PASSED \
+             recency_hits={} semantic_hits={} entity_matches={}",
+            recency_resp.hits.len(),
+            semantic_resp.hits.len(),
             entity_matches.len()
         );
     })

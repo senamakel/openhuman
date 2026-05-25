@@ -1107,6 +1107,7 @@ const en: TranslationMap = {
   // Voice routing section
   'voice.routing.title': 'Voice Routing',
   'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
   'voice.routing.testStt': 'Test STT',
   'voice.routing.testTts': 'Test TTS',
   'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',

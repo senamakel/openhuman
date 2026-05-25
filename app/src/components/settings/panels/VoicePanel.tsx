@@ -94,6 +94,9 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   // openhumanVoiceSetProviders on change. Empty string until first load.
   const [sttProvider, setSttProvider] = useState<string>('');
   const [ttsProvider, setTtsProvider] = useState<string>('');
+  const [savedSttProvider, setSavedSttProvider] = useState<string>('');
+  const [savedTtsProvider, setSavedTtsProvider] = useState<string>('');
+  const [isSavingRouting, setIsSavingRouting] = useState(false);
   const [sttModel, setSttModel] = useState<string>('');
   const [ttsVoice, setTtsVoice] = useState<string>('');
   const [elevenlabsVoiceId, setElevenlabsVoiceId] = useState<string>('JBFqnCBsd6RMkjVDRZzb');
@@ -211,6 +214,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   : 'cloud';
           setSttProvider(prev => prev || sttStr);
           setTtsProvider(prev => prev || ttsStr);
+          setSavedSttProvider(sttStr);
+          setSavedTtsProvider(ttsStr);
         })
         .catch(err => {
           if (process.env.NODE_ENV !== 'production') {
@@ -279,12 +284,26 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
   const onSttProviderChange = (next: string) => {
     setSttProvider(next);
-    void persistProviders({ stt_provider: next });
   };
   const onTtsProviderChange = (next: string) => {
     setTtsProvider(next);
-    void persistProviders({ tts_provider: next });
   };
+
+  const hasRoutingChanges = sttProvider !== savedSttProvider || ttsProvider !== savedTtsProvider;
+
+  const saveRouting = useCallback(async () => {
+    setIsSavingRouting(true);
+    setError(null);
+    try {
+      await persistProviders({ stt_provider: sttProvider, tts_provider: ttsProvider });
+      setSavedSttProvider(sttProvider);
+      setSavedTtsProvider(ttsProvider);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('voice.providers.failedToSave'));
+    } finally {
+      setIsSavingRouting(false);
+    }
+  }, [sttProvider, ttsProvider, persistProviders, t]);
 
   /**
    * Enable an external voice provider chip using the inline key form.
@@ -1162,6 +1181,17 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   </label>
                 )}
               </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                data-testid="save-voice-routing"
+                disabled={!hasRoutingChanges || isSavingRouting}
+                onClick={() => void saveRouting()}
+                className="px-4 py-1.5 text-xs rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                {isSavingRouting ? t('common.loading') : t('voice.routing.save')}
+              </button>
             </div>
           </div>
         </section>

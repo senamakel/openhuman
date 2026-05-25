@@ -61,10 +61,14 @@ impl Drop for EnvVarGuard {
 /// process-global, so parallel tests would clobber each other and hit the wrong `config.toml` or
 /// inherited `VITE_BACKEND_URL`.
 static JSON_RPC_E2E_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static JSON_RPC_E2E_KEYRING_INIT: OnceLock<()> = OnceLock::new();
 static CHAT_COMPLETION_MODELS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 static CHAT_COMPLETION_REQUESTS: OnceLock<Mutex<Vec<Value>>> = OnceLock::new();
 
 fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    JSON_RPC_E2E_KEYRING_INIT.get_or_init(|| unsafe {
+        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+    });
     let mutex = JSON_RPC_E2E_ENV_LOCK.get_or_init(|| Mutex::new(()));
     // Recover from poison so that a panic in one test does not cascade to all others.
     match mutex.lock() {

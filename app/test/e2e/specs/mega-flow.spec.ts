@@ -77,11 +77,6 @@ async function waitForMockRequest(
   return undefined;
 }
 
-async function waitForAuthProfileFetch(timeoutMs = 15_000): Promise<void> {
-  const me = await waitForMockRequest('GET', '/auth/me', timeoutMs);
-  expect(me).toBeDefined();
-}
-
 async function resetEverything(label: string): Promise<void> {
   console.log(`${LOG} reset (${label}) — admin reset only (skip destructive core reset)`);
   // Mock-side reset is enough to give each scenario a clean slate for the

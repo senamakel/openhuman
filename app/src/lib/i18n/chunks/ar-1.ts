@@ -241,6 +241,7 @@ const ar1: TranslationMap = {
   'onboarding.custom.stepperVoice': 'الصوت',
   'onboarding.custom.stepperOAuth': 'OAuth',
   'onboarding.custom.stepperSearch': 'البحث',
+  'onboarding.custom.stepperEmbeddings': 'Embeddings',
   'onboarding.custom.stepperMemory': 'الذاكرة',
   'onboarding.custom.stepCounter': 'الخطوة {n} من {total}',
   'onboarding.custom.defaultTitle': 'افتراضي',
@@ -277,6 +278,13 @@ const ar1: TranslationMap = {
   'onboarding.custom.search.defaultDesc': 'يستخدم OpenHuman خادم بحث مُدار. لا حاجة لمفاتيح.',
   'onboarding.custom.search.configureDesc':
     'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
+  'onboarding.custom.embeddings.title': 'Embeddings',
+  'onboarding.custom.embeddings.subtitle':
+    'How OpenHuman generates vector embeddings for semantic memory search.',
+  'onboarding.custom.embeddings.defaultDesc':
+    'OpenHuman uses a managed embedding service. No API key needed.',
+  'onboarding.custom.embeddings.configureDesc':
+    'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
   'onboarding.custom.memory.title': 'الذاكرة',
   'onboarding.custom.memory.subtitle': 'كيف يتذكر OpenHuman سياقك وتفضيلاتك ومحادثاتك السابقة.',
   'onboarding.custom.memory.defaultDesc':
@@ -515,6 +523,8 @@ const ar1: TranslationMap = {
   'settings.embeddings.setupTitle': 'إعداد {provider}',
   'settings.embeddings.saveAndSwitch': 'حفظ والتبديل',
   'settings.embeddings.optional': 'اختياري',
+  'settings.embeddings.vectorSearchDisabled':
+    'Vector search is disabled. Memory recall will use keyword matching and recency only — no semantic ranking.',
   'settings.embeddings.clearKey': 'مسح مفتاح API',
   'mcp.alphaBadge': 'Alpha',
   'mcp.alphaBannerText':

@@ -352,6 +352,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | 10.1.2 | WhatsApp Connection | WD    | `app/test/e2e/specs/whatsapp-flow.spec.ts` (this PR) | ✅     | Was ❌ |
 | 10.1.3 | Gmail Connection    | WD    | `gmail-flow.spec.ts`                                 | ✅     |        |
 | 10.1.4 | Slack Connection    | WD    | `app/test/e2e/specs/slack-flow.spec.ts` (this PR)    | ✅     | Was ❌ |
+| 10.1.5 | Yuanbao Connection  | RU    | `src/openhuman/channels/providers/yuanbao/` (this PR), `src/openhuman/channels/controllers/ops.rs::tests::connect_yuanbao_*` (this PR), `src/openhuman/channels/runtime/startup.rs::yuanbao_secret_tests` (this PR) | 🟡     | New API-key channel for Tencent Yuanbao. RU covers sign-token preflight (valid/invalid creds, env-override cluster routing), credentials store hydration (incl. stale app_key guard), and WS reconnect/shutdown. No WDIO spec yet — connect-flow UI is rendered via the generic `ChannelSetupModal` already exercised by other channel flow specs. |
 
 ### 10.2 Authentication & Authorization
 

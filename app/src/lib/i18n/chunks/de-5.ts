@@ -681,6 +681,7 @@ const de5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Unterstützt von Composio',
   'skills.composio.staleStatusTitle': 'Verbindungen zeigen den veralteten Status an',
   'skills.create.allowedToolsHelp': 'Im SKILL.md-Frontmatter gerendert als',

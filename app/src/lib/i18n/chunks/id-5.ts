@@ -654,6 +654,7 @@ const id5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Didukung oleh Composio',
   'skills.composio.staleStatusTitle': 'Koneksi menunjukkan status basi',
   'skills.create.allowedToolsHelp': 'Dirender ke frontmatter SKILL.md sebagai',

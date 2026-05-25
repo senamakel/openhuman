@@ -655,6 +655,7 @@ const hi5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'वेब',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Composio द्वारा संचालित',
   'skills.composio.staleStatusTitle': 'कनेक्शन पुरानी स्थिति दिखा रहे हैं',
   'skills.create.allowedToolsHelp': 'SKILL.md फ्रंटमैटर में प्रस्तुत किया गया',

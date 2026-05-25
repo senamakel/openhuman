@@ -642,6 +642,7 @@ const ar5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'الويب',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'مدعوم من Composio',
   'skills.composio.staleStatusTitle': 'تظهر الاتصالات حالة قديمة',
   'skills.create.allowedToolsHelp': 'تم عرضها في المادة الأمامية SKILL.md كـ',

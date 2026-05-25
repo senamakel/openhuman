@@ -619,6 +619,7 @@ const zhCN5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': '网络',
+  'skills.channelIcon.yuanbao': '元宝',
   'skills.composio.poweredBy': '由 Composio 提供支持',
   'skills.composio.staleStatusTitle': '连接显示陈旧状态',
   'skills.create.allowedToolsHelp': '渲染到 SKILL.md frontmatter 中为',

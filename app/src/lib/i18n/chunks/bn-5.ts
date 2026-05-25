@@ -653,6 +653,7 @@ const bn5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'ওয়েব',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Composio দ্বারা চালিত',
   'skills.composio.staleStatusTitle': 'সংযোগগুলি পুরানো অবস্থা দেখাচ্ছে',
   'skills.create.allowedToolsHelp': 'হিসাবে SKILL.md ফ্রন্টম্যাটারে রেন্ডার করা হয়েছে',

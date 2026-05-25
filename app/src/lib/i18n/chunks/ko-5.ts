@@ -645,6 +645,7 @@ const ko5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': '웹',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Powered by Composio',
   'skills.composio.staleStatusTitle': '연결이 오래된 상태를 표시합니다.',
   'skills.create.allowedToolsHelp': 'SKILL.md 앞부분에 다음과 같이 렌더링됩니다.',

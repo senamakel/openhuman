@@ -666,6 +666,7 @@ const es5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Desarrollado por Composio',
   'skills.composio.staleStatusTitle': 'Las conexiones muestran un estado obsoleto',
   'skills.create.allowedToolsHelp': 'Representado en el frontmatter de SKILL.md como',

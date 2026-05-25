@@ -661,6 +661,7 @@ const ru5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Интернет',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Работает на Composio',
   'skills.composio.staleStatusTitle': 'Соединения показывают устаревший статус',
   'skills.create.allowedToolsHelp': 'Отображается в SKILL.md как',

@@ -636,6 +636,7 @@ const fr5: TranslationMap = {
   'skills.channelIcon.imessage': 'iMessage',
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
+  'skills.channelIcon.yuanbao': 'Yuanbao',
   'skills.composio.poweredBy': 'Powered by Composio',
   'skills.composio.staleStatusTitle': 'Connections are showing stale status',
   'skills.create.allowedToolsHelp': 'Rendered into the SKILL.md frontmatter as',

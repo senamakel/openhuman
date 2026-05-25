@@ -170,10 +170,7 @@ mod tests {
     #[test]
     fn source_scope_slug_strips_gmail_prefix_only() {
         let f = TreeFactory::source("gmail:alice@example.com|bob@example.com");
-        assert_eq!(
-            f.scope_slug(),
-            "alice-example-com-bob-example-com"
-        );
+        assert_eq!(f.scope_slug(), "alice-example-com-bob-example-com");
     }
 
     #[test]

@@ -437,9 +437,9 @@ pub async fn connect_channel(
         // / `ws_domain` / `route_env` overrides already applied and
         // `app_secret` already cleared) so persistence and verification
         // can never diverge.
-        let yb_config = prebuilt_yuanbao_config
-            .take()
-            .expect("yuanbao verify branch must run before persistence");
+        let yb_config = prebuilt_yuanbao_config.take().ok_or_else(|| {
+            "internal error: yuanbao config not built before persistence".to_string()
+        })?;
 
         let mut persisted = config.clone();
         persisted.channels_config.yuanbao = Some(yb_config);

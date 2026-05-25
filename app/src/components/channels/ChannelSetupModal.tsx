@@ -70,7 +70,7 @@ export default function ChannelSetupModal({ definition, onClose }: ChannelSetupM
   };
 
   const emojiIcon = CHANNEL_ICONS[definition.icon] ?? '';
-  const isYuanbao = definition.icon === 'yuanbao';
+  const isYuanbao = definition.id === 'yuanbao';
 
   const modalContent = (
     <div

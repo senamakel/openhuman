@@ -65,9 +65,9 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
 
   // All useCallback hooks must be called unconditionally.
   const handleConnect = useCallback(() => {
-    console.log('[YuanbaoConfig] handleConnect: 1.entry, spec=', spec);
+    log('handleConnect entry, spec=%o', spec);
     if (!spec) {
-      console.warn('[YuanbaoConfig] handleConnect: aborted — spec is null');
+      log('handleConnect aborted — spec is null');
       return;
     }
 
@@ -79,11 +79,11 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
       }
     }
     if (Object.keys(errors).length > 0) {
-      console.warn('[YuanbaoConfig] handleConnect: 2.validation FAILED', errors);
+      log('handleConnect validation failed: %o', errors);
       setFieldErrors(errors);
       return;
     }
-    console.log('[YuanbaoConfig] handleConnect: 2.validation passed');
+    log('handleConnect validation passed');
 
     setFieldErrors({});
     setBusy(true);
@@ -97,23 +97,15 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
       const val = fieldValues[field.key]?.trim() ?? '';
       if (val) credentials[field.key] = val;
     }
-    console.log(
-      '[YuanbaoConfig] handleConnect: 3.dispatched connecting, credential keys=',
-      Object.keys(credentials)
-    );
+    log('dispatched connecting, credential keys=%o', Object.keys(credentials));
 
     void (async () => {
       try {
-        console.log(
-          '[YuanbaoConfig] handleConnect: 4.before channels_connect RPC, authMode=',
-          spec.mode
-        );
         log('connecting yuanbao via %s', spec.mode);
         const result = await channelConnectionsApi.connectChannel('yuanbao', {
           authMode: spec.mode,
           credentials,
         });
-        console.log('[YuanbaoConfig] handleConnect: 5.RPC returned', result);
         log('connect result: %o', result);
 
         // Only treat explicit "connected" as success. Any other status
@@ -124,7 +116,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
             '{status}',
             result.status ?? ''
           );
-          console.warn('[YuanbaoConfig] handleConnect: 6.unexpected status', result.status);
+          log('unexpected status: %s', result.status);
           dispatch(
             setChannelConnectionStatus({
               channel: 'yuanbao',
@@ -137,15 +129,10 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
         }
 
         if (result.restart_required) {
-          console.log(
-            '[YuanbaoConfig] handleConnect: 6.restart_required=true, calling restartCoreProcess'
-          );
           log('restart required after connect — restarting core process');
           try {
             await restartCoreProcess();
-            console.log(
-              '[YuanbaoConfig] handleConnect: 7.restartCoreProcess resolved, dispatching connected'
-            );
+            log('core restart complete, dispatching connected');
             dispatch(
               upsertChannelConnection({
                 channel: 'yuanbao',
@@ -159,21 +146,18 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
             );
           } catch (restartErr) {
             const msg = restartErr instanceof Error ? restartErr.message : String(restartErr);
-            console.error('[YuanbaoConfig] handleConnect: 7.restartCoreProcess FAILED', restartErr);
             log('core restart failed: %s', msg);
             dispatch(
               setChannelConnectionStatus({
                 channel: 'yuanbao',
                 authMode: spec.mode,
                 status: 'error',
-                lastError: t('channels.telegram.savedRestartRequired'),
+                lastError: t('channels.yuanbao.savedRestartRequired'),
               })
             );
           }
         } else {
-          console.log(
-            '[YuanbaoConfig] handleConnect: 6.restart_required=false, dispatching connected'
-          );
+          log('no restart required, dispatching connected');
           dispatch(
             upsertChannelConnection({
               channel: 'yuanbao',
@@ -184,7 +168,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.error('[YuanbaoConfig] handleConnect: X.caught error', e);
+        log('handleConnect error: %s', msg);
         dispatch(
           setChannelConnectionStatus({
             channel: 'yuanbao',
@@ -194,7 +178,6 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
           })
         );
       } finally {
-        console.log('[YuanbaoConfig] handleConnect: 8.finally, setBusy(false)');
         setBusy(false);
       }
     })();
@@ -297,8 +280,8 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
             {busy
               ? t('channels.yuanbao.connecting')
               : status === 'connected'
-                ? t('channels.telegram.reconnect')
-                : t('channels.telegram.connect')}
+                ? t('channels.yuanbao.reconnect')
+                : t('channels.yuanbao.connect')}
           </button>
           <button
             type="button"

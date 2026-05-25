@@ -12,8 +12,8 @@ use tempfile::tempdir;
 
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::vault::VaultSyncStatus;
 use openhuman_core::openhuman::vault::ops;
+use openhuman_core::openhuman::vault::VaultSyncStatus;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 

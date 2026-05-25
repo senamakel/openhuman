@@ -11,7 +11,7 @@ entities/  mem_tree_entity_index — every entity occurrence per node
 trees/     summary tree persistence (one table, kind-parameterized)
 vectors/   local vector DB (cosine, brute-force)
 kv/        global + namespace key-value (kv_global, kv_namespace)
-contacts/  facade over people::store (Person/Handle/Interaction)
+contacts/  [removed] facade over people::store (Person/Handle/Interaction)
 unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
            (documents/query/segments/events/profile) — replaced as the
            Memory trait callers migrate to per-kind backends
@@ -42,7 +42,7 @@ unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
 | [`trees/`](trees/) | `store.rs` (`mem_tree_trees` / `mem_tree_summaries` / `mem_tree_buffers`), `types.rs` (Tree / SummaryNode / TreeKind / TreeStatus / Buffer + topic hotness types), `registry.rs` (kind-parameterized helpers), `hotness.rs` (entity hotness side-table). |
 | [`vectors/`](vectors/) | Standalone vector store. `VectorStore` over SQLite, byte-codec for f32 vectors, cosine similarity. |
 | [`kv.rs`](kv.rs) | Global + namespace key-value (`kv_global`, `kv_namespace` tables). |
-| [`people/store.rs`](../people/store.rs) | Re-export of `people::store` + async fail-soft helpers (`get_contact`, `list_contacts`, `lookup_contact`). |
+| `contacts/` | Removed. Contact access now lives outside `memory_store` via `people::store`. |
 | [`unified/`](unified/) | **Staging for removal.** Shrinking SQLite surface that still backs the `Memory` trait while callers migrate to per-kind modules. Active pieces today: `documents`, `query`, `segments`, `events`, `profile`. The `fts5` episodic surface is replaced by [`memory_archivist`](../memory_archivist/) and `graph` by [`memory_graph`](../memory_graph/). See [`unified/README.md`](unified/README.md). |
 
 ## Layer rules

@@ -10,6 +10,8 @@ use crate::openhuman::channels::providers::yuanbao::sign::SignManager;
 use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
 use crate::openhuman::config::{Config, DiscordConfig, IMessageConfig, TelegramConfig};
 use crate::openhuman::credentials;
+use crate::openhuman::memory_store::chunks::store as memory_tree_store;
+use crate::openhuman::memory_store::chunks::types::SourceKind;
 use crate::rpc::RpcOutcome;
 
 use super::definitions::{
@@ -474,6 +476,7 @@ pub async fn disconnect_channel(
     config: &Config,
     channel_id: &str,
     auth_mode: ChannelAuthMode,
+    clear_memory: bool,
 ) -> Result<RpcOutcome<Value>, String> {
     // Verify channel exists.
     find_channel_definition(channel_id).ok_or_else(|| format!("unknown channel: {channel_id}"))?;
@@ -537,15 +540,34 @@ pub async fn disconnect_channel(
         }
     }
 
+    let memory_chunks_deleted = if clear_memory {
+        clear_channel_memory(config, channel_id).map_err(|e| {
+            format!("channel disconnected, but failed to clear memory chunks: {e:#}")
+        })?
+    } else {
+        0
+    };
+
     Ok(RpcOutcome::single_log(
         json!({
             "channel": channel_id,
             "auth_mode": auth_mode,
             "disconnected": true,
             "restart_required": true,
+            "memory_chunks_deleted": memory_chunks_deleted,
         }),
         format!("removed credentials for {}", provider_key),
     ))
+}
+
+fn clear_channel_memory(config: &Config, channel_id: &str) -> anyhow::Result<usize> {
+    let exact = memory_tree_store::delete_chunks_by_source(config, SourceKind::Chat, channel_id)?;
+    let prefixed = memory_tree_store::delete_chunks_by_source_prefix(
+        config,
+        SourceKind::Chat,
+        &format!("{channel_id}:"),
+    )?;
+    Ok(exact + prefixed)
 }
 
 /// Get connection status for one or all channels.

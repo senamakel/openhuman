@@ -432,6 +432,9 @@ const en: TranslationMap = {
   'accounts.respondQueue': 'Respond Queue',
   'accounts.disconnect': 'Disconnect',
   'accounts.disconnectConfirm': 'Are you sure you want to disconnect this account?',
+  'accounts.disconnectClearMemory': 'Also delete memory from this source',
+  'accounts.disconnectClearMemoryHint':
+    'Permanently removes local memory chunks linked to this connection.',
   'accounts.searchAccounts': 'Search accounts...',
 
   // Channels
@@ -1414,6 +1417,7 @@ const en: TranslationMap = {
   'chat.deleteThread': 'Delete thread',
   'chat.deleteThreadConfirm': 'Are you sure you want to delete "{title}"?',
   'chat.untitledThread': 'Untitled thread',
+  'chat.editThreadTitle': 'Edit thread title',
   'chat.hideSidebar': 'Hide sidebar',
   'chat.showSidebar': 'Show sidebar',
   'chat.newThreadShortcut': 'New thread (/new)',

@@ -364,7 +364,9 @@ async fn multi_batch_volume_builds_full_tree() {
     // Verify event stream.
     tokio::task::yield_now().await;
     assert!(
-        collector.count_by(|e| matches!(e, DomainEvent::DocumentCanonicalized { source_id: sid, .. }
-            if sid == "gmail:alice-volume")) >= 20
+        collector.count_by(
+            |e| matches!(e, DomainEvent::DocumentCanonicalized { source_id: sid, .. }
+            if sid == "gmail:alice-volume")
+        ) >= 20
     );
 }

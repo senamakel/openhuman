@@ -188,6 +188,8 @@ const id4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'Deskripsi LLM',
   'pages.settings.ai.voice': 'Suara',
   'pages.settings.ai.voiceDesc': 'Deskripsi suara',
+  'pages.settings.ai.embeddings': 'Embeddings',
+  'pages.settings.ai.embeddingsDesc': 'Model encoding vektor untuk pengambilan memori',
   'pages.settings.aiSection.description':
     'Penyedia model bahasa, Ollama lokal, dan suara (STT / TTS).',
   'pages.settings.aiSection.title': 'AI',

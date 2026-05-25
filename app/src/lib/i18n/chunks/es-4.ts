@@ -188,6 +188,9 @@ const es4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'Descripción de LLM',
   'pages.settings.ai.voice': 'Voz',
   'pages.settings.ai.voiceDesc': 'Descripción de voz',
+  'pages.settings.ai.embeddings': 'Embeddings',
+  'pages.settings.ai.embeddingsDesc':
+    'Modelo de codificación vectorial para recuperación de memoria',
   'pages.settings.aiSection.description':
     'Proveedores de modelos de lenguaje, Ollama local y voz (STT / TTS).',
   'pages.settings.aiSection.title': 'IA',

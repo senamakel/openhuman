@@ -205,6 +205,9 @@ const zhCN3: TranslationMap = {
   'about.update.status.default': '检查更新',
   'welcome.connectionFailed': '连接失败: {status} {statusText}',
   'welcome.connectionFailedMsg': '连接失败: {message}',
+  'welcome.continueLocally': '本地继续',
+  'welcome.localSessionStarting': '正在启动本地会话...',
+  'welcome.localSessionDesc': '使用离线本地配置文件，跳过 TinyHumans OAuth。',
   'chat.agentChatDesc': '与智能体进行直接对话。',
   'channels.activeRouteValue': '{channel} 通过 {authMode}',
   'privacy.dataKind.messages': '消息',
@@ -396,6 +399,7 @@ const zhCN3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': '通过内置的 Web UI 聊天。',
   'channels.web.authMode.managed_dm.description': '使用嵌入式 Web 聊天 — 无需设置。',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 
 export default zhCN3;

@@ -106,16 +106,11 @@ pub async fn ai_write_memory_file(
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
-    use std::sync::{Mutex, OnceLock};
 
     use tempfile::TempDir;
 
     use super::*;
-
-    fn env_mutex() -> &'static Mutex<()> {
-        static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
-        ENV_MUTEX.get_or_init(|| Mutex::new(()))
-    }
+    use crate::openhuman::config::TEST_ENV_LOCK;
 
     struct WorkspaceEnvGuard {
         previous: Option<OsString>,
@@ -145,7 +140,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_read_and_list_memory_files_roundtrip() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -200,7 +195,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_memory_files_rejects_non_directory_target() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -226,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_and_write_memory_files_reject_path_traversal() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -250,7 +245,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_and_read_memory_files_reject_absolute_paths() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -281,7 +276,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_memory_file_surfaces_missing_file_error() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -300,7 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_memory_file_surfaces_invalid_utf8_error() {
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -326,7 +321,7 @@ mod tests {
     async fn write_memory_file_rejects_symlink_targets() {
         use std::os::unix::fs::symlink;
 
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");
@@ -355,7 +350,7 @@ mod tests {
     async fn list_memory_files_skips_symlink_entries() {
         use std::os::unix::fs::symlink;
 
-        let _guard = env_mutex()
+        let _guard = TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tmp = TempDir::new().expect("tempdir");

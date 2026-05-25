@@ -7,7 +7,7 @@ export const CUSTOM_WIZARD_STEPS: CustomStepKey[] = [
   'inference',
   'voice',
   'oauth',
-  // 'search',
+  'search',
   // 'memory',
 ];
 

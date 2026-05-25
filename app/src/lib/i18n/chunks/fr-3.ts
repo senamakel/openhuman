@@ -219,6 +219,9 @@ const fr3: TranslationMap = {
   'about.update.status.default': 'Rechercher des mises à jour',
   'welcome.connectionFailed': 'Connexion échouée : {status} {statusText}',
   'welcome.connectionFailedMsg': 'Connexion échouée : {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'chat.agentChatDesc': "Ouvrir une session de chat direct avec l'agent.",
   'channels.activeRouteValue': '{channel} via {authMode}',
   'privacy.dataKind.messages': 'Messages',
@@ -407,6 +410,7 @@ const fr3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 
 export default fr3;

@@ -213,6 +213,9 @@ const ko3: TranslationMap = {
   'about.update.status.default': '업데이트 확인',
   'welcome.connectionFailed': '연결 실패: {status} {statusText}',
   'welcome.connectionFailedMsg': '연결 실패: {message}',
+  'welcome.continueLocally': 'Continue locally',
+  'welcome.localSessionStarting': 'Starting local session...',
+  'welcome.localSessionDesc': 'Uses an offline local profile and skips TinyHumans OAuth.',
   'chat.agentChatDesc': '에이전트와 직접 채팅 세션을 엽니다.',
   'channels.activeRouteValue': '{channel} via {authMode}',
   'privacy.dataKind.messages': '메시지',
@@ -403,5 +406,6 @@ const ko3: TranslationMap = {
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chat via the built-in web UI.',
   'channels.web.authMode.managed_dm.description': 'Use the embedded web chat — no setup required.',
+  'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
 };
 export default ko3;

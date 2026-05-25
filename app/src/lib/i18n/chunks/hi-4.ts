@@ -187,6 +187,8 @@ const hi4: TranslationMap = {
   'pages.settings.ai.llmDesc': 'LLM विवरण',
   'pages.settings.ai.voice': 'वॉइस',
   'pages.settings.ai.voiceDesc': 'वॉइस विवरण',
+  'pages.settings.ai.embeddings': 'एम्बेडिंग्स',
+  'pages.settings.ai.embeddingsDesc': 'मेमोरी पुनर्प्राप्ति के लिए वेक्टर एन्कोडिंग मॉडल',
   'pages.settings.aiSection.description':
     'लैंग्वेज मॉडल प्रोवाइडर, लोकल Ollama और वॉइस (STT / TTS)।',
   'pages.settings.aiSection.title': 'AI',

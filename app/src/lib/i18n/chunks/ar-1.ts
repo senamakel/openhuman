@@ -425,15 +425,15 @@ const ar1: TranslationMap = {
   'channels.fieldRequired': '{field} مطلوب',
   'channels.mcp.title': 'MCP الخوادم',
   'channels.mcp.description':
-    'تصفح وإدارة خوادم Model context Protocol التي توسع الذكاء الاصطناعي بأدوات جديدة.',
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
   'skills.integrationsSubtitle':
-    'اتصالات OAuth المستندة إلى السحابة - قم بتسجيل الدخول باستخدام حسابك وسيقوم Composio بوسيط الرموز المميزة حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا توجد مفاتيح API لإدارتها.',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'القنوات',
   'skills.tabs.mcp': 'MCP الخوادم',
   'skills.mcpComingSoon.title': 'MCP الخوادم',
   'skills.mcpComingSoon.description':
-    'MCP ستتوفر إدارة الخادم قريبًا. ستكون علامة التبويب هذه هي المكان المناسب لاكتشاف عمليات تكامل خادم MCP والاتصال بها ومراقبتها.',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'اتصال',
   'settings.about.connectionMode': 'الوضع',
   'settings.about.connectionModeLocal': 'محلي',
@@ -442,32 +442,31 @@ const ar1: TranslationMap = {
   'settings.about.serverUrl': 'الخادم URL',
   'settings.about.serverUrlUnavailable': 'غير متاح',
   'settings.about.connectionHelperLocal':
-    'تم إنتاجه أثناء المعالجة بواسطة shell Tauri عند تشغيل التطبيق. يتم اختيار المنفذ عند بدء التشغيل، لذلك يتغير هذا URL بين عمليات الإطلاق.',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    'متصل بنواة بعيدة. قم بتغيير هذا في BootCheck أو منتقي الوضع السحابي.',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': 'نبضات القلب والحلقات',
   'settings.heartbeat.desc': 'التحكم في إيقاعات جدولة الخلفية وفحص خريطة الحلقة.',
   'settings.ledgerUsage.title': 'دفتر الأستاذ الاستخدام',
-  'settings.ledgerUsage.desc':
-    'الإنفاق الائتماني الأخير، وحسابات الميزانية، والخلفية API لقراءة الميزانية.',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
   'settings.search.title': 'محرك البحث',
   'settings.search.menuDesc':
-    'الإعداد الافتراضي هو البحث المُدار بواسطة OpenHuman أو قم بتوصيل مزود الخدمة الخاص بك باستخدام مفتاح API.',
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'اختر محرك البحث الذي يستخدمه الوكيل. تستخدم الواجهة الخلفية المُدارة OpenHuman (بدون إعداد). يتم تشغيل Parallel وBrave مباشرة من جهازك باستخدام مفتاح API.',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': 'محرك البحث',
   'settings.search.engineManagedLabel': 'OpenHuman مُدار',
   'settings.search.engineManagedDesc':
-    'افتراضي. يتم التوجيه عبر الواجهة الخلفية OpenHuman — لا يلزم وجود مفتاح API.',
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    'مباشر Parallel API: أدوات البحث والاستخراج والدردشة والبحث والإثراء ومجموعة البيانات.',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave بحث',
   'settings.search.engineBraveDesc': 'مباشر Brave بحث API: أدوات الويب والأخبار والصور والفيديو.',
   'settings.search.statusConfigured': 'تم تكوينه',
   'settings.search.statusNeedsKey': 'يحتاج إلى مفتاح API',
   'settings.search.fallbackToManaged':
-    'لم يتم تكوين أي مفتاح - سيعود البحث إلى مُدار حتى يتم حفظ المفتاح.',
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'احصل على مفتاح API',
   'settings.search.save': 'احفظ',
   'settings.search.clear': 'مسح',
@@ -519,12 +518,12 @@ const ar1: TranslationMap = {
   'settings.embeddings.clearKey': 'مسح مفتاح API',
   'mcp.alphaBadge': 'Alpha',
   'mcp.alphaBannerText':
-    'MCP دعم الخادم في مرحلة ألفا المبكرة. قد يعمل سجل سميثري وتدفق التثبيت وأسلاك الأداة بشكل سيء أو يتغير شكلها بين الإصدارات.',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': 'لا توجد أدوات متاحة.',
   'mcp.setup.secretDialog.title': 'MCP الإعداد - أدخل السر',
   'mcp.setup.secretDialog.bodyPrefix': 'يحتاج وكيل الإعداد MCP',
   'mcp.setup.secretDialog.bodySuffix':
-    '. يتم إرسال القيمة الخاصة بك مباشرة إلى العملية الأساسية ولا تدخل مطلقًا في محادثة الذكاء الاصطناعي.',
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': 'القيمة',
   'mcp.setup.secretDialog.inputPlaceholder': 'الصق هنا',
   'mcp.setup.secretDialog.show': 'عرض',
@@ -534,34 +533,34 @@ const ar1: TranslationMap = {
   'mcp.setup.secretDialog.submitting': 'الإرسال...',
   'mcp.setup.secretDialog.errorPrefix': 'فشل الإرسال:',
   'mcp.setup.secretDialog.privacyNote':
-    'مخزنة مشفرة في جدول الأسرار MCP المحلي. لم تقم بتسجيل الدخول أو إرسالها إلى نموذج.',
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': 'تجريبي',
   'devices.betaText':
-    'هذه الميزة حاليًا في مرحلة تجريبية. قم بإقران هواتف iOS مع OpenHuman لاستخدامها كعميل بعيد.',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': 'استقلالية الوكيل',
   'autonomy.maxActionsLabel': 'الحد الأقصى للإجراءات في الساعة',
   'autonomy.maxActionsHelp':
-    'الحد الأقصى لإجراءات الأداة التي يمكن للوكيل تشغيلها في كل ساعة متجددة. تنطبق القيمة الجديدة على الدردشة التالية. تحافظ وظائف Cron ومستمعي القنوات على الحد الحالي حتى تقوم بإعادة تشغيل OpenHuman.',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': 'جارٍ الحفظ...',
   'autonomy.statusSaved': 'تم الحفظ.',
   'autonomy.statusFailed': 'فشل',
   'autonomy.unlimitedNote': 'غير محدود — تم تعطيل تحديد المعدل.',
   'autonomy.invalidIntegerMsg':
-    'يجب أن يكون عددًا صحيحًا موجبًا (استخدم الإعداد المسبق غير المحدود بدون حدود).',
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'غير محدود (افتراضي)',
   'triggers.toggleFailed': '{action} فشل لـ {trigger}: {message}',
   'skills.composio.noApiKeyTitle': 'لا Composio API تم تكوين المفتاح',
   'skills.composio.noApiKeyDescription':
-    'يستخدم الوضع المحلي الخاص بك Composio مفتاح API. افتح الإعدادات → خيارات متقدمة → Composio لإضافة واحدة قبل توصيل عمليات التكامل هنا.',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': 'مفتوح في الإعدادات',
   'rewards.localUnavailable':
-    'لا يؤدي تسجيل الدخول المحلي إلى الحصول على مكافآت أو كوبونات أو رصيد إحالة. للحصول على مكافآت، قم بتسجيل الخروج وتابع تسجيل الدخول باستخدام حساب OpenHuman.',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': 'افتح إعدادات الحساب',
   'channels.localManagedUnavailable': 'القنوات المُدارة غير متاحة للمستخدمين المحليين.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman البحث المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave API الخاص بك لتمكين البحث على الويب.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    'سيتم إقران الجهاز قريبًا. ستكون هذه الصفحة هي المكان الرئيسي لإقران أجهزة iPhone وإدارة الأجهزة المتصلة.',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': 'مسار التنقل',
   'settings.betaBuild': 'إصدار تجريبي - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -584,42 +583,42 @@ const ar1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'نقطة النهاية URL',
   'settings.ai.localRuntimeHelper':
-    'حيث يمكن الوصول إلى {label}. الافتراضي هو localhost؛ قم بتوجيه هذا إلى مضيف بعيد (على سبيل المثال، http://10.0.0.4:11434/v1) لاستخدام مثيل مشترك.',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': 'نقطة النهاية URL مطلوبة.',
   'settings.ai.endpointProtocolRequired': 'يجب أن تبدأ نقطة النهاية بـ http:// أو https://.',
   'settings.ai.connectProviderDialog': 'الاتصال {label}',
   'settings.ai.or': 'أو',
   'settings.ai.openRouterOauthDescription':
-    'قم بتسجيل الدخول باستخدام OpenRouter واستورد مفتاح API الذي يتحكم فيه المستخدم باستخدام PKCE.',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': 'جارٍ الاتصال...',
   'settings.ai.backgroundLoops': 'حلقات الخلفية',
   'settings.ai.backgroundLoopsDesc':
-    'شاهد ما يتم تشغيله بدون رسالة محادثة، وقم بإيقاف العمل بنبضات القلب مؤقتًا، وافحص صفوف دفتر الأستاذ الائتماني الأخير.',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': 'التحكم في نبضات القلب',
   'settings.ai.heartbeatControlsDesc':
-    'تم إيقافه بشكل افتراضي. يؤدي التمكين إلى بدء الحلقة؛ يؤدي التعطيل إلى إحباط المهمة قيد التشغيل.',
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': 'حلقة نبضات القلب',
-  'settings.ai.heartbeatLoopDesc': 'جدولة رئيسية للمخطط + الاستدلال اللاواعي الاختياري.',
+  'settings.ai.heartbeatLoopDesc':
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': 'الاستدلال اللاواعي',
   'settings.ai.subconsciousInferenceDesc':
-    'يقوم بتشغيل تقييم المهام/الانعكاسات المدعومة بالنموذج على علامات نبضات القلب.',
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': 'يتحقق اجتماع التقويم',
   'settings.ai.calendarMeetingChecksDesc':
-    'يستدعي قائمة أحداث التقويم لاتصالات Google Calendar النشطة.',
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': 'غطاء التقويم',
   'settings.ai.connectionsPerTick': '{count} conn/tick',
   'settings.ai.meetingLookahead': 'نظرة أمامية للاجتماع',
   'settings.ai.minutesShort': '{count} دقيقة',
   'settings.ai.reminderLookahead': 'نظرة أمامية للتذكير',
   'settings.ai.cronReminderChecks': 'التحقق من تذكير Cron',
-  'settings.ai.cronReminderChecksDesc':
-    'يقوم بمسح وظائف cron الممكّنة للعناصر القادمة المشابهة للتذكير.',
+  'settings.ai.cronReminderChecksDesc': 'Scans enabled cron jobs for reminder-like upcoming items.',
   'settings.ai.relevantNotificationChecks': 'عمليات التحقق من الإشعارات ذات الصلة',
   'settings.ai.relevantNotificationChecksDesc':
-    'لتعزيز الإشعارات المحلية العاجلة وتحويلها إلى تنبيهات استباقية.',
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': 'التسليم الخارجي',
   'settings.ai.externalDeliveryDesc':
-    'يتيح لتنبيهات نبضات القلب إرسال رسائل استباقية إلى القنوات الخارجية.',
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': 'الفاصل الزمني',
   'settings.ai.running': 'قيد التشغيل...',
   'settings.ai.plannerTickNow': 'علامة المخطط الآن',
@@ -630,7 +629,7 @@ const ar1: TranslationMap = {
   'settings.ai.off': 'إيقاف',
   'settings.ai.recentUsageLedger': 'دفتر أستاذ الاستخدام الأخير',
   'settings.ai.recentUsageLedgerDesc':
-    'تكشف صفوف الواجهة الخلفية عن الإجراء/الوقت اليوم؛ تحتاج علامات المصدر إلى دعم الخلفية.',
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman (افتراضي)',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': 'التوجيه المخصص لـ {label}',
@@ -643,7 +642,7 @@ const ar1: TranslationMap = {
   'settings.ai.temperatureOverrideSlider': 'تجاوز درجة الحرارة (شريط التمرير)',
   'settings.ai.temperatureOverrideValue': 'تجاوز درجة الحرارة (القيمة)',
   'settings.ai.temperatureOverrideDesc':
-    'أقل = أكثر حتمية. اتركه بدون تحديد لاستخدام الموفر الافتراضي.',
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': 'فشل الاختبار',
   'settings.ai.testingModel': 'نموذج الاختبار...',
   'settings.ai.modelResponse': 'استجابة النموذج',
@@ -665,7 +664,7 @@ const ar1: TranslationMap = {
   'settings.ai.keepExistingKeyPlaceholder': 'اتركه فارغًا للاحتفاظ بالمفتاح الموجود',
   'settings.ai.reindexingMemory': 'إعادة فهرسة الذاكرة',
   'settings.ai.reindexingMemoryMessage':
-    'تتم إعادة معالجة التضمينات. تتم إعادة تضمين عنصر (عناصر) الذاكرة {pending} ضمن النموذج الحالي - يتم تقليل الاستدعاء الدلالي حتى ينتهي هذا. يستمر البحث عن الكلمات الرئيسية في العمل، وتستمر إعادة التضمين في الخلفية إذا قمت بإغلاق هذا.',
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
   'settings.ai.signInWithOpenRouter': 'قم بتسجيل الدخول باستخدام OpenRouter',
   'settings.ai.weekBudget': 'ميزانية الأسبوع',
   'settings.ai.cycleRemaining': 'الدورة المتبقية',
@@ -690,35 +689,35 @@ const ar1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'المُدارة',
   'settings.ai.routing.managedDesc':
-    'OpenHuman سوف يقوم بتشغيل كل الاستدلالات في السحابة، واختيار أفضل نموذج للمهمة، وتحسين التكلفة، والحفاظ على إعدادات التوجيه الافتراضية الأكثر أمانًا.',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman سوف يتعامل مع كل الاستدلالات لكل حمل عمل ويختار تلقائيًا أفضل مسار من حيث التكلفة والجودة والأمان.',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': 'استخدم النماذج الخاصة بك',
   'settings.ai.routing.useYourOwnDesc':
-    'اختر موفرًا واحدًا + نموذجًا وقم بتوجيه كل حمل عمل من خلاله. هذا أمر بسيط، لكنه قد يكون غير فعال لأن الاستدلال خفيف الوزن والوزن الثقيل يشتركان في نفس المسار.',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': 'متقدم',
   'settings.ai.routing.advancedDesc':
-    'اختر نماذج مختلفة لمهام مختلفة. هذا هو الخيار الأفضل لتحسين التكلفة وأقصى قدر من التحكم.',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    'يمنحك التوجيه الدقيق أفضل تحسين للتكلفة وأكبر قدر من التحكم. استخدم الصفوف أدناه لتحديد أحمال العمل التي ستظل مُدارة، وأيها يستخدم الافتراضي المشترك الخاص بك، وأيها مثبت بنموذج معين.',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': 'الدردشة والمحادثات',
   'settings.ai.routing.chatDesc':
-    'النماذج المستخدمة أثناء التفاعل المباشر مع المستخدم، والردود، والاستدلال، وحلقات الوكيل، ومساعدة الترميز.',
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': 'مهام الخلفية',
   'settings.ai.routing.bgTasksDesc':
-    'النماذج المستخدمة خارج مسار المحادثة الرئيسي للتلخيص ونبض القلب والتعلم وتقييم اللاوعي.',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': 'إضافة موفر مخصص',
   'settings.ai.globalModel.title': 'اختر نموذجًا واحدًا لكل شيء',
   'settings.ai.globalModel.desc':
-    'يؤدي هذا إلى توجيه كل الاستدلال من خلال نموذج واحد. إنه أبسط، لكنه قد يكون غير فعال من حيث التكلفة والجودة لأن المهام الخفيفة والثقيلة ستستخدم جميعها نفس المسار.',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    'أضف أو اتصل بمزود أولاً. ومن ثم يمكنك توجيه كل حمل عمل من خلال نموذج واحد هنا.',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': 'الموفر',
   'settings.ai.globalModel.model': 'الموديل',
   'settings.ai.globalModel.loadingModels': 'جارٍ تحميل النماذج...',
   'settings.ai.globalModel.enterModelId': 'أدخل معرف النموذج',
   'settings.ai.globalModel.appliesToAll':
-    'يطبق نفس الموفر + النموذج للدردشة والاستدلال والترميز والذاكرة ونبضات القلب، التعلم، واللاوعي. يتم تكوين التضمين بشكل منفصل. يتم حفظ التغييرات عند النقر فوق حفظ.',
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
   'settings.ai.globalModel.saving': 'جاري الحفظ...',
   'settings.ai.globalModel.saved': 'تم الحفظ',
   'settings.ai.workload.noModel': 'لم يتم تحديد نموذج',
@@ -729,7 +728,7 @@ const ar1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': 'الإقران مع سطح المكتب',
   'iosPair.instructions':
-    'افتح OpenHuman على سطح المكتب، وانتقل إلى الإعدادات > الأجهزة، ثم انقر فوق "إقران الهاتف" لإظهار QR code.',
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': 'المسح الضوئي QR code',
   'iosPair.scannerOpening': 'فتح الماسح الضوئي...',
   'iosPair.connecting': 'جارٍ الاتصال بسطح المكتب...',
@@ -741,10 +740,12 @@ const ar1: TranslationMap = {
   'iosPair.step.openSettings': 'انتقل إلى الإعدادات > الأجهزة',
   'iosPair.step.showQr': 'اضغط على "إقران الهاتف" لإظهار QR',
   'iosPair.error.camera': 'فشل فحص الكاميرا. تحقق من أذونات الكاميرا وحاول مرة أخرى.',
-  'iosPair.error.invalidQr': 'QR code غير صالح. تأكد من قيامك بمسح OpenHuman pairing code.',
+  'iosPair.error.invalidQr':
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
   'iosPair.error.unreachableDesktop':
-    'تعذر الوصول إلى سطح المكتب. تأكد من أن كلا الجهازين متصلان بالإنترنت وحاول مرة أخرى.',
-  'iosPair.error.connectionFailed': 'فشل الاتصال. تأكد من تشغيل تطبيق سطح المكتب وحاول مرة أخرى.',
+    'Could not reach the desktop. Make sure both devices are online and try again.',
+  'iosPair.error.connectionFailed':
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': 'سطح المكتب',
   'iosMascot.connectedTo': 'متصل بـ',
   'iosMascot.disconnect': 'قطع الاتصال',
@@ -799,9 +800,9 @@ const ar1: TranslationMap = {
   'welcome.clearingAppData': 'مسح بيانات التطبيق...',
   'welcome.clearAppDataAndRestart': 'مسح بيانات التطبيق وإعادة تشغيله',
   'welcome.clearAppDataWarning':
-    'يؤدي هذا إلى مسح الأسرار والحسابات المخزنة محليًا على هذا الجهاز. لم يتأثر حسابك السحابي - يمكنك تسجيل الدخول مرة أخرى مباشرة بعد ذلك.',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
   'welcome.resetErrorFallback':
-    'لا يمكن مسح بيانات التطبيق. الرجاء الخروج وإعادة فتح OpenHuman، ثم حاول مرة أخرى.',
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': 'تسجيل دخولك...',
   'welcome.termsIntro': 'من خلال المتابعة، فإنك توافق على',
   'welcome.termsOfUse': 'الشروط',
@@ -834,7 +835,8 @@ const ar1: TranslationMap = {
   'invites.emptyHint': 'إنشاء رمز دعوة للمشاركة مع الآخرين',
   'invites.revokeTitle': 'إلغاء رمز الدعوة',
   'invites.revokePromptPrefix': 'هل أنت متأكد من رغبتك في إلغاء رمز الدعوة',
-  'invites.revokeWarning': 'لن يعد رمز الدعوة هذا صالحًا ولا يمكن استخدامه للانضمام إلى الفريق.',
+  'invites.revokeWarning':
+    'This invite code will no longer be valid and cannot be used to join the team.',
   'invites.revoking': 'إلغاء...',
   'invites.revokeAction': 'إلغاء الدعوة',
   'invites.failedGenerate': 'فشل إنشاء الدعوة',
@@ -855,9 +857,9 @@ const ar1: TranslationMap = {
   'team.changeRoleTitle': 'تغيير دور العضو',
   'team.changeRolePrompt': "Change {name}'s role from {oldRole} to {newRole}?",
   'team.changeRoleAdminGrant':
-    'سيؤدي ذلك إلى منحهم أذونات المسؤول الكاملة بما في ذلك القدرة على إدارة أعضاء الفريق.',
+    'This will grant them full admin permissions including the ability to manage team members.',
   'team.changeRoleAdminRemove':
-    'سيؤدي هذا إلى إزالة أذونات المشرف الخاصة بهم ولن يتمكنوا بعد الآن من إدارة الفريق.',
+    'This will remove their admin permissions and they will no longer be able to manage the team.',
   'team.changing': 'جارٍ التغيير...',
   'team.changeRoleAction': 'تغيير الدور',
   'team.failedChangeRole': 'فشل تغيير الدور',
@@ -866,13 +868,15 @@ const ar1: TranslationMap = {
   'voice.failedToSaveSettings': 'فشل في حفظ إعدادات الصوت',
   'voice.failedToStartServer': 'فشل في بدء تشغيل خادم الصوت',
   'voice.failedToStopServer': 'فشل في إيقاف خادم الصوت',
-  'voice.sttDisabledPrefix': 'تم تعطيل الإملاء الصوتي حتى يتم تنزيل نموذج STT المحلي. استخدم قسم',
+  'voice.sttDisabledPrefix':
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': 'أعلاه لتثبيت Whisper.',
   'voice.debug.failedToLoadVoiceDebugData': 'فشل تحميل بيانات تصحيح الأخطاء الصوتية',
   'voice.debug.settingsSaved': 'تم حفظ إعدادات تصحيح الأخطاء.',
   'voice.debug.failedToSaveSettings': 'فشل حفظ إعدادات الصوت',
   'voice.debug.runtimeStatus': 'حالة وقت التشغيل',
-  'voice.debug.runtimeStatusDesc': 'التشخيص المباشر لخادم الصوت ومحرك تحويل الكلام إلى نص.',
+  'voice.debug.runtimeStatusDesc':
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': 'الخادم',
   'voice.debug.unavailable': 'غير متاح',
   'voice.debug.ready': 'جاهز',
@@ -883,11 +887,12 @@ const ar1: TranslationMap = {
   'voice.debug.transcriptions': 'النسخ',
   'voice.debug.serverError': 'خطأ في الخادم',
   'voice.debug.advancedSettings': 'الإعدادات المتقدمة',
-  'voice.debug.advancedSettingsDesc': 'معلمات الضبط ذات المستوى المنخفض للكشف عن التسجيل والصمت.',
+  'voice.debug.advancedSettingsDesc':
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': 'الحد الأدنى لثواني التسجيل',
   'voice.debug.silenceThreshold': 'عتبة الصمت (RMS)',
   'voice.debug.silenceThresholdDesc':
-    'يتم التعامل مع التسجيلات ذات الطاقة الأقل من هذا على أنها صمت ويتم تخطيها. أقل = أكثر حساسية.',
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': 'تم حفظ موفري الصوت.',
   'voice.providers.failedToSave': 'فشل في حفظ موفري الصوت',
   'voice.providers.ellipsis': '…',
@@ -906,7 +911,7 @@ const ar1: TranslationMap = {
   'voice.providers.failedToInstallPiper': 'فشل تثبيت Piper',
   'voice.providers.title': 'موفري الصوت',
   'voice.providers.desc':
-    'اختر مكان تشغيل النسخ والتوليف. استخدم أزرار التثبيت محليًا لتنزيل الثنائيات والنماذج في مساحة العمل الخاصة بك. يمكن حفظ الموفرين المحليين قبل انتهاء التثبيت - لا يلزم إعداد WHISPER_BIN أو PIPER_BIN يدويًا.',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': 'موفر تحويل الكلام إلى نص',
   'voice.providers.sttProviderAria': 'موفر STT',
   'voice.providers.cloudWhisperProxy': 'السحابة (وكيل الهمس)',
@@ -914,7 +919,7 @@ const ar1: TranslationMap = {
   'voice.providers.installRequired': '(يتطلب التثبيت)',
   'voice.providers.whisperInstalledTitle': 'تم تثبيت Whisper. انقر لإعادة التثبيت.',
   'voice.providers.whisperDownloadTitle':
-    'قم بتنزيل whisper.cpp ونموذج GGML في مساحة العمل الخاصة بك.',
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': 'تم التثبيت',
   'voice.providers.installFailed': 'فشل التثبيت',
   'voice.providers.notInstalled': 'غير مثبت',
@@ -931,17 +936,17 @@ const ar1: TranslationMap = {
   'voice.providers.localPiper': 'تم تثبيت مزمار محلي',
   'voice.providers.piperInstalledTitle': 'مزمار. انقر لإعادة التثبيت.',
   'voice.providers.piperDownloadTitle':
-    'قم بتنزيل Piper والصوت المضمن en_US-lessac-medium في مساحة العمل الخاصة بك.',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': 'صوت المزمار',
   'voice.providers.piperVoiceAria': 'صوت المزمار',
   'voice.providers.customVoiceOption': 'أخرى (اكتب أدناه)...',
   'voice.providers.customVoiceAria': 'معرف صوت المزمار (مخصص)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    'الأصوات تأتي من Huggingface.co/rhasspy/piper-voices. قد يتطلب تبديل الأصوات النقر على تثبيت/إعادة التثبيت لتنزيل ملف .onnx الجديد.',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': 'تم تكوين صوت التميمة',
   'voice.providers.mascotVoiceDescPrefix':
-    'صوت ElevenLabs الذي يستخدمه التميمة للردود المنطوقة ضمن',
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': 'إعدادات التميمة',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -953,6 +958,53 @@ const ar1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB · Alan (ذكر)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB · Jenny Dioco (أنثى)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB · اللغة الإنجليزية الشمالية (ذكر)',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': 'التصحيح والتشخيص',
   'screenAwareness.debug.collapse': 'طي',
   'screenAwareness.debug.expand': 'توسيع',
@@ -961,10 +1013,10 @@ const ar1: TranslationMap = {
   'screenAwareness.debug.baselineFps': 'FPS الأساسي',
   'screenAwareness.debug.useVisionModel': 'استخدام نموذج الرؤية',
   'screenAwareness.debug.useVisionModelDesc':
-    'أرسل لقطات شاشة إلى الرؤية LLM للحصول على سياق أكثر ثراءً. عند إيقاف التشغيل، يتم استخدام نص التعرف الضوئي على الحروف (OCR) فقط مع النص LLM — بشكل أسرع ولا يلزم وجود نموذج رؤية.',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': 'الاحتفاظ بلقطات الشاشة',
   'screenAwareness.debug.keepScreenshotsDesc':
-    'حفظ لقطات الشاشة الملتقطة في مساحة العمل بدلاً من حذفها بعد المعالجة',
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': 'القائمة المسموح بها (قاعدة واحدة لكل سطر)',
   'screenAwareness.debug.denylist': 'قائمة الرفض (قاعدة واحدة لكل سطر)',
   'screenAwareness.debug.saveSettings': 'حفظ إعدادات ذكاء الشاشة',
@@ -981,8 +1033,7 @@ const ar1: TranslationMap = {
   'screenAwareness.debug.refreshing': 'تحديث...',
   'screenAwareness.debug.noSummaries': 'لا توجد ملخصات حتى الآن.',
   'screenAwareness.debug.unknownApp': 'تطبيق غير معروف',
-  'screenAwareness.debug.macosOnly':
-    'Screen Intelligence V1 مدعوم حاليًا على نظام التشغيل macOS فقط.',
+  'screenAwareness.debug.macosOnly': 'Screen Intelligence V1 is currently supported on macOS only.',
   'memory.debugTitle': 'تصحيح أخطاء الذاكرة',
   'memory.documents': 'المستندات',
   'memory.filterByNamespace': 'التصفية حسب مساحة الاسم...',
@@ -1010,7 +1061,7 @@ const ar1: TranslationMap = {
   'memory.clear': 'مسح',
   'memory.deleteConfirm': 'هل تريد حذف المستند "{documentId}" في مساحة الاسم "{namespace}"؟',
   'memory.clearNamespaceConfirm':
-    'سيؤدي هذا إلى حذف كافة المستندات الموجودة في مساحة الاسم "{namespace}" نهائيًا. يكمل؟',
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': 'تم مسح مساحة الاسم "{namespace}".',
   'memory.clearNamespaceEmpty': 'لا يوجد شيء يجب مسحه في "{namespace}".',
   'webhooks.debugTitle': 'تصحيح أخطاء Webhooks',
@@ -1044,13 +1095,13 @@ const ar1: TranslationMap = {
   'providerSetup.error.defaultDetails': 'فشل إعداد الموفر.',
   'providerSetup.error.providerFallback': 'رفض الموفر',
   'providerSetup.error.credentialsRejected':
-    '{provider} بيانات الاعتماد. تحقق من المفتاح API وحاول مرة أخرى.',
+    '{provider} rejected the credentials. Check the API key and try again.',
   'providerSetup.error.endpointNotRecognized':
-    '{provider} لم يتعرف على نقطة النهاية. تحقق من القاعدة URL وحاول مرة أخرى.',
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
   'providerSetup.error.providerUnavailable':
-    '{provider} غير متاح الآن. حاول مرة أخرى أو تحقق من حالة الموفر.',
+    '{provider} is unavailable right now. Try again or check the provider status.',
   'providerSetup.error.unreachable':
-    'لا يمكن الوصول إلى {provider}. تحقق من نقطة النهاية URL واتصال الشبكة، ثم حاول مرة أخرى.',
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
   'providerSetup.error.couldNotReachWithMessage': 'تعذر الوصول إلى {provider}: {message}',
   'providerSetup.error.technicalDetails': 'التفاصيل الفنية',
   'devices.title': 'الأجهزة',
@@ -1072,13 +1123,11 @@ const ar1: TranslationMap = {
   'devices.revoke': 'إبطال',
   'devices.revokeAria': 'إبطال {label}',
   'devices.confirmRevokeTitle': 'إلغاء الجهاز؟',
-  'devices.confirmRevokeBody':
-    '{label} لن يكون قادرًا على الاتصال بعد الآن. لا يمكن التراجع عن هذا.',
+  'devices.confirmRevokeBody': '{label} will no longer be able to connect. This cannot be undone.',
   'devices.loadFailed': 'فشل تحميل الأجهزة: {message}',
   'devices.pairModal.title': 'إقران iPhone',
   'devices.pairModal.loading': 'إنشاء رمز الاقتران...',
-  'devices.pairModal.instructions':
-    'افتح تطبيق OpenHuman على جهاز iPhone الخاص بك وقم بمسح هذا الرمز ضوئيًا.',
+  'devices.pairModal.instructions': 'Open the OpenHuman app on your iPhone and scan this code.',
   'devices.pairModal.expiresIn': 'تنتهي صلاحية الرمز خلال ~{count} دقيقة',
   'devices.pairModal.expiresInPlural': 'تنتهي صلاحية الرمز خلال ~{count} دقيقة',
   'devices.pairModal.showDetails': 'إظهار التفاصيل',
@@ -1138,7 +1187,8 @@ const ar1: TranslationMap = {
   'mcp.install.button': 'تثبيت',
   'mcp.install.installing': 'جارٍ التثبيت...',
   'mcp.detail.suggestedEnvReady': 'قيم البيئة المقترحة جاهزة',
-  'mcp.detail.suggestedEnvBody': 'أعد تثبيت هذا الخادم بالقيم المقترحة لتطبيقها: {keys}',
+  'mcp.detail.suggestedEnvBody':
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': 'اتصال',
   'mcp.detail.connecting': 'جارٍ الاتصال...',
   'mcp.detail.disconnect': 'قطع الاتصال',
@@ -1151,10 +1201,8 @@ const ar1: TranslationMap = {
   'mcp.detail.tools': 'الأدوات',
   'onboarding.skipForNow': 'التخطي الآن',
   'onboarding.localAI.continueWithCloud': 'متابعة مع السحابة',
-  'onboarding.localAI.useLocalAnyway':
-    'استخدم الذكاء الاصطناعي المحلي على أي حال (لا يوصى به لجهازك)',
-  'onboarding.localAI.useLocalInstead':
-    'استخدم الذكاء الاصطناعي المحلي بدلاً من ذلك (اتصل Ollama الآن)',
+  'onboarding.localAI.useLocalAnyway': 'Use local AI anyway (not recommended for your device)',
+  'onboarding.localAI.useLocalInstead': 'Use local AI instead (connect Ollama now)',
   'onboarding.localAI.setupIssue': 'واجه إعداد الذكاء الاصطناعي المحلي مشكلة',
   'notifications.routingTitle': 'توجيه الإشعارات',
   'notifications.routing.pipelineStats': 'إحصائيات المسار',
@@ -1163,7 +1211,7 @@ const ar1: TranslationMap = {
   'notifications.routing.unscored': 'غير مسجل',
   'notifications.routing.intelligenceTitle': 'ذكاء الإشعارات',
   'notifications.routing.intelligenceDesc':
-    'كل إشعار من حساباتك المتصلة يتم تسجيلها بواسطة نموذج الذكاء الاصطناعي المحلي. يتم توجيه الإشعارات ذات الأهمية العالية تلقائيًا إلى الوكيل المنسق الخاص بك حتى لا يمر أي شيء مهم.',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': 'كيف يعمل',
   'notifications.routing.level.drop': 'إسقاط',
   'notifications.routing.level.dropDesc': 'تشويش / بريد عشوائي - تم تخزينه ولكن لم يتم عرضه',
@@ -1176,17 +1224,16 @@ const ar1: TranslationMap = {
   'notifications.routing.perProvider': 'التوجيه لكل موفر',
   'notifications.routing.threshold': 'العتبة',
   'notifications.routing.routeToOrchestrator': 'فشل التوجيه إلى المنسق',
-  'notifications.routing.loadSettingsError':
-    'في تحميل الإعدادات. أعد فتح هذه اللوحة لإعادة المحاولة.',
+  'notifications.routing.loadSettingsError': 'Failed to load settings. Reopen this panel to retry.',
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'لا توجد ميزانية خطة متكررة',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    'خطتك الحالية لا تتضمن ميزانية استدلال أسبوعية متكررة. يتم دفع الاستخدام من الاعتمادات المتاحة بدلا من ذلك.',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} المتبقي',
   'settings.billing.inferenceBudget.spentThisCycle': 'تم إنفاق {amount} هذه الدورة',
   'settings.billing.inferenceBudget.cycleEndsOn': 'تنتهي الدورة {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    'تم استنفاد استخدام الاشتراك المضمن. قم بتعبئة الاعتمادات لمواصلة استخدام الذكاء الاصطناعي دون انتظار الدورة التالية.',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
   'settings.billing.inferenceBudget.discountVsPayg': '{pct}% أرخص لكل مكالمة من الدفع أولاً بأول.',
   'settings.billing.inferenceBudget.cycleSpend': 'الإنفاق الدوري',
   'settings.billing.inferenceBudget.totalAmount': '{amount} الإجمالي',
@@ -1202,8 +1249,7 @@ const ar1: TranslationMap = {
   'settings.billing.inferenceBudget.unableToLoad': 'غير قادر على تحميل بيانات الاستخدام',
   'settings.billing.inferenceBudget.notAvailable': 'غير متوفر',
   'memory.sourceFilterAria': 'التصفية حسب المصدر',
-  'calls.comingSoonDescription':
-    'المكالمات المدعومة بالذكاء الاصطناعي ستأتي قريبًا. ابقوا متابعين.',
+  'calls.comingSoonDescription': 'AI-assisted calls are coming soon. Stay tuned.',
   'vault.title': 'خزائن المعرفة',
   'vault.description': 'أشر إلى مجلد محلي؛ يتم تقسيم الملفات وعكسها في الذاكرة.',
   'vault.add': 'إضافة مخزن',
@@ -1219,7 +1265,7 @@ const ar1: TranslationMap = {
   'vault.syncSummarySkipped': '، تم تخطي {count}',
   'vault.syncSummaryDuration': '· {seconds}s',
   'vault.confirmRemovePurge':
-    'إزالة المخزن "{name}"؟\\n\\nانقر فوق "موافق" لمسح الذاكرة أيضًا (احذف كافة المستندات التي تم استيعابها {count}).\\nانقر فوق "إلغاء الأمر" للاحتفاظ بالمستندات في الذاكرة.',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': 'هل تريد حقًا إزالة المخزن "{name}"؟',
   'vault.removed': 'تمت إزالة المخزن',
   'vault.removedPurgedMessage': 'تمت إزالة "{name}" وتطهير ذاكرته.',

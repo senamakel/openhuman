@@ -446,13 +446,13 @@ const de1: TranslationMap = {
   'channels.mcp.description':
     'Durchsuche und verwalte Model Context Protocol-Server, die die KI um neue Tools erweitern.',
   'skills.integrationsSubtitle':
-    'Cloudbasierte OAuth-Verbindungen – melden Sie sich mit Ihrem Konto an und Composio vermittelt die Tokens, damit Agenten in Ihrem Namen lesen und handeln können. Es müssen keine API-Schlüssel verwaltet werden.',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Kanäle',
   'skills.tabs.mcp': 'MCP Server',
   'skills.mcpComingSoon.title': 'MCP Server',
   'skills.mcpComingSoon.description':
-    'MCP Serververwaltung kommt bald. Auf dieser Registerkarte können Sie Ihre MCP-Serverintegrationen erkennen, verbinden und überwachen.',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Verbindung',
   'settings.about.connectionMode': 'Modus',
   'settings.about.connectionModeLocal': 'Lokal',
@@ -461,34 +461,31 @@ const de1: TranslationMap = {
   'settings.about.serverUrl': 'Server URL',
   'settings.about.serverUrlUnavailable': 'Nicht verfügbar',
   'settings.about.connectionHelperLocal':
-    'Wird prozessintern von der Tauri-Shell beim App-Start erzeugt. Der Port wird beim Start ausgewählt, daher ändert sich dieser URL zwischen den Starts.',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    'Verbunden mit einem Remote-Kern. Ändern Sie dies in BootCheck oder der Cloud-Modus-Auswahl.',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': 'Heartbeat und Schleifen',
-  'settings.heartbeat.desc':
-    'Steuern Sie die Kadenzen der Hintergrundplanung und überprüfen Sie die Schleifenkarte.',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
   'settings.ledgerUsage.title': 'Nutzungsbuch',
-  'settings.ledgerUsage.desc':
-    'Aktuelle Kreditausgaben, Budgetberechnung und Hintergrund API Budget lesen.',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
   'settings.search.title': 'Suchmaschine',
   'settings.search.menuDesc':
-    'Verwenden Sie standardmäßig die von OpenHuman verwaltete Suche oder verknüpfen Sie Ihren eigenen Anbieter mit einem API-Schlüssel.',
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'Wählen Sie die Suchmaschine aus, die der Agent verwendet. Managed verwendet das Backend von OpenHuman (kein Setup). Parallel und Brave werden mit Ihrem API-Schlüssel direkt von Ihrem Computer aus ausgeführt.',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': 'Suchmaschine',
   'settings.search.engineManagedLabel': 'OpenHuman Verwaltet',
   'settings.search.engineManagedDesc':
-    'Standard. Wird über das OpenHuman-Backend weitergeleitet – kein API-Schlüssel erforderlich.',
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    'Direkt Parallel API: Such-, Extrahierungs-, Chat-, Recherche-, Anreicherungs- und Datensatz-Tools.',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave Suche',
-  'settings.search.engineBraveDesc':
-    'Direkte Brave Suche API: Web-, Nachrichten-, Bild- und Video-Tools.',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
   'settings.search.statusConfigured': 'Konfiguriert',
   'settings.search.statusNeedsKey': 'Benötigt API-Schlüssel',
   'settings.search.fallbackToManaged':
-    'Kein Schlüssel konfiguriert – die Suche fällt auf „Verwaltet“ zurück, bis ein Schlüssel gespeichert wird.',
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'API-Schlüssel abrufen',
   'settings.search.save': 'Speichern',
   'settings.search.clear': 'Löschen',
@@ -541,12 +538,12 @@ const de1: TranslationMap = {
   'settings.embeddings.clearKey': 'API-Schlüssel löschen',
   'mcp.alphaBadge': 'Alpha',
   'mcp.alphaBannerText':
-    'Die MCP-Serverunterstützung befindet sich in der frühen Alphaphase. Die Smithery-Registrierung, der Installationsablauf und die Werkzeugverkabelung können sich zwischen den Versionen falsch verhalten oder ihre Form ändern.',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': 'Keine Tools verfügbar.',
   'mcp.setup.secretDialog.title': 'MCP-Setup – Geben Sie das Geheimnis ein',
   'mcp.setup.secretDialog.bodyPrefix': 'Der MCP-Setup-Agent benötigt',
   'mcp.setup.secretDialog.bodySuffix':
-    '. Ihr Wert wird direkt an den Kernprozess gesendet und gelangt nie in die KI-Konversation.',
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': 'Wert',
   'mcp.setup.secretDialog.inputPlaceholder': 'Hier einfügen',
   'mcp.setup.secretDialog.show': 'Anzeigen',
@@ -556,36 +553,36 @@ const de1: TranslationMap = {
   'mcp.setup.secretDialog.submitting': 'Senden…',
   'mcp.setup.secretDialog.errorPrefix': 'Senden fehlgeschlagen:',
   'mcp.setup.secretDialog.privacyNote':
-    'Verschlüsselt in der lokalen MCP-Geheimnistabelle gespeichert. Nie geloggt oder an ein Model gesendet.',
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': 'Beta',
   'devices.betaText':
-    'Diese Funktion befindet sich derzeit in der Betaphase. Koppeln Sie iOS-Telefone mit diesem OpenHuman, um sie als Remote-Client zu verwenden.',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': 'Agentenautonomie',
   'autonomy.maxActionsLabel': 'Maximale Aktionen pro Stunde',
   'autonomy.maxActionsHelp':
-    'Maximale Tool-Aktionen, die ein Agent pro rollierender Stunde ausführen kann. Der neue Wert gilt für Ihren nächsten Chat. Cron-Jobs und Kanal-Listener behalten ihr aktuelles Limit, bis Sie OpenHuman neu starten.',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': 'Wird gespeichert…',
   'autonomy.statusSaved': 'Gespeichert.',
   'autonomy.statusFailed': 'Fehlgeschlagen',
   'autonomy.unlimitedNote': 'Unbegrenzt – Ratenbegrenzung deaktiviert.',
   'autonomy.invalidIntegerMsg':
-    'Muss eine positive Ganzzahl sein (verwenden Sie die Voreinstellung „Unbegrenzt“ für keine Begrenzung).',
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Unbegrenzt (Standard)',
   'triggers.toggleFailed': '{action} fehlgeschlagen für {trigger}: {message}',
   'settings.exitLocalSession': 'Lokale Sitzung beenden',
   'settings.exitLocalSessionDesc': 'Zum Anmeldebildschirm zurückkehren',
   'skills.composio.noApiKeyTitle': 'Kein Composio API Schlüssel konfiguriert',
   'skills.composio.noApiKeyDescription':
-    'Der lokale Modus verwendet Ihren eigenen Composio API Schlüssel. Öffnen Sie Einstellungen → Erweitert → Composio, um eine hinzuzufügen, bevor Sie Integrationen hier verbinden.',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': 'In den Einstellungen öffnen',
   'rewards.localUnavailable':
-    'Durch die lokale Anmeldung erhalten Sie keine Prämien, Gutscheine oder Empfehlungsgutschriften. Um Prämien zu erhalten, melden Sie sich ab und melden Sie sich anschließend mit einem OpenHuman-Konto an.',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': 'Kontoeinstellungen öffnen',
   'channels.localManagedUnavailable': 'Verwaltete Kanäle sind für lokale Benutzer nicht verfügbar.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman Die verwaltete Suche ist für lokale Benutzer nicht verfügbar. Fügen Sie Ihren eigenen Schlüssel Parallel oder Brave API hinzu, um die Websuche zu aktivieren.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    'Die Gerätekopplung erfolgt bald. Auf dieser Seite können Sie iPhones koppeln und verbundene Geräte verwalten.',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': 'Navigationspfad',
   'settings.betaBuild': 'Beta-Build - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -647,43 +644,42 @@ const de1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'Endpunkt URL',
   'settings.ai.localRuntimeHelper':
-    'Wo {label} erreichbar ist. Der Standardwert ist localhost; Zeigen Sie dies auf einen Remote-Host (z. B. http://10.0.0.4:11434/v1), um eine gemeinsam genutzte Instanz zu verwenden.',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': 'Endpunkt URL ist erforderlich.',
   'settings.ai.endpointProtocolRequired': 'Endpunkt muss mit http:// oder https://. beginnen.',
   'settings.ai.connectProviderDialog': 'Verbinden Sie {label}',
   'settings.ai.or': 'Oder',
   'settings.ai.openRouterOauthDescription':
-    'Melden Sie sich mit OpenRouter an und importieren Sie einen benutzergesteuerten API-Schlüssel mit PKCE.',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': 'Verbindung wird hergestellt...',
   'settings.ai.backgroundLoops': 'Hintergrundschleifen',
   'settings.ai.backgroundLoopsDesc':
-    'Sehen Sie, was ohne Chat-Nachricht ausgeführt wird, pausieren Sie die Heartbeat-Arbeit und überprüfen Sie die letzten Kreditbuchzeilen.',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': 'Heartbeat-Kontrollen',
   'settings.ai.heartbeatControlsDesc':
-    'Standardmäßig deaktiviert. Durch die Aktivierung wird die Schleife gestartet. Durch Deaktivieren wird die laufende Aufgabe abgebrochen.',
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': 'Heartbeat-Schleife',
   'settings.ai.heartbeatLoopDesc':
-    'Master-Scheduler für Planer + optionale unterbewusste Schlussfolgerung.',
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': 'Unterbewusste Inferenz',
   'settings.ai.subconsciousInferenceDesc':
-    'Führt eine modellgestützte Aufgaben-/Reflexionsbewertung für Heartbeat-Ticks durch.',
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': 'Kalenderbesprechungsprüfungen',
   'settings.ai.calendarMeetingChecksDesc':
-    'Ruft die Kalenderereignisliste für aktive Google Calendar-Verbindungen auf.',
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': 'Kalenderobergrenze',
   'settings.ai.connectionsPerTick': '{count} conn/tick',
   'settings.ai.meetingLookahead': 'Besprechungsvorausschau',
   'settings.ai.minutesShort': '{count} Min.',
   'settings.ai.reminderLookahead': 'Erinnerungsvorschau',
   'settings.ai.cronReminderChecks': 'Cron-Erinnerungsprüfungen',
-  'settings.ai.cronReminderChecksDesc':
-    'Durchsucht aktivierte Cron-Jobs nach erinnerungsähnlichen bevorstehenden Elementen.',
+  'settings.ai.cronReminderChecksDesc': 'Scans enabled cron jobs for reminder-like upcoming items.',
   'settings.ai.relevantNotificationChecks': 'Relevante Benachrichtigungsprüfungen',
   'settings.ai.relevantNotificationChecksDesc':
-    'Wandelt dringende lokale Benachrichtigungen in proaktive Warnungen um.',
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': 'Externe Zustellung',
   'settings.ai.externalDeliveryDesc':
-    'Ermöglicht Heartbeat-Benachrichtigungen, proaktive Nachrichten an externe Kanäle zu senden.',
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': 'Intervall',
   'settings.ai.running': 'Läuft...',
   'settings.ai.plannerTickNow': 'Planer tickt jetzt',
@@ -694,7 +690,7 @@ const de1: TranslationMap = {
   'settings.ai.off': 'aus',
   'settings.ai.recentUsageLedger': 'Ledger der letzten Nutzung',
   'settings.ai.recentUsageLedgerDesc':
-    'Backend-Zeilen legen heute Aktion/Zeit offen; Quell-Tags benötigen Backend-Unterstützung.',
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman (Standard)',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': 'Benutzerdefiniertes Routing für {label}',
@@ -707,7 +703,7 @@ const de1: TranslationMap = {
   'settings.ai.temperatureOverrideSlider': 'Temperatur-Override (Schieberegler)',
   'settings.ai.temperatureOverrideValue': 'Temperatur-Override (Wert)',
   'settings.ai.temperatureOverrideDesc':
-    'Niedriger = mehr deterministisch. Lassen Sie das Kontrollkästchen deaktiviert, um die Standardeinstellung des Anbieters zu verwenden.',
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': 'Test fehlgeschlagen.',
   'settings.ai.testingModel': 'Modell wird getestet...',
   'settings.ai.modelResponse': 'Modellantwort',
@@ -729,7 +725,7 @@ const de1: TranslationMap = {
   'settings.ai.keepExistingKeyPlaceholder': 'Leer lassen, um vorhandenen Schlüssel beizubehalten',
   'settings.ai.reindexingMemory': 'Speicher neu indizieren',
   'settings.ai.reindexingMemoryMessage':
-    'Einbettungen werden erneut verarbeitet. {pending} Speicherelemente werden unter dem aktuellen Modell erneut eingebettet – der semantische Abruf ist bis zum Abschluss reduziert. Die Schlüsselwortsuche funktioniert weiterhin und die erneute Einbettung wird im Hintergrund fortgesetzt, wenn Sie dies schließen.',
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
   'settings.ai.signInWithOpenRouter': 'Anmelden mit OpenRouter',
   'settings.ai.weekBudget': 'Wochenbudget',
   'settings.ai.cycleRemaining': 'Verbleibender Zyklus',
@@ -754,35 +750,35 @@ const de1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Verwaltet',
   'settings.ai.routing.managedDesc':
-    'OpenHuman führt alle Inferenzen in der Cloud aus, wählt das beste Modell für die Aufgabe aus, optimiert die Kosten und behält die sichersten Routing-Standardwerte bei.',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman übernimmt alle Rückschlüsse für jede Arbeitslast und wählt automatisch die beste Route hinsichtlich Kosten, Qualität und Sicherheit.',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': 'Verwenden Sie Ihre eigenen Modelle',
   'settings.ai.routing.useYourOwnDesc':
-    'Wählen Sie einen Anbieter + Modell und leiten Sie jede Arbeitslast darüber weiter. Dies ist einfach, kann jedoch ineffizient sein, da die Leicht- und Schwergewichtsinferenz alle dieselbe Route verwenden.',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': 'Erweitert',
   'settings.ai.routing.advancedDesc':
-    'Wählen Sie verschiedene Modelle für verschiedene Aufgaben. Dies ist die beste Option für eine strenge Kostenoptimierung und größtmögliche Kontrolle.',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    'Fein abgestimmtes Routing bietet Ihnen die beste Kostenoptimierung und die größte Kontrolle. Verwenden Sie die Zeilen unten, um zu entscheiden, welche Workloads verwaltet bleiben, welche Ihren gemeinsamen Standard verwenden und welche an ein bestimmtes Modell angeheftet werden sollen.',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': 'Chat und Gespräche',
   'settings.ai.routing.chatDesc':
-    'Modelle, die bei direkter Benutzerinteraktion, Antworten, Argumentation, Agentenschleifen und Codierungshilfe verwendet werden.',
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': 'Hintergrundaufgaben',
   'settings.ai.routing.bgTasksDesc':
-    'Modelle, die außerhalb des Hauptgesprächsflusses für Zusammenfassung, Herzschlag, Lernen und unterbewusste Bewertung verwendet werden.',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': 'Benutzerdefinierten Anbieter hinzufügen',
   'settings.ai.globalModel.title': 'Wählen Sie ein Modell für alles',
   'settings.ai.globalModel.desc':
-    'Dadurch werden alle Schlussfolgerungen über ein einziges Modell geleitet. Es ist einfacher, kann jedoch hinsichtlich Kosten und Qualität ineffizient sein, da leichte und schwere Aufgaben alle denselben Weg nutzen.',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    'Fügen Sie zuerst einen Anbieter hinzu oder verbinden Sie ihn. Dann können Sie hier jede Arbeitslast durch ein Modell leiten.',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': 'Anbieter',
   'settings.ai.globalModel.model': 'Modell',
   'settings.ai.globalModel.loadingModels': 'Modelle werden geladen…',
   'settings.ai.globalModel.enterModelId': 'Modell-ID eingeben',
   'settings.ai.globalModel.appliesToAll':
-    'Wendet denselben Anbieter + Modell auf Chat, Argumentation, Codierung, Speicher, Herzschlag, Lernen und Unterbewusstsein. Einbettungen werden separat konfiguriert. Die Änderungen werden gespeichert, wenn Sie auf „Speichern“ klicken.',
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
   'settings.ai.globalModel.saving': 'Speichern…',
   'settings.ai.globalModel.saved': 'Gespeichert',
   'settings.ai.workload.noModel': 'Kein Modell ausgewählt',
@@ -793,7 +789,7 @@ const de1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': 'Mit Ihrem Desktop koppeln',
   'iosPair.instructions':
-    'Öffnen Sie OpenHuman auf Ihrem Desktop, gehen Sie zu Einstellungen > Geräte und tippen Sie auf „Telefon koppeln“, um das QR code anzuzeigen.',
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': 'Scannen QR code',
   'iosPair.scannerOpening': 'Scanner wird geöffnet...',
   'iosPair.connecting': 'Verbindung zum Desktop wird hergestellt...',
@@ -804,14 +800,13 @@ const de1: TranslationMap = {
   'iosPair.step.openDesktop': 'OpenHuman auf dem Desktop öffnen',
   'iosPair.step.openSettings': 'Gehen Sie zu Einstellungen > Geräte',
   'iosPair.step.showQr': 'Tippen Sie auf „Telefon koppeln“, um QR anzuzeigen',
-  'iosPair.error.camera':
-    'Kamerascan fehlgeschlagen. Überprüfen Sie die Kameraberechtigungen und versuchen Sie es erneut.',
+  'iosPair.error.camera': 'Camera scan failed. Check camera permissions and try again.',
   'iosPair.error.invalidQr':
-    'Ungültig QR code. Stellen Sie sicher, dass Sie ein OpenHuman pairing code scannen.',
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
   'iosPair.error.unreachableDesktop':
-    'Der Desktop konnte nicht erreicht werden. Stellen Sie sicher, dass beide Geräte online sind, und versuchen Sie es erneut.',
+    'Could not reach the desktop. Make sure both devices are online and try again.',
   'iosPair.error.connectionFailed':
-    'Verbindung fehlgeschlagen. Stellen Sie sicher, dass die Desktop-App ausgeführt wird, und versuchen Sie es erneut.',
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': 'Desktop',
   'iosMascot.connectedTo': 'Verbunden mit',
   'iosMascot.disconnect': 'Trennen',
@@ -862,14 +857,13 @@ const de1: TranslationMap = {
   'team.manageTitle': '{name} verwalten',
   'team.planCreated': '{plan} Plan • Erstellt {date}',
   'team.confirmDelete': 'Sind Sie sicher, dass Sie {name} löschen möchten?',
-  'team.deleteWarning':
-    'Diese Aktion kann nicht rückgängig gemacht werden. Alle Teamdaten werden dauerhaft entfernt.',
+  'team.deleteWarning': 'This action cannot be undone. All team data will be permanently removed.',
   'welcome.clearingAppData': 'App-Daten löschen...',
   'welcome.clearAppDataAndRestart': 'App-Daten löschen und neu starten',
   'welcome.clearAppDataWarning':
-    'Dadurch werden lokal gespeicherte Geheimnisse und Konten auf diesem Gerät gelöscht. Ihr Cloud-Konto ist davon nicht betroffen – Sie können sich direkt danach erneut anmelden.',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
   'welcome.resetErrorFallback':
-    'App-Daten konnten nicht gelöscht werden. Bitte beenden Sie OpenHuman, öffnen Sie es erneut und versuchen Sie es dann erneut.',
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': 'Ich melde mich an...',
   'welcome.termsIntro': 'Indem Sie fortfahren, stimmen Sie den',
   'welcome.termsOfUse': 'Bedingungen',
@@ -910,9 +904,9 @@ const de1: TranslationMap = {
   'team.changeRoleTitle': 'Mitgliedsrolle ändern',
   'team.changeRolePrompt': "Change {name}'s role from {oldRole} to {newRole}?",
   'team.changeRoleAdminGrant':
-    'Dadurch erhalten sie vollständige Administratorberechtigungen, einschließlich der Möglichkeit, Teammitglieder zu verwalten.',
+    'This will grant them full admin permissions including the ability to manage team members.',
   'team.changeRoleAdminRemove':
-    'Dadurch werden ihre Administratorberechtigungen entfernt und sie können das Team nicht mehr verwalten.',
+    'This will remove their admin permissions and they will no longer be able to manage the team.',
   'team.changing': 'Ändern...',
   'team.changeRoleAction': 'Rolle ändern',
   'team.failedChangeRole': 'Rolle konnte nicht geändert werden.',
@@ -922,14 +916,14 @@ const de1: TranslationMap = {
   'voice.failedToStartServer': 'Sprachserver konnte nicht gestartet werden.',
   'voice.failedToStopServer': 'Sprachserver konnte nicht gestoppt werden.',
   'voice.sttDisabledPrefix':
-    'Das Sprachdiktieren ist deaktiviert, bis das lokale STT-Modell heruntergeladen wurde. Verwenden Sie den Abschnitt',
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': 'oben, um Whisper zu installieren.',
   'voice.debug.failedToLoadVoiceDebugData': 'Sprach-Debug-Daten konnten nicht geladen werden.',
   'voice.debug.settingsSaved': 'Debug-Einstellungen gespeichert.',
   'voice.debug.failedToSaveSettings': 'Spracheinstellungen konnten nicht gespeichert werden.',
   'voice.debug.runtimeStatus': 'Laufzeitstatus',
   'voice.debug.runtimeStatusDesc':
-    'Live-Diagnose für den Sprachserver und die Sprach-zu-Text-Engine.',
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': 'Server',
   'voice.debug.unavailable': 'Nicht verfügbar',
   'voice.debug.ready': 'Bereit',
@@ -941,11 +935,11 @@ const de1: TranslationMap = {
   'voice.debug.serverError': 'Serverfehler',
   'voice.debug.advancedSettings': 'Erweiterte Einstellungen',
   'voice.debug.advancedSettingsDesc':
-    'Low-Level-Tuning-Parameter für Aufnahme und Stilleerkennung.',
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': 'Mindestaufzeichnungssekunden',
   'voice.debug.silenceThreshold': 'Ruheschwelle (RMS)',
   'voice.debug.silenceThresholdDesc':
-    'Aufnahmen mit einer Energie darunter werden als Stille behandelt und übersprungen. Niedriger = empfindlicher.',
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': 'Sprachanbieter gespeichert.',
   'voice.providers.failedToSave': 'Sprachanbieter konnten nicht gespeichert werden.',
   'voice.providers.ellipsis': '…',
@@ -964,16 +958,15 @@ const de1: TranslationMap = {
   'voice.providers.failedToInstallPiper': 'Installation von Piper fehlgeschlagen',
   'voice.providers.title': 'Sprachanbieter',
   'voice.providers.desc':
-    'Wählen Sie aus, wo Transkription und Synthese ausgeführt werden. Verwenden Sie die Schaltflächen „Lokal installieren“, um die Binärdateien und Modelle in Ihren Arbeitsbereich herunterzuladen. Lokale Anbieter können vor Abschluss der Installation gespeichert werden – es ist keine manuelle Einrichtung von WHISPER_BIN oder PIPER_BIN erforderlich.',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': 'Speech-to-Text-Anbieter',
   'voice.providers.sttProviderAria': 'STT-Anbieter',
   'voice.providers.cloudWhisperProxy': 'Cloud (Whisper-Proxy)',
   'voice.providers.localWhisper': 'Local Whisper',
   'voice.providers.installRequired': '(Installation erforderlich)',
-  'voice.providers.whisperInstalledTitle':
-    'Whisper ist installiert. Klicken Sie hier, um eine Neuinstallation durchzuführen.',
+  'voice.providers.whisperInstalledTitle': 'Whisper is installed. Click to reinstall.',
   'voice.providers.whisperDownloadTitle':
-    'Laden Sie whisper.cpp und das GGML-Modell in Ihren Arbeitsbereich herunter.',
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': 'Installiert',
   'voice.providers.installFailed': 'Installation fehlgeschlagen',
   'voice.providers.notInstalled': 'Nicht installiert',
@@ -988,20 +981,19 @@ const de1: TranslationMap = {
   'voice.providers.ttsProviderAria': 'TTS-Anbieter',
   'voice.providers.cloudElevenLabsProxy': 'Cloud (ElevenLabs-Proxy)',
   'voice.providers.localPiper': 'Lokaler Piper',
-  'voice.providers.piperInstalledTitle':
-    'Piper ist installiert. Klicken Sie hier, um eine Neuinstallation durchzuführen.',
+  'voice.providers.piperInstalledTitle': 'Piper is installed. Click to reinstall.',
   'voice.providers.piperDownloadTitle':
-    'Laden Sie Piper und die gebündelte Stimme „en_US-lessac-medium“ in Ihren Arbeitsbereich herunter.',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': 'Piper Voice',
   'voice.providers.piperVoiceAria': 'Piper Voice',
   'voice.providers.customVoiceOption': 'Andere (unten eingeben)…',
   'voice.providers.customVoiceAria': 'Piper Voice-ID (benutzerdefiniert)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    'Stimmen kommen von Huggingface.co/rhasspy/piper-voices. Beim Wechseln der Stimmen ist möglicherweise ein Klick auf „Installieren/Neuinstallieren“ erforderlich, um die neue .onnx-Datei herunterzuladen.',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': 'Maskottchen-Stimme',
   'voice.providers.mascotVoiceDescPrefix':
-    'Die ElevenLabs-Stimme, die das Maskottchen für gesprochene Antworten verwendet, wird unter',
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': 'Maskottchen-Einstellungen konfiguriert',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -1013,6 +1005,53 @@ const de1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB · Alan (männlich)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB · Jenny Dioco (weiblich)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB · Nordenglisch (männlich)',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': 'Debug & Diagnose',
   'screenAwareness.debug.collapse': 'Reduzieren',
   'screenAwareness.debug.expand': 'Erweitern',
@@ -1021,10 +1060,10 @@ const de1: TranslationMap = {
   'screenAwareness.debug.baselineFps': 'Basis-FPS',
   'screenAwareness.debug.useVisionModel': 'Vision-Modell verwenden',
   'screenAwareness.debug.useVisionModelDesc':
-    'Screenshots an eine Vision LLM senden, um einen umfassenderen Kontext zu erhalten. Wenn diese Option deaktiviert ist, wird nur OCR-Text mit einem Text LLM verwendet – schneller und kein Vision-Modell erforderlich.',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': 'Screenshots behalten',
   'screenAwareness.debug.keepScreenshotsDesc':
-    'Aufgenommene Screenshots im Arbeitsbereich speichern, anstatt sie nach der Verarbeitung zu löschen',
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': 'Zulassungsliste (eine Regel pro Zeile)',
   'screenAwareness.debug.denylist': 'Sperrliste (eine Regel pro Zeile)',
   'screenAwareness.debug.saveSettings': 'Bildschirmintelligenzeinstellungen speichern',
@@ -1041,8 +1080,7 @@ const de1: TranslationMap = {
   'screenAwareness.debug.refreshing': 'Erfrischend…',
   'screenAwareness.debug.noSummaries': 'Noch keine Zusammenfassungen.',
   'screenAwareness.debug.unknownApp': 'Unbekannte App',
-  'screenAwareness.debug.macosOnly':
-    'Screen Intelligence V1 wird derzeit nur auf macOS unterstützt.',
+  'screenAwareness.debug.macosOnly': 'Screen Intelligence V1 is currently supported on macOS only.',
   'memory.debugTitle': 'Speicher-Debug',
   'memory.documents': 'Dokumente',
   'memory.filterByNamespace': 'Nach Namespace filtern...',
@@ -1064,14 +1102,13 @@ const de1: TranslationMap = {
   'memory.queryResult': 'Abfrageergebnis',
   'memory.recallResult': 'Rückrufergebnis',
   'memory.clearNamespace': 'Namespace löschen',
-  'memory.clearNamespaceDescription':
-    'Löschen Sie alle Dokumente innerhalb eines Namespace dauerhaft.',
+  'memory.clearNamespaceDescription': 'Permanently delete all documents within a namespace.',
   'memory.selectNamespace': 'Namensraum auswählen...',
   'memory.exampleNamespace': 'z.B. skills:gmail:user@example.com',
   'memory.clear': 'Löschen',
   'memory.deleteConfirm': 'Dokument „{documentId}“ im Namespace „{namespace}“ löschen?',
   'memory.clearNamespaceConfirm':
-    'Dadurch werden ALLE Dokumente im Namespace „{namespace}“ dauerhaft gelöscht. Weitermachen?',
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': 'Namespace „{namespace}“ gelöscht.',
   'memory.clearNamespaceEmpty': 'In „{namespace}“ gibt es nichts zu löschen.',
   'webhooks.debugTitle': 'Webhooks-Debug',
@@ -1105,18 +1142,16 @@ const de1: TranslationMap = {
   'providerSetup.error.defaultDetails': 'Anbietereinrichtung fehlgeschlagen.',
   'providerSetup.error.providerFallback': 'Der Anbieter',
   'providerSetup.error.credentialsRejected':
-    '{provider} hat die Anmeldeinformationen abgelehnt. Überprüfen Sie den Schlüssel API und versuchen Sie es erneut.',
+    '{provider} rejected the credentials. Check the API key and try again.',
   'providerSetup.error.endpointNotRecognized':
-    '{provider} hat den Endpunkt nicht erkannt. Überprüfen Sie die Basis URL und versuchen Sie es erneut.',
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
   'providerSetup.error.providerUnavailable':
-    '{provider} ist derzeit nicht verfügbar. Versuchen Sie es erneut oder überprüfen Sie den Anbieterstatus.',
+    '{provider} is unavailable right now. Try again or check the provider status.',
   'providerSetup.error.unreachable':
-    '{provider} konnte nicht erreicht werden. Überprüfen Sie den Endpunkt URL und die Netzwerkverbindung und versuchen Sie es dann erneut.',
-  'providerSetup.error.couldNotReachWithMessage':
-    '{provider} konnte nicht erreicht werden: {message}',
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
+  'providerSetup.error.couldNotReachWithMessage': 'Could not reach {provider}: {message}',
   'providerSetup.error.technicalDetails': 'Technische Details',
-  'devices.emptyState':
-    'Scannen Sie einen QR code auf Ihrem iPhone, um ihn mit dieser OpenHuman-Sitzung zu verbinden.',
+  'devices.emptyState': 'Scan a QR code on your iPhone to connect it to this OpenHuman session.',
   'devices.devicePairedTitle': 'Gerät gekoppelt.',
   'devices.devicePairedMessage': 'iPhone erfolgreich verbunden.',
   'devices.deviceRevokedTitle': 'Gerät widerrufen',
@@ -1142,15 +1177,13 @@ const de1: TranslationMap = {
   'mcp.catalog.noResultsFor': 'Keine Server für „{query}“ gefunden.',
   'mcp.catalog.loadMore': 'Mehr laden',
   'mcp.configAssistant.title': 'Konfigurationsassistent',
-  'mcp.configAssistant.empty':
-    'Fragen Sie nach Konfiguration, erforderlichen Umgebungsvariablen oder Einrichtungsschritten.',
+  'mcp.configAssistant.empty': 'Ask about configuration, required env vars, or setup steps.',
   'mcp.configAssistant.suggestedValues': 'Vorgeschlagene Werte:',
   'mcp.configAssistant.valueHidden': '(Wert ausgeblendet)',
   'mcp.configAssistant.applySuggested': 'Vorgeschlagene Werte anwenden',
   'mcp.configAssistant.reinstallHint': 'Neuinstallation mit diesen Werten, um sie anzuwenden.',
   'mcp.configAssistant.thinking': 'Nachdenken...',
-  'mcp.configAssistant.inputPlaceholder':
-    'Stellen Sie eine Frage (Eingabetaste zum Senden, Umschalt+Eingabetaste für Zeilenumbruch)',
+  'mcp.configAssistant.inputPlaceholder': 'Ask a question (Enter to send, Shift+Enter for newline)',
   'mcp.configAssistant.send': 'Senden',
   'mcp.configAssistant.failedResponse': 'Es konnte keine Antwort erhalten werden',
   'mcp.toolList.availableSingular': '{count} Tool verfügbar',
@@ -1183,7 +1216,7 @@ const de1: TranslationMap = {
   'mcp.install.installing': 'Installation...',
   'mcp.detail.suggestedEnvReady': 'Vorgeschlagene Umgebungswerte bereit',
   'mcp.detail.suggestedEnvBody':
-    'Installieren Sie diesen Server mit den vorgeschlagenen Werten neu, um sie anzuwenden: {keys}',
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': 'Verbinden',
   'mcp.detail.connecting': 'Verbinden ...',
   'mcp.detail.disconnect': 'Trennen',
@@ -1196,10 +1229,8 @@ const de1: TranslationMap = {
   'mcp.detail.tools': 'Tools',
   'onboarding.skipForNow': 'Vorerst überspringen',
   'onboarding.localAI.continueWithCloud': 'Fahren Sie mit der Cloud fort.',
-  'onboarding.localAI.useLocalAnyway':
-    'Verwenden Sie trotzdem lokale KI (nicht empfohlen für Ihr Gerät).',
-  'onboarding.localAI.useLocalInstead':
-    'Verwenden Sie stattdessen lokale KI (verbinden Sie jetzt Ollama).',
+  'onboarding.localAI.useLocalAnyway': 'Use local AI anyway (not recommended for your device)',
+  'onboarding.localAI.useLocalInstead': 'Use local AI instead (connect Ollama now)',
   'onboarding.localAI.setupIssue': 'Beim Einrichten der lokalen KI ist ein Problem aufgetreten.',
   'notifications.routingTitle': 'Benachrichtigungsweiterleitung',
   'notifications.routing.pipelineStats': 'Pipeline-Statistiken',
@@ -1208,35 +1239,30 @@ const de1: TranslationMap = {
   'notifications.routing.unscored': 'Nicht bewertet',
   'notifications.routing.intelligenceTitle': 'Notification Intelligence',
   'notifications.routing.intelligenceDesc':
-    'Jede Benachrichtigung von Ihren verbundenen Konten wird von einem lokalen KI-Modell bewertet. Wichtige Benachrichtigungen werden automatisch an Ihren Orchestrator-Agenten weitergeleitet, sodass nichts Kritisches durchgeht.',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': 'So funktioniert es',
   'notifications.routing.level.drop': 'Verwerfen',
   'notifications.routing.level.dropDesc': 'Lärm/Spam – gespeichert, aber nicht angezeigt',
   'notifications.routing.level.acknowledge': 'Bestätigen',
-  'notifications.routing.level.acknowledgeDesc':
-    'Niedrige Priorität – wird im Benachrichtigungscenter angezeigt',
+  'notifications.routing.level.acknowledgeDesc': 'Low-priority — shown in notification center',
   'notifications.routing.level.react': 'Reagieren',
-  'notifications.routing.level.reactDesc':
-    'Mittlere Priorität – löst eine gezielte Agentenantwort aus',
+  'notifications.routing.level.reactDesc': 'Medium-priority — triggers a focused agent response',
   'notifications.routing.level.escalate': 'Eskalieren',
-  'notifications.routing.level.escalateDesc':
-    'Hohe Priorität – wird an den Orchestrator-Agenten weitergeleitet',
+  'notifications.routing.level.escalateDesc': 'High-priority — forwarded to orchestrator agent',
   'notifications.routing.perProvider': 'Routing pro Anbieter',
   'notifications.routing.threshold': 'Schwellenwert',
   'notifications.routing.routeToOrchestrator': 'Route zum Orchestrator',
-  'notifications.routing.loadSettingsError':
-    'Einstellungen konnten nicht geladen werden. Öffnen Sie dieses Panel erneut, um es erneut zu versuchen.',
+  'notifications.routing.loadSettingsError': 'Failed to load settings. Reopen this panel to retry.',
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'Kein wiederkehrendes Planbudget',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    'Ihr aktueller Plan beinhaltet kein wiederkehrendes wöchentliches Inferenzbudget. Die Nutzung wird stattdessen aus verfügbaren Credits bezahlt.',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} verbleibend',
   'settings.billing.inferenceBudget.spentThisCycle': '{amount} in diesem Zyklus ausgegeben',
   'settings.billing.inferenceBudget.cycleEndsOn': 'Zyklus endet {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    'Die enthaltene Abonnementnutzung ist erschöpft. Laden Sie Credits auf, um die KI weiterhin zu nutzen, ohne auf den nächsten Zyklus warten zu müssen.',
-  'settings.billing.inferenceBudget.discountVsPayg':
-    '{pct} % günstiger pro Anruf als Pay-as-you-go.',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
+  'settings.billing.inferenceBudget.discountVsPayg': '{pct}% cheaper per call than pay-as-you-go.',
   'settings.billing.inferenceBudget.cycleSpend': 'Zyklusausgaben',
   'settings.billing.inferenceBudget.totalAmount': '{amount} Gesamt',
   'settings.billing.inferenceBudget.inference': 'Inferenz',
@@ -1247,15 +1273,13 @@ const de1: TranslationMap = {
   'settings.billing.inferenceBudget.topModels': 'Topmodelle',
   'settings.billing.inferenceBudget.noInferenceUsage': 'Keine Inferenznutzung in diesem Zyklus.',
   'settings.billing.inferenceBudget.topIntegrations': 'Top-Integrationen',
-  'settings.billing.inferenceBudget.noIntegrationUsage':
-    'Keine Integrationsnutzung in diesem Zyklus.',
+  'settings.billing.inferenceBudget.noIntegrationUsage': 'No integration usage this cycle.',
   'settings.billing.inferenceBudget.unableToLoad': 'Nutzungsdaten können nicht geladen werden.',
   'settings.billing.inferenceBudget.notAvailable': 'n/a',
   'memory.sourceFilterAria': 'Nach Quelle filtern',
   'calls.comingSoonDescription': 'KI-unterstützte Anrufe folgen in Kürze. Bleiben Sie dran.',
   'vault.title': 'Wissensdepots',
-  'vault.description':
-    'Zeigen Sie auf einen lokalen Ordner; Dateien werden aufgeteilt und in den Speicher gespiegelt.',
+  'vault.description': 'Point at a local folder; files are chunked and mirrored into memory.',
   'vault.add': 'Tresor hinzufügen',
   'vault.added': 'Tresor hinzugefügt',
   'vault.createdMessage': 'Erstellt „{name}“. Klicken Sie zum Aufnehmen auf {sync}.',
@@ -1269,7 +1293,7 @@ const de1: TranslationMap = {
   'vault.syncSummarySkipped': ', übersprungen {count}',
   'vault.syncSummaryDuration': '· {seconds}s',
   'vault.confirmRemovePurge':
-    'Tresor „{name}“ entfernen?\\n\\nKlicken Sie auf „OK“, um auch den Speicher zu löschen (alle aufgenommenen {count} löschen). Dokument(e)).\\nKlicken Sie auf „Abbrechen“, um die Dokumente im Speicher zu behalten.',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': 'Tresor „{name}“ wirklich entfernen?',
   'vault.removed': 'Tresor entfernt',
   'vault.removedPurgedMessage': '„{name}“ entfernt und seinen Speicher geleert.',
@@ -1285,8 +1309,7 @@ const de1: TranslationMap = {
   'vault.create': 'Tresor erstellen',
   'vault.loading': 'Wird geladen Tresore…',
   'vault.failedToLoad': 'Tresore konnten nicht geladen werden: {error}',
-  'vault.empty':
-    'Noch keine Tresore. Fügen Sie oben eines hinzu, um mit der Aufnahme eines Ordners zu beginnen.',
+  'vault.empty': 'No vaults yet. Add one above to start ingesting a folder.',
   'vault.fileCount': '{count} Datei(en)',
   'vault.syncedRelative': 'synchronisiert {time}',
   'vault.neverSynced': 'nie synchronisiert',

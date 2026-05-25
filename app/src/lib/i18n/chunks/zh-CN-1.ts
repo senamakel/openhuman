@@ -420,13 +420,13 @@ const zhCN1: TranslationMap = {
   'settings.mascot': '吉祥物',
   'settings.mascotDesc': '选择应用中使用的吉祥物颜色',
   'skills.integrationsSubtitle':
-    '基于云的 OAuth 连接 — 使用您的帐户登录，Composio 代理令牌，以便代理可以代表您读取和操作。没有 API 密钥需要管理。',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': '渠道',
   'skills.tabs.mcp': 'MCP 服务器',
   'skills.mcpComingSoon.title': 'MCP 服务器',
   'skills.mcpComingSoon.description':
-    'MCP 服务器管理即将推出。此选项卡将成为发现、连接和监控 MCP 服务器集成的主页。',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': '连接方式',
   'settings.about.connectionMode': '模式',
   'settings.about.connectionModeLocal': '本地',
@@ -435,28 +435,31 @@ const zhCN1: TranslationMap = {
   'settings.about.serverUrl': '服务器 URL',
   'settings.about.serverUrlUnavailable': '不可用',
   'settings.about.connectionHelperLocal':
-    '在应用程序启动时由 Tauri shell 在进程内生成。该端口是在启动时选择的，因此 URL 在启动之间会发生变化。',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    '连接到远程核心。在 BootCheck 或云模式选择器中更改此设置。',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': '心跳和循环',
   'settings.heartbeat.desc': '控制后台调度节奏并检查循环图。',
   'settings.ledgerUsage.title': '使用账本',
   'settings.ledgerUsage.desc': '最近的信贷支出、预算数学和背景 API 阅读预算。',
   'settings.search.title': '搜索引擎',
-  'settings.search.menuDesc': '默认为 OpenHuman 管理的搜索或使用 API 密钥连接您自己的提供商。',
+  'settings.search.menuDesc':
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    '选择代理使用的搜索引擎。托管使用 OpenHuman 的后端（无需设置）。 Parallel 和 Brave 使用 API 密钥直接从您的计算机运行。',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': '搜索引擎',
   'settings.search.engineManagedLabel': 'OpenHuman 托管',
-  'settings.search.engineManagedDesc': '默认。通过 OpenHuman 后端路由 — 无需 API 密钥。',
+  'settings.search.engineManagedDesc':
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    'Direct Parallel API：搜索、提取、聊天、研究、丰富、数据集工具。',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave 搜索',
   'settings.search.engineBraveDesc': '直接Brave 搜索API：网络、新闻、图像和视频工具。',
   'settings.search.statusConfigured': '已配置',
   'settings.search.statusNeedsKey': '需要 API 密钥',
-  'settings.search.fallbackToManaged': '未配置密钥 - 搜索将回退到托管，直到保存密钥。',
+  'settings.search.fallbackToManaged':
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': '获取 API 密钥',
   'settings.search.save': '保存',
   'settings.search.clear': '清除',
@@ -508,11 +511,12 @@ const zhCN1: TranslationMap = {
   'settings.embeddings.clearKey': '清除 API 密钥',
   'mcp.alphaBadge': '阿尔法',
   'mcp.alphaBannerText':
-    'MCP 服务器支持处于早期 alpha 阶段。 Smithery 注册表、安装流程和工具连接可能会在版本之间出现错误或改变形状。',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': '没有可用的工具。',
   'mcp.setup.secretDialog.title': 'MCP 设置 — 输入密码',
   'mcp.setup.secretDialog.bodyPrefix': 'MCP 设置代理需要',
-  'mcp.setup.secretDialog.bodySuffix': '。您的价值会直接发送到核心流程，而不会进入人工智能对话。',
+  'mcp.setup.secretDialog.bodySuffix':
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': '价值',
   'mcp.setup.secretDialog.inputPlaceholder': '粘贴在这里',
   'mcp.setup.secretDialog.show': '显示',
@@ -521,33 +525,35 @@ const zhCN1: TranslationMap = {
   'mcp.setup.secretDialog.cancel': '取消',
   'mcp.setup.secretDialog.submitting': '正在提交...',
   'mcp.setup.secretDialog.errorPrefix': '提交失败：',
-  'mcp.setup.secretDialog.privacyNote': '加密存储在本地 MCP 机密表中。从未记录或发送给模型。',
+  'mcp.setup.secretDialog.privacyNote':
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': '贝塔',
   'devices.betaText':
-    '此功能目前处于测试阶段。将 iOS 手机与此 OpenHuman 配对，将其用作远程客户端。',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': '代理自主权',
   'autonomy.maxActionsLabel': '每小时最大动作数',
   'autonomy.maxActionsHelp':
-    '代理在每个滚动小时内可以运行的最大工具操作数。新值适用于您的下一次聊天。 Cron 作业和通道侦听器将保持其当前限制，直到您重新启动 OpenHuman。',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': '正在保存...',
   'autonomy.statusSaved': '已保存。',
   'autonomy.statusFailed': '失败',
   'autonomy.unlimitedNote': '无限制 — 禁用速率限制。',
-  'autonomy.invalidIntegerMsg': '必须是正整数（使用 Unlimited 预设表示无限制）。',
+  'autonomy.invalidIntegerMsg':
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': '无限制（默认）',
   'triggers.toggleFailed': '{trigger} 的 {action} 失败：{message}',
   'skills.composio.noApiKeyTitle': '未配置 Composio API 密钥',
   'skills.composio.noApiKeyDescription':
-    '本地模式使用您自己的 Composio API 密钥。在此处连接集成之前，请打开设置 → 高级 → Composio 添加一项。',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': '在设置中打开',
   'rewards.localUnavailable':
-    '本地登录不会获得奖励、优惠券或推荐积分。要获得奖励，请注销并使用 OpenHuman 帐户登录继续。',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': '开设账户设置',
   'channels.localManagedUnavailable': '本地用户无法使用托管频道。',
   'settings.search.localManagedUnavailable':
-    'OpenHuman 托管搜索不适用于本地用户。添加您自己的 Parallel 或 Brave API 键以启用网络搜索。',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    '设备配对即将推出。此页面将成为配对 iPhone 和管理连接设备的主页。',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': '面包屑导航',
   'settings.betaBuild': '测试版构建 - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -570,25 +576,29 @@ const zhCN1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': '端点 URL',
   'settings.ai.localRuntimeHelper':
-    '其中 {label} 是可访问的。默认为 localhost；将其指向远程主机（例如，http://10.0.0.4:11434/v1) 以使用共享实例。',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': '端点 URL 是必需的。',
   'settings.ai.endpointProtocolRequired': '端点必须以 http:// 或 https://. 开头',
   'settings.ai.connectProviderDialog': '连接 {label}',
   'settings.ai.or': '或者',
   'settings.ai.openRouterOauthDescription':
-    '使用 OpenRouter 登录并使用 PKCE 导入用户控制的 API 密钥。',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': '正在连接...',
   'settings.ai.backgroundLoops': '背景循环',
   'settings.ai.backgroundLoopsDesc':
-    '查看没有聊天消息的情况下运行的内容、暂停心跳工作并检查最近的信用分类帐行。',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': '心跳控制',
-  'settings.ai.heartbeatControlsDesc': '默认关闭。使能开始循环；禁用会中止正在运行的任务。',
+  'settings.ai.heartbeatControlsDesc':
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': '心跳循环',
-  'settings.ai.heartbeatLoopDesc': '计划者的主调度程序+可选的潜意识推理。',
+  'settings.ai.heartbeatLoopDesc':
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': '潜意识推理',
-  'settings.ai.subconsciousInferenceDesc': '在心跳滴答声上运行模型支持的任务/反射评估。',
+  'settings.ai.subconsciousInferenceDesc':
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': '日历会议检查',
-  'settings.ai.calendarMeetingChecksDesc': '调用活动 Google Calendar 连接的日历事件列表。',
+  'settings.ai.calendarMeetingChecksDesc':
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': '日历帽',
   'settings.ai.connectionsPerTick': '{count} 康涅狄格州/蜱',
   'settings.ai.meetingLookahead': '会议前瞻',
@@ -597,9 +607,11 @@ const zhCN1: TranslationMap = {
   'settings.ai.cronReminderChecks': 'Cron 提醒检查',
   'settings.ai.cronReminderChecksDesc': '扫描启用的 cron 作业以查找类似提醒的即将发生的项目。',
   'settings.ai.relevantNotificationChecks': '相关通知检查',
-  'settings.ai.relevantNotificationChecksDesc': '将紧急本地通知提升为主动警报。',
+  'settings.ai.relevantNotificationChecksDesc':
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': '外部交付',
-  'settings.ai.externalDeliveryDesc': '让心跳警报向外部通道发送主动消息。',
+  'settings.ai.externalDeliveryDesc':
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': '间隔',
   'settings.ai.running': '运行...',
   'settings.ai.plannerTickNow': '规划师立即勾选',
@@ -609,7 +621,8 @@ const zhCN1: TranslationMap = {
   'settings.ai.on': '上',
   'settings.ai.off': '关闭',
   'settings.ai.recentUsageLedger': '最近使用分类账',
-  'settings.ai.recentUsageLedgerDesc': '后端行显示今天的操作/时间；源标签需要后端支持。',
+  'settings.ai.recentUsageLedgerDesc':
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman（默认）',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': '{label} 的自定义路由',
@@ -621,7 +634,8 @@ const zhCN1: TranslationMap = {
   'settings.ai.temperatureOverride': '温度超控',
   'settings.ai.temperatureOverrideSlider': '温度超控（滑块）',
   'settings.ai.temperatureOverrideValue': '温度超控（值）',
-  'settings.ai.temperatureOverrideDesc': '更低=更具确定性。不选中以使用提供程序默认值。',
+  'settings.ai.temperatureOverrideDesc':
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': '测试失败',
   'settings.ai.testingModel': '测试模型...',
   'settings.ai.modelResponse': '模型响应',
@@ -643,7 +657,7 @@ const zhCN1: TranslationMap = {
   'settings.ai.keepExistingKeyPlaceholder': '留空以保留现有密钥',
   'settings.ai.reindexingMemory': '重新索引内存',
   'settings.ai.reindexingMemoryMessage':
-    '正在重新处理嵌入。 {pending} 记忆项正在当前模型下重新嵌入 - 语义回忆会减少，直到完成为止。关键字搜索将继续工作，如果您关闭此功能，重新嵌入将在后台继续进行。',
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
   'settings.ai.signInWithOpenRouter': '使用 OpenRouter 登录',
   'settings.ai.weekBudget': '周预算',
   'settings.ai.cycleRemaining': '剩余周期',
@@ -668,34 +682,35 @@ const zhCN1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '托管',
   'settings.ai.routing.managedDesc':
-    'OpenHuman 将在云端运行所有推理，为任务选择最佳模型，优化成本，并保留最安全的路由默认值。',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman 将处理每个工作负载的所有推理，并自动选择成本、质量和安全性的最佳路线。',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': '使用您自己的模型',
   'settings.ai.routing.useYourOwnDesc':
-    '选择一个提供商+模型并通过它路由每个工作负载。这很简单，但效率可能很低，因为轻量级和重量级推理都共享相同的路线。',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': '高级',
   'settings.ai.routing.advancedDesc':
-    '为不同的任务选择不同的模型。这是严格成本优化和最大程度控制的最佳选择。',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    '细粒度路由为您提供最佳的成本优化和最大程度的控制。使用下面的行来决定哪些工作负载保持托管状态、哪些工作负载使用您的共享默认值以及哪些工作负载固定到特定模型。',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': '聊天和对话',
-  'settings.ai.routing.chatDesc': '在直接用户交互、回复、推理、代理循环和编码帮助期间使用的模型。',
+  'settings.ai.routing.chatDesc':
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': '后台任务',
   'settings.ai.routing.bgTasksDesc':
-    '在主要对话流程之外使用的模型，用于总结、心跳、学习和潜意识评估。',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': '添加自定义提供商',
   'settings.ai.globalModel.title': '为所有事情选择一种型号',
   'settings.ai.globalModel.desc':
-    '这将通过一个模型进行所有推理。它更简单，但在成本和质量方面可能效率低下，因为轻量级和繁重的任务都将使用相同的路线。',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    '首先添加或连接提供商。然后，您可以在此处通过一个模型路由每个工作负载。',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': '提供者',
   'settings.ai.globalModel.model': '型号',
   'settings.ai.globalModel.loadingModels': '正在加载模型...',
   'settings.ai.globalModel.enterModelId': '输入型号 ID',
   'settings.ai.globalModel.appliesToAll':
-    '将相同的提供者+模型应用于聊天、推理、编码、记忆、心跳、学习和潜意识。嵌入是单独配置的。单击“保存”时将保存更改。',
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
   'settings.ai.globalModel.saving': '正在保存...',
   'settings.ai.globalModel.saved': '已保存',
   'settings.ai.workload.noModel': '未选择型号',
@@ -706,7 +721,7 @@ const zhCN1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': '与您的桌面配对',
   'iosPair.instructions':
-    '在桌面上打开 OpenHuman，转到“设置”>“设备”，然后点击“配对手机”以显示 QR code。',
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': '扫描QR code',
   'iosPair.scannerOpening': '扫描仪打开...',
   'iosPair.connecting': '正在连接到桌面...',
@@ -718,9 +733,12 @@ const zhCN1: TranslationMap = {
   'iosPair.step.openSettings': '转至设置 > 设备',
   'iosPair.step.showQr': '点击“配对手机”以显示 QR',
   'iosPair.error.camera': '相机扫描失败。检查相机权限并重试。',
-  'iosPair.error.invalidQr': 'QR code 无效。确保您正在扫描 OpenHuman pairing code。',
-  'iosPair.error.unreachableDesktop': '无法到达桌面。确保两台设备都在线，然后重试。',
-  'iosPair.error.connectionFailed': '连接失败。确保桌面应用程序正在运行，然后重试。',
+  'iosPair.error.invalidQr':
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
+  'iosPair.error.unreachableDesktop':
+    'Could not reach the desktop. Make sure both devices are online and try again.',
+  'iosPair.error.connectionFailed':
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': '桌面',
   'iosMascot.connectedTo': '连接到',
   'iosMascot.disconnect': '断开连接',
@@ -775,8 +793,9 @@ const zhCN1: TranslationMap = {
   'welcome.clearingAppData': '清除应用程序数据...',
   'welcome.clearAppDataAndRestart': '清除应用数据并重启',
   'welcome.clearAppDataWarning':
-    '这将擦除该设备上本地存储的机密和帐户。您的云帐户不受影响 - 您可以立即重新登录。',
-  'welcome.resetErrorFallback': '无法清除应用程序数据。请退出并重新打开 OpenHuman，然后重试。',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
+  'welcome.resetErrorFallback':
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': '正在为您签名...',
   'welcome.termsIntro': '继续即表示您同意',
   'welcome.termsOfUse': '条款',
@@ -842,13 +861,15 @@ const zhCN1: TranslationMap = {
   'voice.failedToSaveSettings': '无法保存语音设置',
   'voice.failedToStartServer': '语音服务器启动失败',
   'voice.failedToStopServer': '停止语音服务器失败',
-  'voice.sttDisabledPrefix': '下载本地 STT 模型之前，语音听写将被禁用。使用',
+  'voice.sttDisabledPrefix':
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': '上面的部分安装 Whisper。',
   'voice.debug.failedToLoadVoiceDebugData': '加载语音调试数据失败',
   'voice.debug.settingsSaved': '已保存调试设置。',
   'voice.debug.failedToSaveSettings': '无法保存语音设置',
   'voice.debug.runtimeStatus': '运行时状态',
-  'voice.debug.runtimeStatusDesc': '语音服务器和语音转文本引擎的实时诊断。',
+  'voice.debug.runtimeStatusDesc':
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': '服务器',
   'voice.debug.unavailable': '不可用',
   'voice.debug.ready': '准备好',
@@ -859,10 +880,12 @@ const zhCN1: TranslationMap = {
   'voice.debug.transcriptions': '转录',
   'voice.debug.serverError': '服务器错误',
   'voice.debug.advancedSettings': '高级设置',
-  'voice.debug.advancedSettingsDesc': '用于录音和静音检测的低级调整参数。',
+  'voice.debug.advancedSettingsDesc':
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': '最短录音秒数',
   'voice.debug.silenceThreshold': '静音阈值 (RMS)',
-  'voice.debug.silenceThresholdDesc': '能量低于此值的录音将被视为静音并被跳过。更低=更敏感。',
+  'voice.debug.silenceThresholdDesc':
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': '语音提供商已保存。',
   'voice.providers.failedToSave': '无法保存语音提供商',
   'voice.providers.ellipsis': '…',
@@ -881,14 +904,15 @@ const zhCN1: TranslationMap = {
   'voice.providers.failedToInstallPiper': '安装 Piper 失败',
   'voice.providers.title': '语音提供商',
   'voice.providers.desc':
-    '选择转录和合成的运行位置。使用“本地安装”按钮将二进制文件和模型下载到您的工作区中。可以在安装完成之前保存本地提供程序 - 无需手动设置 WHISPER_BIN 或 PIPER_BIN。',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': '语音转文本提供商',
   'voice.providers.sttProviderAria': 'STT 提供商',
   'voice.providers.cloudWhisperProxy': '云（耳语代理）',
   'voice.providers.localWhisper': '本地耳语',
   'voice.providers.installRequired': ' （需要安装）',
   'voice.providers.whisperInstalledTitle': '耳语已安装。单击重新安装。',
-  'voice.providers.whisperDownloadTitle': '将 tweet.cpp 和 GGML 模型下载到您的工作区中。',
+  'voice.providers.whisperDownloadTitle':
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': '已安装',
   'voice.providers.installFailed': '安装失败',
   'voice.providers.notInstalled': '未安装',
@@ -905,16 +929,17 @@ const zhCN1: TranslationMap = {
   'voice.providers.localPiper': '当地风笛手',
   'voice.providers.piperInstalledTitle': 'Piper 已安装。单击重新安装。',
   'voice.providers.piperDownloadTitle':
-    '将 Piper 和捆绑的 en_US-lessac-medium 语音下载到您的工作区中。',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': '派珀之声',
   'voice.providers.piperVoiceAria': '吹笛者的声音',
   'voice.providers.customVoiceOption': '其他（在下面输入）...',
   'voice.providers.customVoiceAria': 'Piper 语音 ID（自定义）',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    '声音来自huggingface.co/rhasspy/piper-voices。切换声音可能需要单击“安装/重新安装”才能下载新的 .onnx。',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': '吉祥物声音',
-  'voice.providers.mascotVoiceDescPrefix': '吉祥物用于口头回复的 ElevenLabs 语音配置如下',
+  'voice.providers.mascotVoiceDescPrefix':
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': '吉祥物设置',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -926,6 +951,53 @@ const zhCN1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB·艾伦（男）',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB·珍妮·迪奥科（女）',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB·北方英语（男）',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': '调试与诊断',
   'screenAwareness.debug.collapse': '崩溃',
   'screenAwareness.debug.expand': '展开',
@@ -934,9 +1006,10 @@ const zhCN1: TranslationMap = {
   'screenAwareness.debug.baselineFps': '基线 FPS',
   'screenAwareness.debug.useVisionModel': '使用视觉模型',
   'screenAwareness.debug.useVisionModelDesc':
-    '将屏幕截图发送到愿景 LLM 以获取更丰富的背景信息。关闭时，仅 OCR 文本与文本 LLM 一起使用 — 速度更快，并且不需要视觉模型。',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': '保留截图',
-  'screenAwareness.debug.keepScreenshotsDesc': '将捕获的屏幕截图保存到工作区，而不是在处理后删除',
+  'screenAwareness.debug.keepScreenshotsDesc':
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': '允许列表（每行一条规则）',
   'screenAwareness.debug.denylist': '拒绝名单（每行一条规则）',
   'screenAwareness.debug.saveSettings': '保存屏幕智能设置',
@@ -980,7 +1053,8 @@ const zhCN1: TranslationMap = {
   'memory.exampleNamespace': '例如技能:gmail:user@example.com',
   'memory.clear': '清除',
   'memory.deleteConfirm': '删除命名空间“{namespace}”中的文档“{documentId}”吗？',
-  'memory.clearNamespaceConfirm': '这将永久删除命名空间“{namespace}”中的所有文档。继续？',
+  'memory.clearNamespaceConfirm':
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': '命名空间“{namespace}”已清除。',
   'memory.clearNamespaceEmpty': '“{namespace}”中没有需要清除的内容。',
   'webhooks.debugTitle': 'Webhooks 调试',
@@ -1013,10 +1087,14 @@ const zhCN1: TranslationMap = {
   'webhooks.empty': '[空]',
   'providerSetup.error.defaultDetails': '提供商设置失败。',
   'providerSetup.error.providerFallback': '提供者',
-  'providerSetup.error.credentialsRejected': '{provider} 拒绝了凭据。检查 API 键并重试。',
-  'providerSetup.error.endpointNotRecognized': '{provider} 无法识别端点。检查基址 URL 并重试。',
-  'providerSetup.error.providerUnavailable': '{provider} 目前不可用。请重试或检查提供商状态。',
-  'providerSetup.error.unreachable': '无法到达 {provider}。检查端点 URL 和网络连接，然后重试。',
+  'providerSetup.error.credentialsRejected':
+    '{provider} rejected the credentials. Check the API key and try again.',
+  'providerSetup.error.endpointNotRecognized':
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
+  'providerSetup.error.providerUnavailable':
+    '{provider} is unavailable right now. Try again or check the provider status.',
+  'providerSetup.error.unreachable':
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
   'providerSetup.error.couldNotReachWithMessage': '无法到达 {provider}：{message}',
   'providerSetup.error.technicalDetails': '技术细节',
   'devices.title': '设备',
@@ -1102,7 +1180,8 @@ const zhCN1: TranslationMap = {
   'mcp.install.button': '安装',
   'mcp.install.installing': '正在安装...',
   'mcp.detail.suggestedEnvReady': '建议的环境值已准备好',
-  'mcp.detail.suggestedEnvBody': '使用建议值重新安装此服务器以应用它们：{keys}',
+  'mcp.detail.suggestedEnvBody':
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': '连接',
   'mcp.detail.connecting': '正在连接...',
   'mcp.detail.disconnect': '断开连接',
@@ -1125,7 +1204,7 @@ const zhCN1: TranslationMap = {
   'notifications.routing.unscored': '未计分',
   'notifications.routing.intelligenceTitle': '通知情报',
   'notifications.routing.intelligenceDesc':
-    '来自连接帐户的每条通知均由本地人工智能模型评分。高重要性通知会自动路由到您的 Orchestrator 代理，因此不会漏掉任何重要通知。',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': '它是如何运作的',
   'notifications.routing.level.drop': '掉落',
   'notifications.routing.level.dropDesc': '噪音/垃圾邮件 - 已存储但未浮出水面',
@@ -1142,12 +1221,12 @@ const zhCN1: TranslationMap = {
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': '无经常性计划预算',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    '您当前的计划不包括每周定期推理预算。使用量是通过可用积分支付的。',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': '剩余 {remaining} / {budget}',
   'settings.billing.inferenceBudget.spentThisCycle': '本周期花费 {amount}',
   'settings.billing.inferenceBudget.cycleEndsOn': '循环结束 {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    '包含的订阅使用量已耗尽。充值积分即可继续使用 AI，无需等待下一个周期。',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
   'settings.billing.inferenceBudget.discountVsPayg': '每次通话比即用即付便宜 {pct}%。',
   'settings.billing.inferenceBudget.cycleSpend': '周期支出',
   'settings.billing.inferenceBudget.totalAmount': '{amount} 总计',
@@ -1179,7 +1258,7 @@ const zhCN1: TranslationMap = {
   'vault.syncSummarySkipped': '，跳过 {count}',
   'vault.syncSummaryDuration': ' · {seconds}s',
   'vault.confirmRemovePurge':
-    '删除保管库“{name}”？\\n\\n单击“确定”也可清除其内存（删除所有 {count} 摄取的文档）。\\n单击“取消”将文档保留在内存中。',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': '真的删除保险库“{name}”吗？',
   'vault.removed': '保险库已移除',
   'vault.removedPurgedMessage': '删除了“{name}”并清除了其内存。',

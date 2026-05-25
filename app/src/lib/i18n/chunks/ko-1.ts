@@ -389,7 +389,7 @@ const ko1: TranslationMap = {
   'settings.ai.overview': 'AI 시스템 개요',
   'migration.title': '다른 어시스턴트에서 가져오기',
   'migration.description':
-    '다른 로컬 어시스턴트의 메모리와 메모를 이 작업공간으로 마이그레이션합니다. 미리보기로 시작하여 정확히 무엇이 변경되는지 확인한 다음 적용하여 데이터를 복사하세요. 현재 메모리가 먼저 백업됩니다.',
+    'Migrate memory and notes from another local assistant into this workspace. Start with a Preview to see exactly what would change, then Apply to copy the data over. Your current memory is backed up first.',
   'migration.vendorLabel': '소스 공급업체',
   'migration.sourceLabel': '소스 작업공간 경로(선택 사항)',
   'migration.sourcePlaceholder': '자동 감지하려면 비워 두세요(예: ~/.openclaw/workspace)',
@@ -400,7 +400,7 @@ const ko1: TranslationMap = {
   'migration.applyAction': '가져오기 적용',
   'migration.applyRunning': '가져오는 중…',
   'migration.applyDisclaimer':
-    '동일한 소스의 미리보기가 성공적으로 완료되면 적용이 잠금 해제됩니다. 가져오기 전에 기존 메모리가 백업됩니다.',
+    'Apply is unlocked after a successful Preview of the same source. Existing memory is backed up before any import.',
   'migration.reportTitlePreview': '미리 보기 — 아직 가져온 항목 없음',
   'migration.reportTitleApplied': '가져오기 완료',
   'migration.report.source': '소스 작업 영역',
@@ -412,25 +412,25 @@ const ko1: TranslationMap = {
   'migration.report.renamedConflicts': '충돌 시 이름이 변경됨',
   'migration.report.warnings': '경고',
   'migration.report.previewHint':
-    '아직 가져온 데이터가 없습니다. 가져오기 적용을 클릭하여 복사하세요.',
+    'No data has been imported yet. Click Apply import to copy it over.',
   'migration.report.appliedHint':
-    '가져온 항목이 이제 메모리에 있습니다. 다시 비교하려면 미리보기를 다시 실행하세요.',
+    'Imported entries are now in your memory. Re-run Preview if you want to compare again.',
   'migration.hermesComingSoonPrefix': 'Hermes 수입업체가 로드맵에 있습니다. — 참조',
   'migration.hermesComingSoonSuffix':
-    '맥락을 위해. 지금 마이그레이션하려면 OpenClaw을 선택하세요. Hermes은 후속 조치를 취합니다.',
+    ' for context. Pick OpenClaw to migrate today; Hermes lands in a follow-up.',
   'migration.hermesLinkText': '#1440',
   'migration.confirmImport.singular':
-    '{count} 항목을 현재 작업공간으로 가져오시겠습니까?\\n\\n소스: {source}\\n대상: {target}\\n\\n가져오기가 실행되기 전에 기존 메모리가 백업됩니다.',
+    'Import {count} entry into the current workspace?\n\nSource: {source}\nTarget: {target}\n\nExisting memory will be backed up before the import runs.',
   'migration.confirmImport.plural':
-    '{count} 항목을 현재 작업공간으로 가져오시겠습니까?\\n\\n소스: {source}\\n대상: {target}\\n\\n가져오기가 실행되기 전에 기존 메모리가 백업됩니다.',
+    'Import {count} entries into the current workspace?\n\nSource: {source}\nTarget: {target}\n\nExisting memory will be backed up before the import runs.',
   'skills.integrationsSubtitle':
-    '클라우드 기반 OAuth 연결 — 계정으로 로그인하면 Composio이 토큰을 중개하므로 에이전트가 사용자를 대신하여 읽고 작업할 수 있습니다. 관리할 API 키가 없습니다.',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': '채널',
   'skills.tabs.mcp': 'MCP 서버',
   'skills.mcpComingSoon.title': 'MCP 서버',
   'skills.mcpComingSoon.description':
-    'MCP 서버 관리가 곧 제공될 예정입니다. 이 탭은 MCP 서버 통합을 검색, 연결 및 모니터링하기 위한 홈이 됩니다.',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': '연결',
   'settings.about.connectionMode': '모드',
   'settings.about.connectionModeLocal': '로컬',
@@ -439,31 +439,31 @@ const ko1: TranslationMap = {
   'settings.about.serverUrl': '서버 URL',
   'settings.about.serverUrlUnavailable': '사용할 수 없음',
   'settings.about.connectionHelperLocal':
-    '앱 실행 시 Tauri 셸에 의해 프로세스 내에서 생성됩니다. 포트는 시작 시 선택되므로 이 URL은 실행 간에 변경됩니다.',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    '원격 코어에 연결되었습니다. BootCheck 또는 클라우드 모드 선택기에서 이를 변경하십시오.',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': '하트비트 및 루프',
   'settings.heartbeat.desc': '백그라운드 예약 흐름을 제어하고 루프 맵을 검사합니다.',
   'settings.ledgerUsage.title': '사용량 원장',
   'settings.ledgerUsage.desc': '최근 크레딧 지출, 예산 계산 및 배경 API 읽기 예산.',
   'settings.search.title': '검색 엔진',
   'settings.search.menuDesc':
-    'OpenHuman 관리형 검색을 기본값으로 설정하거나 API 키를 사용하여 자체 공급자를 연결하세요.',
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    '에이전트가 사용하는 검색 엔진을 선택하세요. 관리형은 OpenHuman의 백엔드를 사용합니다(설정 없음). Parallel 및 Brave은 API 키를 사용하여 컴퓨터에서 직접 실행됩니다.',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': '검색 엔진',
   'settings.search.engineManagedLabel': 'OpenHuman 관리됨',
   'settings.search.engineManagedDesc':
-    '기본값입니다. OpenHuman 백엔드를 통해 라우팅됩니다. API 키가 필요하지 않습니다.',
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    '직접 Parallel API: 검색, 추출, 채팅, 연구, 강화, 데이터 세트 도구.',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave 검색',
   'settings.search.engineBraveDesc': '직접 Brave 검색 API: 웹, 뉴스, 이미지 및 비디오 도구.',
   'settings.search.statusConfigured': '구성됨',
   'settings.search.statusNeedsKey': 'API 키 필요',
   'settings.search.fallbackToManaged':
-    '키가 구성되지 않음 - 키가 저장될 때까지 검색이 관리됨으로 대체됩니다.',
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'API 키 가져오기',
   'settings.search.save': '저장',
   'settings.search.clear': '지우기',
@@ -483,7 +483,7 @@ const ko1: TranslationMap = {
   'channels.fieldRequired': '{field}이 필요합니다.',
   'channels.mcp.title': 'MCP 서버',
   'channels.mcp.description':
-    '새로운 도구로 AI를 확장하는 모델 컨텍스트 프로토콜 서버를 찾아보고 관리하세요.',
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
   'settings.search.parallelKeyLabel': 'Parallel API 키',
   'settings.search.braveKeyLabel': 'Brave 검색 API 키',
   'settings.search.placeholderStored': '•••••••(저장됨)',
@@ -527,12 +527,12 @@ const ko1: TranslationMap = {
   'settings.embeddings.clearKey': 'API 키 삭제',
   'mcp.alphaBadge': '알파',
   'mcp.alphaBannerText':
-    'MCP 서버 지원은 초기 알파 단계입니다. Smithery 레지스트리, 설치 흐름 및 도구 배선이 릴리스 간에 오작동하거나 모양이 변경될 수 있습니다.',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': '사용 가능한 도구가 없습니다.',
   'mcp.setup.secretDialog.title': 'MCP 설정 - 비밀번호 입력',
   'mcp.setup.secretDialog.bodyPrefix': 'MCP 설정 에이전트에는 다음이 필요합니다.',
   'mcp.setup.secretDialog.bodySuffix':
-    '. 귀하의 가치는 핵심 프로세스로 직접 전송되며 결코 AI 대화에 참여하지 않습니다.',
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': '값',
   'mcp.setup.secretDialog.inputPlaceholder': '여기에 붙여넣으세요.',
   'mcp.setup.secretDialog.show': '보여주다',
@@ -542,33 +542,34 @@ const ko1: TranslationMap = {
   'mcp.setup.secretDialog.submitting': '제출 중…',
   'mcp.setup.secretDialog.errorPrefix': '제출 실패:',
   'mcp.setup.secretDialog.privacyNote':
-    '로컬 MCP 비밀 테이블에 암호화되어 저장되었습니다. 기록하거나 모델에 보낸 적이 없습니다.',
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': '베타',
   'devices.betaText':
-    '이 기능은 현재 베타 버전입니다. iOS 휴대폰을 이 OpenHuman과 페어링하여 원격 클라이언트로 사용하세요.',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': '에이전트 자율성',
   'autonomy.maxActionsLabel': '시간당 최대 작업',
   'autonomy.maxActionsHelp':
-    '롤링 시간당 에이전트가 실행할 수 있는 최대 도구 작업입니다. 다음 채팅에는 새로운 값이 적용됩니다. 크론 작업 및 채널 리스너는 OpenHuman을 다시 시작할 때까지 현재 제한을 유지합니다.',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': '저장 중…',
   'autonomy.statusSaved': '저장되었습니다.',
   'autonomy.statusFailed': '실패',
   'autonomy.unlimitedNote': '무제한 — 속도 제한이 비활성화되었습니다.',
-  'autonomy.invalidIntegerMsg': '양의 정수여야 합니다(제한이 없는 경우 무제한 사전 설정 사용).',
+  'autonomy.invalidIntegerMsg':
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': '무제한(기본값)',
   'triggers.toggleFailed': '{trigger}에 대해 {action} 실패: {message}',
   'skills.composio.noApiKeyTitle': '아니요 Composio API 키가 구성됨',
   'skills.composio.noApiKeyDescription':
-    '로컬 모드는 자체 Composio을 사용합니다. API 키. 여기에서 통합을 연결하기 전에 설정 → 고급 → Composio을 열어 추가하세요.',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': '설정에서 열기',
   'rewards.localUnavailable':
-    '로컬 로그인으로는 보상, 쿠폰 또는 추천 크레딧이 적립되지 않습니다. 보상을 받으려면 로그아웃하고 OpenHuman 계정으로 로그인하여 계속하세요.',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': '계정 설정 열기',
   'channels.localManagedUnavailable': '로컬 사용자는 관리 채널을 사용할 수 없습니다.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman 로컬 사용자는 관리 검색을 사용할 수 없습니다. 웹 검색을 활성화하려면 자체 Parallel 또는 Brave API 키를 추가하세요.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    '기기 페어링이 곧 제공될 예정입니다. 이 페이지는 iPhone을 페어링하고 연결된 장치를 관리하는 홈입니다.',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': '이동 경로',
   'settings.betaBuild': '베타 빌드 - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -592,42 +593,42 @@ const ko1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': '끝점 URL',
   'settings.ai.localRuntimeHelper':
-    '{label}에 연결할 수 있습니다. 기본값은 localhost입니다. 이를 원격 호스트에서 지정합니다(예: 공유 인스턴스를 사용하려면 http://10.0.0.4:11434/v1)).',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': '엔드포인트 URL이(가) 필요합니다.',
-  'settings.ai.endpointProtocolRequired':
-    '엔드포인트는 http:// 또는 https://.으로 시작해야 합니다.',
+  'settings.ai.endpointProtocolRequired': 'Endpoint must start with http:// or https://.',
   'settings.ai.connectProviderDialog': '{label}에 연결',
   'settings.ai.or': '또는',
   'settings.ai.openRouterOauthDescription':
-    'OpenRouter로 로그인하고 PKCE을 사용하여 사용자 제어 API 키를 가져옵니다.',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': '연결 중...',
   'settings.ai.backgroundLoops': '백그라운드 루프',
   'settings.ai.backgroundLoopsDesc':
-    '채팅 메시지 없이 실행되는 항목을 확인하고, 하트비트 작업을 일시 중지하고, 최근 신용 원장 행을 검사하세요.',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': '하트비트 제어',
   'settings.ai.heartbeatControlsDesc':
-    '기본값은 꺼짐입니다. 활성화하면 루프가 시작됩니다. 비활성화하면 실행 중인 작업이 중단됩니다.',
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': '하트비트 루프',
-  'settings.ai.heartbeatLoopDesc': '플래너용 마스터 스케줄러 + 선택적 잠재의식 추론.',
+  'settings.ai.heartbeatLoopDesc':
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': '잠재의식 추론',
   'settings.ai.subconsciousInferenceDesc':
-    '하트비트 틱에 대한 모델 지원 작업/반사 평가를 실행합니다.',
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': '캘린더 회의 확인',
   'settings.ai.calendarMeetingChecksDesc':
-    '활성 Google Calendar 연결에 대한 캘린더 이벤트 목록을 호출합니다.',
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': '캘린더 캡',
   'settings.ai.connectionsPerTick': '{count} conn/tick',
   'settings.ai.meetingLookahead': '회의 미리보기',
   'settings.ai.minutesShort': '{count}분',
   'settings.ai.reminderLookahead': '알림 미리보기',
   'settings.ai.cronReminderChecks': '크론 알림 확인',
-  'settings.ai.cronReminderChecksDesc':
-    '활성화된 크론 작업에서 미리 알림과 유사한 향후 항목을 검색합니다.',
+  'settings.ai.cronReminderChecksDesc': 'Scans enabled cron jobs for reminder-like upcoming items.',
   'settings.ai.relevantNotificationChecks': '관련 알림 확인',
-  'settings.ai.relevantNotificationChecksDesc': '긴급한 로컬 알림을 사전 알림으로 승격합니다.',
+  'settings.ai.relevantNotificationChecksDesc':
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': '외부 전달',
   'settings.ai.externalDeliveryDesc':
-    '하트비트 경고가 외부 채널에 사전 메시지를 보낼 수 있도록 합니다.',
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': '간격',
   'settings.ai.running': '실행 중...',
   'settings.ai.plannerTickNow': '지금 플래너 체크',
@@ -638,7 +639,7 @@ const ko1: TranslationMap = {
   'settings.ai.off': 'off',
   'settings.ai.recentUsageLedger': '최근 사용량 원장',
   'settings.ai.recentUsageLedgerDesc':
-    '백엔드 행은 오늘 작업/시간을 노출합니다. 소스 태그에는 백엔드 지원이 필요합니다.',
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman(기본값)',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': '{label}에 대한 사용자 정의 라우팅',
@@ -651,7 +652,7 @@ const ko1: TranslationMap = {
   'settings.ai.temperatureOverrideSlider': '온도 재정의(슬라이더)',
   'settings.ai.temperatureOverrideValue': '온도 재정의(값)',
   'settings.ai.temperatureOverrideDesc':
-    '낮음 = 더 결정적입니다. 공급자 기본값을 사용하려면 선택하지 않은 상태로 둡니다.',
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': '테스트 실패',
   'settings.ai.testingModel': '모델 테스트 중...',
   'settings.ai.modelResponse': '모델 응답',
@@ -673,7 +674,7 @@ const ko1: TranslationMap = {
   'settings.ai.keepExistingKeyPlaceholder': '기존 키를 유지하려면 비워 두세요.',
   'settings.ai.reindexingMemory': '메모리 재색인 중',
   'settings.ai.reindexingMemoryMessage':
-    '임베딩을 재처리하는 중입니다. {pending} 메모리 항목이 현재 모델에 다시 포함됩니다. 이 작업이 완료될 때까지 의미적 회상이 감소됩니다. 키워드 검색은 계속 작동하며 이를 닫으면 백그라운드에서 다시 포함이 계속됩니다.',
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
   'settings.ai.signInWithOpenRouter': 'OpenRouter로 로그인',
   'settings.ai.weekBudget': '주 예산',
   'settings.ai.cycleRemaining': '남은 주기',
@@ -698,35 +699,35 @@ const ko1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '관리됨',
   'settings.ai.routing.managedDesc':
-    'OpenHuman은 클라우드에서 모든 추론을 실행하고, 작업에 가장 적합한 모델을 선택하고, 비용을 최적화하고, 가장 안전한 라우팅 기본값을 유지합니다.',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman은 모든 워크로드에 대한 모든 추론을 처리하고 비용, 품질 및 보안에 가장 적합한 경로를 자동으로 선택합니다.',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': '자체 모델 사용',
   'settings.ai.routing.useYourOwnDesc':
-    '하나의 공급자 + 모델을 선택하고 이를 통해 모든 워크로드를 라우팅합니다. 이는 간단하지만 경량 추론과 중량 추론이 모두 동일한 경로를 공유하기 때문에 비효율적일 수 있습니다.',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': '고급',
   'settings.ai.routing.advancedDesc':
-    '작업마다 다른 모델을 선택하세요. 이는 엄격한 비용 최적화와 최대한의 제어를 위한 최선의 옵션입니다.',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    '세분화된 라우팅을 통해 최고의 비용 최적화와 최고의 제어 기능을 제공합니다. 아래 행을 사용하여 관리형으로 유지되는 워크로드, 공유 기본값을 사용하는 워크로드, 특정 모델에 대한 핀을 결정하세요.',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': '채팅 및 대화',
   'settings.ai.routing.chatDesc':
-    '직접적인 사용자 상호 작용, 응답, 추론, 에이전트 루프 및 코딩 도움말 중에 사용되는 모델입니다.',
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': '백그라운드 작업',
   'settings.ai.routing.bgTasksDesc':
-    '요약, 하트비트, 학습 및 잠재의식 평가를 위해 기본 대화 흐름 외부에서 사용되는 모델입니다.',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': '사용자 정의 공급자 추가',
   'settings.ai.globalModel.title': '모든 것에 대해 하나의 모델을 선택합니다.',
   'settings.ai.globalModel.desc':
-    '이렇게 하면 모든 추론이 하나의 모델을 통해 라우팅됩니다. 더 간단하지만 경량 작업과 무거운 작업이 모두 동일한 경로를 사용하므로 비용과 품질면에서 비효율적일 수 있습니다.',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    '먼저 공급자를 추가하거나 연결하세요. 그런 다음 여기에서 하나의 모델을 통해 모든 워크로드를 라우팅할 수 있습니다.',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': '공급자',
   'settings.ai.globalModel.model': '모델',
   'settings.ai.globalModel.loadingModels': '모델 로드 중…',
   'settings.ai.globalModel.enterModelId': '모델 ID 입력',
   'settings.ai.globalModel.appliesToAll':
-    '채팅, 추론, 코딩, 메모리, 하트비트, 학습과 잠재의식. 임베딩은 별도로 구성됩니다. 저장을 클릭하면 변경 사항이 저장됩니다.',
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
   'settings.ai.globalModel.saving': '저장 중…',
   'settings.ai.globalModel.saved': '저장됨',
   'settings.ai.workload.noModel': '선택된 모델 없음',
@@ -737,7 +738,7 @@ const ko1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': '데스크톱과 페어링',
   'iosPair.instructions':
-    "데스크톱에서 OpenHuman을 열고 설정 > 장치로 이동한 다음 '휴대전화 페어링'을 탭하여 QR code을 표시하세요.",
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': '스캔 QR code',
   'iosPair.scannerOpening': '스캐너 여는 중...',
   'iosPair.connecting': '데스크톱에 연결하는 중...',
@@ -747,14 +748,14 @@ const ko1: TranslationMap = {
   'iosPair.retryScan': '스캔 재시도',
   'iosPair.step.openDesktop': '데스크톱에서 OpenHuman 열기',
   'iosPair.step.openSettings': '설정 > 장치로 이동',
-  'iosPair.step.showQr': "'휴대폰 페어링'을 탭하여 QR을 표시하세요.",
+  'iosPair.step.showQr': 'Tap "Pair phone" to show QR',
   'iosPair.error.camera': '카메라 스캔에 실패했습니다. 카메라 권한을 확인하고 다시 시도하세요.',
   'iosPair.error.invalidQr':
-    'QR code이 잘못되었습니다. OpenHuman pairing code을 스캔하고 있는지 확인하세요.',
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
   'iosPair.error.unreachableDesktop':
-    '데스크탑에 연결할 수 없습니다. 두 장치가 모두 온라인 상태인지 확인하고 다시 시도하세요.',
+    'Could not reach the desktop. Make sure both devices are online and try again.',
   'iosPair.error.connectionFailed':
-    '연결에 실패했습니다. 데스크톱 앱이 실행 중인지 확인하고 다시 시도하세요.',
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': '데스크탑',
   'iosMascot.connectedTo': '연결됨',
   'iosMascot.disconnect': '연결 끊기',
@@ -809,9 +810,9 @@ const ko1: TranslationMap = {
   'welcome.clearingAppData': '앱 데이터 삭제 중...',
   'welcome.clearAppDataAndRestart': '앱 데이터 삭제 및 다시 시작',
   'welcome.clearAppDataWarning':
-    '이렇게 하면 이 기기에 로컬로 저장된 비밀번호와 계정이 삭제됩니다. 귀하의 클라우드 계정은 영향을 받지 않습니다. 이후 바로 다시 로그인할 수 있습니다.',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
   'welcome.resetErrorFallback':
-    '앱 데이터를 삭제할 수 없습니다. OpenHuman을(를) 종료하고 다시 연 다음 다시 시도하십시오.',
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': '로그인 중...',
   'welcome.termsIntro': '계속 진행하면',
   'welcome.termsOfUse': '약관',
@@ -845,7 +846,7 @@ const ko1: TranslationMap = {
   'invites.revokeTitle': '초대 코드 취소',
   'invites.revokePromptPrefix': '정말 하시겠습니까? 초대 코드 취소',
   'invites.revokeWarning':
-    '이 초대 코드는 더 이상 유효하지 않으며 팀에 합류하는 데 사용할 수 없습니다.',
+    'This invite code will no longer be valid and cannot be used to join the team.',
   'invites.revoking': '취소 중...',
   'invites.revokeAction': '초대 취소',
   'invites.failedGenerate': '초대 생성 실패',
@@ -866,9 +867,9 @@ const ko1: TranslationMap = {
   'team.changeRoleTitle': '구성원 역할 변경',
   'team.changeRolePrompt': "Change {name}'s role from {oldRole} to {newRole}?",
   'team.changeRoleAdminGrant':
-    '이렇게 하면 팀 구성원을 관리하는 기능을 포함한 전체 관리자 권한이 부여됩니다.',
+    'This will grant them full admin permissions including the ability to manage team members.',
   'team.changeRoleAdminRemove':
-    '이렇게 하면 관리자 권한이 제거되고 더 이상 팀을 관리할 수 없게 됩니다.',
+    'This will remove their admin permissions and they will no longer be able to manage the team.',
   'team.changing': '변경 중...',
   'team.changeRoleAction': '역할 변경',
   'team.failedChangeRole': '역할 변경 실패',
@@ -878,13 +879,14 @@ const ko1: TranslationMap = {
   'voice.failedToStartServer': '음성 서버 시작 실패',
   'voice.failedToStopServer': '음성 서버를 중지하지 못했습니다.',
   'voice.sttDisabledPrefix':
-    '로컬 STT 모델을 다운로드할 때까지 음성 받아쓰기가 비활성화됩니다. 위스퍼를 설치하려면 위의',
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': '섹션을 사용하세요.',
   'voice.debug.failedToLoadVoiceDebugData': '음성 디버그 데이터를 로드하지 못했습니다.',
   'voice.debug.settingsSaved': '디버그 설정이 저장되었습니다.',
   'voice.debug.failedToSaveSettings': '음성 설정을 저장하지 못했습니다.',
   'voice.debug.runtimeStatus': '런타임 상태',
-  'voice.debug.runtimeStatusDesc': '음성 서버 및 음성-텍스트 엔진에 대한 실시간 진단입니다.',
+  'voice.debug.runtimeStatusDesc':
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': '서버',
   'voice.debug.unavailable': '사용할 수 없음',
   'voice.debug.ready': '준비됨',
@@ -895,11 +897,12 @@ const ko1: TranslationMap = {
   'voice.debug.transcriptions': '기록',
   'voice.debug.serverError': '서버 오류',
   'voice.debug.advancedSettings': '고급 설정',
-  'voice.debug.advancedSettingsDesc': '녹음 및 무음 감지를 위한 하위 수준 조정 매개변수입니다.',
+  'voice.debug.advancedSettingsDesc':
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': '최소 녹음 시간(초)',
   'voice.debug.silenceThreshold': '무음 임계값(RMS)',
   'voice.debug.silenceThresholdDesc':
-    '이보다 낮은 에너지를 갖는 녹음은 무음으로 처리되어 건너뜁니다. 낮음 = 더 민감함.',
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': '음성 제공업체가 저장되었습니다.',
   'voice.providers.failedToSave': '음성 제공자를 저장하지 못했습니다.',
   'voice.providers.ellipsis': '…',
@@ -918,14 +921,15 @@ const ko1: TranslationMap = {
   'voice.providers.failedToInstallPiper': 'Piper를 설치하지 못했습니다.',
   'voice.providers.title': '음성 공급자',
   'voice.providers.desc':
-    '전사 및 합성이 실행되는 위치를 선택하세요. 로컬로 설치 버튼을 사용하여 바이너리와 모델을 작업공간에 다운로드합니다. 설치가 완료되기 전에 로컬 공급자를 저장할 수 있습니다. 수동 WHISPER_BIN 또는 PIPER_BIN 설정이 필요하지 않습니다.',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': '음성-텍스트 공급자',
   'voice.providers.sttProviderAria': 'STT 공급자',
   'voice.providers.cloudWhisperProxy': '클라우드(속삭임 프록시)',
   'voice.providers.localWhisper': '로컬 속삭임',
   'voice.providers.installRequired': '(설치 필요)',
   'voice.providers.whisperInstalledTitle': '위스퍼가 설치되었습니다. 다시 설치하려면 클릭하세요.',
-  'voice.providers.whisperDownloadTitle': '속삭임.cpp 및 GGML 모델을 작업공간에 다운로드합니다.',
+  'voice.providers.whisperDownloadTitle':
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': '설치됨',
   'voice.providers.installFailed': '설치 실패',
   'voice.providers.notInstalled': '설치되지 않음',
@@ -942,17 +946,17 @@ const ko1: TranslationMap = {
   'voice.providers.localPiper': '로컬 Piper',
   'voice.providers.piperInstalledTitle': 'Piper가 설치되었습니다. 다시 설치하려면 클릭하세요.',
   'voice.providers.piperDownloadTitle':
-    'Piper 및 번들로 제공되는 en_US-lessac-medium 음성을 작업공간에 다운로드하세요.',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': '파이퍼 목소리',
   'voice.providers.piperVoiceAria': '파이퍼 목소리',
   'voice.providers.customVoiceOption': '기타(아래 입력)…',
   'voice.providers.customVoiceAria': '파이퍼 음성 ID(사용자 정의)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    '음성은 Huggingface.co/rhasspy/piper-voices에서 제공됩니다. 음성을 전환하려면 설치/재설치를 클릭하여 새 .onnx를 다운로드해야 할 수도 있습니다.',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': '마스코트 음성',
   'voice.providers.mascotVoiceDescPrefix':
-    '마스코트가 음성 응답에 사용하는 ElevenLabs 음성은 다음에서 구성됩니다.',
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': '마스코트 설정',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -964,6 +968,53 @@ const ko1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB · Alan (남)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB · Jenny Dioco (여)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB · 북부 영어(남성)',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': '디버그 및 진단',
   'screenAwareness.debug.collapse': '축소',
   'screenAwareness.debug.expand': '확장',
@@ -972,10 +1023,10 @@ const ko1: TranslationMap = {
   'screenAwareness.debug.baselineFps': '기준 FPS',
   'screenAwareness.debug.useVisionModel': '비전 모델 사용',
   'screenAwareness.debug.useVisionModelDesc':
-    '더 풍부한 컨텍스트를 위해 비전 LLM에 스크린샷을 보냅니다. 끄면 OCR 텍스트만 LLM 텍스트와 함께 사용됩니다. 더 빠르고 비전 모델이 필요하지 않습니다.',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': '스크린샷 유지',
   'screenAwareness.debug.keepScreenshotsDesc':
-    '캡처한 스크린샷을 처리 후 삭제하는 대신 작업 공간에 저장합니다.',
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': '허용 목록(한 줄에 하나의 규칙)',
   'screenAwareness.debug.denylist': '차단 목록(한 줄에 하나의 규칙)',
   'screenAwareness.debug.saveSettings': '화면 인텔리전스 설정 저장',
@@ -1020,7 +1071,7 @@ const ko1: TranslationMap = {
   'memory.clear': '지우기',
   'memory.deleteConfirm': '"{namespace}" 네임스페이스에서 "{documentId}" 문서를 삭제하시겠습니까?',
   'memory.clearNamespaceConfirm':
-    '이렇게 하면 "{namespace}" 네임스페이스의 모든 문서가 영구적으로 삭제됩니다. 계속하다?',
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': '네임스페이스 "{namespace}"이 삭제되었습니다.',
   'memory.clearNamespaceEmpty': '"{namespace}"에서 지울 항목이 없습니다.',
   'webhooks.debugTitle': '웹훅 디버그',
@@ -1054,13 +1105,13 @@ const ko1: TranslationMap = {
   'providerSetup.error.defaultDetails': '공급자 설정에 실패했습니다.',
   'providerSetup.error.providerFallback': '공급자',
   'providerSetup.error.credentialsRejected':
-    '{provider}이 자격 증명을 거부했습니다. API 키를 확인하고 다시 시도하세요.',
+    '{provider} rejected the credentials. Check the API key and try again.',
   'providerSetup.error.endpointNotRecognized':
-    '{provider}이 엔드포인트를 인식하지 못했습니다. 베이스 URL을 확인하고 다시 시도하세요.',
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
   'providerSetup.error.providerUnavailable':
-    '{provider}은(는) 현재 사용할 수 없습니다. 다시 시도하거나 제공업체 상태를 확인하세요.',
+    '{provider} is unavailable right now. Try again or check the provider status.',
   'providerSetup.error.unreachable':
-    '{provider}에 연결할 수 없습니다. URL 엔드포인트와 네트워크 연결을 확인한 후 다시 시도하세요.',
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
   'providerSetup.error.couldNotReachWithMessage': '{provider}에 연결할 수 없습니다: {message}',
   'providerSetup.error.technicalDetails': '기술 세부 정보',
   'devices.title': '장치',
@@ -1082,8 +1133,7 @@ const ko1: TranslationMap = {
   'devices.revoke': '취소',
   'devices.revokeAria': '{label} 취소',
   'devices.confirmRevokeTitle': '장치를 취소하시겠습니까?',
-  'devices.confirmRevokeBody':
-    '{label}은(는) 더 이상 연결할 수 없습니다. 이 작업은 취소할 수 없습니다.',
+  'devices.confirmRevokeBody': '{label} will no longer be able to connect. This cannot be undone.',
   'devices.loadFailed': '장치를 로드하지 못했습니다: {message}',
   'devices.pairModal.title': 'iPhone 페어링',
   'devices.pairModal.loading': '페어링 코드 생성 중…',
@@ -1147,7 +1197,8 @@ const ko1: TranslationMap = {
   'mcp.install.button': '설치',
   'mcp.install.installing': '설치 중...',
   'mcp.detail.suggestedEnvReady': '제안된 환경 값이 준비되었습니다.',
-  'mcp.detail.suggestedEnvBody': '제안된 값을 사용하여 이 서버를 다시 설치하여 적용합니다. {keys}',
+  'mcp.detail.suggestedEnvBody':
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': '연결',
   'mcp.detail.connecting': '연결 중...',
   'mcp.detail.disconnect': '연결 끊기',
@@ -1170,7 +1221,7 @@ const ko1: TranslationMap = {
   'notifications.routing.unscored': '점수가 매겨지지 않음',
   'notifications.routing.intelligenceTitle': '알림 인텔리전스',
   'notifications.routing.intelligenceDesc':
-    '연결된 계정의 모든 알림은 로컬 AI 모델에 의해 점수가 매겨집니다. 중요도가 높은 알림은 자동으로 오케스트레이터 에이전트로 라우팅되므로 중요한 내용이 누락되지 않습니다.',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': '작동 방식',
   'notifications.routing.level.drop': '삭제',
   'notifications.routing.level.dropDesc': '소음/스팸 — 저장되었지만 표시되지 않음',
@@ -1183,17 +1234,16 @@ const ko1: TranslationMap = {
   'notifications.routing.perProvider': '공급자별 라우팅',
   'notifications.routing.threshold': '임계값',
   'notifications.routing.routeToOrchestrator': '오케스트레이터로 라우팅',
-  'notifications.routing.loadSettingsError':
-    '실패 로드 설정. 다시 시도하려면 이 패널을 다시 여세요.',
+  'notifications.routing.loadSettingsError': 'Failed to load settings. Reopen this panel to retry.',
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': '반복 계획 예산이 없습니다.',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    '현재 계획에는 반복 주간 추론 예산이 포함되어 있지 않습니다. 대신 사용 가능한 크레딧으로 사용량을 지불합니다.',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} 남음',
   'settings.billing.inferenceBudget.spentThisCycle': '이번 주기에 {amount} 소비',
   'settings.billing.inferenceBudget.cycleEndsOn': '주기 종료 {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    '포함된 구독 사용량이 소진되었습니다. 다음 주기를 기다리지 않고 AI를 계속 사용하려면 크레딧을 충전하세요.',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
   'settings.billing.inferenceBudget.discountVsPayg': '종량제보다 통화당 {pct}% 저렴합니다.',
   'settings.billing.inferenceBudget.cycleSpend': '주기 지출',
   'settings.billing.inferenceBudget.totalAmount': '{amount} 총계',
@@ -1209,8 +1259,7 @@ const ko1: TranslationMap = {
   'settings.billing.inferenceBudget.unableToLoad': '사용량 데이터를 로드할 수 없습니다.',
   'settings.billing.inferenceBudget.notAvailable': '해당 사항 없음',
   'memory.sourceFilterAria': '소스별 필터링',
-  'calls.comingSoonDescription':
-    'AI 지원 통화가 곧 제공될 예정입니다. 계속 지켜봐 주시기 바랍니다.',
+  'calls.comingSoonDescription': 'AI-assisted calls are coming soon. Stay tuned.',
   'vault.title': '지식 보관소',
   'vault.description': '로컬 폴더를 가리킵니다. 파일은 청크로 분할되어 메모리에 미러링됩니다.',
   'vault.add': '저장소 추가',
@@ -1226,7 +1275,7 @@ const ko1: TranslationMap = {
   'vault.syncSummarySkipped': '실패, {count}',
   'vault.syncSummaryDuration': '건너뛰었습니다. {seconds}s',
   'vault.confirmRemovePurge':
-    '"{name}" 저장소를 제거하시겠습니까?\\n\\n메모리도 제거하려면 확인을 클릭하세요(수집된 모든 {count} 문서 삭제).\\n문서를 메모리에 유지하려면 취소를 클릭하세요.',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': '"{name}" 볼트를 제거하시겠습니까?',
   'vault.removed': 'Vault가 제거되었습니다.',
   'vault.removedPurgedMessage': '"{name}"을(를) 제거하고 해당 메모리를 삭제했습니다.',

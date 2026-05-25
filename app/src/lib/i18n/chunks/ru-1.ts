@@ -436,15 +436,15 @@ const ru1: TranslationMap = {
   'channels.fieldRequired': 'Требуется {field}',
   'channels.mcp.title': 'MCP Серверы',
   'channels.mcp.description':
-    'Просматривайте и управляйте серверами протокола контекста модели, которые расширяют возможности ИИ новыми инструментами.',
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
   'skills.integrationsSubtitle':
-    'Облачные соединения OAuth — войдите в систему под своей учетной записью, и Composio станет брокером токенов, чтобы агенты могли читать и действовать от вашего имени. Нет ключей API для управления.',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'Каналы',
   'skills.tabs.mcp': 'MCP Серверы',
   'skills.mcpComingSoon.title': 'MCP Серверы',
   'skills.mcpComingSoon.description':
-    'MCP Управление серверами скоро появится. Эта вкладка будет служить местом для обнаружения, подключения и мониторинга интеграции вашего сервера MCP.',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'Соединение',
   'settings.about.connectionMode': 'Режим',
   'settings.about.connectionModeLocal': 'Локальный',
@@ -453,33 +453,31 @@ const ru1: TranslationMap = {
   'settings.about.serverUrl': 'Сервер URL',
   'settings.about.serverUrlUnavailable': 'Недоступно',
   'settings.about.connectionHelperLocal':
-    'Создается в процессе оболочкой Tauri при запуске приложения. Порт выбирается при запуске, поэтому этот URL меняется между запусками.',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    'Подключено к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': 'Heartbeat и циклы',
   'settings.heartbeat.desc': 'Управляйте частотой фонового планирования и проверяйте карту циклов.',
   'settings.ledgerUsage.title': 'Журнал использования',
-  'settings.ledgerUsage.desc':
-    'Недавние расходы по кредитам, математические расчеты бюджета и предыстория API чтения бюджета.',
+  'settings.ledgerUsage.desc': 'Recent credit spend, budget math, and background API read budget.',
   'settings.search.title': 'Поисковая система',
   'settings.search.menuDesc':
-    'По умолчанию используется поиск, управляемый OpenHuman, или подключите собственного провайдера с помощью ключа API.',
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'Выберите поисковую систему, которую использует агент. Управляемый использует серверную часть OpenHuman (без настройки). Parallel и Brave запускаются прямо с вашего компьютера с помощью ключа API.',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': 'Поисковая система',
   'settings.search.engineManagedLabel': 'OpenHuman Управляемый',
   'settings.search.engineManagedDesc':
-    'По умолчанию. Маршрутизируется через серверную часть OpenHuman — ключ API не требуется.',
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    'Direct Parallel API: инструменты поиска, извлечения, чата, исследования, обогащения и набора данных.',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave Поиск',
-  'settings.search.engineBraveDesc':
-    'Прямой Brave Поиск API: инструменты в Интернете, новостях, изображениях и видео.',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
   'settings.search.statusConfigured': 'Настроено',
   'settings.search.statusNeedsKey': 'Требуется ключ API',
   'settings.search.fallbackToManaged':
-    'Ключ не настроен — поиск вернется к режиму «Управляемый», пока ключ не будет сохранен.',
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'Получите ключ API',
   'settings.search.save': 'Сохранить',
   'settings.search.clear': 'Очистить',
@@ -532,12 +530,12 @@ const ru1: TranslationMap = {
   'settings.embeddings.clearKey': 'Удалить API-ключ',
   'mcp.alphaBadge': 'Альфа',
   'mcp.alphaBannerText':
-    'MCP поддержка сервера находится в ранней альфа-версии. Реестр Smithery, процесс установки и подключение инструментов могут работать неправильно или изменять форму между выпусками.',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': 'Инструменты недоступны.',
   'mcp.setup.secretDialog.title': 'MCP Настройка — введите секретный код',
   'mcp.setup.secretDialog.bodyPrefix': 'Агенту установки MCP требуется',
   'mcp.setup.secretDialog.bodySuffix':
-    '. Ваша ценность отправляется непосредственно в основной процесс и никогда не участвует в разговоре с ИИ.',
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': 'Значение',
   'mcp.setup.secretDialog.inputPlaceholder': 'Вставить сюда',
   'mcp.setup.secretDialog.show': 'Показать',
@@ -547,34 +545,34 @@ const ru1: TranslationMap = {
   'mcp.setup.secretDialog.submitting': 'Отправка…',
   'mcp.setup.secretDialog.errorPrefix': 'Не удалось отправить:',
   'mcp.setup.secretDialog.privacyNote':
-    'Хранится в зашифрованном виде в локальной секретной таблице MCP. Никогда не регистрировался и не отправлялся модели.',
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': 'Бета-версия',
   'devices.betaText':
-    'Эта функция в настоящее время находится на стадии бета-тестирования. Подключите телефоны iOS к этому OpenHuman, чтобы использовать их в качестве удаленного клиента.',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': 'Автономия агента.',
   'autonomy.maxActionsLabel': 'Максимальное количество действий в час.',
   'autonomy.maxActionsHelp':
-    'Максимальное количество действий инструмента, которые агент может выполнить за скользящий час. Новое значение применяется к вашему следующему чату. Задания Cron и прослушиватели каналов сохраняют текущий лимит до тех пор, пока вы не перезапустите OpenHuman.',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': 'Сохранение…',
   'autonomy.statusSaved': 'Сохранено.',
   'autonomy.statusFailed': 'Ошибка',
   'autonomy.unlimitedNote': 'Unlimited — ограничение скорости отключено.',
   'autonomy.invalidIntegerMsg':
-    'Должно быть положительным целым числом (для отсутствия ограничений используйте предустановку «Без ограничений»).',
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'Неограниченно (по умолчанию)',
   'triggers.toggleFailed': '{action} не удалось для {trigger}: {message}',
   'skills.composio.noApiKeyTitle': 'Нет Composio API Ключ настроен',
   'skills.composio.noApiKeyDescription':
-    'В локальном режиме используется ваш собственный Composio Ключ API. Откройте «Настройки» → «Дополнительно» → Composio, чтобы добавить его, прежде чем подключать сюда интеграции.',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': 'Открыть в настройках',
   'rewards.localUnavailable':
-    'Локальный вход не приносит вознаграждений, купонов или реферальных кредитов. Чтобы получить награды, выйдите из системы и войдите в систему под учетной записью OpenHuman.',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': 'Откройте настройки учетной записи.',
   'channels.localManagedUnavailable': 'Управляемые каналы недоступны для локальных пользователей.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman Управляемый поиск недоступен для локальных пользователей. Добавьте свой собственный ключ Parallel или Brave API, чтобы включить веб-поиск.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    'Сопряжение устройств скоро появится. На этой странице будут выполняться сопряжение iPhone и управление подключенными устройствами.',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': 'Навигационная цепочка',
   'settings.betaBuild': 'Бета-сборка — v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -598,44 +596,42 @@ const ru1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'Конечная точка URL',
   'settings.ai.localRuntimeHelper':
-    'Где {label} доступен. По умолчанию — localhost; укажите это на удаленном хосте (например, http://10.0.0.4:11434/v1) для использования общего экземпляра.',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': 'Требуется конечная точка URL.',
-  'settings.ai.endpointProtocolRequired':
-    'Конечная точка должна начинаться с http:// или https://.',
+  'settings.ai.endpointProtocolRequired': 'Endpoint must start with http:// or https://.',
   'settings.ai.connectProviderDialog': 'Подключиться {label}',
   'settings.ai.or': 'Или',
   'settings.ai.openRouterOauthDescription':
-    'Войдите в систему с OpenRouter и импортируйте управляемый пользователем ключ API с помощью PKCE.',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': 'Подключение...',
   'settings.ai.backgroundLoops': 'Фоновые циклы',
   'settings.ai.backgroundLoopsDesc':
-    'Посмотрите, что выполняется без сообщения чата, приостановите контрольную работу и проверьте последние строки кредитной книги.',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': 'Управление пульсом.',
   'settings.ai.heartbeatControlsDesc':
-    'По умолчанию отключено. Включение запускает цикл; отключение прерывает выполняемую задачу.',
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': 'Цикл Heartbeat',
   'settings.ai.heartbeatLoopDesc':
-    'Главный планировщик для планировщика + дополнительный подсознательный вывод.',
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': 'Подсознательный вывод.',
   'settings.ai.subconsciousInferenceDesc':
-    'Запускает основанную на модели оценку задачи/отражения по тактам сердцебиения.',
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': 'Проверка собраний в календаре.',
   'settings.ai.calendarMeetingChecksDesc':
-    'Вызов списка событий календаря на наличие активных соединений Google Calendar.',
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': 'Окончание календаря',
   'settings.ai.connectionsPerTick': '{count} conn/tick',
   'settings.ai.meetingLookahead': 'Предварительный просмотр собрания',
   'settings.ai.minutesShort': '{count} мин',
   'settings.ai.reminderLookahead': 'Предварительный просмотр напоминания',
   'settings.ai.cronReminderChecks': 'Проверка напоминаний Cron.',
-  'settings.ai.cronReminderChecksDesc':
-    'Сканирует включенные задания cron на предмет предстоящих элементов, похожих на напоминания.',
+  'settings.ai.cronReminderChecksDesc': 'Scans enabled cron jobs for reminder-like upcoming items.',
   'settings.ai.relevantNotificationChecks': 'Соответствующие проверки уведомлений.',
   'settings.ai.relevantNotificationChecksDesc':
-    'Превращает срочные локальные уведомления в упреждающие оповещения.',
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': 'Внешняя доставка.',
   'settings.ai.externalDeliveryDesc':
-    'Позволяет оповещениям о пульсе отправлять упреждающие сообщения во внешние каналы.',
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': 'Интервал',
   'settings.ai.running': 'Выполняется...',
   'settings.ai.plannerTickNow': 'Планировщик отметьте сейчас',
@@ -646,7 +642,7 @@ const ru1: TranslationMap = {
   'settings.ai.off': 'выкл.',
   'settings.ai.recentUsageLedger': 'Журнал недавнего использования',
   'settings.ai.recentUsageLedgerDesc':
-    'Строки серверной части отображают действие/время сегодня; исходным тегам необходима внутренняя поддержка.',
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman (по умолчанию)',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': 'Пользовательская маршрутизация для {label}',
@@ -659,7 +655,7 @@ const ru1: TranslationMap = {
   'settings.ai.temperatureOverrideSlider': 'Переопределение температуры (ползунок)',
   'settings.ai.temperatureOverrideValue': 'Переопределение температуры (значение)',
   'settings.ai.temperatureOverrideDesc':
-    'Нижняя = больше детерминированный. Оставьте флажок неактивным, чтобы использовать поставщика по умолчанию.',
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': 'Тест не пройден.',
   'settings.ai.testingModel': 'Модель тестирования...',
   'settings.ai.modelResponse': 'Ответ модели',
@@ -678,11 +674,10 @@ const ru1: TranslationMap = {
   'settings.ai.slugLabel': 'Слаг:',
   'settings.ai.openAiUrlLabel': 'OpenAI URL',
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
-  'settings.ai.keepExistingKeyPlaceholder':
-    'Оставьте поле пустым, чтобы сохранить существующий ключ.',
+  'settings.ai.keepExistingKeyPlaceholder': 'Leave blank to keep existing key',
   'settings.ai.reindexingMemory': 'Переиндексация памяти',
   'settings.ai.reindexingMemoryMessage':
-    'Встраивания повторно обрабатываются. Элементы памяти {pending} повторно встраиваются в текущую модель — семантический вызов снижается до тех пор, пока это не завершится. Поиск по ключевым словам продолжает работать, и повторное встраивание продолжается в фоновом режиме, если вы закроете это.',
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
   'settings.ai.signInWithOpenRouter': 'Войдите с помощью OpenRouter',
   'settings.ai.weekBudget': 'Недельный бюджет',
   'settings.ai.cycleRemaining': 'Оставшийся цикл',
@@ -707,35 +702,35 @@ const ru1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Управляемый',
   'settings.ai.routing.managedDesc':
-    'OpenHuman выполнит все логические выводы в облаке, выберет лучшую модель для задачи, оптимизирует затраты и сохранит самые безопасные настройки маршрутизации по умолчанию.',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman будет обрабатывать все логические выводы для каждой рабочей нагрузки и автоматически выбирать лучший маршрут с точки зрения стоимости, качества и безопасности.',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': 'Используйте свои собственные модели',
   'settings.ai.routing.useYourOwnDesc':
-    'Выберите одного поставщика + модель и направляйте через него всю рабочую нагрузку. Это просто, но может быть неэффективно, поскольку легкий и тяжелый вывод используют один и тот же маршрут.',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': 'Расширенный',
   'settings.ai.routing.advancedDesc':
-    'Выбирайте разные модели для разных задач. Это лучший вариант для жесткой оптимизации затрат и максимального контроля.',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    'Детальная маршрутизация обеспечивает наилучшую оптимизацию затрат и максимальный контроль. Используйте строки ниже, чтобы решить, какие рабочие нагрузки остаются управляемыми, какие используют общие настройки по умолчанию и какие привязываются к конкретной модели.',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': 'Чат и беседы',
   'settings.ai.routing.chatDesc':
-    'Модели, используемые во время прямого взаимодействия с пользователем, ответов, рассуждений, циклов агента и помощи в кодировании.',
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': 'Фоновые задачи',
   'settings.ai.routing.bgTasksDesc':
-    'Модели, используемые вне основного потока разговора для подведения итогов, сердцебиения, обучения и подсознательной оценки.',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': 'Добавить специального поставщика.',
   'settings.ai.globalModel.title': 'Выберите одну модель для всего.',
   'settings.ai.globalModel.desc':
-    'Это направляет все выводы через одну модель. Это проще, но может оказаться неэффективным с точки зрения стоимости и качества, поскольку легкие и тяжелые задачи будут использовать один и тот же маршрут.',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    'Сначала добавьте или подключите провайдера. Тогда вы сможете маршрутизировать каждую рабочую нагрузку через одну модель здесь.',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': 'Поставщик',
   'settings.ai.globalModel.model': 'Модель',
   'settings.ai.globalModel.loadingModels': 'Загрузка моделей…',
   'settings.ai.globalModel.enterModelId': 'Введите идентификатор модели',
   'settings.ai.globalModel.appliesToAll':
-    'Применяет одного и того же поставщика + модель для чата, рассуждений, кодирования, памяти, сердцебиения, обучение и подсознание. Вложения настраиваются отдельно. Изменения сохраняются при нажатии кнопки «Сохранить».',
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
   'settings.ai.globalModel.saving': 'Сохранение…',
   'settings.ai.globalModel.saved': 'Сохранено',
   'settings.ai.workload.noModel': 'Модель не выбрана',
@@ -746,7 +741,7 @@ const ru1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': 'Сопряжение с рабочим столом',
   'iosPair.instructions':
-    'Откройте OpenHuman на рабочем столе, выберите «Настройки» > «Устройства» и нажмите «Сопряжение с телефоном», чтобы отобразить QR code.',
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': 'Сканирование QR code',
   'iosPair.scannerOpening': 'Открытие сканера...',
   'iosPair.connecting': 'Подключение к рабочему столу...',
@@ -757,14 +752,13 @@ const ru1: TranslationMap = {
   'iosPair.step.openDesktop': 'Откройте OpenHuman на рабочем столе',
   'iosPair.step.openSettings': 'Перейдите в «Настройки» > «Устройства»',
   'iosPair.step.showQr': 'Нажмите «Подключить телефон», чтобы отобразить QR',
-  'iosPair.error.camera':
-    'Сканирование камеры не удалось. Проверьте разрешения камеры и повторите попытку.',
+  'iosPair.error.camera': 'Camera scan failed. Check camera permissions and try again.',
   'iosPair.error.invalidQr':
-    'Неверный QR code. Убедитесь, что вы сканируете файл OpenHuman pairing code.',
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
   'iosPair.error.unreachableDesktop':
-    'Не удалось достичь рабочего стола. Убедитесь, что оба устройства подключены к сети, и повторите попытку.',
+    'Could not reach the desktop. Make sure both devices are online and try again.',
   'iosPair.error.connectionFailed':
-    'Не удалось подключиться. Убедитесь, что настольное приложение запущено, и повторите попытку.',
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': 'Рабочий стол',
   'iosMascot.connectedTo': 'Подключен к',
   'iosMascot.disconnect': 'Отключиться',
@@ -815,14 +809,13 @@ const ru1: TranslationMap = {
   'team.manageTitle': 'Управление {name}',
   'team.planCreated': '{plan} План • Создано {date}',
   'team.confirmDelete': 'Вы уверены, что хотите удалить {name}?',
-  'team.deleteWarning':
-    'Это действие невозможно отменить. Все данные команды будут удалены без возможности восстановления.',
+  'team.deleteWarning': 'This action cannot be undone. All team data will be permanently removed.',
   'welcome.clearingAppData': 'Очистка данных приложения...',
   'welcome.clearAppDataAndRestart': 'Очистка данных приложения и перезапуск',
   'welcome.clearAppDataWarning':
-    'При этом будут удалены локально сохраненные секреты и учетные записи на этом устройстве. Это не повлияет на вашу облачную учетную запись — сразу после этого вы сможете снова войти в систему.',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
   'welcome.resetErrorFallback':
-    'Не удалось очистить данные приложения. Пожалуйста, выйдите и снова откройте OpenHuman, а затем повторите попытку.',
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': 'Выполняете вход...',
   'welcome.termsIntro': 'Продолжая, вы соглашаетесь с',
   'welcome.termsOfUse': 'Условиями',
@@ -856,7 +849,7 @@ const ru1: TranslationMap = {
   'invites.revokeTitle': 'Отозвать код приглашения',
   'invites.revokePromptPrefix': 'Вы уверены, что хотите отозвать код приглашения?',
   'invites.revokeWarning':
-    'Этот код приглашения больше не будет действителен и его нельзя будет использовать для присоединения к команде.',
+    'This invite code will no longer be valid and cannot be used to join the team.',
   'invites.revoking': 'Отзыв...',
   'invites.revokeAction': 'Отозвать приглашение',
   'invites.failedGenerate': 'Не удалось создать приглашение.',
@@ -877,9 +870,9 @@ const ru1: TranslationMap = {
   'team.changeRoleTitle': 'Изменить роль участника',
   'team.changeRolePrompt': "Change {name}'s role from {oldRole} to {newRole}?",
   'team.changeRoleAdminGrant':
-    'Это предоставит им полные права администратора, включая возможность управлять участниками команды.',
+    'This will grant them full admin permissions including the ability to manage team members.',
   'team.changeRoleAdminRemove':
-    'Это приведет к удалению их прав администратора, и они больше не смогут управлять командой.',
+    'This will remove their admin permissions and they will no longer be able to manage the team.',
   'team.changing': 'Изменение...',
   'team.changeRoleAction': 'Изменить роль',
   'team.failedChangeRole': 'Не удалось изменить роль.',
@@ -889,14 +882,14 @@ const ru1: TranslationMap = {
   'voice.failedToStartServer': 'Не удалось запустить голосовой сервер.',
   'voice.failedToStopServer': 'Не удалось остановить голосовой сервер.',
   'voice.sttDisabledPrefix':
-    'Голосовая диктовка отключена до тех пор, пока не будет загружена локальная модель STT. Используйте раздел',
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': 'выше, чтобы установить Whisper.',
   'voice.debug.failedToLoadVoiceDebugData': 'Не удалось загрузить данные голосовой отладки.',
   'voice.debug.settingsSaved': 'Настройки отладки сохранены.',
   'voice.debug.failedToSaveSettings': 'Не удалось сохранить голосовые настройки.',
   'voice.debug.runtimeStatus': 'Статус выполнения.',
   'voice.debug.runtimeStatusDesc':
-    'Динамическая диагностика голосового сервера и механизма преобразования речи в текст.',
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': 'Сервер',
   'voice.debug.unavailable': 'Недоступно',
   'voice.debug.ready': 'Готов',
@@ -908,11 +901,11 @@ const ru1: TranslationMap = {
   'voice.debug.serverError': 'Ошибка сервера',
   'voice.debug.advancedSettings': 'Расширенные настройки',
   'voice.debug.advancedSettingsDesc':
-    'Параметры настройки низкого уровня для записи и обнаружения тишины.',
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': 'Минимальное количество секунд записи',
   'voice.debug.silenceThreshold': 'Порог тишины (RMS)',
   'voice.debug.silenceThresholdDesc':
-    'Записи с энергией ниже этого значения считаются тишиной и пропускаются. Ниже = более чувствительно.',
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': 'Поставщики голосовой связи сохранены.',
   'voice.providers.failedToSave': 'Не удалось сохранить поставщиков голосовой связи.',
   'voice.providers.ellipsis': '…',
@@ -931,7 +924,7 @@ const ru1: TranslationMap = {
   'voice.providers.failedToInstallPiper': 'Не удалось установить Piper.',
   'voice.providers.title': 'Поставщики голоса.',
   'voice.providers.desc':
-    'Выберите, где будут выполняться транскрипция и синтез. Используйте кнопки «Установить локально», чтобы загрузить двоичные файлы и модели в свое рабочее пространство. Локальных поставщиков можно сохранить до завершения установки — настройка WHISPER_BIN или PIPER_BIN вручную не требуется.',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': 'Поставщик преобразования речи в текст',
   'voice.providers.sttProviderAria': 'Поставщик STT',
   'voice.providers.cloudWhisperProxy': 'Облако (прокси-сервер Whisper)',
@@ -939,7 +932,7 @@ const ru1: TranslationMap = {
   'voice.providers.installRequired': '(требуется установка)',
   'voice.providers.whisperInstalledTitle': 'Whisper установлен. Нажмите, чтобы переустановить.',
   'voice.providers.whisperDownloadTitle':
-    'Загрузите vanilla cpp и модель GGML в свое рабочее пространство.',
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': 'Установлено',
   'voice.providers.installFailed': 'Не удалось установить',
   'voice.providers.notInstalled': 'Не установлено',
@@ -949,25 +942,24 @@ const ru1: TranslationMap = {
   'voice.providers.whisperModelBase': 'Базовый (74 МБ)',
   'voice.providers.whisperModelSmall': 'Маленький (244 МБ)',
   'voice.providers.whisperModelMedium': 'Средний (769 МБ, рекомендуется)',
-  'voice.providers.whisperModelLargeTurbo':
-    'Большая версия 3 Turbo (1,5 ГБ, максимальная точность)',
+  'voice.providers.whisperModelLargeTurbo': 'Large v3 Turbo (1.5 GB, best accuracy)',
   'voice.providers.ttsProvider': 'Поставщик преобразования текста в речь',
   'voice.providers.ttsProviderAria': 'Поставщик TTS',
   'voice.providers.cloudElevenLabsProxy': 'Облако (прокси-сервер ElevenLabs)',
   'voice.providers.localPiper': 'Локальный Piper',
   'voice.providers.piperInstalledTitle': 'Piper установлен. Нажмите, чтобы переустановить.',
   'voice.providers.piperDownloadTitle':
-    'Загрузите Piper и прилагаемый голос en_US-lessac-medium в свое рабочее пространство.',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': 'Голос Пайпера',
   'voice.providers.piperVoiceAria': 'Голос Пайпера',
   'voice.providers.customVoiceOption': 'Другое (введите ниже)…',
   'voice.providers.customVoiceAria': 'Идентификатор голоса Пайпера (пользовательский)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    'Голоса взяты с сайтаhuggingface.co/rhasspy/piper-voices. Для переключения голосов может потребоваться нажать «Установить/Переустановить», чтобы загрузить новый .onnx.',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': 'Голос талисмана',
   'voice.providers.mascotVoiceDescPrefix':
-    'Голос ElevenLabs, который талисман использует для устных ответов, настраивается в разделе',
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': 'Настройки талисмана',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn',
@@ -979,6 +971,53 @@ const ru1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'ГБ · Алан (мужчина)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'ГБ · Дженни Диоко (женщина)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'ГБ · Северный английский (мужчина)',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': 'Отладка и диагностика',
   'screenAwareness.debug.collapse': 'Свернуть',
   'screenAwareness.debug.expand': 'Развернуть',
@@ -987,10 +1026,10 @@ const ru1: TranslationMap = {
   'screenAwareness.debug.baselineFps': 'Базовый показатель FPS',
   'screenAwareness.debug.useVisionModel': 'Использовать модель концепции.',
   'screenAwareness.debug.useVisionModelDesc':
-    'Отправьте снимки экрана в концепцию LLM для более богатого контекста. Если этот параметр отключен, с текстом LLM используется только текст OCR — быстрее и модель машинного зрения не требуется.',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': 'Сохранять снимки экрана.',
   'screenAwareness.debug.keepScreenshotsDesc':
-    'Сохранять сделанные снимки экрана в рабочей области вместо удаления после обработки.',
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': 'Список разрешенных (одно правило в строке)',
   'screenAwareness.debug.denylist': 'Список запрещенных (одно правило в строке)',
   'screenAwareness.debug.saveSettings': 'Сохранить настройки интеллекта экрана',
@@ -1007,8 +1046,7 @@ const ru1: TranslationMap = {
   'screenAwareness.debug.refreshing': 'Обновление…',
   'screenAwareness.debug.noSummaries': 'Сводок пока нет.',
   'screenAwareness.debug.unknownApp': 'Неизвестное приложение.',
-  'screenAwareness.debug.macosOnly':
-    'Screen Intelligence V1 в настоящее время поддерживается только в macOS.',
+  'screenAwareness.debug.macosOnly': 'Screen Intelligence V1 is currently supported on macOS only.',
   'memory.debugTitle': 'Отладка памяти',
   'memory.documents': 'Документы',
   'memory.filterByNamespace': 'Фильтровать по пространству имен...',
@@ -1036,7 +1074,7 @@ const ru1: TranslationMap = {
   'memory.clear': 'Очистить',
   'memory.deleteConfirm': 'Удалить документ «{documentId}» в пространстве имен «{namespace}»?',
   'memory.clearNamespaceConfirm':
-    'Это приведет к безвозвратному удалению ВСЕХ документов в пространстве имен «{namespace}». Продолжать?',
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': 'Пространство имен «{namespace}» очищено.',
   'memory.clearNamespaceEmpty': 'В «{namespace}» нечего очищать.',
   'webhooks.debugTitle': 'Отладка веб-перехватчиков.',
@@ -1070,20 +1108,19 @@ const ru1: TranslationMap = {
   'providerSetup.error.defaultDetails': 'Не удалось настроить поставщика.',
   'providerSetup.error.providerFallback': 'Поставщик',
   'providerSetup.error.credentialsRejected':
-    '{provider} отклонил учетные данные. Проверьте ключ API и повторите попытку.',
+    '{provider} rejected the credentials. Check the API key and try again.',
   'providerSetup.error.endpointNotRecognized':
-    '{provider} не распознал конечную точку. Проверьте базу URL и повторите попытку.',
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
   'providerSetup.error.providerUnavailable':
-    '{provider} сейчас недоступен. Попробуйте еще раз или проверьте статус провайдера.',
+    '{provider} is unavailable right now. Try again or check the provider status.',
   'providerSetup.error.unreachable':
-    'Не удалось связаться с {provider}. Проверьте конечную точку URL и сетевое соединение, затем повторите попытку.',
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
   'providerSetup.error.couldNotReachWithMessage': 'Не удалось связаться с {provider}: {message}',
   'providerSetup.error.technicalDetails': 'Технические подробности',
   'devices.title': 'Устройства',
   'devices.pairIphone': 'Сопряжение с iPhone',
   'devices.noPaired': 'Нет сопряженных устройств',
-  'devices.emptyState':
-    'Отсканируйте QR code на своем iPhone, чтобы подключить его к этому сеансу OpenHuman.',
+  'devices.emptyState': 'Scan a QR code on your iPhone to connect it to this OpenHuman session.',
   'devices.devicePairedTitle': 'Устройство сопряжено.',
   'devices.devicePairedMessage': 'iPhone успешно подключен.',
   'devices.deviceRevokedTitle': 'Устройство отозвано.',
@@ -1103,8 +1140,7 @@ const ru1: TranslationMap = {
   'devices.loadFailed': 'Не удалось загрузить устройства: {message}',
   'devices.pairModal.title': 'Сопряжение с iPhone',
   'devices.pairModal.loading': 'Генерация кода сопряжения…',
-  'devices.pairModal.instructions':
-    'Откройте приложение OpenHuman на своем iPhone и отсканируйте этот код.',
+  'devices.pairModal.instructions': 'Open the OpenHuman app on your iPhone and scan this code.',
   'devices.pairModal.expiresIn': 'Срок действия кода истекает через ~{count} минуту.',
   'devices.pairModal.expiresInPlural': 'Срок действия кода истекает через ~{count} минут.',
   'devices.pairModal.showDetails': 'Показать подробности',
@@ -1126,16 +1162,13 @@ const ru1: TranslationMap = {
   'mcp.catalog.noResultsFor': 'Серверы для «{query}» не найдены.',
   'mcp.catalog.loadMore': 'Загрузить больше',
   'mcp.configAssistant.title': 'Помощник по настройке',
-  'mcp.configAssistant.empty':
-    'Спросите о конфигурации, необходимых переменных окружения или этапах настройки.',
+  'mcp.configAssistant.empty': 'Ask about configuration, required env vars, or setup steps.',
   'mcp.configAssistant.suggestedValues': 'Рекомендуемые значения:',
   'mcp.configAssistant.valueHidden': '(значение скрыто)',
   'mcp.configAssistant.applySuggested': 'Примените предложенные значения.',
-  'mcp.configAssistant.reinstallHint':
-    'Переустановите систему с этими значениями, чтобы применить их.',
+  'mcp.configAssistant.reinstallHint': 'Re-install with these values to apply them.',
   'mcp.configAssistant.thinking': 'Думаю...',
-  'mcp.configAssistant.inputPlaceholder':
-    'Задайте вопрос (Enter для отправки, Shift+Enter для перехода на новую строку)',
+  'mcp.configAssistant.inputPlaceholder': 'Ask a question (Enter to send, Shift+Enter for newline)',
   'mcp.configAssistant.send': 'Отправить',
   'mcp.configAssistant.failedResponse': 'Не удалось получить ответ',
   'mcp.toolList.availableSingular': 'Доступен инструмент {count}',
@@ -1168,7 +1201,7 @@ const ru1: TranslationMap = {
   'mcp.install.installing': 'Установка...',
   'mcp.detail.suggestedEnvReady': 'Рекомендуемые значения среды готовы',
   'mcp.detail.suggestedEnvBody':
-    'Переустановите этот сервер с предложенными значениями, чтобы применить их: {keys}',
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': 'Подключитесь',
   'mcp.detail.connecting': 'Подключение...',
   'mcp.detail.disconnect': 'Отключите',
@@ -1181,10 +1214,8 @@ const ru1: TranslationMap = {
   'mcp.detail.tools': 'Инструменты',
   'onboarding.skipForNow': 'Пропустить сейчас',
   'onboarding.localAI.continueWithCloud': 'Продолжить с Облако',
-  'onboarding.localAI.useLocalAnyway':
-    'В любом случае используйте локальный AI (не рекомендуется для вашего устройства)',
-  'onboarding.localAI.useLocalInstead':
-    'Вместо этого используйте локальный AI (подключитесь Ollama сейчас)',
+  'onboarding.localAI.useLocalAnyway': 'Use local AI anyway (not recommended for your device)',
+  'onboarding.localAI.useLocalInstead': 'Use local AI instead (connect Ollama now)',
   'onboarding.localAI.setupIssue': 'При настройке локального AI возникла проблема',
   'notifications.routingTitle': 'Маршрутизация уведомлений',
   'notifications.routing.pipelineStats': 'Статистика конвейера',
@@ -1193,35 +1224,30 @@ const ru1: TranslationMap = {
   'notifications.routing.unscored': 'Без оценок',
   'notifications.routing.intelligenceTitle': 'Аналитика уведомлений',
   'notifications.routing.intelligenceDesc':
-    'Каждые уведомление от ваших подключенных учетных записей оценивается с помощью локальной модели искусственного интеллекта. Уведомления высокой важности автоматически перенаправляются агенту оркестратора, поэтому ничего критического не ускользнет.',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': 'Как это работает',
   'notifications.routing.level.drop': 'Удаление',
   'notifications.routing.level.dropDesc': 'Шум/спам — сохраняется, но не отображается',
   'notifications.routing.level.acknowledge': 'Подтверждение',
-  'notifications.routing.level.acknowledgeDesc':
-    'Низкий приоритет — отображается в центре уведомлений',
+  'notifications.routing.level.acknowledgeDesc': 'Low-priority — shown in notification center',
   'notifications.routing.level.react': 'Реагировать',
-  'notifications.routing.level.reactDesc':
-    'Средний приоритет — запускает целенаправленный ответ агента',
+  'notifications.routing.level.reactDesc': 'Medium-priority — triggers a focused agent response',
   'notifications.routing.level.escalate': 'Эскалация',
-  'notifications.routing.level.escalateDesc':
-    'Высокий приоритет — пересылается агенту оркестратора',
+  'notifications.routing.level.escalateDesc': 'High-priority — forwarded to orchestrator agent',
   'notifications.routing.perProvider': 'Маршрутизация для каждого поставщика',
   'notifications.routing.threshold': 'Порог',
   'notifications.routing.routeToOrchestrator': 'Маршрут к оркестратору',
-  'notifications.routing.loadSettingsError':
-    'Не удалось загрузить настройки. Откройте эту панель еще раз, чтобы повторить попытку.',
+  'notifications.routing.loadSettingsError': 'Failed to load settings. Reopen this panel to retry.',
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'Нет повторяющегося бюджета плана.',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    'Ваш текущий план не включает повторяющийся еженедельный бюджет вывода. Вместо этого использование оплачивается из имеющихся кредитов.',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': 'Осталось {remaining} / {budget}',
   'settings.billing.inferenceBudget.spentThisCycle': 'В этом цикле потрачено {amount}',
   'settings.billing.inferenceBudget.cycleEndsOn': 'Цикл заканчивается {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    'Использование включенной подписки исчерпано. Пополняйте кредиты, чтобы продолжать использовать ИИ, не дожидаясь следующего цикла.',
-  'settings.billing.inferenceBudget.discountVsPayg':
-    '{pct}% дешевле за звонок, чем при оплате по мере использования.',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
+  'settings.billing.inferenceBudget.discountVsPayg': '{pct}% cheaper per call than pay-as-you-go.',
   'settings.billing.inferenceBudget.cycleSpend': 'Циклические расходы',
   'settings.billing.inferenceBudget.totalAmount': '{amount} всего',
   'settings.billing.inferenceBudget.inference': 'Вывод',
@@ -1236,11 +1262,9 @@ const ru1: TranslationMap = {
   'settings.billing.inferenceBudget.unableToLoad': 'Невозможно загрузить данные об использовании.',
   'settings.billing.inferenceBudget.notAvailable': 'н/д',
   'memory.sourceFilterAria': 'Фильтровать по источнику',
-  'calls.comingSoonDescription':
-    'Скоро появятся звонки с помощью искусственного интеллекта. Следите за обновлениями.',
+  'calls.comingSoonDescription': 'AI-assisted calls are coming soon. Stay tuned.',
   'vault.title': 'Хранилища знаний.',
-  'vault.description':
-    'Наведите курсор на локальную папку; файлы разбиваются на части и зеркально отображаются в памяти.',
+  'vault.description': 'Point at a local folder; files are chunked and mirrored into memory.',
   'vault.add': 'Добавить хранилище.',
   'vault.added': 'Хранилище добавлено.',
   'vault.createdMessage': 'Создано «{name}». Нажмите {sync}, чтобы принять.',
@@ -1254,7 +1278,7 @@ const ru1: TranslationMap = {
   'vault.syncSummarySkipped': ', пропущен {count}',
   'vault.syncSummaryDuration': '· {seconds}s',
   'vault.confirmRemovePurge':
-    'Удалить хранилище «{name}»?\\n\\nНажмите «ОК», чтобы также очистить его память (удалить все вставленные документы {count}).\\nНажмите «Отмена», чтобы сохранить документы в памяти.',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': 'Действительно удалить хранилище «{name}»?',
   'vault.removed': 'Хранилище удалено.',
   'vault.removedPurgedMessage': 'Удален «{name}» и очищена его память.',
@@ -1270,8 +1294,7 @@ const ru1: TranslationMap = {
   'vault.create': 'Создать хранилище',
   'vault.loading': 'Загрузка хранилища…',
   'vault.failedToLoad': 'Не удалось загрузить хранилища: {error}',
-  'vault.empty':
-    'Хранилищ пока нет. Добавьте один из вышеперечисленных, чтобы начать вставку папки.',
+  'vault.empty': 'No vaults yet. Add one above to start ingesting a folder.',
   'vault.fileCount': '{count} файлов',
   'vault.syncedRelative': 'синхронизировано {time}',
   'vault.neverSynced': 'никогда не синхронизировано',

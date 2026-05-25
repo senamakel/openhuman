@@ -434,15 +434,15 @@ const bn1: TranslationMap = {
   'channels.fieldRequired': '{field} প্রয়োজন',
   'channels.mcp.title': '__PH0__ সার্ভার__92731',
   'channels.mcp.description':
-    'মডেল কনটেক্সট প্রোটোকল সার্ভারগুলি ব্রাউজ করুন এবং পরিচালনা করুন যা নতুন সরঞ্জামগুলির সাথে AI প্রসারিত করে।',
+    'Browse and manage Model Context Protocol servers that extend the AI with new tools.',
   'skills.integrationsSubtitle':
-    'ক্লাউড-ভিত্তিক OAuth সংযোগগুলি — আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেনগুলিকে ব্রোকার করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে৷ পরিচালনা করার জন্য কোনো API কী নেই।',
+    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
   'skills.tabs.composio': 'Composio',
   'skills.tabs.channels': 'চ্যানেল',
   'skills.tabs.mcp': 'MCP সার্ভার',
   'skills.mcpComingSoon.title': 'MCP সার্ভার',
   'skills.mcpComingSoon.description':
-    'MCP সার্ভার ব্যবস্থাপনা শীঘ্রই আসছে। এই ট্যাবটি আপনার MCP সার্ভার ইন্টিগ্রেশনগুলি আবিষ্কার, সংযোগ এবং নিরীক্ষণের জন্য হোম হবে৷',
+    'MCP server management is coming soon. This tab will be the home for discovering, connecting, and monitoring your MCP server integrations.',
   'settings.about.connection': 'সংযোগ',
   'settings.about.connectionMode': 'মোড',
   'settings.about.connectionModeLocal': 'স্থানীয়',
@@ -451,33 +451,31 @@ const bn1: TranslationMap = {
   'settings.about.serverUrl': 'সার্ভার URL',
   'settings.about.serverUrlUnavailable': 'অনুপলব্ধ',
   'settings.about.connectionHelperLocal':
-    'অনুপলব্ধ [[I18N_SEP_92731] 1__731 প্রসেস দ্বারা Spawn]92 অ্যাপ চালু করার সময় শেল। পোর্টটি স্টার্টআপের সময় বেছে নেওয়া হয়, তাই এই URL লঞ্চের মধ্যে পরিবর্তন হয়।',
+    'Spawned in-process by the Tauri shell on app launch. The port is chosen at startup, so this URL changes between launches.',
   'settings.about.connectionHelperCloud':
-    'একটি দূরবর্তী কোরের সাথে সংযুক্ত। বুটচেক বা ক্লাউড মোড পিকারে এটি পরিবর্তন করুন।',
+    'Connected to a remote core. Change this in BootCheck or the cloud mode picker.',
   'settings.heartbeat.title': 'হার্টবিট এবং লুপস',
-  'settings.heartbeat.desc':
-    'ব্যাকগ্রাউন্ড শিডিউল ক্যাডেন্স নিয়ন্ত্রণ করুন এবং লুপ ম্যাপ পরিদর্শন করুন।',
+  'settings.heartbeat.desc': 'Control background scheduling cadences and inspect the loop map.',
   'settings.ledgerUsage.title': 'ইউসেজ লেজার',
   'settings.ledgerUsage.desc': 'সাম্প্রতিক ক্রেডিট খরচ, বাজেটের গণিত, এবং পটভূমি API পড়া বাজেট।',
   'settings.search.title': 'সার্চ ইঞ্জিন',
   'settings.search.menuDesc':
-    'ডিফল্ট OpenHuman-পরিচালিত অনুসন্ধানে অথবা একটি API কী দিয়ে আপনার নিজস্ব প্রদানকারীকে সংযুক্ত করুন।',
+    'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    'এজেন্ট যে সার্চ ইঞ্জিন ব্যবহার করে তা বেছে নিন। পরিচালিত OpenHuman এর ব্যাকএন্ড ব্যবহার করে (কোন সেটআপ নেই)। Parallel এবং Brave আপনার API কী ব্যবহার করে আপনার মেশিন থেকে সরাসরি চলে।',
+    'Pick the search engine the agent uses. Managed uses OpenHuman’s backend (no setup). Parallel and Brave run direct from your machine using your API key.',
   'settings.search.engineAria': 'সার্চ ইঞ্জিন',
   'settings.search.engineManagedLabel': 'OpenHuman পরিচালিত',
   'settings.search.engineManagedDesc':
-    'ডিফল্ট। OpenHuman ব্যাকএন্ডের মাধ্যমে রুট করা হয়েছে — কোনো API কী প্রয়োজন নেই৷',
+    'Default. Routed through the OpenHuman backend — no API key required.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
-    'সরাসরি Parallel API: অনুসন্ধান, নির্যাস, চ্যাট, গবেষণা, সমৃদ্ধ, ডেটাসেট সরঞ্জাম।',
+    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
   'settings.search.engineBraveLabel': 'Brave অনুসন্ধান',
-  'settings.search.engineBraveDesc':
-    'সরাসরি Brave অনুসন্ধান API: ওয়েব, সংবাদ, চিত্র এবং ভিডিও সরঞ্জাম।',
+  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
   'settings.search.statusConfigured': 'কনফিগার করা',
   'settings.search.statusNeedsKey': 'API কী প্রয়োজন',
   'settings.search.fallbackToManaged':
-    'কোনো কী কনফিগার করা হয়নি — একটি কী সংরক্ষণ না করা পর্যন্ত অনুসন্ধানটি পরিচালিত হবে।',
+    'No key configured — search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'API কী পান',
   'settings.search.save': 'সংরক্ষণ করুন',
   'settings.search.clear': 'সাফ',
@@ -529,12 +527,12 @@ const bn1: TranslationMap = {
   'settings.embeddings.clearKey': 'API কী মুছুন',
   'mcp.alphaBadge': 'আলফা',
   'mcp.alphaBannerText':
-    'MCP সার্ভার সমর্থন প্রাথমিক আলফায় রয়েছে৷ Smithery রেজিস্ট্রি, ইনস্টল ফ্লো, এবং টুল ওয়্যারিং খারাপ ব্যবহার করতে পারে বা রিলিজের মধ্যে আকৃতি পরিবর্তন করতে পারে।',
+    'MCP server support is in early alpha. The Smithery registry, install flow, and tool wiring may misbehave or change shape between releases.',
   'mcp.toolList.noTools': 'কোনো টুল উপলব্ধ নেই৷',
   'mcp.setup.secretDialog.title': 'MCP সেটআপ — এন্টার সিক্রেট',
   'mcp.setup.secretDialog.bodyPrefix': 'MCP সেটআপ এজেন্ট প্রয়োজন',
   'mcp.setup.secretDialog.bodySuffix':
-    '. আপনার মান সরাসরি মূল প্রক্রিয়াতে পাঠানো হয় এবং কখনই এআই কথোপকথনে প্রবেশ করে না।',
+    '. Your value is sent directly to the core process and never enters the AI conversation.',
   'mcp.setup.secretDialog.inputLabel': 'মান',
   'mcp.setup.secretDialog.inputPlaceholder': 'এখানে আটকে দিন',
   'mcp.setup.secretDialog.show': 'দেখান',
@@ -544,35 +542,34 @@ const bn1: TranslationMap = {
   'mcp.setup.secretDialog.submitting': 'জমা দেওয়া হচ্ছে',
   'mcp.setup.secretDialog.errorPrefix': '18_18 জমা দিতে ব্যর্থ হয়েছে:',
   'mcp.setup.secretDialog.privacyNote':
-    'স্থানীয় MCP গোপন টেবিলে এনক্রিপ্ট করা সংরক্ষিত। কখনও লগ ইন বা একটি মডেল পাঠানো.',
+    'Stored encrypted in the local MCP secrets table. Never logged or sent to a model.',
   'devices.betaBadge': 'বিটা',
   'devices.betaText':
-    'এই বৈশিষ্ট্যটি বর্তমানে বিটাতে রয়েছে। একটি দূরবর্তী ক্লায়েন্ট হিসাবে ব্যবহার করতে iOS ফোনগুলিকে এই OpenHuman এর সাথে যুক্ত করুন৷',
+    'This feature is currently in beta. Pair iOS phones with this OpenHuman to use them as a remote client.',
   'autonomy.title': 'এজেন্ট স্বায়ত্তশাসন',
   'autonomy.maxActionsLabel': 'প্রতি ঘণ্টায় সর্বাধিক অ্যাকশন',
   'autonomy.maxActionsHelp':
-    'একজন এজেন্ট প্রতি রোলিং আওয়ারে চালাতে পারে এমন সর্বাধিক টুল অ্যাকশন। নতুন মান আপনার পরবর্তী চ্যাট প্রযোজ্য. আপনি OpenHuman রিস্টার্ট না করা পর্যন্ত ক্রোন জব এবং চ্যানেল শ্রোতারা তাদের বর্তমান সীমা বজায় রাখে।',
+    'Maximum tool actions an agent can run per rolling hour. New value applies to your next chat. Cron jobs and channel listeners keep their current limit until you restart OpenHuman.',
   'autonomy.statusSaving': 'সংরক্ষণ করা হচ্ছে...',
   'autonomy.statusSaved': 'সংরক্ষিত।',
   'autonomy.statusFailed': 'ব্যর্থ হয়েছে',
   'autonomy.unlimitedNote': 'সীমাহীন — হার সীমিত করা অক্ষম।',
   'autonomy.invalidIntegerMsg':
-    'অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে (কোন সীমার জন্য আনলিমিটেড প্রিসেট ব্যবহার করুন)।',
+    'Must be a positive integer (use the Unlimited preset for no limit).',
   'autonomy.presetUnlimited': 'আনলিমিটেড (ডিফল্ট)',
   'triggers.toggleFailed': '{trigger} এর জন্য {action} ব্যর্থ হয়েছে: {message}',
   'skills.composio.noApiKeyTitle': 'না Composio API কী কনফিগার করা হয়েছে',
   'skills.composio.noApiKeyDescription':
-    'স্থানীয় মোড আপনার নিজস্ব Composio API কী ব্যবহার করে। এখানে ইন্টিগ্রেশন কানেক্ট করার আগে সেটিংস → অ্যাডভান্সড → Composio খুলুন।',
+    'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
   'skills.composio.noApiKeyCta': 'সেটিংসে খুলুন',
   'rewards.localUnavailable':
-    'স্থানীয় লগইন পুরস্কার, কুপন বা রেফারেল ক্রেডিট অর্জন করে না। পুরষ্কার পেতে, লগ আউট করুন এবং একটি OpenHuman অ্যাকাউন্ট দিয়ে সাইন ইন করে চালিয়ে যান।',
+    'Local login does not earn rewards, coupons, or referral credit. To earn rewards, log out and continue by signing in with an OpenHuman account.',
   'rewards.localUnavailableCta': 'অ্যাকাউন্ট সেটিংস খুলুন',
-  'channels.localManagedUnavailable':
-    'পরিচালিত চ্যানেলগুলি স্থানীয় ব্যবহারকারীদের জন্য উপলব্ধ নয়৷',
+  'channels.localManagedUnavailable': 'Managed channels are not available for local users.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman পরিচালিত অনুসন্ধান স্থানীয় ব্যবহারকারীদের জন্য উপলব্ধ নয়৷ ওয়েব অনুসন্ধান সক্ষম করতে আপনার নিজস্ব Parallel বা Brave API কী যোগ করুন।',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel or Brave API key to enable web search.',
   'devices.comingSoonDescription':
-    'ডিভাইস পেয়ারিং শীঘ্রই আসছে৷ এই পৃষ্ঠাটি আইফোন জোড়া করার এবং সংযুক্ত ডিভাইসগুলি পরিচালনা করার জন্য হোম হবে৷',
+    'Device pairing is coming soon. This page will be the home for pairing iPhones and managing connected devices.',
   'common.breadcrumb': 'ব্রেডক্রাম্ব নেভিগেশন',
   'settings.betaBuild': 'বেটা বিল্ড - v{version}',
   'migration.vendor.openclaw': 'OpenClaw',
@@ -596,43 +593,42 @@ const bn1: TranslationMap = {
   'settings.ai.defaultLocalEndpoint': 'http://localhost:11434/v1',
   'settings.ai.endpointUrlLabel': 'শেষবিন্দু URL',
   'settings.ai.localRuntimeHelper':
-    'যেখানে {label} পৌঁছানো যায়। ডিফল্ট হল localhost; এটিকে একটি দূরবর্তী হোস্টে নির্দেশ করুন (উদাহরণস্বরূপ, একটি ভাগ করা উদাহরণ ব্যবহার করতে http://10.0.0.4:11434/v1)।',
+    'Where {label} is reachable. Default is localhost; point this at a remote host (for example, http://10.0.0.4:11434/v1) to use a shared instance.',
   'settings.ai.endpointUrlRequired': 'এন্ডপয়েন্ট URL প্রয়োজন।',
-  'settings.ai.endpointProtocolRequired':
-    'শেষ পয়েন্ট অবশ্যই http:// অথবা _https://. দিয়ে শুরু হবে',
+  'settings.ai.endpointProtocolRequired': 'Endpoint must start with http:// or https://.',
   'settings.ai.connectProviderDialog': 'সংযোগ করুন {label}',
   'settings.ai.or': 'অথবা',
   'settings.ai.openRouterOauthDescription':
-    'OpenRouter দিয়ে সাইন ইন করুন এবং PKCE ব্যবহার করে একটি ব্যবহারকারী-নিয়ন্ত্রিত API কী আমদানি করুন।',
+    'Sign in with OpenRouter and import a user-controlled API key using PKCE.',
   'settings.ai.connecting': 'সংযোগ করা হচ্ছে...',
   'settings.ai.backgroundLoops': 'ব্যাকগ্রাউন্ড লুপস',
   'settings.ai.backgroundLoopsDesc':
-    'চ্যাট মেসেজ ছাড়া কি চলে তা দেখুন, হার্টবিট কাজ থামান, এবং সাম্প্রতিক ক্রেডিট লেজার সারিগুলি পরিদর্শন করুন৷',
+    'See what runs without a chat message, pause heartbeat work, and inspect recent credit ledger rows.',
   'settings.ai.heartbeatControls': 'হার্টবিট নিয়ন্ত্রণ',
   'settings.ai.heartbeatControlsDesc':
-    'ডিফল্ট বন্ধ। সক্রিয় করলে লুপ শুরু হয়; নিষ্ক্রিয় করা চলমান কাজ বাতিল করে।',
+    'Defaults off. Enabling starts the loop; disabling aborts the running task.',
   'settings.ai.heartbeatLoop': 'হার্টবিট লুপ',
-  'settings.ai.heartbeatLoopDesc': 'পরিকল্পনাকারী + ঐচ্ছিক অবচেতন অনুমানের জন্য মাস্টার সময়সূচী।',
+  'settings.ai.heartbeatLoopDesc':
+    'Master scheduler for planner + optional subconscious inference.',
   'settings.ai.subconsciousInference': 'অবচেতন অনুমান',
   'settings.ai.subconsciousInferenceDesc':
-    'হার্টবিট টিকগুলিতে মডেল-ব্যাকড টাস্ক/প্রতিফলন মূল্যায়ন চালায়।',
+    'Runs model-backed task/reflection evaluation on heartbeat ticks.',
   'settings.ai.calendarMeetingChecks': 'ক্যালেন্ডার মিটিং চেক',
   'settings.ai.calendarMeetingChecksDesc':
-    'সক্রিয় Google Calendar সংযোগের জন্য ক্যালেন্ডার ইভেন্ট তালিকা কল করে।',
+    'Calls calendar event list for active Google Calendar connections.',
   'settings.ai.calendarCap': 'ক্যালেন্ডার ক্যাপ',
   'settings.ai.connectionsPerTick': '{count} conn/tick',
   'settings.ai.meetingLookahead': 'মিটিং এর আগে',
   'settings.ai.minutesShort': '{count} মিনিট',
   'settings.ai.reminderLookahead': '__PH0__ Re__2 মিনিট] লুকআহেড',
   'settings.ai.cronReminderChecks': 'ক্রোন রিমাইন্ডার চেক করে',
-  'settings.ai.cronReminderChecksDesc':
-    'অনুস্মারক-সদৃশ আসন্ন আইটেমগুলির জন্য ক্রোন কাজগুলি স্ক্যান করে।',
+  'settings.ai.cronReminderChecksDesc': 'Scans enabled cron jobs for reminder-like upcoming items.',
   'settings.ai.relevantNotificationChecks': 'প্রাসঙ্গিক বিজ্ঞপ্তি চেক',
   'settings.ai.relevantNotificationChecksDesc':
-    'জরুরী স্থানীয় বিজ্ঞপ্তিগুলিকে সক্রিয় সতর্কতায় প্রচার করে।',
+    'Promotes urgent local notifications into proactive alerts.',
   'settings.ai.externalDelivery': 'বাহ্যিক ডেলিভারি',
   'settings.ai.externalDeliveryDesc':
-    'হার্টবিট অ্যালার্টগুলি বহিরাগত চ্যানেলগুলিতে সক্রিয় বার্তা পাঠাতে দেয়।',
+    'Lets heartbeat alerts send proactive messages to external channels.',
   'settings.ai.interval': 'ব্যবধান',
   'settings.ai.running': 'চলছে...',
   'settings.ai.plannerTickNow': 'প্ল্যানার এখন টিক দিন',
@@ -643,7 +639,7 @@ const bn1: TranslationMap = {
   'settings.ai.off': 'বন্ধ',
   'settings.ai.recentUsageLedger': 'সাম্প্রতিক ব্যবহার লেজার',
   'settings.ai.recentUsageLedgerDesc':
-    'ব্যাকএন্ড সারি আজ কর্ম/সময় প্রকাশ করে; উৎস ট্যাগ ব্যাকএন্ড সমর্থন প্রয়োজন.',
+    'Backend rows expose action/time today; source tags need backend support.',
   'settings.ai.openhumanDefault': 'OpenHuman (ডিফল্ট)',
   'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.customRoutingForWorkload': '{label} এর জন্য কাস্টম রাউটিং',
@@ -656,7 +652,7 @@ const bn1: TranslationMap = {
   'settings.ai.temperatureOverrideSlider': 'তাপমাত্রা ওভাররাইড (স্লাইডার)',
   'settings.ai.temperatureOverrideValue': 'তাপমাত্রা ওভাররাইড (মান)',
   'settings.ai.temperatureOverrideDesc':
-    'নিম্ন = আরো নির্ধারক। প্রদানকারীর ডিফল্ট ব্যবহার করতে টিক চিহ্নমুক্ত রাখুন।',
+    'Lower = more deterministic. Leave unchecked to use the provider default.',
   'settings.ai.testFailed': 'পরীক্ষা ব্যর্থ হয়েছে',
   'settings.ai.testingModel': 'পরীক্ষার মডেল...',
   'settings.ai.modelResponse': 'মডেল প্রতিক্রিয়া',
@@ -677,9 +673,9 @@ const bn1: TranslationMap = {
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'বিদ্যমান কী রাখার জন্য ফাঁকা ছেড়ে দিন',
   'settings.ai.reindexingMemory': 'মেমরি পুনঃসূচীকরণ করা হচ্ছে',
-  'settings.ai.reindexingMemoryMessage': 'মেমরি পুনঃসূচীকরণ করা হচ্ছে',
-  'settings.ai.signInWithOpenRouter':
-    'পুনরায় প্রক্রিয়া করা __PH0__ মেমরি আইটেম(গুলি) বর্তমান মডেলের অধীনে পুনরায় এম্বেড করা হচ্ছে — এটি শেষ না হওয়া পর্যন্ত শব্দার্থিক প্রত্যাহার হ্রাস করা হয়েছে। কীওয়ার্ড অনুসন্ধান কাজ করতে থাকে, এবং আপনি এটি বন্ধ করলে ব্যাকগ্রাউন্ডে পুনরায় এম্বেড করা অব্যাহত থাকে।',
+  'settings.ai.reindexingMemoryMessage':
+    'Embeddings are being reprocessed. {pending} memory item(s) are being re-embedded under the current model — semantic recall is reduced until this finishes. Keyword search keeps working, and re-embedding continues in the background if you close this.',
+  'settings.ai.signInWithOpenRouter': 'Sign in with OpenRouter',
   'settings.ai.weekBudget': '__BR0__ দিয়ে সাইন ইন করুন',
   'settings.ai.cycleRemaining': 'সপ্তাহের বাজেট',
   'settings.ai.cycleTotalSpend': 'বাকি সাইকেল',
@@ -703,36 +699,36 @@ const bn1: TranslationMap = {
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'পরিচালিত',
   'settings.ai.routing.managedDesc':
-    'OpenHuman ক্লাউডে সমস্ত অনুমান চালাবে, টাস্কের জন্য সেরা মডেল বেছে নেবে, খরচের জন্য অপ্টিমাইজ করবে, এবং সবচেয়ে নিরাপদ রাউটিং ডিফল্ট রাখবে।',
+    'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
-    'OpenHuman প্রতিটি কাজের চাপের জন্য সমস্ত অনুমান পরিচালনা করবে এবং স্বয়ংক্রিয়ভাবে খরচ, গুণমান এবং নিরাপত্তার জন্য সেরা রুট বেছে নেবে।',
+    'OpenHuman will handle all inference for every workload and automatically choose the best route for cost, quality, and security.',
   'settings.ai.routing.useYourOwn': 'আপনার নিজের মডেলগুলি ব্যবহার করুন',
   'settings.ai.routing.useYourOwnDesc':
-    'একটি প্রদানকারী + মডেল চয়ন করুন এবং এর মাধ্যমে প্রতিটি কাজের চাপকে রুট করুন। এটি সহজ, কিন্তু এটি অকার্যকর হতে পারে কারণ লাইটওয়েট এবং হেভিওয়েট অনুমান সব একই রুট শেয়ার করে।',
+    'Choose one provider + model and route every workload through it. This is simple, but it can be inefficient because lightweight and heavyweight inference all share the same route.',
   'settings.ai.routing.advanced': 'উন্নত',
   'settings.ai.routing.advancedDesc':
-    'বিভিন্ন কাজের জন্য বিভিন্ন মডেল বেছে নিন। এটি টাইট খরচ অপ্টিমাইজেশান এবং সবচেয়ে নিয়ন্ত্রণ জন্য সেরা বিকল্প.',
+    'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
-    'সূক্ষ্ম-শস্যযুক্ত রাউটিং আপনাকে সর্বোত্তম খরচ অপ্টিমাইজেশান এবং সর্বাধিক নিয়ন্ত্রণ দেয়। কোন ওয়ার্কলোড ম্যানেজ করা থাকবে, কোনটি আপনার শেয়ার করা ডিফল্ট ব্যবহার করবে এবং কোন নির্দিষ্ট মডেলে পিন করবে তা নির্ধারণ করতে নিচের সারিগুলি ব্যবহার করুন৷',
+    'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
   'settings.ai.routing.chatAndConversations': 'চ্যাট এবং কথোপকথন',
   'settings.ai.routing.chatDesc':
-    'সরাসরি ব্যবহারকারীর মিথস্ক্রিয়া, উত্তর, যুক্তি, এজেন্ট লুপ এবং কোডিং সহায়তার সময় ব্যবহৃত মডেলগুলি।',
+    'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',
   'settings.ai.routing.backgroundTasks': 'ব্যাকগ্রাউন্ড টাস্ক',
   'settings.ai.routing.bgTasksDesc':
-    'সারসংক্ষেপ, হার্টবিট, শেখার, এবং অবচেতন মূল্যায়নের জন্য মূল কথোপকথনের প্রবাহের বাইরে ব্যবহৃত মডেলগুলি।',
+    'Models used outside the main conversation flow for summarization, heartbeat, learning, and subconscious evaluation.',
   'settings.ai.routing.addCustomProvider': 'কাস্টম প্রদানকারী যোগ করুন',
   'settings.ai.globalModel.title': 'সবকিছুর জন্য একটি মডেল চয়ন করুন',
   'settings.ai.globalModel.desc':
-    'এটি একটি মডেলের মাধ্যমে সমস্ত অনুমানকে রুট করে। এটি সহজ, কিন্তু এটি খরচ এবং মানের জন্য অদক্ষ হতে পারে কারণ লাইটওয়েট এবং ভারী কাজ সব একই রুট ব্যবহার করবে।',
+    'This routes all inference through one model. It is simpler, but it can be inefficient for cost and quality because lightweight and heavy tasks will all use the same route.',
   'settings.ai.globalModel.noProviders':
-    'প্রথমে একটি প্রদানকারী যোগ করুন বা সংযুক্ত করুন। তারপর আপনি এখানে একটি মডেলের মাধ্যমে প্রতিটি কাজের চাপ রুট করতে পারেন।',
+    'Add or connect a provider first. Then you can route every workload through one model here.',
   'settings.ai.globalModel.provider': 'প্রদানকারী',
   'settings.ai.globalModel.model': 'মডেল',
   'settings.ai.globalModel.loadingModels': 'মডেলগুলি লোড করা হচ্ছে...',
   'settings.ai.globalModel.enterModelId': 'মডেল আইডি লিখুন',
-  'settings.ai.globalModel.appliesToAll': 'মডেল আইডি লিখুন',
-  'settings.ai.globalModel.saving':
-    'মডেলটি +1 করে চ্যাট করুন, +927 মডেলটি প্রদান করুন কোডিং, মেমরি, হার্টবিট, শেখার, এবং অবচেতন। এমবেডিং আলাদাভাবে কনফিগার করা হয়. আপনি সংরক্ষণ ক্লিক করলে পরিবর্তনগুলি সংরক্ষণ করা হয়।',
+  'settings.ai.globalModel.appliesToAll':
+    'Applies the same provider + model to chat, reasoning, coding, memory, heartbeat, learning, and subconscious. Embeddings are configured separately. Changes save when you click save.',
+  'settings.ai.globalModel.saving': 'Saving…',
   'settings.ai.globalModel.saved': 'সংরক্ষণ করা হচ্ছে...',
   'settings.ai.workload.noModel': 'সংরক্ষণ করা হয়েছে',
   'settings.ai.workload.changeModel': 'কোনো মডেল নির্বাচিত হয়নি',
@@ -742,7 +738,7 @@ const bn1: TranslationMap = {
   'chat.modelPlaceholder': 'gpt-4o',
   'iosPair.title': 'আপনার ডেস্কটপের সাথে পেয়ার করুন',
   'iosPair.instructions':
-    'আপনার ডেস্কটপে OpenHuman খুলুন, সেটিংস > ডিভাইসে যান, এবং ফোনটি দেখাতে __BR "এয়ার করুন" ট্যাপ করুন।',
+    'Open OpenHuman on your desktop, go to Settings > Devices, and tap "Pair phone" to show the QR code.',
   'iosPair.scanQrCode': 'স্ক্যান QR code',
   'iosPair.scannerOpening': 'স্ক্যানার খোলা হচ্ছে...',
   'iosPair.connecting': 'ডেস্কটপের সাথে সংযুক্ত হচ্ছে...',
@@ -753,14 +749,13 @@ const bn1: TranslationMap = {
   'iosPair.step.openDesktop': 'ডেস্কটপে OpenHuman খুলুন',
   'iosPair.step.openSettings': 'সেটিংস > ডিভাইসগুলিতে যান',
   'iosPair.step.showQr': 'QR',
-  'iosPair.error.camera':
-    'দেখানোর জন্য "ফোন জোড়া" আলতো চাপুন ক্যামেরা স্ক্যান ব্যর্থ হয়েছে৷ ক্যামেরার অনুমতি পরীক্ষা করে আবার চেষ্টা করুন।',
+  'iosPair.error.camera': 'Camera scan failed. Check camera permissions and try again.',
   'iosPair.error.invalidQr':
-    'অবৈধ QR code। আপনি একটি OpenHuman pairing code স্ক্যান করছেন তা নিশ্চিত করুন৷',
+    'Invalid QR code. Make sure you are scanning an OpenHuman pairing code.',
   'iosPair.error.unreachableDesktop':
-    'ডেস্কটপে পৌঁছানো যায়নি। নিশ্চিত করুন যে উভয় ডিভাইস অনলাইন আছে এবং আবার চেষ্টা করুন.',
+    'Could not reach the desktop. Make sure both devices are online and try again.',
   'iosPair.error.connectionFailed':
-    'সংযোগ ব্যর্থ হয়েছে৷ নিশ্চিত করুন যে ডেস্কটপ অ্যাপ চলছে এবং আবার চেষ্টা করুন।',
+    'Connection failed. Make sure the desktop app is running and try again.',
   'iosMascot.defaultPairedLabel': 'ডেস্কটপ',
   'iosMascot.connectedTo': '[[I18N_SEP_92731]] এর সাথে সংযুক্ত',
   'iosMascot.disconnect': 'সংযোগ বিচ্ছিন্ন করুন',
@@ -798,8 +793,7 @@ const bn1: TranslationMap = {
   'team.invites': 'আমন্ত্রণগুলি',
   'team.invitesDesc': 'আমন্ত্রণ কোডগুলি তৈরি এবং পরিচালনা করুন',
   'team.settings': 'টিম সেটিংস',
-  'team.settingsDesc':
-    '[SEP_31] টিমের নাম এবং সেটিংস সম্পাদনা করুন [SEP_31]] টিম সেটিংস সম্পাদনা করুন',
+  'team.settingsDesc': 'Edit team name and settings',
   'team.editSettings': 'দলের নাম লিখুন',
   'team.enterName': 'সংরক্ষণ করা হচ্ছে...',
   'team.saving': 'পরিবর্তনগুলি সংরক্ষণ করুন',
@@ -812,14 +806,13 @@ const bn1: TranslationMap = {
   'team.manageTitle': 'ম্যানেজ করতে ব্যর্থ হয়েছে {name}',
   'team.planCreated': '{plan} পরিকল্পনা • তৈরি করা হয়েছে {date}',
   'team.confirmDelete': 'আপনি কি নিশ্চিত আপনি {name} মুছতে চান?',
-  'team.deleteWarning':
-    'এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যাবে না৷ সমস্ত দলের ডেটা স্থায়ীভাবে মুছে ফেলা হবে।',
+  'team.deleteWarning': 'This action cannot be undone. All team data will be permanently removed.',
   'welcome.clearingAppData': 'অ্যাপ ডেটা সাফ করা হচ্ছে...',
   'welcome.clearAppDataAndRestart': 'অ্যাপ ডেটা সাফ করুন এবং পুনরায় চালু করুন',
   'welcome.clearAppDataWarning':
-    'এটি এই ডিভাইসে স্থানীয়ভাবে সঞ্চিত গোপনীয়তা এবং অ্যাকাউন্টগুলি মুছে দেয়৷ আপনার ক্লাউড অ্যাকাউন্ট প্রভাবিত হয়নি - আপনি ঠিক পরে আবার সাইন ইন করতে পারেন৷',
+    'This wipes locally stored secrets and accounts on this device. Your cloud account is unaffected - you can sign in again right after.',
   'welcome.resetErrorFallback':
-    'অ্যাপ ডেটা সাফ করা যায়নি। দয়া করে প্রস্থান করুন এবং OpenHuman আবার খুলুন, তারপর আবার চেষ্টা করুন৷',
+    'Could not clear app data. Please quit and reopen OpenHuman, then try again.',
   'welcome.signingIn': 'আপনাকে সাইন ইন করা হচ্ছে...',
   'welcome.termsIntro': 'চালিয়ে যাওয়ার মাধ্যমে, আপনি',
   'welcome.termsOfUse': 'শর্তাবলীতে সম্মত হন',
@@ -852,7 +845,8 @@ const bn1: TranslationMap = {
   'invites.emptyHint': 'অন্যদের সাথে শেয়ার করার জন্য একটি আমন্ত্রণ কোড তৈরি করুন',
   'invites.revokeTitle': 'আমন্ত্রণ কোড প্রত্যাহার করুন',
   'invites.revokePromptPrefix': 'আপনি কি নিশ্চিত যে আপনি আমন্ত্রণ কোড প্রত্যাহার করতে চান',
-  'invites.revokeWarning': 'এই আমন্ত্রণ কোডটি আর টিমে যোগদানের জন্য ব্যবহার করা যাবে না।',
+  'invites.revokeWarning':
+    'This invite code will no longer be valid and cannot be used to join the team.',
   'invites.revoking': 'প্রত্যাহার করা হচ্ছে...',
   'invites.revokeAction': 'আমন্ত্রণ প্রত্যাহার করুন',
   'invites.failedGenerate': 'আমন্ত্রণ তৈরি করতে ব্যর্থ হয়েছে',
@@ -873,9 +867,9 @@ const bn1: TranslationMap = {
   'team.changeRoleTitle': 'সদস্যের ভূমিকা পরিবর্তন করুন',
   'team.changeRolePrompt': "Change {name}'s role from {oldRole} to {newRole}?",
   'team.changeRoleAdminGrant':
-    'এটি তাদের দলের সদস্যদের পরিচালনা করার ক্ষমতা সহ সম্পূর্ণ অ্যাডমিন অনুমতি দেবে৷',
+    'This will grant them full admin permissions including the ability to manage team members.',
   'team.changeRoleAdminRemove':
-    'এটি তাদের প্রশাসক অনুমতিগুলি সরিয়ে দেবে এবং তারা আর দল পরিচালনা করতে পারবে না৷',
+    'This will remove their admin permissions and they will no longer be able to manage the team.',
   'team.changing': 'পরিবর্তন হচ্ছে...',
   'team.changeRoleAction': 'ভূমিকা পরিবর্তন করুন',
   'team.failedChangeRole': 'ভূমিকা পরিবর্তন করতে ব্যর্থ হয়েছে',
@@ -885,14 +879,14 @@ const bn1: TranslationMap = {
   'voice.failedToStartServer': 'ভয়েস সার্ভার শুরু করতে ব্যর্থ হয়েছে',
   'voice.failedToStopServer': 'ভয়েস সার্ভার বন্ধ করতে ব্যর্থ হয়েছে',
   'voice.sttDisabledPrefix':
-    'স্থানীয় STT মডেল ডাউনলোড না হওয়া পর্যন্ত ভয়েস ডিকটেশন অক্ষম করা হয়েছে৷ হুইস্পার ইনস্টল করতে উপরের',
+    'Voice dictation is disabled until the local STT model is downloaded. Use the',
   'voice.sttDisabledSuffix': 'বিভাগটি ব্যবহার করুন৷',
   'voice.debug.failedToLoadVoiceDebugData': 'ভয়েস ডিবাগ ডেটা লোড করতে ব্যর্থ হয়েছে',
   'voice.debug.settingsSaved': 'ডিবাগ সেটিংস সংরক্ষণ করা হয়েছে৷',
   'voice.debug.failedToSaveSettings': 'ভয়েস সেটিংস সংরক্ষণ করতে ব্যর্থ হয়েছে',
   'voice.debug.runtimeStatus': 'রানটাইম স্ট্যাটাস',
   'voice.debug.runtimeStatusDesc':
-    'ভয়েস সার্ভার এবং স্পিচ-টু-টেক্সট ইঞ্জিনের জন্য লাইভ ডায়াগনস্টিকস।',
+    'Live diagnostics for the voice server and speech-to-text engine.',
   'voice.debug.server': 'সার্ভার',
   'voice.debug.unavailable': 'অনুপলব্ধ',
   'voice.debug.ready': 'প্রস্তুত',
@@ -903,11 +897,12 @@ const bn1: TranslationMap = {
   'voice.debug.transcriptions': 'সার্ভারের ত্রুটি',
   'voice.debug.serverError': 'উন্নত সেটিংস',
   'voice.debug.advancedSettings': 'টিউ 18-193 মিটারের নিম্ন স্তরের জন্য উন্নত সেটিংস',
-  'voice.debug.advancedSettingsDesc': 'রেকর্ডিং এবং নীরবতা সনাক্তকরণ।',
+  'voice.debug.advancedSettingsDesc':
+    'Low-level tuning parameters for recording and silence detection.',
   'voice.debug.minimumRecordingSeconds': 'ন্যূনতম রেকর্ডিং সেকেন্ড',
   'voice.debug.silenceThreshold': 'সাইলেন্স থ্রেশহোল্ড (RMS)',
   'voice.debug.silenceThresholdDesc':
-    'এর নীচে শক্তি সহ রেকর্ডিংগুলিকে নীরবতা হিসাবে বিবেচনা করা হয় এবং এড়িয়ে যাওয়া হয়। নিম্ন = অধিক সংবেদনশীল।',
+    'Recordings with energy below this are treated as silence and skipped. Lower = more sensitive.',
   'voice.providers.saved': 'ভয়েস প্রদানকারী সংরক্ষিত।',
   'voice.providers.failedToSave': 'ভয়েস প্রদানকারী সংরক্ষণ করতে ব্যর্থ',
   'voice.providers.ellipsis': '…',
@@ -926,16 +921,15 @@ const bn1: TranslationMap = {
   'voice.providers.failedToInstallPiper': 'পাইপার ইনস্টল করতে ব্যর্থ হয়েছে',
   'voice.providers.title': 'ভয়েস প্রদানকারী',
   'voice.providers.desc':
-    'ট্রান্সক্রিপশন এবং সংশ্লেষণ কোথায় চলে তা বেছে নিন। আপনার কর্মক্ষেত্রে বাইনারি এবং মডেলগুলি ডাউনলোড করতে স্থানীয়ভাবে ইনস্টল করুন বোতামগুলি ব্যবহার করুন৷ স্থানীয় প্রদানকারীদের ইনস্টল শেষ হওয়ার আগে সংরক্ষণ করা যেতে পারে — কোনো ম্যানুয়াল WHISPER_BIN বা PIPER_BIN সেটআপের প্রয়োজন নেই৷',
+    'Choose where transcription and synthesis run. Use the Install locally buttons to download the binaries and models into your workspace. Local providers can be saved before the install finishes — no manual WHISPER_BIN or PIPER_BIN setup required.',
   'voice.providers.sttProvider': 'স্পিচ-টু-টেক্সট প্রদানকারী',
   'voice.providers.sttProviderAria': 'STT প্রদানকারী',
   'voice.providers.cloudWhisperProxy': 'ক্লাউড (হুইস্পার প্রক্সি)',
   'voice.providers.localWhisper': 'স্থানীয় হুইস্পার',
   'voice.providers.installRequired': '(ইনস্টল করতে হবে)',
-  'voice.providers.whisperInstalledTitle':
-    'হুইস্পার ইনস্টল করা হয়। পুনরায় ইনস্টল করতে ক্লিক করুন.',
+  'voice.providers.whisperInstalledTitle': 'Whisper is installed. Click to reinstall.',
   'voice.providers.whisperDownloadTitle':
-    'আপনার কর্মক্ষেত্রে whisper.cpp এবং GGML মডেল ডাউনলোড করুন।',
+    'Download whisper.cpp and the GGML model into your workspace.',
   'voice.providers.installed': 'ইনস্টল করা হয়েছে',
   'voice.providers.installFailed': 'ইনস্টল ব্যর্থ হয়েছে',
   'voice.providers.notInstalled': 'ইনস্টল করা হয়নি',
@@ -952,17 +946,17 @@ const bn1: TranslationMap = {
   'voice.providers.localPiper': 'স্থানীয় পাইপার',
   'voice.providers.piperInstalledTitle': 'পাইপার ইনস্টল করা আছে। পুনরায় ইনস্টল করতে ক্লিক করুন.',
   'voice.providers.piperDownloadTitle':
-    'আপনার কর্মক্ষেত্রে পাইপার এবং বান্ডেল করা en_US-lessac-medium ভয়েস ডাউনলোড করুন।',
+    'Download Piper and the bundled en_US-lessac-medium voice into your workspace.',
   'voice.providers.piperVoice': 'পাইপার ভয়েস',
   'voice.providers.piperVoiceAria': 'পাইপার ভয়েস',
   'voice.providers.customVoiceOption': 'অন্যান্য (নীচে টাইপ করুন)…',
   'voice.providers.customVoiceAria': 'পাইপার ভয়েস আইডি (কাস্টম)',
   'voice.providers.customVoicePlaceholder': 'en_US-lessac-medium',
   'voice.providers.piperVoicesDesc':
-    'কণ্ঠস্বরগুলি huggingface.co/rhasspy/piper-voices থেকে আসে৷ নতুন .onnx ডাউনলোড করতে ভয়েস পরিবর্তন করার জন্য একটি ইনস্টল/পুনঃ ইনস্টল ক্লিকের প্রয়োজন হতে পারে।',
+    'Voices come from huggingface.co/rhasspy/piper-voices. Switching voices may require an Install/Reinstall click to download the new .onnx.',
   'voice.providers.mascotVoice': 'মাসকট ভয়েস',
   'voice.providers.mascotVoiceDescPrefix':
-    'মাস্কট কথ্য উত্তরের জন্য যে ElevenLabs ভয়েস ব্যবহার করে তা',
+    'The ElevenLabs voice the mascot uses for spoken replies is configured under',
   'voice.providers.mascotSettings': 'মাসকট সেটিংস',
   'voice.providers.mascotVoiceDescSuffix': '.',
   'voice.providers.hotkeyPlaceholder': 'Fn এর অধীনে কনফিগার করা হয়েছে',
@@ -974,6 +968,53 @@ const bn1: TranslationMap = {
   'voice.providers.piperPreset.alanMedium': 'GB · অ্যালান (পুরুষ)',
   'voice.providers.piperPreset.jennyDiocoMedium': 'GB · জেনি ডিওকো (মহিলা)',
   'voice.providers.piperPreset.northernEnglishMaleMedium': 'GB · উত্তর ইংরেজি (পুরুষ)',
+  'voice.providers.chip.cloud': 'OpenHuman (Managed)',
+  'voice.providers.chip.cloudAria': 'OpenHuman managed provider is always enabled',
+  'voice.providers.chip.whisper': 'Whisper (Local)',
+  'voice.providers.chip.enableWhisper': 'Enable local Whisper STT',
+  'voice.providers.chip.disableWhisper': 'Disable local Whisper STT',
+  'voice.providers.chip.piper': 'Piper (Local)',
+  'voice.providers.chip.enablePiper': 'Enable local Piper TTS',
+  'voice.providers.chip.disablePiper': 'Disable local Piper TTS',
+  'voice.providers.chip.enableProvider': 'Enable',
+  'voice.providers.chip.disableProvider': 'Disable',
+  'voice.providers.chip.apiKeyLabel': 'API Key',
+  'voice.providers.chip.apiKeyPlaceholder': 'sk-…',
+  'voice.providers.chip.comingSoon': 'coming soon',
+  'voice.modal.title': 'Configure',
+  'voice.modal.desc':
+    'Enter your API key to enable this provider. You can test the connection before saving.',
+  'voice.modal.testKey': 'Test Key',
+  'voice.modal.testing': 'Testing…',
+  'voice.modal.saveAndEnable': 'Save & Enable',
+  'voice.modal.enable': 'Enable',
+  'voice.modal.whisperDesc':
+    'Choose a model size and install the Whisper binary and GGML model into your workspace. Larger models are more accurate but slower.',
+  'voice.modal.piperDesc':
+    'Choose a voice and install the Piper binary and ONNX model into your workspace. Piper runs fully offline with low latency.',
+  'voice.routing.title': 'Voice Routing',
+  'voice.routing.desc': 'Choose which enabled providers handle speech-to-text and text-to-speech.',
+  'voice.routing.save': 'Save',
+  'voice.routing.testStt': 'Test STT',
+  'voice.routing.testTts': 'Test TTS',
+  'voice.routing.elevenlabsVoice': 'ElevenLabs Voice',
+  'voice.routing.elevenlabsVoiceAria': 'ElevenLabs voice selection',
+  'voice.routing.elevenlabsVoiceIdAria': 'ElevenLabs voice ID (custom)',
+  'voice.routing.elevenlabsVoiceDesc':
+    'Pick a curated voice or paste a custom voice ID from your ElevenLabs dashboard.',
+  'voice.externalProviders.title': 'External Voice Providers',
+  'voice.externalProviders.desc':
+    'Connect third-party STT/TTS APIs like Deepgram, ElevenLabs, or OpenAI directly.',
+  'voice.externalProviders.keySet': 'Key set',
+  'voice.externalProviders.noKey': 'No API key',
+  'voice.externalProviders.test': 'Test',
+  'voice.externalProviders.testing': 'Testing…',
+  'voice.externalProviders.remove': 'Remove',
+  'voice.externalProviders.provider': 'Provider',
+  'voice.externalProviders.selectProvider': 'Select a provider…',
+  'voice.externalProviders.apiKey': 'API Key',
+  'voice.externalProviders.apiKeyPlaceholder': 'sk-…',
+  'voice.externalProviders.add': 'Add',
   'screenAwareness.debug.debugAndDiagnostics': 'ডিবাগ এবং ডায়াগনস্টিকস',
   'screenAwareness.debug.collapse': 'সঙ্কুচিত',
   'screenAwareness.debug.expand': 'প্রসারিত করুন',
@@ -982,10 +1023,10 @@ const bn1: TranslationMap = {
   'screenAwareness.debug.baselineFps': 'বেসলাইন FPS',
   'screenAwareness.debug.useVisionModel': 'ভিআইপি ব্যবহার করুন',
   'screenAwareness.debug.useVisionModelDesc':
-    'ভিআইপি ব্যবহার করুন সমৃদ্ধ প্রেক্ষাপটের জন্য একটি দৃষ্টি LLM-এ স্ক্রিনশট পাঠান। বন্ধ থাকা অবস্থায়, শুধুমাত্র OCR টেক্সট LLM-এর সাথে ব্যবহার করা হয় — দ্রুততর এবং কোন ভিশন মডেলের প্রয়োজন নেই।',
+    'Send screenshots to a vision LLM for richer context. When off, only OCR text is used with a text LLM — faster and no vision model required.',
   'screenAwareness.debug.keepScreenshots': 'স্ক্রিনশটগুলি রাখুন',
   'screenAwareness.debug.keepScreenshotsDesc':
-    'প্রক্রিয়াকরণের পরে মুছে ফেলার পরিবর্তে ক্যাপচার করা স্ক্রিনশটগুলিকে ওয়ার্কস্পেসে সংরক্ষণ করুন',
+    'Save captured screenshots to the workspace instead of deleting after processing',
   'screenAwareness.debug.allowlist': 'অনুমতি তালিকা (প্রতি লাইনে একটি নিয়ম)',
   'screenAwareness.debug.denylist': 'অস্বীকারকারী (প্রতি লাইনে একটি নিয়ম)',
   'screenAwareness.debug.saveSettings': 'স্ক্রীন ইন্টেলিজেন্স সেটিংস সংরক্ষণ করুন',
@@ -1030,7 +1071,7 @@ const bn1: TranslationMap = {
   'memory.clear': 'সাফ',
   'memory.deleteConfirm': 'নামস্থান "{namespace}" এ নথি "{documentId}" মুছবেন?',
   'memory.clearNamespaceConfirm':
-    'এটি "{namespace}" নামস্থানের সমস্ত নথি স্থায়ীভাবে মুছে ফেলবে। চালিয়ে যান?',
+    'This will permanently delete ALL documents in namespace "{namespace}". Continue?',
   'memory.clearNamespaceSuccess': 'নামস্থান "{namespace}" সাফ করা হয়েছে৷',
   'memory.clearNamespaceEmpty': '"{namespace}" এ পরিষ্কার করার কিছু নেই।',
   'webhooks.debugTitle': 'ওয়েবহুক ডিবাগ',
@@ -1064,13 +1105,13 @@ const bn1: TranslationMap = {
   'providerSetup.error.defaultDetails': 'প্রদানকারী সেটআপ ব্যর্থ হয়েছে৷',
   'providerSetup.error.providerFallback': 'প্রদানকারী',
   'providerSetup.error.credentialsRejected':
-    '{provider} শংসাপত্রগুলি প্রত্যাখ্যান করেছে৷ API কী চেক করুন এবং আবার চেষ্টা করুন।',
+    '{provider} rejected the credentials. Check the API key and try again.',
   'providerSetup.error.endpointNotRecognized':
-    '{provider} শেষবিন্দু চিনতে পারেনি৷ বেস URL চেক করুন এবং আবার চেষ্টা করুন।',
+    '{provider} did not recognize the endpoint. Check the base URL and try again.',
   'providerSetup.error.providerUnavailable':
-    '{provider} এই মুহূর্তে অনুপলব্ধ৷ আবার চেষ্টা করুন বা প্রদানকারীর স্থিতি পরীক্ষা করুন।',
+    '{provider} is unavailable right now. Try again or check the provider status.',
   'providerSetup.error.unreachable':
-    '{provider} এ পৌঁছানো যায়নি। শেষ পয়েন্ট URL এবং নেটওয়ার্ক সংযোগ পরীক্ষা করুন, তারপর আবার চেষ্টা করুন।',
+    'Could not reach {provider}. Check the endpoint URL and network connection, then try again.',
   'providerSetup.error.couldNotReachWithMessage': '{provider} এ পৌঁছানো যায়নি: {message}',
   'providerSetup.error.technicalDetails': 'প্রযুক্তিগত বিবরণ',
   'devices.title': 'ডিভাইস',
@@ -1092,13 +1133,11 @@ const bn1: TranslationMap = {
   'devices.revoke': 'প্রত্যাহার করুন',
   'devices.revokeAria': 'প্রত্যাহার করুন {label}',
   'devices.confirmRevokeTitle': 'ডিভাইস প্রত্যাহার করবেন?',
-  'devices.confirmRevokeBody':
-    '{label} আর সংযোগ করতে সক্ষম হবে না৷ এটি পূর্বাবস্থায় ফেরানো যাবে না।',
+  'devices.confirmRevokeBody': '{label} will no longer be able to connect. This cannot be undone.',
   'devices.loadFailed': 'ডিভাইসগুলি লোড করতে ব্যর্থ হয়েছে: {message}',
   'devices.pairModal.title': 'পেয়ার iPhone',
   'devices.pairModal.loading': 'পেয়ারিং কোড তৈরি করা হচ্ছে...',
-  'devices.pairModal.instructions':
-    'আপনার iPhone এ OpenHuman অ্যাপটি খুলুন এবং এই কোডটি স্ক্যান করুন।',
+  'devices.pairModal.instructions': 'Open the OpenHuman app on your iPhone and scan this code.',
   'devices.pairModal.expiresIn': 'কোডের মেয়াদ ~{count} মিনিটে শেষ হবে',
   'devices.pairModal.expiresInPlural': 'কোডের মেয়াদ ~{count} মিনিটে শেষ হবে',
   'devices.pairModal.showDetails': 'বিবরণ দেখান',
@@ -1120,15 +1159,13 @@ const bn1: TranslationMap = {
   'mcp.catalog.noResultsFor': '"{query}" এর জন্য কোনো সার্ভার পাওয়া যায়নি।',
   'mcp.catalog.loadMore': 'আরও লোড করুন',
   'mcp.configAssistant.title': 'কনফিগারেশন সহকারী',
-  'mcp.configAssistant.empty':
-    'কনফিগারেশন, প্রয়োজনীয় env vars, বা সেটআপ পদক্ষেপগুলি সম্পর্কে জিজ্ঞাসা করুন৷',
+  'mcp.configAssistant.empty': 'Ask about configuration, required env vars, or setup steps.',
   'mcp.configAssistant.suggestedValues': 'প্রস্তাবিত মান:',
   'mcp.configAssistant.valueHidden': '(মান লুকানো)',
   'mcp.configAssistant.applySuggested': 'প্রস্তাবিত মান প্রয়োগ করুন',
   'mcp.configAssistant.reinstallHint': 'এই মানগুলি প্রয়োগ করতে পুনরায় ইনস্টল করুন।',
   'mcp.configAssistant.thinking': 'ভাবছি...',
-  'mcp.configAssistant.inputPlaceholder':
-    'একটি প্রশ্ন জিজ্ঞাসা করুন (পাঠাতে লিখুন, নতুন লাইনের জন্য Shift+Enter)',
+  'mcp.configAssistant.inputPlaceholder': 'Ask a question (Enter to send, Shift+Enter for newline)',
   'mcp.configAssistant.send': 'পাঠান',
   'mcp.configAssistant.failedResponse': 'প্রতিক্রিয়া পেতে ব্যর্থ',
   'mcp.toolList.availableSingular': '{count} টুল উপলব্ধ',
@@ -1161,7 +1198,7 @@ const bn1: TranslationMap = {
   'mcp.install.installing': 'ইনস্টল করা হচ্ছে...',
   'mcp.detail.suggestedEnvReady': 'প্রস্তাবিত পরিবেশ মান প্রস্তুত',
   'mcp.detail.suggestedEnvBody':
-    'তাদের প্রয়োগ করতে প্রস্তাবিত মানগুলির সাথে এই সার্ভারটি পুনরায় ইনস্টল করুন: {keys}',
+    'Re-install this server with the suggested values to apply them: {keys}',
   'mcp.detail.connect': 'সংযোগ করুন',
   'mcp.detail.connecting': 'সংযুক্ত হচ্ছে...',
   'mcp.detail.disconnect': 'সংযোগ বিচ্ছিন্ন করুন',
@@ -1174,10 +1211,8 @@ const bn1: TranslationMap = {
   'mcp.detail.tools': 'টুলস',
   'onboarding.skipForNow': 'এখনই এড়িয়ে যান',
   'onboarding.localAI.continueWithCloud': 'ক্লাউডের সাথে চালিয়ে যান',
-  'onboarding.localAI.useLocalAnyway':
-    'যাইহোক স্থানীয় AI ব্যবহার করুন (আপনার ডিভাইসের জন্য প্রস্তাবিত নয়)',
-  'onboarding.localAI.useLocalInstead':
-    'পরিবর্তে স্থানীয় AI ব্যবহার করুন (এখনই Ollama কানেক্ট করুন)',
+  'onboarding.localAI.useLocalAnyway': 'Use local AI anyway (not recommended for your device)',
+  'onboarding.localAI.useLocalInstead': 'Use local AI instead (connect Ollama now)',
   'onboarding.localAI.setupIssue': 'স্থানীয় AI সেটআপ একটি সমস্যার সম্মুখীন হয়েছে',
   'notifications.routingTitle': 'বিজ্ঞপ্তি রাউটিং',
   'notifications.routing.pipelineStats': 'পাইপলাইন পরিসংখ্যান',
@@ -1186,35 +1221,30 @@ const bn1: TranslationMap = {
   'notifications.routing.unscored': 'আনস্কোরড',
   'notifications.routing.intelligenceTitle': 'আনস্কোরড [[I18N_SEP_92731] নোটিফিকেশন',
   'notifications.routing.intelligenceDesc':
-    'আপনার সংযুক্ত অ্যাকাউন্ট থেকে প্রতিটি বিজ্ঞপ্তি স্থানীয় AI মডেল দ্বারা স্কোর করা হয়। উচ্চ-গুরুত্বপূর্ণ বিজ্ঞপ্তিগুলি স্বয়ংক্রিয়ভাবে আপনার অর্কেস্ট্রেটর এজেন্টের কাছে রুট করা হয় যাতে কোনও গুরুত্বপূর্ণ বিষয় স্লিপ না হয়।',
+    'Every notification from your connected accounts is scored by a local AI model. High-importance notifications are automatically routed to your orchestrator agent so nothing critical slips through.',
   'notifications.routing.howItWorks': 'এটি কীভাবে কাজ করে',
   'notifications.routing.level.drop': 'ড্রপ',
   'notifications.routing.level.dropDesc': 'নয়েজ / স্প্যাম — সঞ্চিত কিন্তু প্রকাশ করা হয় না',
   'notifications.routing.level.acknowledge': 'স্বীকার করুন',
-  'notifications.routing.level.acknowledgeDesc':
-    'স্বীকার করুন [[I18N_SEP_92731] বা কম দেখানো হয়েছে না] কেন্দ্র',
+  'notifications.routing.level.acknowledgeDesc': 'Low-priority — shown in notification center',
   'notifications.routing.level.react': 'প্রতিক্রিয়া',
-  'notifications.routing.level.reactDesc':
-    'মাঝারি-অগ্রাধিকার — একটি ফোকাসড এজেন্ট প্রতিক্রিয়া ট্রিগার করে',
+  'notifications.routing.level.reactDesc': 'Medium-priority — triggers a focused agent response',
   'notifications.routing.level.escalate': 'এস্কেলেট',
-  'notifications.routing.level.escalateDesc':
-    'উচ্চ-অগ্রাধিকার — অর্কেস্ট্রেটর এজেন্টের কাছে ফরোয়ার্ড করা হয়েছে',
+  'notifications.routing.level.escalateDesc': 'High-priority — forwarded to orchestrator agent',
   'notifications.routing.perProvider': 'প্রতি-প্রদানকারী রাউটিং',
   'notifications.routing.threshold': 'থ্রেশহোল্ড',
   'notifications.routing.routeToOrchestrator': 'অর্কেস্ট্রেটরের রুট',
-  'notifications.routing.loadSettingsError':
-    'সেটিংস লোড করতে ব্যর্থ হয়েছে৷ আবার চেষ্টা করতে এই প্যানেলটি আবার খুলুন।',
+  'notifications.routing.loadSettingsError': 'Failed to load settings. Reopen this panel to retry.',
   'settings.billing.inferenceBudget.title': 'Inference Budget',
   'settings.billing.inferenceBudget.noRecurringPlanBudget': 'কোনো পুনরাবৃত্ত প্ল্যান বাজেট নেই',
   'settings.billing.inferenceBudget.noRecurringWeeklyDesc':
-    'আপনার বর্তমান প্ল্যানে একটি পুনরাবৃত্ত সাপ্তাহিক অনুমান বাজেট অন্তর্ভুক্ত নয়। পরিবর্তে উপলব্ধ ক্রেডিট থেকে ব্যবহার প্রদান করা হয়.',
+    'Your current plan does not include a recurring weekly inference budget. Usage is paid from available credits instead.',
   'settings.billing.inferenceBudget.remainingSummary': '{remaining} / {budget} অবশিষ্ট',
   'settings.billing.inferenceBudget.spentThisCycle': '{amount} এই চক্রটি ব্যয় করেছে',
   'settings.billing.inferenceBudget.cycleEndsOn': 'চক্র শেষ হয় {date}',
   'settings.billing.inferenceBudget.exhaustedDesc':
-    'অন্তর্ভুক্ত সাবস্ক্রিপশন ব্যবহার নিঃশেষ হয়. পরবর্তী চক্রের জন্য অপেক্ষা না করে AI ব্যবহার চালিয়ে যেতে টপ আপ ক্রেডিট।',
-  'settings.billing.inferenceBudget.discountVsPayg':
-    '{pct}% প্রতি কলে পে-যেমন-যাওয়ার চেয়ে সস্তা।',
+    'Included subscription usage is exhausted. Top up credits to keep using AI without waiting for the next cycle.',
+  'settings.billing.inferenceBudget.discountVsPayg': '{pct}% cheaper per call than pay-as-you-go.',
   'settings.billing.inferenceBudget.cycleSpend': 'সাইকেল খরচ',
   'settings.billing.inferenceBudget.totalAmount': '{amount} মোট',
   'settings.billing.inferenceBudget.inference': 'অনুমান',
@@ -1231,8 +1261,7 @@ const bn1: TranslationMap = {
   'memory.sourceFilterAria': 'উত্স দ্বারা ফিল্টার',
   'calls.comingSoonDescription': 'AI-সহায়তা কলগুলি শীঘ্রই আসছে৷ সাথে থাকুন।',
   'vault.title': 'নলেজ ভল্ট',
-  'vault.description':
-    'একটি স্থানীয় ফোল্ডারে পয়েন্ট করুন; ফাইলগুলিকে টুকরো টুকরো করে মেমরিতে মিরর করা হয়।',
+  'vault.description': 'Point at a local folder; files are chunked and mirrored into memory.',
   'vault.add': 'ভল্ট যোগ করুন',
   'vault.added': 'ভল্ট যোগ করা হয়েছে',
   'vault.createdMessage': 'তৈরি করা হয়েছে "{name}"। ইনজেস্ট করতে {sync} এ ক্লিক করুন।',
@@ -1241,13 +1270,12 @@ const bn1: TranslationMap = {
   'vault.syncFailedFor': '"{name}"',
   'vault.syncFailedFiles': 'ফাইল __000 এর জন্য সিঙ্ক ব্যর্থ হয়েছে',
   'vault.syncedTitle': '"{name}"',
-  'vault.syncSummary':
-    'সিঙ্ক করা হয়েছে {ingested}, অপরিবর্তিত {unchanged}, সরানো হয়েছে {removed}',
+  'vault.syncSummary': 'Ingested {ingested}, unchanged {unchanged}, removed {removed}',
   'vault.syncSummaryFailed': ', ব্যর্থ হয়েছে {count}',
   'vault.syncSummarySkipped': '__PH এড়িয়ে গেছে',
   'vault.syncSummaryDuration': '· {seconds}s',
   'vault.confirmRemovePurge':
-    'ভল্ট "{name}" সরান?\\n_\\nএর মেমরি পরিষ্কার করতে ওকে ক্লিক করুন (সমস্ত {count} ইনজেস্ট করা নথি(গুলি) মুছে ফেলুন)__ নথিতে রাখতে পারেন।__C4 মেমরিতে রাখতে পারেন।',
+    'Remove vault "{name}"?\n\nClick OK to also purge its memory (delete all {count} ingested document(s)).\nClick Cancel to keep the documents in memory.',
   'vault.confirmRemove': 'সত্যিই ভল্ট "{name}" সরান?',
   'vault.removed': 'ভল্ট সরানো হয়েছে',
   'vault.removedPurgedMessage': '"{name}" সরানো হয়েছে এবং এর মেমরি পরিষ্কার করেছে৷',

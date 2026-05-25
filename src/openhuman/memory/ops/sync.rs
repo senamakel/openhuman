@@ -73,7 +73,12 @@ pub async fn memory_sync_channel(
         Some(&params.channel_id),
         Some("channel-targeted sync requested".to_string()),
     );
-    spawn_manual_sync(Some(params.channel_id.clone())).await?;
+    let channel_id_for_spawn = params.channel_id.clone();
+    tokio::spawn(async move {
+        if let Err(e) = spawn_manual_sync(Some(channel_id_for_spawn)).await {
+            tracing::warn!(error = %e, "[memory.sync] background channel sync failed");
+        }
+    });
     tracing::debug!("[memory.sync] memory_sync_channel: MemorySyncRequested published");
     Ok(RpcOutcome::new(
         SyncChannelResult {
@@ -101,14 +106,27 @@ pub async fn memory_sync_all() -> Result<RpcOutcome<SyncAllResult>, String> {
         None,
         Some("global sync requested".to_string()),
     );
-    spawn_manual_sync(None).await?;
+    tokio::spawn(async move {
+        if let Err(e) = spawn_manual_sync(None).await {
+            tracing::warn!(error = %e, "[memory.sync] background global sync failed");
+        }
+    });
     tracing::debug!("[memory.sync] memory_sync_all: MemorySyncRequested(all) published");
     Ok(RpcOutcome::new(SyncAllResult { requested: true }, vec![]))
 }
 
 async fn spawn_manual_sync(requested_connection: Option<String>) -> Result<(), String> {
     let config = config_rpc::load_config_with_timeout().await?;
-    let targets = composio::list_sync_targets(&config).await?;
+    let targets = match composio::list_sync_targets(&config).await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::debug!(
+                error = %e,
+                "[memory.sync] no composio sync targets available — proceeding with empty list"
+            );
+            Vec::new()
+        }
+    };
 
     let targets: Vec<composio::SyncTarget> = match requested_connection.as_deref() {
         Some(requested) => targets

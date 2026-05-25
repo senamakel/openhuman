@@ -125,11 +125,13 @@ export async function bootRuntimeReadyGuestPage(page: Page): Promise<void> {
 
 export async function signInViaCallbackToken(page: Page, token: string): Promise<void> {
   await completeAuthCallback(page, token);
+  await waitForAuthenticatedSnapshot(page);
   await waitForAppReady(page);
 }
 
 export async function signInViaBypassUser(page: Page, userId: string): Promise<void> {
   await completeAuthCallback(page, buildBypassJwt(userId));
+  await waitForAuthenticatedSnapshot(page);
   await waitForAppReady(page);
 }
 
@@ -150,7 +152,20 @@ export async function waitForAppReady(page: Page): Promise<void> {
       return text.trim().length;
     })
     .toBeGreaterThan(20);
-  await expect(page.getByText(/Select a Runtime|Connect to Your Runtime/)).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll('h2, button, p, div, span'));
+        return candidates.some(node => {
+          const text = node.textContent?.trim() ?? '';
+          if (!/Select a Runtime|Connect to Your Runtime/.test(text)) return false;
+          const el = node as HTMLElement;
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+      })
+    )
+    .toBe(false);
 }
 
 export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {

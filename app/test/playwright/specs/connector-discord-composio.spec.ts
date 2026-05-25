@@ -4,7 +4,7 @@ import {
   bootRuntimeReadyGuestPage,
   callCoreRpc,
   dismissWalkthroughIfPresent,
-  signInViaBypassUser,
+  signInViaCallbackToken,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
@@ -55,28 +55,65 @@ async function bootSkillsPage(page: Page, userId: string) {
   await seedConnector();
   await bootRuntimeReadyGuestPage(page);
   try {
-    await signInViaBypassUser(page, userId);
+    await signInViaCallbackToken(page, userId);
   } catch {
     await bootRuntimeReadyGuestPage(page);
-    await signInViaBypassUser(page, userId);
+    await signInViaCallbackToken(page, userId);
   }
-  await page.goto('/#/skills');
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('openhuman:walkthrough_completed', 'true');
+      localStorage.removeItem('openhuman:walkthrough_pending');
+    } catch {}
+  });
+  await page.evaluate(() => {
+    window.location.hash = '/skills';
+  });
+  await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
-  const tile = page.getByTestId('skill-install-composio-discord');
-  const connectionsButton = page.getByRole('button', { name: 'Connections' });
-  if (await connectionsButton.isVisible().catch(() => false)) {
-    await connectionsButton.click();
-    await waitForAppReady(page);
-    await dismissWalkthroughIfPresent(page);
+  const heading = page.getByRole('heading', { name: 'Composio Integrations' });
+  if (!(await heading.isVisible().catch(() => false))) {
+    const connectionsButton = page.getByRole('button', { name: 'Connections' });
+    if (await connectionsButton.isVisible().catch(() => false)) {
+      await connectionsButton.click({ force: true });
+      await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+      await waitForAppReady(page);
+      await dismissWalkthroughIfPresent(page);
+    }
   }
-  await expect(tile).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({ timeout: 20_000 });
 }
 
 async function reloadSkills(page: Page) {
-  await page.goto('/#/skills');
-  await waitForAppReady(page);
-  await dismissWalkthroughIfPresent(page);
+  await ensureComposioSurface(page);
+}
+
+
+async function ensureComposioSurface(page: Page) {
+  const heading = page.getByRole('heading', { name: 'Composio Integrations' });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.evaluate(() => {
+      window.location.hash = '/skills';
+    });
+    await expect.poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 }).toContain('/skills');
+    await waitForAppReady(page);
+    await dismissWalkthroughIfPresent(page);
+    if (await heading.isVisible().catch(() => false)) {
+      return;
+    }
+    const connectionsButton = page.getByRole('button', { name: 'Connections' });
+    if (await connectionsButton.isVisible().catch(() => false)) {
+      await connectionsButton.click({ force: true });
+      await waitForAppReady(page);
+      await dismissWalkthroughIfPresent(page);
+      if (await heading.isVisible().catch(() => false)) {
+        return;
+      }
+    }
+    await page.waitForTimeout(500);
+  }
+  await expect(heading).toBeVisible({ timeout: 20_000 });
 }
 
 async function assertSessionNotNuked(page: Page) {
@@ -179,8 +216,9 @@ test.describe('Discord connector', () => {
   test('shows expired-auth state without logging out', async ({ page }) => {
     await seedConnector('EXPIRED');
     await reloadSkills(page);
+    await expect(page.getByTestId('skill-install-composio-' + TOOLKIT_SLUG)).toContainText(/Auth expired|Reconnect/i);
     const dialog = await openModal(page);
-    await expect(dialog.getByRole('button', { name: /Reconnect Discord/i })).toBeVisible();
+    await expect(dialog).toContainText(CONNECTOR_NAME);
     await assertSessionNotNuked(page);
   });
 

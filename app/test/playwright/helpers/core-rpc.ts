@@ -50,9 +50,12 @@ export async function callCoreRpc<T>(method: string, params: Record<string, unkn
   return payload.result;
 }
 
-export async function resetCoreForWebUser(_userId: string): Promise<void> {
+export async function resetCoreForWebUser(userId: string): Promise<void> {
   await callCoreRpc('openhuman.auth_clear_session', {});
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
+  await callCoreRpc('openhuman.auth_store_session', {
+    token: buildBypassJwt(userId),
+  });
 }
 
 export async function seedBrowserCoreMode(page: Page): Promise<void> {
@@ -109,7 +112,8 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
 }
 
 export async function resetCoreForWebGuest(): Promise<void> {
-  await resetCoreForWebUser('guest');
+  await callCoreRpc('openhuman.auth_clear_session', {});
+  await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
 }
 
 export async function bootRuntimeReadyGuestPage(page: Page): Promise<void> {
@@ -132,11 +136,9 @@ export async function signInViaBypassUser(page: Page, userId: string): Promise<v
 export async function bootAuthenticatedPage(page: Page, userId: string, hash: string = '/home'): Promise<void> {
   await resetCoreForWebUser(userId);
   await seedBrowserCoreMode(page);
-  const token = buildBypassJwt(userId);
-  await completeAuthCallback(page, token);
-  if (hash !== '/home') {
-    await page.goto(`/#${hash}`);
-  }
+  await page.goto(`/#${hash}`);
+  await waitForAuthenticatedSnapshot(page);
+  await page.goto(`/#${hash}`);
   await waitForAppReady(page);
 }
 
@@ -157,4 +159,29 @@ export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {
   if (!(await skipButton.first().isVisible().catch(() => false))) return;
   await skipButton.first().click();
   await expect(skipButton.first()).toHaveCount(0, { timeout: 5_000 });
+  await expect(page.locator('#react-joyride-portal')).toHaveCount(0, { timeout: 5_000 });
+}
+
+async function waitForAuthenticatedSnapshot(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const winAny = window as unknown as {
+            __OPENHUMAN_CORE_STATE__?: () => {
+              snapshot?: {
+                sessionToken?: string | null;
+                currentUser?: { _id?: string | null } | null;
+              };
+            };
+          };
+          const snapshot = winAny.__OPENHUMAN_CORE_STATE__?.()?.snapshot;
+          return {
+            hasToken: Boolean(snapshot?.sessionToken),
+            hasUser: Boolean(snapshot?.currentUser?._id),
+          };
+        }),
+      { timeout: 20_000 }
+    )
+    .toEqual({ hasToken: true, hasUser: true });
 }

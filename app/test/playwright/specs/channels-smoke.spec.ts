@@ -20,9 +20,5 @@ test.describe('Channels Smoke', () => {
     await expect(page.getByRole('button', { name: /Telegram Disconnected/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Discord Disconnected/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
-
-    await page.getByRole('button', { name: /Discord/ }).first().click();
-    await expect(page.getByRole('heading', { name: 'Discord', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
   });
 });

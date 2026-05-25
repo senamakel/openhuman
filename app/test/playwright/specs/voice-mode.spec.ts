@@ -1,14 +1,123 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
-import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
+import {
+  bootAuthenticatedPage,
+  callCoreRpc,
+  dismissWalkthroughIfPresent,
+} from '../helpers/core-rpc';
+
+async function openChat(page: Page): Promise<void> {
+  await bootAuthenticatedPage(page, 'pw-voice-mode', '/chat');
+  await page.goto('/#/chat');
+  await page.evaluate(() => {
+    localStorage.setItem('openhuman:walkthrough_completed', 'true');
+    localStorage.removeItem('openhuman:walkthrough_pending');
+  });
+  await dismissWalkthroughIfPresent(page);
+  const skipButton = page.getByRole('button', { name: /Skip|Skip tour/i });
+  if (
+    await skipButton
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    await skipButton.first().click({ force: true });
+    await expect(skipButton.first()).toBeHidden();
+  }
+  await expect(page.getByPlaceholder('Type a message...')).toBeVisible();
+}
+
+async function installGetUserMediaError(page: Page, name: string): Promise<void> {
+  await page.evaluate(errorName => {
+    const mediaDevices = navigator.mediaDevices as MediaDevices & {
+      __e2e_original_getUserMedia?: MediaDevices['getUserMedia'];
+    };
+    if (!mediaDevices.__e2e_original_getUserMedia) {
+      mediaDevices.__e2e_original_getUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
+    }
+    Object.defineProperty(mediaDevices, 'getUserMedia', {
+      configurable: true,
+      value: () =>
+        Promise.reject(new DOMException(`[Playwright voice mock] ${errorName}`, errorName)),
+    });
+  }, name);
+}
+
+async function restoreGetUserMedia(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const mediaDevices = navigator.mediaDevices as MediaDevices & {
+      __e2e_original_getUserMedia?: MediaDevices['getUserMedia'];
+    };
+    if (mediaDevices.__e2e_original_getUserMedia) {
+      Object.defineProperty(mediaDevices, 'getUserMedia', {
+        configurable: true,
+        value: mediaDevices.__e2e_original_getUserMedia,
+      });
+      delete mediaDevices.__e2e_original_getUserMedia;
+    }
+  });
+}
+
+async function switchChatIntoMicComposer(page: Page): Promise<void> {
+  await dismissWalkthroughIfPresent(page);
+  await page.getByRole('button', { name: 'Start recording' }).click({ force: true });
+  await expect(page.getByText(/Tap and speak|Waiting for agent/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Switch to text' })).toBeVisible();
+}
 
 test.describe('Voice mode integration', () => {
-  test.skip('chat voice toggle UI was removed; migrate against the mascot voice path instead', async () => {});
+  test.beforeEach(async ({ page }) => {
+    await openChat(page);
+  });
+
+  test('chat mic button switches into MicComposer and can return to text mode', async ({
+    page,
+  }) => {
+    await switchChatIntoMicComposer(page);
+
+    await page.getByRole('button', { name: 'Switch to text' }).click();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible();
+    await expect(page.getByTestId('send-message-button')).toBeVisible();
+  });
+
+  test('permission-denied getUserMedia shows a specific voice-transcription error', async ({
+    page,
+  }) => {
+    await installGetUserMediaError(page, 'NotAllowedError');
+    try {
+      await switchChatIntoMicComposer(page);
+      await page.getByRole('button', { name: 'Start recording' }).click();
+
+      const errorBanner = page.locator('[data-chat-send-error-code="voice_transcription"]');
+      await expect(errorBanner).toBeVisible();
+      await expect(errorBanner).toContainText(/permission|denied|microphone/i);
+      await expect(errorBanner).not.toContainText(/something went wrong/i);
+    } finally {
+      await restoreGetUserMedia(page);
+    }
+  });
+
+  test('missing-device getUserMedia shows a specific unavailable-device error', async ({
+    page,
+  }) => {
+    await installGetUserMediaError(page, 'NotFoundError');
+    try {
+      await switchChatIntoMicComposer(page);
+      await page.getByRole('button', { name: 'Start recording' }).click();
+
+      const errorBanner = page.locator('[data-chat-send-error-code="voice_transcription"]');
+      await expect(errorBanner).toBeVisible();
+      await expect(errorBanner).toContainText(/unavailable|device|microphone|not found/i);
+      await expect(errorBanner).not.toContainText(/something went wrong/i);
+    } finally {
+      await restoreGetUserMedia(page);
+    }
+  });
 });
 
 test.describe('Voice mode - offline STT contract (voice_status RPC)', () => {
   test.beforeEach(async ({ page }) => {
-    await bootAuthenticatedPage(page, 'pw-voice-mode', '/home');
+    await bootAuthenticatedPage(page, 'pw-voice-mode-status', '/home');
   });
 
   test('voice_status RPC returns a well-formed response', async () => {

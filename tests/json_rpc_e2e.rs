@@ -776,9 +776,11 @@ async fn wait_for_chat_completion_requests_len(expected_len: usize) -> Vec<Value
 }
 
 async fn encrypt_test_mnemonic() -> String {
+    let _keyring_backend_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
     let config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for encrypted test mnemonic");
+    openhuman_core::openhuman::keyring::init_workspace(&config.workspace_dir);
     openhuman_core::openhuman::encryption::rpc::encrypt_secret(
         &config,
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",

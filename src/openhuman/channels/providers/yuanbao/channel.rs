@@ -261,7 +261,7 @@ impl Channel for YuanbaoChannel {
 
         let conn = Arc::clone(&self.connection);
         let shutdown_rx = self.shutdown_tx.subscribe();
-        let conn_task = tokio::spawn(async move {
+        let mut conn_task = tokio::spawn(async move {
             conn.run(shutdown_rx).await;
         });
 
@@ -292,7 +292,12 @@ impl Channel for YuanbaoChannel {
         }
 
         let _ = self.shutdown_tx.send(true);
-        conn_task.abort();
+        // Give the connection task a brief window to run its own shutdown cleanup
+        // (flush pending, update is_connected, etc.) before force-aborting.
+        match tokio::time::timeout(std::time::Duration::from_secs(2), &mut conn_task).await {
+            Ok(_) => {}
+            Err(_) => conn_task.abort(),
+        }
         Ok(())
     }
 

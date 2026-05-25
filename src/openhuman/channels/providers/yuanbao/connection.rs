@@ -210,7 +210,13 @@ impl YuanbaoConnection {
                     error!("[yuanbao] no-reconnect close code {} — stopping", code);
                     return;
                 }
-                Ok(close_code) => info!("[yuanbao] connection closed (code={:?})", close_code),
+                Ok(close_code) => {
+                    // Successful connection: reset the attempt counter so
+                    // intermittent disconnects don't permanently exhaust the
+                    // reconnect budget.
+                    attempt = 0;
+                    info!("[yuanbao] connection closed (code={:?})", close_code);
+                }
                 Err(e) => warn!("[yuanbao] connection error: {}", e),
             }
 

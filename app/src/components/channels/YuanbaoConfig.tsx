@@ -65,6 +65,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
 
   // All useCallback hooks must be called unconditionally.
   const handleConnect = useCallback(() => {
+    if (busy) return;
     log('handleConnect entry, spec=%o', spec);
     if (!spec) {
       log('handleConnect aborted — spec is null');
@@ -184,6 +185,7 @@ const YuanbaoConfig = ({ definition }: YuanbaoConfigProps) => {
   }, [dispatch, fieldValues, spec, t]);
 
   const handleDisconnect = useCallback(() => {
+    if (busy) return;
     if (!spec) return;
     setBusy(true);
     void (async () => {

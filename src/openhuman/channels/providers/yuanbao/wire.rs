@@ -44,6 +44,13 @@ pub fn decode_varint(data: &[u8], pos: usize) -> Result<(u64, usize), YuanbaoErr
             return Err(YuanbaoError::ProtoDecode("truncated varint".into()));
         }
         let byte = data[i];
+        // On the 10th byte (shift == 63) a valid u64 varint can only have
+        // the lowest bit set (values 0 or 1); anything higher overflows.
+        if shift == 63 && byte > 1 {
+            return Err(YuanbaoError::ProtoDecode(format!(
+                "varint overflow: 10th byte is {byte:#04x}, expected 0x00 or 0x01"
+            )));
+        }
         value |= ((byte & 0x7F) as u64) << shift;
         i += 1;
         if byte & 0x80 == 0 {

@@ -199,20 +199,22 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         init_global(event_bus::DEFAULT_CAPACITY);
-        register_sync_stage_bridge();
 
         let collector = StageCollector::default();
         let _subscription =
             subscribe_global(Arc::new(collector.clone())).expect("event bus initialized");
 
-        event_bus::publish_global(DomainEvent::DocumentCanonicalized {
-            source_id: "slack:workspace-1".into(),
-            source_kind: "chat".into(),
-            chunks_written: 3,
-            chunk_ids: vec!["chunk-1".into()],
-            canonicalized_at: 1_700_000_000.0,
-            body_preview: None,
-        });
+        let bridge = MemorySyncStageBridge;
+        bridge
+            .handle(&DomainEvent::DocumentCanonicalized {
+                source_id: "slack:workspace-1".into(),
+                source_kind: "chat".into(),
+                chunks_written: 3,
+                chunk_ids: vec!["chunk-1".into()],
+                canonicalized_at: 1_700_000_000.0,
+                body_preview: None,
+            })
+            .await;
 
         tokio::task::yield_now().await;
 
@@ -236,18 +238,20 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         init_global(event_bus::DEFAULT_CAPACITY);
-        register_sync_stage_bridge();
 
         let collector = StageCollector::default();
         let _subscription =
             subscribe_global(Arc::new(collector.clone())).expect("event bus initialized");
 
-        event_bus::publish_global(DomainEvent::MemoryIngestionStarted {
-            document_id: "doc-123".into(),
-            title: "Vault Note".into(),
-            namespace: "vault:v-1".into(),
-            queue_depth: 2,
-        });
+        let bridge = MemorySyncStageBridge;
+        bridge
+            .handle(&DomainEvent::MemoryIngestionStarted {
+                document_id: "doc-123".into(),
+                title: "Vault Note".into(),
+                namespace: "vault:v-1".into(),
+                queue_depth: 2,
+            })
+            .await;
 
         tokio::task::yield_now().await;
 

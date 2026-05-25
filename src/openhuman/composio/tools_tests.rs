@@ -1,8 +1,8 @@
 use super::*;
 use crate::openhuman::composio::providers::tool_scope::{CuratedTool, ToolScope};
 use crate::openhuman::composio::providers::{
-    registry::register_provider, ComposioProvider, ProviderContext, ProviderUserProfile,
-    SyncOutcome, SyncReason,
+    ComposioProvider, ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason,
+    registry::register_provider,
 };
 use async_trait::async_trait;
 use std::path::Path;
@@ -52,6 +52,31 @@ impl WorkspaceEnvGuard {
             std::env::set_var("OPENHUMAN_WORKSPACE", path);
         }
         Self { previous }
+    }
+}
+
+struct HomeEnvGuard {
+    previous: Option<std::ffi::OsString>,
+}
+
+impl HomeEnvGuard {
+    fn set(path: &Path) -> Self {
+        let previous = std::env::var_os("HOME");
+        unsafe {
+            std::env::set_var("HOME", path);
+        }
+        Self { previous }
+    }
+}
+
+impl Drop for HomeEnvGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match self.previous.take() {
+                Some(value) => std::env::set_var("HOME", value),
+                None => std::env::remove_var("HOME"),
+            }
+        }
     }
 }
 
@@ -134,10 +159,11 @@ fn list_toolkits_tool_metadata_is_stable() {
     let s = t.parameters_schema();
     assert_eq!(s["type"], "object");
     // No required inputs.
-    assert!(s
-        .get("required")
-        .and_then(|r| r.as_array())
-        .map_or(true, |a| a.is_empty()));
+    assert!(
+        s.get("required")
+            .and_then(|r| r.as_array())
+            .map_or(true, |a| a.is_empty())
+    );
 }
 
 #[test]
@@ -800,10 +826,12 @@ async fn execute_tool_per_call_factory_means_no_baked_client() {
 
     let tmp = tempfile::tempdir().unwrap();
     let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _home_guard = HomeEnvGuard::set(tmp.path());
 
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.workspace_dir = tmp.path().join("workspace");
+    std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     // No api_key here — direct-mode factory must reject.
     config.save().await.expect("save fake config to disk");
@@ -846,10 +874,12 @@ async fn list_toolkits_in_direct_mode_returns_empty_without_hitting_backend() {
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _home_guard = HomeEnvGuard::set(tmp.path());
 
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.workspace_dir = tmp.path().join("workspace");
+    std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
     config.save().await.expect("save fake config to disk");
@@ -913,10 +943,12 @@ async fn authorize_in_direct_mode_refuses_with_app_composio_dev_hint() {
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _home_guard = HomeEnvGuard::set(tmp.path());
 
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.workspace_dir = tmp.path().join("workspace");
+    std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
     config.save().await.expect("save fake config to disk");

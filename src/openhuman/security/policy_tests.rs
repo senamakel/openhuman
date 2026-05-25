@@ -53,9 +53,10 @@ fn can_act_full_true() {
 #[test]
 fn enforce_tool_operation_read_allowed_in_readonly_mode() {
     let p = readonly_policy();
-    assert!(p
-        .enforce_tool_operation(ToolOperation::Read, "memory_recall")
-        .is_ok());
+    assert!(
+        p.enforce_tool_operation(ToolOperation::Read, "memory_recall")
+            .is_ok()
+    );
 }
 
 #[test]
@@ -424,7 +425,15 @@ fn empty_path_allowed() {
 
 #[test]
 fn dotfile_in_workspace_allowed() {
-    let p = default_policy();
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    std::fs::write(workspace.path().join(".gitignore"), "target/\n").expect("write .gitignore");
+    std::fs::write(workspace.path().join(".env"), "LOCAL_ONLY=1\n").expect("write .env");
+    let p = SecurityPolicy {
+        workspace_dir: workspace.path().to_path_buf(),
+        workspace_only: true,
+        forbidden_paths: vec![],
+        ..SecurityPolicy::default()
+    };
     assert!(p.is_path_string_allowed(".gitignore"));
     assert!(p.is_path_string_allowed(".env"));
 }
@@ -1427,10 +1436,12 @@ async fn validate_parent_path_blocks_symlinked_parent_dir() {
         forbidden_paths: vec![],
         ..SecurityPolicy::default()
     };
-    assert!(policy
-        .validate_parent_path("subdir/newfile.txt")
-        .await
-        .is_err());
+    assert!(
+        policy
+            .validate_parent_path("subdir/newfile.txt")
+            .await
+            .is_err()
+    );
 }
 
 #[cfg(unix)]
@@ -1472,10 +1483,12 @@ async fn validate_parent_path_blocks_forbidden_path() {
         ..SecurityPolicy::default()
     };
     // Writing a new file directly into the forbidden dir must be blocked.
-    assert!(policy
-        .validate_parent_path("secrets/output.csv")
-        .await
-        .is_err());
+    assert!(
+        policy
+            .validate_parent_path("secrets/output.csv")
+            .await
+            .is_err()
+    );
 }
 
 // ── tilde expansion in validate_path / validate_parent_path ──────────────────

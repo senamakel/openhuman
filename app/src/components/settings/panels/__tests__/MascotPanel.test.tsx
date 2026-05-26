@@ -85,13 +85,13 @@ describe('MascotPanel', () => {
 
   it('is a no-op when clicking the already-selected color', () => {
     const store = buildStore();
-    store.dispatch(setMascotColor('green'));
+    store.dispatch(setMascotColor('custom'));
     const dispatchSpy = vi.spyOn(store, 'dispatch');
     renderPanel(store);
     fireEvent.click(screen.getByRole('radio', { name: 'Green' }));
     // No additional dispatches beyond what React-Redux did to subscribe.
     expect(dispatchSpy).not.toHaveBeenCalled();
-    expect(store.getState().mascot.color).toBe('green');
+    expect(store.getState().mascot.color).toBe('custom');
   });
 
   it('invokes navigateBack from the header back button', () => {
@@ -130,14 +130,14 @@ describe('MascotPanel — mascotSlice rehydrate guard', () => {
   it('ignores REHYDRATE actions for other slice keys', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
     store.dispatch(setMascotColor('navy'));
-    store.dispatch({ type: REHYDRATE, key: 'someOtherSlice', payload: { color: 'green' } });
+    store.dispatch({ type: REHYDRATE, key: 'someOtherSlice', payload: { color: 'custom' } });
     // Should remain navy — we only handle key === 'mascot'.
     expect(store.getState().mascot.color).toBe('navy');
   });
 
   it('renders the rehydrated color as selected in the panel', () => {
     const store = configureStore({ reducer: { mascot: mascotReducer } });
-    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: { color: 'green' } });
+    store.dispatch({ type: REHYDRATE, key: 'mascot', payload: { color: 'custom' } });
     render(
       <Provider store={store}>
         <MemoryRouter>

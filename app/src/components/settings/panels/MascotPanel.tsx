@@ -17,6 +17,8 @@ import {
   isCustomMascotGifUrl,
   type MascotVoiceGender,
   selectCustomMascotGifUrl,
+  selectCustomPrimaryColor,
+  selectCustomSecondaryColor,
   selectEffectiveMascotVoiceId,
   selectMascotColor,
   selectMascotVoiceGender,
@@ -24,6 +26,8 @@ import {
   selectMascotVoiceUseLocaleDefault,
   selectSelectedMascotId,
   setCustomMascotGifUrl,
+  setCustomPrimaryColor,
+  setCustomSecondaryColor,
   setMascotColor,
   setMascotVoiceGender,
   setMascotVoiceId,
@@ -51,7 +55,7 @@ const COLOR_OPTIONS: ColorOption[] = [
   { id: 'burgundy', labelKey: 'settings.mascot.colorBurgundy' },
   { id: 'black', labelKey: 'settings.mascot.colorBlack' },
   { id: 'navy', labelKey: 'settings.mascot.colorNavy' },
-  { id: 'green', labelKey: 'settings.mascot.colorGreen' },
+  { id: 'custom', labelKey: 'settings.mascot.colorCustom' },
 ];
 
 const MascotPanel = () => {
@@ -59,6 +63,8 @@ const MascotPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const dispatch = useAppDispatch();
   const storedColor = useAppSelector(selectMascotColor);
+  const customPrimary = useAppSelector(selectCustomPrimaryColor);
+  const customSecondary = useAppSelector(selectCustomSecondaryColor);
   const selectedMascotId = useAppSelector(selectSelectedMascotId);
   const customMascotGifUrl = useAppSelector(selectCustomMascotGifUrl);
   const storedVoiceId = useAppSelector(selectMascotVoiceId);
@@ -285,10 +291,14 @@ const MascotPanel = () => {
   const visibleDetailError = selectedMascotId ? detailError : null;
 
   const activePalette = getMascotPalette(activeColor);
-  const primaryColorArgb = useMemo(() => hexToArgbInt(activePalette.bodyFill), [activePalette]);
+  const primaryColorArgb = useMemo(
+    () => hexToArgbInt(activeColor === 'custom' ? customPrimary : activePalette.bodyFill),
+    [activeColor, customPrimary, activePalette]
+  );
   const secondaryColorArgb = useMemo(
-    () => hexToArgbInt(activePalette.neckShadowColor),
-    [activePalette]
+    () =>
+      hexToArgbInt(activeColor === 'custom' ? customSecondary : activePalette.neckShadowColor),
+    [activeColor, customSecondary, activePalette]
   );
 
   return (
@@ -350,7 +360,13 @@ const MascotPanel = () => {
                             ? 'border-primary-500 shadow-soft'
                             : 'border-stone-200 dark:border-neutral-800'
                         }`}
-                        style={{ backgroundColor: palette.bodyFill }}
+                        style={
+                          opt.id === 'custom'
+                            ? {
+                                background: `linear-gradient(135deg, ${customPrimary} 50%, ${customSecondary} 50%)`,
+                              }
+                            : { backgroundColor: palette.bodyFill }
+                        }
                       />
                       <span className="text-xs text-stone-700 dark:text-neutral-200">{label}</span>
                     </button>
@@ -359,6 +375,38 @@ const MascotPanel = () => {
               </div>
             )}
           </div>
+          {activeColor === 'custom' && (
+            <div className="mt-3 bg-white dark:bg-neutral-900 rounded-xl border border-stone-200 dark:border-neutral-800 p-4 space-y-3">
+              <label className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={customPrimary}
+                  onChange={e => dispatch(setCustomPrimaryColor(e.target.value))}
+                  className="w-8 h-8 rounded-md border border-stone-200 dark:border-neutral-700 cursor-pointer p-0"
+                />
+                <span className="text-sm text-stone-700 dark:text-neutral-200">
+                  {t('settings.mascot.primaryColor')}
+                </span>
+                <code className="ml-auto text-[11px] font-mono text-stone-400 dark:text-neutral-500">
+                  {customPrimary}
+                </code>
+              </label>
+              <label className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={customSecondary}
+                  onChange={e => dispatch(setCustomSecondaryColor(e.target.value))}
+                  className="w-8 h-8 rounded-md border border-stone-200 dark:border-neutral-700 cursor-pointer p-0"
+                />
+                <span className="text-sm text-stone-700 dark:text-neutral-200">
+                  {t('settings.mascot.secondaryColor')}
+                </span>
+                <code className="ml-auto text-[11px] font-mono text-stone-400 dark:text-neutral-500">
+                  {customSecondary}
+                </code>
+              </label>
+            </div>
+          )}
           <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed px-1 mt-2">
             {t('settings.mascot.colorDesc')}
           </p>

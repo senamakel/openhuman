@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import Conversations from '../../pages/Conversations';
 import { useAppSelector } from '../../store/hooks';
-import { selectCustomMascotGifUrl, selectMascotColor } from '../../store/mascotSlice';
+import {
+  selectCustomMascotGifUrl,
+  selectCustomPrimaryColor,
+  selectCustomSecondaryColor,
+  selectMascotColor,
+} from '../../store/mascotSlice';
 import { CustomGifMascot, getMascotPalette, hexToArgbInt, RiveMascot } from './Mascot';
 import { useHumanMascot } from './useHumanMascot';
 
@@ -22,10 +27,18 @@ const HumanPage = () => {
 
   const { face } = useHumanMascot({ speakReplies });
   const mascotColor = useAppSelector(selectMascotColor);
+  const customPrimary = useAppSelector(selectCustomPrimaryColor);
+  const customSecondary = useAppSelector(selectCustomSecondaryColor);
   const customMascotGifUrl = useAppSelector(selectCustomMascotGifUrl);
   const palette = getMascotPalette(mascotColor);
-  const primaryColor = useMemo(() => hexToArgbInt(palette.bodyFill), [palette]);
-  const secondaryColor = useMemo(() => hexToArgbInt(palette.neckShadowColor), [palette]);
+  const primaryColor = useMemo(
+    () => hexToArgbInt(mascotColor === 'custom' ? customPrimary : palette.bodyFill),
+    [mascotColor, customPrimary, palette]
+  );
+  const secondaryColor = useMemo(
+    () => hexToArgbInt(mascotColor === 'custom' ? customSecondary : palette.neckShadowColor),
+    [mascotColor, customSecondary, palette]
+  );
 
   return (
     <div className="absolute inset-0 bg-stone-100 dark:bg-neutral-950 overflow-hidden">

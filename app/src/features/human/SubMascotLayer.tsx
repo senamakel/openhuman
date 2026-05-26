@@ -12,7 +12,6 @@ const ACTIVITY_LIMIT = 74;
 
 const SUB_MASCOT_COLORS: readonly MascotColor[] = [
   'yellow',
-  'green',
   'navy',
   'burgundy',
   'black',

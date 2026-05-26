@@ -64,7 +64,7 @@ describe('MascotPanel', () => {
   it('renders a radio swatch for each supported color', () => {
     renderPanel();
     expect(screen.getByRole('radiogroup', { name: 'OpenHuman color' })).toBeInTheDocument();
-    for (const label of ['Yellow', 'Burgundy', 'Black', 'Navy', 'Green']) {
+    for (const label of ['Yellow', 'Burgundy', 'Black', 'Navy', 'Custom']) {
       expect(screen.getByRole('radio', { name: label })).toBeInTheDocument();
     }
   });
@@ -88,7 +88,7 @@ describe('MascotPanel', () => {
     store.dispatch(setMascotColor('custom'));
     const dispatchSpy = vi.spyOn(store, 'dispatch');
     renderPanel(store);
-    fireEvent.click(screen.getByRole('radio', { name: 'Green' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Custom' }));
     // No additional dispatches beyond what React-Redux did to subscribe.
     expect(dispatchSpy).not.toHaveBeenCalled();
     expect(store.getState().mascot.color).toBe('custom');
@@ -145,7 +145,7 @@ describe('MascotPanel — mascotSlice rehydrate guard', () => {
         </MemoryRouter>
       </Provider>
     );
-    expect(screen.getByRole('radio', { name: 'Green' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Custom' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: 'Yellow' })).toHaveAttribute('aria-checked', 'false');
   });
 

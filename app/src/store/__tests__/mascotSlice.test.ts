@@ -52,7 +52,7 @@ describe('mascotSlice', () => {
 
   it('exposes all five supported colors', () => {
     expect(new Set(SUPPORTED_MASCOT_COLORS)).toEqual(
-      new Set(['yellow', 'burgundy', 'black', 'navy', 'navy'])
+      new Set(['yellow', 'burgundy', 'black', 'navy', 'custom'])
     );
   });
 

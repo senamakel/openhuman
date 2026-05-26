@@ -41,6 +41,18 @@ const bn3: TranslationMap = {
     'ভল্ট ডিরেক্টরিটি সরাসরি খুলতে রিভিল ফোল্ডার ব্যবহার করুন। ভল্ট পাথ:',
   'workspace.revealVaultFailed': "Couldn't reveal vault folder",
   'workspace.revealFolder': 'ফোল্ডার প্রকাশ করুন',
+  'workspace.checkingVault': 'Checking…',
+  'workspace.vaultNotRegisteredHelp':
+    'Obsidian only opens folders you\'ve added as a vault. In Obsidian, choose "Open folder as vault" and pick the folder below — you only need to do this once. Then click View Vault again.',
+  'workspace.obsidianNotFoundHelp':
+    "We couldn't find Obsidian on this device. Install it, or — if it's installed somewhere non-standard — set its config folder under Advanced.",
+  'workspace.openAnyway': 'Open in Obsidian anyway',
+  'workspace.installObsidian': 'Install Obsidian',
+  'workspace.obsidianAdvanced': 'Obsidian installed elsewhere?',
+  'workspace.obsidianConfigDirLabel': 'Obsidian config folder',
+  'workspace.obsidianConfigDirHint':
+    'Path to the folder containing obsidian.json (e.g. ~/.config/obsidian). Leave blank to auto-detect.',
+  'workspace.obsidianConfigDirPlaceholder': '~/.config/obsidian',
   'workspace.graphLoadFailed': 'মেমোরি গ্রাফ লোড করতে ব্যর্থ',
   'workspace.loadingGraph': 'মেমোরি গ্রাফ লোড হচ্ছে...',
   'workspace.graphViewMode': 'মেমোরি গ্রাফ ভিউ মোড',

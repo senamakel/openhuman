@@ -99,27 +99,26 @@ fn is_staging_or_production() -> bool {
     )
 }
 
-/// Derive the workspace directory for the `FileBackend`.
+/// Derive the directory for keyring files (`secrets.enc`, `dev-keychain.json`).
 ///
 /// Uses the registered value from [`init_workspace`] if set; otherwise falls
 /// back to the same env-var / home-dir logic as the config subsystem.
-pub(super) fn workspace_dir_for_file_backend() -> PathBuf {
+/// Always resolves to a stable absolute path — never CWD.
+pub fn workspace_dir_for_file_backend() -> PathBuf {
     if let Some(dir) = WORKSPACE_DIR.get() {
         return dir.clone();
     }
 
-    // Fallback: replicate config's default derivation.
-    //   OPENHUMAN_WORKSPACE → use directly.
-    //   Else home_dir/.openhuman-staging/workspace (staging) or
-    //        home_dir/.openhuman/workspace (default).
     if let Ok(custom) = std::env::var("OPENHUMAN_WORKSPACE") {
         return PathBuf::from(custom);
     }
 
-    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let home = dirs::home_dir().unwrap_or_else(|| {
+        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()))
+    });
     let openhuman_dir = match std::env::var("OPENHUMAN_APP_ENV").as_deref() {
         Ok("staging") => home.join(".openhuman-staging"),
         _ => home.join(".openhuman"),
     };
-    openhuman_dir.join("workspace")
+    openhuman_dir
 }

@@ -29,16 +29,18 @@ static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
 
 // ── Public API for core startup ──────────────────────────────────────────────
 
-/// Load (or create) the master key from the OS keychain.
+/// Initialize the keyring subsystem: set the workspace directory and load
+/// the master encryption key from the OS keychain (staging/production only).
 ///
-/// Call this once at core startup before any keyring operations. The key is
-/// cached process-wide; subsequent calls are no-ops. If the keychain is
-/// unavailable or the user denies the prompt, `None` is stored and all
-/// keyring reads return empty / writes fail gracefully.
-///
-/// The keychain access runs on a background thread with a timeout so a
-/// pending macOS approval dialog doesn't block core startup indefinitely.
+/// Call this once at core startup before any keyring operations. In dev
+/// environments the master key is not loaded (the plain file backend is
+/// used instead). The result is cached process-wide; subsequent calls are
+/// no-ops.
 pub fn init_master_key() {
+    // Ensure workspace dir is set for the backend before anything else.
+    let dir = crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+    crate::openhuman::keyring::init_workspace(&dir);
+
     MASTER_KEY.get_or_init(|| {
         if !is_staging_or_production() {
             log::debug!(

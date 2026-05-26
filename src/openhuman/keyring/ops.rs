@@ -92,9 +92,9 @@ pub fn is_available() -> bool {
         backend().name()
     );
 
-    // File and mock backends are always available.
+    // File-based and mock backends are always available.
     let b = backend();
-    if b.name() == "file" || b.name() == "mock" {
+    if b.name() == "file" || b.name() == "mock" || b.name() == "encrypted_file" {
         log::debug!("[keyring] is_available=true (non-os backend)");
         return true;
     }

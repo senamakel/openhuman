@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { CustomGifMascot } from '../../../features/human/Mascot';
+import { CustomGifMascot, RiveMascot } from '../../../features/human/Mascot';
 import { BackendMascot } from '../../../features/human/Mascot/backend/BackendMascot';
 import type { MascotDetail, MascotSummary } from '../../../features/human/Mascot/backend/types';
 import { getMascotPalette, type MascotColor } from '../../../features/human/Mascot/mascotPalette';
@@ -34,6 +34,14 @@ import {
   ELEVENLABS_VOICE_PRESETS,
   isCuratedVoicePreset,
 } from './elevenlabsVoicePresets';
+
+function hexToArgbInt(hex: string): number {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return ((0xff << 24) | (r << 16) | (g << 8) | b) >>> 0;
+}
 
 interface ColorOption {
   id: MascotColor;
@@ -280,6 +288,13 @@ const MascotPanel = () => {
   const visibleActiveDetail = selectedMascotId ? activeDetail : null;
   const visibleDetailError = selectedMascotId ? detailError : null;
 
+  const activePalette = getMascotPalette(activeColor);
+  const primaryColorArgb = useMemo(() => hexToArgbInt(activePalette.bodyFill), [activePalette]);
+  const secondaryColorArgb = useMemo(
+    () => hexToArgbInt(activePalette.neckShadowColor),
+    [activePalette]
+  );
+
   return (
     <div>
       <SettingsHeader
@@ -290,6 +305,17 @@ const MascotPanel = () => {
       />
 
       <div className="p-4 space-y-4">
+        <div className="flex justify-center">
+          <div style={{ width: 180, height: 180 }}>
+            <RiveMascot
+              face="idle"
+              size={180}
+              primaryColor={primaryColorArgb}
+              secondaryColor={secondaryColorArgb}
+            />
+          </div>
+        </div>
+
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500 mb-2 px-1">
             {t('settings.mascot.colorHeading')}

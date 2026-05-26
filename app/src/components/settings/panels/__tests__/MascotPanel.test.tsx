@@ -24,6 +24,17 @@ vi.mock('../../../../services/mascotService', () => ({
   getCachedMascotDetail: (...args: unknown[]) => getCachedMascotDetailMock(...args),
 }));
 
+vi.mock('../../../../features/human/Mascot', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../../../features/human/Mascot')>();
+  return {
+    ...actual,
+    RiveMascot: () => <div data-testid="rive-mascot-preview" />,
+    CustomGifMascot: ({ src }: { src: string }) => (
+      <img data-testid="custom-gif-mascot" src={src} alt="" />
+    ),
+  };
+});
+
 vi.mock('../../../../features/human/Mascot/backend/BackendMascot', () => ({
   BackendMascot: ({ mascot }: { mascot: { id: string } }) => (
     <div data-testid={`backend-mascot-preview-${mascot.id}`} />

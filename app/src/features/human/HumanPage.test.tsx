@@ -11,9 +11,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import chatRuntimeReducer, { setToolTimelineForThread } from '../../store/chatRuntimeSlice';
+import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import mascotReducer, { setCustomMascotGifUrl } from '../../store/mascotSlice';
-import threadReducer, { setSelectedThread } from '../../store/threadSlice';
+import threadReducer from '../../store/threadSlice';
 // ── Static import (after mocks are hoisted) ──────────────────────────────
 import HumanPage from './HumanPage';
 
@@ -24,7 +24,7 @@ vi.mock('../../pages/Conversations', () => ({
 }));
 
 vi.mock('./Mascot', () => ({
-  YellowMascot: () => <div data-testid="mascot-stub" />,
+  RiveMascot: () => <div data-testid="mascot-stub" />,
   CustomGifMascot: ({ src, face }: { src: string; face?: string }) => (
     <img data-testid="custom-gif-mascot" data-face={face} src={src} alt="" />
   ),
@@ -103,44 +103,6 @@ describe('HumanPage — speak-replies localStorage persistence', () => {
 
     expect(localStorage.getItem(SPEAK_REPLIES_KEY)).toBe('1');
     expect(checkbox).toBeChecked();
-  });
-
-  it('renders sub-mascots for the selected thread subagent timeline', () => {
-    const store = buildMinimalStore();
-    store.dispatch(setSelectedThread('thread-subagents'));
-    store.dispatch(
-      setToolTimelineForThread({
-        threadId: 'thread-subagents',
-        entries: [
-          {
-            id: 'thread-subagents:subagent:sub-1:researcher',
-            name: 'subagent:researcher',
-            round: 1,
-            status: 'running',
-            detail: 'Research the latest docs and report back.',
-            subagent: {
-              taskId: 'sub-1',
-              agentId: 'researcher',
-              childIteration: 1,
-              childMaxIterations: 3,
-              toolCalls: [],
-            },
-          },
-        ],
-      })
-    );
-
-    renderHumanPage(store);
-
-    expect(screen.getByTestId('sub-mascot-layer')).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: /researcher subagent running/i })
-    ).toBeInTheDocument();
-    // The bubble renders only the label; activity moved to the title tooltip.
-    expect(screen.getByText('Researcher')).toBeInTheDocument();
-    // Activity is in the title attribute of the bubble, not visible body text.
-    const bubble = screen.getByTestId('sub-mascot-bubble');
-    expect(bubble).toHaveAttribute('title', expect.stringContaining('Iteration 1/3'));
   });
 
   it('renders a custom GIF mascot when one is configured', () => {

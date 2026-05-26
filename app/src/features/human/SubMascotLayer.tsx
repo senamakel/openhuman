@@ -2,7 +2,7 @@ import debug from 'debug';
 import { type FC, useMemo } from 'react';
 
 import type { ToolTimelineEntry, ToolTimelineEntryStatus } from '../../store/chatRuntimeSlice';
-import { type MascotFace, YellowMascot } from './Mascot';
+import { type MascotFace, RiveMascot } from './Mascot';
 import type { MascotColor } from './Mascot/mascotPalette';
 
 const subMascotLog = debug('human:sub-mascots');
@@ -166,7 +166,7 @@ export const SubMascotLayer: FC<SubMascotLayerProps> = ({ entries }) => {
                 model.status === 'running' ? 'opacity-100' : 'opacity-75',
               ].join(' ')}>
               <div className="drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)]">
-                <YellowMascot size="100%" mascotColor={model.color} face={model.face} static />
+                <RiveMascot size="100%" face={model.face} />
               </div>
             </div>
             <div

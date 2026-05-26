@@ -6,5 +6,5 @@ export { RiveMascot } from './RiveMascot';
 export type { RiveMascotProps } from './RiveMascot';
 export { lerpViseme, VISEMES, visemePath } from './visemes';
 export type { VisemeId, VisemeShape } from './visemes';
-export { getMascotPalette } from './mascotPalette';
+export { getMascotPalette, hexToArgbInt } from './mascotPalette';
 export type { MascotColor, MascotPalette } from './mascotPalette';

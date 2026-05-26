@@ -71,3 +71,11 @@ const palettes: Record<MascotColor, MascotPalette> = {
 export function getMascotPalette(color: MascotColor): MascotPalette {
   return palettes[color];
 }
+
+export function hexToArgbInt(hex: string): number {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return ((0xff << 24) | (r << 16) | (g << 8) | b) >>> 0;
+}

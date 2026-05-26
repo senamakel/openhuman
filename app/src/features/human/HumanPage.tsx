@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import Conversations from '../../pages/Conversations';
 import { useAppSelector } from '../../store/hooks';
-import { selectCustomMascotGifUrl } from '../../store/mascotSlice';
-import { CustomGifMascot, RiveMascot } from './Mascot';
+import { selectCustomMascotGifUrl, selectMascotColor } from '../../store/mascotSlice';
+import { CustomGifMascot, getMascotPalette, hexToArgbInt, RiveMascot } from './Mascot';
 import { useHumanMascot } from './useHumanMascot';
 
 const SPEAK_REPLIES_KEY = 'human.speakReplies';
@@ -21,7 +21,11 @@ const HumanPage = () => {
   }, [speakReplies]);
 
   const { face } = useHumanMascot({ speakReplies });
+  const mascotColor = useAppSelector(selectMascotColor);
   const customMascotGifUrl = useAppSelector(selectCustomMascotGifUrl);
+  const palette = getMascotPalette(mascotColor);
+  const primaryColor = useMemo(() => hexToArgbInt(palette.bodyFill), [palette]);
+  const secondaryColor = useMemo(() => hexToArgbInt(palette.neckShadowColor), [palette]);
 
   return (
     <div className="absolute inset-0 bg-stone-100 dark:bg-neutral-950 overflow-hidden">
@@ -38,7 +42,7 @@ const HumanPage = () => {
           {customMascotGifUrl ? (
             <CustomGifMascot src={customMascotGifUrl} face={face} />
           ) : (
-            <RiveMascot face={face} />
+            <RiveMascot face={face} primaryColor={primaryColor} secondaryColor={secondaryColor} />
           )}
         </div>
       </div>

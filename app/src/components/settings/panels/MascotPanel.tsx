@@ -3,7 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CustomGifMascot, RiveMascot } from '../../../features/human/Mascot';
 import { BackendMascot } from '../../../features/human/Mascot/backend/BackendMascot';
 import type { MascotDetail, MascotSummary } from '../../../features/human/Mascot/backend/types';
-import { getMascotPalette, type MascotColor } from '../../../features/human/Mascot/mascotPalette';
+import {
+  getMascotPalette,
+  hexToArgbInt,
+  type MascotColor,
+} from '../../../features/human/Mascot/mascotPalette';
 import { synthesizeSpeech } from '../../../features/human/voice/ttsClient';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { fetchMascotList, getCachedMascotDetail } from '../../../services/mascotService';
@@ -34,14 +38,6 @@ import {
   ELEVENLABS_VOICE_PRESETS,
   isCuratedVoicePreset,
 } from './elevenlabsVoicePresets';
-
-function hexToArgbInt(hex: string): number {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return ((0xff << 24) | (r << 16) | (g << 8) | b) >>> 0;
-}
 
 interface ColorOption {
   id: MascotColor;

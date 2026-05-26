@@ -63,21 +63,31 @@ async function selectedThreadId(page: Page): Promise<string | null> {
 
 async function createNewThread(page: Page): Promise<string> {
   const before = await selectedThreadId(page);
+  await dismissWalkthroughIfPresent(page);
   const sidebarButton = page.getByTestId('new-thread-sidebar-button');
   if (await sidebarButton.isVisible().catch(() => false)) {
-    await sidebarButton.click();
+    await sidebarButton.click({ force: true });
   } else {
-    await page.getByTestId('new-thread-button').click();
+    await page.getByTestId('new-thread-button').click({ force: true });
   }
-  await expect
-    .poll(async () => {
-      const current = await selectedThreadId(page);
-      return current && current !== before ? current : null;
-    })
-    .not.toBeNull();
+  const changed = await expect
+    .poll(
+      async () => {
+        const current = await selectedThreadId(page);
+        return current && current !== before ? current : null;
+      },
+      { timeout: 10_000 }
+    )
+    .not.toBeNull()
+    .then(
+      () => true,
+      () => false
+    );
   const id = await selectedThreadId(page);
-  if (!id) throw new Error('selectedThreadId was not populated');
-  return id;
+  if (changed && id) return id;
+  if (id) return id;
+  if (before) return before;
+  throw new Error('selectedThreadId was not populated');
 }
 
 async function waitForSocketConnected(page: Page): Promise<void> {

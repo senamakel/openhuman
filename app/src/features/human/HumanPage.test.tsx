@@ -23,15 +23,19 @@ vi.mock('../../pages/Conversations', () => ({
   default: () => <div data-testid="conversations-stub" />,
 }));
 
-vi.mock('./Mascot', () => ({
-  RiveMascot: () => <div data-testid="mascot-stub" />,
-  CustomGifMascot: ({ src, face }: { src: string; face?: string }) => (
-    <img data-testid="custom-gif-mascot" data-face={face} src={src} alt="" />
-  ),
-  Ghosty: ({ face, bodyColor }: { face?: string; bodyColor?: string }) => (
-    <div data-testid="ghosty-submascot" data-face={face} data-body-color={bodyColor} />
-  ),
-}));
+vi.mock('./Mascot', async importOriginal => {
+  const actual = await importOriginal<typeof import('./Mascot')>();
+  return {
+    ...actual,
+    RiveMascot: () => <div data-testid="mascot-stub" />,
+    CustomGifMascot: ({ src, face }: { src: string; face?: string }) => (
+      <img data-testid="custom-gif-mascot" data-face={face} src={src} alt="" />
+    ),
+    Ghosty: ({ face, bodyColor }: { face?: string; bodyColor?: string }) => (
+      <div data-testid="ghosty-submascot" data-face={face} data-body-color={bodyColor} />
+    ),
+  };
+});
 
 vi.mock('./useHumanMascot', () => ({ useHumanMascot: () => ({ face: 'idle', visemes: [] }) }));
 

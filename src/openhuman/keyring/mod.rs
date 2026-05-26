@@ -39,12 +39,12 @@ pub mod store;
 // ── Public re-exports ─────────────────────────────────────────────────────────
 
 pub use backend::KeyringBackend;
+pub use encrypted_file_backend::init_master_key;
 pub use encrypted_store::SecretStore;
 pub use error::KeyringError;
 pub use ops::{
     delete, get, get_or_create_random, is_available, migrate_from_file, set, MigrationOutcome,
 };
-pub use encrypted_file_backend::init_master_key;
 pub use store::init_workspace;
 
 #[cfg(test)]

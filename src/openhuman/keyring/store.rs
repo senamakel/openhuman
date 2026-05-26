@@ -61,9 +61,9 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
                     "[keyring] backend=encrypted_file path={} (OPENHUMAN_KEYRING_BACKEND override)",
                     path.display()
                 );
-                return Box::new(
-                    super::encrypted_file_backend::EncryptedFileBackend::new(&path),
-                );
+                return Box::new(super::encrypted_file_backend::EncryptedFileBackend::new(
+                    &path,
+                ));
             }
             other => {
                 log::warn!(
@@ -85,9 +85,14 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
     let path = workspace_dir_for_file_backend();
     if is_staging_or_production() {
         log::info!("[keyring] backend=encrypted_file path={}", path.display());
-        Box::new(super::encrypted_file_backend::EncryptedFileBackend::new(&path))
+        Box::new(super::encrypted_file_backend::EncryptedFileBackend::new(
+            &path,
+        ))
     } else {
-        log::info!("[keyring] backend=file path={} (dev environment)", path.display());
+        log::info!(
+            "[keyring] backend=file path={} (dev environment)",
+            path.display()
+        );
         Box::new(backend::FileBackend::new(&path))
     }
 }

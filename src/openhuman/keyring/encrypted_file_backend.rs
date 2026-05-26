@@ -43,9 +43,7 @@ pub fn init_master_key() {
 
     MASTER_KEY.get_or_init(|| {
         if !is_staging_or_production() {
-            log::debug!(
-                "[keyring:encrypted_file] skipping master key init (dev environment)"
-            );
+            log::debug!("[keyring:encrypted_file] skipping master key init (dev environment)");
             return None;
         }
 
@@ -210,9 +208,11 @@ impl EncryptedFileBackend {
             }
         }
 
-        std::fs::rename(&tmp_path, &self.path).map_err(|e| KeyringError::MigrationDeleteFailed {
-            path: self.path.display().to_string(),
-            source: e,
+        std::fs::rename(&tmp_path, &self.path).map_err(|e| {
+            KeyringError::MigrationDeleteFailed {
+                path: self.path.display().to_string(),
+                source: e,
+            }
         })?;
 
         Ok(())
@@ -232,11 +232,10 @@ impl EncryptedFileBackend {
             LEGACY_DEV_KEYCHAIN
         );
 
-        let bytes =
-            std::fs::read(&legacy_path).map_err(|e| KeyringError::MigrationReadFailed {
-                path: legacy_path.display().to_string(),
-                source: e,
-            })?;
+        let bytes = std::fs::read(&legacy_path).map_err(|e| KeyringError::MigrationReadFailed {
+            path: legacy_path.display().to_string(),
+            source: e,
+        })?;
 
         let map: HashMap<String, String> = if bytes.is_empty() {
             HashMap::new()

@@ -48,9 +48,7 @@ vi.mock('../../features/human/useHumanMascot', () => ({
 }));
 
 vi.mock('../../features/human/Mascot', () => ({
-  RiveMascot: ({ face }: { face: string }) => (
-    <div data-testid="rive-mascot" data-face={face} />
-  ),
+  RiveMascot: ({ face }: { face: string }) => <div data-testid="rive-mascot" data-face={face} />,
 }));
 
 // PTT plugin mock ─ intercept before any import resolution.

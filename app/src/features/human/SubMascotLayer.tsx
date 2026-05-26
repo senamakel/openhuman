@@ -10,12 +10,7 @@ const subMascotLog = debug('human:sub-mascots');
 const MAX_SUB_MASCOTS = 5;
 const ACTIVITY_LIMIT = 74;
 
-const SUB_MASCOT_COLORS: readonly MascotColor[] = [
-  'yellow',
-  'navy',
-  'burgundy',
-  'black',
-] as const;
+const SUB_MASCOT_COLORS: readonly MascotColor[] = ['yellow', 'navy', 'burgundy', 'black'] as const;
 
 const POSITIONS = [
   { left: '72%', top: '18%' },

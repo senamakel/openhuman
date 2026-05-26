@@ -296,8 +296,7 @@ const MascotPanel = () => {
     [activeColor, customPrimary, activePalette]
   );
   const secondaryColorArgb = useMemo(
-    () =>
-      hexToArgbInt(activeColor === 'custom' ? customSecondary : activePalette.neckShadowColor),
+    () => hexToArgbInt(activeColor === 'custom' ? customSecondary : activePalette.neckShadowColor),
     [activeColor, customSecondary, activePalette]
   );
 

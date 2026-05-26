@@ -75,8 +75,12 @@ const ProducerSession: FC<{ session: BusSession }> = ({ session }) => {
       if (!ctx) return;
 
       const grad = ctx.createRadialGradient(
-        FRAME_W / 2, FRAME_H / 2, 0,
-        FRAME_W / 2, FRAME_H / 2, Math.max(FRAME_W, FRAME_H) * 0.7
+        FRAME_W / 2,
+        FRAME_H / 2,
+        0,
+        FRAME_W / 2,
+        FRAME_H / 2,
+        Math.max(FRAME_W, FRAME_H) * 0.7
       );
       grad.addColorStop(0, '#FBF3D9');
       grad.addColorStop(1, '#EFE3B8');

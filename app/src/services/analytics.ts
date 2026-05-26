@@ -16,14 +16,15 @@
  *   - Only page views and feature-engagement events from the allowlist are sent
  *   - No user content, messages, credentials, or PII is ever included
  *   - Ad personalization signals are disabled
- *   - Skipped when `IS_DEV` is true or `GA_MEASUREMENT_ID` is not set
+ *   - Skipped when `GA_MEASUREMENT_ID` is not set
+ *   - Skipped in dev builds unless `VITE_GA_FORCE_DEV=true`
  */
 import * as Sentry from '@sentry/react';
-import ReactGA from 'react-ga4';
 
 import { getCoreStateSnapshot } from '../lib/coreState/store';
 import {
   APP_ENVIRONMENT,
+  GA_FORCE_DEV,
   GA_MEASUREMENT_ID,
   IS_DEV,
   SENTRY_DSN,
@@ -33,11 +34,28 @@ import {
 import { CoreRpcError } from './coreRpcClient';
 
 // ---------------------------------------------------------------------------
+// gtag.js typings — raw Google Analytics 4 API
+// ---------------------------------------------------------------------------
+
+type GtagCommand = 'config' | 'event' | 'set' | 'js';
+interface GtagFn {
+  (...args: [GtagCommand, ...unknown[]]): void;
+}
+
+declare global {
+  interface Window {
+    dataLayer: unknown[];
+    gtag: GtagFn;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GA4 — module-level state
 // ---------------------------------------------------------------------------
 
-/** Set to `true` after `ReactGA.initialize()` succeeds. */
+/** Set to `true` after the gtag.js script loads and `gtag('config', ...)` succeeds. */
 let gaInitialized = false;
+
 
 /**
  * Shadow of the user's analytics consent state for GA operations that need to
@@ -236,17 +254,17 @@ export function syncAnalyticsConsent(enabled: boolean): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Initialize Google Analytics 4.
+ * Initialize Google Analytics 4 by injecting the raw gtag.js script tag.
  *
  * No-ops when:
  *   - `GA_MEASUREMENT_ID` is empty/unset
- *   - `IS_DEV` is true (dev builds never send analytics)
+ *   - `IS_DEV` is true and `VITE_GA_FORCE_DEV` is not set
  *   - Already initialized (idempotent)
  */
 export function initGA(): void {
   if (gaInitialized) return;
-  if (IS_DEV) {
-    console.debug('[analytics] GA skipped in dev build');
+  if (IS_DEV && !GA_FORCE_DEV) {
+    console.debug('[analytics] GA skipped in dev build (set VITE_GA_FORCE_DEV=true to override)');
     return;
   }
   if (!GA_MEASUREMENT_ID) {
@@ -255,19 +273,24 @@ export function initGA(): void {
   }
 
   try {
-    ReactGA.initialize(GA_MEASUREMENT_ID, {
-      gaOptions: {
-        // Disable automatic page view so we send them manually from AppShell.
-        send_page_view: false,
-      },
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function gtag(...args: [GtagCommand, ...unknown[]]) {
+      window.dataLayer.push(args);
+    };
+    window.gtag('js', new Date());
+    window.gtag('config', GA_MEASUREMENT_ID, {
+      send_page_view: false,
+      allow_ad_personalization_signals: false,
     });
-    // Disable ad personalization signals unconditionally — this is a privacy
-    // tool, not an advertising platform.
-    ReactGA.set({ allow_ad_personalization_signals: false });
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script);
+
     gaInitialized = true;
-    // Sync enabled state from the current consent snapshot now that GA is up.
     gaEnabled = isAnalyticsEnabled();
-    console.debug('[analytics] GA initialized', { measurementId: GA_MEASUREMENT_ID });
+    console.debug('[analytics] GA initialized (gtag.js)', { measurementId: GA_MEASUREMENT_ID });
   } catch (err) {
     console.warn('[analytics] GA initialization failed:', err);
   }
@@ -282,7 +305,7 @@ export function initGA(): void {
 export function trackPageView(path: string): void {
   if (!gaInitialized || !gaEnabled) return;
   console.debug('[analytics] trackPageView', { path });
-  ReactGA.send({ hitType: 'pageview', page: path });
+  window.gtag('event', 'page_view', { page_path: path });
 }
 
 /**
@@ -312,7 +335,7 @@ export function trackEvent(
   }
 
   console.debug('[analytics] trackEvent', { eventName, params });
-  ReactGA.event(eventName, params);
+  window.gtag('event', eventName, params);
 }
 
 /**

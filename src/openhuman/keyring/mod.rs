@@ -29,6 +29,8 @@
 //! always reports as available.
 
 pub mod backend;
+pub mod crypto;
+pub mod encrypted_file_backend;
 pub mod encrypted_store;
 pub mod error;
 pub mod ops;
@@ -42,6 +44,7 @@ pub use error::KeyringError;
 pub use ops::{
     delete, get, get_or_create_random, is_available, migrate_from_file, set, MigrationOutcome,
 };
+pub use encrypted_file_backend::init_master_key;
 pub use store::init_workspace;
 
 #[cfg(test)]

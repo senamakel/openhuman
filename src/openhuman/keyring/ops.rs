@@ -264,12 +264,7 @@ pub(crate) fn namespaced_key(user_id: &str, key: &str) -> String {
 }
 
 pub(crate) fn hex_encode(data: &[u8]) -> String {
-    let mut s = String::with_capacity(data.len() * 2);
-    for b in data {
-        use std::fmt::Write;
-        let _ = write!(s, "{b:02x}");
-    }
-    s
+    super::crypto::hex_encode(data)
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────

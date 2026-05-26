@@ -1313,6 +1313,11 @@ async fn run_server_inner(
     // Ensure all controllers are registered before starting.
     let _ = all::all_registered_controllers();
 
+    // Ensure the master encryption key is loaded from keychain before any
+    // config or credential operation that needs to decrypt secrets. This is
+    // a no-op if already called (e.g. from run_core_from_args for CLI).
+    crate::openhuman::keyring::init_master_key();
+
     // Initialize the per-process RPC bearer token.
     // Written to {workspace_dir}/core.token so the Tauri shell can read it.
     let token_dir = crate::openhuman::config::default_root_openhuman_dir().unwrap_or_else(|_| {

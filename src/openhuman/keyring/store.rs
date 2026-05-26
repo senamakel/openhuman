@@ -55,6 +55,16 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
                 );
                 return Box::new(backend::FileBackend::new(&path));
             }
+            "encrypted_file" => {
+                let path = workspace_dir_for_file_backend();
+                log::info!(
+                    "[keyring] backend=encrypted_file path={} (OPENHUMAN_KEYRING_BACKEND override)",
+                    path.display()
+                );
+                return Box::new(
+                    super::encrypted_file_backend::EncryptedFileBackend::new(&path),
+                );
+            }
             other => {
                 log::warn!(
                     "[keyring] unknown OPENHUMAN_KEYRING_BACKEND={other:?}; falling through to defaults"
@@ -70,9 +80,23 @@ pub(super) fn build_backend() -> Box<dyn KeyringBackend> {
         return Box::new(backend::FileBackend::new(&path));
     }
 
-    // Priority 3: real app environments → OS backend.
-    log::info!("[keyring] backend=os");
-    Box::new(backend::OsBackend)
+    // Priority 3: staging/production → encrypted file backend (master key in OS keychain).
+    // Dev builds → plain file backend (no keychain interaction, avoids codesign prompts).
+    let path = workspace_dir_for_file_backend();
+    if is_staging_or_production() {
+        log::info!("[keyring] backend=encrypted_file path={}", path.display());
+        Box::new(super::encrypted_file_backend::EncryptedFileBackend::new(&path))
+    } else {
+        log::info!("[keyring] backend=file path={} (dev environment)", path.display());
+        Box::new(backend::FileBackend::new(&path))
+    }
+}
+
+fn is_staging_or_production() -> bool {
+    matches!(
+        std::env::var("OPENHUMAN_APP_ENV").as_deref(),
+        Ok("staging") | Ok("production")
+    )
 }
 
 /// Derive the workspace directory for the `FileBackend`.

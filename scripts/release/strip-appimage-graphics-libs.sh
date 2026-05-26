@@ -131,7 +131,7 @@ is_executable_elf() {
 emit_entry_if_elf() {
   local candidate="$1"
   if is_executable_elf "$candidate"; then
-    printf '%s\0' "$candidate"
+    printf '%s\0' "$candidate" 2>/dev/null || true
   fi
 }
 

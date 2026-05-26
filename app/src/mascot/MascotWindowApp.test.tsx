@@ -1,6 +1,8 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import MascotWindowApp from './MascotWindowApp';
+
 vi.mock('../features/human/Mascot', async importOriginal => {
   const actual = await importOriginal<typeof import('../features/human/Mascot')>();
   return {
@@ -8,8 +10,6 @@ vi.mock('../features/human/Mascot', async importOriginal => {
     RiveMascot: ({ face }: { face?: string }) => <div data-testid="rive-mascot" data-face={face} />,
   };
 });
-
-import MascotWindowApp from './MascotWindowApp';
 
 describe('MascotWindowApp', () => {
   beforeEach(() => {

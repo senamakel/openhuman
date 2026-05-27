@@ -287,25 +287,27 @@ function initGoogleAnalytics(): void {
 function initOpenPanel(): void {
   if (opInitialized) return;
   try {
-    window.op = window.op || function (this: void) {
-      const n: unknown[] = [];
-      return new Proxy(
-        function (this: void) {
-          if (arguments.length) n.push([].slice.call(arguments));
-        } as unknown as OpFn,
-        {
-          get(_t: unknown, r: string) {
-            if (r === 'q') return n;
-            return function () {
-              n.push([r].concat([].slice.call(arguments)));
-            };
-          },
-          has(_t: unknown, r: string) {
-            return r === 'q';
-          },
-        },
-      );
-    }();
+    window.op =
+      window.op ||
+      (function (this: void) {
+        const n: unknown[] = [];
+        return new Proxy(
+          function (this: void) {
+            if (arguments.length) n.push([].slice.call(arguments));
+          } as unknown as OpFn,
+          {
+            get(_t: unknown, r: string) {
+              if (r === 'q') return n;
+              return function () {
+                n.push([r].concat([].slice.call(arguments)));
+              };
+            },
+            has(_t: unknown, r: string) {
+              return r === 'q';
+            },
+          }
+        );
+      })();
 
     window.op('init', {
       apiUrl: OPENPANEL_API_URL,

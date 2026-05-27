@@ -377,9 +377,7 @@ async function freshAnalytics() {
     }
     return originalCreateElement(tag);
   });
-  vi.spyOn(document.head, 'appendChild').mockImplementation(
-    (node: Node) => node
-  );
+  vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => node);
   return import('../analytics');
 }
 
@@ -471,7 +469,9 @@ describe('trackEvent (OpenPanel)', () => {
     initGA();
     const opSpy = vi.spyOn(window, 'op');
     trackEvent('internal_debug_event');
-    const trackCalls = opSpy.mock.calls.filter(c => c[0] === 'track' && c[1] === 'internal_debug_event');
+    const trackCalls = opSpy.mock.calls.filter(
+      c => c[0] === 'track' && c[1] === 'internal_debug_event'
+    );
     expect(trackCalls).toHaveLength(0);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('internal_debug_event'));
     warnSpy.mockRestore();

@@ -19,9 +19,7 @@ const hoisted = vi.hoisted(() => ({
   // Config state
   analyticsEnabled: false,
   appEnvironment: 'staging' as 'staging' | 'production' | 'development',
-  gaMeasurementId: 'G-TEST12345' as string | undefined,
   isDev: false,
-  gaForceDev: false,
 }));
 
 vi.mock('@sentry/react', () => ({
@@ -58,12 +56,6 @@ vi.mock('../../utils/config', () => ({
   },
   get IS_DEV() {
     return hoisted.isDev;
-  },
-  get GA_MEASUREMENT_ID() {
-    return hoisted.gaMeasurementId;
-  },
-  get GA_FORCE_DEV() {
-    return hoisted.gaForceDev;
   },
   SENTRY_DSN: 'https://abc@example.ingest.sentry.io/1',
   SENTRY_RELEASE: 'openhuman@test+abc',
@@ -371,21 +363,18 @@ describe('initSentry beforeSend manual-staging bypass', () => {
 // ---------------------------------------------------------------------------
 
 /** Stub for `document.createElement('script')` — captures the injected src. */
-let createdScripts: Array<{ async: boolean; src: string }> = [];
+let createdScripts: Array<{ async: boolean; defer: boolean; src: string }> = [];
 const originalCreateElement = document.createElement.bind(document);
 
-/** Reset window.gtag / dataLayer and module state, return a fresh analytics module. */
+/** Reset window.op and module state, return a fresh analytics module. */
 async function freshAnalytics() {
   vi.resetModules();
-  // Reset gtag stubs on window
-  delete (window as unknown as Record<string, unknown>).gtag;
-  delete (window as unknown as Record<string, unknown>).dataLayer;
+  delete (window as unknown as Record<string, unknown>).op;
   createdScripts = [];
-  // Intercept script injection so tests don't actually load gtag.js
   vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
     if (tag === 'script') {
-      const fake = { async: false, src: '' } as unknown as HTMLScriptElement;
-      createdScripts.push(fake as unknown as { async: boolean; src: string });
+      const fake = { async: false, defer: false, src: '' } as unknown as HTMLScriptElement;
+      createdScripts.push(fake as unknown as { async: boolean; defer: boolean; src: string });
       return fake;
     }
     return originalCreateElement(tag);
@@ -396,10 +385,9 @@ async function freshAnalytics() {
   return import('../analytics');
 }
 
-describe('initGA', () => {
+describe('initGA (OpenPanel)', () => {
   beforeEach(() => {
     hoisted.analyticsEnabled = false;
-    hoisted.gaMeasurementId = 'G-TEST12345';
     hoisted.isDev = false;
   });
 
@@ -407,46 +395,29 @@ describe('initGA', () => {
     vi.restoreAllMocks();
   });
 
-  test('does nothing when GA_MEASUREMENT_ID is empty', async () => {
-    hoisted.gaMeasurementId = '';
-    const { initGA } = await freshAnalytics();
-    initGA();
-    expect(createdScripts).toHaveLength(0);
-    expect(window.gtag).toBeUndefined();
-  });
-
-  test('does nothing when GA_MEASUREMENT_ID is undefined', async () => {
-    hoisted.gaMeasurementId = undefined;
-    const { initGA } = await freshAnalytics();
-    initGA();
-    expect(createdScripts).toHaveLength(0);
-  });
-
-  test('does nothing when IS_DEV is true', async () => {
-    hoisted.isDev = true;
-    const { initGA } = await freshAnalytics();
-    initGA();
-    expect(createdScripts).toHaveLength(0);
-  });
-
-  test('injects gtag.js script and configures with correct measurement ID', async () => {
+  test('injects op1.js script and initializes OpenPanel', async () => {
     hoisted.analyticsEnabled = true;
     const { initGA } = await freshAnalytics();
     initGA();
     expect(createdScripts).toHaveLength(1);
     expect(createdScripts[0].async).toBe(true);
-    expect(createdScripts[0].src).toBe('https://www.googletagmanager.com/gtag/js?id=G-TEST12345');
-    expect(window.gtag).toBeDefined();
-    expect(window.dataLayer).toBeDefined();
-    // dataLayer should contain the 'js' and 'config' commands pushed by initGA
-    expect(window.dataLayer.length).toBeGreaterThanOrEqual(2);
+    expect(createdScripts[0].defer).toBe(true);
+    expect(createdScripts[0].src).toBe('https://openpanel.dev/op1.js');
+    expect(window.op).toBeDefined();
+  });
+
+  test('is idempotent — second call does not inject a second script', async () => {
+    hoisted.analyticsEnabled = true;
+    const { initGA } = await freshAnalytics();
+    initGA();
+    initGA();
+    expect(createdScripts).toHaveLength(1);
   });
 });
 
-describe('trackPageView', () => {
+describe('trackPageView (OpenPanel)', () => {
   beforeEach(() => {
     hoisted.analyticsEnabled = true;
-    hoisted.gaMeasurementId = 'G-TEST12345';
     hoisted.isDev = false;
   });
 
@@ -454,35 +425,33 @@ describe('trackPageView', () => {
     vi.restoreAllMocks();
   });
 
-  test('sends a page_view event when consent is on and GA is initialized', async () => {
+  test('sends a screen_view event when consent is on', async () => {
     const { initGA, trackPageView } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     trackPageView('/home');
-    expect(gtagSpy).toHaveBeenCalledWith('event', 'page_view', { page_path: '/home' });
+    expect(opSpy).toHaveBeenCalledWith('track', 'screen_view', { page: '/home' });
   });
 
   test('is a no-op when consent is off', async () => {
     const { initGA, syncAnalyticsConsent, trackPageView } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     syncAnalyticsConsent(false);
     trackPageView('/home');
-    expect(gtagSpy).not.toHaveBeenCalled();
+    expect(opSpy).not.toHaveBeenCalled();
   });
 
-  test('is a no-op when GA was never initialized', async () => {
+  test('is a no-op when OpenPanel was never initialized', async () => {
     const { trackPageView } = await freshAnalytics();
     trackPageView('/home');
-    // window.gtag shouldn't even exist
-    expect(window.gtag).toBeUndefined();
+    expect(window.op).toBeUndefined();
   });
 });
 
-describe('trackEvent', () => {
+describe('trackEvent (OpenPanel)', () => {
   beforeEach(() => {
     hoisted.analyticsEnabled = true;
-    hoisted.gaMeasurementId = 'G-TEST12345';
     hoisted.isDev = false;
   });
 
@@ -493,20 +462,19 @@ describe('trackEvent', () => {
   test('sends allowed events with correct params', async () => {
     const { initGA, trackEvent } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     trackEvent('app_open', { version: '1.0.0' });
-    expect(gtagSpy).toHaveBeenCalledWith('event', 'app_open', { version: '1.0.0' });
+    expect(opSpy).toHaveBeenCalledWith('track', 'app_open', { version: '1.0.0' });
   });
 
   test('drops events not in the allowlist and logs a warning', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { initGA, trackEvent } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     trackEvent('internal_debug_event');
-    // gtag should not have been called with the dropped event
-    const eventCalls = gtagSpy.mock.calls.filter(c => c[0] === 'event' && c[1] === 'internal_debug_event');
-    expect(eventCalls).toHaveLength(0);
+    const trackCalls = opSpy.mock.calls.filter(c => c[0] === 'track' && c[1] === 'internal_debug_event');
+    expect(trackCalls).toHaveLength(0);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('internal_debug_event'));
     warnSpy.mockRestore();
   });
@@ -514,20 +482,19 @@ describe('trackEvent', () => {
   test('is a no-op when consent is off', async () => {
     const { initGA, syncAnalyticsConsent, trackEvent } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     syncAnalyticsConsent(false);
     trackEvent('app_open');
-    expect(gtagSpy).not.toHaveBeenCalled();
+    expect(opSpy).not.toHaveBeenCalled();
   });
 });
 
-describe('syncAnalyticsConsent GA integration', () => {
+describe('syncAnalyticsConsent OpenPanel integration', () => {
   beforeEach(() => {
     hoisted.getClient.mockReset();
     hoisted.flush.mockReset();
     hoisted.flush.mockReturnValue(Promise.resolve(true));
     hoisted.analyticsEnabled = true;
-    hoisted.gaMeasurementId = 'G-TEST12345';
     hoisted.isDev = false;
   });
 
@@ -535,23 +502,23 @@ describe('syncAnalyticsConsent GA integration', () => {
     vi.restoreAllMocks();
   });
 
-  test('syncAnalyticsConsent(false) prevents subsequent GA events', async () => {
+  test('syncAnalyticsConsent(false) prevents subsequent events', async () => {
     const { initGA, syncAnalyticsConsent, trackEvent } = await freshAnalytics();
     initGA();
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     syncAnalyticsConsent(false);
     trackEvent('app_open');
-    const eventCalls = gtagSpy.mock.calls.filter(c => c[0] === 'event');
-    expect(eventCalls).toHaveLength(0);
+    const trackCalls = opSpy.mock.calls.filter(c => c[0] === 'track');
+    expect(trackCalls).toHaveLength(0);
   });
 
-  test('syncAnalyticsConsent(true) re-enables GA events after disable', async () => {
+  test('syncAnalyticsConsent(true) re-enables events after disable', async () => {
     const { initGA, syncAnalyticsConsent, trackEvent } = await freshAnalytics();
     initGA();
     syncAnalyticsConsent(false);
     syncAnalyticsConsent(true);
-    const gtagSpy = vi.spyOn(window, 'gtag');
+    const opSpy = vi.spyOn(window, 'op');
     trackEvent('app_open');
-    expect(gtagSpy).toHaveBeenCalledWith('event', 'app_open', undefined);
+    expect(opSpy).toHaveBeenCalledWith('track', 'app_open', undefined);
   });
 });

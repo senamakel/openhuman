@@ -16,6 +16,7 @@
 //! it only defines connectors and reads from them.
 
 pub mod readers;
+pub mod reconcile;
 pub mod registry;
 pub mod rpc;
 pub mod schemas;

@@ -42,9 +42,41 @@ pub struct SyncTarget {
 }
 
 /// List active Composio connections that have a native memory-sync provider.
+///
+/// When memory_sources entries exist with `kind=composio` and `enabled=true`,
+/// those are used as the authoritative source list (user curated). When no
+/// memory_sources composio entries exist, falls back to scanning all active
+/// Composio connections (legacy behavior).
 pub async fn list_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, String> {
     init_default_composio_sync_providers();
 
+    // Try memory_sources registry first (user-curated list).
+    let registry_sources = crate::openhuman::memory_sources::list_enabled_by_kind(
+        crate::openhuman::memory_sources::SourceKind::Composio,
+    )
+    .await
+    .unwrap_or_default();
+
+    if !registry_sources.is_empty() {
+        tracing::debug!(
+            count = registry_sources.len(),
+            "[composio:sync] using memory_sources registry for sync targets"
+        );
+        return Ok(registry_sources
+            .into_iter()
+            .filter_map(|s| {
+                let toolkit = s.toolkit?;
+                let connection_id = s.connection_id?;
+                get_composio_sync_provider(&toolkit).map(|_| SyncTarget {
+                    toolkit,
+                    connection_id,
+                })
+            })
+            .collect());
+    }
+
+    // Fallback: scan all active Composio connections (pre-registry behavior).
+    tracing::debug!("[composio:sync] no memory_sources entries; falling back to connection scan");
     let kind =
         create_composio_client(config).map_err(|e| format!("create_composio_client: {e:#}"))?;
     let response = match kind {

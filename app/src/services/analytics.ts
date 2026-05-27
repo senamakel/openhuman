@@ -21,12 +21,22 @@ import * as Sentry from '@sentry/react';
 import { getCoreStateSnapshot } from '../lib/coreState/store';
 import {
   APP_ENVIRONMENT,
+  GA_MEASUREMENT_ID,
   IS_DEV,
   SENTRY_DSN,
   SENTRY_RELEASE,
   SENTRY_SMOKE_TEST,
 } from '../utils/config';
 import { CoreRpcError } from './coreRpcClient';
+
+// ---------------------------------------------------------------------------
+// Google Analytics 4 typings — raw gtag.js API
+// ---------------------------------------------------------------------------
+
+type GtagCommand = 'config' | 'event' | 'set' | 'js';
+interface GtagFn {
+  (...args: [GtagCommand, ...unknown[]]): void;
+}
 
 // ---------------------------------------------------------------------------
 // OpenPanel typings — raw script injection API
@@ -40,6 +50,8 @@ interface OpFn {
 
 declare global {
   interface Window {
+    dataLayer: unknown[];
+    gtag: GtagFn;
     op: OpFn;
   }
 }
@@ -48,10 +60,10 @@ const OPENPANEL_CLIENT_ID = 'e9c996d5-497f-4eec-9bde-630019ad525b';
 const OPENPANEL_API_URL = 'https://panel.tinyhumans.ai/api';
 
 // ---------------------------------------------------------------------------
-// OpenPanel — module-level state
+// Module-level state
 // ---------------------------------------------------------------------------
 
-/** Set to `true` after the OpenPanel script is injected and `op('init', ...)` succeeds. */
+let gaInitialized = false;
 let opInitialized = false;
 
 /**
@@ -238,25 +250,43 @@ export function syncAnalyticsConsent(enabled: boolean): void {
   }
 
   analyticsEnabled = enabled;
-  if (opInitialized) {
-    console.debug(`[analytics] OpenPanel consent updated: enabled=${enabled}`);
+  if (gaInitialized || opInitialized) {
+    console.debug(`[analytics] consent updated: enabled=${enabled}`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// OpenPanel — public API
+// Analytics — public API (GA4 + OpenPanel, both fire on every call)
 // ---------------------------------------------------------------------------
 
-/**
- * Initialize OpenPanel by injecting the lightweight loader script.
- * Idempotent — no-ops on repeated calls.
- */
-export function initGA(): void {
-  if (opInitialized) return;
-
+function initGoogleAnalytics(): void {
+  if (gaInitialized || !GA_MEASUREMENT_ID) return;
   try {
-    // Inline queue stub (from OpenPanel docs) so calls before the script loads
-    // are buffered and replayed once op1.js arrives.
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function gtag(...args: [GtagCommand, ...unknown[]]) {
+      window.dataLayer.push(args);
+    };
+    window.gtag('js', new Date());
+    window.gtag('config', GA_MEASUREMENT_ID, {
+      send_page_view: false,
+      allow_ad_personalization_signals: false,
+    });
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script);
+
+    gaInitialized = true;
+    console.debug('[analytics] GA initialized (gtag.js)', { measurementId: GA_MEASUREMENT_ID });
+  } catch (err) {
+    console.warn('[analytics] GA initialization failed:', err);
+  }
+}
+
+function initOpenPanel(): void {
+  if (opInitialized) return;
+  try {
     window.op = window.op || function (this: void) {
       const n: unknown[] = [];
       return new Proxy(
@@ -292,7 +322,6 @@ export function initGA(): void {
     document.head.appendChild(script);
 
     opInitialized = true;
-    analyticsEnabled = isAnalyticsEnabled();
     console.debug('[analytics] OpenPanel initialized', { clientId: OPENPANEL_CLIENT_ID });
   } catch (err) {
     console.warn('[analytics] OpenPanel initialization failed:', err);
@@ -300,31 +329,36 @@ export function initGA(): void {
 }
 
 /**
- * Send an anonymous page view if analytics consent is on.
- *
- * @param path - The route pathname (e.g. `/home`, `/settings`). Never include
- *   query strings or hash fragments that could contain user content.
+ * Initialize all analytics providers (GA4 + OpenPanel).
+ * Idempotent — each provider initializes at most once.
  */
-export function trackPageView(path: string): void {
-  if (!opInitialized || !analyticsEnabled) return;
-  console.debug('[analytics] trackPageView', { path });
-  window.op('track', 'screen_view', { page: path });
+export function initGA(): void {
+  initGoogleAnalytics();
+  initOpenPanel();
+  analyticsEnabled = isAnalyticsEnabled();
 }
 
 /**
- * Send an anonymous feature-engagement event if analytics consent is on.
+ * Send an anonymous page view to all initialized providers.
+ */
+export function trackPageView(path: string): void {
+  if ((!gaInitialized && !opInitialized) || !analyticsEnabled) return;
+  console.debug('[analytics] trackPageView', { path });
+  if (gaInitialized) window.gtag('event', 'page_view', { page_path: path });
+  if (opInitialized) window.op('track', 'screen_view', { page: path });
+}
+
+/**
+ * Send an anonymous feature-engagement event to all initialized providers.
  *
  * Event names must appear in `ALLOWED_EVENTS`. Calls with unlisted names
  * are dropped and a console warning is emitted.
- *
- * Params must contain only non-sensitive metadata (strings, numbers, booleans).
- * Never pass user content, credentials, message text, or PII.
  */
 export function trackEvent(
   eventName: string,
   params?: Record<string, string | number | boolean>
 ): void {
-  if (!opInitialized || !analyticsEnabled) return;
+  if ((!gaInitialized && !opInitialized) || !analyticsEnabled) return;
 
   if (!ALLOWED_EVENTS.has(eventName)) {
     console.warn(
@@ -334,7 +368,8 @@ export function trackEvent(
   }
 
   console.debug('[analytics] trackEvent', { eventName, params });
-  window.op('track', eventName, params);
+  if (gaInitialized) window.gtag('event', eventName, params);
+  if (opInitialized) window.op('track', eventName, params);
 }
 
 /**

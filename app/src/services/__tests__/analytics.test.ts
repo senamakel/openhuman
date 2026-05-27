@@ -57,6 +57,7 @@ vi.mock('../../utils/config', () => ({
   get IS_DEV() {
     return hoisted.isDev;
   },
+  GA_MEASUREMENT_ID: 'G-TEST12345',
   SENTRY_DSN: 'https://abc@example.ingest.sentry.io/1',
   SENTRY_RELEASE: 'openhuman@test+abc',
   SENTRY_SMOKE_TEST: false,
@@ -395,23 +396,23 @@ describe('initGA (OpenPanel)', () => {
     vi.restoreAllMocks();
   });
 
-  test('injects op1.js script and initializes OpenPanel', async () => {
+  test('injects both gtag.js and op1.js scripts', async () => {
     hoisted.analyticsEnabled = true;
     const { initGA } = await freshAnalytics();
     initGA();
-    expect(createdScripts).toHaveLength(1);
-    expect(createdScripts[0].async).toBe(true);
-    expect(createdScripts[0].defer).toBe(true);
-    expect(createdScripts[0].src).toBe('https://openpanel.dev/op1.js');
+    expect(createdScripts).toHaveLength(2);
+    expect(createdScripts[0].src).toBe('https://www.googletagmanager.com/gtag/js?id=G-TEST12345');
+    expect(createdScripts[1].src).toBe('https://openpanel.dev/op1.js');
+    expect(window.gtag).toBeDefined();
     expect(window.op).toBeDefined();
   });
 
-  test('is idempotent — second call does not inject a second script', async () => {
+  test('is idempotent — second call does not inject additional scripts', async () => {
     hoisted.analyticsEnabled = true;
     const { initGA } = await freshAnalytics();
     initGA();
     initGA();
-    expect(createdScripts).toHaveLength(1);
+    expect(createdScripts).toHaveLength(2);
   });
 });
 

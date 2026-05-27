@@ -312,9 +312,9 @@ function initOpenPanel(): void {
     window.op('init', {
       apiUrl: OPENPANEL_API_URL,
       clientId: OPENPANEL_CLIENT_ID,
-      trackScreenViews: true,
-      trackOutgoingLinks: true,
-      trackAttributes: true,
+      trackScreenViews: false,
+      trackOutgoingLinks: false,
+      trackAttributes: false,
     });
 
     const script = document.createElement('script');

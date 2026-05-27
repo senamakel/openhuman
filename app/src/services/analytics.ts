@@ -127,7 +127,7 @@ export function initSentry(): void {
     // Privacy: disable EVERYTHING that could leak sensitive state.
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
-    tracesSampler: () => (isAnalyticsEnabled() ? 0.1 : 0),
+    tracesSampleRate: 0,
     defaultIntegrations: false,
     integrations: [
       Sentry.functionToStringIntegration(),

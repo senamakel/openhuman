@@ -446,6 +446,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "memory_sync" => Some(
             "Per-connection memory sync status, user enable toggle, and live progress for the desktop UI.",
         ),
+        "memory_sources" => Some(
+            "User-configured data connectors (Composio, folders, GitHub repos, RSS, web pages) that feed memory.",
+        ),
         "redirect_links" => Some(
             "Shorten long tracking URLs to `openhuman://link/<id>` placeholders (SQLite-backed) to save tokens in prompts, with round-trip rewrite helpers.",
         ),

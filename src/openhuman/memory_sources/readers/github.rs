@@ -20,9 +20,7 @@ pub struct GithubReader;
 
 /// Parse `owner` and `repo` from a GitHub URL.
 fn parse_github_url(url: &str) -> Result<(String, String), String> {
-    let cleaned = url
-        .trim_end_matches('/')
-        .trim_end_matches(".git");
+    let cleaned = url.trim_end_matches('/').trim_end_matches(".git");
     let parts: Vec<&str> = cleaned.rsplitn(3, '/').collect();
     if parts.len() < 2 {
         return Err(format!("cannot parse GitHub owner/repo from: {url}"));
@@ -55,7 +53,10 @@ impl SourceReader for GithubReader {
         source: &MemorySourceEntry,
         _config: &Config,
     ) -> Result<Vec<SourceItem>, String> {
-        let url = source.url.as_deref().ok_or("github source requires a url")?;
+        let url = source
+            .url
+            .as_deref()
+            .ok_or("github source requires a url")?;
         let (owner, repo) = parse_github_url(url)?;
         let branch = source.branch.as_deref().unwrap_or(DEFAULT_BRANCH);
         let path_filters = &source.paths;
@@ -67,9 +68,8 @@ impl SourceReader for GithubReader {
             "[memory_sources:github] listing items"
         );
 
-        let api_url = format!(
-            "{GITHUB_API_BASE}/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-        );
+        let api_url =
+            format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/git/trees/{branch}?recursive=1");
 
         let client = reqwest::Client::new();
         let resp = client
@@ -109,10 +109,7 @@ impl SourceReader for GithubReader {
             })
             .collect();
 
-        tracing::debug!(
-            count = items.len(),
-            "[memory_sources:github] found items"
-        );
+        tracing::debug!(count = items.len(), "[memory_sources:github] found items");
 
         Ok(items)
     }
@@ -123,13 +120,15 @@ impl SourceReader for GithubReader {
         item_id: &str,
         _config: &Config,
     ) -> Result<SourceContent, String> {
-        let url = source.url.as_deref().ok_or("github source requires a url")?;
+        let url = source
+            .url
+            .as_deref()
+            .ok_or("github source requires a url")?;
         let (owner, repo) = parse_github_url(url)?;
         let branch = source.branch.as_deref().unwrap_or(DEFAULT_BRANCH);
 
-        let raw_url = format!(
-            "https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{item_id}"
-        );
+        let raw_url =
+            format!("https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{item_id}");
 
         tracing::debug!(
             path = %item_id,
@@ -181,9 +180,9 @@ impl SourceReader for GithubReader {
 
 fn is_readable_file(path: &str) -> bool {
     let readable_extensions = [
-        ".md", ".txt", ".rst", ".adoc", ".org", ".json", ".yaml", ".yml",
-        ".toml", ".xml", ".csv", ".rs", ".py", ".js", ".ts", ".go", ".java",
-        ".c", ".h", ".cpp", ".hpp", ".rb", ".sh", ".html", ".htm", ".css",
+        ".md", ".txt", ".rst", ".adoc", ".org", ".json", ".yaml", ".yml", ".toml", ".xml", ".csv",
+        ".rs", ".py", ".js", ".ts", ".go", ".java", ".c", ".h", ".cpp", ".hpp", ".rb", ".sh",
+        ".html", ".htm", ".css",
     ];
     readable_extensions.iter().any(|ext| path.ends_with(ext))
 }
@@ -201,8 +200,7 @@ mod tests {
 
     #[test]
     fn parse_github_url_handles_trailing_slash_and_git() {
-        let (owner, repo) =
-            parse_github_url("https://github.com/org/repo.git/").unwrap();
+        let (owner, repo) = parse_github_url("https://github.com/org/repo.git/").unwrap();
         assert_eq!(owner, "org");
         assert_eq!(repo, "repo");
     }

@@ -47,10 +47,7 @@ impl SourceReader for WebPageReader {
         let url = if item_id.starts_with("http") {
             item_id.to_string()
         } else {
-            source
-                .url
-                .clone()
-                .ok_or("web_page source requires a url")?
+            source.url.clone().ok_or("web_page source requires a url")?
         };
 
         tracing::debug!(
@@ -103,11 +100,7 @@ fn extract_by_selector(html: &str, selector: &str) -> String {
     // Simple tag-name selector support (e.g. "article", "main", "div.content")
     // For full CSS selector support, the `scraper` crate would be needed.
     // This handles the common case of a single tag name.
-    let tag = selector
-        .split('.')
-        .next()
-        .unwrap_or(selector)
-        .trim();
+    let tag = selector.split('.').next().unwrap_or(selector).trim();
 
     if tag.is_empty() {
         return strip_html_tags(html);

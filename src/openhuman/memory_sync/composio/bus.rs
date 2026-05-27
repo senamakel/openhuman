@@ -596,13 +596,12 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
             // Auto-register this connection in the memory_sources
             // registry so it appears in the unified sources list.
             let label = format!("{toolkit} connection");
-            if let Err(e) =
-                crate::openhuman::memory_sources::upsert_composio_source(
-                    &toolkit,
-                    &connection_id,
-                    &label,
-                )
-                .await
+            if let Err(e) = crate::openhuman::memory_sources::upsert_composio_source(
+                &toolkit,
+                &connection_id,
+                &label,
+            )
+            .await
             {
                 tracing::warn!(
                     toolkit = %toolkit,

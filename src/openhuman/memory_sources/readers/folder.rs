@@ -75,10 +75,7 @@ impl SourceReader for FolderReader {
             })
             .collect();
 
-        tracing::debug!(
-            count = entries.len(),
-            "[memory_sources:folder] found items"
-        );
+        tracing::debug!(count = entries.len(), "[memory_sources:folder] found items");
 
         Ok(entries)
     }
@@ -165,7 +162,10 @@ mod tests {
 
         let source = folder_source(&tmp.path().to_string_lossy());
         let reader = FolderReader;
-        let items = reader.list_items(&source, &Config::default()).await.unwrap();
+        let items = reader
+            .list_items(&source, &Config::default())
+            .await
+            .unwrap();
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id, "note.md");

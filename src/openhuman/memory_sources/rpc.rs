@@ -188,9 +188,7 @@ pub struct ReadItemResponse {
     pub content: crate::openhuman::memory_sources::types::SourceContent,
 }
 
-pub async fn read_item_rpc(
-    req: ReadItemRequest,
-) -> Result<RpcOutcome<ReadItemResponse>, String> {
+pub async fn read_item_rpc(req: ReadItemRequest) -> Result<RpcOutcome<ReadItemResponse>, String> {
     tracing::debug!(
         source_id = %req.source_id,
         item_id = %req.item_id,

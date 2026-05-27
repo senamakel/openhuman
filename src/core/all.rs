@@ -205,9 +205,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
         crate::openhuman::memory_sync::sync_status::all_memory_sync_status_registered_controllers(),
     );
     // Memory sources — user-configured data connectors registry
-    controllers.extend(
-        crate::openhuman::memory_sources::all_memory_sources_registered_controllers(),
-    );
+    controllers
+        .extend(crate::openhuman::memory_sources::all_memory_sources_registered_controllers());
     // Link shortener for long tracking URLs — saves LLM tokens
     controllers
         .extend(crate::openhuman::redirect_links::all_redirect_links_registered_controllers());

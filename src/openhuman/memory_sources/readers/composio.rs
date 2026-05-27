@@ -27,14 +27,8 @@ impl SourceReader for ComposioReader {
         source: &MemorySourceEntry,
         _config: &Config,
     ) -> Result<Vec<SourceItem>, String> {
-        let toolkit = source
-            .toolkit
-            .as_deref()
-            .unwrap_or("unknown");
-        let connection_id = source
-            .connection_id
-            .as_deref()
-            .unwrap_or("unknown");
+        let toolkit = source.toolkit.as_deref().unwrap_or("unknown");
+        let connection_id = source.connection_id.as_deref().unwrap_or("unknown");
 
         tracing::debug!(
             toolkit = %toolkit,

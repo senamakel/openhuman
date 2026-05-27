@@ -147,11 +147,9 @@ pub async fn upsert_composio_source(
 ) -> Result<MemorySourceEntry, String> {
     let mut config = config_rpc::load_config_with_timeout().await?;
 
-    if let Some(existing) = config
-        .memory_sources
-        .iter_mut()
-        .find(|s| s.kind == SourceKind::Composio && s.connection_id.as_deref() == Some(connection_id))
-    {
+    if let Some(existing) = config.memory_sources.iter_mut().find(|s| {
+        s.kind == SourceKind::Composio && s.connection_id.as_deref() == Some(connection_id)
+    }) {
         existing.label = label.to_string();
         let updated = existing.clone();
         config

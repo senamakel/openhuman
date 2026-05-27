@@ -59,11 +59,9 @@ impl SourceReader for TwitterReader {
             "[memory_sources:twitter] read_item"
         );
 
-        Err(
-            "Twitter API integration not yet configured. \
+        Err("Twitter API integration not yet configured. \
              Individual tweet reading requires a bearer token."
-                .to_string(),
-        )
+            .to_string())
     }
 }
 

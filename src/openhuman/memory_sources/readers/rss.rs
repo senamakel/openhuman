@@ -40,10 +40,7 @@ impl SourceReader for RssReader {
         let body = fetch_url(url).await?;
         let entries = parse_feed(&body, max_items)?;
 
-        tracing::debug!(
-            count = entries.len(),
-            "[memory_sources:rss] parsed entries"
-        );
+        tracing::debug!(count = entries.len(), "[memory_sources:rss] parsed entries");
 
         Ok(entries)
     }
@@ -191,14 +188,13 @@ fn parse_atom(xml: &str) -> Result<Vec<FeedEntry>, String> {
 
         let entry_xml = &xml[abs_start..entry_end];
         let title = extract_tag(entry_xml, "title").unwrap_or_default();
-        let id = extract_tag(entry_xml, "id")
-            .unwrap_or_else(|| format!("atom-{}", entries.len()));
+        let id = extract_tag(entry_xml, "id").unwrap_or_else(|| format!("atom-{}", entries.len()));
         let content = extract_tag(entry_xml, "content")
             .or_else(|| extract_tag(entry_xml, "summary"))
             .unwrap_or_default();
         let link = extract_attr(entry_xml, "link", "href");
-        let updated = extract_tag(entry_xml, "updated")
-            .or_else(|| extract_tag(entry_xml, "published"));
+        let updated =
+            extract_tag(entry_xml, "updated").or_else(|| extract_tag(entry_xml, "published"));
 
         entries.push(FeedEntry {
             id,
@@ -303,7 +299,10 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].title, "Atom entry");
         assert_eq!(entries[0].id, "urn:entry:1");
-        assert_eq!(entries[0].link.as_deref(), Some("https://example.com/atom/1"));
+        assert_eq!(
+            entries[0].link.as_deref(),
+            Some("https://example.com/atom/1")
+        );
     }
 
     #[test]

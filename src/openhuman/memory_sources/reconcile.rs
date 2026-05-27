@@ -36,8 +36,7 @@ pub async fn ensure_composio_sources() {
     let mut upserted = 0u32;
     for target in &targets {
         let label = format!("{} connection", target.toolkit);
-        match registry::upsert_composio_source(&target.toolkit, &target.connection_id, &label)
-            .await
+        match registry::upsert_composio_source(&target.toolkit, &target.connection_id, &label).await
         {
             Ok(_) => {
                 upserted += 1;

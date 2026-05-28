@@ -11,6 +11,77 @@ use super::rpc;
 
 const NAMESPACE: &str = "memory_sources";
 
+fn kind_specific_fields() -> Vec<FieldSchema> {
+    vec![
+        FieldSchema {
+            name: "toolkit",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Composio toolkit slug.",
+            required: false,
+        },
+        FieldSchema {
+            name: "connection_id",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Composio connection id.",
+            required: false,
+        },
+        FieldSchema {
+            name: "path",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Local folder path.",
+            required: false,
+        },
+        FieldSchema {
+            name: "glob",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Glob pattern for folder sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "url",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "URL for github_repo, rss_feed, or web_page sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "branch",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Git branch for github_repo sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "paths",
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Path filters for github_repo sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "query",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Search query for twitter_query sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "since_days",
+            ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+            comment: "Lookback window in days for twitter_query.",
+            required: false,
+        },
+        FieldSchema {
+            name: "max_items",
+            ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+            comment: "Maximum items for rss_feed sources.",
+            required: false,
+        },
+        FieldSchema {
+            name: "selector",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "CSS selector for web_page sources.",
+            required: false,
+        },
+    ]
+}
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("list"),
@@ -87,11 +158,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: false,
             }],
         },
-        "add" => ControllerSchema {
-            namespace: NAMESPACE,
-            function: "add",
-            description: "Add a new memory source. Kind-specific fields are flat on the request.",
-            inputs: vec![
+        "add" => {
+            let mut inputs = vec![
                 FieldSchema {
                     name: "kind",
                     ty: TypeSchema::Enum {
@@ -119,31 +187,57 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Whether the source is active. Defaults to true.",
                     required: false,
                 },
-            ],
-            outputs: vec![FieldSchema {
-                name: "source",
-                ty: TypeSchema::Ref("MemorySourceEntry"),
-                comment: "The newly created source.",
-                required: true,
-            }],
-        },
-        "update" => ControllerSchema {
-            namespace: NAMESPACE,
-            function: "update",
-            description: "Partial update of a memory source.",
-            inputs: vec![FieldSchema {
-                name: "id",
-                ty: TypeSchema::String,
-                comment: "Source id to update.",
-                required: true,
-            }],
-            outputs: vec![FieldSchema {
-                name: "source",
-                ty: TypeSchema::Ref("MemorySourceEntry"),
-                comment: "The updated source.",
-                required: true,
-            }],
-        },
+            ];
+            inputs.extend(kind_specific_fields());
+            ControllerSchema {
+                namespace: NAMESPACE,
+                function: "add",
+                description:
+                    "Add a new memory source. Kind-specific fields are flat on the request.",
+                inputs,
+                outputs: vec![FieldSchema {
+                    name: "source",
+                    ty: TypeSchema::Ref("MemorySourceEntry"),
+                    comment: "The newly created source.",
+                    required: true,
+                }],
+            }
+        }
+        "update" => {
+            let mut inputs = vec![
+                FieldSchema {
+                    name: "id",
+                    ty: TypeSchema::String,
+                    comment: "Source id to update.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "label",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "New label.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "enabled",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+                    comment: "Enable or disable.",
+                    required: false,
+                },
+            ];
+            inputs.extend(kind_specific_fields());
+            ControllerSchema {
+                namespace: NAMESPACE,
+                function: "update",
+                description: "Partial update of a memory source.",
+                inputs,
+                outputs: vec![FieldSchema {
+                    name: "source",
+                    ty: TypeSchema::Ref("MemorySourceEntry"),
+                    comment: "The updated source.",
+                    required: true,
+                }],
+            }
+        }
         "remove" => ControllerSchema {
             namespace: NAMESPACE,
             function: "remove",

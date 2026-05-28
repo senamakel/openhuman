@@ -466,9 +466,13 @@ fn normalise_state(state: AgentProfilesState) -> AgentProfilesState {
         .collect();
 
     for profile in state.profiles {
-        let profile = normalise_profile(profile);
+        let mut profile = normalise_profile(profile);
         if profile.id.is_empty() {
             continue;
+        }
+        if profile.id == DEFAULT_PROFILE_ID {
+            profile.is_master = true;
+            profile.memory_dir_suffix = Some(String::new());
         }
         by_id.insert(profile.id.clone(), profile);
     }

@@ -2169,6 +2169,9 @@ impl Agent {
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
             user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+            personality_soul_md: None,
+            personality_memory_md: None,
+            personality_roster: vec![],
         };
         // Route through the global context manager so every
         // prompt-building call-site — main agent, sub-agent runner,

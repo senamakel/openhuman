@@ -168,6 +168,7 @@ pub async fn thread_upsert(
             created_at: request.created_at,
             parent_thread_id: request.parent_thread_id,
             labels: request.labels,
+            personality_id: None,
         },
     )?;
     Ok(envelope(
@@ -197,6 +198,7 @@ pub async fn thread_create_new(
             // the same default on index rebuild, so this is the single source
             // of truth for default labels.
             labels: request.labels,
+            personality_id: None,
         },
     )?;
     tracing::debug!(

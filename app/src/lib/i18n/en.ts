@@ -1924,6 +1924,33 @@ const en: TranslationMap = {
   'sync.failedToLoad': 'Failed to load sync status',
   'sync.noContent': 'No content has been synced into memory yet. Connect an integration to start.',
 
+  // Memory Sources Registry
+  'memorySources.customSources': 'Custom Sources',
+  'memorySources.addSource': 'Add Source',
+  'memorySources.noCustomSources':
+    'No custom sources yet. Add a folder, GitHub repo, RSS feed, or web page to start.',
+  'memorySources.pickKind': 'What kind of source do you want to add?',
+  'memorySources.backToKinds': 'Back to source types',
+  'memorySources.label': 'Label',
+  'memorySources.labelPlaceholder': 'My research notes',
+  'memorySources.add': 'Add',
+  'memorySources.adding': 'Adding…',
+  'memorySources.added': 'Source added',
+  'memorySources.removed': 'Source removed',
+  'memorySources.remove': 'Remove',
+  'memorySources.enable': 'Enable',
+  'memorySources.disable': 'Disable',
+  'memorySources.toggleFailed': 'Toggle failed',
+  'memorySources.removeFailed': 'Remove failed',
+  'memorySources.folderPath': 'Folder path',
+  'memorySources.globPattern': 'Glob pattern',
+  'memorySources.repoUrl': 'Repository URL',
+  'memorySources.branch': 'Branch',
+  'memorySources.feedUrl': 'Feed URL',
+  'memorySources.pageUrl': 'Page URL',
+  'memorySources.cssSelector': 'CSS selector (optional)',
+  'memorySources.searchQuery': 'Search query',
+
   // Backend
   'backend.aiBackend': 'AI Backend',
   'backend.cloud': 'Cloud',

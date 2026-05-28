@@ -478,3 +478,350 @@ async fn memory_sources_validation_rejects_bad_input() {
 
     rpc_join.abort();
 }
+
+/// GitHub source E2E: add a public repo → list_items (commits/issues/PRs)
+/// → read one commit and one issue → ingest into memory tree.
+///
+/// Requires network + `gh` CLI (or unauthenticated GitHub API access).
+/// The test targets a small, stable public repo so API responses are
+/// predictable.
+#[tokio::test]
+async fn memory_sources_github_repo_activity_flow() {
+    let _guard = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home = EnvVarGuard::set_to_path("HOME", home);
+    let _ws = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend = EnvVarGuard::unset("BACKEND_URL");
+    let _vite = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_config(&openhuman_home);
+
+    let (rpc_base, rpc_join) = serve().await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // ── Step 1: add a GitHub repo source ──
+
+    let add = rpc(
+        &rpc_base,
+        100,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "github_repo",
+            "label": "kelseyhightower/nocode",
+            "url": "https://github.com/kelseyhightower/nocode",
+        }),
+    )
+    .await;
+    let add_result = ok(&add, "add github source");
+    let source = add_result.get("source").expect("source");
+    let source_id = source.get("id").and_then(Value::as_str).expect("id");
+    assert_eq!(
+        source.get("kind").and_then(Value::as_str),
+        Some("github_repo")
+    );
+
+    // ── Step 2: list items — should return commits, issues, PRs ──
+
+    let items_resp = rpc(
+        &rpc_base,
+        101,
+        "openhuman.memory_sources_list_items",
+        json!({ "source_id": source_id }),
+    )
+    .await;
+    let items_result = ok(&items_resp, "github list_items");
+    let items = items_result
+        .get("items")
+        .and_then(Value::as_array)
+        .expect("items array");
+
+    assert!(
+        !items.is_empty(),
+        "github repo should have at least some activity items"
+    );
+
+    let has_commits = items.iter().any(|i| {
+        i.get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .starts_with("commit:")
+    });
+    assert!(has_commits, "should have commit items");
+
+    // ── Step 3: read a commit ──
+
+    let commit_item = items
+        .iter()
+        .find(|i| {
+            i.get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .starts_with("commit:")
+        })
+        .expect("at least one commit");
+    let commit_id = commit_item
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("commit id");
+
+    let read_commit = rpc(
+        &rpc_base,
+        102,
+        "openhuman.memory_sources_read_item",
+        json!({
+            "source_id": source_id,
+            "item_id": commit_id,
+        }),
+    )
+    .await;
+    let commit_content = ok(&read_commit, "read commit");
+    let content = commit_content.get("content").expect("content");
+    let body = content.get("body").and_then(Value::as_str).expect("body");
+    assert!(body.contains("Commit:"), "commit body should have header");
+    assert!(body.contains("SHA:"), "commit body should have SHA");
+    assert_eq!(
+        content.get("content_type").and_then(Value::as_str),
+        Some("markdown")
+    );
+
+    // ── Step 4: ingest the commit into memory tree ──
+
+    let ingest = rpc(
+        &rpc_base,
+        103,
+        "openhuman.memory_tree_ingest",
+        json!({
+            "source_kind": "document",
+            "source_id": format!("github:{source_id}:{commit_id}"),
+            "owner": "user",
+            "tags": ["memory_sources", "github", "commit"],
+            "payload": {
+                "provider": "github",
+                "title": commit_item.get("title").and_then(Value::as_str).unwrap_or("commit"),
+                "body": body,
+            },
+        }),
+    )
+    .await;
+    let ingest_result = ok(&ingest, "ingest github commit");
+    let chunks = ingest_result
+        .get("chunks_written")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    assert!(
+        chunks >= 1,
+        "should ingest at least 1 chunk from commit, got {chunks}"
+    );
+
+    // ── Step 5: read an issue if one exists ──
+
+    if let Some(issue_item) = items.iter().find(|i| {
+        i.get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .starts_with("issue:")
+    }) {
+        let issue_id = issue_item
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("issue id");
+
+        let read_issue = rpc(
+            &rpc_base,
+            104,
+            "openhuman.memory_sources_read_item",
+            json!({
+                "source_id": source_id,
+                "item_id": issue_id,
+            }),
+        )
+        .await;
+        let issue_content = ok(&read_issue, "read issue");
+        let icontent = issue_content.get("content").expect("content");
+        let ibody = icontent.get("body").and_then(Value::as_str).expect("body");
+        assert!(ibody.contains("Issue #"), "issue body should have header");
+        assert!(ibody.contains("State:"), "issue body should have state");
+    }
+
+    // ── Cleanup ──
+
+    let remove = rpc(
+        &rpc_base,
+        105,
+        "openhuman.memory_sources_remove",
+        json!({ "id": source_id }),
+    )
+    .await;
+    ok(&remove, "remove github source");
+
+    rpc_join.abort();
+}
+
+/// Composio source E2E: add a composio source entry → verify it's in
+/// the registry → list_items returns the connection as an item →
+/// read_item returns a descriptive placeholder → remove.
+///
+/// Does NOT require an actual Composio connection — tests the registry
+/// and reader behavior with synthetic config.
+#[tokio::test]
+async fn memory_sources_composio_registry_flow() {
+    let _guard = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home = EnvVarGuard::set_to_path("HOME", home);
+    let _ws = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend = EnvVarGuard::unset("BACKEND_URL");
+    let _vite = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_config(&openhuman_home);
+
+    let (rpc_base, rpc_join) = serve().await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // ── Step 1: add a composio source ──
+
+    let add = rpc(
+        &rpc_base,
+        200,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "composio",
+            "label": "Gmail · test@example.com",
+            "toolkit": "gmail",
+            "connection_id": "cmp_test_123",
+        }),
+    )
+    .await;
+    let add_result = ok(&add, "add composio source");
+    let source = add_result.get("source").expect("source");
+    let source_id = source.get("id").and_then(Value::as_str).expect("id");
+    assert_eq!(source.get("kind").and_then(Value::as_str), Some("composio"));
+    assert_eq!(source.get("toolkit").and_then(Value::as_str), Some("gmail"));
+    assert_eq!(
+        source.get("connection_id").and_then(Value::as_str),
+        Some("cmp_test_123")
+    );
+
+    // ── Step 2: verify it shows up in list ──
+
+    let list = rpc(&rpc_base, 201, "openhuman.memory_sources_list", json!({})).await;
+    let list_result = ok(&list, "list with composio");
+    let sources = list_result
+        .get("sources")
+        .and_then(Value::as_array)
+        .expect("sources");
+    assert_eq!(sources.len(), 1);
+    assert_eq!(
+        sources[0].get("toolkit").and_then(Value::as_str),
+        Some("gmail")
+    );
+
+    // ── Step 3: list_items returns the connection as an item ──
+
+    let items = rpc(
+        &rpc_base,
+        202,
+        "openhuman.memory_sources_list_items",
+        json!({ "source_id": source_id }),
+    )
+    .await;
+    let items_result = ok(&items, "composio list_items");
+    let item_list = items_result
+        .get("items")
+        .and_then(Value::as_array)
+        .expect("items");
+    assert_eq!(item_list.len(), 1);
+    assert_eq!(
+        item_list[0].get("id").and_then(Value::as_str),
+        Some("cmp_test_123")
+    );
+
+    // ── Step 4: read_item returns descriptive content ──
+
+    let read = rpc(
+        &rpc_base,
+        203,
+        "openhuman.memory_sources_read_item",
+        json!({
+            "source_id": source_id,
+            "item_id": "cmp_test_123",
+        }),
+    )
+    .await;
+    let read_result = ok(&read, "composio read_item");
+    let content = read_result.get("content").expect("content");
+    let body = content.get("body").and_then(Value::as_str).expect("body");
+    assert!(
+        body.contains("gmail"),
+        "composio read should mention the toolkit"
+    );
+
+    // ── Step 5: add a second composio source (slack) ──
+
+    let add2 = rpc(
+        &rpc_base,
+        204,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "composio",
+            "label": "Slack · workspace",
+            "toolkit": "slack",
+            "connection_id": "cmp_test_456",
+        }),
+    )
+    .await;
+    let add2_result = ok(&add2, "add slack composio source");
+    let slack_id = add2_result
+        .get("source")
+        .and_then(|s| s.get("id"))
+        .and_then(Value::as_str)
+        .expect("slack source id");
+
+    // ── Step 6: list should have both ──
+
+    let list2 = rpc(&rpc_base, 205, "openhuman.memory_sources_list", json!({})).await;
+    let sources2 = ok(&list2, "list with both")
+        .get("sources")
+        .and_then(Value::as_array)
+        .expect("sources")
+        .len();
+    assert_eq!(sources2, 2);
+
+    // ── Step 7: disable gmail, verify it persists ──
+
+    let disable = rpc(
+        &rpc_base,
+        206,
+        "openhuman.memory_sources_update",
+        json!({
+            "id": source_id,
+            "enabled": false,
+        }),
+    )
+    .await;
+    let disabled = ok(&disable, "disable gmail");
+    assert_eq!(
+        disabled.get("source").and_then(|s| s.get("enabled")),
+        Some(&json!(false))
+    );
+
+    // ── Step 8: remove both ──
+
+    for (idx, sid) in [source_id, slack_id].iter().enumerate() {
+        let r = rpc(
+            &rpc_base,
+            210 + idx as i64,
+            "openhuman.memory_sources_remove",
+            json!({ "id": sid }),
+        )
+        .await;
+        ok(&r, &format!("remove {sid}"));
+    }
+
+    rpc_join.abort();
+}

@@ -3,16 +3,23 @@
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex, OnceLock,
+};
 use std::time::Duration;
 
-use axum::http::header::AUTHORIZATION;
+use axum::extract::{Path as AxumPath, State};
+use axum::http::{header::AUTHORIZATION, HeaderMap};
+use axum::routing::{delete, get, post};
+use axum::{Json, Router};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 
@@ -81,6 +88,113 @@ async fn serve_rpc() -> (
     let router = build_core_http_router(false);
     let join = tokio::spawn(async move { axum::serve(listener, router).await });
     (addr, join)
+}
+
+#[derive(Clone, Default)]
+struct MockBackendState {
+    auth_me_hits: Arc<AtomicUsize>,
+}
+
+async fn serve_mock_backend() -> (
+    String,
+    MockBackendState,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    let state = MockBackendState::default();
+    let app = Router::new()
+        .route("/auth/me", get(mock_auth_me))
+        .route(
+            "/telegram/login-tokens/{token}/consume",
+            post(mock_consume_login_token),
+        )
+        .route(
+            "/auth/channels/{channel}/link-token",
+            post(mock_channel_link_token),
+        )
+        .route("/auth/integrations", get(mock_integrations))
+        .route(
+            "/auth/integrations/{integration_id}/client-key",
+            post(mock_client_key),
+        )
+        .route(
+            "/auth/integrations/{integration_id}",
+            delete(mock_revoke_integration),
+        )
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind mock backend");
+    let addr = listener.local_addr().expect("mock backend addr");
+    let join = tokio::spawn(async move { axum::serve(listener, app).await });
+    (format!("http://{addr}"), state, join)
+}
+
+fn bearer(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+}
+
+async fn mock_auth_me(State(state): State<MockBackendState>, headers: HeaderMap) -> Json<Value> {
+    state.auth_me_hits.fetch_add(1, Ordering::SeqCst);
+    let auth = bearer(&headers).unwrap_or_default();
+    Json(json!({
+        "success": true,
+        "data": {
+            "id": "remote-user-1",
+            "_id": "remote-user-1",
+            "name": "Remote Worker",
+            "email": "remote-worker@example.test",
+            "authHeader": auth
+        }
+    }))
+}
+
+async fn mock_consume_login_token(AxumPath(token): AxumPath<String>) -> Json<Value> {
+    Json(json!({
+        "success": true,
+        "data": {
+            "jwtToken": format!("jwt-from-{token}")
+        }
+    }))
+}
+
+async fn mock_channel_link_token(AxumPath(channel): AxumPath<String>) -> Json<Value> {
+    Json(json!({
+        "success": true,
+        "data": {
+            "channel": channel,
+            "linkToken": "link-token-123",
+            "expiresIn": 300
+        }
+    }))
+}
+
+async fn mock_integrations() -> Json<Value> {
+    Json(json!({
+        "success": true,
+        "data": {
+            "integrations": [{
+                "id": "0123456789abcdef01234567",
+                "provider": "github",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }]
+        }
+    }))
+}
+
+async fn mock_client_key(AxumPath(integration_id): AxumPath<String>) -> Json<Value> {
+    Json(json!({
+        "success": true,
+        "data": {
+            "integrationId": integration_id,
+            "clientKey": "client-key-share"
+        }
+    }))
+}
+
+async fn mock_revoke_integration(AxumPath(_integration_id): AxumPath<String>) -> Json<Value> {
+    Json(json!({ "success": true, "data": { "revoked": true } }))
 }
 
 fn write_min_config(openhuman_dir: &Path) {
@@ -1217,6 +1331,187 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
 }
 
 #[tokio::test]
+async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_001,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "remote-jwt",
+            "user_id": "remote-user-1",
+            "user": {
+                "id": "stale-renderer-user",
+                "name": "Renderer Cache",
+                "email": "renderer-cache@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session remote")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        1,
+        "store_session should validate the JWT once"
+    );
+
+    let me = rpc(
+        &harness.rpc_base,
+        22_002,
+        "openhuman.auth_get_me",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&me, "auth_get_me remote")
+            .get("email")
+            .and_then(Value::as_str),
+        Some("remote-worker@example.test")
+    );
+
+    let consumed = rpc(
+        &harness.rpc_base,
+        22_003,
+        "openhuman.auth_consume_login_token",
+        json!({ "loginToken": "telegram-login-token" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&consumed, "auth_consume_login_token remote")
+            .get("jwtToken")
+            .and_then(Value::as_str),
+        Some("jwt-from-telegram-login-token")
+    );
+
+    let link = rpc(
+        &harness.rpc_base,
+        22_004,
+        "openhuman.auth_create_channel_link_token",
+        json!({ "channel": " Telegram " }),
+    )
+    .await;
+    assert_eq!(
+        payload(&link, "auth_create_channel_link_token remote")
+            .get("linkToken")
+            .and_then(Value::as_str),
+        Some("link-token-123")
+    );
+
+    let integrations = rpc(
+        &harness.rpc_base,
+        22_005,
+        "openhuman.auth_oauth_list_integrations",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&integrations, "auth_oauth_list_integrations remote")
+            .pointer("/0/provider")
+            .and_then(Value::as_str),
+        Some("github")
+    );
+
+    let client_key = rpc(
+        &harness.rpc_base,
+        22_006,
+        "openhuman.auth_oauth_fetch_client_key",
+        json!({ "integrationId": "0123456789abcdef01234567" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&client_key, "auth_oauth_fetch_client_key remote")
+            .get("clientKey")
+            .and_then(Value::as_str),
+        Some("client-key-share")
+    );
+
+    let revoked = rpc(
+        &harness.rpc_base,
+        22_007,
+        "openhuman.auth_oauth_revoke_integration",
+        json!({ "integrationId": "0123456789abcdef01234567" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&revoked, "auth_oauth_revoke_integration remote")
+            .get("revoked")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            22_008,
+            "openhuman.auth_oauth_fetch_integration_tokens",
+            json!({ "integrationId": "short", "key": "secret" }),
+        )
+        .await,
+        "auth_oauth_fetch_integration_tokens invalid id with session",
+        "integrationId must be a 24-char hex id",
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_009,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "app_state_snapshot remote")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("remote-worker@example.test")
+    );
+    let hits_after_first_snapshot = backend_state.auth_me_hits.load(Ordering::SeqCst);
+    assert!(
+        hits_after_first_snapshot >= 3,
+        "store_session, auth_get_me, and snapshot should all touch /auth/me at least once"
+    );
+
+    let cached_snapshot = rpc(
+        &harness.rpc_base,
+        22_010,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&cached_snapshot, "app_state_snapshot remote cached")
+            .pointer("/currentUser/name")
+            .and_then(Value::as_str),
+        Some("Remote Worker")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        hits_after_first_snapshot,
+        "the second snapshot should reuse the current-user cache"
+    );
+
+    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+        .expect("snapshot should seed cached identity");
+    assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
+    assert_eq!(identity.name.as_deref(), Some("Remote Worker"));
+    assert_eq!(
+        identity.email.as_deref(),
+        Some("remote-worker@example.test")
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -1333,6 +1628,171 @@ async fn app_state_snapshot_quarantines_corrupted_local_state_file() {
     );
 
     harness.join.abort();
+}
+
+#[test]
+fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let tmp = tempdir().expect("tempdir");
+    let state_dir = tmp.path().join("profiles");
+    let store = AuthProfilesStore::new(&state_dir, true);
+
+    let empty = store.load().expect("empty store load");
+    assert!(empty.profiles.is_empty());
+
+    let mut token_profile = AuthProfile::new_token("openai", "work", "sk-worker-a".to_string());
+    token_profile
+        .metadata
+        .insert("region".to_string(), "test".to_string());
+    let token_id = token_profile.id.clone();
+    store
+        .upsert_profile(token_profile, true)
+        .expect("upsert token profile");
+
+    let mut oauth_profile = AuthProfile::new_oauth(
+        "github",
+        "default",
+        TokenSet {
+            access_token: "gh-access".to_string(),
+            refresh_token: Some("gh-refresh".to_string()),
+            id_token: Some("gh-id".to_string()),
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+            token_type: Some("Bearer".to_string()),
+            scope: Some("repo user".to_string()),
+        },
+    );
+    oauth_profile.account_id = Some("acct-1".to_string());
+    oauth_profile.workspace_id = Some("workspace-1".to_string());
+    let oauth_id = oauth_profile.id.clone();
+    store
+        .upsert_profile(oauth_profile, false)
+        .expect("upsert oauth profile");
+
+    let loaded = store.load().expect("load stored profiles");
+    assert_eq!(
+        loaded.active_profiles.get("openai").map(String::as_str),
+        Some(token_id.as_str())
+    );
+    assert_eq!(
+        loaded
+            .profiles
+            .get(&token_id)
+            .and_then(|profile| profile.token.as_deref()),
+        Some("sk-worker-a")
+    );
+    assert_eq!(
+        loaded
+            .profiles
+            .get(&oauth_id)
+            .and_then(|profile| profile.token_set.as_ref())
+            .map(|tokens| tokens.access_token.as_str()),
+        Some("gh-access")
+    );
+
+    store
+        .set_active_profile("github", &oauth_id)
+        .expect("set active oauth profile");
+    store
+        .clear_active_profile("openai")
+        .expect("clear active token profile");
+    let updated = store
+        .update_profile(&oauth_id, |profile| {
+            profile
+                .metadata
+                .insert("updated".to_string(), "true".to_string());
+            Ok(())
+        })
+        .expect("update oauth metadata");
+    assert_eq!(
+        updated.metadata.get("updated").map(String::as_str),
+        Some("true")
+    );
+
+    assert!(
+        store
+            .remove_profile(&token_id)
+            .expect("remove existing token profile"),
+        "existing token profile should be removed"
+    );
+    assert!(
+        !store
+            .remove_profile(&token_id)
+            .expect("remove missing token profile"),
+        "missing token profile removal should be idempotent"
+    );
+
+    let after_remove = store.load().expect("load after remove");
+    assert!(!after_remove.profiles.contains_key(&token_id));
+    assert_eq!(
+        after_remove
+            .active_profiles
+            .get("github")
+            .map(String::as_str),
+        Some(oauth_id.as_str())
+    );
+
+    let corrupt_dir = tmp.path().join("corrupt");
+    std::fs::create_dir_all(&corrupt_dir).expect("create corrupt profile dir");
+    let corrupt_path = corrupt_dir.join("auth-profiles.json");
+    std::fs::write(&corrupt_path, "{ not valid json").expect("write corrupt profile store");
+    let corrupt_store = AuthProfilesStore::new(&corrupt_dir, true);
+    let recovered = corrupt_store
+        .load()
+        .expect("corrupt profile store recovers");
+    assert!(recovered.profiles.is_empty());
+    assert!(
+        !corrupt_path.exists(),
+        "corrupted auth profile store should be moved away"
+    );
+    assert!(
+        std::fs::read_dir(&corrupt_dir)
+            .expect("read corrupt dir")
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name().to_string_lossy().contains(".corrupt-")),
+        "corrupt auth profile store should leave a quarantine file"
+    );
+
+    let legacy_dir = tmp.path().join("legacy");
+    std::fs::create_dir_all(&legacy_dir).expect("create legacy profile dir");
+    std::fs::write(
+        legacy_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 0,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {},
+            "profiles": {}
+        })
+        .to_string(),
+    )
+    .expect("write legacy profile store");
+    let legacy = AuthProfilesStore::new(&legacy_dir, true)
+        .load()
+        .expect("legacy schema 0 should normalize");
+    assert_eq!(legacy.schema_version, 1);
+
+    let future_dir = tmp.path().join("future");
+    std::fs::create_dir_all(&future_dir).expect("create future profile dir");
+    std::fs::write(
+        future_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 99,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {},
+            "profiles": {}
+        })
+        .to_string(),
+    )
+    .expect("write future profile store");
+    let future_err = AuthProfilesStore::new(&future_dir, true)
+        .load()
+        .expect_err("future schema should fail");
+    assert!(
+        future_err
+            .to_string()
+            .contains("Unsupported auth profile schema version"),
+        "unexpected future schema error: {future_err:#}"
+    );
 }
 
 #[tokio::test]

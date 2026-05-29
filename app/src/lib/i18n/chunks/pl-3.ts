@@ -4,6 +4,26 @@ import en3 from './en-3';
 // Polish chunk 3/5. Spreads the English source-of-truth chunk so every key is
 // present (i18n parity gate); Polish values below override EN where translated.
 const pl3: TranslationMap = {
+  // Agent workflows
+  'workflows.title': 'Workflows',
+  'workflows.subtitle': 'Phase-keyed playbooks that steer how the agent approaches a task.',
+  'workflows.newWorkflow': 'New workflow',
+  'workflows.created': 'Workflow created',
+  'workflows.deleted': 'Workflow deleted',
+  'workflows.create': 'Create',
+  'workflows.creating': 'Creating…',
+  'workflows.empty': 'No workflows yet. Create one to guide how the agent works.',
+  'workflows.delete': 'Delete',
+  'workflows.confirmDelete': 'Delete',
+  'workflows.noPhases': 'This workflow declares no phases.',
+  'workflows.scripts': 'Scripts',
+  'workflows.context': 'Context',
+  'workflows.field.name': 'Name',
+  'workflows.field.namePlaceholder': 'e.g. Bug triage',
+  'workflows.field.description': 'Description',
+  'workflows.field.descriptionPlaceholder': 'What this workflow is for',
+  'workflows.field.whenToUse': 'When to use',
+  'workflows.field.whenToUsePlaceholder': 'e.g. a user reports a bug',
   ...en3,
   // insights
   'insights.other': 'Inne',

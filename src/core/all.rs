@@ -182,6 +182,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::javascript::all_javascript_registered_controllers());
     // Discovered SKILL.md skills and their bundled resources
     controllers.extend(crate::openhuman::skills::all_skills_registered_controllers());
+    // Phase-keyed agent workflows (WORKFLOW.md)
+    controllers
+        .extend(crate::openhuman::agent_workflows::all_agent_workflows_registered_controllers());
     // User workspace and file management
     controllers.extend(crate::openhuman::workspace::all_workspace_registered_controllers());
     // Knowledge vaults — folder-of-files mirrored into memory
@@ -325,6 +328,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::socket::all_socket_controller_schemas());
     schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
     schemas.extend(crate::openhuman::skills::all_skills_controller_schemas());
+    schemas.extend(crate::openhuman::agent_workflows::all_agent_workflows_controller_schemas());
     schemas.extend(crate::openhuman::workspace::all_workspace_controller_schemas());
     schemas.extend(crate::openhuman::vault::all_vault_controller_schemas());
     schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());

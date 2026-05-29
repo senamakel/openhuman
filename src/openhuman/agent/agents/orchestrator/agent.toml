@@ -128,6 +128,12 @@ named = [
     "cron_add",
     "cron_list",
     "cron_remove",
+    # Agent workflows — phase-keyed playbooks. `workflow_load` pulls a
+    # workflow's full definition into context when the task matches its
+    # `when_to_use`; `workflow_phase` surfaces one phase's rules, scripts
+    # (run via the normal gated shell), tool scope, and working-dir context.
+    "workflow_load",
+    "workflow_phase",
     # Coding-harness coordination primitives from #1208. `todowrite`
     # gives the orchestrator a shared todo store to track multi-step
     # work across delegations; `plan_exit` is the stable marker that

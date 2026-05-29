@@ -7841,3 +7841,126 @@ async fn port_conflict_recovery_core_starts_on_fallback_port_e2e() {
     // Release the listener so the port is not held across tests.
     drop(after_drop.listener);
 }
+
+/// Full round-trip for the agent_workflows domain: create → list → read →
+/// phase → uninstall, all over JSON-RPC against a temp `HOME`.
+#[tokio::test]
+async fn json_rpc_agent_workflows_round_trip() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // ── 1. empty catalog ────────────────────────────────────────────────
+    let list = post_json_rpc(&rpc_base, 9001_1, "openhuman.workflows_list", json!({})).await;
+    let list_result = assert_no_jsonrpc_error(&list, "workflows_list");
+    assert_eq!(
+        list_result
+            .get("workflows")
+            .and_then(Value::as_array)
+            .map(|a| a.len()),
+        Some(0)
+    );
+
+    // ── 2. create ───────────────────────────────────────────────────────
+    let created = post_json_rpc(
+        &rpc_base,
+        9001_2,
+        "openhuman.workflows_create",
+        json!({
+            "name": "E2E Flow",
+            "description": "End-to-end test workflow",
+            "when_to_use": "running the workflows round trip",
+        }),
+    )
+    .await;
+    let created_result = assert_no_jsonrpc_error(&created, "workflows_create");
+    let workflow = created_result
+        .get("workflow")
+        .expect("create returns workflow");
+    assert_eq!(workflow.get("id").and_then(Value::as_str), Some("e2e-flow"));
+    let phases = workflow
+        .get("phases")
+        .and_then(Value::as_object)
+        .expect("phases object");
+    assert!(phases.contains_key("on_pick_up_task"));
+    assert!(phases.contains_key("on_close_task"));
+    assert!(phases.contains_key("on_enter_directory"));
+
+    // ── 3. list now has one ─────────────────────────────────────────────
+    let list2 = post_json_rpc(&rpc_base, 9001_3, "openhuman.workflows_list", json!({})).await;
+    let list2_result = assert_no_jsonrpc_error(&list2, "workflows_list");
+    let workflows = list2_result
+        .get("workflows")
+        .and_then(Value::as_array)
+        .expect("workflows array");
+    assert_eq!(workflows.len(), 1);
+    assert_eq!(
+        workflows[0].get("id").and_then(Value::as_str),
+        Some("e2e-flow")
+    );
+
+    // ── 4. read by id ───────────────────────────────────────────────────
+    let read = post_json_rpc(
+        &rpc_base,
+        9001_4,
+        "openhuman.workflows_read",
+        json!({ "workflow_id": "e2e-flow" }),
+    )
+    .await;
+    let read_result = assert_no_jsonrpc_error(&read, "workflows_read");
+    assert_eq!(
+        read_result
+            .get("workflow")
+            .and_then(|w| w.get("when_to_use"))
+            .and_then(Value::as_str),
+        Some("running the workflows round trip")
+    );
+
+    // ── 5. resolve a phase ──────────────────────────────────────────────
+    let phase = post_json_rpc(
+        &rpc_base,
+        9001_5,
+        "openhuman.workflows_phase",
+        json!({ "workflow_id": "e2e-flow", "phase": "on_close_task" }),
+    )
+    .await;
+    let phase_result = assert_no_jsonrpc_error(&phase, "workflows_phase");
+    assert_eq!(phase_result.get("declared"), Some(&json!(true)));
+    assert!(phase_result
+        .get("guidance")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("Verify the work before closing"));
+
+    // ── 6. uninstall ────────────────────────────────────────────────────
+    let uninstall = post_json_rpc(
+        &rpc_base,
+        9001_6,
+        "openhuman.workflows_uninstall",
+        json!({ "name": "e2e-flow" }),
+    )
+    .await;
+    let uninstall_result = assert_no_jsonrpc_error(&uninstall, "workflows_uninstall");
+    assert_eq!(
+        uninstall_result.get("name").and_then(Value::as_str),
+        Some("e2e-flow")
+    );
+
+    // ── 7. catalog empty again ──────────────────────────────────────────
+    let list3 = post_json_rpc(&rpc_base, 9001_7, "openhuman.workflows_list", json!({})).await;
+    let list3_result = assert_no_jsonrpc_error(&list3, "workflows_list");
+    assert_eq!(
+        list3_result
+            .get("workflows")
+            .and_then(Value::as_array)
+            .map(|a| a.len()),
+        Some(0)
+    );
+
+    rpc_join.abort();
+}

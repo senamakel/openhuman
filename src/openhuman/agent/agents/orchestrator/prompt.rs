@@ -11,6 +11,7 @@
 //! `integrations_agent/prompt.rs` and nobody has to branch on `agent_id`
 //! in a shared section impl.
 
+use crate::openhuman::agent_workflows::{load_workflows, render_workflow_catalog};
 use crate::openhuman::context::prompt::{
     render_datetime, render_tools, render_user_files, render_workspace, ConnectedIntegration,
     PromptContext,
@@ -59,6 +60,15 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     let workspace = render_workspace(ctx)?;
     if !workspace.trim().is_empty() {
         out.push_str(workspace.trim_end());
+        out.push('\n');
+    }
+
+    // Phase-keyed agent workflows the orchestrator can activate via
+    // `workflow_load` when the task matches a workflow's `when_to_use`.
+    let workflows = render_workflow_catalog(&load_workflows(ctx.workspace_dir));
+    if !workflows.trim().is_empty() {
+        out.push_str("\n\n");
+        out.push_str(workflows.trim_end());
         out.push('\n');
     }
 

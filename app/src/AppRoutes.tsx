@@ -18,6 +18,7 @@ import Routines from './pages/Routines';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
+import Workflows from './pages/Workflows';
 import Welcome from './pages/Welcome';
 
 const AppRoutes = () => {
@@ -91,6 +92,15 @@ const AppRoutes = () => {
 
       {/* Unified chat = agent + connected web apps. Replaces the old
           /conversations and /accounts routes. */}
+      <Route
+        path="/workflows"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <Workflows />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/chat"
         element={

@@ -2,6 +2,26 @@ import type { TranslationMap } from '../types';
 
 // Korean chunk 3/5. Source of truth for translators.
 const ko3: TranslationMap = {
+  // Agent workflows
+  'workflows.title': 'Workflows',
+  'workflows.subtitle': 'Phase-keyed playbooks that steer how the agent approaches a task.',
+  'workflows.newWorkflow': 'New workflow',
+  'workflows.created': 'Workflow created',
+  'workflows.deleted': 'Workflow deleted',
+  'workflows.create': 'Create',
+  'workflows.creating': 'Creating…',
+  'workflows.empty': 'No workflows yet. Create one to guide how the agent works.',
+  'workflows.delete': 'Delete',
+  'workflows.confirmDelete': 'Delete',
+  'workflows.noPhases': 'This workflow declares no phases.',
+  'workflows.scripts': 'Scripts',
+  'workflows.context': 'Context',
+  'workflows.field.name': 'Name',
+  'workflows.field.namePlaceholder': 'e.g. Bug triage',
+  'workflows.field.description': 'Description',
+  'workflows.field.descriptionPlaceholder': 'What this workflow is for',
+  'workflows.field.whenToUse': 'When to use',
+  'workflows.field.whenToUsePlaceholder': 'e.g. a user reports a bug',
   'insights.other': '기타',
   'insights.title': '인사이트',
   'insights.empty': '아직 인사이트가 없습니다. 메모리가 늘어나면 인사이트가 생성됩니다.',

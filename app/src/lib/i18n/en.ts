@@ -3910,6 +3910,26 @@ const en: TranslationMap = {
   'settings.appearanceDesc': 'Pick light, dark, or match your system theme',
   'settings.mascot': 'Mascot',
   'settings.mascotDesc': 'Pick the mascot color used across the app',
+  // Agent workflows
+  'workflows.title': 'Workflows',
+  'workflows.subtitle': 'Phase-keyed playbooks that steer how the agent approaches a task.',
+  'workflows.newWorkflow': 'New workflow',
+  'workflows.created': 'Workflow created',
+  'workflows.deleted': 'Workflow deleted',
+  'workflows.create': 'Create',
+  'workflows.creating': 'Creating…',
+  'workflows.empty': 'No workflows yet. Create one to guide how the agent works.',
+  'workflows.delete': 'Delete',
+  'workflows.confirmDelete': 'Delete',
+  'workflows.noPhases': 'This workflow declares no phases.',
+  'workflows.scripts': 'Scripts',
+  'workflows.context': 'Context',
+  'workflows.field.name': 'Name',
+  'workflows.field.namePlaceholder': 'e.g. Bug triage',
+  'workflows.field.description': 'Description',
+  'workflows.field.descriptionPlaceholder': 'What this workflow is for',
+  'workflows.field.whenToUse': 'When to use',
+  'workflows.field.whenToUsePlaceholder': 'e.g. a user reports a bug',
 };
 
 export default en;

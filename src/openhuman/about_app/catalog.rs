@@ -1216,6 +1216,20 @@ const CAPABILITIES: &[Capability] = &[
         status: CapabilityStatus::Beta,
         privacy: None,
     },
+    Capability {
+        id: "automation.agent_workflows",
+        name: "Agent Workflows",
+        domain: "automation",
+        category: CapabilityCategory::Automation,
+        description: "Phase-keyed playbooks (WORKFLOW.md) that steer how the agent approaches a \
+                      task. At lifecycle phases — picking up a task, closing a task, entering a \
+                      directory — a workflow injects guidance rules, runs gated scripts, scopes \
+                      which tools are visible, and surfaces working-directory context (git \
+                      branch/status). Stays on device.",
+        how_to: "Workflows tab. The agent auto-matches a workflow to the task (or you pick one), and its phases apply as the task progresses.",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
     // ── Proactive agents ─────────────────────────────────────────────────────
     Capability {
         id: "automation.morning_briefing",

@@ -10,6 +10,7 @@ mod spawn_parallel_agents;
 mod spawn_subagent;
 pub mod spawn_worker_thread;
 mod todo;
+mod workflow;
 
 pub(crate) use dispatch::dispatch_subagent;
 
@@ -24,3 +25,4 @@ pub use spawn_parallel_agents::SpawnParallelAgentsTool;
 pub use spawn_subagent::SpawnSubagentTool;
 pub use spawn_worker_thread::SpawnWorkerThreadTool;
 pub use todo::TodoTool;
+pub use workflow::{WorkflowLoadTool, WorkflowPhaseTool};

@@ -271,27 +271,9 @@ describe('MemoryWorkspace (graph view)', () => {
     // The new MemorySourcesRegistry reads from listMemorySources (not listConnections).
     // Composio connections are auto-seeded into the registry as MemorySourceEntry records.
     listMemorySources.mockResolvedValue([
-      {
-        id: 'src-gmail',
-        kind: 'composio',
-        toolkit: 'gmail',
-        label: 'Gmail · a@x',
-        enabled: true,
-      },
-      {
-        id: 'src-slack',
-        kind: 'composio',
-        toolkit: 'slack',
-        label: 'Slack · acme',
-        enabled: true,
-      },
-      {
-        id: 'src-notion',
-        kind: 'composio',
-        toolkit: 'notion',
-        label: 'Notion',
-        enabled: true,
-      },
+      { id: 'src-gmail', kind: 'composio', toolkit: 'gmail', label: 'Gmail · a@x', enabled: true },
+      { id: 'src-slack', kind: 'composio', toolkit: 'slack', label: 'Slack · acme', enabled: true },
+      { id: 'src-notion', kind: 'composio', toolkit: 'notion', label: 'Notion', enabled: true },
     ]);
     renderWithProviders(<MemoryWorkspace />);
     // Provider-backed toolkits should render actionable Sync rows

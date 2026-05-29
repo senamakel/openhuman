@@ -6,38 +6,11 @@
 //! endpoints directly when enabled; those callers must keep configured base URLs
 //! trusted because requests leave the local core process.
 
-pub mod apify;
-pub mod brave;
 pub mod client;
-pub mod google_places;
-pub mod parallel;
-pub mod querit;
-pub mod searxng;
-pub mod seltz;
-pub mod stock_prices;
-pub mod tinyfish;
-pub mod twilio;
+pub mod tools;
 pub mod types;
 
-pub use apify::{ApifyGetRunResultsTool, ApifyGetRunStatusTool, ApifyRunActorTool};
-pub use brave::{
-    BraveImageSearchTool, BraveNewsSearchTool, BraveVideoSearchTool, BraveWebSearchTool,
-};
 pub use client::{build_client, pricing_for_config, IntegrationClient};
-pub use google_places::{GooglePlacesDetailsTool, GooglePlacesSearchTool};
-pub use parallel::{
-    ParallelChatTool, ParallelDatasetTool, ParallelEnrichTool, ParallelExtractTool,
-    ParallelResearchTool, ParallelSearchTool,
-};
-pub use querit::QueritSearchTool;
-pub use searxng::{SearxngSearchArgs, SearxngSearchResponse, SearxngSearchTool};
-pub use seltz::SeltzSearchTool;
-pub use stock_prices::{
-    StockCommodityTool, StockCryptoSeriesTool, StockExchangeRateTool, StockOptionsTool,
-    StockQuoteTool,
-};
-pub use tinyfish::{TinyFishAgentRunTool, TinyFishFetchTool, TinyFishSearchTool};
-pub use twilio::TwilioCallTool;
 pub use types::{
     BackendResponse, IntegrationPricing, IntegrationPricingEntry, PricingIntegrations, ToolScope,
 };

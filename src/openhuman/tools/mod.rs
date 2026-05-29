@@ -11,6 +11,7 @@ pub(crate) mod user_filter;
 #[path = "impl/mod.rs"]
 pub(crate) mod implementations;
 
+pub use crate::openhuman::integrations::tools::*;
 pub use implementations::*;
 pub use ops::*;
 pub use policy::{DefaultToolPolicy, PolicyDecision, ToolPolicy};

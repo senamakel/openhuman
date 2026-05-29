@@ -5,9 +5,12 @@
 //! request, validation, and NaN-recovery branches used in production.
 
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
 
 use axum::extract::Json;
-use axum::http::StatusCode;
+use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::Router;
 use serde_json::{json, Value};
@@ -18,6 +21,7 @@ use openhuman_core::openhuman::embeddings::cloud::{
 };
 use openhuman_core::openhuman::embeddings::noop::NoopEmbedding;
 use openhuman_core::openhuman::embeddings::ollama::DEFAULT_OLLAMA_URL;
+use openhuman_core::openhuman::embeddings::openai::OpenAiEmbedding;
 use openhuman_core::openhuman::embeddings::retry_after::{
     backoff_ms_for_attempt, parse_retry_after_ms, BASE_BACKOFF_MS, MAX_BACKOFF_MS,
 };
@@ -35,6 +39,237 @@ async fn serve_mock_ollama(app: Router) -> String {
         axum::serve(listener, app).await.expect("mock ollama serve");
     });
     format!("http://127.0.0.1:{}", addr.port())
+}
+
+#[derive(Clone, Copy)]
+enum OpenAiMockBehavior {
+    RetryThenSuccess,
+    CountMismatch,
+    BadEmbeddingItem,
+    DimensionMismatch,
+    MissingData,
+    Non2xx,
+}
+
+#[derive(Clone)]
+struct OpenAiMockState {
+    behavior: OpenAiMockBehavior,
+    attempts: Arc<Mutex<usize>>,
+    requests: Arc<Mutex<Vec<Value>>>,
+    auth_headers: Arc<Mutex<Vec<Option<String>>>>,
+}
+
+impl OpenAiMockState {
+    fn new(behavior: OpenAiMockBehavior) -> Self {
+        Self {
+            behavior,
+            attempts: Arc::new(Mutex::new(0)),
+            requests: Arc::new(Mutex::new(Vec::new())),
+            auth_headers: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+async fn serve_mock_openai(behavior: OpenAiMockBehavior) -> (String, OpenAiMockState) {
+    let state = OpenAiMockState::new(behavior);
+    let app = Router::new()
+        .route("/v1/embeddings", post(mock_openai_handler))
+        .route("/api/v2/embeddings", post(mock_openai_handler))
+        .route("/embeddings", post(mock_openai_handler))
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind mock openai");
+    let addr = listener.local_addr().expect("mock openai addr");
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("mock openai serve");
+    });
+    (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+fn record_openai_request(state: &OpenAiMockState, headers: &HeaderMap, body: Value) -> usize {
+    let mut attempts = state.attempts.lock().expect("attempts lock");
+    *attempts += 1;
+    let attempt = *attempts;
+    drop(attempts);
+
+    state.requests.lock().expect("requests lock").push(body);
+    state.auth_headers.lock().expect("auth headers lock").push(
+        headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .map(ToOwned::to_owned),
+    );
+    attempt
+}
+
+async fn mock_openai_handler(
+    State(state): State<OpenAiMockState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> axum::response::Response {
+    let attempt = record_openai_request(&state, &headers, body);
+
+    match state.behavior {
+        OpenAiMockBehavior::RetryThenSuccess if attempt == 1 => (
+            StatusCode::TOO_MANY_REQUESTS,
+            [(axum::http::header::RETRY_AFTER, "0")],
+            "slow down",
+        )
+            .into_response(),
+        OpenAiMockBehavior::RetryThenSuccess => Json(json!({
+            "data": [
+                { "embedding": [1.0, 2.0] },
+                { "embedding": [3.0, 4.0] }
+            ]
+        }))
+        .into_response(),
+        OpenAiMockBehavior::CountMismatch => {
+            Json(json!({ "data": [{ "embedding": [1.0, 2.0] }] })).into_response()
+        }
+        OpenAiMockBehavior::BadEmbeddingItem => {
+            Json(json!({ "data": [{ "embedding": [1.0, "bad"] }] })).into_response()
+        }
+        OpenAiMockBehavior::DimensionMismatch => {
+            Json(json!({ "data": [{ "embedding": [1.0, 2.0, 3.0] }] })).into_response()
+        }
+        OpenAiMockBehavior::MissingData => Json(json!({ "not_data": [] })).into_response(),
+        OpenAiMockBehavior::Non2xx => {
+            (StatusCode::BAD_REQUEST, "bad embedding request").into_response()
+        }
+    }
+}
+
+#[tokio::test]
+async fn openai_embed_retries_and_round_trips_auth_body_and_vectors() {
+    let (base_url, state) = serve_mock_openai(OpenAiMockBehavior::RetryThenSuccess).await;
+    let provider = OpenAiEmbedding::new(&base_url, "test-key", "mock-openai", 2);
+
+    assert_eq!(provider.name(), "openai");
+    assert_eq!(provider.model_id(), "mock-openai");
+    assert_eq!(provider.dimensions(), 2);
+    assert_eq!(provider.base_url(), base_url);
+    assert_eq!(provider.model(), "mock-openai");
+    assert_eq!(
+        provider.embeddings_url(),
+        format!("{base_url}/v1/embeddings")
+    );
+
+    let vectors = provider
+        .embed(&["first", "second"])
+        .await
+        .expect("openai retry success");
+
+    assert_eq!(vectors, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+    assert_eq!(*state.attempts.lock().expect("attempts lock"), 2);
+
+    let auth_headers = state.auth_headers.lock().expect("auth headers lock");
+    assert_eq!(
+        auth_headers.as_slice(),
+        [
+            Some("Bearer test-key".to_string()),
+            Some("Bearer test-key".to_string())
+        ]
+    );
+    drop(auth_headers);
+
+    let requests = state.requests.lock().expect("requests lock");
+    assert_eq!(
+        requests[0].get("model").and_then(Value::as_str),
+        Some("mock-openai")
+    );
+    assert_eq!(
+        requests[0].pointer("/input/0").and_then(Value::as_str),
+        Some("first")
+    );
+    assert_eq!(
+        requests[0].pointer("/input/1").and_then(Value::as_str),
+        Some("second")
+    );
+}
+
+#[tokio::test]
+async fn openai_embed_handles_explicit_paths_empty_inputs_and_missing_auth() {
+    let (base_url, state) = serve_mock_openai(OpenAiMockBehavior::RetryThenSuccess).await;
+    let api_provider = OpenAiEmbedding::new(&format!("{base_url}/api/v2"), "", "mock-path", 2);
+    assert_eq!(
+        api_provider.embeddings_url(),
+        format!("{base_url}/api/v2/embeddings")
+    );
+
+    let vectors = api_provider
+        .embed(&["first", "second"])
+        .await
+        .expect("explicit api path success");
+    assert_eq!(vectors, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+    assert_eq!(
+        state.auth_headers.lock().expect("auth headers lock").last(),
+        Some(&None)
+    );
+
+    let endpoint_provider = OpenAiEmbedding::new(&format!("{base_url}/embeddings"), "", "m", 2);
+    assert_eq!(
+        endpoint_provider.embeddings_url(),
+        format!("{base_url}/embeddings")
+    );
+    assert_eq!(
+        endpoint_provider.embed(&[]).await.expect("empty input"),
+        Vec::<Vec<f32>>::new()
+    );
+
+    let invalid_url_provider = OpenAiEmbedding::new("not-a-url", "", "m", 0);
+    assert_eq!(
+        invalid_url_provider.embeddings_url(),
+        "not-a-url/v1/embeddings"
+    );
+}
+
+#[tokio::test]
+async fn openai_embed_reports_response_validation_and_http_errors() {
+    let (count_url, _) = serve_mock_openai(OpenAiMockBehavior::CountMismatch).await;
+    let count_provider = OpenAiEmbedding::new(&count_url, "k", "m", 2);
+    assert!(count_provider
+        .embed(&["a", "b"])
+        .await
+        .expect_err("count mismatch")
+        .to_string()
+        .contains("count mismatch"));
+
+    let (bad_item_url, _) = serve_mock_openai(OpenAiMockBehavior::BadEmbeddingItem).await;
+    let bad_item_provider = OpenAiEmbedding::new(&bad_item_url, "k", "m", 2);
+    assert!(bad_item_provider
+        .embed(&["a"])
+        .await
+        .expect_err("non numeric")
+        .to_string()
+        .contains("non-numeric"));
+
+    let (dim_url, _) = serve_mock_openai(OpenAiMockBehavior::DimensionMismatch).await;
+    let dim_provider = OpenAiEmbedding::new(&dim_url, "k", "m", 2);
+    assert!(dim_provider
+        .embed(&["a"])
+        .await
+        .expect_err("dimension mismatch")
+        .to_string()
+        .contains("dimension mismatch"));
+
+    let (missing_url, _) = serve_mock_openai(OpenAiMockBehavior::MissingData).await;
+    let missing_provider = OpenAiEmbedding::new(&missing_url, "k", "m", 2);
+    assert!(missing_provider
+        .embed(&["a"])
+        .await
+        .expect_err("missing data")
+        .to_string()
+        .contains("missing 'data'"));
+
+    let (non_2xx_url, _) = serve_mock_openai(OpenAiMockBehavior::Non2xx).await;
+    let non_2xx_provider = OpenAiEmbedding::new(&non_2xx_url, "k", "m", 2);
+    assert!(non_2xx_provider
+        .embed(&["a"])
+        .await
+        .expect_err("http error")
+        .to_string()
+        .contains("Embedding API error"));
 }
 
 #[test]

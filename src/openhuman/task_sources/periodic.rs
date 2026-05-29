@@ -19,9 +19,15 @@ use crate::openhuman::config::rpc as config_rpc;
 use super::pipeline;
 use super::types::{FetchReason, TaskSource};
 
-/// How often the scheduler wakes to look for due sources. Independent of
-/// per-source `interval_secs`, which still caps the minimum delay
-/// between actual fetches.
+/// How often the scheduler wakes to look for due sources.
+///
+/// This is also the *effective lower bound* on polling frequency: a
+/// source's `interval_secs` only governs how many ticks must elapse
+/// before it is due again, so any `interval_secs` shorter than
+/// `TICK_SECONDS` is effectively rounded up to this tick cadence (e.g. a
+/// 60s source is still only polled every ~10 minutes). This keeps
+/// background load bounded; sub-tick intervals are intentionally not
+/// honoured more frequently.
 const TICK_SECONDS: u64 = 600;
 
 /// Floor on a source's effective poll interval, so a misconfigured

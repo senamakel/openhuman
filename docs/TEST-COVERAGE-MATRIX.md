@@ -285,7 +285,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | ID    | Feature            | Layer | Test path(s)                              | Status | Notes                             |
 | ----- | ------------------ | ----- | ----------------------------------------- | ------ | --------------------------------- |
 | 8.2.1 | Context Injection  | RI    | `tests/autocomplete_memory_e2e.rs`        | ✅     |                                   |
-| 8.2.2 | Memory Consistency | RI    | `tests/memory_graph_sync_e2e.rs`          | ✅     |                                   |
+| 8.2.2 | Memory Consistency | RI    | `tests/memory_graph_sync_e2e.rs`, `tests/worker_c_modules_e2e.rs` | ✅     | Worker C RPC E2E verifies memory-tree ingest is reflected by `memory_sync_status_list` |
 | 8.2.3 | Memory Scaling     | RU    | `src/openhuman/memory/ingestion_tests.rs` | 🟡     | Soak/scale benchmark not asserted |
 
 ### 8.3 Memory Retrieval Benchmarks
@@ -385,7 +385,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | ID     | Feature                | Layer | Test path(s)                               | Status | Notes                |
 | ------ | ---------------------- | ----- | ------------------------------------------ | ------ | -------------------- |
 | 10.5.1 | Channel Isolation      | RU    | `src/openhuman/channels/tests/identity.rs` | ✅     |                      |
-| 10.5.2 | Unified Inbox Handling | WD    | `channels-smoke.spec.ts`                   | 🟡     | UI assertion shallow |
+| 10.5.2 | Unified Inbox Handling | WD+RI | `channels-smoke.spec.ts`, `tests/worker_c_modules_e2e.rs` | 🟡     | UI assertion shallow; RI covers config-only channel status after connect/disconnect |
 | 10.5.3 | Context Preservation   | RU    | `src/openhuman/channels/tests/context.rs`  | ✅     |                      |
 
 ### 10.6 Permission Enforcement
@@ -400,7 +400,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 
 | ID     | Feature                | Layer | Test path(s)                                | Status | Notes                            |
 | ------ | ---------------------- | ----- | ------------------------------------------- | ------ | -------------------------------- |
-| 10.7.1 | Integration Disconnect | WD    | `gmail-flow.spec.ts`                        | ✅     |                                  |
+| 10.7.1 | Integration Disconnect | WD+RI | `gmail-flow.spec.ts`, `tests/worker_c_modules_e2e.rs` | ✅     | RI covers `channels_disconnect` clearing config-only iMessage state |
 | 10.7.2 | Token Revocation       | RU    | `src/openhuman/credentials/`                | ✅     |                                  |
 | 10.7.3 | Re-Authorization Flow  | WD    | `skill-oauth.spec.ts`                       | 🟡     | Re-auth post-revoke not asserted |
 | 10.7.4 | Permission Re-Sync     | WD    | _missing_ — tracked #968                    | ❌     |                                  |
@@ -417,10 +417,11 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | 11.1.2 | Actionable Item Extraction | VU    | `app/src/components/intelligence/__tests__/utils.test.ts` (this PR)                                                 | ✅     | Was ❌                                                                                    |
 | 11.1.3 | Analyze Trigger            | WD    | `app/test/e2e/specs/insights-dashboard.spec.ts` mounts the route (this PR); explicit analyze-handler invocation TBD | 🟡     | Route mounts and search/filter UI assert — full analyze trigger flow tracked as follow-up |
 | 11.1.4 | MCP server (stdio + HTTP)  | RU    | `src/openhuman/mcp_server/`                                                                                         | ✅     | Stdio framing plus Streamable HTTP/SSE session lifecycle; `McpHttpClient` round-trip tests |
-| 11.1.5 | Global tool registry       | RI    | `src/openhuman/tool_registry/`, `tests/json_rpc_e2e.rs`                                                             | ✅     | Read-only MCP/controller discovery with routes, schemas, version, allowed agents, and health |
+| 11.1.5 | Global tool registry       | RI    | `src/openhuman/tool_registry/`, `tests/json_rpc_e2e.rs`, `tests/domain_modules_e2e.rs`                              | ✅     | Read-only MCP/controller discovery with routes, schemas, version, allowed agents, and health |
 | 11.1.6 | SearXNG MCP search         | RU    | `src/openhuman/integrations/searxng.rs`, `src/openhuman/mcp_server/tools.rs`, `src/openhuman/tools/schemas.rs`      | ✅     | Self-hosted search config, normalized results, MCP argument validation, and mocked HTTP execution |
 | 11.1.7 | Bundled prompt resources   | RU    | `src/openhuman/mcp_server/resources.rs`, `src/openhuman/mcp_server/protocol.rs`                                     | ✅     | `resources/list` catalog + `resources/read` happy path, -32002 unknown URI, -32602 missing param, catalog-mirrors-BUILTINS parity test |
 | 11.1.8 | Resource templates list    | RU    | `src/openhuman/mcp_server/resources.rs`, `src/openhuman/mcp_server/protocol.rs`                                     | ✅     | `resources/templates/list` returns `{resourceTemplates: []}` (static catalog), tolerates unknown/cursor params |
+| 11.1.9 | Core module RPC surfaces   | RI    | `tests/domain_modules_e2e.rs`, `tests/worker_c_modules_e2e.rs`                                                      | ✅     | Schema catalog + read/status JSON-RPC smoke for config, auth/credentials, app_state, connectivity, inference, agent, tools, approval, memory, memory_tree, memory_sync, memory_sources, embeddings, channels, composio, and threads; focused Worker C RPC E2E adds channels, composio direct-mode, threads, and memory-sync mutation paths |
 
 ### 11.2 Insights Dashboard
 

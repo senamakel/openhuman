@@ -18,8 +18,29 @@ vi.mock('../../../utils/tauriCommands', () => ({
   memoryTreeObsidianVaultStatus: vi.fn(),
 }));
 
-vi.mock('../../../services/memorySyncService', () => ({
-  memorySyncStatusList: vi.fn().mockResolvedValue([]),
+vi.mock('../../../services/memorySourcesService', () => ({
+  listMemorySources: vi.fn().mockResolvedValue([]),
+  memorySourcesStatusList: vi.fn().mockResolvedValue([]),
+  syncMemorySource: vi.fn(),
+  removeMemorySource: vi.fn(),
+  updateMemorySource: vi.fn(),
+  addMemorySource: vi.fn(),
+  SOURCE_KIND_ICONS: {
+    folder: '📁',
+    composio: '🔗',
+    github_repo: '🐙',
+    rss_feed: '📡',
+    web_page: '🌐',
+    twitter_query: '🐦',
+  },
+  SOURCE_KIND_LABELS: {
+    folder: 'Folder',
+    composio: 'Integration',
+    github_repo: 'GitHub',
+    rss_feed: 'RSS',
+    web_page: 'Web',
+    twitter_query: 'Twitter',
+  },
 }));
 
 vi.mock('../../../lib/composio/composioApi', () => ({

@@ -91,6 +91,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("remove"),
         schemas("list_items"),
         schemas("read_item"),
+        schemas("sync"),
+        schemas("status_list"),
     ]
 }
 
@@ -123,6 +125,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("read_item"),
             handler: handle_read_item,
+        },
+        RegisteredController {
+            schema: schemas("sync"),
+            handler: handle_sync,
+        },
+        RegisteredController {
+            schema: schemas("status_list"),
+            handler: handle_status_list,
         },
     ]
 }
@@ -297,6 +307,45 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "sync" => ControllerSchema {
+            namespace: NAMESPACE,
+            function: "sync",
+            description: "Trigger a sync for a memory source. Returns immediately; \
+                          progress is published as MemorySyncStageChanged events.",
+            inputs: vec![FieldSchema {
+                name: "source_id",
+                ty: TypeSchema::String,
+                comment: "Source id to sync.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "requested",
+                    ty: TypeSchema::Bool,
+                    comment: "True when the sync was queued.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "source_id",
+                    ty: TypeSchema::String,
+                    comment: "Echo of the requested source id.",
+                    required: true,
+                },
+            ],
+        },
+        "status_list" => ControllerSchema {
+            namespace: NAMESPACE,
+            function: "status_list",
+            description: "Per-source sync status — chunks ingested, freshness label, \
+                          last-chunk timestamp.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "statuses",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Ref("SourceStatus"))),
+                comment: "One row per configured memory source.",
+                required: true,
+            }],
+        },
         other => panic!("unknown memory_sources schema function: {other}"),
     }
 }
@@ -345,6 +394,17 @@ fn handle_read_item(params: Map<String, Value>) -> ControllerFuture {
         let req = parse_value::<rpc::ReadItemRequest>(Value::Object(params))?;
         to_json(rpc::read_item_rpc(req).await?)
     })
+}
+
+fn handle_sync(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let req = parse_value::<rpc::SyncRequest>(Value::Object(params))?;
+        to_json(rpc::sync_rpc(req).await?)
+    })
+}
+
+fn handle_status_list(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move { to_json(rpc::status_list_rpc().await?) })
 }
 
 fn parse_value<T: DeserializeOwned>(v: Value) -> Result<T, String> {

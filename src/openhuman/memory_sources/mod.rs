@@ -20,6 +20,8 @@ pub mod reconcile;
 pub mod registry;
 pub mod rpc;
 pub mod schemas;
+pub mod status;
+pub mod sync;
 pub mod types;
 
 pub use registry::{

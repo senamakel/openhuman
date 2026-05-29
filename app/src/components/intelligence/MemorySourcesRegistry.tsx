@@ -3,23 +3,24 @@
  *
  * Single source of truth for **what feeds memory**: folders, GitHub
  * repos, RSS feeds, web pages, Twitter queries, and Composio
- * integrations (Gmail, Slack, etc.). Users add, toggle, sync, and
- * remove sources here. The list comes from the memory_sources
- * registry (`openhuman.memory_sources_list`).
- *
- * For Composio sources, a Sync button triggers `composio_sync` on
- * the corresponding connection id.
+ * integrations. Polls `openhuman.memory_sources_status_list` every 5s
+ * for per-source chunk counts and freshness. The Sync button on each
+ * row dispatches `openhuman.memory_sources_sync` which runs in the
+ * background and emits MemorySyncStageChanged events.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { syncConnection } from '../../lib/composio/composioApi';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
+  type FreshnessLabel,
   listMemorySources,
   type MemorySourceEntry,
+  memorySourcesStatusList,
   removeMemorySource,
   SOURCE_KIND_ICONS,
   SOURCE_KIND_LABELS,
+  type SourceStatus,
+  syncMemorySource,
   updateMemorySource,
 } from '../../services/memorySourcesService';
 import type { ToastNotification } from '../../types/intelligence';
@@ -27,29 +28,56 @@ import { AddMemorySourceDialog } from './AddMemorySourceDialog';
 
 interface MemorySourcesRegistryProps {
   onToast?: (toast: Omit<ToastNotification, 'id'>) => void;
+  pollIntervalMs?: number;
 }
 
-export function MemorySourcesRegistry({ onToast }: MemorySourcesRegistryProps) {
+export function MemorySourcesRegistry({
+  onToast,
+  pollIntervalMs = 5000,
+}: MemorySourcesRegistryProps) {
   const { t } = useT();
   const [sources, setSources] = useState<MemorySourceEntry[]>([]);
+  const [statuses, setStatuses] = useState<SourceStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  const loadSources = useCallback(async () => {
+  const refresh = useCallback(async () => {
     try {
-      const list = await listMemorySources();
+      const [list, stats] = await Promise.all([
+        listMemorySources().catch(err => {
+          console.warn('[ui-flow][memory-sources] list failed', err);
+          return [] as MemorySourceEntry[];
+        }),
+        memorySourcesStatusList().catch(err => {
+          console.warn('[ui-flow][memory-sources] status_list failed', err);
+          return [] as SourceStatus[];
+        }),
+      ]);
       setSources(list);
-    } catch (err) {
-      console.warn('[ui-flow][memory-sources] load failed', err);
+      setStatuses(stats);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadSources();
-  }, [loadSources]);
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!pollIntervalMs) return undefined;
+    const id = setInterval(() => {
+      void refresh();
+    }, pollIntervalMs);
+    return () => clearInterval(id);
+  }, [pollIntervalMs, refresh]);
+
+  const statusById = useMemo(() => {
+    const m = new Map<string, SourceStatus>();
+    for (const s of statuses) m.set(s.source_id, s);
+    return m;
+  }, [statuses]);
 
   const handleToggle = useCallback(
     async (source: MemorySourceEntry) => {
@@ -86,15 +114,15 @@ export function MemorySourcesRegistry({ onToast }: MemorySourcesRegistryProps) {
 
   const handleSync = useCallback(
     async (source: MemorySourceEntry) => {
-      if (source.kind !== 'composio' || !source.connection_id) return;
       setSyncingId(source.id);
       try {
-        await syncConnection(source.connection_id, 'manual');
+        await syncMemorySource(source.id);
         onToast?.({
           type: 'success',
-          title: `Synced ${source.label}`,
-          message: 'New items will be admitted into the memory tree shortly.',
+          title: `Syncing ${source.label}`,
+          message: 'Progress will appear shortly.',
         });
+        void refresh();
       } catch (err) {
         onToast?.({
           type: 'error',
@@ -105,15 +133,16 @@ export function MemorySourcesRegistry({ onToast }: MemorySourcesRegistryProps) {
         setSyncingId(prev => (prev === source.id ? null : prev));
       }
     },
-    [onToast]
+    [onToast, refresh]
   );
 
   const handleAdded = useCallback(
     (source: MemorySourceEntry) => {
       setSources(prev => [...prev, source]);
       onToast?.({ type: 'success', title: t('memorySources.added'), message: source.label });
+      void refresh();
     },
-    [onToast, t]
+    [onToast, refresh, t]
   );
 
   return (
@@ -145,6 +174,7 @@ export function MemorySourcesRegistry({ onToast }: MemorySourcesRegistryProps) {
             <SourceRow
               key={source.id}
               source={source}
+              status={statusById.get(source.id) ?? null}
               isSyncing={syncingId === source.id}
               onToggle={handleToggle}
               onRemove={handleRemove}
@@ -165,23 +195,24 @@ export function MemorySourcesRegistry({ onToast }: MemorySourcesRegistryProps) {
 
 interface SourceRowProps {
   source: MemorySourceEntry;
+  status: SourceStatus | null;
   isSyncing: boolean;
   onToggle: (source: MemorySourceEntry) => void;
   onRemove: (source: MemorySourceEntry) => void;
   onSync: (source: MemorySourceEntry) => void;
 }
 
-function SourceRow({ source, isSyncing, onToggle, onRemove, onSync }: SourceRowProps) {
+function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
   const kindLabel = SOURCE_KIND_LABELS[source.kind] ?? source.kind;
   const detail = sourceDetail(source);
-  const canSync = source.kind === 'composio' && !!source.connection_id;
+  const lastSync = status ? relativeTimestamp(status.last_chunk_at_ms) : null;
 
   return (
-    <li className="flex items-center justify-between gap-3 py-3">
+    <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-base">{icon}</span>
           <span
             className={`truncate text-sm font-medium ${
@@ -194,30 +225,44 @@ function SourceRow({ source, isSyncing, onToggle, onRemove, onSync }: SourceRowP
           <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
             {kindLabel}
           </span>
+          {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
         </div>
         {detail && (
           <p className="mt-0.5 truncate pl-7 text-xs text-stone-400 dark:text-neutral-500">
             {detail}
           </p>
         )}
+        {status && (status.chunks_synced > 0 || status.chunks_pending > 0) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
+            <span>
+              {status.chunks_synced.toLocaleString()} {t('sync.chunks')}
+            </span>
+            {lastSync && (
+              <span>
+                {t('sync.lastChunk')} {lastSync}
+              </span>
+            )}
+            {status.chunks_pending > 0 && (
+              <span>
+                {status.chunks_pending.toLocaleString()} {t('sync.pending')}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {canSync && (
-          <button
-            type="button"
-            onClick={() => onSync(source)}
-            disabled={!source.enabled || isSyncing}
-            title={t('sync.sync')}
-            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1
-                       text-xs font-medium text-stone-700 transition-colors
-                       hover:border-primary-400 hover:text-primary-600
-                       disabled:cursor-not-allowed disabled:opacity-50
-                       dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-primary-500
-                       dark:hover:text-primary-400">
-            {isSyncing ? <Spinner /> : <SyncIcon />}
-            {isSyncing ? t('sync.syncing') : t('sync.sync')}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => onSync(source)}
+          disabled={!source.enabled || isSyncing}
+          title={t('sync.sync')}
+          className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
+                     text-xs font-semibold text-white shadow-sm transition-colors
+                     hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50
+                     focus:outline-none focus:ring-2 focus:ring-primary-200">
+          {isSyncing ? <Spinner /> : <SyncIcon />}
+          {isSyncing ? t('sync.syncing') : t('sync.sync')}
+        </button>
         <button
           type="button"
           onClick={() => onToggle(source)}
@@ -243,6 +288,37 @@ function SourceRow({ source, isSyncing, onToggle, onRemove, onSync }: SourceRowP
       </div>
     </li>
   );
+}
+
+function FreshnessPill({ freshness }: { freshness: FreshnessLabel }) {
+  const { t } = useT();
+  const label =
+    freshness === 'active'
+      ? t('sync.active')
+      : freshness === 'recent'
+        ? t('sync.recent')
+        : t('sync.idle');
+  const cls =
+    freshness === 'active'
+      ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
+      : freshness === 'recent'
+        ? 'bg-sage-100 dark:bg-sage-500/20 text-sage-700 dark:text-sage-300'
+        : 'bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200';
+  return <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>;
+}
+
+function relativeTimestamp(epochMs: number | null): string | null {
+  if (epochMs === null) return null;
+  const delta = Date.now() - epochMs;
+  if (delta < 1000) return 'just now';
+  const seconds = Math.floor(delta / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 function sourceDetail(source: MemorySourceEntry): string | null {

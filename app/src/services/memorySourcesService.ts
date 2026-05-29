@@ -132,6 +132,33 @@ export async function readSourceItem(sourceId: string, itemId: string): Promise<
   return data.content;
 }
 
+export type FreshnessLabel = 'active' | 'recent' | 'idle';
+
+export interface SourceStatus {
+  source_id: string;
+  chunks_synced: number;
+  chunks_pending: number;
+  last_chunk_at_ms: number | null;
+  freshness: FreshnessLabel;
+}
+
+export async function memorySourcesStatusList(): Promise<SourceStatus[]> {
+  log('status_list');
+  const resp = await callCoreRpc<{ statuses: SourceStatus[] }>({
+    method: 'openhuman.memory_sources_status_list',
+  });
+  const data = unwrap<{ statuses: SourceStatus[] }>(resp);
+  return data.statuses ?? [];
+}
+
+export async function syncMemorySource(sourceId: string): Promise<void> {
+  log('sync source_id=%s', sourceId);
+  await callCoreRpc<{ requested: boolean }>({
+    method: 'openhuman.memory_sources_sync',
+    params: { source_id: sourceId },
+  });
+}
+
 export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
   composio: 'Integration',
   folder: 'Local Folder',

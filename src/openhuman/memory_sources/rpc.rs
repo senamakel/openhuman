@@ -205,3 +205,49 @@ pub async fn read_item_rpc(req: ReadItemRequest) -> Result<RpcOutcome<ReadItemRe
 
     Ok(RpcOutcome::new(ReadItemResponse { content }, vec![]))
 }
+
+// ── Sync ──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct SyncRequest {
+    pub source_id: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SyncResponse {
+    pub requested: bool,
+    pub source_id: String,
+}
+
+pub async fn sync_rpc(req: SyncRequest) -> Result<RpcOutcome<SyncResponse>, String> {
+    tracing::info!(source_id = %req.source_id, "[memory_sources] sync_rpc: entry");
+
+    let source = registry::get_source(&req.source_id)
+        .await?
+        .ok_or_else(|| format!("source '{}' not found", req.source_id))?;
+
+    let config = config_rpc::load_config_with_timeout().await?;
+    crate::openhuman::memory_sources::sync::sync_source(source, config).await?;
+
+    Ok(RpcOutcome::new(
+        SyncResponse {
+            requested: true,
+            source_id: req.source_id,
+        },
+        vec![],
+    ))
+}
+
+// ── Status List ──
+
+#[derive(Debug, serde::Serialize)]
+pub struct StatusListResponse {
+    pub statuses: Vec<crate::openhuman::memory_sources::status::SourceStatus>,
+}
+
+pub async fn status_list_rpc() -> Result<RpcOutcome<StatusListResponse>, String> {
+    tracing::debug!("[memory_sources] status_list_rpc: entry");
+    let config = config_rpc::load_config_with_timeout().await?;
+    let statuses = crate::openhuman::memory_sources::status::status_list(&config).await?;
+    Ok(RpcOutcome::new(StatusListResponse { statuses }, vec![]))
+}

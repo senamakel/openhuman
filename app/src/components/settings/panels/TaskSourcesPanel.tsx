@@ -187,6 +187,10 @@ const TaskSourcesPanel = () => {
     setNotice(null);
     try {
       const outcome = await openhumanTaskSourcesFetch(source.id);
+      // Refresh the source list first (updates lastFetchAt/lastStatus);
+      // `load()` resets the error/notice, so set the outcome message
+      // *after* it so the message isn't immediately cleared.
+      await load();
       if (outcome.error) {
         setError(outcome.error);
       } else {
@@ -196,7 +200,6 @@ const TaskSourcesPanel = () => {
             .replace('{fetched}', String(outcome.fetched))
         );
       }
-      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -1092,7 +1092,7 @@ fn is_provider_user_state_message(lower: &str) -> bool {
     // personal Composio v3 tenant rejected with a 401 because the stored
     // API key is invalid / revoked / has the wrong prefix. The canonical
     // wire shape rendered by
-    // `src/openhuman/composio/tools/impl/network/composio.rs::response_error`
+    // `src/openhuman/composio/composio/tools/direct.rs::response_error`
     // and the various direct-mode op wrappers is:
     //
     //   `[composio-direct] list_connections failed: Composio v3

@@ -444,7 +444,7 @@ fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
 }
 
 /// Process-global lock that test code (here and in
-/// `tools::impl::agent::todo`) uses to serialize access to the shared
+/// `agent::tools::todo`) uses to serialize access to the shared
 /// scratch store under `cargo test`'s parallel runner.
 #[cfg(test)]
 pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {

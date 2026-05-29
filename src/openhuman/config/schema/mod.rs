@@ -37,6 +37,7 @@ mod runtime;
 mod runtime_python;
 mod scheduler_gate;
 mod storage_memory;
+mod task_sources;
 mod tools;
 mod update;
 
@@ -73,6 +74,7 @@ pub use routes::{EmbeddingRouteConfig, ModelRouteConfig};
 pub use runtime::{DockerRuntimeConfig, ReliabilityConfig, RuntimeConfig, SchedulerConfig};
 pub use runtime_python::RuntimePythonConfig;
 pub use scheduler_gate::{SchedulerGateConfig, SchedulerGateMode};
+pub use task_sources::TaskSourcesConfig;
 pub use storage_memory::{
     LlmBackend, MemoryConfig, MemoryTreeConfig, StorageConfig, StorageProviderConfig,
     StorageProviderSection, DEFAULT_CLOUD_LLM_MODEL,

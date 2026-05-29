@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 
+use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_sync::composio::providers::{get_provider, ProviderContext};
 
@@ -43,6 +44,13 @@ pub async fn run_source_once(
                 outcome.fetched, outcome.routed, outcome.skipped_dupe
             );
             let _ = store::record_fetch(config, &source.id, Utc::now(), reason, &status);
+            publish_global(DomainEvent::TaskSourceFetched {
+                source_id: source.id.clone(),
+                provider: outcome.provider.clone(),
+                fetched: outcome.fetched,
+                routed: outcome.routed,
+                skipped: outcome.skipped_dupe,
+            });
             tracing::info!(
                 source_id = %source.id,
                 fetched = outcome.fetched,
@@ -58,6 +66,11 @@ pub async fn run_source_once(
                 "[task_sources:pipeline] fetch pass failed"
             );
             let _ = store::record_fetch(config, &source.id, Utc::now(), reason, &format!("error: {e}"));
+            publish_global(DomainEvent::TaskSourceFetchFailed {
+                source_id: source.id.clone(),
+                provider: outcome.provider.clone(),
+                error: e.clone(),
+            });
             outcome.error = Some(e);
         }
     }
@@ -117,6 +130,13 @@ async fn run_inner(
 
         store::mark_ingested(config, &source.id, &enriched.task)
             .map_err(|e| format!("mark_ingested failed: {e}"))?;
+        publish_global(DomainEvent::TaskSourceTaskIngested {
+            source_id: source.id.clone(),
+            provider: enriched.task.provider.clone(),
+            external_id: enriched.task.external_id.clone(),
+            title: enriched.task.title.clone(),
+            urgency: enriched.urgency,
+        });
         outcome.routed += 1;
     }
 

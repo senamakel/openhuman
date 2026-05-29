@@ -94,6 +94,11 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         .await
         .map_err(|e| format!("load_config: {e}"))?;
 
+    if !config.task_sources.enabled {
+        tracing::debug!("[task_sources:periodic] domain disabled in config, skipping tick");
+        return Ok(());
+    }
+
     let sources = match super::store::list_sources(&config) {
         Ok(sources) => sources,
         Err(e) => {

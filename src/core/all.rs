@@ -114,6 +114,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::composio::all_composio_registered_controllers());
     // Scheduled job management
     controllers.extend(crate::openhuman::cron::all_cron_registered_controllers());
+    // Proactive task ingestion from external tools (github/notion/linear/clickup)
+    controllers.extend(crate::openhuman::task_sources::all_task_sources_registered_controllers());
     controllers.extend(crate::openhuman::dashboard::all_dashboard_registered_controllers());
     // MCP client subsystem: Smithery registry browser, local server install/connect, tool dispatch
     controllers.extend(crate::openhuman::mcp_registry::all_mcp_registry_registered_controllers());
@@ -291,6 +293,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_controller_schemas());
     schemas.extend(crate::openhuman::composio::all_composio_controller_schemas());
     schemas.extend(crate::openhuman::cron::all_cron_controller_schemas());
+    schemas.extend(crate::openhuman::task_sources::all_task_sources_controller_schemas());
     schemas.extend(crate::openhuman::dashboard::all_dashboard_controller_schemas());
     schemas.extend(crate::openhuman::mcp_registry::all_mcp_registry_controller_schemas());
     schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());

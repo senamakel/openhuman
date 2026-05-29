@@ -152,6 +152,12 @@ pub struct Config {
     #[serde(default)]
     pub cron: CronConfig,
 
+    /// Task-sources domain defaults — master switch + new-source
+    /// defaults. Per-source records live in the domain's SQLite store.
+    /// See [`crate::openhuman::task_sources`].
+    #[serde(default)]
+    pub task_sources: TaskSourcesConfig,
+
     #[serde(default)]
     pub channels_config: ChannelsConfig,
 
@@ -634,6 +640,7 @@ impl Default for Config {
             embedding_routes: Vec::new(),
             heartbeat: HeartbeatConfig::default(),
             cron: CronConfig::default(),
+            task_sources: TaskSourcesConfig::default(),
             channels_config: ChannelsConfig::default(),
             memory: MemoryConfig::default(),
             memory_tree: MemoryTreeConfig::default(),

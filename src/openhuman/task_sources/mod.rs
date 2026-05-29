@@ -15,11 +15,14 @@
 //!
 //! [`fetch_tasks`]: crate::openhuman::memory_sync::composio::providers::ComposioProvider::fetch_tasks
 
+pub mod bus;
 pub mod enrich;
 pub mod filter;
+pub mod ops;
 pub mod periodic;
 pub mod pipeline;
 pub mod route;
+mod schemas;
 pub mod store;
 pub mod types;
 
@@ -27,6 +30,11 @@ pub use crate::openhuman::memory_sync::composio::providers::{NormalizedTask, Tas
 pub use periodic::start_periodic_poll;
 pub use pipeline::run_source_once;
 pub use route::TASK_SOURCES_THREAD_ID;
+pub use schemas::{
+    all_controller_schemas as all_task_sources_controller_schemas,
+    all_registered_controllers as all_task_sources_registered_controllers,
+    schemas as task_sources_schemas,
+};
 pub use types::{
     EnrichedTask, FetchOutcome, FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource,
     TaskSourcePatch,

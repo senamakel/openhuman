@@ -1839,6 +1839,9 @@ fn register_domain_subscribers(
         }
         crate::openhuman::composio::register_composio_trigger_subscriber();
         crate::openhuman::composio::start_periodic_sync();
+        // Task-sources proactive ingestion: connection-created hook + poll.
+        crate::openhuman::task_sources::bus::register_task_sources_subscriber();
+        crate::openhuman::task_sources::start_periodic_poll();
         // Initialise the scheduler gate before any background AI workers
         // start so they observe a real policy on their first iteration
         // (otherwise they fall back to `Policy::Normal` and miss the

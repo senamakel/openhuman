@@ -1005,6 +1005,9 @@ const bn5: TranslationMap = {
   'skills.new.title': 'Create a skill',
   'skills.new.placeholderBody':
     'Authoring form arrives soon. For now, use the “New skill” button on the runner page.',
+  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
+  'settings.agentAccess.requireTaskPlanApproval.desc':
+    'Pause before an assigned agent executes an agent-authored task brief.',
 };
 
 export default bn5;

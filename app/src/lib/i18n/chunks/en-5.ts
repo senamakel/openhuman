@@ -313,6 +313,9 @@ const en5: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine to workspace',
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can — except the always-blocked credential and system directories.',
+  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
+  'settings.agentAccess.requireTaskPlanApproval.desc':
+    'Pause before an assigned agent executes an agent-authored task brief.',
   'settings.agentAccess.grantedFolders': 'Granted folders',
   'settings.agentAccess.alwaysAllow': 'Always-allowed tools',
   'settings.agentAccess.alwaysAllowDesc':

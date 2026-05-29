@@ -1016,6 +1016,12 @@ impl Agent {
                         Some(text.clone())
                     },
                     tool_calls: persisted_tool_calls,
+                    reasoning_content: response
+                        .reasoning_content
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(ToString::to_string),
                 });
 
                 // Persist the transcript **right after** the provider

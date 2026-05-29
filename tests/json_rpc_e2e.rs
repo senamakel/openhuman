@@ -1727,6 +1727,215 @@ async fn json_rpc_thread_turn_state_lifecycle() {
 }
 
 #[tokio::test]
+async fn json_rpc_task_board_brief_roundtrips_across_todos_and_threads_rpc() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    let thread_id = "thread-task-brief-e2e";
+
+    let added = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.todos_add",
+        json!({
+            "thread_id": thread_id,
+            "content": " Draft implementation plan ",
+            "status": "todo",
+            "objective": " Ship richer task briefs ",
+            "plan": [" Inspect board store ", " Patch RPC shape ", ""],
+            "assignedAgent": " planner ",
+            "allowedTools": [" todo ", "spawn_subagent", ""],
+            "approvalMode": "required",
+            "acceptanceCriteria": [" Brief survives JSON-RPC ", " UI can save edits "],
+            "evidence": [" cargo test --test json_rpc_e2e task_board "],
+            "notes": "initial note"
+        }),
+    )
+    .await;
+    let added_result = assert_no_jsonrpc_error(&added, "todos_add task brief");
+    let added_cards = added_result
+        .get("cards")
+        .and_then(Value::as_array)
+        .expect("todos_add cards");
+    assert_eq!(added_cards.len(), 1);
+    let task_id = added_cards[0]
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("generated task id")
+        .to_string();
+    assert_eq!(added_cards[0]["title"], "Draft implementation plan");
+    assert_eq!(added_cards[0]["objective"], "Ship richer task briefs");
+    assert_eq!(added_cards[0]["assignedAgent"], "planner");
+    assert_eq!(
+        added_cards[0]["allowedTools"],
+        json!(["todo", "spawn_subagent"])
+    );
+    assert_eq!(added_cards[0]["approvalMode"], "required");
+    assert!(
+        added_result
+            .get("markdown")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("approval: required"),
+        "markdown should include task approval metadata: {added_result}"
+    );
+
+    let edited = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.todos_edit",
+        json!({
+            "thread_id": thread_id,
+            "id": task_id,
+            "content": "Implement editable task briefs",
+            "status": "in_progress",
+            "objective": "Let users refine agent handoff data",
+            "plan": ["Open the brief", "Edit fields", "Persist through core"],
+            "assignedAgent": "code_executor",
+            "allowedTools": ["todo", "file_read", "edit_file"],
+            "approvalMode": "not_required",
+            "acceptanceCriteria": ["Saved board contains edited fields"],
+            "evidence": ["focused vitest passed"],
+            "notes": "",
+            "blocker": ""
+        }),
+    )
+    .await;
+    let edited_result = assert_no_jsonrpc_error(&edited, "todos_edit task brief");
+    let edited_card = &edited_result["cards"][0];
+    assert_eq!(edited_card["title"], "Implement editable task briefs");
+    assert_eq!(edited_card["status"], "in_progress");
+    assert_eq!(edited_card["assignedAgent"], "code_executor");
+    assert_eq!(edited_card["approvalMode"], "not_required");
+    assert_eq!(
+        edited_card["plan"],
+        json!(["Open the brief", "Edit fields", "Persist through core"])
+    );
+    assert!(
+        edited_card.get("notes").is_none(),
+        "empty notes should clear"
+    );
+
+    let cleared_approval = post_json_rpc(
+        &rpc_base,
+        9207,
+        "openhuman.todos_edit",
+        json!({
+            "thread_id": thread_id,
+            "id": task_id,
+            "approvalMode": null
+        }),
+    )
+    .await;
+    let cleared_result =
+        assert_no_jsonrpc_error(&cleared_approval, "todos_edit clears approvalMode");
+    assert!(
+        cleared_result["cards"][0].get("approvalMode").is_none(),
+        "null approvalMode should clear the optional field: {cleared_result}"
+    );
+
+    let thread_get = post_json_rpc(
+        &rpc_base,
+        9203,
+        "openhuman.threads_task_board_get",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let thread_get_result = assert_no_jsonrpc_error(&thread_get, "threads_task_board_get");
+    let board = thread_get_result
+        .get("taskBoard")
+        .expect("taskBoard in threads get");
+    assert_eq!(board["threadId"], thread_id);
+    assert_eq!(board["cards"][0]["title"], "Implement editable task briefs");
+    assert!(
+        board["cards"][0].get("approvalMode").is_none(),
+        "cleared approvalMode should persist through threads get: {board}"
+    );
+
+    let mut cards = board
+        .get("cards")
+        .and_then(Value::as_array)
+        .expect("cards in board")
+        .clone();
+    cards[0]["evidence"] = json!(["focused vitest passed", "json_rpc_e2e persisted UI edit"]);
+    cards[0]["acceptanceCriteria"] = json!(["Core and UI save paths agree"]);
+    let replaced = post_json_rpc(
+        &rpc_base,
+        9204,
+        "openhuman.threads_task_board_put",
+        json!({
+            "thread_id": thread_id,
+            "cards": cards
+        }),
+    )
+    .await;
+    let replaced_result = assert_no_jsonrpc_error(&replaced, "threads_task_board_put rich board");
+    assert_eq!(
+        replaced_result["taskBoard"]["cards"][0]["evidence"],
+        json!(["focused vitest passed", "json_rpc_e2e persisted UI edit"])
+    );
+
+    let listed = post_json_rpc(
+        &rpc_base,
+        9205,
+        "openhuman.todos_list",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let listed_result = assert_no_jsonrpc_error(&listed, "todos_list after threads put");
+    assert_eq!(
+        listed_result["cards"][0]["acceptanceCriteria"],
+        json!(["Core and UI save paths agree"])
+    );
+    assert!(
+        listed_result
+            .get("markdown")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("json_rpc_e2e persisted UI edit"),
+        "todos markdown should render evidence after threads put: {listed_result}"
+    );
+
+    let invalid_approval = post_json_rpc(
+        &rpc_base,
+        9206,
+        "openhuman.todos_add",
+        json!({
+            "thread_id": thread_id,
+            "content": "Invalid approval",
+            "approvalMode": "sometimes"
+        }),
+    )
+    .await;
+    let invalid_err = assert_jsonrpc_error(&invalid_approval, "todos_add invalid approvalMode");
+    let invalid_msg = invalid_err
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(
+        invalid_msg.contains("approval_mode") && invalid_msg.contains("required|not_required"),
+        "expected approvalMode validation error, got: {invalid_err}"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_memory_sync_and_learn() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
@@ -7645,6 +7854,10 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         .get("result")
         .and_then(|r| r.get("max_actions_per_hour"))
         .and_then(Value::as_u64);
+    let initial_task_approval = initial_outer
+        .get("result")
+        .and_then(|r| r.get("require_task_plan_approval"))
+        .and_then(Value::as_bool);
     // Default is `u32::MAX` (functionally unlimited) — fresh installs should
     // not be rate-limited until the user opts into a ceiling. See the
     // autonomy schema for the rationale.
@@ -7653,18 +7866,23 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         Some(u32::MAX as u64),
         "expected default u32::MAX (unlimited), got envelope: {initial_outer}"
     );
+    assert_eq!(
+        initial_task_approval,
+        Some(true),
+        "task plan approval should default on, got envelope: {initial_outer}"
+    );
 
-    // UPDATE → 250.
+    // UPDATE → 250, and disable task-plan approval.
     let update = post_json_rpc(
         &rpc_base,
         7002,
         "openhuman.config_update_autonomy_settings",
-        json!({ "max_actions_per_hour": 250 }),
+        json!({ "max_actions_per_hour": 250, "require_task_plan_approval": false }),
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_autonomy_settings");
 
-    // GET again → expect 250.
+    // GET again → expect 250 and disabled task-plan approval.
     let after = post_json_rpc(
         &rpc_base,
         7003,
@@ -7677,10 +7895,19 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         .get("result")
         .and_then(|r| r.get("max_actions_per_hour"))
         .and_then(Value::as_u64);
+    let after_task_approval = after_outer
+        .get("result")
+        .and_then(|r| r.get("require_task_plan_approval"))
+        .and_then(Value::as_bool);
     assert_eq!(
         after_value,
         Some(250),
         "expected 250 after update, got envelope: {after_outer}"
+    );
+    assert_eq!(
+        after_task_approval,
+        Some(false),
+        "expected task plan approval to persist as disabled, got envelope: {after_outer}"
     );
 
     // Invalid value rejected — server returns JSON-RPC error envelope, not a result.

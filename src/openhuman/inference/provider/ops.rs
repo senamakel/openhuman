@@ -883,16 +883,38 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
     } else if is_context_window_exceeded {
         log_context_window_exceeded("api_error", provider, None, status);
     } else if should_report_provider_http_failure(status) {
-        crate::core::observability::report_error(
-            message.as_str(),
-            "llm_provider",
-            "api_error",
-            &[
-                ("provider", provider),
-                ("status", status_str.as_str()),
-                ("failure", "non_2xx"),
-            ],
-        );
+        // Defense-in-depth: some backends (e.g. OpenHuman) wrap an upstream
+        // provider 429 as an HTTP 500 with a rate-limit phrase in the body
+        // (`"429 rate limit exceeded"`, `"upstream rate limit exceeded"`).
+        // `should_report_provider_http_failure(500)` would otherwise let this
+        // through to Sentry — suppress it here before the report fires so the
+        // noise stays off Sentry (OPENHUMAN-TAURI-S: ~6 984 events).
+        // The `expected_error_kind` classifier in `report_error_or_expected`
+        // catches the same shape at re-report sites (agent / web_channel).
+        let lower_body = body.to_ascii_lowercase();
+        let is_rate_limit_body =
+            crate::core::observability::is_upstream_rate_limit_message(&lower_body);
+        if is_rate_limit_body {
+            tracing::warn!(
+                domain = "llm_provider",
+                operation = "api_error",
+                provider = provider,
+                status = status_str.as_str(),
+                "[llm_provider] api_error: skipping Sentry report — rate-limit body in \
+                 non-429 response ({status})"
+            );
+        } else {
+            crate::core::observability::report_error(
+                message.as_str(),
+                "llm_provider",
+                "api_error",
+                &[
+                    ("provider", provider),
+                    ("status", status_str.as_str()),
+                    ("failure", "non_2xx"),
+                ],
+            );
+        }
     }
     anyhow::anyhow!(message)
 }
@@ -1577,6 +1599,62 @@ mod tests {
                 reqwest::StatusCode::BAD_REQUEST,
                 "",
             ));
+        }
+    }
+
+    // Tests for the rate-limit body suppression guard added to `api_error`.
+    // Exercises `is_upstream_rate_limit_message` with the exact body shapes that
+    // produced OPENHUMAN-TAURI-S (~6 984 events from HTTP 500 wrapping a
+    // "429 rate limit exceeded" body) and OPENHUMAN-TAURI-6Y / -2E.
+    mod rate_limit_body_suppression {
+        use crate::core::observability::is_upstream_rate_limit_message;
+
+        /// HTTP 500 with a `"429 rate limit exceeded"` body must be detected
+        /// as a rate-limit signal so the guard in `api_error` can skip the
+        /// Sentry report (OPENHUMAN-TAURI-S).
+        #[test]
+        fn http_500_with_429_body_phrase_is_rate_limited() {
+            let body =
+                r#"{"success":false,"error":"429 rate limit exceeded, please try again later"}"#
+                    .to_ascii_lowercase();
+            assert!(
+                is_upstream_rate_limit_message(&body),
+                "500-body with '429 rate limit exceeded' must be detected as rate-limited"
+            );
+        }
+
+        /// HTTP 500 with an `"upstream rate limit exceeded"` body
+        /// (OPENHUMAN-TAURI-6Y shape).
+        #[test]
+        fn http_500_with_upstream_rate_limit_body_is_rate_limited() {
+            let body = r#"{"success":false,"error":"Upstream rate limit exceeded for model 'summarization-v1'. Please retry shortly.","details":{"provider":"gmi"}}"#
+                .to_ascii_lowercase();
+            assert!(
+                is_upstream_rate_limit_message(&body),
+                "500-body with 'upstream rate limit exceeded' must be detected"
+            );
+        }
+
+        /// OpenAI / Anthropic `"rate_limit_error"` type body.
+        #[test]
+        fn body_with_rate_limit_error_type_is_rate_limited() {
+            let body = r#"{"error":{"message":"Rate limit exceeded. Please retry after a brief wait.","type":"rate_limit_error"}}"#
+                .to_ascii_lowercase();
+            assert!(
+                is_upstream_rate_limit_message(&body),
+                "body with 'rate_limit_error' type must be detected"
+            );
+        }
+
+        /// Unrelated 500 body must NOT be detected as rate-limited.
+        #[test]
+        fn http_500_unrelated_body_is_not_rate_limited() {
+            let body = r#"{"success":false,"error":"internal server error: database unavailable"}"#
+                .to_ascii_lowercase();
+            assert!(
+                !is_upstream_rate_limit_message(&body),
+                "unrelated 500 body must not be detected as rate-limited"
+            );
         }
     }
 

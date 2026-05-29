@@ -26,7 +26,6 @@ const MODULES = [
 ];
 
 const TARGET_NAMESPACES = new Set(MODULES.flatMap((module) => module.namespaces));
-const TARGET_NAMESPACES_BY_LENGTH = [...TARGET_NAMESPACES].sort((a, b) => b.length - a.length);
 
 function walk(dir, predicate, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -45,26 +44,19 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-function namespaceForMethod(method) {
-  const suffix = method.replace(/^openhuman\./, '');
-  return TARGET_NAMESPACES_BY_LENGTH.find((namespace) => suffix.startsWith(`${namespace}_`));
-}
-
 function collectInvokedMethods() {
-  const methodsByNamespace = new Map([...TARGET_NAMESPACES].map((namespace) => [namespace, new Set()]));
+  const methods = new Set();
   const testsDir = path.join(ROOT, 'tests');
   const files = walk(testsDir, (file) => file.endsWith('_e2e.rs'));
 
   for (const file of files) {
     const text = read(file);
     for (const match of text.matchAll(/"((?:openhuman)\.[A-Za-z0-9_]+)"/g)) {
-      const method = match[1];
-      const namespace = namespaceForMethod(method);
-      if (namespace) methodsByNamespace.get(namespace).add(method);
+      methods.add(match[1]);
     }
   }
 
-  return methodsByNamespace;
+  return methods;
 }
 
 function collectSchemaMethods() {
@@ -105,9 +97,9 @@ for (const module of MODULES) {
   const covered = new Set();
   for (const namespace of module.namespaces) {
     for (const method of schemas.get(namespace) ?? []) expected.add(method);
-    for (const method of invoked.get(namespace) ?? []) {
-      if ((schemas.get(namespace) ?? new Set()).has(method)) covered.add(method);
-    }
+  }
+  for (const method of expected) {
+    if (invoked.has(method)) covered.add(method);
   }
 
   const missing = [...expected].filter((method) => !covered.has(method)).sort();

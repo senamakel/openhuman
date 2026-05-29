@@ -95,6 +95,15 @@ const ru3: TranslationMap = {
   'sync.sync': 'Синхронизировать',
   'sync.failedToLoad': 'Не удалось загрузить статус синхронизации',
   'sync.noContent': 'Контент в память ещё не синхронизирован. Подключи интеграцию для начала.',
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':

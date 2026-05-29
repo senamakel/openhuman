@@ -1,11 +1,17 @@
 /**
  * Dialog for adding a new memory source.
  *
- * Shows a kind picker, then a form with kind-specific fields.
- * On submit, calls `addMemorySource` and notifies the parent.
+ * Step 1: pick a source kind (Composio / Folder / GitHub / RSS / Web / Twitter).
+ * Step 2: fill in kind-specific fields and submit.
+ *
+ * For Composio, the dialog fetches the user's active connections and
+ * presents them as a dropdown — the user picks an existing OAuth
+ * connection rather than typing toolkit + connection_id.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { listConnections } from '../../lib/composio/composioApi';
+import type { ComposioConnection } from '../../lib/composio/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   addMemorySource,
@@ -21,7 +27,8 @@ interface AddMemorySourceDialogProps {
   onAdded: (source: MemorySourceEntry) => void;
 }
 
-const NON_COMPOSIO_KINDS: SourceKind[] = [
+const ALL_KINDS: SourceKind[] = [
+  'composio',
   'folder',
   'github_repo',
   'rss_feed',
@@ -43,6 +50,29 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
   const [branch, setBranch] = useState('main');
   const [query, setQuery] = useState('');
   const [selector, setSelector] = useState('');
+  const [connectionId, setConnectionId] = useState('');
+  const [toolkit, setToolkit] = useState('');
+
+  // Composio connection picker state
+  const [connections, setConnections] = useState<ComposioConnection[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+
+  // Fetch composio connections when user picks the composio kind
+  useEffect(() => {
+    if (kind !== 'composio') return;
+    setLoadingConnections(true);
+    void (async () => {
+      try {
+        const resp = await listConnections();
+        setConnections(resp.connections);
+      } catch (err) {
+        console.warn('[ui-flow][add-memory-source] listConnections failed', err);
+        setError(t('memorySources.composioListFailed'));
+      } finally {
+        setLoadingConnections(false);
+      }
+    })();
+  }, [kind, t]);
 
   const reset = useCallback(() => {
     setKind(null);
@@ -53,6 +83,8 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
     setBranch('main');
     setQuery('');
     setSelector('');
+    setConnectionId('');
+    setToolkit('');
     setError(null);
   }, []);
 
@@ -70,6 +102,10 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
       const params: Record<string, unknown> = { kind, label: label.trim(), enabled: true };
 
       switch (kind) {
+        case 'composio':
+          params.toolkit = toolkit;
+          params.connection_id = connectionId;
+          break;
         case 'folder':
           params.path = path.trim();
           params.glob = glob.trim() || '**/*.md';
@@ -98,11 +134,25 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
     } finally {
       setSubmitting(false);
     }
-  }, [kind, label, path, glob, url, branch, query, selector, onAdded, handleClose]);
+  }, [
+    kind,
+    label,
+    path,
+    glob,
+    url,
+    branch,
+    query,
+    selector,
+    connectionId,
+    toolkit,
+    onAdded,
+    handleClose,
+  ]);
 
   if (!open) return null;
 
-  const isValid = kind && label.trim() && isKindFieldsValid(kind, { path, url, query });
+  const isValid =
+    kind && label.trim() && isKindFieldsValid(kind, { path, url, query, connectionId });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -117,7 +167,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
               {t('memorySources.pickKind')}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {NON_COMPOSIO_KINDS.map(k => (
+              {ALL_KINDS.map(k => (
                 <button
                   key={k}
                   type="button"
@@ -169,6 +219,14 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
                 setQuery={setQuery}
                 selector={selector}
                 setSelector={setSelector}
+                connections={connections}
+                loadingConnections={loadingConnections}
+                connectionId={connectionId}
+                setConnection={(connId, tk, identityLabel) => {
+                  setConnectionId(connId);
+                  setToolkit(tk);
+                  if (!label) setLabel(identityLabel);
+                }}
               />
             </div>
 
@@ -216,9 +274,11 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
 
 function isKindFieldsValid(
   kind: SourceKind,
-  fields: { path: string; url: string; query: string }
+  fields: { path: string; url: string; query: string; connectionId: string }
 ): boolean {
   switch (kind) {
+    case 'composio':
+      return fields.connectionId.length > 0;
     case 'folder':
       return fields.path.trim().length > 0;
     case 'github_repo':
@@ -238,6 +298,68 @@ interface FieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+}
+
+interface FolderFieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}
+
+function FolderField({ label, value, onChange }: FolderFieldProps) {
+  const { t } = useT();
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">{label}</span>
+      <div className="mt-1 flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="/Users/you/notes"
+          className="block w-full rounded-md border border-stone-300 bg-white px-3 py-2
+                     text-sm text-stone-900 placeholder-stone-400
+                     focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
+                     dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100
+                     dark:placeholder-neutral-500 dark:focus:border-primary-500"
+        />
+        <label
+          className="shrink-0 cursor-pointer rounded-md border border-stone-300 bg-white px-3 py-2
+                     text-xs font-medium text-stone-700 transition-colors
+                     hover:border-primary-400 hover:text-primary-600
+                     dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300
+                     dark:hover:border-primary-500 dark:hover:text-primary-400">
+          {t('memorySources.browse')}
+          <input
+            type="file"
+            // @ts-expect-error — non-standard but supported in CEF/Chromium
+            webkitdirectory=""
+            directory=""
+            multiple
+            className="hidden"
+            onChange={e => {
+              const files = e.target.files;
+              if (!files || files.length === 0) return;
+              // Chromium exposes the chosen directory path on the first file's `path`
+              // attribute when the renderer has filesystem-aware integration (CEF).
+              // Fall back to webkitRelativePath split if `path` isn't available.
+              const first = files[0] as File & { path?: string };
+              if (first.path) {
+                // first.path is the absolute path to the file. Derive the directory
+                // by trimming the relative portion (everything after the chosen root).
+                const rel = first.webkitRelativePath || first.name;
+                const abs = first.path;
+                const idx = abs.lastIndexOf(rel);
+                onChange(idx > 0 ? abs.slice(0, idx).replace(/\/$/, '') : abs);
+              } else if (first.webkitRelativePath) {
+                onChange(first.webkitRelativePath.split('/')[0]);
+              }
+            }}
+          />
+        </label>
+      </div>
+    </label>
+  );
 }
 
 function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProps) {
@@ -273,19 +395,24 @@ interface KindFieldsProps {
   setQuery: (v: string) => void;
   selector: string;
   setSelector: (v: string) => void;
+  connections: ComposioConnection[];
+  loadingConnections: boolean;
+  connectionId: string;
+  setConnection: (connectionId: string, toolkit: string, identityLabel: string) => void;
 }
 
 function KindFields(props: KindFieldsProps) {
   const { t } = useT();
   switch (props.kind) {
+    case 'composio':
+      return <ComposioPicker {...props} />;
     case 'folder':
       return (
         <>
-          <Field
+          <FolderField
             label={t('memorySources.folderPath')}
             value={props.path}
             onChange={props.setPath}
-            placeholder="/Users/you/notes"
           />
           <Field
             label={t('memorySources.globPattern')}
@@ -350,4 +477,60 @@ function KindFields(props: KindFieldsProps) {
     default:
       return null;
   }
+}
+
+function ComposioPicker({
+  connections,
+  loadingConnections,
+  connectionId,
+  setConnection,
+}: KindFieldsProps) {
+  const { t } = useT();
+
+  if (loadingConnections) {
+    return (
+      <p className="text-xs text-stone-500 dark:text-neutral-400">
+        {t('memorySources.loadingConnections')}
+      </p>
+    );
+  }
+
+  if (connections.length === 0) {
+    return (
+      <p className="rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+        {t('memorySources.noConnections')}
+      </p>
+    );
+  }
+
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">
+        {t('memorySources.pickConnection')}
+      </span>
+      <select
+        value={connectionId}
+        onChange={e => {
+          const conn = connections.find(c => c.id === e.target.value);
+          if (conn) {
+            const identity = conn.accountEmail ?? conn.workspace ?? conn.username ?? conn.id;
+            setConnection(conn.id, conn.toolkit, `${conn.toolkit} · ${identity}`);
+          }
+        }}
+        className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-3 py-2
+                   text-sm text-stone-900 focus:border-primary-400 focus:outline-none
+                   focus:ring-1 focus:ring-primary-400 dark:border-neutral-600
+                   dark:bg-neutral-800 dark:text-neutral-100 dark:focus:border-primary-500">
+        <option value="">{t('memorySources.selectConnection')}</option>
+        {connections.map(conn => {
+          const identity = conn.accountEmail ?? conn.workspace ?? conn.username ?? conn.id;
+          return (
+            <option key={conn.id} value={conn.id}>
+              {conn.toolkit} · {identity}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
 }

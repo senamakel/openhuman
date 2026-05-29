@@ -95,6 +95,15 @@ const ko3: TranslationMap = {
   'sync.sync': '동기화',
   'sync.failedToLoad': '동기화 상태를 불러오지 못했습니다',
   'sync.noContent': '아직 메모리에 동기화된 콘텐츠가 없습니다. 시작하려면 통합을 연결하세요.',
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':

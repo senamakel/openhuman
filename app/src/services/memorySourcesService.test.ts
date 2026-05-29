@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { callCoreRpc } from './coreRpcClient';
 import {
   addMemorySource,
   listMemorySources,
@@ -9,11 +10,7 @@ import {
   updateMemorySource,
 } from './memorySourcesService';
 
-vi.mock('./coreRpcClient', () => ({
-  callCoreRpc: vi.fn(),
-}));
-
-import { callCoreRpc } from './coreRpcClient';
+vi.mock('./coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
 const mockedCall = vi.mocked(callCoreRpc);
 
@@ -25,18 +22,14 @@ describe('memorySourcesService', () => {
   it('listMemorySources returns sources from envelope-wrapped response', async () => {
     mockedCall.mockResolvedValue({
       result: {
-        sources: [
-          { id: 'src_1', kind: 'folder', label: 'Notes', enabled: true, path: '/tmp' },
-        ],
+        sources: [{ id: 'src_1', kind: 'folder', label: 'Notes', enabled: true, path: '/tmp' }],
       },
       logs: [],
     } as never);
 
     const sources = await listMemorySources();
 
-    expect(mockedCall).toHaveBeenCalledWith({
-      method: 'openhuman.memory_sources_list',
-    });
+    expect(mockedCall).toHaveBeenCalledWith({ method: 'openhuman.memory_sources_list' });
     expect(sources).toHaveLength(1);
     expect(sources[0].kind).toBe('folder');
   });
@@ -90,7 +83,14 @@ describe('memorySourcesService', () => {
   });
 
   it('exposes labels and icons for every source kind', () => {
-    const kinds = ['composio', 'folder', 'github_repo', 'twitter_query', 'rss_feed', 'web_page'] as const;
+    const kinds = [
+      'composio',
+      'folder',
+      'github_repo',
+      'twitter_query',
+      'rss_feed',
+      'web_page',
+    ] as const;
     for (const kind of kinds) {
       expect(SOURCE_KIND_LABELS[kind]).toBeTruthy();
       expect(SOURCE_KIND_ICONS[kind]).toBeTruthy();

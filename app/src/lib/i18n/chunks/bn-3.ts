@@ -96,6 +96,15 @@ const bn3: TranslationMap = {
   'sync.failedToLoad': 'সিঙ্ক স্ট্যাটাস লোড করতে ব্যর্থ',
   'sync.noContent':
     'এখনো কোনো কন্টেন্ট মেমোরিতে সিঙ্ক হয়নি। শুরু করতে একটি ইন্টিগ্রেশন সংযুক্ত করুন।',
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':

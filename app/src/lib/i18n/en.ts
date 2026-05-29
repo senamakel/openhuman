@@ -1925,10 +1925,19 @@ const en: TranslationMap = {
   'sync.noContent': 'No content has been synced into memory yet. Connect an integration to start.',
 
   // Memory Sources Registry
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':
     'No custom sources yet. Add a folder, GitHub repo, RSS feed, or web page to start.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.pickKind': 'What kind of source do you want to add?',
   'memorySources.backToKinds': 'Back to source types',
   'memorySources.label': 'Label',

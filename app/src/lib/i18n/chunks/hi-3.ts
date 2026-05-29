@@ -96,6 +96,15 @@ const hi3: TranslationMap = {
   'sync.failedToLoad': 'सिंक स्टेटस लोड नहीं हो पाई',
   'sync.noContent':
     'अभी कोई कॉन्टेंट मेमोरी में सिंक नहीं हुआ। शुरू करने के लिए कोई इंटीग्रेशन कनेक्ट करें।',
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':

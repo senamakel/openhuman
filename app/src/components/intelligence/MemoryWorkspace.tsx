@@ -38,35 +38,13 @@ import {
   memoryTreeWipeAll,
 } from '../../utils/tauriCommands';
 import { MemoryGraph } from './MemoryGraph';
-import { MemorySources } from './MemorySources';
 import { MemorySourcesRegistry } from './MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from './MemoryTreeStatusPanel';
-import { ObsidianVaultSection } from './ObsidianVaultSection';
-import { VaultPanel } from './VaultPanel';
 import { WhatsAppMemorySection } from './WhatsAppMemorySection';
 
 interface MemoryWorkspaceProps {
   onToast?: (toast: Omit<ToastNotification, 'id'>) => void;
 }
-
-/**
- * Toolkits that have a memory-tree-ingesting sync implementation on the
- * Rust side. Only these get a Sync button — clicking it on a toolkit
- * that lacks an ingest path would just churn the worker without
- * adding chunks to the memory tree.
- *
- * Source of truth: providers under
- * `src/openhuman/memory_sync/composio/providers/<toolkit>/` that
- * persist items via `store_skill_sync` into the memory tree.
- */
-const SYNCABLE_TOOLKITS: ReadonlySet<string> = new Set([
-  'clickup',
-  'github',
-  'gmail',
-  'linear',
-  'notion',
-  'slack',
-]);
 
 export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
   const { t } = useT();
@@ -223,9 +201,7 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
   return (
     <div className="space-y-4" data-testid="memory-workspace">
       <MemoryTreeStatusPanel onToast={onToast} />
-      <MemorySources syncableToolkits={SYNCABLE_TOOLKITS} pollIntervalMs={5000} onToast={onToast} />
       <MemorySourcesRegistry onToast={onToast} />
-      <VaultPanel onToast={onToast} />
       <WhatsAppMemorySection />
 
       <div
@@ -295,9 +271,6 @@ export function MemoryWorkspace({ onToast }: MemoryWorkspaceProps) {
               </>
             )}
           </button>
-          {graph && (
-            <ObsidianVaultSection contentRootAbs={graph.content_root_abs} onToast={onToast} />
-          )}
         </div>
       </div>
 

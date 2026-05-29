@@ -98,6 +98,15 @@ const fr3: TranslationMap = {
   'sync.failedToLoad': "Échec du chargement de l'état de synchronisation",
   'sync.noContent':
     "Aucun contenu n'a encore été synchronisé dans la mémoire. Connecte une intégration pour commencer.",
+  'memorySources.title': 'Memory Sources',
+  'memorySources.empty': 'No memory sources yet. Add one to start feeding memory.',
+  'memorySources.loadingConnections': 'Loading connections…',
+  'memorySources.noConnections':
+    'No active Composio connections found. Connect an integration first.',
+  'memorySources.pickConnection': 'Pick a connection',
+  'memorySources.selectConnection': '— Select a connection —',
+  'memorySources.composioListFailed': 'Failed to load Composio connections.',
+  'memorySources.browse': 'Browse…',
   'memorySources.customSources': 'Custom Sources',
   'memorySources.addSource': 'Add Source',
   'memorySources.noCustomSources':

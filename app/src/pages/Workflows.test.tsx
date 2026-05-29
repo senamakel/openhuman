@@ -58,7 +58,7 @@ const DETAIL = {
 };
 
 beforeEach(() => {
-  Object.values(hoisted).forEach((fn) => fn.mockReset());
+  Object.values(hoisted).forEach(fn => fn.mockReset());
 });
 
 describe('Workflows page', () => {
@@ -110,7 +110,7 @@ describe('Workflows page', () => {
         name: 'Bug triage',
         description: 'Handle a bug',
         when_to_use: undefined,
-      }),
+      })
     );
     expect(await screen.findByText('Workflow created')).toBeInTheDocument();
   });

@@ -17,6 +17,12 @@ use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
+use openhuman_core::api::config::{
+    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
+    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
+    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
+    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
+};
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
@@ -25,13 +31,14 @@ use openhuman_core::openhuman::config::schema::{
     migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
     ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
 };
-use openhuman_core::openhuman::config::{AgentConfig, ChannelsConfig, TeamModelConfig};
+use openhuman_core::openhuman::config::{AgentConfig, ChannelsConfig, Config, TeamModelConfig};
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::openhuman::credentials::{
-    normalize_provider, AuthService, APP_SESSION_PROVIDER,
+    clear_composio_api_key, get_composio_api_key, normalize_provider, rpc_store_composio_api_key,
+    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -592,6 +599,90 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
 }
 
 #[test]
+fn api_config_url_resolution_classifies_backend_and_inference_paths() {
+    let _lock = env_lock();
+    let _backend = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _app_env = EnvVarGuard::unset(APP_ENV_VAR);
+    let _vite_app_env = EnvVarGuard::unset(VITE_APP_ENV_VAR);
+
+    assert_eq!(
+        normalize_api_base_url(" https://api.example.test/// "),
+        "https://api.example.test"
+    );
+    assert_eq!(
+        api_url(
+            "https://api.tinyhumans.ai/openai/v1/chat/completions",
+            "/auth/me"
+        ),
+        "https://api.tinyhumans.ai/auth/me"
+    );
+    assert_eq!(api_url("not a url/", "auth/me"), "not a url/auth/me");
+    assert_eq!(
+        api_url(" https://api.tinyhumans.ai/ ", ""),
+        "https://api.tinyhumans.ai"
+    );
+
+    assert!(looks_like_local_ai_endpoint("http://localhost:11434"));
+    assert!(looks_like_local_ai_endpoint(
+        "http://10.0.0.2/v1/chat/completions"
+    ));
+    assert!(looks_like_local_ai_endpoint(
+        "https://api.openai.com/v1/completions"
+    ));
+    assert!(!looks_like_local_ai_endpoint("http://127.0.0.1:45678"));
+    assert!(!looks_like_local_ai_endpoint("not a url"));
+
+    assert_eq!(
+        effective_api_url(&Some(" http://127.0.0.1:11434/ ".into())),
+        "http://127.0.0.1:11434"
+    );
+    assert_eq!(
+        effective_inference_url(&Some("https://api.tinyhumans.ai".into()), &None),
+        format!("https://api.tinyhumans.ai{OPENHUMAN_INFERENCE_PATH}")
+    );
+    assert_eq!(
+        effective_inference_url(
+            &Some("https://api.tinyhumans.ai".into()),
+            &Some(" http://127.0.0.1:11434/v1/chat/completions ".into())
+        ),
+        "http://127.0.0.1:11434/v1/chat/completions"
+    );
+
+    assert_eq!(
+        effective_backend_api_url(&Some(" http://127.0.0.1:11434/v1 ".into())),
+        DEFAULT_API_BASE_URL
+    );
+    assert_eq!(
+        effective_backend_api_url(&Some(
+            " https://api.tinyhumans.ai/openai/v1/chat/completions?x=1#frag ".into()
+        )),
+        "https://api.tinyhumans.ai"
+    );
+
+    std::env::set_var("BACKEND_URL", "");
+    std::env::set_var(
+        "VITE_BACKEND_URL",
+        " https://backend.example.test/openai/v1/chat/completions ",
+    );
+    assert_eq!(
+        api_base_from_env().as_deref(),
+        Some("https://backend.example.test/openai/v1/chat/completions")
+    );
+    assert_eq!(
+        effective_backend_api_url(&None),
+        "https://backend.example.test"
+    );
+
+    std::env::set_var(APP_ENV_VAR, " Staging ");
+    assert_eq!(app_env_from_env().as_deref(), Some("staging"));
+    assert_eq!(
+        default_api_base_url_for_env(app_env_from_env().as_deref()),
+        DEFAULT_STAGING_API_BASE_URL
+    );
+}
+
+#[test]
 fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     let tmp = tempdir().expect("tempdir");
     let auth = AuthService::new(tmp.path(), false);
@@ -638,6 +729,70 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     assert!(!auth
         .remove_profile("GitHub", "personal")
         .expect("remove missing profile"));
+}
+
+#[tokio::test]
+async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config.secrets.encrypt = false;
+    std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
+        .expect("create config parent");
+
+    assert_eq!(
+        get_composio_api_key(&config).expect("empty composio key store"),
+        None
+    );
+    assert!(
+        store_composio_api_key(&config, "   ").await.is_err(),
+        "blank composio keys should be rejected"
+    );
+
+    let stored = store_composio_api_key(&config, "  cmp_worker_a_secret  ")
+        .await
+        .expect("store direct composio key");
+    assert_eq!(
+        stored.value.get("provider").and_then(Value::as_str),
+        Some(COMPOSIO_DIRECT_PROVIDER)
+    );
+    assert_eq!(
+        get_composio_api_key(&config).expect("stored composio key"),
+        Some("cmp_worker_a_secret".to_string())
+    );
+
+    let stored_via_rpc = rpc_store_composio_api_key(&config, "cmp_worker_a_second")
+        .await
+        .expect("store direct composio key via rpc helper");
+    assert_eq!(
+        stored_via_rpc.value.get("stored").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        get_composio_api_key(&config).expect("updated composio key"),
+        Some("cmp_worker_a_second".to_string())
+    );
+
+    let cleared = clear_composio_api_key(&config)
+        .await
+        .expect("clear direct composio key");
+    assert_eq!(
+        cleared.value.get("removed").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        get_composio_api_key(&config).expect("cleared composio key"),
+        None
+    );
+    let cleared_again = clear_composio_api_key(&config)
+        .await
+        .expect("clear missing direct composio key");
+    assert_eq!(
+        cleared_again.value.get("removed").and_then(Value::as_bool),
+        Some(false)
+    );
 }
 
 #[tokio::test]

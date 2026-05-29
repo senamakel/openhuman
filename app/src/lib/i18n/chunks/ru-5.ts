@@ -561,6 +561,8 @@ const ru5: TranslationMap = {
   'skills.uninstall.confirmTitle': 'Удалить {name}?',
   'conversations.taskKanban.blocked': 'Заблокировано',
   'conversations.taskKanban.done': 'Готово',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

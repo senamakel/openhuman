@@ -17,10 +17,10 @@ import type { TaskBoard, TaskBoardCardStatus } from '../../types/turnState';
 
 const log = debug('intelligence:task-composer');
 
+// Tasks use three states only: Pending / Working / Done.
 const STATUS_OPTIONS: { value: TaskBoardCardStatus; labelKey: string }[] = [
-  { value: 'todo', labelKey: 'conversations.taskKanban.todo' },
-  { value: 'in_progress', labelKey: 'conversations.taskKanban.inProgress' },
-  { value: 'blocked', labelKey: 'conversations.taskKanban.blocked' },
+  { value: 'todo', labelKey: 'conversations.taskKanban.pending' },
+  { value: 'in_progress', labelKey: 'conversations.taskKanban.working' },
   { value: 'done', labelKey: 'conversations.taskKanban.done' },
 ];
 

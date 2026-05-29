@@ -552,6 +552,8 @@ const ar5: TranslationMap = {
   'skills.uninstall.confirmTitle': 'إلغاء تثبيت {name}؟',
   'conversations.taskKanban.blocked': 'محظور',
   'conversations.taskKanban.done': 'مكتمل',
+  'conversations.taskKanban.pending': 'Pending',
+  'conversations.taskKanban.working': 'Working',
   'conversations.taskKanban.awaitingApproval': 'Awaiting approval',
   'conversations.taskKanban.ready': 'Ready',
   'conversations.taskKanban.rejected': 'Rejected',

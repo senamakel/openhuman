@@ -15,12 +15,17 @@ import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../../typ
 
 type ColumnDef = { status: TaskBoardCardStatus; labelKey: string };
 
+// The board surfaces exactly three columns — Pending / Working / Done. The
+// richer status set the core tracks (approval flow, blocked, rejected) is
+// bucketed into these three via `columnFor`.
 const COLUMN_DEFS: ColumnDef[] = [
-  { status: 'todo', labelKey: 'conversations.taskKanban.todo' },
-  { status: 'in_progress', labelKey: 'conversations.taskKanban.inProgress' },
-  { status: 'blocked', labelKey: 'conversations.taskKanban.blocked' },
+  { status: 'todo', labelKey: 'conversations.taskKanban.pending' },
+  { status: 'in_progress', labelKey: 'conversations.taskKanban.working' },
   { status: 'done', labelKey: 'conversations.taskKanban.done' },
 ];
+
+/** The three statuses a user can set directly from the board. */
+const COLUMN_STATUSES = COLUMN_DEFS.map(column => column.status);
 
 const STATUS_INDEX = new Map(COLUMN_DEFS.map((column, index) => [column.status, index]));
 
@@ -31,33 +36,32 @@ const STATUS_INDEX = new Map(COLUMN_DEFS.map((column, index) => [column.status, 
  *  React warns about and which renders as the first option, hiding the real
  *  status from the user). */
 const STATUS_LABEL_KEYS: Record<TaskBoardCardStatus, string> = {
-  todo: 'conversations.taskKanban.todo',
+  todo: 'conversations.taskKanban.pending',
   awaiting_approval: 'conversations.taskKanban.awaitingApproval',
   ready: 'conversations.taskKanban.ready',
-  in_progress: 'conversations.taskKanban.inProgress',
+  in_progress: 'conversations.taskKanban.working',
   blocked: 'conversations.taskKanban.blocked',
   done: 'conversations.taskKanban.done',
   rejected: 'conversations.taskKanban.rejected',
 };
 
-const ALL_STATUSES = Object.keys(STATUS_LABEL_KEYS) as TaskBoardCardStatus[];
-
-/** Whether a status owns a kanban column (vs the approval-flow statuses that
- *  are bucketed into an existing column). */
+/** Whether a status owns a kanban column (vs the approval-flow / terminal
+ *  statuses that are bucketed into an existing column). */
 function isColumnStatus(status: TaskBoardCardStatus): boolean {
   return STATUS_INDEX.has(status);
 }
 
-/** Map a card status to the column it renders under. The approval-flow
- *  statuses don't get their own columns: pre-execution ones sit in `todo`,
- *  `rejected` sits with `blocked`. */
+/** Map a card status to the column it renders under. Pre-execution approval
+ *  statuses sit in `Pending`; `blocked` and `rejected` are surfaced under
+ *  `Done` so the board stays a clean three-column Pending / Working / Done. */
 function columnFor(status: TaskBoardCardStatus): TaskBoardCardStatus {
   switch (status) {
     case 'awaiting_approval':
     case 'ready':
       return 'todo';
+    case 'blocked':
     case 'rejected':
-      return 'blocked';
+      return 'done';
     default:
       return status;
   }
@@ -360,7 +364,10 @@ function TaskBriefDialog({
                   value={status}
                   onChange={e => setStatus(e.target.value as TaskBoardCardStatus)}
                   className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
-                  {ALL_STATUSES.map(s => (
+                  {(COLUMN_STATUSES.includes(status)
+                    ? COLUMN_STATUSES
+                    : [status, ...COLUMN_STATUSES]
+                  ).map(s => (
                     <option key={s} value={s}>
                       {t(STATUS_LABEL_KEYS[s])}
                     </option>

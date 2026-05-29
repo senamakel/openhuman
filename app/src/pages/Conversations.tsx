@@ -1115,7 +1115,7 @@ const Conversations = ({
       dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: saved }));
     } catch (error) {
       debug('putTaskBoard failed: %o', error);
-      setSendAdvisory('Could not move task; changes were not saved.');
+      setSendAdvisory(t('conversations.taskKanban.updateFailed'));
       dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: selectedTaskBoard }));
     }
   };

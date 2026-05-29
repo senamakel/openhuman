@@ -511,8 +511,8 @@ function BriefList({
         className={`space-y-1 ${
           ordered ? 'list-decimal' : 'list-disc'
         } list-inside text-sm text-stone-800 dark:text-neutral-100 ${mono ? 'font-mono' : ''}`}>
-        {values.map(value => (
-          <li key={value} className="break-words">
+        {values.map((value, index) => (
+          <li key={index} className="break-words">
             {value}
           </li>
         ))}

@@ -173,7 +173,7 @@ impl Tool for TodoTool {
 }
 
 async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
-    match crate::openhuman::config::Config::load_or_init().await {
+    match crate::openhuman::config::ops::load_config_with_timeout().await {
         Ok(config) => Some(if config.autonomy.require_task_plan_approval {
             TaskApprovalMode::Required
         } else {

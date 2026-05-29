@@ -19,14 +19,20 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
-    VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
+    ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::{AgentConfig, ChannelsConfig, TeamModelConfig};
+use openhuman_core::openhuman::credentials::cli::{
+    cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
+};
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use openhuman_core::openhuman::credentials::{normalize_provider, AuthService};
+use openhuman_core::openhuman::credentials::{
+    normalize_provider, AuthService, APP_SESSION_PROVIDER,
+};
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 
@@ -462,6 +468,130 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
 }
 
 #[test]
+fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
+    let _lock = env_lock();
+    let _http = EnvVarGuard::unset("HTTP_PROXY");
+    let _https = EnvVarGuard::unset("HTTPS_PROXY");
+    let _all = EnvVarGuard::unset("ALL_PROXY");
+    let _no = EnvVarGuard::unset("NO_PROXY");
+    let _http_lower = EnvVarGuard::unset("http_proxy");
+    let _https_lower = EnvVarGuard::unset("https_proxy");
+    let _all_lower = EnvVarGuard::unset("all_proxy");
+    let _no_lower = EnvVarGuard::unset("no_proxy");
+
+    assert!(ProxyConfig::supported_service_keys()
+        .iter()
+        .any(|key| *key == "memory.embeddings"));
+    assert!(ProxyConfig::supported_service_selectors()
+        .iter()
+        .any(|selector| *selector == "tool.*"));
+
+    let services = ProxyConfig {
+        enabled: true,
+        http_proxy: Some(" http://proxy.example:8080 ".into()),
+        https_proxy: Some("https://secure-proxy.example".into()),
+        all_proxy: None,
+        no_proxy: vec![" localhost, 127.0.0.1 ".into(), "example.test".into()],
+        scope: ProxyScope::Services,
+        services: vec![
+            " Tool.* ".into(),
+            "tool.browser".into(),
+            "memory.embeddings".into(),
+        ],
+    };
+    services.validate().expect("valid services proxy");
+    assert_eq!(
+        services.normalized_services(),
+        vec!["memory.embeddings", "tool.*", "tool.browser"]
+    );
+    assert_eq!(
+        services.normalized_no_proxy(),
+        vec!["127.0.0.1", "example.test", "localhost"]
+    );
+    assert!(services.should_apply_to_service("tool.http_request"));
+    assert!(services.should_apply_to_service("memory.embeddings"));
+    assert!(!services.should_apply_to_service("provider.openai"));
+    assert!(!services.should_apply_to_service("   "));
+    let _client = services
+        .apply_to_reqwest_builder(reqwest::Client::builder(), "tool.browser")
+        .build()
+        .expect("proxied client builds");
+
+    let env_scope = ProxyConfig {
+        enabled: true,
+        scope: ProxyScope::Environment,
+        all_proxy: Some("socks5h://proxy.example:1080".into()),
+        ..ProxyConfig::default()
+    };
+    env_scope.validate().expect("valid env proxy");
+    assert!(!env_scope.should_apply_to_service("tool.browser"));
+    env_scope.apply_to_process_env();
+    assert_eq!(
+        std::env::var("ALL_PROXY").as_deref(),
+        Ok("socks5h://proxy.example:1080")
+    );
+    assert_eq!(
+        std::env::var("all_proxy").as_deref(),
+        Ok("socks5h://proxy.example:1080")
+    );
+
+    ProxyConfig::clear_process_env();
+    assert!(std::env::var("ALL_PROXY").is_err());
+    assert!(std::env::var("all_proxy").is_err());
+
+    for mut invalid in [
+        ProxyConfig {
+            enabled: true,
+            http_proxy: Some("ftp://proxy.example".into()),
+            ..ProxyConfig::default()
+        },
+        ProxyConfig {
+            enabled: true,
+            scope: ProxyScope::Services,
+            services: vec![],
+            http_proxy: Some("http://proxy.example".into()),
+            ..ProxyConfig::default()
+        },
+        ProxyConfig {
+            enabled: true,
+            http_proxy: None,
+            https_proxy: None,
+            all_proxy: None,
+            ..ProxyConfig::default()
+        },
+        ProxyConfig {
+            enabled: false,
+            services: vec!["unknown.service".into()],
+            ..ProxyConfig::default()
+        },
+    ] {
+        assert!(
+            invalid.validate().is_err(),
+            "invalid proxy config should fail: {invalid:?}"
+        );
+        invalid.enabled = false;
+    }
+
+    openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
+    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
+        .should_apply_to_service("tool.browser"));
+    let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
+    let _cached_again =
+        openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
+    let _timeout_client =
+        openhuman_core::openhuman::config::build_runtime_proxy_client_with_timeouts(
+            "memory.embeddings",
+            1,
+            1,
+        );
+    let _builder = openhuman_core::openhuman::config::apply_runtime_proxy_to_builder(
+        reqwest::Client::builder(),
+        "tool.http_request",
+    );
+    openhuman_core::openhuman::config::set_runtime_proxy_config(ProxyConfig::default());
+}
+
+#[test]
 fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     let tmp = tempdir().expect("tempdir");
     let auth = AuthService::new(tmp.path(), false);
@@ -508,6 +638,100 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     assert!(!auth
         .remove_profile("GitHub", "personal")
         .expect("remove missing profile"));
+}
+
+#[tokio::test]
+async fn auth_cli_flows_cover_app_session_and_provider_storage_paths() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let fields = parse_field_equals_entries(&[
+        "scope=repo".to_string(),
+        "refresh_token=refresh-1".to_string(),
+    ])
+    .expect("parse cli fields");
+    assert_eq!(fields.get("scope").and_then(Value::as_str), Some("repo"));
+    assert!(parse_field_equals_entries(&["not-key-value".to_string()]).is_err());
+    assert!(parse_field_equals_entries(&[" =blank".to_string()]).is_err());
+
+    let provider_login = cli_auth_login(
+        " github ".to_string(),
+        "provider-token".to_string(),
+        None,
+        None,
+        fields,
+        Some("work".to_string()),
+        true,
+    )
+    .await
+    .expect("provider cli login");
+    assert!(
+        provider_login.to_string().contains("github"),
+        "provider login should mention provider: {provider_login}"
+    );
+
+    let provider_status = cli_auth_status("github".to_string(), None)
+        .await
+        .expect("provider status");
+    assert!(
+        provider_status.to_string().contains("github"),
+        "provider status should include github profile: {provider_status}"
+    );
+
+    let provider_list = cli_auth_list(Some(" github ".to_string()))
+        .await
+        .expect("provider list");
+    assert!(
+        provider_list.to_string().contains("github"),
+        "provider list should include github profile: {provider_list}"
+    );
+
+    let provider_logout = cli_auth_logout("github".to_string(), Some("work".to_string()))
+        .await
+        .expect("provider logout");
+    assert!(
+        provider_logout.to_string().contains("removed")
+            || provider_logout.to_string().contains("true"),
+        "provider logout should report removal: {provider_logout}"
+    );
+
+    let session_login = cli_auth_login(
+        APP_SESSION_PROVIDER.to_string(),
+        "header.payload.local".to_string(),
+        Some("cli-user".to_string()),
+        Some(json!({ "id": "cli-user", "name": "CLI User" })),
+        Value::Object(Default::default()),
+        None,
+        true,
+    )
+    .await
+    .expect("app-session cli login");
+    assert!(
+        session_login.to_string().contains("app-session")
+            && session_login.to_string().contains("session stored"),
+        "session login should store app session profile: {session_login}"
+    );
+
+    let session_status = cli_auth_status(APP_SESSION_PROVIDER.to_string(), None)
+        .await
+        .expect("session status");
+    assert!(
+        session_status.to_string().contains("isAuthenticated")
+            || session_status.to_string().contains("cli-user"),
+        "session status should expose auth state: {session_status}"
+    );
+
+    let session_logout = cli_auth_logout(APP_SESSION_PROVIDER.to_string(), None)
+        .await
+        .expect("session logout");
+    assert!(
+        session_logout.to_string().contains("isAuthenticated")
+            || session_logout.to_string().contains("false")
+            || session_logout.to_string().contains("removed"),
+        "session logout should clear auth state: {session_logout}"
+    );
+
+    harness.join.abort();
 }
 
 #[tokio::test]
@@ -591,6 +815,12 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
             "schema catalog mismatch for namespace {namespace}"
         );
     }
+
+    let unknown_app_state = app_state_schemas("missing");
+    assert_eq!(unknown_app_state.namespace, "app_state");
+    assert_eq!(unknown_app_state.function, "unknown");
+    assert_eq!(unknown_app_state.outputs[0].name, "error");
+    assert!(unknown_app_state.description.contains("Unknown app_state"));
 
     harness.join.abort();
 }

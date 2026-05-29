@@ -14,6 +14,7 @@ use crate::openhuman::memory_sources::types::{
 use super::SourceReader;
 
 const DEFAULT_MAX_ITEMS: u32 = 50;
+const MAX_FEED_BYTES: u64 = 5 * 1024 * 1024; // 5 MiB — guards against pathological feeds
 
 pub struct RssReader;
 
@@ -115,9 +116,28 @@ async fn fetch_url(url: &str) -> Result<String, String> {
         return Err(format!("feed returned {}", resp.status()));
     }
 
-    resp.text()
+    // Guard against pathologically large feeds before buffering into memory.
+    if let Some(len) = resp.content_length() {
+        if len > MAX_FEED_BYTES {
+            return Err(format!(
+                "feed body too large: {len} bytes (limit {MAX_FEED_BYTES})"
+            ));
+        }
+    }
+
+    let bytes = resp
+        .bytes()
         .await
-        .map_err(|e| format!("failed to read feed body: {e}"))
+        .map_err(|e| format!("failed to read feed body: {e}"))?;
+
+    if bytes.len() as u64 > MAX_FEED_BYTES {
+        return Err(format!(
+            "feed body too large: {} bytes (limit {MAX_FEED_BYTES})",
+            bytes.len()
+        ));
+    }
+
+    String::from_utf8(bytes.to_vec()).map_err(|e| format!("feed body is not valid UTF-8: {e}"))
 }
 
 #[derive(Debug)]

@@ -43,52 +43,69 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
         Some(format!("sync requested for {} source", kind_str)),
     );
 
+    // Outer spawn catches panics so a panic in the sync task is surfaced
+    // as a tracing::error! log rather than silently dropping the join handle.
     tokio::spawn(async move {
-        tracing::debug!(
-            source_id = %source.id,
-            kind = %source.kind.as_str(),
-            "[memory_sources:sync] dispatching by kind"
-        );
-        let outcome = match source.kind {
-            SourceKind::Composio => sync_composio(&source, config).await,
-            SourceKind::Folder
-            | SourceKind::GithubRepo
-            | SourceKind::RssFeed
-            | SourceKind::WebPage => sync_via_reader(&source, config).await,
-            SourceKind::TwitterQuery => Err(
-                "Twitter sync not yet configured. Provide bearer token in settings.".to_string(),
-            ),
-        };
+        let source_id_for_panic = source.id.clone();
+        let kind_for_panic = source.kind.as_str();
+        let inner = tokio::spawn(async move {
+            tracing::debug!(
+                source_id = %source.id,
+                kind = %source.kind.as_str(),
+                "[memory_sources:sync] dispatching by kind"
+            );
+            let outcome = match source.kind {
+                SourceKind::Composio => sync_composio(&source, config).await,
+                SourceKind::Folder
+                | SourceKind::GithubRepo
+                | SourceKind::RssFeed
+                | SourceKind::WebPage => sync_via_reader(&source, config).await,
+                SourceKind::TwitterQuery => Err(
+                    "Twitter sync not yet configured. Provide bearer token in settings."
+                        .to_string(),
+                ),
+            };
 
-        match outcome {
-            Ok(items) => {
-                tracing::debug!(
-                    source_id = %source.id,
-                    kind = %source.kind.as_str(),
-                    items = items,
-                    "[memory_sources:sync] completed"
-                );
-                emit_sync_stage(
-                    MemorySyncTrigger::Manual,
-                    MemorySyncStage::Completed,
-                    Some(source.kind.as_str()),
-                    Some(&source.id),
-                    Some(format!("ingested {items} item(s)")),
-                );
+            match outcome {
+                Ok(items) => {
+                    tracing::debug!(
+                        source_id = %source.id,
+                        kind = %source.kind.as_str(),
+                        items = items,
+                        "[memory_sources:sync] completed"
+                    );
+                    emit_sync_stage(
+                        MemorySyncTrigger::Manual,
+                        MemorySyncStage::Completed,
+                        Some(source.kind.as_str()),
+                        Some(&source.id),
+                        Some(format!("ingested {items} item(s)")),
+                    );
+                }
+                Err(error) => {
+                    emit_sync_stage(
+                        MemorySyncTrigger::Manual,
+                        MemorySyncStage::Failed,
+                        Some(source.kind.as_str()),
+                        Some(&source.id),
+                        Some(error.clone()),
+                    );
+                    tracing::warn!(
+                        source_id = %source.id,
+                        kind = %source.kind.as_str(),
+                        error = %error,
+                        "[memory_sources:sync] failed"
+                    );
+                }
             }
-            Err(error) => {
-                emit_sync_stage(
-                    MemorySyncTrigger::Manual,
-                    MemorySyncStage::Failed,
-                    Some(source.kind.as_str()),
-                    Some(&source.id),
-                    Some(error.clone()),
-                );
-                tracing::warn!(
-                    source_id = %source.id,
-                    kind = %source.kind.as_str(),
-                    error = %error,
-                    "[memory_sources:sync] failed"
+        });
+
+        if let Err(join_err) = inner.await {
+            if join_err.is_panic() {
+                tracing::error!(
+                    source_id = %source_id_for_panic,
+                    kind = %kind_for_panic,
+                    "[memory_sources:sync] sync task panicked"
                 );
             }
         }

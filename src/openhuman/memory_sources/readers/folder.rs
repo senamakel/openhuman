@@ -118,9 +118,9 @@ impl SourceReader for FolderReader {
             ));
         }
 
-        let body = tokio::fs::read_to_string(&file_path)
+        let body = tokio::fs::read_to_string(&canonical_file)
             .await
-            .map_err(|e| format!("failed to read {}: {e}", file_path.display()))?;
+            .map_err(|e| format!("failed to read {}: {e}", canonical_file.display()))?;
 
         let content_type = if item_id.ends_with(".md") {
             ContentType::Markdown

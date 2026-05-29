@@ -7,6 +7,7 @@
 
 use async_trait::async_trait;
 use serde::Deserialize;
+use std::time::Duration;
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_sources::types::{
@@ -85,12 +86,16 @@ impl ItemKind {
 
 // ── gh CLI helpers ──────────────────────────────────────────────────
 
+const GH_CLI_TIMEOUT: Duration = Duration::from_secs(30);
+
 async fn gh_json(args: &[&str]) -> Result<String, String> {
-    let output = tokio::process::Command::new("gh")
-        .args(args)
-        .output()
-        .await
-        .map_err(|e| format!("gh command failed: {e}"))?;
+    let output = tokio::time::timeout(
+        GH_CLI_TIMEOUT,
+        tokio::process::Command::new("gh").args(args).output(),
+    )
+    .await
+    .map_err(|_| format!("gh command timed out after {}s", GH_CLI_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("gh command failed: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

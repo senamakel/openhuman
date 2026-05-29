@@ -1,7 +1,7 @@
 //! Raw-line oriented integration coverage for tools, approval, channels, and
 //! tool_registry surfaces that are not covered by the narrower controller tests.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -32,11 +32,15 @@ use openhuman_core::openhuman::tool_registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     registry_entries,
 };
+use openhuman_core::openhuman::tools::generated::{
+    admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
+    GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
+};
 use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers, default_tools,
-    CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr, ToolPolicy,
-    ToolScope,
+    CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr,
+    ToolCategory, ToolPolicy, ToolResult, ToolScope,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -142,6 +146,30 @@ impl Memory for StubMemory {
 
     async fn health_check(&self) -> bool {
         true
+    }
+}
+
+struct EchoGeneratedAdapter;
+
+#[async_trait]
+impl GeneratedToolAdapter for EchoGeneratedAdapter {
+    fn id(&self) -> &str {
+        "echo-generated"
+    }
+
+    async fn execute(
+        &self,
+        definition: &GeneratedToolDefinition,
+        args: Value,
+    ) -> Result<ToolResult> {
+        Ok(ToolResult::success(
+            json!({
+                "tool": definition.name,
+                "adapter": definition.adapter_id,
+                "args": args
+            })
+            .to_string(),
+        ))
     }
 }
 
@@ -866,4 +894,113 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         policy.evaluate("anything", &json!({ "arg": true })),
         PolicyDecision::Allow
     );
+}
+
+#[tokio::test]
+async fn generated_tools_raw_paths_cover_admission_validation_and_execution() {
+    let schema = json!({
+        "type": "object",
+        "properties": {
+            "message": { "type": "string" }
+        },
+        "required": ["message"]
+    });
+    let mut definition = GeneratedToolDefinition::new(
+        " generated.echo ",
+        " Execute through the generated adapter. ",
+        schema.clone(),
+        " echo-generated ",
+    );
+    definition.permission_level = PermissionLevel::Write;
+    definition.category = ToolCategory::Skill;
+    definition.scope = ToolScope::All;
+    definition.provider_id = Some(" Trusted.Runtime ".into());
+    definition.capability_id = Some(" messages.send ".into());
+    definition.source_digest = Some(" sha256:generated ".into());
+    definition.risk = Some(GeneratedToolRisk::ExternalWrite);
+    definition.policy_surface = Some(" generated.surface ".into());
+
+    let admission = GeneratedToolAdmissionConfig {
+        enforce_provenance: true,
+        trusted_providers: BTreeSet::from(["TRUSTED.RUNTIME".to_string(), "bad/provider".into()]),
+        disabled_providers: BTreeSet::from(["ignored/provider".into()]),
+        existing_tool_names: BTreeSet::from(["reserved.tool".to_string()]),
+        ..Default::default()
+    };
+    let report = admit_generated_tool_definitions(vec![definition.clone()], &admission);
+    assert_eq!(report.rejected, Vec::new());
+    assert_eq!(report.admitted.len(), 1);
+    let admitted = report.admitted[0].clone();
+    assert_eq!(admitted.name, "generated.echo");
+    assert_eq!(
+        admitted.description,
+        "Execute through the generated adapter."
+    );
+    assert_eq!(admitted.adapter_id, "echo-generated");
+    assert_eq!(admitted.provider_id.as_deref(), Some("trusted.runtime"));
+    assert_eq!(admitted.capability_id.as_deref(), Some("messages.send"));
+    assert_eq!(admitted.source_digest.as_deref(), Some("sha256:generated"));
+    assert_eq!(
+        admitted.policy_surface.as_deref(),
+        Some("generated.surface")
+    );
+
+    let adapter = Arc::new(EchoGeneratedAdapter);
+    let tools = generated_tools_from_definitions(vec![admitted.clone()], adapter.clone())
+        .expect("generated tools should instantiate");
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0].name(), "generated.echo");
+    assert_eq!(
+        tools[0].description(),
+        "Execute through the generated adapter."
+    );
+    assert_eq!(tools[0].permission_level(), PermissionLevel::Write);
+    assert_eq!(tools[0].category(), ToolCategory::Skill);
+    assert_eq!(tools[0].scope(), ToolScope::All);
+    assert_eq!(tools[0].parameters_schema(), schema);
+    assert!(tools[0].external_effect());
+    let result = tools[0]
+        .execute(json!({ "message": "hello" }))
+        .await
+        .expect("generated tool execution");
+    assert!(result.output().contains("generated.echo"));
+    assert!(result.output().contains("hello"));
+
+    let mut duplicate = admitted.clone();
+    duplicate.name = "reserved.tool".into();
+    let duplicate_report = admit_generated_tool_definitions(vec![duplicate], &admission);
+    assert!(duplicate_report.admitted.is_empty());
+    assert!(duplicate_report.rejected[0].reason.contains("duplicate"));
+
+    let mut unsafe_name = admitted.clone();
+    unsafe_name.name = "Bad Tool".into();
+    let unsafe_report = admit_generated_tool_definitions(vec![unsafe_name], &admission);
+    assert!(unsafe_report.admitted.is_empty());
+    assert!(unsafe_report.rejected[0]
+        .reason
+        .contains("unsupported characters"));
+
+    let mut missing_provider = admitted.clone();
+    missing_provider.provider_id = None;
+    let missing_provider_report =
+        admit_generated_tool_definitions(vec![missing_provider], &admission);
+    assert!(missing_provider_report.admitted.is_empty());
+    assert!(missing_provider_report.rejected[0]
+        .reason
+        .contains("missing provider_id"));
+
+    let mut bad_schema = admitted.clone();
+    bad_schema.parameters_schema = json!({ "properties": {} });
+    let bad_schema_report = admit_generated_tool_definitions(vec![bad_schema], &admission);
+    assert!(bad_schema_report.admitted.is_empty());
+    assert!(bad_schema_report.rejected[0]
+        .reason
+        .contains("invalid schema"));
+
+    let mut adapter_mismatch = admitted.clone();
+    adapter_mismatch.adapter_id = "other-adapter".into();
+    match generated_tools_from_definitions(vec![adapter_mismatch], adapter) {
+        Ok(_) => panic!("adapter mismatch should fail"),
+        Err(error) => assert!(error.to_string().contains("requires adapter")),
+    }
 }

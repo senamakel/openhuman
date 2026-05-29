@@ -1,7 +1,7 @@
 //! Unit tests for [`super::JailRegistry`].
 //!
 //! Lives next to `registry.rs` (wired in via `#[cfg(test)] #[path =
-//! "registry_test.rs"] mod tests;`) so the production module stays under
+//! "registry_tests.rs"] mod tests;`) so the production module stays under
 //! the ~500-line guideline.
 
 use super::*;

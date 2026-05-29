@@ -36,9 +36,9 @@ pub mod tree_source;
 pub mod tree_topic;
 
 #[cfg(test)]
-mod sync_pipeline_e2e_test;
+mod sync_pipeline_e2e_tests;
 #[cfg(test)]
-mod tree_e2e_test;
+mod tree_e2e_tests;
 pub use ingestion::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, IngestionJob, IngestionQueue,
     IngestionState, IngestionStatusSnapshot, MemoryIngestionConfig, MemoryIngestionRequest,

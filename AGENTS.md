@@ -317,7 +317,7 @@ Deep link plugin is registered where supported; behavior is platform-specific (s
 - **Controller schema contract**: Shared controller metadata types live in `src/core/types.rs` / `src/core/mod.rs` (`ControllerSchema`, `FieldSchema`, `TypeSchema`) and are consumed by adapters (RPC/CLI).
 - **Domain schema files**: For each domain, define controller schema metadata in a dedicated module inside the domain folder (example: `src/openhuman/cron/schemas.rs`) and export from the domain `mod.rs`.
 - **Controller-only exposure rule**: Expose domain functionality to **CLI and JSON-RPC through the controller registry** (`schemas.rs` + registered handlers wired into `src/core/all.rs`). Do **not** add domain-specific branches in `src/core/cli.rs` or `src/core/jsonrpc.rs`.
-- **Light `mod.rs` rule**: Keep domain `mod.rs` files light and export-focused. Put operational code in sibling files (`ops.rs`, `store.rs`, `schedule.rs`, `types.rs`, `bus.rs`).
+- **Light `mod.rs` rule**: Keep domain `mod.rs` files light and export-focused. Put operational code in sibling files (`ops.rs`, `store.rs`, `schedule.rs`, `types.rs`, `bus.rs`). See the **Canonical module shape** table in [`CLAUDE.md`](CLAUDE.md) for the full per-file contract (it is the single source of truth for module structure).
 - **`src/core/`** — Transport only: Axum/HTTP, JSON-RPC envelope, CLI parsing, **dispatch** (`src/core/dispatch.rs`), auth, observability, event bus. **No** heavy business logic here. (Older docs that say `core_server` mean this directory; there is no `src/core_server/`.)
 - **Layering**: Implementation in `openhuman::<domain>/`, controllers in `openhuman::<domain>/rpc.rs`, routes/dispatch in `src/core/`.
 

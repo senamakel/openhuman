@@ -868,9 +868,12 @@ const fr5: TranslationMap = {
   // Task sources (#task-sources)
   'settings.taskSources.title': 'Task Sources',
   'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',
-  'settings.taskSources.description': 'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and route them onto the agent todo board.',
-  'settings.taskSources.connectHint': 'Task sources use your connected accounts. Connect them under Integrations first.',
-  'settings.taskSources.disabledBanner': 'Task sources are disabled in settings. Enable them to poll automatically.',
+  'settings.taskSources.description':
+    'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and route them onto the agent todo board.',
+  'settings.taskSources.connectHint':
+    'Task sources use your connected accounts. Connect them under Integrations first.',
+  'settings.taskSources.disabledBanner':
+    'Task sources are disabled in settings. Enable them to poll automatically.',
   'settings.taskSources.loadError': 'Failed to load task sources',
   'settings.taskSources.addTitle': 'Add a task source',
   'settings.taskSources.provider': 'Provider',

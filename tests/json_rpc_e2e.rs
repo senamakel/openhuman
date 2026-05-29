@@ -7969,18 +7969,10 @@ async fn json_rpc_task_sources_crud_and_status() {
     let tasks_result = assert_no_jsonrpc_error(&tasks, "task_sources_list_tasks");
     assert_eq!(tasks_result.as_array().map(|a| a.len()), Some(0));
 
-    // ── preview_filter errors cleanly with no Composio session ───────
-    let preview = post_json_rpc(
-        &rpc_base,
-        7308,
-        "openhuman.task_sources_preview_filter",
-        json!({
-            "provider": "github",
-            "filter": { "provider": "github", "assignee_is_me": true }
-        }),
-    )
-    .await;
-    assert_jsonrpc_error(&preview, "task_sources_preview_filter no session");
+    // (preview_filter is covered end to end by
+    // json_rpc_task_sources_fetch_pipeline_e2e with a stub provider; we
+    // do not assert on it here because the provider registry is global
+    // and shared across tests in this binary.)
 
     // ── remove, then get is not found ────────────────────────────────
     let remove = post_json_rpc(
@@ -8001,6 +7993,203 @@ async fn json_rpc_task_sources_crud_and_status() {
     )
     .await;
     assert_jsonrpc_error(&get_after, "task_sources_get after remove");
+
+    rpc_join.abort();
+}
+
+/// Stub Composio provider used by the task-sources fetch E2E. Returns a
+/// canned set of tasks from `fetch_tasks` so the full
+/// fetch → enrich → route → ingest pipeline can be exercised over RPC
+/// without a live Composio connection.
+mod task_sources_stub {
+    use async_trait::async_trait;
+    use openhuman_core::openhuman::memory_sync::composio::providers::{
+        ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile, SyncOutcome,
+        SyncReason, TaskFetchFilter,
+    };
+
+    pub struct StubGithubProvider {
+        pub tasks: Vec<NormalizedTask>,
+    }
+
+    pub fn task(external_id: &str, title: &str, updated: &str) -> NormalizedTask {
+        NormalizedTask {
+            external_id: external_id.to_string(),
+            provider: "github".to_string(),
+            title: title.to_string(),
+            url: Some(format!("https://example.com/{external_id}")),
+            updated_at: Some(updated.to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[async_trait]
+    impl ComposioProvider for StubGithubProvider {
+        fn toolkit_slug(&self) -> &'static str {
+            "github"
+        }
+        async fn fetch_user_profile(
+            &self,
+            _ctx: &ProviderContext,
+        ) -> Result<ProviderUserProfile, String> {
+            Ok(ProviderUserProfile::default())
+        }
+        async fn sync(
+            &self,
+            _ctx: &ProviderContext,
+            _reason: SyncReason,
+        ) -> Result<SyncOutcome, String> {
+            Ok(SyncOutcome::default())
+        }
+        async fn fetch_tasks(
+            &self,
+            _ctx: &ProviderContext,
+            _filter: &TaskFetchFilter,
+        ) -> Result<Vec<NormalizedTask>, String> {
+            Ok(self.tasks.clone())
+        }
+    }
+}
+
+/// Full task-sources fetch pipeline over JSON-RPC: a stub provider feeds
+/// `fetch_tasks`, then `task_sources_fetch` routes the tasks onto the
+/// board, `list_tasks` surfaces them, a re-fetch dedups, and
+/// `preview_filter` returns matches without ingesting.
+#[tokio::test]
+async fn json_rpc_task_sources_fetch_pipeline_e2e() {
+    use std::sync::Arc;
+
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:1");
+
+    // Register the stub github provider BEFORE serving so the fetch RPC
+    // resolves it from the global registry.
+    openhuman_core::openhuman::memory_sync::composio::providers::register_provider(Arc::new(
+        task_sources_stub::StubGithubProvider {
+            tasks: vec![
+                task_sources_stub::task("101", "Fix flaky test", "2025-01-01T00:00:00Z"),
+                task_sources_stub::task("102", "Update docs", "2025-01-02T00:00:00Z"),
+            ],
+        },
+    ));
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // Add a TODO-only source (no triage LLM turn) so the pipeline runs
+    // deterministically end to end.
+    let add = post_json_rpc(
+        &rpc_base,
+        7401,
+        "openhuman.task_sources_add",
+        json!({
+            "provider": "github",
+            "name": "Pipeline source",
+            "target": "todo_only",
+            "filter": { "provider": "github", "assignee_is_me": true }
+        }),
+    )
+    .await;
+    let source = assert_no_jsonrpc_error(&add, "task_sources_add pipeline");
+    let id = source
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("source id")
+        .to_string();
+
+    // First fetch: both stub tasks routed.
+    let fetch1 = post_json_rpc(
+        &rpc_base,
+        7402,
+        "openhuman.task_sources_fetch",
+        json!({ "id": id }),
+    )
+    .await;
+    let outcome1 = assert_no_jsonrpc_error(&fetch1, "task_sources_fetch first");
+    assert_eq!(
+        outcome1.get("error"),
+        None,
+        "fetch should not error: {outcome1}"
+    );
+    assert_eq!(outcome1.get("fetched").and_then(Value::as_u64), Some(2));
+    assert_eq!(outcome1.get("routed").and_then(Value::as_u64), Some(2));
+    assert_eq!(outcome1.get("skippedDupe").and_then(Value::as_u64), Some(0));
+
+    // list_tasks surfaces the two ingested tasks.
+    let tasks = post_json_rpc(
+        &rpc_base,
+        7403,
+        "openhuman.task_sources_list_tasks",
+        json!({ "id": id }),
+    )
+    .await;
+    let tasks_arr = assert_no_jsonrpc_error(&tasks, "task_sources_list_tasks pipeline")
+        .as_array()
+        .expect("tasks array")
+        .clone();
+    assert_eq!(tasks_arr.len(), 2);
+    let ids: Vec<&str> = tasks_arr
+        .iter()
+        .filter_map(|t| t.get("externalId").and_then(Value::as_str))
+        .collect();
+    assert!(ids.contains(&"101"));
+    assert!(ids.contains(&"102"));
+
+    // Second fetch: identical tasks → all deduped, none re-routed.
+    let fetch2 = post_json_rpc(
+        &rpc_base,
+        7404,
+        "openhuman.task_sources_fetch",
+        json!({ "id": id }),
+    )
+    .await;
+    let outcome2 = assert_no_jsonrpc_error(&fetch2, "task_sources_fetch second");
+    assert_eq!(outcome2.get("fetched").and_then(Value::as_u64), Some(2));
+    assert_eq!(outcome2.get("routed").and_then(Value::as_u64), Some(0));
+    assert_eq!(outcome2.get("skippedDupe").and_then(Value::as_u64), Some(2));
+
+    // preview_filter returns matches WITHOUT ingesting (count unchanged).
+    let preview = post_json_rpc(
+        &rpc_base,
+        7405,
+        "openhuman.task_sources_preview_filter",
+        json!({
+            "provider": "github",
+            "filter": { "provider": "github", "assignee_is_me": true }
+        }),
+    )
+    .await;
+    let preview_arr = assert_no_jsonrpc_error(&preview, "task_sources_preview_filter pipeline")
+        .as_array()
+        .expect("preview array")
+        .clone();
+    assert_eq!(preview_arr.len(), 2);
+
+    let tasks_after = post_json_rpc(
+        &rpc_base,
+        7406,
+        "openhuman.task_sources_list_tasks",
+        json!({ "id": id }),
+    )
+    .await;
+    let tasks_after_arr = assert_no_jsonrpc_error(&tasks_after, "list_tasks after preview")
+        .as_array()
+        .expect("tasks array")
+        .clone();
+    assert_eq!(
+        tasks_after_arr.len(),
+        2,
+        "preview_filter must not ingest tasks"
+    );
 
     rpc_join.abort();
 }

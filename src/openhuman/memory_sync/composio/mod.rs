@@ -77,6 +77,15 @@ pub async fn list_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, Strin
 
     // Fallback: scan all active Composio connections (pre-registry behavior).
     tracing::debug!("[composio:sync] no memory_sources entries; falling back to connection scan");
+    scan_active_sync_targets(config).await
+}
+
+/// Scan all active Composio connections that have a native memory-sync
+/// provider. Always hits Composio directly — does not consult the
+/// memory_sources registry. Used by reconciliation to seed the registry.
+pub async fn scan_active_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, String> {
+    init_default_composio_sync_providers();
+
     let kind =
         create_composio_client(config).map_err(|e| format!("create_composio_client: {e:#}"))?;
     let response = match kind {

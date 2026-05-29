@@ -22,7 +22,9 @@ pub async fn ensure_composio_sources() {
         }
     };
 
-    let targets = match composio::list_sync_targets(&config).await {
+    // Always hit Composio directly here — using list_sync_targets would
+    // short-circuit through the registry and miss new connections.
+    let targets = match composio::scan_active_sync_targets(&config).await {
         Ok(t) => t,
         Err(e) => {
             tracing::debug!(
@@ -35,7 +37,13 @@ pub async fn ensure_composio_sources() {
 
     let mut upserted = 0u32;
     for target in &targets {
-        let label = format!("{} connection", target.toolkit);
+        // Use a title-cased toolkit name plus the truncated connection id
+        // so distinct Gmail accounts don't all show as "Gmail connection".
+        let label = format!(
+            "{} · {}",
+            title_case(&target.toolkit),
+            short_id(&target.connection_id)
+        );
         match registry::upsert_composio_source(&target.toolkit, &target.connection_id, &label).await
         {
             Ok(_) => {
@@ -52,9 +60,25 @@ pub async fn ensure_composio_sources() {
         }
     }
 
-    tracing::info!(
-        targets = targets.len(),
-        upserted = upserted,
-        "[memory_sources:reconcile] composio reconciliation complete"
-    );
+    if !targets.is_empty() {
+        tracing::info!(
+            targets = targets.len(),
+            upserted = upserted,
+            "[memory_sources:reconcile] composio reconciliation complete"
+        );
+    }
+}
+
+fn title_case(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().chain(chars).collect(),
+    }
+}
+
+fn short_id(id: &str) -> &str {
+    // Show only the last 8 chars to keep labels compact.
+    let take = id.len().saturating_sub(8);
+    &id[take..]
 }

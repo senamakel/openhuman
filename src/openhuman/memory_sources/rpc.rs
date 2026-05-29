@@ -15,6 +15,12 @@ pub struct ListResponse {
 
 pub async fn list_rpc() -> Result<RpcOutcome<ListResponse>, String> {
     tracing::debug!("[memory_sources] list_rpc: entry");
+    // Lazily reconcile Composio connections into the registry so users
+    // see freshly-connected integrations as memory sources immediately,
+    // without waiting for a restart or for the connection_created hook
+    // to fire (which only triggers on OAuth handoff, not on first launch
+    // after the user previously connected something).
+    crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
     let sources = registry::list_sources().await?;
     Ok(RpcOutcome::new(ListResponse { sources }, vec![]))
 }

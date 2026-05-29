@@ -29,9 +29,11 @@ use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
-    migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
-    OrchestratorModelConfig, ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds,
-    WhatsAppConfig,
+    migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
+    CapabilityProviderTrustState, CloudProviderCreds, CloudProviderType, DashboardConfig,
+    EventStreamConfig, MemoryConfig, MemoryContextWindow, ModelHealthConfig,
+    OrchestratorModelConfig, ProxyConfig, ProxyScope, ResourceLimitsConfig, SandboxConfig,
+    SecurityConfig, TelegramConfig, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::{
     clear_active_user, output_language_directive, write_active_user_id, AgentConfig,
@@ -160,6 +162,12 @@ struct SequenceAuthBackendState {
     auth_me_hits: Arc<AtomicUsize>,
 }
 
+#[derive(Clone)]
+struct StaticAuthBackendState {
+    auth_me_hits: Arc<AtomicUsize>,
+    user: Arc<Value>,
+}
+
 async fn serve_sequence_auth_backend() -> (
     String,
     SequenceAuthBackendState,
@@ -173,6 +181,28 @@ async fn serve_sequence_auth_backend() -> (
         .await
         .expect("bind sequence auth backend");
     let addr = listener.local_addr().expect("sequence auth backend addr");
+    let join = tokio::spawn(async move { axum::serve(listener, app).await });
+    (format!("http://{addr}"), state, join)
+}
+
+async fn serve_static_auth_backend(
+    user: Value,
+) -> (
+    String,
+    StaticAuthBackendState,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    let state = StaticAuthBackendState {
+        auth_me_hits: Arc::new(AtomicUsize::new(0)),
+        user: Arc::new(user),
+    };
+    let app = Router::new()
+        .route("/auth/me", get(static_auth_me))
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind static auth backend");
+    let addr = listener.local_addr().expect("static auth backend addr");
     let join = tokio::spawn(async move { axum::serve(listener, app).await });
     (format!("http://{addr}"), state, join)
 }
@@ -231,6 +261,17 @@ async fn sequence_auth_me(
         )
             .into_response(),
     }
+}
+
+async fn static_auth_me(
+    State(state): State<StaticAuthBackendState>,
+    _headers: HeaderMap,
+) -> Json<Value> {
+    state.auth_me_hits.fetch_add(1, Ordering::SeqCst);
+    Json(json!({
+        "success": true,
+        "data": (*state.user).clone()
+    }))
 }
 
 async fn mock_consume_login_token(AxumPath(token): AxumPath<String>) -> Json<Value> {
@@ -640,6 +681,98 @@ encrypt = false
         Some("tools-agent")
     );
     assert_eq!(config.configured_agent_model("   ", false), None);
+}
+
+#[test]
+fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes() {
+    let capability = CapabilityProviderConfig::default();
+    assert_eq!(
+        capability.trust_state,
+        CapabilityProviderTrustState::Untrusted
+    );
+    assert!(!capability.enabled);
+    let trusted_capability: CapabilityProviderConfig = serde_json::from_value(json!({
+        "id": "external-mcp",
+        "display_name": "External MCP",
+        "source_uri": "https://example.test/catalog.json",
+        "source_digest": "sha256:abc123",
+        "trust_state": "trusted",
+        "enabled": true
+    }))
+    .expect("capability provider config should deserialize");
+    assert_eq!(
+        trusted_capability.trust_state,
+        CapabilityProviderTrustState::Trusted
+    );
+
+    let dashboard = DashboardConfig::default();
+    assert!(dashboard.event_stream.enabled);
+    assert_eq!(dashboard.event_stream.max_entries, 200);
+    assert_eq!(dashboard.event_stream.new_entries, "top");
+    assert!(dashboard.model_health.enabled);
+    assert_eq!(dashboard.model_health.min_tasks_for_rating, 10);
+    assert_eq!(dashboard.model_health.evaluation_window_tasks, 50);
+    assert!(dashboard.diagram_viewer.enabled);
+    assert_eq!(
+        dashboard.diagram_viewer.source_url,
+        "http://localhost:8787/workspace/diagrams/latest.png"
+    );
+    assert_eq!(dashboard.diagram_viewer.refresh_interval_seconds, 10);
+    let partial_dashboard: DashboardConfig = serde_json::from_value(json!({
+        "event_stream": {},
+        "model_health": {},
+        "diagram_viewer": {}
+    }))
+    .expect("partial dashboard config should fill serde defaults");
+    assert!(partial_dashboard.event_stream.enabled);
+    assert_eq!(partial_dashboard.model_health.hallucination_threshold, 0.10);
+    assert_eq!(
+        partial_dashboard.diagram_viewer.refresh_interval_seconds,
+        10
+    );
+    let event_stream: EventStreamConfig =
+        serde_json::from_value(json!({})).expect("event stream defaults");
+    assert_eq!(event_stream.new_entries, "top");
+    let model_health: ModelHealthConfig =
+        serde_json::from_value(json!({})).expect("model health defaults");
+    assert_eq!(model_health.evaluation_window_tasks, 50);
+
+    let memory = MemoryConfig {
+        agentmemory_url: Some("https://memory.example.test".to_string()),
+        agentmemory_secret: Some("secret-token".to_string()),
+        agentmemory_timeout_ms: Some(750),
+        ..MemoryConfig::default()
+    };
+    let debug = format!("{memory:?}");
+    assert!(debug.contains("<redacted>"));
+    assert!(!debug.contains("secret-token"));
+    assert_eq!(LlmBackend::Cloud.as_str(), "cloud");
+    assert_eq!(LlmBackend::Local.as_str(), "local");
+    assert_eq!(LlmBackend::parse(" LOCAL "), Ok(LlmBackend::Local));
+    assert!(LlmBackend::parse("remote").is_err());
+
+    let telegram: TelegramConfig = serde_json::from_value(json!({
+        "bot_token": "bot-token",
+        "allowed_users": ["alice"]
+    }))
+    .expect("telegram serde defaults");
+    assert_eq!(telegram.draft_update_interval_ms, 1000);
+    assert!(telegram.silent_streaming);
+    assert!(!telegram.mention_only);
+
+    let sandbox = SandboxConfig::default();
+    assert!(sandbox.enabled.is_none());
+    assert!(sandbox.firejail_args.is_empty());
+    let security = SecurityConfig::default();
+    assert!(security.audit.enabled);
+    let resources = ResourceLimitsConfig::default();
+    assert_eq!(
+        serde_json::to_value(resources).expect("resource limits to json"),
+        json!({})
+    );
+    let audit = AuditConfig::default();
+    assert_eq!(audit.log_path, "audit.log");
+    assert_eq!(audit.max_size_mb, 100);
 }
 
 #[test]
@@ -2658,6 +2791,71 @@ async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_st
 }
 
 #[tokio::test]
+async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
+        "user_id": "legacy-user-id",
+        "displayName": "Legacy Display",
+        "email": "legacy-display@example.test"
+    }))
+    .await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_201,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "legacy-field-remote-jwt",
+            "user_id": "stored-legacy-user",
+            "user": {
+                "id": "stored-legacy-user",
+                "name": "Stored Legacy Worker",
+                "email": "stored-legacy@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session legacy fields")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_202,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "legacy-field current-user snapshot")
+            .pointer("/currentUser/user_id")
+            .and_then(Value::as_str),
+        Some("legacy-user-id")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        2,
+        "store_session and snapshot should each fetch the static backend once"
+    );
+    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+        .expect("legacy current-user keys should produce a prompt identity");
+    assert_eq!(identity.id.as_deref(), Some("legacy-user-id"));
+    assert_eq!(identity.name.as_deref(), Some("Legacy Display"));
+    assert_eq!(
+        identity.email.as_deref(),
+        Some("legacy-display@example.test")
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -3019,6 +3217,14 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
     let tmp = tempdir().expect("tempdir");
 
+    let default_profiles =
+        openhuman_core::openhuman::credentials::profiles::AuthProfilesData::default();
+    assert_eq!(default_profiles.schema_version, 1);
+    assert!(default_profiles.profiles.is_empty());
+
+    let empty_path_store = AuthProfilesStore::new(Path::new(""), false);
+    assert_eq!(empty_path_store.path(), Path::new("auth-profiles.json"));
+
     let empty_dir = tmp.path().join("empty-file");
     std::fs::create_dir_all(&empty_dir).expect("create empty profile dir");
     std::fs::write(empty_dir.join("auth-profiles.json"), "").expect("write empty profile file");
@@ -3125,6 +3331,52 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
             .contains("Invalid RFC3339 timestamp"),
         "unexpected invalid datetime error: {invalid_datetime_err:#}"
     );
+
+    let missing_oauth_secret_dir = tmp.path().join("missing-oauth-secret");
+    std::fs::create_dir_all(&missing_oauth_secret_dir).expect("create missing oauth secret dir");
+    std::fs::write(
+        missing_oauth_secret_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "github": "github:missing-access"
+            },
+            "profiles": {
+                "github:missing-access": {
+                    "provider": "github",
+                    "profile_name": "missing-access",
+                    "kind": "oauth",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write missing oauth secret fixture");
+    let missing_secret_err = AuthProfilesStore::new(&missing_oauth_secret_dir, false)
+        .load()
+        .expect_err("oauth profile missing access token should fail");
+    assert!(
+        missing_secret_err
+            .to_string()
+            .contains("OAuth profile missing access_token"),
+        "unexpected missing oauth secret error: {missing_secret_err:#}"
+    );
+
+    let public_api_dir = tmp.path().join("public-api-errors");
+    let public_store = AuthProfilesStore::new(&public_api_dir, false);
+    assert!(public_store
+        .set_active_profile("github", "github:missing")
+        .expect_err("missing active profile should fail")
+        .to_string()
+        .contains("Auth profile not found"));
+    assert!(public_store
+        .update_profile("github:missing", |_| Ok(()))
+        .expect_err("missing update profile should fail")
+        .to_string()
+        .contains("Auth profile not found"));
 }
 
 #[test]

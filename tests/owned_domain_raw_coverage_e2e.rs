@@ -38,6 +38,8 @@ use openhuman_core::openhuman::tool_registry::{
 };
 use openhuman_core::openhuman::tools::ToolSpec;
 
+static OWNED_DOMAIN_ENV_LOCK: Mutex<()> = Mutex::new(());
+
 #[derive(Clone, Default)]
 struct ProviderMockState {
     chat_requests: Arc<Mutex<Vec<Value>>>,
@@ -750,6 +752,17 @@ fn tool_registry_public_apis_cover_entries_diagnostics_and_provider_policy() {
     let denials = tool_registry_denials::list(1);
     assert_eq!(denials.len(), 1);
     assert_eq!(denials[0].tool_name, "tools.write_file");
+    tool_registry_denials::record("", "policy", "blocked", "ignored");
+    tool_registry_denials::record(" tools.blank ", "", "", "");
+    tool_registry_denials::record("tools.secret", "policy", "blocked", "Bearer secret");
+    tool_registry_denials::record("tools.long", "policy", "blocked", &"a".repeat(500));
+    let recent_denials = tool_registry_denials::list(4);
+    assert_eq!(recent_denials[0].tool_name, "tools.long");
+    assert_eq!(recent_denials[0].reason.chars().count(), 241);
+    assert_eq!(recent_denials[1].reason, "[redacted: sensitive content]");
+    assert_eq!(recent_denials[2].policy, "unknown");
+    assert_eq!(recent_denials[2].action, "blocked");
+    assert_eq!(recent_denials[2].reason, "<empty>");
 
     let registry = list_tools().value.tools;
     assert!(registry.iter().any(|entry| {
@@ -831,4 +844,32 @@ async fn tool_registry_controller_handlers_cover_list_get_and_validation_paths()
         .await
         .expect_err("numeric tool id")
         .contains("non-empty string"));
+
+    let diagnostics_handler = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "diagnostics")
+        .expect("diagnostics controller")
+        .handler;
+    let dir = tempdir().expect("tempdir");
+    let previous_workspace = {
+        let _env_guard = OWNED_DOMAIN_ENV_LOCK.lock().expect("env lock");
+        let previous_workspace = std::env::var_os("OPENHUMAN_WORKSPACE");
+        std::env::set_var("OPENHUMAN_WORKSPACE", dir.path());
+        previous_workspace
+    };
+    let diagnostics_value = diagnostics_handler(Map::new())
+        .await
+        .expect("diagnostics value");
+    {
+        let _env_guard = OWNED_DOMAIN_ENV_LOCK.lock().expect("env lock");
+        match previous_workspace {
+            Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
+            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
+        }
+    }
+    assert!(diagnostics_value
+        .get("total_tools")
+        .or_else(|| diagnostics_value.pointer("/diagnostics/total_tools"))
+        .and_then(Value::as_u64)
+        .is_some_and(|count| count > 0));
 }

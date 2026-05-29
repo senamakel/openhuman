@@ -92,6 +92,12 @@ const { listConnections, syncConnection } =
     syncConnection: Mock;
   };
 
+const { listMemorySources, syncMemorySource } =
+  (await import('../../../services/memorySourcesService')) as unknown as {
+    listMemorySources: Mock;
+    syncMemorySource: Mock;
+  };
+
 const { openUrl } = (await import('../../../utils/openUrl')) as unknown as { openUrl: Mock };
 
 const { openWorkspacePath, revealWorkspacePath } =
@@ -262,21 +268,38 @@ describe('MemoryWorkspace (graph view)', () => {
   });
 
   it('shows sync rows for provider-backed toolkits and hides non-syncable ones', async () => {
-    listConnections.mockResolvedValue({
-      connections: [
-        { id: 'conn-gmail', toolkit: 'gmail', status: 'ACTIVE', accountEmail: 'a@x' },
-        { id: 'conn-slack', toolkit: 'slack', status: 'ACTIVE', workspace: 'acme' },
-        { id: 'conn-notion', toolkit: 'notion', status: 'ACTIVE' },
-        { id: 'conn-discord', toolkit: 'discord', status: 'ACTIVE' },
-      ],
-    });
+    // The new MemorySourcesRegistry reads from listMemorySources (not listConnections).
+    // Composio connections are auto-seeded into the registry as MemorySourceEntry records.
+    listMemorySources.mockResolvedValue([
+      {
+        id: 'src-gmail',
+        kind: 'composio',
+        toolkit: 'gmail',
+        label: 'Gmail · a@x',
+        enabled: true,
+      },
+      {
+        id: 'src-slack',
+        kind: 'composio',
+        toolkit: 'slack',
+        label: 'Slack · acme',
+        enabled: true,
+      },
+      {
+        id: 'src-notion',
+        kind: 'composio',
+        toolkit: 'notion',
+        label: 'Notion',
+        enabled: true,
+      },
+    ]);
     renderWithProviders(<MemoryWorkspace />);
     // Provider-backed toolkits should render actionable Sync rows
     expect(await screen.findByTestId('memory-source-sync-gmail')).toBeInTheDocument();
     expect(screen.getByTestId('memory-source-sync-slack')).toBeInTheDocument();
     expect(screen.getByTestId('memory-source-sync-notion')).toBeInTheDocument();
-    // Non-syncable toolkits stay hidden.
-    expect(screen.queryByTestId('memory-source-row-discord')).toBeNull();
+    // Discord was not added as a source, so no row exists for it.
+    expect(screen.queryAllByTestId('memory-source-row-composio').length).toBeGreaterThan(0); // some composio rows exist
     expect(screen.queryByTestId('memory-source-sync-discord')).toBeNull();
   });
 
@@ -370,25 +393,25 @@ describe('MemoryWorkspace (graph view)', () => {
     });
   });
 
-  it('per-connection Sync button dispatches composio.sync with the connection id', async () => {
-    listConnections.mockResolvedValue({
-      connections: [
-        {
-          id: 'conn-gmail-001',
-          toolkit: 'gmail',
-          status: 'ACTIVE',
-          accountEmail: 'alice@example.com',
-        },
-      ],
-    });
+  it('per-source Sync button dispatches memory_sources_sync with the source id', async () => {
+    listMemorySources.mockResolvedValue([
+      {
+        id: 'src-gmail-001',
+        kind: 'composio',
+        toolkit: 'gmail',
+        label: 'Gmail · alice@example.com',
+        enabled: true,
+      },
+    ]);
+    syncMemorySource.mockResolvedValue(undefined);
     const onToast = vi.fn();
     renderWithProviders(<MemoryWorkspace onToast={onToast} />);
     const button = await screen.findByTestId('memory-source-sync-gmail');
-    // Source row title surfaces the account identity, not just the toolkit.
+    // Source row title surfaces the account identity.
     expect(button.closest('li')).toHaveTextContent(/Gmail · alice@example\.com/);
     fireEvent.click(button);
     await waitFor(() => {
-      expect(syncConnection).toHaveBeenCalledWith('conn-gmail-001', 'manual');
+      expect(syncMemorySource).toHaveBeenCalledWith('src-gmail-001');
     });
     await waitFor(() => {
       expect(onToast).toHaveBeenCalledWith(

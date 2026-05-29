@@ -210,7 +210,9 @@ function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: So
   const lastSync = status ? relativeTimestamp(status.last_chunk_at_ms, t) : null;
 
   return (
-    <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+    <li
+      className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+      data-testid={`memory-source-row-${source.kind}`}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-base">{icon}</span>
@@ -256,6 +258,7 @@ function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: So
           onClick={() => onSync(source)}
           disabled={!source.enabled || isSyncing}
           title={t('sync.sync')}
+          data-testid={`memory-source-sync-${source.toolkit ?? source.kind}`}
           className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
                      text-xs font-semibold text-white shadow-sm transition-colors
                      hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50

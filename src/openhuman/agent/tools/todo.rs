@@ -255,6 +255,7 @@ fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
         evidence: optional_string_array(args, "evidence")?,
         notes: optional_string(args, "notes"),
         blocker: optional_string(args, "blocker"),
+        source_metadata: None,
     })
 }
 

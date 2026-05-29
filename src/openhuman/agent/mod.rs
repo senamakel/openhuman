@@ -42,6 +42,7 @@ pub mod prompts;
 mod schemas;
 pub mod stop_hooks;
 pub mod task_board;
+pub mod task_dispatcher;
 pub mod tool_policy;
 pub mod tools;
 pub mod tree_loader;

@@ -29,9 +29,12 @@ use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
-    ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
+    OrchestratorModelConfig, ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds,
+    WhatsAppConfig,
 };
-use openhuman_core::openhuman::config::{AgentConfig, ChannelsConfig, Config, TeamModelConfig};
+use openhuman_core::openhuman::config::{
+    output_language_directive, AgentConfig, ChannelsConfig, Config, TeamModelConfig,
+};
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
@@ -472,6 +475,107 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
     assert_eq!(whatsapp.backend_type(), "cloud");
     assert!(whatsapp.is_cloud_config());
     assert!(!whatsapp.is_web_config());
+
+    let minimal_config: Config = toml::from_str(
+        r#"
+api_url = "https://api.example.test"
+
+[secrets]
+encrypt = false
+"#,
+    )
+    .expect("minimal config should deserialize with defaults");
+    assert_eq!(minimal_config.default_temperature, 0.7);
+    assert!(minimal_config
+        .temperature_unsupported_models
+        .iter()
+        .any(|pattern| pattern == "gpt-5*"));
+
+    assert_eq!(
+        output_language_directive(Some("zh_CN")).as_deref(),
+        Some("Output language: write all natural-language output in Simplified Chinese. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged.")
+    );
+    assert_eq!(
+        output_language_directive(Some("  Klingon\u{0000}  ")).as_deref(),
+        Some("Output language: write all natural-language output in Klingon. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged.")
+    );
+    assert_eq!(output_language_directive(Some("   ")), None);
+    assert_eq!(output_language_directive(None), None);
+
+    let mut config = Config::default();
+    config.workspace_dir = PathBuf::from("/tmp/openhuman-worker-a-workspace");
+    assert_eq!(
+        config.memory_tree_content_root(),
+        PathBuf::from("/tmp/openhuman-worker-a-workspace/memory_tree/content")
+    );
+    config.memory_tree.content_dir = Some(PathBuf::from("/tmp/custom-memory-tree"));
+    assert_eq!(
+        config.memory_tree_content_root(),
+        PathBuf::from("/tmp/custom-memory-tree")
+    );
+
+    config.chat_provider = Some(" ollama:chat-local ".into());
+    config.reasoning_provider = Some("cloud".into());
+    config.agentic_provider = Some("ollama:agent-local".into());
+    config.coding_provider = Some("ollama:code-local".into());
+    config.memory_provider = Some("ollama:memory-local".into());
+    config.embeddings_provider = Some("ollama:embed-local".into());
+    config.heartbeat_provider = Some("ollama:heartbeat-local".into());
+    config.learning_provider = Some("ollama:learning-local".into());
+    config.subconscious_provider = Some("ollama:subconscious-local".into());
+    assert_eq!(
+        config.workload_local_model("chat").as_deref(),
+        Some("chat-local")
+    );
+    assert_eq!(config.workload_local_model("reasoning"), None);
+    assert!(config.workload_uses_local("agentic"));
+    assert!(config.workload_uses_local("coding"));
+    assert!(config.workload_uses_local("memory"));
+    assert!(config.workload_uses_local("embeddings"));
+    assert!(config.workload_uses_local("heartbeat"));
+    assert!(config.workload_uses_local("learning"));
+    assert!(config.workload_uses_local("subconscious"));
+    assert!(!config.workload_uses_local("unknown"));
+    config.output_language = Some("fr".into());
+    assert!(config
+        .output_language_directive()
+        .expect("language directive")
+        .contains("French"));
+
+    config.orchestrator = OrchestratorModelConfig {
+        model: Some(" orchestrator-model ".into()),
+    };
+    config.teams.insert(
+        "research".into(),
+        TeamModelConfig {
+            lead_model: Some(" research-lead ".into()),
+            agent_model: Some("research-agent".into()),
+        },
+    );
+    config.teams.insert(
+        "tools".into(),
+        TeamModelConfig {
+            lead_model: None,
+            agent_model: Some("tools-agent".into()),
+        },
+    );
+    assert_eq!(
+        config.configured_agent_model("orchestrator", false),
+        Some("orchestrator-model")
+    );
+    assert_eq!(
+        config.configured_agent_model("research", true),
+        Some("research-lead")
+    );
+    assert_eq!(
+        config.configured_agent_model("research_agent", false),
+        Some("research-agent")
+    );
+    assert_eq!(
+        config.configured_agent_model("tool_maker", false),
+        Some("tools-agent")
+    );
+    assert_eq!(config.configured_agent_model("   ", false), None);
 }
 
 #[test]

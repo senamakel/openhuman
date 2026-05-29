@@ -26,6 +26,7 @@ pub mod read_rpc;
 pub mod remember;
 pub mod schema;
 pub mod sync;
+pub mod tools;
 pub mod util;
 
 // Tree instances — policy and orchestration over the generic memory_tree engine.

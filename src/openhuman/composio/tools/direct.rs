@@ -1091,5 +1091,5 @@ impl ComposioConnectedAccount {
 }
 
 #[cfg(test)]
-#[path = "composio_tests.rs"]
+#[path = "direct_tests.rs"]
 mod tests;

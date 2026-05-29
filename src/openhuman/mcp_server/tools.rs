@@ -5,8 +5,8 @@ use crate::openhuman::agent::harness::AgentDefinitionRegistry;
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::inference::provider::traits::build_tool_instructions_text;
-use crate::openhuman::integrations::searxng::MAX_RESULTS as SEARXNG_MAX_RESULTS;
 use crate::openhuman::security::{SecurityPolicy, ToolOperation};
+use crate::openhuman::tools::SEARXNG_MAX_RESULTS;
 
 use super::write_dispatch;
 
@@ -737,7 +737,7 @@ fn build_rpc_params(
             let mut params = Map::new();
             params.insert("query".to_string(), Value::String(query));
             if let Some(categories) = optional_string_array(&args, "categories")? {
-                crate::openhuman::integrations::searxng::normalize_categories(categories.clone())
+                crate::openhuman::tools::normalize_categories(categories.clone())
                     .map_err(|err| ToolCallError::InvalidParams(err.to_string()))?;
                 params.insert("categories".to_string(), Value::from(categories));
             }

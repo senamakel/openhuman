@@ -10,7 +10,8 @@
 //!
 //! The backend handles Twilio API credentials, billing, and rate limiting.
 
-use super::{IntegrationClient, ToolScope};
+use super::IntegrationClient;
+use crate::openhuman::integrations::ToolScope;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;

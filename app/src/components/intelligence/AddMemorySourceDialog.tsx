@@ -334,7 +334,6 @@ function FolderField({ label, value, onChange }: FolderFieldProps) {
             type="file"
             // @ts-expect-error — non-standard but supported in CEF/Chromium
             webkitdirectory=""
-            directory=""
             multiple
             className="hidden"
             onChange={e => {

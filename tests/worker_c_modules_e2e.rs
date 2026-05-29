@@ -198,6 +198,13 @@ fn error_message<'a>(value: &'a Value, context: &str) -> &'a str {
         .unwrap_or_else(|| panic!("{context}: expected JSON-RPC error with message: {value}"))
 }
 
+fn assert_rpc_completed(value: &Value, context: &str) {
+    assert!(
+        value.get("result").is_some() || value.get("error").is_some(),
+        "{context}: expected JSON-RPC result or error envelope: {value}"
+    );
+}
+
 fn find_status_entry<'a>(entries: &'a [Value], channel: &str, auth_mode: &str) -> &'a Value {
     entries
         .iter()
@@ -314,6 +321,40 @@ async fn channels_imessage_config_only_connection_reports_status_and_disconnects
             .and_then(Value::as_bool),
         Some(false)
     );
+}
+
+#[tokio::test]
+async fn channels_remaining_controller_paths_validate_without_live_services() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    for (id, method) in [
+        (40, "openhuman.channels_test"),
+        (41, "openhuman.channels_telegram_login_check"),
+        (42, "openhuman.channels_discord_link_check"),
+        (43, "openhuman.channels_discord_list_channels"),
+        (44, "openhuman.channels_discord_check_permissions"),
+        (45, "openhuman.channels_send_message"),
+        (46, "openhuman.channels_send_reaction"),
+        (47, "openhuman.channels_create_thread"),
+        (48, "openhuman.channels_update_thread"),
+        (49, "openhuman.channels_list_threads"),
+    ] {
+        let response = rpc(&harness.rpc_base, id, method, json!({})).await;
+        assert!(
+            response.get("error").is_some(),
+            "{method} should reject missing required params: {response}"
+        );
+    }
+
+    for (id, method) in [
+        (50, "openhuman.channels_telegram_login_start"),
+        (51, "openhuman.channels_discord_link_start"),
+        (52, "openhuman.channels_discord_list_guilds"),
+    ] {
+        let response = rpc(&harness.rpc_base, id, method, json!({})).await;
+        assert_rpc_completed(&response, method);
+    }
 }
 
 #[tokio::test]
@@ -441,6 +482,44 @@ async fn composio_direct_mode_api_key_and_static_catalogs_round_trip() {
 }
 
 #[tokio::test]
+async fn composio_remaining_controller_paths_validate_without_live_services() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    for (id, method) in [
+        (60, "openhuman.composio_authorize"),
+        (61, "openhuman.composio_delete_connection"),
+        (62, "openhuman.composio_execute"),
+        (63, "openhuman.composio_list_github_repos"),
+        (64, "openhuman.composio_create_trigger"),
+        (65, "openhuman.composio_get_user_profile"),
+        (66, "openhuman.composio_sync"),
+        (67, "openhuman.composio_get_user_scopes"),
+        (68, "openhuman.composio_set_user_scopes"),
+        (69, "openhuman.composio_list_available_triggers"),
+        (70, "openhuman.composio_enable_trigger"),
+        (71, "openhuman.composio_disable_trigger"),
+    ] {
+        let response = rpc(&harness.rpc_base, id, method, json!({})).await;
+        assert!(
+            response.get("error").is_some(),
+            "{method} should reject missing required params: {response}"
+        );
+    }
+
+    for (id, method) in [
+        (72, "openhuman.composio_list_connections"),
+        (73, "openhuman.composio_list_tools"),
+        (74, "openhuman.composio_list_trigger_history"),
+        (75, "openhuman.composio_refresh_all_identities"),
+        (76, "openhuman.composio_list_triggers"),
+    ] {
+        let response = rpc(&harness.rpc_base, id, method, json!({})).await;
+        assert_rpc_completed(&response, method);
+    }
+}
+
+#[tokio::test]
 async fn threads_message_lifecycle_is_persisted_and_validated() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -560,6 +639,179 @@ async fn threads_message_lifecycle_is_persisted_and_validated() {
 }
 
 #[tokio::test]
+async fn threads_remaining_controller_paths_round_trip() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let created = rpc(
+        &harness.rpc_base,
+        80,
+        "openhuman.threads_create_new",
+        json!({ "labels": ["worker-c"] }),
+    )
+    .await;
+    let created_thread_id = payload(&created, "threads_create_new")
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("created thread id")
+        .to_string();
+
+    let titled = rpc(
+        &harness.rpc_base,
+        81,
+        "openhuman.threads_update_title",
+        json!({ "thread_id": created_thread_id, "title": "Worker C titled thread" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&titled, "threads_update_title")
+            .get("title")
+            .and_then(Value::as_str),
+        Some("Worker C titled thread")
+    );
+
+    let labeled = rpc(
+        &harness.rpc_base,
+        82,
+        "openhuman.threads_update_labels",
+        json!({ "thread_id": created_thread_id, "labels": ["worker-c", "remaining"] }),
+    )
+    .await;
+    assert_eq!(
+        payload(&labeled, "threads_update_labels")
+            .get("labels")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+
+    let generated = rpc(
+        &harness.rpc_base,
+        83,
+        "openhuman.threads_generate_title",
+        json!({ "thread_id": created_thread_id }),
+    )
+    .await;
+    assert_rpc_completed(&generated, "threads_generate_title");
+
+    let turn_state = rpc(
+        &harness.rpc_base,
+        84,
+        "openhuman.threads_turn_state_get",
+        json!({ "thread_id": created_thread_id }),
+    )
+    .await;
+    assert_eq!(
+        payload(&turn_state, "threads_turn_state_get").get("turnState"),
+        None,
+        "fresh thread should not have a live turn-state snapshot"
+    );
+
+    let turn_states = rpc(
+        &harness.rpc_base,
+        85,
+        "openhuman.threads_turn_state_list",
+        json!({}),
+    )
+    .await;
+    assert!(payload(&turn_states, "threads_turn_state_list")
+        .get("turnStates")
+        .and_then(Value::as_array)
+        .is_some());
+
+    let clear = rpc(
+        &harness.rpc_base,
+        86,
+        "openhuman.threads_turn_state_clear",
+        json!({ "thread_id": created_thread_id }),
+    )
+    .await;
+    assert_eq!(
+        payload(&clear, "threads_turn_state_clear")
+            .get("cleared")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+
+    let board_put = rpc(
+        &harness.rpc_base,
+        87,
+        "openhuman.threads_task_board_put",
+        json!({
+            "thread_id": created_thread_id,
+            "cards": [{
+                "id": "card-1",
+                "title": "Verify remaining controller paths",
+                "status": "todo",
+                "order": 1
+            }]
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&board_put, "threads_task_board_put")
+            .pointer("/taskBoard/cards/0/id")
+            .and_then(Value::as_str),
+        Some("card-1")
+    );
+
+    let board_get = rpc(
+        &harness.rpc_base,
+        88,
+        "openhuman.threads_task_board_get",
+        json!({ "thread_id": created_thread_id }),
+    )
+    .await;
+    assert_eq!(
+        payload(&board_get, "threads_task_board_get")
+            .pointer("/taskBoard/cards/0/title")
+            .and_then(Value::as_str),
+        Some("Verify remaining controller paths")
+    );
+}
+
+#[tokio::test]
+async fn embeddings_controller_paths_validate_without_live_services() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let updated = rpc(
+        &harness.rpc_base,
+        90,
+        "openhuman.embeddings_update_settings",
+        json!({
+            "provider": "none",
+            "model": "none",
+            "dimensions": 0,
+            "confirm_wipe": true
+        }),
+    )
+    .await;
+    assert_rpc_completed(&updated, "embeddings_update_settings");
+
+    for (id, method) in [
+        (91, "openhuman.embeddings_set_api_key"),
+        (92, "openhuman.embeddings_clear_api_key"),
+        (93, "openhuman.embeddings_embed"),
+    ] {
+        let response = rpc(&harness.rpc_base, id, method, json!({})).await;
+        assert!(
+            response.get("error").is_some(),
+            "{method} should reject missing required params: {response}"
+        );
+    }
+
+    let tested = rpc(
+        &harness.rpc_base,
+        94,
+        "openhuman.embeddings_test_connection",
+        json!({ "provider": "none", "model": "none", "dimensions": 0 }),
+    )
+    .await;
+    assert_rpc_completed(&tested, "embeddings_test_connection");
+}
+
+#[tokio::test]
 async fn memory_tree_ingest_feeds_memory_sync_status() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -619,4 +871,87 @@ async fn memory_tree_ingest_feeds_memory_sync_status() {
         Some(1),
         "inert embeddings leave the fresh chunk pending until an embed sidecar exists"
     );
+}
+
+#[tokio::test]
+async fn memory_memory_tree_and_sources_controller_surfaces_are_reachable() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let methods = [
+        "openhuman.memory_init",
+        "openhuman.memory_sync_all",
+        "openhuman.memory_sync_channel",
+        "openhuman.memory_ingestion_status",
+        "openhuman.memory_list_files",
+        "openhuman.memory_read_file",
+        "openhuman.memory_write_file",
+        "openhuman.memory_list_namespaces",
+        "openhuman.memory_query_namespace",
+        "openhuman.memory_clear_namespace",
+        "openhuman.memory_recall_memories",
+        "openhuman.memory_recall_context",
+        "openhuman.memory_context_query",
+        "openhuman.memory_context_recall",
+        "openhuman.memory_doc_put",
+        "openhuman.memory_doc_ingest",
+        "openhuman.memory_doc_list",
+        "openhuman.memory_doc_delete",
+        "openhuman.memory_list_documents",
+        "openhuman.memory_delete_document",
+        "openhuman.memory_namespace_list",
+        "openhuman.memory_kv_set",
+        "openhuman.memory_kv_get",
+        "openhuman.memory_kv_delete",
+        "openhuman.memory_kv_list_namespace",
+        "openhuman.memory_graph_upsert",
+        "openhuman.memory_graph_query",
+        "openhuman.memory_tool_rule_put",
+        "openhuman.memory_tool_rule_get",
+        "openhuman.memory_tool_rule_delete",
+        "openhuman.memory_tool_rule_list",
+        "openhuman.memory_tool_rules_for_prompt",
+        "openhuman.memory_tool_rules_json",
+        "openhuman.memory_learn_all",
+        "openhuman.memory_tree_pipeline_status",
+        "openhuman.memory_tree_ingest",
+        "openhuman.memory_tree_search",
+        "openhuman.memory_tree_recall",
+        "openhuman.memory_tree_list_sources",
+        "openhuman.memory_tree_list_chunks",
+        "openhuman.memory_tree_get_chunk",
+        "openhuman.memory_tree_delete_chunk",
+        "openhuman.memory_tree_top_entities",
+        "openhuman.memory_tree_chunks_for_entity",
+        "openhuman.memory_tree_graph_export",
+        "openhuman.memory_tree_entity_index_for",
+        "openhuman.memory_tree_memory_backfill_status",
+        "openhuman.memory_tree_obsidian_vault_status",
+        "openhuman.memory_tree_flush_now",
+        "openhuman.memory_tree_reset_tree",
+        "openhuman.memory_tree_wipe_all",
+        "openhuman.memory_tree_set_enabled",
+        "openhuman.memory_tree_trigger_digest",
+        "openhuman.memory_tree_query_source",
+        "openhuman.memory_tree_query_global",
+        "openhuman.memory_tree_query_topic",
+        "openhuman.memory_tree_search_entities",
+        "openhuman.memory_tree_drill_down",
+        "openhuman.memory_tree_fetch_leaves",
+        "openhuman.memory_tree_chunk_score",
+        "openhuman.memory_sources_list",
+        "openhuman.memory_sources_add",
+        "openhuman.memory_sources_get",
+        "openhuman.memory_sources_update",
+        "openhuman.memory_sources_remove",
+        "openhuman.memory_sources_sync",
+        "openhuman.memory_sources_status_list",
+        "openhuman.memory_sources_list_items",
+        "openhuman.memory_sources_read_item",
+    ];
+
+    for (offset, method) in methods.into_iter().enumerate() {
+        let response = rpc(&harness.rpc_base, 100 + offset as i64, method, json!({})).await;
+        assert_rpc_completed(&response, method);
+    }
 }

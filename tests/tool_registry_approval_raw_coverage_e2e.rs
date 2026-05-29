@@ -6,38 +6,38 @@
 //! are otherwise only indirectly reachable from the controllers.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::http::header::AUTHORIZATION;
 use reqwest::StatusCode;
-use rusqlite::{Connection, params};
-use serde_json::{Map, Value, json};
-use tempfile::{TempDir, tempdir};
+use rusqlite::{params, Connection};
+use serde_json::{json, Map, Value};
+use tempfile::{tempdir, TempDir};
 
-use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
+use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::approval::gate::{
-    APPROVAL_CHAT_CONTEXT, ApprovalChatContext, ApprovalGate, parse_approval_reply,
+    parse_approval_reply, ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
 };
 use openhuman_core::openhuman::approval::store as approval_store;
 use openhuman_core::openhuman::approval::{
-    ApprovalDecision, ExecutionOutcome, GateOutcome, PendingApproval,
     all_approval_controller_schemas, all_approval_registered_controllers, redact_args,
-    summarize_action,
+    summarize_action, ApprovalDecision, ExecutionOutcome, GateOutcome, PendingApproval,
 };
-use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState,
 };
+use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::mcp_registry::connections;
 use openhuman_core::openhuman::mcp_registry::types::{CommandKind, InstalledServer, Transport};
+use openhuman_core::openhuman::security::{live_policy, SecurityPolicy};
 use openhuman_core::openhuman::tool_registry::{
-    CapabilityProviderRegistryError, all_tool_registry_controller_schemas,
-    all_tool_registry_registered_controllers, capability_provider_by_id,
-    capability_provider_diagnostics, capability_provider_registry, denials, get_tool,
-    is_capability_provider_trusted_enabled, list_capability_providers, list_tools,
-    normalize_capability_provider_id, registry_entries,
+    all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
+    capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
+    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
+    list_tools, normalize_capability_provider_id, registry_entries,
+    CapabilityProviderRegistryError,
 };
 
 const TEST_RPC_TOKEN: &str = "tool-registry-approval-raw-e2e-token";
@@ -348,25 +348,21 @@ enabled = true
             .and_then(Value::as_u64),
         Some(2)
     );
-    assert!(
-        diagnostics
-            .pointer("/possible_write_surfaces")
-            .and_then(Value::as_array)
-            .expect("write surfaces")
-            .iter()
-            .any(|tool| tool.as_str() == Some("tools.composio_execute"))
-    );
+    assert!(diagnostics
+        .pointer("/possible_write_surfaces")
+        .and_then(Value::as_array)
+        .expect("write surfaces")
+        .iter()
+        .any(|tool| tool.as_str() == Some("tools.composio_execute")));
 
     let recent_denials = diagnostics
         .get("recent_denials")
         .and_then(Value::as_array)
         .expect("recent denials array");
-    assert!(
-        recent_denials
-            .iter()
-            .any(|row| row.get("reason").and_then(Value::as_str)
-                == Some("[redacted: sensitive content]"))
-    );
+    assert!(recent_denials
+        .iter()
+        .any(|row| row.get("reason").and_then(Value::as_str)
+            == Some("[redacted: sensitive content]")));
     assert!(recent_denials.iter().any(|row| {
         row.get("policy").and_then(Value::as_str) == Some("unknown")
             && row.get("action").and_then(Value::as_str) == Some("blocked")
@@ -382,12 +378,10 @@ enabled = true
             .and_then(Value::as_u64),
         Some(2)
     );
-    assert!(
-        diagnostics
-            .pointer("/capability_providers/registry_errors/0")
-            .and_then(Value::as_str)
-            .is_some_and(|err| err.contains("duplicate provider id after normalization"))
-    );
+    assert!(diagnostics
+        .pointer("/capability_providers/registry_errors/0")
+        .and_then(Value::as_str)
+        .is_some_and(|err| err.contains("duplicate provider id after normalization")));
 
     let list = rpc(
         &harness.rpc_base,
@@ -465,16 +459,12 @@ fn tool_registry_public_api_lists_gets_and_validates_ids() {
         found.get("tool_id").and_then(Value::as_str),
         Some(first_tool_id)
     );
-    assert!(
-        get_tool("   ")
-            .expect_err("blank id should fail")
-            .contains("non-empty")
-    );
-    assert!(
-        get_tool("missing.tool")
-            .expect_err("missing id should fail")
-            .contains("missing.tool")
-    );
+    assert!(get_tool("   ")
+        .expect_err("blank id should fail")
+        .contains("non-empty"));
+    assert!(get_tool("missing.tool")
+        .expect_err("missing id should fail")
+        .contains("missing.tool"));
 }
 
 #[test]
@@ -599,16 +589,12 @@ fn capability_provider_public_api_normalizes_lookup_and_error_branches() {
 #[tokio::test(flavor = "current_thread")]
 async fn tool_registry_entries_fall_back_on_current_thread_runtime() {
     let entries = registry_entries();
-    assert!(
-        entries
-            .iter()
-            .any(|entry| entry.tool_id == "tools.web_search")
-    );
-    assert!(
-        entries
-            .iter()
-            .all(|entry| !entry.tool_id.starts_with("mcp-client::"))
-    );
+    assert!(entries
+        .iter()
+        .any(|entry| entry.tool_id == "tools.web_search"));
+    assert!(entries
+        .iter()
+        .all(|entry| !entry.tool_id.starts_with("mcp-client::")));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -660,39 +646,31 @@ async fn tool_registry_schema_handlers_validate_and_return_payloads() {
         .get("tools")
         .and_then(Value::as_array)
         .expect("tools array");
-    assert!(
-        tools
-            .iter()
-            .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("memory.search"))
-    );
+    assert!(tools
+        .iter()
+        .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("memory.search")));
 
     let get_handler = controllers
         .iter()
         .find(|controller| controller.schema.function == "get")
         .expect("get controller")
         .handler;
-    assert!(
-        get_handler(Map::new())
-            .await
-            .expect_err("missing tool_id")
-            .contains("non-empty string")
-    );
+    assert!(get_handler(Map::new())
+        .await
+        .expect_err("missing tool_id")
+        .contains("non-empty string"));
     let mut numeric_tool_id = Map::new();
     numeric_tool_id.insert("tool_id".to_string(), json!(42));
-    assert!(
-        get_handler(numeric_tool_id)
-            .await
-            .expect_err("numeric tool_id")
-            .contains("non-empty string")
-    );
+    assert!(get_handler(numeric_tool_id)
+        .await
+        .expect_err("numeric tool_id")
+        .contains("non-empty string"));
     let mut blank_tool_id = Map::new();
     blank_tool_id.insert("tool_id".to_string(), json!("   "));
-    assert!(
-        get_handler(blank_tool_id)
-            .await
-            .expect_err("blank tool_id")
-            .contains("non-empty string")
-    );
+    assert!(get_handler(blank_tool_id)
+        .await
+        .expect_err("blank tool_id")
+        .contains("non-empty string"));
     let mut valid_tool_id = Map::new();
     valid_tool_id.insert("tool_id".to_string(), json!("tools.web_search"));
     let tool_value = get_handler(valid_tool_id).await.expect("get handler");
@@ -709,12 +687,10 @@ async fn tool_registry_schema_handlers_validate_and_return_payloads() {
     let diagnostics_value = diagnostics_handler(Map::new())
         .await
         .expect("diagnostics handler");
-    assert!(
-        diagnostics_value
-            .get("total_tools")
-            .and_then(Value::as_u64)
-            .is_some_and(|count| count > 0)
-    );
+    assert!(diagnostics_value
+        .get("total_tools")
+        .and_then(Value::as_u64)
+        .is_some_and(|count| count > 0));
 }
 
 #[tokio::test]
@@ -738,14 +714,12 @@ async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
         openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config(&broken_audit_config);
     assert!(diagnostics.value.mcp_write_audit.enabled);
     assert_eq!(diagnostics.value.mcp_write_audit.recent_rows, None);
-    assert!(
-        diagnostics
-            .value
-            .mcp_write_audit
-            .last_error
-            .as_deref()
-            .is_some_and(|error| !error.is_empty())
-    );
+    assert!(diagnostics
+        .value
+        .mcp_write_audit
+        .last_error
+        .as_deref()
+        .is_some_and(|error| !error.is_empty()));
 }
 
 #[test]
@@ -765,10 +739,18 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
         "metadata": {
             "Subject": "Confidential subject",
             "token": "sk-secret",
+            "auth": true,
+            "message": 42,
+            "password": null,
+            "user": { "id": "user-123", "name": "Alice" },
             "attempts": 3,
             "confirmed": true,
             "nullable": null,
-            "safe_path": "C:\\Users\\bob\\Desktop\\report.txt"
+            "safe_path": "C:\\Users\\bob\\Desktop\\report.txt",
+            "safe_list": [
+                "open /Users/frank/Desktop/report.txt",
+                { "content": "nested secret" }
+            ]
         }
     });
     let redacted = redact_args(&raw_args);
@@ -785,15 +767,39 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
         "non-sensitive numeric fields should pass through"
     );
     assert_eq!(
+        redacted.pointer("/metadata/auth"),
+        Some(&json!("<redacted: bool>"))
+    );
+    assert_eq!(
+        redacted.pointer("/metadata/message"),
+        Some(&json!("<redacted: number>"))
+    );
+    assert_eq!(redacted.pointer("/metadata/password"), Some(&Value::Null));
+    assert_eq!(
+        redacted.pointer("/metadata/user"),
+        Some(&json!("<redacted: object (2 keys)>"))
+    );
+    assert_eq!(
+        redacted.pointer("/metadata/safe_list/0"),
+        Some(&json!("open <HOME>/Desktop/report.txt"))
+    );
+    assert_eq!(
+        redacted.pointer("/metadata/safe_list/1/content"),
+        Some(&json!("<redacted: string (13 chars)>"))
+    );
+    assert_eq!(
         redact_args(&json!(
             "open /home/carol/report.md and C:\\Users\\dave\\x.txt"
         )),
         json!("open <HOME>/report.md and <HOME>\\x.txt")
     );
+    assert_eq!(redact_args(&json!("/Users/erin")), json!("<HOME>"));
     let summary = summarize_action("tools.composio_execute", &raw_args);
     assert!(summary.contains("action=execute"));
     assert!(summary.contains("tool_slug=GMAIL_SEND_EMAIL"));
     assert!(summary.contains("integration=gmail"));
+    let summary_without_safe_fields = summarize_action("tools.empty", &json!(["opaque"]));
+    assert!(summary_without_safe_fields.starts_with("tools.empty ("));
 
     approval_store::insert_pending(
         &config,
@@ -838,33 +844,27 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
         .expect("decide active")
         .expect("active row");
     assert_eq!(decided.request_id, "active");
-    assert!(
-        !approval_store::record_execution(
-            &config,
-            "missing",
-            ExecutionOutcome::Aborted,
-            Some("not found"),
-        )
-        .expect("unknown record execution")
-    );
-    assert!(
-        approval_store::record_execution(
-            &config,
-            "active",
-            ExecutionOutcome::Failure,
-            Some("upstream Authorization: Bearer sk-live-abcdefghijklmnopqrstuvwxyz failed"),
-        )
-        .expect("record failed execution")
-    );
-    assert!(
-        !approval_store::record_execution(
-            &config,
-            "active",
-            ExecutionOutcome::Success,
-            Some("late rewrite"),
-        )
-        .expect("idempotent execution")
-    );
+    assert!(!approval_store::record_execution(
+        &config,
+        "missing",
+        ExecutionOutcome::Aborted,
+        Some("not found"),
+    )
+    .expect("unknown record execution"));
+    assert!(approval_store::record_execution(
+        &config,
+        "active",
+        ExecutionOutcome::Failure,
+        Some("upstream Authorization: Bearer sk-live-abcdefghijklmnopqrstuvwxyz failed"),
+    )
+    .expect("record failed execution"));
+    assert!(!approval_store::record_execution(
+        &config,
+        "active",
+        ExecutionOutcome::Success,
+        Some("late rewrite"),
+    )
+    .expect("idempotent execution"));
 
     let audit = approval_store::list_recent_decisions(&config, 0).expect("recent decisions");
     assert_eq!(audit.len(), 1, "zero limit should clamp to one");
@@ -1019,13 +1019,11 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
         .expect("list pending controller")
         .handler;
     let list_value = list_handler(Map::new()).await.expect("list pending value");
-    assert!(
-        list_value
-            .get("result")
-            .or(Some(&list_value))
-            .and_then(Value::as_array)
-            .is_some()
-    );
+    assert!(list_value
+        .get("result")
+        .or(Some(&list_value))
+        .and_then(Value::as_array)
+        .is_some());
 
     let recent_handler = controllers
         .iter()
@@ -1034,71 +1032,79 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
         .handler;
     let mut invalid_limit = Map::new();
     invalid_limit.insert("limit".to_string(), json!("ten"));
-    assert!(
-        recent_handler(invalid_limit)
+    assert!(recent_handler(invalid_limit)
+        .await
+        .expect_err("string limit")
+        .contains("expected unsigned integer"));
+    for invalid in [json!(true), json!([]), json!({ "limit": 10 })] {
+        let mut invalid_limit = Map::new();
+        invalid_limit.insert("limit".to_string(), invalid);
+        assert!(recent_handler(invalid_limit)
             .await
-            .expect_err("string limit")
-            .contains("expected unsigned integer")
-    );
+            .expect_err("non-numeric limit")
+            .contains("expected unsigned integer"));
+    }
     let mut negative_limit = Map::new();
     negative_limit.insert("limit".to_string(), json!(-1));
-    assert!(
-        recent_handler(negative_limit)
-            .await
-            .expect_err("negative limit")
-            .contains("expected unsigned integer")
-    );
+    assert!(recent_handler(negative_limit)
+        .await
+        .expect_err("negative limit")
+        .contains("expected unsigned integer"));
     let mut null_limit = Map::new();
     null_limit.insert("limit".to_string(), Value::Null);
     let recent_value = recent_handler(null_limit)
         .await
         .expect("null limit should use default");
-    assert!(
-        recent_value
-            .get("result")
-            .or(Some(&recent_value))
-            .and_then(Value::as_array)
-            .is_some()
-    );
+    assert!(recent_value
+        .get("result")
+        .or(Some(&recent_value))
+        .and_then(Value::as_array)
+        .is_some());
 
     let decide_handler = controllers
         .iter()
         .find(|controller| controller.schema.function == "decide")
         .expect("decide controller")
         .handler;
-    assert!(
-        decide_handler(Map::new())
-            .await
-            .expect_err("missing request id")
-            .contains("missing required param 'request_id'")
-    );
+    assert!(decide_handler(Map::new())
+        .await
+        .expect_err("missing request id")
+        .contains("missing required param 'request_id'"));
     let mut numeric_request = Map::new();
     numeric_request.insert("request_id".to_string(), json!(42));
     numeric_request.insert("decision".to_string(), json!("deny"));
-    assert!(
-        decide_handler(numeric_request)
+    assert!(decide_handler(numeric_request)
+        .await
+        .expect_err("numeric request id")
+        .contains("expected string"));
+    for invalid in [
+        Value::Null,
+        json!(false),
+        json!([]),
+        json!({ "id": "missing" }),
+    ] {
+        let mut invalid_request = Map::new();
+        invalid_request.insert("request_id".to_string(), invalid);
+        invalid_request.insert("decision".to_string(), json!("deny"));
+        assert!(decide_handler(invalid_request)
             .await
-            .expect_err("numeric request id")
-            .contains("expected string")
-    );
+            .expect_err("non-string request id")
+            .contains("expected string"));
+    }
     let mut numeric_decision = Map::new();
     numeric_decision.insert("request_id".to_string(), json!("missing"));
     numeric_decision.insert("decision".to_string(), json!(42));
-    assert!(
-        decide_handler(numeric_decision)
-            .await
-            .expect_err("numeric decision")
-            .contains("expected string")
-    );
+    assert!(decide_handler(numeric_decision)
+        .await
+        .expect_err("numeric decision")
+        .contains("expected string"));
     let mut invalid_decision = Map::new();
     invalid_decision.insert("request_id".to_string(), json!("missing"));
     invalid_decision.insert("decision".to_string(), json!("maybe"));
-    assert!(
-        decide_handler(invalid_decision)
-            .await
-            .expect_err("invalid decision")
-            .contains("approve_once|approve_always_for_tool|deny")
-    );
+    assert!(decide_handler(invalid_decision)
+        .await
+        .expect_err("invalid decision")
+        .contains("approve_once|approve_always_for_tool|deny"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1108,7 +1114,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     let config = Config::load_or_init()
         .await
         .expect("load config for approval gate");
-    let gate = ApprovalGate::init_global(config, "approval-raw-e2e-session");
+    let gate = ApprovalGate::init_global(config.clone(), "approval-raw-e2e-session");
     let gate_for_task = gate.clone();
 
     let approval_task = tokio::spawn(async move {
@@ -1287,6 +1293,33 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
         "always-allowed tools should bypass persisted approvals"
     );
 
+    live_policy::install(
+        Arc::new(SecurityPolicy {
+            workspace_dir: config.workspace_dir.clone(),
+            auto_approve: vec!["tools.live_policy_allowed".to_string()],
+            ..SecurityPolicy::default()
+        }),
+        config.workspace_dir.clone(),
+    );
+    let live_policy_auto_approved = APPROVAL_CHAT_CONTEXT
+        .scope(
+            ApprovalChatContext {
+                thread_id: "approval-live-policy-thread".to_string(),
+                client_id: "approval-live-policy-client".to_string(),
+            },
+            gate.intercept_audited(
+                "tools.live_policy_allowed",
+                "tools.live_policy_allowed(action=coverage)",
+                json!({ "action": "coverage" }),
+            ),
+        )
+        .await;
+    assert!(matches!(live_policy_auto_approved.0, GateOutcome::Allow));
+    assert_eq!(live_policy_auto_approved.1, None);
+    assert!(gate
+        .pending_for_thread("approval-live-policy-thread")
+        .is_none());
+
     let gate_for_deny_task = gate.clone();
     let deny_task = tokio::spawn(async move {
         APPROVAL_CHAT_CONTEXT
@@ -1359,6 +1392,72 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     assert_eq!(deny_approved_id, None);
     assert!(gate.pending_for_thread("approval-deny-thread").is_none());
     assert_eq!(gate.session_id(), "approval-raw-e2e-session");
+
+    let second_init = ApprovalGate::init_global(Config::default(), "ignored-second-session");
+    assert_eq!(second_init.session_id(), "approval-raw-e2e-session");
+
+    let approval_dir = config.workspace_dir.join("approval");
+    if approval_dir.exists() {
+        std::fs::remove_dir_all(&approval_dir).expect("remove approval dir before failure branch");
+    }
+    std::fs::write(&approval_dir, "not a directory").expect("replace approval dir with file");
+
+    gate.record_execution(
+        &request_id,
+        ExecutionOutcome::Success,
+        Some("store path is blocked"),
+    );
+
+    let list_failure = rpc(
+        &harness.rpc_base,
+        27,
+        "openhuman.approval_list_pending",
+        json!({}),
+    )
+    .await;
+    assert!(list_failure.get("error").is_some());
+
+    let recent_failure = rpc(
+        &harness.rpc_base,
+        28,
+        "openhuman.approval_list_recent_decisions",
+        json!({}),
+    )
+    .await;
+    assert!(recent_failure.get("error").is_some());
+
+    let decide_failure = rpc(
+        &harness.rpc_base,
+        29,
+        "openhuman.approval_decide",
+        json!({ "request_id": "blocked-store", "decision": "deny" }),
+    )
+    .await;
+    assert!(decide_failure.get("error").is_some());
+
+    let persist_failure = APPROVAL_CHAT_CONTEXT
+        .scope(
+            ApprovalChatContext {
+                thread_id: "approval-persist-failure-thread".to_string(),
+                client_id: "approval-persist-failure-client".to_string(),
+            },
+            gate.intercept_audited(
+                "tools.persistence_failure",
+                "tools.persistence_failure(action=coverage)",
+                json!({ "action": "coverage" }),
+            ),
+        )
+        .await;
+    match persist_failure.0 {
+        GateOutcome::Deny { reason } => {
+            assert!(reason.contains("Approval gate could not persist the request"));
+        }
+        other => panic!("expected persistence failure deny, got {other:?}"),
+    }
+    assert_eq!(persist_failure.1, None);
+    assert!(gate
+        .pending_for_thread("approval-persist-failure-thread")
+        .is_none());
 
     harness.rpc_join.abort();
 }

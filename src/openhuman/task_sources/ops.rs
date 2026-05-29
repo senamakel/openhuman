@@ -10,7 +10,9 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_sync::composio::providers::{get_provider, NormalizedTask, ProviderContext};
+use crate::openhuman::memory_sync::composio::providers::{
+    get_provider, NormalizedTask, ProviderContext,
+};
 use crate::rpc::RpcOutcome;
 
 use super::types::{
@@ -21,10 +23,8 @@ use super::{filter, pipeline, store};
 /// List all configured task sources.
 pub async fn list(config: &Config) -> Result<RpcOutcome<Vec<TaskSource>>, String> {
     let sources = store::list_sources(config).map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        sources.clone(),
-        format!("task_sources.list returned {} source(s)", sources.len()),
-    ))
+    tracing::debug!(count = sources.len(), "[task_sources:ops] list");
+    Ok(RpcOutcome::new(sources, vec![]))
 }
 
 /// Fetch a single source by id.
@@ -66,14 +66,12 @@ pub async fn add(
     )
     .map_err(|e| e.to_string())?;
 
-    Ok(RpcOutcome::single_log(
-        source.clone(),
-        format!(
-            "task_sources.add created '{}' for provider '{}'",
-            source.id,
-            source.provider.as_str()
-        ),
-    ))
+    tracing::info!(
+        source_id = %source.id,
+        provider = %source.provider.as_str(),
+        "[task_sources:ops] add created source"
+    );
+    Ok(RpcOutcome::new(source, vec![]))
 }
 
 /// Apply a partial update to a source.
@@ -83,18 +81,17 @@ pub async fn update(
     patch: TaskSourcePatch,
 ) -> Result<RpcOutcome<TaskSource>, String> {
     let source = store::update_source(config, id, patch).map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        source,
-        format!("task_sources.update applied to '{id}'"),
-    ))
+    tracing::debug!(source_id = %id, "[task_sources:ops] update applied");
+    Ok(RpcOutcome::new(source, vec![]))
 }
 
 /// Remove a source by id.
 pub async fn remove(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
     store::remove_source(config, id).map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
+    tracing::debug!(source_id = %id, "[task_sources:ops] removed");
+    Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),
-        format!("task_sources.remove deleted '{id}'"),
+        vec![],
     ))
 }
 
@@ -102,11 +99,7 @@ pub async fn remove(config: &Config, id: &str) -> Result<RpcOutcome<Value>, Stri
 pub async fn fetch(config: &Config, id: &str) -> Result<RpcOutcome<super::FetchOutcome>, String> {
     let source = store::get_source(config, id).map_err(|e| e.to_string())?;
     let outcome = pipeline::run_source_once(config, &source, FetchReason::Manual).await;
-    let log = format!(
-        "task_sources.fetch '{id}': fetched {} routed {} dupes {}",
-        outcome.fetched, outcome.routed, outcome.skipped_dupe
-    );
-    Ok(RpcOutcome::single_log(outcome, log))
+    Ok(RpcOutcome::new(outcome, vec![]))
 }
 
 /// Recently ingested tasks for a source (newest first).
@@ -117,10 +110,7 @@ pub async fn list_tasks(
 ) -> Result<RpcOutcome<Vec<NormalizedTask>>, String> {
     let limit = limit.unwrap_or(50);
     let tasks = store::list_ingested(config, id, limit).map_err(|e| e.to_string())?;
-    Ok(RpcOutcome::single_log(
-        tasks.clone(),
-        format!("task_sources.list_tasks '{id}' returned {}", tasks.len()),
-    ))
+    Ok(RpcOutcome::new(tasks, vec![]))
 }
 
 /// Dry-run a filter: fetch matching tasks WITHOUT routing or recording
@@ -139,9 +129,8 @@ pub async fn preview_filter(
             provider.as_str()
         ));
     }
-    let provider_impl = get_provider(provider.as_str()).ok_or_else(|| {
-        format!("no native provider registered for '{}'", provider.as_str())
-    })?;
+    let provider_impl = get_provider(provider.as_str())
+        .ok_or_else(|| format!("no native provider registered for '{}'", provider.as_str()))?;
     let ctx = ProviderContext {
         config: Arc::new(config.clone()),
         toolkit: provider.as_str().to_string(),
@@ -153,10 +142,8 @@ pub async fn preview_filter(
         .fetch_tasks(&ctx, &fetch_filter)
         .await
         .map_err(|e| format!("preview fetch failed: {e}"))?;
-    Ok(RpcOutcome::single_log(
-        tasks.clone(),
-        format!("task_sources.preview_filter returned {}", tasks.len()),
-    ))
+    tracing::debug!(count = tasks.len(), "[task_sources:ops] preview_filter");
+    Ok(RpcOutcome::new(tasks, vec![]))
 }
 
 /// Domain status: enabled flag + source counts.

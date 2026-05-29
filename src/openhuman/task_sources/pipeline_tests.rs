@@ -35,7 +35,11 @@ impl ComposioProvider for StubProvider {
     ) -> Result<ProviderUserProfile, String> {
         Ok(ProviderUserProfile::default())
     }
-    async fn sync(&self, _ctx: &ProviderContext, _reason: SyncReason) -> Result<SyncOutcome, String> {
+    async fn sync(
+        &self,
+        _ctx: &ProviderContext,
+        _reason: SyncReason,
+    ) -> Result<SyncOutcome, String> {
         Ok(SyncOutcome::default())
     }
     async fn fetch_tasks(

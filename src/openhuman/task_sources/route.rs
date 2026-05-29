@@ -12,9 +12,7 @@
 
 use serde_json::json;
 
-use crate::openhuman::agent::triage::{
-    apply_decision, run_triage, TriageOutcome, TriggerEnvelope,
-};
+use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
 use crate::openhuman::config::Config;
 use crate::openhuman::todos::ops::{add as todo_add, BoardLocation, CardPatch};
 use crate::openhuman::{scheduler_gate, todos};

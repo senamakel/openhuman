@@ -100,8 +100,9 @@ pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
 
 pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
     with_connection(config, |conn| {
-        let mut stmt =
-            conn.prepare(&format!("{SELECT_SOURCE_COLUMNS} ORDER BY created_at ASC, id ASC"))?;
+        let mut stmt = conn.prepare(&format!(
+            "{SELECT_SOURCE_COLUMNS} ORDER BY created_at ASC, id ASC"
+        ))?;
         let rows = stmt.query_map([], map_source_row)?;
         let mut out = Vec::new();
         for row in rows {
@@ -247,7 +248,11 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 }
 
 /// List the most recently ingested tasks for a source (newest first).
-pub fn list_ingested(config: &Config, source_id: &str, limit: usize) -> Result<Vec<NormalizedTask>> {
+pub fn list_ingested(
+    config: &Config,
+    source_id: &str,
+    limit: usize,
+) -> Result<Vec<NormalizedTask>> {
     let lim = i64::try_from(limit.max(1)).unwrap_or(50);
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
@@ -328,13 +333,13 @@ fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
 }
 
 fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
-    let db_path = config
-        .workspace_dir
-        .join("task_sources")
-        .join("sources.db");
+    let db_path = config.workspace_dir.join("task_sources").join("sources.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).with_context(|| {
-            format!("Failed to create task_sources directory: {}", parent.display())
+            format!(
+                "Failed to create task_sources directory: {}",
+                parent.display()
+            )
         })?;
     }
     let conn = Connection::open(&db_path)

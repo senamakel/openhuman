@@ -490,7 +490,9 @@ impl ComposioProvider for ClickUpProvider {
                     .execute(ACTION_GET_AUTHORIZED_TEAMS_WORKSPACES, Some(json!({})))
                     .await
                     .map_err(|e| {
-                        format!("[composio:clickup] {ACTION_GET_AUTHORIZED_TEAMS_WORKSPACES}: {e:#}")
+                        format!(
+                            "[composio:clickup] {ACTION_GET_AUTHORIZED_TEAMS_WORKSPACES}: {e:#}"
+                        )
                     })?;
                 if !resp.successful {
                     return Err(format!(
@@ -566,10 +568,13 @@ impl ComposioProvider for ClickUpProvider {
 /// Map a raw ClickUp task payload into a [`NormalizedTask`]. Returns
 /// `None` only when the task has no extractable id (unroutable).
 fn normalize_clickup_task(task: &serde_json::Value) -> Option<NormalizedTask> {
-    let external_id = crate::openhuman::memory_sync::composio::providers::sync_state::extract_item_id(
-        task, TASK_ID_PATHS,
-    )?;
-    let title = sync::extract_task_name(task).unwrap_or_else(|| format!("ClickUp task {external_id}"));
+    let external_id =
+        crate::openhuman::memory_sync::composio::providers::sync_state::extract_item_id(
+            task,
+            TASK_ID_PATHS,
+        )?;
+    let title =
+        sync::extract_task_name(task).unwrap_or_else(|| format!("ClickUp task {external_id}"));
     Some(NormalizedTask {
         external_id,
         source_id: String::new(),

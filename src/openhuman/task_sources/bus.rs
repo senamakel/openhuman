@@ -80,7 +80,8 @@ impl EventHandler for TaskSourcesConnectionSubscriber {
                 toolkit = %toolkit,
                 "[task_sources:bus] connection created → one-shot fetch"
             );
-            let _ = pipeline::run_source_once(&config, &source, FetchReason::ConnectionCreated).await;
+            let _ =
+                pipeline::run_source_once(&config, &source, FetchReason::ConnectionCreated).await;
         }
     }
 }

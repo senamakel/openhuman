@@ -224,7 +224,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "task_sources",
             function: "fetch",
             description: "Fetch one source immediately and route any new tasks.",
-            inputs: vec![source_id_input("Identifier of the task source to fetch now.")],
+            inputs: vec![source_id_input(
+                "Identifier of the task source to fetch now.",
+            )],
             outputs: vec![FieldSchema {
                 name: "outcome",
                 ty: TypeSchema::Ref("FetchOutcome"),
@@ -479,7 +481,9 @@ mod tests {
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
         assert_eq!(controllers.len(), 9);
-        assert!(controllers.iter().all(|c| c.schema.namespace == "task_sources"));
+        assert!(controllers
+            .iter()
+            .all(|c| c.schema.namespace == "task_sources"));
     }
 
     #[test]

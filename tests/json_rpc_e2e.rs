@@ -7841,3 +7841,166 @@ async fn port_conflict_recovery_core_starts_on_fallback_port_e2e() {
     // Release the listener so the port is not held across tests.
     drop(after_drop.listener);
 }
+
+/// Task-sources CRUD + status + dry-run over JSON-RPC.
+///
+/// Exercises `openhuman.task_sources_{add,list,get,update,remove,status,
+/// list_tasks,preview_filter}` against an isolated HOME workspace. The
+/// fetch/preview paths require no network here: with no signed-in
+/// Composio session, `preview_filter` returns a clean JSON-RPC error
+/// rather than hanging.
+#[tokio::test]
+async fn json_rpc_task_sources_crud_and_status() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:1");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // ── add ──────────────────────────────────────────────────────────
+    let add = post_json_rpc(
+        &rpc_base,
+        7301,
+        "openhuman.task_sources_add",
+        json!({
+            "provider": "github",
+            "name": "My issues",
+            "filter": {
+                "provider": "github",
+                "repo": "tinyhumansai/openhuman",
+                "labels": ["bug"],
+                "assignee_is_me": true
+            }
+        }),
+    )
+    .await;
+    let source = assert_no_jsonrpc_error(&add, "task_sources_add");
+    let id = source
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("add returns source id")
+        .to_string();
+    assert_eq!(
+        source.get("provider").and_then(Value::as_str),
+        Some("github")
+    );
+    assert_eq!(source.get("enabled"), Some(&json!(true)));
+    // Default target follows config.auto_proactive (true → proactive).
+    assert_eq!(
+        source.get("target").and_then(Value::as_str),
+        Some("agent_todo_proactive")
+    );
+
+    // ── add with mismatched provider/filter is rejected ──────────────
+    let bad = post_json_rpc(
+        &rpc_base,
+        7302,
+        "openhuman.task_sources_add",
+        json!({
+            "provider": "notion",
+            "filter": { "provider": "github", "assignee_is_me": true }
+        }),
+    )
+    .await;
+    assert_jsonrpc_error(&bad, "task_sources_add mismatch");
+
+    // ── list contains the new source ─────────────────────────────────
+    let list = post_json_rpc(&rpc_base, 7303, "openhuman.task_sources_list", json!({})).await;
+    let sources = assert_no_jsonrpc_error(&list, "task_sources_list")
+        .as_array()
+        .expect("list returns array")
+        .clone();
+    assert!(sources
+        .iter()
+        .any(|s| s.get("id").and_then(Value::as_str) == Some(id.as_str())));
+
+    // ── get roundtrips ───────────────────────────────────────────────
+    let get = post_json_rpc(
+        &rpc_base,
+        7304,
+        "openhuman.task_sources_get",
+        json!({ "id": id }),
+    )
+    .await;
+    let got = assert_no_jsonrpc_error(&get, "task_sources_get");
+    assert_eq!(got.get("id").and_then(Value::as_str), Some(id.as_str()));
+
+    // ── update (disable + change interval) ───────────────────────────
+    let update = post_json_rpc(
+        &rpc_base,
+        7305,
+        "openhuman.task_sources_update",
+        json!({ "id": id, "patch": { "enabled": false, "intervalSecs": 600 } }),
+    )
+    .await;
+    let updated = assert_no_jsonrpc_error(&update, "task_sources_update");
+    assert_eq!(updated.get("enabled"), Some(&json!(false)));
+    assert_eq!(updated.get("intervalSecs"), Some(&json!(600)));
+
+    // ── status reflects the configured source ────────────────────────
+    let status = post_json_rpc(&rpc_base, 7306, "openhuman.task_sources_status", json!({})).await;
+    let status_result = assert_no_jsonrpc_error(&status, "task_sources_status");
+    assert_eq!(status_result.get("enabled"), Some(&json!(true)));
+    assert!(
+        status_result
+            .get("sourceCount")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            >= 1
+    );
+
+    // ── list_tasks is empty (nothing ingested yet) ───────────────────
+    let tasks = post_json_rpc(
+        &rpc_base,
+        7307,
+        "openhuman.task_sources_list_tasks",
+        json!({ "id": id }),
+    )
+    .await;
+    let tasks_result = assert_no_jsonrpc_error(&tasks, "task_sources_list_tasks");
+    assert_eq!(tasks_result.as_array().map(|a| a.len()), Some(0));
+
+    // ── preview_filter errors cleanly with no Composio session ───────
+    let preview = post_json_rpc(
+        &rpc_base,
+        7308,
+        "openhuman.task_sources_preview_filter",
+        json!({
+            "provider": "github",
+            "filter": { "provider": "github", "assignee_is_me": true }
+        }),
+    )
+    .await;
+    assert_jsonrpc_error(&preview, "task_sources_preview_filter no session");
+
+    // ── remove, then get is not found ────────────────────────────────
+    let remove = post_json_rpc(
+        &rpc_base,
+        7309,
+        "openhuman.task_sources_remove",
+        json!({ "id": id }),
+    )
+    .await;
+    let removed = assert_no_jsonrpc_error(&remove, "task_sources_remove");
+    assert_eq!(removed.get("removed"), Some(&json!(true)));
+
+    let get_after = post_json_rpc(
+        &rpc_base,
+        7310,
+        "openhuman.task_sources_get",
+        json!({ "id": id }),
+    )
+    .await;
+    assert_jsonrpc_error(&get_after, "task_sources_get after remove");
+
+    rpc_join.abort();
+}

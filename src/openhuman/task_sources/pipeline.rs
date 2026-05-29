@@ -65,7 +65,13 @@ pub async fn run_source_once(
                 error = %e,
                 "[task_sources:pipeline] fetch pass failed"
             );
-            let _ = store::record_fetch(config, &source.id, Utc::now(), reason, &format!("error: {e}"));
+            let _ = store::record_fetch(
+                config,
+                &source.id,
+                Utc::now(),
+                reason,
+                &format!("error: {e}"),
+            );
             publish_global(DomainEvent::TaskSourceFetchFailed {
                 source_id: source.id.clone(),
                 provider: outcome.provider.clone(),

@@ -504,7 +504,10 @@ fn normalize_notion_page(page: &serde_json::Value) -> Option<NormalizedTask> {
         ),
         due: pick_str(
             page,
-            &["properties.Due.date.start", "data.properties.Due.date.start"],
+            &[
+                "properties.Due.date.start",
+                "data.properties.Due.date.start",
+            ],
         ),
         labels: Vec::new(),
         priority: pick_str(

@@ -438,13 +438,28 @@ impl ComposioProvider for GitHubProvider {
 /// universe.
 pub(super) fn build_fetch_query(filter: &TaskFetchFilter) -> String {
     let mut parts: Vec<String> = Vec::new();
-    if let Some(repo) = filter.repo.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(repo) = filter
+        .repo
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         parts.push(format!("repo:{repo}"));
     }
-    for label in filter.labels.iter().map(|l| l.trim()).filter(|l| !l.is_empty()) {
+    for label in filter
+        .labels
+        .iter()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+    {
         parts.push(format!("label:\"{label}\""));
     }
-    if let Some(state) = filter.state.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(state) = filter
+        .state
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         parts.push(format!("state:{state}"));
     }
     if filter.assignee_is_me {

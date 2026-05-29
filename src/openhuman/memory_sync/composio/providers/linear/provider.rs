@@ -418,7 +418,12 @@ impl ComposioProvider for LinearProvider {
                 args["assigneeId"] = json!(viewer_id);
             }
         }
-        if let Some(team) = filter.team_id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(team) = filter
+            .team_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             args["teamId"] = json!(team);
         }
         merge_extra(&mut args, &filter.extra);

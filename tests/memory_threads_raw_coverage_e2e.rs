@@ -19,11 +19,11 @@ use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
 use openhuman_core::openhuman::memory_sources::status::{source_status, FreshnessLabel};
 use openhuman_core::openhuman::memory_sources::types::{
-    ContentType, MemorySourceEntry, SourceKind,
+    ContentType, MemorySourceEntry, SourceContent, SourceItem, SourceKind,
 };
 use openhuman_core::openhuman::memory_store::chunks::store::{upsert_chunks, with_connection};
 use openhuman_core::openhuman::memory_store::chunks::types::{
-    approx_token_count, chunk_id, Chunk, Metadata, SourceKind as ChunkSourceKind,
+    approx_token_count, chunk_id, Chunk, DataSource, Metadata, SourceKind as ChunkSourceKind,
 };
 use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
@@ -35,13 +35,31 @@ use openhuman_core::openhuman::memory_sync::canonicalize::email::{
     canonicalise as canonicalise_email, EmailMessage, EmailThread,
 };
 use openhuman_core::openhuman::memory_sync::canonicalize::email_clean;
+use openhuman_core::openhuman::memory_sync::composio;
+use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
+    extract_item_id, DailyBudget, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
+};
+use openhuman_core::openhuman::memory_sync::composio::providers::{
+    agent_ready_toolkits, capability_matrix, catalog_for_toolkit, classify_unknown,
+    curated_scope_for, find_curated, is_action_visible_with_pref, toolkit_from_slug,
+    toolkit_has_scope, CuratedTool, NormalizedTask, ProviderUserProfile, SyncOutcome, SyncReason,
+    TaskFetchFilter, ToolScope, UserScopePref,
+};
+use openhuman_core::openhuman::memory_tree::score::extract::{
+    EntityKind, ExtractedEntities, ExtractedEntity, ExtractedTopic,
+};
+use openhuman_core::openhuman::memory_tree::score::signals::{
+    combine, combine_cheap_only, compute as compute_score_signals, entity_density_score,
+    interaction, metadata_weight, source_weight, token_count, unique_words, ScoreSignals,
+    SignalWeights,
+};
 use openhuman_core::openhuman::threads::title::{
     build_title_prompt, collapse_whitespace, is_auto_generated_thread_title,
     sanitize_generated_title, title_from_user_message, title_log_fingerprint,
 };
 use openhuman_core::openhuman::threads::turn_state::{
-    GetTurnStateResponse, ToolTimelineEntry, ToolTimelineStatus, TurnLifecycle, TurnPhase,
-    TurnState,
+    self, GetTurnStateResponse, ListTurnStatesResponse, SubagentActivity, SubagentToolCall,
+    ToolTimelineEntry, ToolTimelineStatus, TurnLifecycle, TurnPhase, TurnState,
 };
 use openhuman_core::openhuman::threads::ThreadsError;
 
@@ -522,4 +540,426 @@ fn thread_title_error_and_turn_state_helpers_cover_wire_shapes() {
     assert_eq!(wire["turnState"]["phase"], "tool_use");
     let decoded: GetTurnStateResponse = serde_json::from_value(wire).expect("decode turn state");
     assert_eq!(decoded.turn_state.unwrap(), state);
+}
+
+#[test]
+fn memory_sync_composio_catalog_scope_and_state_helpers_cover_edge_cases() {
+    assert_eq!(SyncReason::ConnectionCreated.as_str(), "connection_created");
+    assert_eq!(SyncReason::Periodic.as_str(), "periodic");
+    assert_eq!(SyncReason::Manual.as_str(), "manual");
+
+    let mut outcome = SyncOutcome {
+        toolkit: "gmail".into(),
+        connection_id: Some("conn-1".into()),
+        reason: SyncReason::Manual.as_str().into(),
+        items_ingested: 3,
+        started_at_ms: 200,
+        finished_at_ms: 150,
+        summary: "done".into(),
+        details: json!({ "pages": 1 }),
+    };
+    assert_eq!(outcome.elapsed_ms(), 0);
+    outcome.finished_at_ms = 275;
+    assert_eq!(outcome.elapsed_ms(), 75);
+
+    assert_eq!(TaskFetchFilter::default().effective_max(), 25);
+    assert_eq!(
+        TaskFetchFilter {
+            max: 7,
+            ..Default::default()
+        }
+        .effective_max(),
+        7
+    );
+    let task_json = json!({
+        "externalId": "issue-1",
+        "provider": "github",
+        "title": "Fix coverage",
+        "labels": ["test"],
+        "raw": { "number": 1 }
+    });
+    let task: NormalizedTask = serde_json::from_value(task_json).expect("task");
+    assert_eq!(task.external_id, "issue-1");
+    assert_eq!(task.source_id, "");
+    assert_eq!(task.labels, vec!["test"]);
+
+    let profile = ProviderUserProfile {
+        toolkit: "github".into(),
+        email: Some("dev@example.com".into()),
+        extras: json!({ "login": "dev" }),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_value(profile).unwrap()["extras"]["login"],
+        "dev"
+    );
+
+    assert_eq!(ToolScope::Read.as_str(), "read");
+    assert_eq!(ToolScope::Write.as_str(), "write");
+    assert_eq!(ToolScope::Admin.as_str(), "admin");
+    assert_eq!(classify_unknown("GMAIL_DELETE_DRAFT"), ToolScope::Admin);
+    assert_eq!(classify_unknown("NOTION_CREATE_PAGE"), ToolScope::Write);
+    assert_eq!(classify_unknown("GMAIL_FETCH_EMAILS"), ToolScope::Read);
+    assert_eq!(
+        toolkit_from_slug(" MICROSOFT_TEAMS_SEND_MESSAGE "),
+        Some("microsoft".into())
+    );
+    assert_eq!(toolkit_from_slug(""), None);
+    let catalog = &[CuratedTool {
+        slug: "GMAIL_SEND_EMAIL",
+        scope: ToolScope::Write,
+    }];
+    assert_eq!(
+        find_curated(catalog, "gmail_send_email").map(|tool| tool.scope),
+        Some(ToolScope::Write)
+    );
+    assert!(find_curated(catalog, "GMAIL_DELETE_EMAIL").is_none());
+
+    let read_only = UserScopePref {
+        read: true,
+        write: false,
+        admin: false,
+    };
+    assert!(is_action_visible_with_pref(
+        "GMAIL_FETCH_EMAILS",
+        &read_only
+    ));
+    assert!(!is_action_visible_with_pref("GMAIL_SEND_EMAIL", &read_only));
+    assert_eq!(
+        curated_scope_for("GMAIL_DELETE_MESSAGE"),
+        Some(ToolScope::Admin)
+    );
+    assert!(toolkit_has_scope("gmail", ToolScope::Admin));
+    assert!(catalog_for_toolkit("google_calendar").is_some());
+    assert!(agent_ready_toolkits()
+        .windows(2)
+        .all(|pair| pair[0] <= pair[1]));
+
+    let matrix = capability_matrix();
+    let gmail = matrix.iter().find(|cap| cap.toolkit == "gmail").unwrap();
+    assert!(gmail.native_provider);
+    assert!(gmail.curated_tools);
+    assert!(gmail.curated_tool_count > 0);
+    let spotify = matrix.iter().find(|cap| cap.toolkit == "spotify").unwrap();
+    assert!(!spotify.native_provider);
+    assert!(spotify.curated_tools);
+
+    let sync_target = composio::SyncTarget {
+        toolkit: "gmail".into(),
+        connection_id: "conn-1".into(),
+    };
+    assert_eq!(sync_target.toolkit, "gmail");
+
+    let mut budget = DailyBudget {
+        date: "2000-01-01".into(),
+        requests_used: DEFAULT_DAILY_REQUEST_LIMIT,
+        limit: DEFAULT_DAILY_REQUEST_LIMIT,
+    };
+    assert_eq!(budget.remaining(), DEFAULT_DAILY_REQUEST_LIMIT);
+    budget.record_request();
+    assert_eq!(budget.requests_used, 1);
+    budget.record_requests(DEFAULT_DAILY_REQUEST_LIMIT + 10);
+    assert!(budget.is_exhausted());
+
+    let mut state = SyncState::new("gmail", "conn-1");
+    assert_eq!(state.budget_remaining(), DEFAULT_DAILY_REQUEST_LIMIT);
+    assert!(!state.budget_exhausted());
+    state.record_requests(2);
+    state.mark_synced("msg-1");
+    state.advance_cursor("cursor-1");
+    state.set_last_seen_id("msg-2");
+    state.set_last_sync_at_ms(123);
+    assert!(state.is_synced("msg-1"));
+    assert!(!state.is_synced("msg-2"));
+    assert_eq!(state.cursor.as_deref(), Some("cursor-1"));
+    assert_eq!(state.last_seen_id.as_deref(), Some("msg-2"));
+    assert_eq!(state.last_sync_at_ms, Some(123));
+
+    let item = json!({
+        "id": " ",
+        "message": { "id": " msg-99 " },
+        "nested": { "empty": "" }
+    });
+    assert_eq!(
+        extract_item_id(&item, &["missing", "nested.empty", "message.id"]),
+        Some("msg-99".into())
+    );
+    assert_eq!(extract_item_id(&item, &["missing"]), None);
+}
+
+#[test]
+fn memory_tree_scoring_signal_helpers_cover_boundaries_and_serialization() {
+    assert_eq!(EntityKind::parse("email").unwrap(), EntityKind::Email);
+    assert!(EntityKind::Email.is_mechanical());
+    assert!(!EntityKind::Person.is_mechanical());
+    assert!(EntityKind::parse("unknown").is_err());
+
+    let mut extracted = ExtractedEntities {
+        entities: vec![ExtractedEntity {
+            kind: EntityKind::Person,
+            text: "Alice".into(),
+            span_start: 0,
+            span_end: 5,
+            score: 0.9,
+        }],
+        topics: vec![ExtractedTopic {
+            label: "phoenix".into(),
+            score: 0.8,
+        }],
+        llm_importance: Some(0.3),
+        llm_importance_reason: Some("initial".into()),
+    };
+    assert!(!extracted.is_empty());
+    extracted.merge(ExtractedEntities {
+        entities: vec![
+            ExtractedEntity {
+                kind: EntityKind::Person,
+                text: "alice".into(),
+                span_start: 0,
+                span_end: 5,
+                score: 1.0,
+            },
+            ExtractedEntity {
+                kind: EntityKind::Organization,
+                text: "OpenHuman".into(),
+                span_start: 10,
+                span_end: 19,
+                score: 0.7,
+            },
+        ],
+        topics: vec![
+            ExtractedTopic {
+                label: "phoenix".into(),
+                score: 0.9,
+            },
+            ExtractedTopic {
+                label: "coverage".into(),
+                score: 0.6,
+            },
+        ],
+        llm_importance: Some(0.8),
+        llm_importance_reason: Some("higher".into()),
+    });
+    assert_eq!(extracted.entities.len(), 2);
+    assert_eq!(extracted.topics.len(), 2);
+    assert_eq!(extracted.unique_entity_count(), 2);
+    assert_eq!(extracted.llm_importance, Some(0.8));
+    assert_eq!(extracted.llm_importance_reason.as_deref(), Some("higher"));
+
+    assert_eq!(token_count::score(0), 0.0);
+    assert_eq!(token_count::score(30), 1.0);
+    assert_eq!(token_count::score(9_000), 0.5);
+    assert_eq!(unique_words::score("hi bob"), 0.5);
+    assert!(unique_words::score("repeat repeat repeat repeat repeat repeat") < 0.1);
+    assert!(unique_words::score("alpha beta gamma delta epsilon zeta eta") > 0.9);
+
+    let mut meta = Metadata::point_in_time(ChunkSourceKind::Chat, "thread-1", "owner", Utc::now());
+    assert_eq!(interaction::score(&meta), 0.5);
+    meta.tags = vec![
+        "sent".into(),
+        "reply".into(),
+        "mention".into(),
+        "provider:whatsapp".into(),
+    ];
+    assert_eq!(interaction::score(&meta), 1.0);
+    assert_eq!(
+        source_weight::infer_data_source(&meta),
+        Some(DataSource::Whatsapp)
+    );
+    assert!(source_weight::score(&meta) > 0.7);
+    assert_eq!(metadata_weight::score(&meta), 0.5);
+
+    let email_meta = Metadata::point_in_time(ChunkSourceKind::Email, "mail", "owner", Utc::now());
+    let doc_meta = Metadata::point_in_time(ChunkSourceKind::Document, "doc", "owner", Utc::now());
+    assert!(metadata_weight::score(&doc_meta) > metadata_weight::score(&email_meta));
+    assert_eq!(source_weight::score(&email_meta), 0.75);
+
+    let computed = compute_score_signals(
+        &meta,
+        "Alice from OpenHuman mentioned Phoenix migration on Friday",
+        120,
+        &extracted,
+    );
+    assert!(computed.token_count > 0.0);
+    assert!(computed.unique_words > 0.0);
+    assert_eq!(computed.llm_importance, 0.8);
+    assert_eq!(entity_density_score(0, &extracted), 0.0);
+    assert!(entity_density_score(120, &extracted) > 0.0);
+
+    let weights = SignalWeights::with_llm_enabled();
+    let total = combine(&computed, &weights);
+    let cheap_total = combine_cheap_only(&computed, &weights);
+    assert!((0.0..=1.0).contains(&total));
+    assert!((0.0..=1.0).contains(&cheap_total));
+    assert_eq!(
+        combine(&ScoreSignals::default(), &SignalWeights::default()),
+        0.0
+    );
+
+    for data_source in DataSource::all() {
+        assert_eq!(
+            DataSource::parse(data_source.as_str()).unwrap(),
+            *data_source
+        );
+        assert_eq!(
+            data_source.kind(),
+            DataSource::parse(data_source.as_str()).unwrap().kind()
+        );
+    }
+    assert!(DataSource::parse("missing").is_err());
+}
+
+#[test]
+fn memory_source_types_and_freshness_cover_validation_matrix() {
+    let kinds = [
+        SourceKind::Composio,
+        SourceKind::Folder,
+        SourceKind::GithubRepo,
+        SourceKind::TwitterQuery,
+        SourceKind::RssFeed,
+        SourceKind::WebPage,
+    ];
+    for kind in kinds {
+        let encoded = serde_json::to_string(&kind).expect("kind json");
+        let decoded: SourceKind = serde_json::from_str(&encoded).expect("kind decode");
+        assert_eq!(decoded, kind);
+    }
+
+    let now = 1_700_000_000_000_i64;
+    assert_eq!(FreshnessLabel::from_age_ms(None, now), FreshnessLabel::Idle);
+    assert_eq!(
+        FreshnessLabel::from_age_ms(Some(now - 30_000), now),
+        FreshnessLabel::Active
+    );
+    assert_eq!(
+        FreshnessLabel::from_age_ms(Some(now - 30_001), now),
+        FreshnessLabel::Recent
+    );
+    assert_eq!(
+        FreshnessLabel::from_age_ms(Some(now - 5 * 60_000 - 1), now),
+        FreshnessLabel::Idle
+    );
+
+    let mut composio_source = source(SourceKind::Composio, "cmp");
+    assert!(composio_source.validate().unwrap_err().contains("toolkit"));
+    composio_source.toolkit = Some("gmail".into());
+    assert!(composio_source
+        .validate()
+        .unwrap_err()
+        .contains("connection_id"));
+    composio_source.connection_id = Some("conn-1".into());
+    assert!(composio_source.validate().is_ok());
+
+    let mut folder = source(SourceKind::Folder, "folder");
+    assert!(folder.validate().unwrap_err().contains("path"));
+    folder.path = Some("/tmp".into());
+    assert!(folder.validate().is_ok());
+
+    let mut github = source(SourceKind::GithubRepo, "github");
+    assert!(github.validate().unwrap_err().contains("url"));
+    github.url = Some("https://github.com/tinyhumansai/openhuman".into());
+    assert!(github.validate().is_ok());
+
+    let item = SourceItem {
+        id: "item-1".into(),
+        title: "Item".into(),
+        updated_at_ms: Some(now),
+    };
+    assert_eq!(serde_json::to_value(item).unwrap()["updated_at_ms"], now);
+    let content = SourceContent {
+        id: "item-1".into(),
+        title: "Item".into(),
+        body: "Body".into(),
+        content_type: ContentType::Markdown,
+        metadata: json!({ "source": "test" }),
+    };
+    assert_eq!(
+        serde_json::to_value(content).unwrap()["content_type"],
+        "markdown"
+    );
+}
+
+#[test]
+fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
+    let tmp = TempDir::new().expect("tempdir");
+    let workspace = tmp.path().to_path_buf();
+    let mut first = TurnState::started("thread/a", "request-1", 4, "2026-05-29T12:00:00Z");
+    first.lifecycle = TurnLifecycle::Streaming;
+    first.phase = Some(TurnPhase::Subagent);
+    first.active_subagent = Some("research".into());
+    first.tool_timeline.push(ToolTimelineEntry {
+        id: "subagent-1".into(),
+        name: "subagent:research".into(),
+        round: 2,
+        status: ToolTimelineStatus::Running,
+        args_buffer: None,
+        display_name: Some("Research".into()),
+        detail: None,
+        source_tool_name: None,
+        subagent: Some(SubagentActivity {
+            task_id: "task-1".into(),
+            agent_id: "agent-1".into(),
+            mode: Some("focused".into()),
+            dedicated_thread: Some(true),
+            child_iteration: Some(1),
+            child_max_iterations: Some(3),
+            iterations: Some(1),
+            elapsed_ms: Some(250),
+            output_chars: Some(42),
+            tool_calls: vec![SubagentToolCall {
+                call_id: "call-1".into(),
+                tool_name: "memory.search".into(),
+                status: ToolTimelineStatus::Success,
+                iteration: Some(1),
+                elapsed_ms: Some(100),
+                output_chars: Some(10),
+            }],
+        }),
+    });
+    let second = TurnState::started("thread/b", "request-2", 2, "2026-05-29T12:01:00Z");
+
+    turn_state::store::put(workspace.clone(), &first).expect("put first");
+    turn_state::store::put(workspace.clone(), &second).expect("put second");
+    assert_eq!(
+        turn_state::store::get(workspace.clone(), "thread/a")
+            .unwrap()
+            .unwrap()
+            .active_subagent
+            .as_deref(),
+        Some("research")
+    );
+    assert!(turn_state::store::get(workspace.clone(), "missing")
+        .unwrap()
+        .is_none());
+
+    let mut listed = turn_state::store::list(workspace.clone()).expect("list states");
+    listed.sort_by(|a, b| a.thread_id.cmp(&b.thread_id));
+    assert_eq!(listed.len(), 2);
+    let wire = serde_json::to_value(ListTurnStatesResponse {
+        turn_states: listed.clone(),
+        count: listed.len(),
+    })
+    .expect("list response json");
+    assert_eq!(wire["count"], 2);
+    assert_eq!(wire["turnStates"][0]["threadId"], "thread/a");
+
+    let marked = turn_state::store::mark_all_interrupted(workspace.clone(), "2026-05-29T12:02:00Z")
+        .expect("mark interrupted");
+    assert_eq!(marked, 2);
+    let marked_again =
+        turn_state::store::mark_all_interrupted(workspace.clone(), "2026-05-29T12:03:00Z")
+            .expect("mark interrupted again");
+    assert_eq!(marked_again, 0);
+    let interrupted = turn_state::store::get(workspace.clone(), "thread/a")
+        .unwrap()
+        .unwrap();
+    assert_eq!(interrupted.lifecycle, TurnLifecycle::Interrupted);
+    assert!(interrupted.active_subagent.is_none());
+    assert_eq!(interrupted.updated_at, "2026-05-29T12:02:00Z");
+
+    assert!(turn_state::store::delete(workspace.clone(), "thread/a").expect("delete one"));
+    assert!(!turn_state::store::delete(workspace.clone(), "thread/a").expect("delete missing"));
+    let removed = turn_state::store::clear_all(workspace.clone()).expect("clear all");
+    assert_eq!(removed, 1);
+    assert!(turn_state::store::list(workspace).unwrap().is_empty());
 }

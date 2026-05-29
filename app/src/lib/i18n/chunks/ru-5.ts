@@ -892,6 +892,11 @@ const ru5: TranslationMap = {
   'settings.taskSources.disable': 'Disable',
   'settings.taskSources.remove': 'Remove',
   'settings.taskSources.refresh': 'Refresh',
+  // Task sources provider labels (#task-sources)
+  'settings.taskSources.providers.github': 'GitHub',
+  'settings.taskSources.providers.notion': 'Notion',
+  'settings.taskSources.providers.linear': 'Linear',
+  'settings.taskSources.providers.clickup': 'ClickUp',
 };
 
 export default ru5;

@@ -10,12 +10,12 @@
 //! Mirrors the `cron` domain's `with_connection` + migrate-on-open
 //! pattern.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::openhuman::config::Config;
@@ -28,13 +28,21 @@ use super::types::{
 /// Compute an edit-aware content hash for a task. Two fetches of the
 /// same `external_id` whose title/body/status/updated_at differ produce
 /// different hashes, so an *edited* upstream item re-ingests.
+///
+/// Uses SHA-256 over a canonical field-delimited representation so the
+/// digest is stable across Rust/toolchain versions (the dedup key is
+/// persisted on disk; a non-deterministic hasher would force spurious
+/// re-ingests after a toolchain bump).
 pub fn content_hash(task: &NormalizedTask) -> String {
-    let mut hasher = DefaultHasher::new();
-    task.title.hash(&mut hasher);
-    task.body.hash(&mut hasher);
-    task.status.hash(&mut hasher);
-    task.updated_at.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    let canonical = format!(
+        "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+        task.title,
+        task.body.as_deref().unwrap_or(""),
+        task.status.as_deref().unwrap_or(""),
+        task.updated_at.as_deref().unwrap_or(""),
+    );
+    let digest = Sha256::digest(canonical.as_bytes());
+    format!("{digest:x}")
 }
 
 /// Insert a new task source.
@@ -56,10 +64,17 @@ pub fn add_source(
             provider.as_str()
         );
     }
+    // Normalize blank optional fields to NULL so a whitespace-only
+    // connection_id can't masquerade as a real selector (mirrors
+    // `update_source`).
+    let connection_id = connection_id.filter(|s| !s.trim().is_empty());
+    let name = name.filter(|s| !s.trim().is_empty());
     let id = Uuid::new_v4().to_string();
     let now = Utc::now();
     let filter_json = serde_json::to_string(&filter).context("serialize task source filter")?;
     let target_json = serde_json::to_string(&target).context("serialize task source target")?;
+    let interval_i64 = i64::try_from(interval_secs)
+        .context("task source interval_secs exceeds SQLite INTEGER range")?;
 
     with_connection(config, |conn| {
         conn.execute(
@@ -73,9 +88,9 @@ pub fn add_source(
                 connection_id,
                 name,
                 filter_json,
-                interval_secs as i64,
+                interval_i64,
                 target_json,
-                max_tasks_per_fetch as i64,
+                i64::from(max_tasks_per_fetch),
                 now.to_rfc3339(),
             ],
         )
@@ -146,6 +161,8 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
 
     let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
     let target_json = serde_json::to_string(&source.target).context("serialize target")?;
+    let interval_i64 = i64::try_from(source.interval_secs)
+        .context("task source interval_secs exceeds SQLite INTEGER range")?;
 
     with_connection(config, |conn| {
         conn.execute(
@@ -159,9 +176,9 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
                 source.name,
                 if source.enabled { 1 } else { 0 },
                 filter_json,
-                source.interval_secs as i64,
+                interval_i64,
                 target_json,
-                source.max_tasks_per_fetch as i64,
+                i64::from(source.max_tasks_per_fetch),
                 id,
             ],
         )
@@ -310,9 +327,11 @@ fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
         name: row.get(3)?,
         enabled: row.get::<_, i64>(4)? != 0,
         filter,
-        interval_secs: row.get::<_, i64>(6)? as u64,
+        interval_secs: u64::try_from(row.get::<_, i64>(6)?)
+            .map_err(|_| sql_conv("invalid negative interval_secs in task_sources DB"))?,
         target,
-        max_tasks_per_fetch: row.get::<_, i64>(8)? as u32,
+        max_tasks_per_fetch: u32::try_from(row.get::<_, i64>(8)?)
+            .map_err(|_| sql_conv("invalid max_tasks_per_fetch in task_sources DB"))?,
         created_at: parse_rfc3339(&created_at_raw).map_err(sql_conv)?,
         last_fetch_at: match last_fetch_raw {
             Some(raw) => Some(parse_rfc3339(&raw).map_err(sql_conv)?),
@@ -344,6 +363,12 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
     }
     let conn = Connection::open(&db_path)
         .with_context(|| format!("Failed to open task_sources DB: {}", db_path.display()))?;
+    // Overlapping periodic-poll + UI writes can otherwise hit
+    // "database is locked"; WAL + a busy timeout match the other stores.
+    conn.busy_timeout(Duration::from_secs(5))
+        .context("Failed to configure task_sources DB busy timeout")?;
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .context("Failed to enable WAL for task_sources DB")?;
 
     conn.execute_batch(
         "PRAGMA foreign_keys = ON;

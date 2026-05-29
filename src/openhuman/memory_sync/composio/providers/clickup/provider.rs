@@ -511,10 +511,19 @@ impl ComposioProvider for ClickUpProvider {
                 .execute(ACTION_GET_AUTHORIZED_USER, Some(json!({})))
                 .await
                 .map_err(|e| format!("[composio:clickup] {ACTION_GET_AUTHORIZED_USER}: {e:#}"))?;
-            match sync::extract_user_id(&resp.data) {
-                Some(id) => vec![id],
-                None => Vec::new(),
+            // Fail closed: if we can't resolve the user, error rather than
+            // silently dropping the assignee filter and fetching the whole
+            // workspace's tasks.
+            if !resp.successful {
+                return Err(format!(
+                    "[composio:clickup] {ACTION_GET_AUTHORIZED_USER}: {}",
+                    resp.error.unwrap_or_else(|| "provider failure".into())
+                ));
             }
+            let id = sync::extract_user_id(&resp.data).ok_or_else(|| {
+                "[composio:clickup] CLICKUP_GET_AUTHORIZED_USER returned no user.id".to_string()
+            })?;
+            vec![id]
         } else {
             Vec::new()
         };

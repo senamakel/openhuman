@@ -297,9 +297,21 @@ pub fn schemas(function: &str) -> ControllerSchema {
                             required: true,
                         },
                         FieldSchema {
+                            name: "defaultIntervalSecs",
+                            ty: TypeSchema::U64,
+                            comment: "Default poll interval (seconds) from config.",
+                            required: true,
+                        },
+                        FieldSchema {
                             name: "sourceCount",
                             ty: TypeSchema::U64,
                             comment: "Total configured sources.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "enabledSourceCount",
+                            ty: TypeSchema::U64,
+                            comment: "Configured sources currently enabled.",
                             required: true,
                         },
                     ],
@@ -352,7 +364,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
         let connection_id = read_optional::<String>(&params, "connection_id")?;
         let interval_secs = read_optional::<u64>(&params, "interval_secs")?;
         let target = read_optional::<SourceTarget>(&params, "target")?;
-        let max = read_optional::<u32>(&params, "max_tasks_per_fetch")?;
+        let max = read_optional_u32(&params, "max_tasks_per_fetch")?;
         to_json(
             ops::add(
                 &config,
@@ -398,7 +410,13 @@ fn handle_list_tasks(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let id = read_required::<String>(&params, "id")?;
-        let limit = read_optional::<u64>(&params, "limit")?.map(|n| n as usize);
+        let limit = match read_optional::<u64>(&params, "limit")? {
+            Some(n) => Some(
+                usize::try_from(n)
+                    .map_err(|_| format!("invalid 'limit': {n} exceeds platform usize"))?,
+            ),
+            None => None,
+        };
         to_json(ops::list_tasks(&config, id.trim(), limit).await?)
     })
 }
@@ -409,7 +427,7 @@ fn handle_preview_filter(params: Map<String, Value>) -> ControllerFuture {
         let provider = read_provider(&params)?;
         let filter = read_required::<FilterSpec>(&params, "filter")?;
         let connection_id = read_optional::<String>(&params, "connection_id")?;
-        let max = read_optional::<u32>(&params, "max")?;
+        let max = read_optional_u32(&params, "max")?;
         to_json(ops::preview_filter(&config, provider, filter, connection_id, max).await?)
     })
 }
@@ -443,6 +461,21 @@ fn read_optional<T: DeserializeOwned>(
         Some(value) => serde_json::from_value(value.clone())
             .map(Some)
             .map_err(|e| format!("invalid '{key}': {e}")),
+    }
+}
+
+/// Read an optional unsigned integer parameter and checked-convert it to
+/// `u32`. The wire schema advertises `U64` (the only unsigned schema
+/// type), so we accept any `u64` and reject values outside the `u32`
+/// range with a clear error rather than silently truncating.
+fn read_optional_u32(params: &Map<String, Value>, key: &str) -> Result<Option<u32>, String> {
+    match read_optional::<u64>(params, key)? {
+        Some(n) => {
+            Ok(Some(u32::try_from(n).map_err(|_| {
+                format!("invalid '{key}': {n} exceeds u32 range")
+            })?))
+        }
+        None => Ok(None),
     }
 }
 

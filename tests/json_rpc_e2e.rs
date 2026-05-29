@@ -8191,5 +8191,10 @@ async fn json_rpc_task_sources_fetch_pipeline_e2e() {
         "preview_filter must not ingest tasks"
     );
 
+    // Restore the global provider registry so the stub "github" provider
+    // does not leak into other tests in this binary (re-registers the
+    // real built-in providers).
+    openhuman_core::openhuman::memory_sync::composio::providers::init_default_providers();
+
     rpc_join.abort();
 }

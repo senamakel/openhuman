@@ -414,9 +414,18 @@ impl ComposioProvider for LinearProvider {
                 .execute(ACTION_LIST_USERS, Some(json!({ "isMe": true })))
                 .await
                 .map_err(|e| format!("[composio:linear] {ACTION_LIST_USERS}: {e:#}"))?;
-            if let Some(viewer_id) = sync::extract_viewer_id(&resp.data) {
-                args["assigneeId"] = json!(viewer_id);
+            // Fail closed: a failed viewer lookup must not silently widen
+            // the query beyond "assigned to me".
+            if !resp.successful {
+                return Err(format!(
+                    "[composio:linear] {ACTION_LIST_USERS}: {}",
+                    resp.error.unwrap_or_else(|| "provider failure".into())
+                ));
             }
+            let viewer_id = sync::extract_viewer_id(&resp.data).ok_or_else(|| {
+                "[composio:linear] LINEAR_LIST_LINEAR_USERS returned no viewer id".to_string()
+            })?;
+            args["assigneeId"] = json!(viewer_id);
         }
         if let Some(team) = filter
             .team_id

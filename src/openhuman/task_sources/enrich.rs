@@ -69,7 +69,8 @@ fn derive_urgency(task: &NormalizedTask) -> f32 {
         } else if p.contains("medium") || p.contains("p2") {
             score = score.max(0.55);
         } else if p.contains("low") || p.contains("p3") {
-            score = score.max(0.3);
+            // Low priority should pull urgency *down* from the 0.4 baseline.
+            score = score.min(0.3);
         }
     }
 

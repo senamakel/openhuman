@@ -19,16 +19,16 @@ import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const PROVIDERS: TaskSourceProvider[] = ['github', 'notion', 'linear', 'clickup'];
 
-function providerLabel(provider: TaskSourceProvider): string {
+function providerLabel(provider: TaskSourceProvider, t: (key: string) => string): string {
   switch (provider) {
     case 'github':
-      return 'GitHub';
+      return t('settings.taskSources.providers.github');
     case 'notion':
-      return 'Notion';
+      return t('settings.taskSources.providers.notion');
     case 'linear':
-      return 'Linear';
+      return t('settings.taskSources.providers.linear');
     case 'clickup':
-      return 'ClickUp';
+      return t('settings.taskSources.providers.clickup');
     default:
       return provider;
   }
@@ -266,7 +266,7 @@ const TaskSourcesPanel = () => {
               onChange={e => setProvider(e.target.value as TaskSourceProvider)}>
               {PROVIDERS.map(p => (
                 <option key={p} value={p}>
-                  {providerLabel(p)}
+                  {providerLabel(p, t)}
                 </option>
               ))}
             </select>
@@ -354,10 +354,10 @@ const TaskSourcesPanel = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                        {source.name || providerLabel(source.provider)}
+                        {source.name || providerLabel(source.provider, t)}
                       </p>
                       <p className="text-xs text-stone-400 dark:text-neutral-500">
-                        {providerLabel(source.provider)}
+                        {providerLabel(source.provider, t)}
                         {source.target === 'agent_todo_proactive'
                           ? ` · ${t('settings.taskSources.proactive')}`
                           : ''}

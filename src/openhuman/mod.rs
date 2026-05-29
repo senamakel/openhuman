@@ -42,7 +42,6 @@ pub mod devices;
 pub mod doctor;
 pub mod embeddings;
 pub mod encryption;
-pub mod gameplay_review;
 pub mod health;
 pub mod heartbeat;
 pub mod http_host;

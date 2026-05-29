@@ -4,45 +4,47 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Mutex, OnceLock,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::{header::AUTHORIZATION, HeaderMap};
+use axum::http::{HeaderMap, header::AUTHORIZATION};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
-use serde_json::{json, Value};
-use tempfile::{tempdir, TempDir};
+use serde_json::{Value, json};
+use tempfile::{TempDir, tempdir};
 
 use openhuman_core::api::config::{
-    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
-    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
-    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
-    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
+    APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL, OPENHUMAN_INFERENCE_PATH,
+    VITE_APP_ENV_VAR, api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env,
+    effective_api_url, effective_backend_api_url, effective_inference_url,
+    looks_like_local_ai_endpoint, normalize_api_base_url,
 };
-use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
+    AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow, OrchestratorModelConfig,
+    ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
-    migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
-    OrchestratorModelConfig, ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds,
-    WhatsAppConfig,
+    migrate_legacy_fields,
 };
 use openhuman_core::openhuman::config::{
-    output_language_directive, AgentConfig, ChannelsConfig, Config, TeamModelConfig,
+    AgentConfig, ChannelsConfig, Config, DictationActivationMode, LlmBackend, ReflectionSource,
+    TeamModelConfig, UpdateRestartStrategy, clear_active_user, output_language_directive,
+    write_active_user_id,
 };
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::openhuman::credentials::{
-    clear_composio_api_key, get_composio_api_key, normalize_provider, rpc_store_composio_api_key,
-    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
+    APP_SESSION_PROVIDER, AuthService, COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key,
+    get_composio_api_key, normalize_provider, rpc_store_composio_api_key, store_composio_api_key,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -544,18 +546,24 @@ encrypt = false
     )
     .expect("minimal config should deserialize with defaults");
     assert_eq!(minimal_config.default_temperature, 0.7);
-    assert!(minimal_config
-        .temperature_unsupported_models
-        .iter()
-        .any(|pattern| pattern == "gpt-5*"));
+    assert!(
+        minimal_config
+            .temperature_unsupported_models
+            .iter()
+            .any(|pattern| pattern == "gpt-5*")
+    );
 
     assert_eq!(
         output_language_directive(Some("zh_CN")).as_deref(),
-        Some("Output language: write all natural-language output in Simplified Chinese. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged.")
+        Some(
+            "Output language: write all natural-language output in Simplified Chinese. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged."
+        )
     );
     assert_eq!(
         output_language_directive(Some("  Klingon\u{0000}  ")).as_deref(),
-        Some("Output language: write all natural-language output in Klingon. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged.")
+        Some(
+            "Output language: write all natural-language output in Klingon. Keep JSON keys, enum values, proper nouns, code, commands, and quoted source text unchanged."
+        )
     );
     assert_eq!(output_language_directive(Some("   ")), None);
     assert_eq!(output_language_directive(None), None);
@@ -595,10 +603,12 @@ encrypt = false
     assert!(config.workload_uses_local("subconscious"));
     assert!(!config.workload_uses_local("unknown"));
     config.output_language = Some("fr".into());
-    assert!(config
-        .output_language_directive()
-        .expect("language directive")
-        .contains("French"));
+    assert!(
+        config
+            .output_language_directive()
+            .expect("language directive")
+            .contains("French")
+    );
 
     config.orchestrator = OrchestratorModelConfig {
         model: Some(" orchestrator-model ".into()),
@@ -648,12 +658,16 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     let _all_lower = EnvVarGuard::unset("all_proxy");
     let _no_lower = EnvVarGuard::unset("no_proxy");
 
-    assert!(ProxyConfig::supported_service_keys()
-        .iter()
-        .any(|key| *key == "memory.embeddings"));
-    assert!(ProxyConfig::supported_service_selectors()
-        .iter()
-        .any(|selector| *selector == "tool.*"));
+    assert!(
+        ProxyConfig::supported_service_keys()
+            .iter()
+            .any(|key| *key == "memory.embeddings")
+    );
+    assert!(
+        ProxyConfig::supported_service_selectors()
+            .iter()
+            .any(|selector| *selector == "tool.*")
+    );
 
     let services = ProxyConfig {
         enabled: true,
@@ -742,8 +756,10 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     }
 
     openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
-    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
-        .should_apply_to_service("tool.browser"));
+    assert!(
+        openhuman_core::openhuman::config::runtime_proxy_config()
+            .should_apply_to_service("tool.browser")
+    );
     let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
     let _cached_again =
         openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
@@ -844,6 +860,284 @@ fn api_config_url_resolution_classifies_backend_and_inference_paths() {
     );
 }
 
+#[tokio::test]
+async fn config_loaders_resolve_user_workspace_markers_and_ignore_workspace_when_scoped() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path().join("home");
+    let root = home.join(".openhuman");
+    let user_dir = root.join("users").join("user-42");
+    let explicit_config_dir = tmp.path().join("explicit");
+    let explicit_workspace = tmp.path().join("explicit-workspace");
+    let env_workspace = tmp.path().join("env-workspace");
+    let legacy_parent = tmp.path().join("legacy-parent");
+    let legacy_config_dir = legacy_parent.join(".openhuman");
+    let legacy_workspace = legacy_parent.join("workspace");
+
+    let _guards = vec![
+        EnvVarGuard::set_to_path("HOME", &home),
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::unset("OPENHUMAN_MODEL"),
+        EnvVarGuard::unset(APP_ENV_VAR),
+        EnvVarGuard::unset(VITE_APP_ENV_VAR),
+        EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "false"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_ENDPOINT", ""),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", ""),
+    ];
+
+    std::fs::create_dir_all(&root).expect("create root config dir");
+    write_active_user_id(&root, "user-42").expect("write active user marker");
+    write_min_config(&user_dir);
+
+    let active_user_config = Config::load_or_init()
+        .await
+        .expect("load active user config");
+    assert_eq!(active_user_config.config_path, user_dir.join("config.toml"));
+    assert_eq!(active_user_config.workspace_dir, user_dir.join("workspace"));
+
+    {
+        write_min_config(&env_workspace);
+        let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &env_workspace);
+        let env_config = Config::load_or_init()
+            .await
+            .expect("load env workspace config");
+        assert_eq!(env_config.config_path, env_workspace.join("config.toml"));
+        assert_eq!(env_config.workspace_dir, env_workspace.join("workspace"));
+    }
+
+    {
+        write_min_config(&legacy_config_dir);
+        std::fs::create_dir_all(&legacy_workspace).expect("create legacy workspace");
+        let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &legacy_workspace);
+        let legacy_config = Config::load_or_init()
+            .await
+            .expect("load legacy workspace config");
+        assert_eq!(
+            legacy_config.config_path,
+            legacy_config_dir.join("config.toml")
+        );
+        assert_eq!(legacy_config.workspace_dir, legacy_workspace);
+    }
+
+    clear_active_user(&root).expect("clear active user marker");
+    let active_marker_dir = root.join("relative-active");
+    write_min_config(&active_marker_dir);
+    std::fs::write(
+        root.join("active_workspace.toml"),
+        "config_dir = \"relative-active\"\n",
+    )
+    .expect("write active workspace marker");
+    let marker_config = Config::load_or_init()
+        .await
+        .expect("load active workspace marker config");
+    assert_eq!(
+        marker_config.config_path,
+        active_marker_dir.join("config.toml")
+    );
+    assert_eq!(
+        marker_config.workspace_dir,
+        active_marker_dir.join("workspace")
+    );
+
+    write_min_config(&explicit_config_dir);
+    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &env_workspace);
+    let _model_guard = EnvVarGuard::set("OPENHUMAN_MODEL", " scoped-env-model ");
+    let explicit = Config::load_from_config_path(
+        &explicit_config_dir.join("config.toml"),
+        &explicit_workspace,
+    )
+    .await
+    .expect("load explicit config path");
+    assert_eq!(explicit.workspace_dir, explicit_workspace);
+    assert_eq!(explicit.default_model.as_deref(), Some("scoped-env-model"));
+}
+
+#[tokio::test]
+async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let config_dir = tmp.path().join("config");
+    let workspace_dir = tmp.path().join("workspace");
+    write_min_config(&config_dir);
+
+    let _guards = vec![
+        EnvVarGuard::set_to_path("HOME", tmp.path()),
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::set("OPENHUMAN_MODEL", " env-model "),
+        EnvVarGuard::set("OPENHUMAN_TEMPERATURE", "1.25"),
+        EnvVarGuard::set("OPENHUMAN_MAX_ACTIONS_PER_HOUR", "17"),
+        EnvVarGuard::set("OPENHUMAN_OUTPUT_LANGUAGE", " ja "),
+        EnvVarGuard::set("OPENHUMAN_REASONING_ENABLED", "yes"),
+        EnvVarGuard::set("OPENHUMAN_SELTZ_API_KEY", "seltz-key"),
+        EnvVarGuard::set("OPENHUMAN_SELTZ_API_URL", "https://seltz.example/v1"),
+        EnvVarGuard::set("OPENHUMAN_SELTZ_MAX_RESULTS", "13"),
+        EnvVarGuard::set("OPENHUMAN_SEARXNG_ENABLED", "on"),
+        EnvVarGuard::set("OPENHUMAN_SEARXNG_BASE_URL", "https://searx.example"),
+        EnvVarGuard::set("OPENHUMAN_SEARXNG_MAX_RESULTS", "31"),
+        EnvVarGuard::set("OPENHUMAN_SEARXNG_DEFAULT_LANGUAGE", "de"),
+        EnvVarGuard::set("OPENHUMAN_SEARXNG_TIMEOUT_SECS", "9"),
+        EnvVarGuard::set("OPENHUMAN_SEARCH_ENGINE", "brave"),
+        EnvVarGuard::set("OPENHUMAN_PARALLEL_API_KEY", "parallel-key"),
+        EnvVarGuard::set("OPENHUMAN_BRAVE_API_KEY", "brave-key"),
+        EnvVarGuard::set("OPENHUMAN_QUERIT_API_KEY", "querit-key"),
+        EnvVarGuard::set("OPENHUMAN_SEARCH_MAX_RESULTS", "11"),
+        EnvVarGuard::set("OPENHUMAN_SEARCH_TIMEOUT_SECS", "8"),
+        EnvVarGuard::set("OPENHUMAN_WEB_SEARCH_ENABLED", "0"),
+        EnvVarGuard::set("OPENHUMAN_WEB_SEARCH_MAX_RESULTS", "7"),
+        EnvVarGuard::set("OPENHUMAN_WEB_SEARCH_TIMEOUT_SECS", "6"),
+        EnvVarGuard::set("OPENHUMAN_PROXY_ENABLED", "true"),
+        EnvVarGuard::set("OPENHUMAN_HTTP_PROXY", " http://proxy.example:8080 "),
+        EnvVarGuard::set("OPENHUMAN_NO_PROXY", " localhost,example.test "),
+        EnvVarGuard::set("OPENHUMAN_PROXY_SCOPE", "services"),
+        EnvVarGuard::set("OPENHUMAN_PROXY_SERVICES", "tool.browser,memory.embeddings"),
+        EnvVarGuard::set("OPENHUMAN_NODE_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_NODE_VERSION", "v24.0.0"),
+        EnvVarGuard::set("OPENHUMAN_NODE_CACHE_DIR", "/tmp/openhuman-node-cache"),
+        EnvVarGuard::set("OPENHUMAN_NODE_PREFER_SYSTEM", "false"),
+        EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_MINIMUM_VERSION", "3.13.0"),
+        EnvVarGuard::set(
+            "OPENHUMAN_RUNTIME_PYTHON_CACHE_DIR",
+            "/tmp/openhuman-python-cache",
+        ),
+        EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_MANAGED_RELEASE_TAG", "20260401"),
+        EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_PREFER_SYSTEM", "true"),
+        EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND", "python3.13"),
+        EnvVarGuard::set("OPENHUMAN_CORE_SENTRY_DSN", "https://dsn.example/1"),
+        EnvVarGuard::set("OPENHUMAN_ANALYTICS_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_ENABLED", "true"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_REFLECTION_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_USER_PROFILE_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_TOOL_TRACKING_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_TOOL_MEMORY_CAPTURE_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_EXPLICIT_PREFERENCES_ENABLED", "true"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_REFLECTION_SOURCE", "cloud"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_MAX_REFLECTIONS_PER_SESSION", "3"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_MIN_TURN_COMPLEXITY", "2"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_EPISODIC_CAPTURE_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_STM_RECALL_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_LEARNING_UNIFIED_COMPACTION_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_ENDPOINT", "https://embed.example"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", "embed-env"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_TIMEOUT_MS", "1234"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "true"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_RATE_LIMIT", "42"),
+        EnvVarGuard::set(
+            "OPENHUMAN_MEMORY_EXTRACT_ENDPOINT",
+            "https://extract.example",
+        ),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EXTRACT_MODEL", "extract-env"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_EXTRACT_TIMEOUT_MS", "2345"),
+        EnvVarGuard::set(
+            "OPENHUMAN_MEMORY_SUMMARISE_ENDPOINT",
+            "https://summarise.example",
+        ),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_SUMMARISE_MODEL", "summarise-env"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_SUMMARISE_TIMEOUT_MS", "3456"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_CONTENT_DIR", "/tmp/openhuman-tree"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_LLM_BACKEND", "local"),
+        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_CLOUD_LLM_MODEL", "cloud-tree-model"),
+        EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_INTERVAL_MINUTES", "1440"),
+        EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY", "supervisor"),
+        EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_RPC_MUTATIONS_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_ENABLED", "true"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_HOTKEY", "CmdOrCtrl+Shift+D"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_ACTIVATION_MODE", "toggle"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_LLM_REFINEMENT", "false"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_STREAMING", "false"),
+        EnvVarGuard::set("OPENHUMAN_DICTATION_STREAMING_INTERVAL_MS", "333"),
+        EnvVarGuard::set("OPENHUMAN_CONTEXT_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_CONTEXT_MICROCOMPACT_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_CONTEXT_AUTOCOMPACT_ENABLED", "false"),
+        EnvVarGuard::set("OPENHUMAN_CONTEXT_TOOL_RESULT_BUDGET_BYTES", "12345"),
+        EnvVarGuard::set("OPENHUMAN_CONTEXT_SUMMARIZER_MODEL", "summary-env"),
+    ];
+
+    let config = Config::load_from_config_path(&config_dir.join("config.toml"), &workspace_dir)
+        .await
+        .expect("load config with env overlay");
+
+    assert_eq!(config.default_model.as_deref(), Some("env-model"));
+    assert_eq!(config.default_temperature, 1.25);
+    assert_eq!(config.autonomy.max_actions_per_hour, 17);
+    assert_eq!(config.output_language.as_deref(), Some("ja"));
+    assert_eq!(config.runtime.reasoning_enabled, Some(true));
+    assert!(config.seltz.enabled);
+    assert_eq!(config.seltz.api_key.as_deref(), Some("seltz-key"));
+    assert_eq!(config.seltz.max_results, 13);
+    assert!(config.searxng.enabled);
+    assert_eq!(config.searxng.base_url, "https://searx.example");
+    assert_eq!(config.searxng.max_results, 31);
+    assert_eq!(config.search.engine, "brave");
+    assert!(config.search.parallel.has_key());
+    assert!(config.search.brave.has_key());
+    assert!(config.search.querit.has_key());
+    assert_eq!(config.search.max_results, 11);
+    assert_eq!(config.web_search.max_results, 7);
+    assert!(config.proxy.enabled);
+    assert_eq!(config.proxy.scope, ProxyScope::Services);
+    assert!(config.proxy.should_apply_to_service("tool.browser"));
+    assert!(!config.node.enabled);
+    assert_eq!(config.node.version, "v24.0.0");
+    assert!(!config.node.prefer_system);
+    assert!(!config.runtime_python.enabled);
+    assert_eq!(config.runtime_python.minimum_version, "3.13.0");
+    assert!(config.runtime_python.prefer_system);
+    assert_eq!(config.observability.analytics_enabled, false);
+    assert_eq!(
+        config.observability.sentry_dsn.as_deref(),
+        Some("https://dsn.example/1")
+    );
+    assert!(config.learning.enabled);
+    assert!(!config.learning.reflection_enabled);
+    assert_eq!(config.learning.reflection_source, ReflectionSource::Cloud);
+    assert_eq!(config.learning.max_reflections_per_session, 3);
+    assert_eq!(config.learning.min_turn_complexity, 2);
+    assert!(!config.learning.episodic_capture_enabled);
+    assert_eq!(config.memory.embedding_rate_limit_per_min, 42);
+    assert_eq!(
+        config.memory_tree.embedding_endpoint.as_deref(),
+        Some("https://embed.example")
+    );
+    assert_eq!(
+        config.memory_tree.embedding_model.as_deref(),
+        Some("embed-env")
+    );
+    assert_eq!(config.memory_tree.embedding_timeout_ms, Some(1234));
+    assert!(config.memory_tree.embedding_strict);
+    assert_eq!(config.memory_tree.llm_backend, LlmBackend::Local);
+    assert_eq!(
+        config.memory_tree.content_dir.as_deref(),
+        Some(Path::new("/tmp/openhuman-tree"))
+    );
+    assert!(!config.update.enabled);
+    assert_eq!(config.update.interval_minutes, 1440);
+    assert_eq!(
+        config.update.restart_strategy,
+        UpdateRestartStrategy::Supervisor
+    );
+    assert!(!config.update.rpc_mutations_enabled);
+    assert!(config.dictation.enabled);
+    assert_eq!(config.dictation.hotkey, "CmdOrCtrl+Shift+D");
+    assert_eq!(
+        config.dictation.activation_mode,
+        DictationActivationMode::Toggle
+    );
+    assert!(!config.dictation.llm_refinement);
+    assert!(!config.dictation.streaming);
+    assert_eq!(config.dictation.streaming_interval_ms, 333);
+    assert!(!config.context.enabled);
+    assert!(!config.context.microcompact_enabled);
+    assert!(!config.context.autocompact_enabled);
+    assert_eq!(config.context.tool_result_budget_bytes, 12345);
+    assert_eq!(
+        config.context.summarizer_model.as_deref(),
+        Some("summary-env")
+    );
+}
+
 #[test]
 fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     let tmp = tempdir().expect("tempdir");
@@ -885,12 +1179,15 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         .set_active_profile("GitHub", "personal")
         .expect("set active by profile name");
     assert_eq!(active_id, stored.id);
-    assert!(auth
-        .remove_profile("GitHub", "personal")
-        .expect("remove stored profile"));
-    assert!(!auth
-        .remove_profile("GitHub", "personal")
-        .expect("remove missing profile"));
+    assert!(
+        auth.remove_profile("GitHub", "personal")
+            .expect("remove stored profile")
+    );
+    assert!(
+        !auth
+            .remove_profile("GitHub", "personal")
+            .expect("remove missing profile")
+    );
 }
 
 #[tokio::test]
@@ -2475,8 +2772,32 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
     let state_dir = tmp.path().join("profiles");
     let store = AuthProfilesStore::new(&state_dir, true);
 
+    assert_eq!(store.path(), state_dir.join("auth-profiles.json"));
     let empty = store.load().expect("empty store load");
     assert!(empty.profiles.is_empty());
+
+    assert!(
+        TokenSet {
+            access_token: "soon".to_string(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
+            token_type: None,
+            scope: None,
+        }
+        .is_expiring_within(Duration::from_secs(5))
+    );
+    assert!(
+        !TokenSet {
+            access_token: "no-expiry".to_string(),
+            refresh_token: None,
+            id_token: None,
+            expires_at: None,
+            token_type: None,
+            scope: None,
+        }
+        .is_expiring_within(Duration::from_secs(5))
+    );
 
     let mut token_profile = AuthProfile::new_token("openai", "work", "sk-worker-a".to_string());
     token_profile
@@ -2629,6 +2950,120 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
             .to_string()
             .contains("Unsupported auth profile schema version"),
         "unexpected future schema error: {future_err:#}"
+    );
+}
+
+#[test]
+fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_errors() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let tmp = tempdir().expect("tempdir");
+
+    let empty_dir = tmp.path().join("empty-file");
+    std::fs::create_dir_all(&empty_dir).expect("create empty profile dir");
+    std::fs::write(empty_dir.join("auth-profiles.json"), "").expect("write empty profile file");
+    let empty = AuthProfilesStore::new(&empty_dir, false)
+        .load()
+        .expect("empty persisted profile file should load as default");
+    assert!(empty.profiles.is_empty());
+    assert!(empty.active_profiles.is_empty());
+
+    let mixed_dir = tmp.path().join("mixed");
+    std::fs::create_dir_all(&mixed_dir).expect("create mixed profile dir");
+    std::fs::write(
+        mixed_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "gitlab": "gitlab:main",
+                "legacy": "legacy:bad-kind"
+            },
+            "profiles": {
+                "gitlab:main": {
+                    "provider": "gitlab",
+                    "profile_name": "main",
+                    "kind": "token",
+                    "token": "plain-gitlab-token",
+                    "created_at": "not-a-date",
+                    "updated_at": "also-not-a-date",
+                    "metadata": {
+                        "origin": "fixture"
+                    }
+                },
+                "legacy:bad-kind": {
+                    "provider": "legacy",
+                    "profile_name": "bad-kind",
+                    "kind": "api_key",
+                    "token": "drop-me",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write mixed profile fixture");
+    let mixed_store = AuthProfilesStore::new(&mixed_dir, false);
+    let mixed = mixed_store
+        .load()
+        .expect("mixed profile store should drop only bad entries");
+    assert_eq!(
+        mixed
+            .profiles
+            .get("gitlab:main")
+            .and_then(|profile| profile.token.as_deref()),
+        Some("plain-gitlab-token")
+    );
+    assert!(!mixed.profiles.contains_key("legacy:bad-kind"));
+    assert!(!mixed.active_profiles.contains_key("legacy"));
+    assert_eq!(
+        mixed.active_profiles.get("gitlab").map(String::as_str),
+        Some("gitlab:main")
+    );
+    let rewritten: Value = serde_json::from_str(
+        &std::fs::read_to_string(mixed_dir.join("auth-profiles.json"))
+            .expect("read rewritten mixed profile store"),
+    )
+    .expect("rewritten mixed store should be json");
+    assert!(
+        rewritten.pointer("/profiles/legacy:bad-kind").is_none(),
+        "dropped profile should be purged from persisted store: {rewritten}"
+    );
+
+    let invalid_datetime_dir = tmp.path().join("invalid-datetime");
+    std::fs::create_dir_all(&invalid_datetime_dir).expect("create invalid datetime dir");
+    std::fs::write(
+        invalid_datetime_dir.join("auth-profiles.json"),
+        json!({
+            "schema_version": 1,
+            "updated_at": "2026-01-01T00:00:00Z",
+            "active_profiles": {
+                "github": "github:oauth"
+            },
+            "profiles": {
+                "github:oauth": {
+                    "provider": "github",
+                    "profile_name": "oauth",
+                    "kind": "oauth",
+                    "access_token": "plain-access",
+                    "expires_at": "not-rfc3339",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write invalid datetime profile fixture");
+    let invalid_datetime_err = AuthProfilesStore::new(&invalid_datetime_dir, false)
+        .load()
+        .expect_err("invalid oauth expiry should fail profile load");
+    assert!(
+        invalid_datetime_err
+            .to_string()
+            .contains("Invalid RFC3339 timestamp"),
+        "unexpected invalid datetime error: {invalid_datetime_err:#}"
     );
 }
 

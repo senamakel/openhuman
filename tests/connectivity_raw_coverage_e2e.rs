@@ -23,6 +23,7 @@ use openhuman_core::openhuman::connectivity::rpc::{
 };
 use openhuman_core::openhuman::connectivity::{
     all_connectivity_controller_schemas, all_connectivity_registered_controllers,
+    connectivity_controller_schema,
 };
 use openhuman_core::openhuman::socket::{set_global_socket_manager, SocketManager};
 
@@ -376,6 +377,13 @@ async fn connectivity_ops_schema_and_socket_snapshot_paths_are_exercised() {
     assert_eq!(schemas.len(), 1);
     assert_eq!(schemas[0].namespace, "connectivity");
     assert_eq!(schemas[0].function, "diag");
+    assert_eq!(schemas[0].outputs[0].name, "diag");
+
+    let unknown = connectivity_controller_schema("missing");
+    assert_eq!(unknown.namespace, "connectivity");
+    assert_eq!(unknown.function, "unknown");
+    assert_eq!(unknown.outputs[0].name, "error");
+    assert!(unknown.description.contains("Unknown connectivity"));
 
     set_global_socket_manager(std::sync::Arc::new(SocketManager::new()));
     let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", &port.to_string());

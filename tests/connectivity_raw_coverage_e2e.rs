@@ -200,6 +200,23 @@ async fn spawn_probe_listener_on(host: &str, status: &str, body: &'static str) -
     let listener = tokio::net::TcpListener::bind((host, 0))
         .await
         .expect("bind probe listener");
+    spawn_probe_listener_from(listener, status, body)
+}
+
+async fn try_spawn_probe_listener_on(
+    host: &str,
+    status: &str,
+    body: &'static str,
+) -> Option<ProbeListener> {
+    let listener = tokio::net::TcpListener::bind((host, 0)).await.ok()?;
+    Some(spawn_probe_listener_from(listener, status, body))
+}
+
+fn spawn_probe_listener_from(
+    listener: tokio::net::TcpListener,
+    status: &str,
+    body: &'static str,
+) -> ProbeListener {
     let port = listener.local_addr().expect("probe addr").port();
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let status = status.to_string();
@@ -321,6 +338,22 @@ async fn connectivity_diag_direct_path_prefers_rpc_url_and_handles_invalid_port_
         .expect("valid port diag json");
     assert_eq!(
         env_port
+            .get("result")
+            .and_then(|p| p.get("diag"))
+            .and_then(|d| d.get("listen_port")),
+        Some(&json!(port))
+    );
+
+    drop(_valid_port);
+    let _url_without_port = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "http://127.0.0.1/rpc");
+    let _fallback_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", &port.to_string());
+    let url_without_port = diag()
+        .await
+        .expect("diag should fall through URL without explicit port")
+        .into_cli_compatible_json()
+        .expect("url without port diag json");
+    assert_eq!(
+        url_without_port
             .get("result")
             .and_then(|p| p.get("diag"))
             .and_then(|d| d.get("listen_port")),
@@ -449,6 +482,40 @@ async fn pick_listen_port_falls_back_for_non_openhuman_and_status_fingerprints()
         .expect("invalid root JSON should fall back");
     assert_eq!(picked.fallback_from, Some(invalid_body_probe.port));
     drop(picked.listener);
+
+    let raw_listener = StdTcpListener::bind("127.0.0.1:0").expect("bind raw listener");
+    let raw_port = raw_listener.local_addr().expect("raw listener addr").port();
+    let picked = pick_listen_port_for_host("127.0.0.1", raw_port)
+        .await
+        .expect("raw TCP listener should be classified as other and fall back");
+    assert_eq!(picked.fallback_from, Some(raw_port));
+    drop(picked.listener);
+    drop(raw_listener);
+}
+
+#[tokio::test]
+async fn pick_listen_port_identifies_ipv6_openhuman_listener_when_supported() {
+    let _lock = env_lock();
+    let Some(probe) =
+        try_spawn_probe_listener_on("::1", "200 OK", r#"{"name":"openhuman","ok":true}"#).await
+    else {
+        eprintln!("IPv6 loopback unavailable; skipping IPv6 connectivity probe coverage");
+        return;
+    };
+
+    let err = pick_listen_port_for_host("::1", probe.port)
+        .await
+        .expect_err("IPv6 openhuman listener should request takeover");
+    match err {
+        PickListenPortError::WouldTakeOver {
+            preferred,
+            fingerprint,
+        } => {
+            assert_eq!(preferred, probe.port);
+            assert_eq!(fingerprint, "openhuman-core");
+        }
+        other => panic!("expected IPv6 takeover error, got {other:?}"),
+    }
 }
 
 #[tokio::test]

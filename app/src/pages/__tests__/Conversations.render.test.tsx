@@ -933,7 +933,9 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     fireEvent.click(screen.getByLabelText('Move right'));
 
     await waitFor(() => {
-      expect(screen.getByText('Could not update task; changes were not saved.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Could not update task; changes were not saved.')
+      ).toBeInTheDocument();
     });
     expect(threadApi.putTaskBoard).toHaveBeenCalledWith(
       'board-thread',

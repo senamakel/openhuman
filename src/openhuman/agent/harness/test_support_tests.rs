@@ -1548,8 +1548,8 @@ impl Tool for TestDelegationTool {
 
 #[tokio::test]
 async fn orchestrator_prompt_drives_composio_call_via_delegation_chain() {
-    use crate::openhuman::agent::agents::orchestrator::prompt as orch_prompt;
     use crate::openhuman::agent::prompts::types::ConnectedIntegration;
+    use crate::openhuman::agent_registry::agents::orchestrator::prompt as orch_prompt;
     use crate::openhuman::composio::ComposioActionTool;
     use crate::openhuman::config::TEST_ENV_LOCK;
 

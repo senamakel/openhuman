@@ -125,7 +125,7 @@ mod tests {
     use super::*;
     use crate::openhuman::tools::traits::Tool;
 
-    use super::super::AskClarificationTool;
+    use crate::openhuman::agent::tools::AskClarificationTool;
 
     #[test]
     fn ask_clarification_tool_re_exported() {

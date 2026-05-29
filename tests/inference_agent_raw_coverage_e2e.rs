@@ -16,14 +16,25 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
+use openhuman_core::openhuman::agent::personality_paths::{
+    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
+    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
+    HasToolkit, PersonalityContext,
+};
 use openhuman_core::openhuman::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
+use openhuman_core::openhuman::agent::task_board::{
+    TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
+};
+use openhuman_core::openhuman::agent::task_dispatcher::build_task_prompt;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_core::openhuman::inference::context_window_for_model;
+use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
 };
@@ -73,6 +84,17 @@ struct IsolatedEnv {
     _workspace_guard: EnvVarGuard,
     _config_guard: EnvVarGuard,
     _openhuman_dir_guard: EnvVarGuard,
+}
+
+#[derive(Clone)]
+struct FakeIntegration {
+    toolkit: String,
+}
+
+impl HasToolkit for FakeIntegration {
+    fn toolkit_name(&self) -> &str {
+        &self.toolkit
+    }
 }
 
 fn isolated_env() -> IsolatedEnv {
@@ -693,4 +715,188 @@ fn agent_profile_state_deserializes_legacy_shape_and_normalises_defaults() {
     assert!(default_profile.is_master);
     assert_eq!(default_profile.memory_dir_suffix.as_deref(), Some(""));
     assert_eq!(default_profile.name, "Custom Default");
+}
+
+#[test]
+fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes() {
+    let workspace = tempdir().expect("workspace");
+    let store = TaskBoardStore::new(workspace.path().to_path_buf());
+    assert!(store.get("thread-1").expect("missing board").is_none());
+    assert!(store
+        .get("   ")
+        .unwrap_err()
+        .contains("invalid task board thread_id"));
+
+    let mut board = TaskBoard::empty("thread-1");
+    assert_eq!(board.thread_id, "thread-1");
+    board.cards.push(TaskBoardCard {
+        id: "card-1".into(),
+        title: "Fallback title".into(),
+        status: TaskCardStatus::Todo,
+        objective: Some(" Ship the coverage branch ".into()),
+        plan: vec!["Inspect gaps".into(), "Add tests".into()],
+        assigned_agent: Some("planner".into()),
+        allowed_tools: vec!["memory_recall".into()],
+        approval_mode: Some(TaskApprovalMode::Required),
+        acceptance_criteria: vec!["Focused tests pass".into()],
+        evidence: vec![],
+        notes: Some("Keep scope narrow".into()),
+        blocker: None,
+        source_metadata: Some(json!({
+            "provider": "github",
+            "repo": "tinyhumansai/openhuman",
+            "external_id": "123",
+            "url": "https://github.com/tinyhumansai/openhuman/issues/123"
+        })),
+        order: 2,
+        updated_at: "2026-05-29T12:00:00Z".into(),
+    });
+
+    let saved = store.put(board).expect("put board");
+    assert_eq!(saved.cards[0].status.as_str(), "todo");
+    assert_eq!(
+        saved.cards[0]
+            .approval_mode
+            .as_ref()
+            .expect("approval mode")
+            .as_str(),
+        "required"
+    );
+    let loaded = store
+        .get("thread-1")
+        .expect("load board")
+        .expect("board exists");
+    assert_eq!(loaded.cards[0].id, "card-1");
+
+    let prompt = build_task_prompt(&loaded.cards[0]);
+    assert!(prompt.contains("Ship the coverage branch"));
+    assert!(prompt.contains("1. Inspect gaps"));
+    assert!(prompt.contains("Acceptance criteria"));
+    assert!(prompt.contains("github tinyhumansai/openhuman#123"));
+    assert!(prompt.contains("Source link: https://github.com"));
+    assert!(prompt.contains("record the outcome on the upstream source"));
+
+    let title_prompt = build_task_prompt(&TaskBoardCard {
+        objective: Some("   ".into()),
+        source_metadata: Some(json!({ "external_id": "123" })),
+        ..loaded.cards[0].clone()
+    });
+    assert!(title_prompt.contains("Fallback title"));
+    assert!(!title_prompt.contains("This task originates from #123"));
+
+    let replaced = store
+        .put(TaskBoard {
+            thread_id: "thread-1".into(),
+            cards: vec![],
+            updated_at: String::new(),
+        })
+        .expect("replace board");
+    assert!(replaced.cards.is_empty());
+}
+
+#[test]
+fn agent_personality_paths_cover_safe_fallbacks_and_integration_filters() {
+    let workspace = tempdir().expect("workspace");
+    std::fs::create_dir_all(workspace.path().join("personalities/researcher"))
+        .expect("create personality dir");
+    std::fs::write(
+        workspace.path().join("personalities/researcher/MEMORY.md"),
+        "research memory",
+    )
+    .expect("write memory");
+    std::fs::write(workspace.path().join("SOUL.md"), "root soul").expect("write root soul");
+    std::fs::write(workspace.path().join("personality-soul.md"), "file soul")
+        .expect("write personality soul");
+
+    assert_eq!(memory_subdir_for_suffix(""), "memory");
+    assert_eq!(memory_subdir_for_suffix("-2"), "memory-2");
+    assert_eq!(memory_tree_subdir_for_suffix(""), "memory_tree");
+    assert_eq!(memory_tree_subdir_for_suffix("-3"), "memory_tree-3");
+    assert_eq!(session_raw_subdir_for_suffix(""), "session_raw");
+    assert_eq!(session_raw_subdir_for_suffix("-4"), "session_raw-4");
+
+    let mut profile = AgentProfile {
+        id: "researcher".into(),
+        name: "Researcher".into(),
+        description: "Research".into(),
+        agent_id: "planner".into(),
+        model_override: None,
+        temperature: None,
+        system_prompt_suffix: None,
+        allowed_tools: None,
+        built_in: false,
+        avatar_url: None,
+        voice_id: Some("voice-research".into()),
+        soul_md: Some("inline soul".into()),
+        soul_md_path: Some("personality-soul.md".into()),
+        composio_integrations: Some(vec!["gmail".into(), "slack".into()]),
+        memory_dir_suffix: Some("-7".into()),
+        is_master: false,
+        sort_order: Some(10),
+    };
+
+    assert_eq!(
+        resolve_personality_soul(workspace.path(), &profile).as_deref(),
+        Some("file soul")
+    );
+    profile.soul_md_path = Some("../escape.md".into());
+    assert_eq!(
+        resolve_personality_soul(workspace.path(), &profile).as_deref(),
+        Some("inline soul")
+    );
+    profile.soul_md_path = Some("missing.md".into());
+    assert_eq!(
+        resolve_personality_soul(workspace.path(), &profile).as_deref(),
+        Some("inline soul")
+    );
+    assert_eq!(
+        resolve_personality_memory_md(workspace.path(), &profile).as_deref(),
+        Some("research memory")
+    );
+
+    let context = PersonalityContext::from_profile(workspace.path(), profile);
+    assert_eq!(context.memory_suffix, "-7");
+    assert_eq!(context.voice_id.as_deref(), Some("voice-research"));
+    assert_eq!(
+        context.composio_allowlist.as_deref(),
+        Some(&["gmail".to_string(), "slack".to_string()][..])
+    );
+
+    let integrations = vec![
+        FakeIntegration {
+            toolkit: "gmail".into(),
+        },
+        FakeIntegration {
+            toolkit: "notion".into(),
+        },
+        FakeIntegration {
+            toolkit: "SLACK".into(),
+        },
+    ];
+    assert_eq!(filter_integrations(&integrations, None).len(), 3);
+    assert_eq!(filter_integrations(&integrations, Some(&[])).len(), 0);
+    let allowed = vec!["slack".to_string(), "gmail".to_string()];
+    let filtered = filter_integrations(&integrations, Some(&allowed));
+    assert_eq!(filtered.len(), 2);
+    assert!(filtered.iter().any(|item| item.toolkit == "gmail"));
+    assert!(filtered.iter().any(|item| item.toolkit == "SLACK"));
+}
+
+#[tokio::test]
+async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks() {
+    assert_eq!(context_window_for_model("gpt-4.1-mini"), Some(1_047_576));
+    assert_eq!(
+        context_window_for_model("claude-3-5-haiku-latest"),
+        Some(200_000)
+    );
+    assert_eq!(context_window_for_model("o3-mini"), Some(200_000));
+    assert_eq!(context_window_for_model("unknown-model"), None);
+    assert_eq!(context_window_for_model("   "), None);
+
+    let empty = local_ai_analyze_sentiment(&Config::default(), "   ")
+        .await
+        .expect("empty sentiment falls back to neutral");
+    assert_eq!(empty.value.emotion, "neutral");
+    assert_eq!(empty.value.valence, "neutral");
+    assert_eq!(empty.value.confidence, 1.0);
 }

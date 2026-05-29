@@ -1,8 +1,20 @@
 //! Personality-scoped path resolution and context for multi-agent sessions.
 
-use std::path::Path;
+use std::path::{Component, Path};
 
 use crate::openhuman::agent::profiles::AgentProfile;
+
+/// Reject path strings that could escape the workspace: absolute paths,
+/// root/prefix components, or any `..` segment.
+fn is_safe_relative_path(rel: &Path) -> bool {
+    !rel.is_absolute()
+        && rel.components().all(|c| {
+            !matches!(
+                c,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+}
 
 /// Resolve the memory subdirectory name for a given suffix.
 /// `""` → `"memory"`, `"-1"` → `"memory-1"`, `"-2"` → `"memory-2"`.
@@ -40,7 +52,21 @@ pub fn session_raw_subdir_for_suffix(suffix: &str) -> String {
 /// 3. `None` — caller falls back to the workspace root `SOUL.md`.
 pub fn resolve_personality_soul(workspace_dir: &Path, profile: &AgentProfile) -> Option<String> {
     if let Some(ref rel_path) = profile.soul_md_path {
-        let path = workspace_dir.join(rel_path);
+        let rel = Path::new(rel_path);
+        if !is_safe_relative_path(rel) {
+            tracing::debug!(
+                profile_id = %profile.id,
+                soul_md_path = %rel_path,
+                "[personality] rejected unsafe soul_md_path, trying inline"
+            );
+            // Fall through to inline check below.
+            return profile
+                .soul_md
+                .as_ref()
+                .filter(|s| !s.trim().is_empty())
+                .cloned();
+        }
+        let path = workspace_dir.join(rel);
         match std::fs::read_to_string(&path) {
             Ok(content) if !content.trim().is_empty() => {
                 tracing::debug!(

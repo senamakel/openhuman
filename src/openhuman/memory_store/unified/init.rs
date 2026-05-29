@@ -48,7 +48,17 @@ impl UnifiedMemory {
         embedder: Arc<dyn EmbeddingProvider>,
         _open_timeout_secs: Option<u64>,
     ) -> anyhow::Result<Self> {
-        let memory_dir = workspace_dir.join(memory_subdir);
+        use std::path::Component;
+        anyhow::ensure!(!memory_subdir.is_empty(), "memory_subdir must not be empty");
+        let subdir_path = Path::new(memory_subdir);
+        anyhow::ensure!(
+            subdir_path.components().count() == 1
+                && subdir_path
+                    .components()
+                    .all(|c| matches!(c, Component::Normal(_))),
+            "memory_subdir must be a single relative path component without traversal"
+        );
+        let memory_dir = workspace_dir.join(subdir_path);
         let namespaces_dir = memory_dir.join("namespaces");
         let vectors_dir = memory_dir.join("vectors");
         std::fs::create_dir_all(&namespaces_dir)?;

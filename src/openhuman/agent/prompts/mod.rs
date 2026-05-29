@@ -451,8 +451,9 @@ impl PromptSection for PersonalityRosterSection {
                 entry.name, entry.id, entry.description
             ));
             if let Some(ref summary) = entry.memory_summary {
-                let truncated = if summary.len() > 200 {
-                    format!("{}…", &summary[..200])
+                let truncated = if summary.chars().count() > 200 {
+                    let head: String = summary.chars().take(200).collect();
+                    format!("{head}…")
                 } else {
                     summary.clone()
                 };

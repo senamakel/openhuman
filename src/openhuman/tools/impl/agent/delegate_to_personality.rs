@@ -107,6 +107,32 @@ impl Tool for DelegateToPersonalityTool {
         );
 
         let store = AgentProfileStore::new(parent_ctx.workspace_dir.clone());
+
+        // Guard: only the master personality may delegate. This prevents a
+        // delegated sub-agent from recursing back through this tool — there is
+        // no built-in depth counter on cross-personality delegation, so we gate
+        // at the entry point.
+        let (state, active_profile) = match store.resolve(None) {
+            Ok(result) => result,
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "delegate_to_personality: failed to resolve active profile: {e}"
+                )));
+            }
+        };
+        if !active_profile.is_master {
+            tracing::debug!(
+                active_profile_id = %active_profile.id,
+                "[delegate_to_personality] rejected — caller is not the master personality"
+            );
+            return Ok(ToolResult::error(format!(
+                "delegate_to_personality: only the master personality may delegate \
+                 (active='{}', is_master=false).",
+                active_profile.id
+            )));
+        }
+        let _ = state;
+
         let (_state, profile) = match store.resolve(Some(&personality_id)) {
             Ok(result) => result,
             Err(e) => {
@@ -142,6 +168,32 @@ impl Tool for DelegateToPersonalityTool {
             "[delegate_to_personality] personality resolved, delegating"
         );
 
+        // Surface the target personality's identity, soul, and memory summary
+        // to the sub-agent via the `context` blob. Runtime memory-store and
+        // integration-allowlist swapping is a follow-up — `run_subagent`
+        // currently inherits the parent's `ParentExecutionContext` (memory,
+        // tools, integrations) wholesale (see issue tracker). Until that
+        // landing, the sub-agent gets the personality's voice/identity at the
+        // prompt level but still writes to the parent's memory store.
+        let mut personality_preamble = format!(
+            "You are acting as the personality `{}` (\"{}\"). {}",
+            profile.id, profile.name, profile.description
+        );
+        if let Some(ref soul) = personality_ctx.soul_md_override {
+            let soul_truncated: String = soul.chars().take(800).collect();
+            personality_preamble.push_str("\n\n[Personality SOUL.md]\n");
+            personality_preamble.push_str(&soul_truncated);
+        }
+        if let Some(ref mem) = personality_ctx.memory_md_override {
+            let mem_truncated: String = mem.chars().take(800).collect();
+            personality_preamble.push_str("\n\n[Personality MEMORY.md]\n");
+            personality_preamble.push_str(&mem_truncated);
+        }
+        let combined_context = match context.as_deref() {
+            Some(ctx_str) => format!("{personality_preamble}\n\n[Caller Context]\n{ctx_str}"),
+            None => personality_preamble,
+        };
+
         // Look up the agent definition for this personality's agent_id
         let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
@@ -162,15 +214,8 @@ impl Tool for DelegateToPersonalityTool {
             }
         };
 
-        // Build the prompt with optional context prefix
-        let full_prompt = if let Some(ref ctx_str) = context {
-            format!("[Context]\n{ctx_str}\n\n[Task]\n{prompt}")
-        } else {
-            prompt.clone()
-        };
-
         let options = SubagentRunOptions {
-            context: None,
+            context: Some(combined_context),
             model_override: profile.model_override.clone(),
             toolkit_override: None,
             skill_filter_override: None,
@@ -178,7 +223,7 @@ impl Tool for DelegateToPersonalityTool {
             worker_thread_id: None,
         };
 
-        match run_subagent(&definition, &full_prompt, options).await {
+        match run_subagent(&definition, &prompt, options).await {
             Ok(outcome) => {
                 tracing::debug!(
                     personality_id = %personality_id,

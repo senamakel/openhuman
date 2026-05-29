@@ -231,23 +231,58 @@ impl AgentProfileStore {
             }
         };
 
-        let profile = if profile.memory_dir_suffix.is_none() && profile.id != DEFAULT_PROFILE_ID {
-            let existing_suffixes: std::collections::HashSet<String> = state
-                .profiles
-                .iter()
-                .filter_map(|p| p.memory_dir_suffix.clone())
-                .collect();
-            let mut n = 1u32;
-            let suffix = loop {
-                let candidate = format!("-{n}");
-                if !existing_suffixes.contains(&candidate) {
-                    break candidate;
+        let profile = if profile.id != DEFAULT_PROFILE_ID && profile.memory_dir_suffix.is_none() {
+            // Re-upsert of an existing profile without a suffix → reuse the stored
+            // suffix so its memory directory doesn't migrate (and silently orphan
+            // its database).
+            if let Some(existing) = state.profiles.iter().find(|p| p.id == profile.id) {
+                if let Some(ref existing_suffix) = existing.memory_dir_suffix {
+                    AgentProfile {
+                        memory_dir_suffix: Some(existing_suffix.clone()),
+                        ..profile
+                    }
+                } else {
+                    // Pre-personality profile getting its first suffix assignment.
+                    let existing_suffixes: std::collections::HashSet<String> = state
+                        .profiles
+                        .iter()
+                        .filter(|p| p.id != profile.id)
+                        .filter_map(|p| p.memory_dir_suffix.clone())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    let mut n = 1u32;
+                    let suffix = loop {
+                        let candidate = format!("-{n}");
+                        if !existing_suffixes.contains(&candidate) {
+                            break candidate;
+                        }
+                        n += 1;
+                    };
+                    AgentProfile {
+                        memory_dir_suffix: Some(suffix),
+                        ..profile
+                    }
                 }
-                n += 1;
-            };
-            AgentProfile {
-                memory_dir_suffix: Some(suffix),
-                ..profile
+            } else {
+                // New non-default profile: assign the lowest unused suffix.
+                let existing_suffixes: std::collections::HashSet<String> = state
+                    .profiles
+                    .iter()
+                    .filter_map(|p| p.memory_dir_suffix.clone())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                let mut n = 1u32;
+                let suffix = loop {
+                    let candidate = format!("-{n}");
+                    if !existing_suffixes.contains(&candidate) {
+                        break candidate;
+                    }
+                    n += 1;
+                };
+                AgentProfile {
+                    memory_dir_suffix: Some(suffix),
+                    ..profile
+                }
             }
         } else {
             profile
@@ -569,7 +604,10 @@ fn normalise_profile(mut profile: AgentProfile) -> AgentProfile {
     if matches!(profile.composio_integrations.as_ref(), Some(v) if v.is_empty()) {
         profile.composio_integrations = None;
     }
-    profile.memory_dir_suffix = profile.memory_dir_suffix.map(|s| s.trim().to_string());
+    profile.memory_dir_suffix = profile
+        .memory_dir_suffix
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
     profile
 }
 

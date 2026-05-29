@@ -161,7 +161,13 @@ fn remove_deletes_and_cascades_ingested() {
         25,
     )
     .unwrap();
-    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01")).unwrap();
+    mark_ingested(
+        &config,
+        &src.id,
+        &sample_task("1", "A", "2025-01-01"),
+        "task-abc",
+    )
+    .unwrap();
 
     remove_source(&config, &src.id).unwrap();
     assert!(get_source(&config, &src.id).is_err());
@@ -192,7 +198,7 @@ fn dedup_detects_seen_and_edited_tasks() {
     // Not ingested yet.
     assert!(!is_ingested(&config, &src.id, "42", &hash).unwrap());
 
-    mark_ingested(&config, &src.id, &task).unwrap();
+    mark_ingested(&config, &src.id, &task, "task-v1").unwrap();
     // Same content hash → already ingested.
     assert!(is_ingested(&config, &src.id, "42", &hash).unwrap());
 
@@ -203,7 +209,7 @@ fn dedup_detects_seen_and_edited_tasks() {
     assert!(!is_ingested(&config, &src.id, "42", &edited_hash).unwrap());
 
     // Re-ingesting the edit upserts (still one row).
-    mark_ingested(&config, &src.id, &edited).unwrap();
+    mark_ingested(&config, &src.id, &edited, "task-v2").unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].external_id, "42");
@@ -225,8 +231,20 @@ fn list_ingested_orders_newest_first() {
     )
     .unwrap();
 
-    mark_ingested(&config, &src.id, &sample_task("1", "first", "2025-01-01")).unwrap();
-    mark_ingested(&config, &src.id, &sample_task("2", "second", "2025-01-02")).unwrap();
+    mark_ingested(
+        &config,
+        &src.id,
+        &sample_task("1", "first", "2025-01-01"),
+        "task-1",
+    )
+    .unwrap();
+    mark_ingested(
+        &config,
+        &src.id,
+        &sample_task("2", "second", "2025-01-02"),
+        "task-2",
+    )
+    .unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 2);
     // Newest ingested_at first; "2" was inserted last.

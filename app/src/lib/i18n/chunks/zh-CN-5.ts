@@ -939,6 +939,9 @@ const zhCN5: TranslationMap = {
   'settings.taskSources.enable': 'Enable',
   'settings.taskSources.disable': 'Disable',
   'settings.taskSources.remove': 'Remove',
+  'settings.taskSources.removeConfirm':
+    'Remove this task source? All ingested task history will be deleted and cannot be undone.',
+
   'settings.taskSources.refresh': 'Refresh',
   // Task sources provider labels (#task-sources)
   'settings.taskSources.providers.github': 'GitHub',

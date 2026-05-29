@@ -208,6 +208,7 @@ const TaskSourcesPanel = () => {
   };
 
   const removeSource = async (source: TaskSource) => {
+    if (!window.confirm(t('settings.taskSources.removeConfirm'))) return;
     setBusyKey(`remove:${source.id}`);
     setError(null);
     try {

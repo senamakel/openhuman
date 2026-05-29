@@ -119,22 +119,37 @@ async fn run_inner(
             continue;
         }
 
+        // Look up the stale card id (if any) before enrichment so we can
+        // remove the old board card when re-routing an edited upstream task.
+        let stale_card_id = store::get_card_id(config, &source.id, &task.external_id)
+            .map_err(|e| format!("get_card_id failed: {e}"))?;
+
         let enriched = enrich::enrich_task(task);
 
         // Route first; only mark ingested on success so a routing
         // failure retries on the next pass instead of being silently
         // dropped.
-        if let Err(e) = route::route_enriched(config, source, &enriched).await {
-            tracing::warn!(
-                source_id = %source.id,
-                external_id = %enriched.task.external_id,
-                error = %e,
-                "[task_sources:pipeline] routing failed (will retry next pass)"
-            );
-            continue;
-        }
+        let new_card_id = match route::route_enriched(
+            config,
+            source,
+            &enriched,
+            stale_card_id.as_deref(),
+        )
+        .await
+        {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!(
+                    source_id = %source.id,
+                    external_id = %enriched.task.external_id,
+                    error = %e,
+                    "[task_sources:pipeline] routing failed (will retry next pass)"
+                );
+                continue;
+            }
+        };
 
-        store::mark_ingested(config, &source.id, &enriched.task)
+        store::mark_ingested(config, &source.id, &enriched.task, &new_card_id)
             .map_err(|e| format!("mark_ingested failed: {e}"))?;
         publish_global(DomainEvent::TaskSourceTaskIngested {
             source_id: source.id.clone(),

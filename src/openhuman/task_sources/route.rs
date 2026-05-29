@@ -14,7 +14,9 @@ use serde_json::json;
 
 use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
 use crate::openhuman::config::Config;
-use crate::openhuman::todos::ops::{add as todo_add, BoardLocation, CardPatch};
+use crate::openhuman::todos::ops::{
+    add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
+};
 use crate::openhuman::{scheduler_gate, todos};
 
 use super::types::{EnrichedTask, SourceTarget, TaskSource};
@@ -23,13 +25,14 @@ use super::types::{EnrichedTask, SourceTarget, TaskSource};
 pub const TASK_SOURCES_THREAD_ID: &str = "task-sources";
 
 /// Route an enriched task: append a todo card, then (for proactive
-/// sources) dispatch a triage turn. Returns `Ok(())` on success.
+/// sources) dispatch a triage turn. Returns the new card id on success.
 pub async fn route_enriched(
     config: &Config,
     source: &TaskSource,
     enriched: &EnrichedTask,
-) -> Result<(), String> {
-    add_card(config, enriched)?;
+    stale_card_id: Option<&str>,
+) -> Result<String, String> {
+    let card_id = add_card(config, source, enriched, stale_card_id)?;
 
     match source.target {
         SourceTarget::TodoOnly => {
@@ -38,14 +41,60 @@ pub async fn route_enriched(
                 external_id = %enriched.task.external_id,
                 "[task_sources:route] todo-only target, card added (no agent turn)"
             );
-            Ok(())
+            Ok(card_id)
         }
-        SourceTarget::AgentTodoProactive => dispatch_triage(source, enriched).await,
+        SourceTarget::AgentTodoProactive => {
+            dispatch_triage(source, enriched).await?;
+            Ok(card_id)
+        }
     }
 }
 
-/// Append (or refresh) the task's card on the `task-sources` board.
-fn add_card(config: &Config, enriched: &EnrichedTask) -> Result<(), String> {
+/// Append a new card on the `task-sources` board, optionally removing a
+/// stale card first (when an upstream task was edited and re-routed). Returns
+/// the id of the newly created card.
+///
+/// Removing the stale card before adding the new one prevents duplicate board
+/// entries from accumulating across edit cycles. If the stale card is already
+/// gone (e.g. user manually removed it) the remove error is logged and
+/// ignored so the fresh card still lands.
+fn add_card(
+    config: &Config,
+    source: &TaskSource,
+    enriched: &EnrichedTask,
+    stale_card_id: Option<&str>,
+) -> Result<String, String> {
+    let location = BoardLocation::Thread {
+        workspace_dir: config.workspace_dir.clone(),
+        thread_id: TASK_SOURCES_THREAD_ID.to_string(),
+    };
+
+    // Remove stale card from the previous ingestion of this task (if any)
+    // before creating the replacement, so the board never accumulates
+    // duplicate cards for the same upstream item.
+    if let Some(old_id) = stale_card_id {
+        match todo_remove(&location, old_id) {
+            Ok(_) => {
+                tracing::debug!(
+                    source_id = %source.id,
+                    external_id = %enriched.task.external_id,
+                    stale_card_id = %old_id,
+                    "[task_sources:route] stale card removed before re-routing edited task"
+                );
+            }
+            Err(e) => {
+                // Not fatal: card may have been manually removed already.
+                tracing::debug!(
+                    source_id = %source.id,
+                    external_id = %enriched.task.external_id,
+                    stale_card_id = %old_id,
+                    error = %e,
+                    "[task_sources:route] stale card removal skipped (already gone?)"
+                );
+            }
+        }
+    }
+
     let task = &enriched.task;
     let label = provider_label(&task.provider);
     let content = format!("[{label}] {}", task.title.trim());
@@ -63,12 +112,7 @@ fn add_card(config: &Config, enriched: &EnrichedTask) -> Result<(), String> {
         Some(notes_parts.join("\n"))
     };
 
-    let location = BoardLocation::Thread {
-        workspace_dir: config.workspace_dir.clone(),
-        thread_id: TASK_SOURCES_THREAD_ID.to_string(),
-    };
-
-    todo_add(
+    let snapshot = todo_add(
         &location,
         &content,
         CardPatch {
@@ -76,14 +120,23 @@ fn add_card(config: &Config, enriched: &EnrichedTask) -> Result<(), String> {
             ..Default::default()
         },
     )
-    .map(|snapshot| {
-        tracing::debug!(
-            external_id = %task.external_id,
-            cards = snapshot.cards.len(),
-            "[task_sources:route] card added to task-sources board"
-        );
-    })
-    .map_err(|e| format!("[task_sources:route] failed to add todo card: {e}"))
+    .map_err(|e| format!("[task_sources:route] failed to add todo card: {e}"))?;
+
+    // The newly created card is always the last one in the snapshot (add
+    // appends at the end). Return its id for the dedup ledger.
+    let new_card_id = snapshot
+        .cards
+        .last()
+        .map(|c| c.id.clone())
+        .ok_or_else(|| "[task_sources:route] add returned empty card list".to_string())?;
+
+    tracing::debug!(
+        external_id = %task.external_id,
+        card_id = %new_card_id,
+        cards = snapshot.cards.len(),
+        "[task_sources:route] card added to task-sources board"
+    );
+    Ok(new_card_id)
 }
 
 /// Dispatch a triage turn for a proactive task, gated by scheduler

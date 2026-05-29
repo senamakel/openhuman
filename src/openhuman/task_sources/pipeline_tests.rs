@@ -156,6 +156,16 @@ async fn edited_task_reroutes_as_new_card() {
     assert_eq!(second.routed, 1, "edited task should re-route");
     assert_eq!(second.skipped_dupe, 0);
 
+    // Board must have exactly one card: the stale card was removed before
+    // the fresh one was added, so no duplicate accumulation.
+    let cards = route::board_cards(&config).unwrap();
+    assert_eq!(
+        cards.len(),
+        1,
+        "edited task must not leave duplicate board cards"
+    );
+    assert!(cards[0].title.contains("Edited title"));
+
     // Ledger still holds a single row for external_id 7 (upsert).
     let ingested = store::list_ingested(&config, &source.id, 10).unwrap();
     assert_eq!(ingested.len(), 1);

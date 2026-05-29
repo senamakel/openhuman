@@ -127,6 +127,14 @@ pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
     })
 }
 
+/// Apply a partial patch to a task source.
+///
+/// **Implementation note:** this function opens three separate SQLite
+/// connections (read-modify-write + read-back). At settings-panel scale the
+/// overhead is acceptable, but there is a theoretical TOCTOU window between
+/// the initial `get_source` and the subsequent `UPDATE`. A future refactor
+/// could fold all three operations into a single `with_connection` call using
+/// a SQL `UPDATE … RETURNING` pattern.
 pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
     let mut source = get_source(config, id)?;
 
@@ -244,23 +252,49 @@ pub fn is_ingested(
 }
 
 /// Record a routed task in the dedup ledger (idempotent upsert).
-pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
+///
+/// `card_id` is the board card UUID returned by `route::add_card`; it is
+/// persisted so that a later edit of the same upstream task can remove the
+/// stale card before creating a fresh one (preventing duplicate board cards).
+pub fn mark_ingested(
+    config: &Config,
+    source_id: &str,
+    task: &NormalizedTask,
+    card_id: &str,
+) -> Result<()> {
     let hash = content_hash(task);
     let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
     let now = Utc::now().to_rfc3339();
     with_connection(config, |conn| {
         conn.execute(
-            "INSERT INTO ingested_tasks (source_id, external_id, content_hash, title, payload, ingested_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO ingested_tasks (source_id, external_id, content_hash, title, payload, ingested_at, card_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(source_id, external_id) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 title = excluded.title,
                 payload = excluded.payload,
-                ingested_at = excluded.ingested_at",
-            params![source_id, task.external_id, hash, task.title, payload, now],
+                ingested_at = excluded.ingested_at,
+                card_id = excluded.card_id",
+            params![source_id, task.external_id, hash, task.title, payload, now, card_id],
         )
         .context("Failed to mark task ingested")?;
         Ok(())
+    })
+}
+
+/// Return the board card id previously stored for `(source_id, external_id)`,
+/// if any. Used by the pipeline to remove stale board cards when an upstream
+/// task is edited and re-ingested.
+pub fn get_card_id(config: &Config, source_id: &str, external_id: &str) -> Result<Option<String>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT card_id FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
+        )?;
+        let mut rows = stmt.query(params![source_id, external_id])?;
+        match rows.next()? {
+            Some(row) => Ok(row.get(0)?),
+            None => Ok(None),
+        }
     })
 }
 
@@ -270,6 +304,9 @@ pub fn list_ingested(
     source_id: &str,
     limit: usize,
 ) -> Result<Vec<NormalizedTask>> {
+    // Floor of 1: a caller passing `limit = 0` still gets at least one row
+    // rather than a confusing empty result; `unwrap_or(50)` is the fallback
+    // in the unlikely event that `limit` exceeds `i64::MAX`.
     let lim = i64::try_from(limit.max(1)).unwrap_or(50);
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
@@ -393,6 +430,7 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
             title        TEXT,
             payload      TEXT,
             ingested_at  TEXT NOT NULL,
+            card_id      TEXT,
             PRIMARY KEY (source_id, external_id),
             FOREIGN KEY (source_id) REFERENCES task_sources(id) ON DELETE CASCADE
          );
@@ -400,7 +438,46 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
     )
     .context("Failed to initialize task_sources schema")?;
 
+    // Additive migration: add card_id to existing databases that pre-date
+    // this column. Tolerate "duplicate column" in case of a concurrent open.
+    add_column_if_missing(&conn, "ingested_tasks", "card_id", "TEXT")?;
+
     f(&conn)
+}
+
+/// Add a column to a table only when it is absent. Mirrors the pattern used
+/// in `cron/store.rs` to keep migrations idempotent across DB versions.
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    sql_type: &str,
+) -> Result<()> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let col_name: String = row.get(1)?;
+        if col_name == column {
+            return Ok(()); // already present
+        }
+    }
+    drop(rows);
+    drop(stmt);
+    match conn.execute(
+        &format!("ALTER TABLE {table} ADD COLUMN {column} {sql_type}"),
+        [],
+    ) {
+        Ok(_) => Ok(()),
+        Err(rusqlite::Error::SqliteFailure(_, Some(ref msg)))
+            if msg.contains("duplicate column name") =>
+        {
+            tracing::debug!(
+                "[task_sources:store] column {table}.{column} already exists (concurrent migration)"
+            );
+            Ok(())
+        }
+        Err(e) => Err(e).with_context(|| format!("Failed to add {table}.{column}")),
+    }
 }
 
 #[cfg(test)]

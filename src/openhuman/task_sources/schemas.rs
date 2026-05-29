@@ -161,8 +161,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
                 FieldSchema {
                     name: "max_tasks_per_fetch",
+                    // TypeSchema has no U32 variant; U64 is the only unsigned
+                    // integer type. The handler (`read_optional_u32`) checks at
+                    // runtime that the supplied value fits in a u32 and returns
+                    // a clear error when it does not.
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Per-fetch task cap; defaults from config.",
+                    comment: "Per-fetch task cap (u32 range); defaults from config.",
                     required: false,
                 },
             ],
@@ -270,7 +274,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "max",
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Max tasks to preview; defaults from config.",
+                    comment: "Max tasks to preview (u32 range); defaults from config.",
                     required: false,
                 },
             ],
@@ -465,9 +469,9 @@ fn read_optional<T: DeserializeOwned>(
 }
 
 /// Read an optional unsigned integer parameter and checked-convert it to
-/// `u32`. The wire schema advertises `U64` (the only unsigned schema
-/// type), so we accept any `u64` and reject values outside the `u32`
-/// range with a clear error rather than silently truncating.
+/// `u32`. JSON integers arrive as `u64` on the wire; we accept any value
+/// that fits in `u32` and reject out-of-range values with a clear error
+/// rather than silently truncating.
 fn read_optional_u32(params: &Map<String, Value>, key: &str) -> Result<Option<u32>, String> {
     match read_optional::<u64>(params, key)? {
         Some(n) => {

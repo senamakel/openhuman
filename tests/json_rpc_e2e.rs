@@ -1830,6 +1830,24 @@ async fn json_rpc_task_board_brief_roundtrips_across_todos_and_threads_rpc() {
         "empty notes should clear"
     );
 
+    let cleared_approval = post_json_rpc(
+        &rpc_base,
+        9207,
+        "openhuman.todos_edit",
+        json!({
+            "thread_id": thread_id,
+            "id": task_id,
+            "approvalMode": null
+        }),
+    )
+    .await;
+    let cleared_result =
+        assert_no_jsonrpc_error(&cleared_approval, "todos_edit clears approvalMode");
+    assert!(
+        cleared_result["cards"][0].get("approvalMode").is_none(),
+        "null approvalMode should clear the optional field: {cleared_result}"
+    );
+
     let thread_get = post_json_rpc(
         &rpc_base,
         9203,
@@ -1843,7 +1861,10 @@ async fn json_rpc_task_board_brief_roundtrips_across_todos_and_threads_rpc() {
         .expect("taskBoard in threads get");
     assert_eq!(board["threadId"], thread_id);
     assert_eq!(board["cards"][0]["title"], "Implement editable task briefs");
-    assert_eq!(board["cards"][0]["approvalMode"], "not_required");
+    assert!(
+        board["cards"][0].get("approvalMode").is_none(),
+        "cleared approvalMode should persist through threads get: {board}"
+    );
 
     let mut cards = board
         .get("cards")

@@ -136,7 +136,9 @@ export function TaskKanbanBoard({
                     {card.approvalMode && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
                         <LuShieldCheck className="h-3 w-3" />
-                        {card.approvalMode === 'required' ? 'approval' : 'no approval'}
+                        {card.approvalMode === 'required'
+                          ? t('conversations.taskKanban.approval.requiredBadge')
+                          : t('conversations.taskKanban.approval.notRequiredBadge')}
                       </span>
                     )}
                     {card.acceptanceCriteria && card.acceptanceCriteria.length > 0 && (
@@ -174,7 +176,7 @@ export function TaskKanbanBoard({
                       onClick={() => setSelectedCardId(card.id)}
                       className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-300 dark:hover:text-ocean-200">
                       <LuClipboardList className="h-3 w-3" />
-                      Task brief
+                      {t('conversations.taskKanban.briefButton')}
                     </button>
                   )}
                 </article>
@@ -206,6 +208,7 @@ function TaskBriefDialog({
   onClose: () => void;
   onUpdate?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
 }) {
+  const { t } = useT();
   const editable = Boolean(onUpdate) && !disabled;
   const [title, setTitle] = useState(card.title);
   const [status, setStatus] = useState<TaskBoardCardStatus>(card.status);
@@ -247,7 +250,7 @@ function TaskBriefDialog({
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase text-stone-400 dark:text-neutral-500">
-              Task brief
+              {t('conversations.taskKanban.briefTitle')}
             </p>
             <h3 className="break-words text-base font-semibold text-stone-900 dark:text-neutral-50">
               {card.title}
@@ -255,7 +258,7 @@ function TaskBriefDialog({
           </div>
           <button
             type="button"
-            aria-label="Close task brief"
+            aria-label={t('conversations.taskKanban.closeBrief')}
             onClick={onClose}
             className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100">
             <LuX className="h-4 w-4" />
@@ -266,7 +269,7 @@ function TaskBriefDialog({
           <div className="space-y-3 text-sm">
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                Title
+                {t('conversations.taskKanban.field.title')}
               </span>
               <input
                 value={title}
@@ -277,7 +280,7 @@ function TaskBriefDialog({
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                  Status
+                  {t('conversations.taskKanban.field.status')}
                 </span>
                 <select
                   value={status}
@@ -285,77 +288,130 @@ function TaskBriefDialog({
                   className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
                   {COLUMN_DEFS.map(column => (
                     <option key={column.status} value={column.status}>
-                      {column.status.replace('_', ' ')}
+                      {t(column.labelKey)}
                     </option>
                   ))}
                 </select>
               </label>
               <BriefInput
-                label="Assigned agent"
+                label={t('conversations.taskKanban.field.assignedAgent')}
                 value={assignedAgent}
                 onChange={setAssignedAgent}
               />
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                  Approval
+                  {t('conversations.taskKanban.field.approval')}
                 </span>
                 <select
                   value={approvalMode}
                   onChange={e => setApprovalMode(e.target.value)}
                   className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50">
-                  <option value="">Default</option>
-                  <option value="required">Required</option>
-                  <option value="not_required">Not required</option>
+                  <option value="">{t('conversations.taskKanban.approval.default')}</option>
+                  <option value="required">
+                    {t('conversations.taskKanban.approval.required')}
+                  </option>
+                  <option value="not_required">
+                    {t('conversations.taskKanban.approval.notRequired')}
+                  </option>
                 </select>
               </label>
             </div>
-            <BriefInput label="Objective" value={objective} onChange={setObjective} />
-            <BriefTextarea label="Plan" value={plan} onChange={setPlan} />
-            <BriefTextarea label="Allowed tools" value={allowedTools} onChange={setAllowedTools} />
+            <BriefInput
+              label={t('conversations.taskKanban.field.objective')}
+              value={objective}
+              onChange={setObjective}
+            />
             <BriefTextarea
-              label="Acceptance criteria"
+              label={t('conversations.taskKanban.field.plan')}
+              value={plan}
+              onChange={setPlan}
+            />
+            <BriefTextarea
+              label={t('conversations.taskKanban.field.allowedTools')}
+              value={allowedTools}
+              onChange={setAllowedTools}
+            />
+            <BriefTextarea
+              label={t('conversations.taskKanban.field.acceptanceCriteria')}
               value={acceptanceCriteria}
               onChange={setAcceptanceCriteria}
             />
-            <BriefTextarea label="Evidence" value={evidence} onChange={setEvidence} />
-            <BriefTextarea label="Notes" value={notes} onChange={setNotes} />
-            <BriefTextarea label="Blocker" value={blocker} onChange={setBlocker} />
+            <BriefTextarea
+              label={t('conversations.taskKanban.field.evidence')}
+              value={evidence}
+              onChange={setEvidence}
+            />
+            <BriefTextarea
+              label={t('conversations.taskKanban.field.notes')}
+              value={notes}
+              onChange={setNotes}
+            />
+            <BriefTextarea
+              label={t('conversations.taskKanban.field.blocker')}
+              value={blocker}
+              onChange={setBlocker}
+            />
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={onClose}
                 className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={save}
                 disabled={!title.trim()}
                 className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
-                Save changes
+                {t('conversations.taskKanban.saveChanges')}
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-4 text-sm">
-            <BriefText label="Objective" value={card.objective} />
-            <BriefText label="Assigned agent" value={card.assignedAgent} mono />
             <BriefText
-              label="Approval"
+              label={t('conversations.taskKanban.field.objective')}
+              value={card.objective}
+            />
+            <BriefText
+              label={t('conversations.taskKanban.field.assignedAgent')}
+              value={card.assignedAgent}
+              mono
+            />
+            <BriefText
+              label={t('conversations.taskKanban.field.approval')}
               value={
                 card.approvalMode === 'required'
-                  ? 'Required before execution'
+                  ? t('conversations.taskKanban.approval.requiredBeforeExecution')
                   : card.approvalMode === 'not_required'
-                    ? 'Not required'
+                    ? t('conversations.taskKanban.approval.notRequired')
                     : undefined
               }
             />
-            <BriefList label="Plan" values={card.plan} ordered />
-            <BriefList label="Allowed tools" values={card.allowedTools} mono />
-            <BriefList label="Acceptance criteria" values={card.acceptanceCriteria} />
-            <BriefList label="Evidence" values={card.evidence} />
-            <BriefText label="Notes" value={card.notes} />
-            <BriefText label="Blocker" value={card.blocker} tone="danger" />
+            <BriefList
+              label={t('conversations.taskKanban.field.plan')}
+              values={card.plan}
+              ordered
+            />
+            <BriefList
+              label={t('conversations.taskKanban.field.allowedTools')}
+              values={card.allowedTools}
+              mono
+            />
+            <BriefList
+              label={t('conversations.taskKanban.field.acceptanceCriteria')}
+              values={card.acceptanceCriteria}
+            />
+            <BriefList
+              label={t('conversations.taskKanban.field.evidence')}
+              values={card.evidence}
+            />
+            <BriefText label={t('conversations.taskKanban.field.notes')} value={card.notes} />
+            <BriefText
+              label={t('conversations.taskKanban.field.blocker')}
+              value={card.blocker}
+              tone="danger"
+            />
           </div>
         )}
       </section>

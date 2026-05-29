@@ -78,8 +78,8 @@ impl Tool for TodoTool {
                     "items": { "type": "string" }
                 },
                 "approvalMode": {
-                    "type": "string",
-                    "enum": ["required", "not_required"]
+                    "type": ["string", "null"],
+                    "enum": ["required", "not_required", null]
                 },
                 "acceptanceCriteria": {
                     "type": "array",
@@ -121,7 +121,7 @@ impl Tool for TodoTool {
                 let content = required_string(&args, "content")?;
                 let mut patch = patch_from_args(&args)?;
                 if patch.approval_mode.is_none() {
-                    patch.approval_mode = default_task_approval_mode().await;
+                    patch.approval_mode = Some(default_task_approval_mode().await);
                 }
                 ops::add(&location, &content, patch)
             }
@@ -225,14 +225,22 @@ fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
         Some(s) => Some(ops::parse_status(s).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let approval_mode = match args.get("approvalMode").and_then(|v| v.as_str()) {
-        Some("required") => Some(TaskApprovalMode::Required),
-        Some("not_required") => Some(TaskApprovalMode::NotRequired),
-        Some(other) => {
-            return Err(anyhow::anyhow!(
-                "invalid approvalMode '{other}' (expected required|not_required)"
-            ))
-        }
+    let approval_mode = match args.get("approvalMode") {
+        Some(value) if value.is_null() => Some(None),
+        Some(value) => match value.as_str() {
+            Some("required") => Some(Some(TaskApprovalMode::Required)),
+            Some("not_required") => Some(Some(TaskApprovalMode::NotRequired)),
+            Some(other) => {
+                return Err(anyhow::anyhow!(
+                    "invalid approvalMode '{other}' (expected required|not_required|null)"
+                ))
+            }
+            None => {
+                return Err(anyhow::anyhow!(
+                    "invalid approvalMode type (expected required|not_required|null)"
+                ))
+            }
+        },
         None => None,
     };
     Ok(CardPatch {

@@ -63,7 +63,7 @@ pub struct CardPatch {
     pub plan: Option<Vec<String>>,
     pub assigned_agent: Option<String>,
     pub allowed_tools: Option<Vec<String>>,
-    pub approval_mode: Option<TaskApprovalMode>,
+    pub approval_mode: Option<Option<TaskApprovalMode>>,
     pub acceptance_criteria: Option<Vec<String>>,
     pub evidence: Option<Vec<String>>,
     pub notes: Option<String>,
@@ -256,7 +256,7 @@ pub fn add(
         plan: patch.plan.unwrap_or_default(),
         assigned_agent: patch.assigned_agent.and_then(non_empty),
         allowed_tools: patch.allowed_tools.unwrap_or_default(),
-        approval_mode: patch.approval_mode,
+        approval_mode: patch.approval_mode.flatten(),
         acceptance_criteria: patch.acceptance_criteria.unwrap_or_default(),
         evidence: patch.evidence.unwrap_or_default(),
         notes: patch.notes.and_then(non_empty),
@@ -308,7 +308,7 @@ pub fn edit(location: &BoardLocation, id: &str, patch: CardPatch) -> Result<Todo
         card.allowed_tools = allowed_tools;
     }
     if let Some(approval_mode) = patch.approval_mode {
-        card.approval_mode = Some(approval_mode);
+        card.approval_mode = approval_mode;
     }
     if let Some(acceptance_criteria) = patch.acceptance_criteria {
         card.acceptance_criteria = acceptance_criteria;
@@ -496,7 +496,7 @@ mod tests {
                 ]),
                 assigned_agent: Some("planner".into()),
                 allowed_tools: Some(vec!["todo".into(), "spawn_subagent".into()]),
-                approval_mode: Some(TaskApprovalMode::Required),
+                approval_mode: Some(Some(TaskApprovalMode::Required)),
                 acceptance_criteria: Some(vec!["Tests pass".into()]),
                 evidence: Some(vec!["cargo test".into()]),
                 ..Default::default()
@@ -531,6 +531,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(snap.cards[0].title, "Refined plan");
+    }
+
+    #[test]
+    fn edit_can_clear_approval_mode() {
+        let dir = tempdir().unwrap();
+        let loc = thread_loc(dir.path(), "t1");
+        let added = add(
+            &loc,
+            "Draft plan",
+            CardPatch {
+                approval_mode: Some(Some(TaskApprovalMode::Required)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let id = added.cards[0].id.clone();
+
+        let snap = edit(
+            &loc,
+            &id,
+            CardPatch {
+                approval_mode: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(snap.cards[0].approval_mode, None);
     }
 
     #[test]

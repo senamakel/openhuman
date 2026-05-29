@@ -115,7 +115,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 ),
                 optional_string(
                     "approvalMode",
-                    "Task approval mode: required | not_required.",
+                    "Task approval mode: required | not_required (pass null to clear).",
                 ),
                 string_array_input(
                     "acceptanceCriteria",
@@ -237,9 +237,6 @@ struct EditParams {
     #[serde(alias = "allowedTools")]
     allowed_tools: Option<Vec<String>>,
     #[serde(default)]
-    #[serde(alias = "approvalMode")]
-    approval_mode: Option<String>,
-    #[serde(default)]
     #[serde(alias = "acceptanceCriteria")]
     acceptance_criteria: Option<Vec<String>>,
     #[serde(default)]
@@ -289,7 +286,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             plan: p.plan,
             assigned_agent: p.assigned_agent,
             allowed_tools: p.allowed_tools,
-            approval_mode: parse_approval_mode(p.approval_mode)?,
+            approval_mode: Some(parse_approval_mode(p.approval_mode)?),
             acceptance_criteria: p.acceptance_criteria,
             evidence: p.evidence,
             notes: p.notes,
@@ -302,6 +299,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_edit(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
+        let approval_mode = approval_mode_patch_from_params(&params)?;
         let p = parse::<EditParams>(params)?;
         let loc = thread_location(&p.thread_id).await?;
         let patch = CardPatch {
@@ -311,7 +309,7 @@ fn handle_edit(params: Map<String, Value>) -> ControllerFuture {
             plan: p.plan,
             assigned_agent: p.assigned_agent,
             allowed_tools: p.allowed_tools,
-            approval_mode: parse_approval_mode(p.approval_mode)?,
+            approval_mode,
             acceptance_criteria: p.acceptance_criteria,
             evidence: p.evidence,
             notes: p.notes,
@@ -348,6 +346,24 @@ fn parse_approval_mode(raw: Option<String>) -> Result<Option<TaskApprovalMode>, 
             "invalid approval_mode '{other}' (expected required|not_required)"
         )),
     }
+}
+
+fn approval_mode_patch_from_params(
+    params: &Map<String, Value>,
+) -> Result<Option<Option<TaskApprovalMode>>, String> {
+    let Some(value) = params
+        .get("approvalMode")
+        .or_else(|| params.get("approval_mode"))
+    else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(Some(None));
+    }
+    let Some(raw) = value.as_str() else {
+        return Err("invalid approval_mode type (expected required|not_required|null)".to_string());
+    };
+    parse_approval_mode(Some(raw.to_string())).map(Some)
 }
 
 fn handle_remove(params: Map<String, Value>) -> ControllerFuture {

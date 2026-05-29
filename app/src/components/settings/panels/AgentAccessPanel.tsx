@@ -272,9 +272,11 @@ const AgentAccessPanel = () => {
                   onChange={e => toggleTaskPlanApproval(e.target.checked)}
                 />
                 <span>
-                  <span className="text-sm font-medium text-ink">Require task plan approval</span>
+                  <span className="text-sm font-medium text-ink">
+                    {t('settings.agentAccess.requireTaskPlanApproval.label')}
+                  </span>
                   <span className="block text-xs text-ink-soft">
-                    Pause before an assigned agent executes an agent-authored task brief.
+                    {t('settings.agentAccess.requireTaskPlanApproval.desc')}
                   </span>
                 </span>
               </label>

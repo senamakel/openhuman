@@ -2,7 +2,7 @@
 //! and connectivity controller surfaces.
 
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -586,6 +586,278 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
 }
 
 #[tokio::test]
+async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exercised() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let refused = rpc(
+        &harness.rpc_base,
+        11_001,
+        "openhuman.config_set_browser_allow_all",
+        json!({ "enabled": true }),
+    )
+    .await;
+    assert_error_contains(
+        &refused,
+        "set_browser_allow_all true without operator opt-in",
+        "Refusing to enable OPENHUMAN_BROWSER_ALLOW_ALL",
+    );
+
+    std::env::set_var("OPENHUMAN_BROWSER_ALLOW_ALL_RPC_ENABLE", "1");
+    let enabled = rpc(
+        &harness.rpc_base,
+        11_002,
+        "openhuman.config_set_browser_allow_all",
+        json!({ "enabled": true }),
+    )
+    .await;
+    assert_eq!(
+        payload(&enabled, "set_browser_allow_all true")
+            .get("browser_allow_all")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let disabled = rpc(
+        &harness.rpc_base,
+        11_003,
+        "openhuman.config_set_browser_allow_all",
+        json!({ "enabled": false }),
+    )
+    .await;
+    assert_eq!(
+        payload(&disabled, "set_browser_allow_all false")
+            .get("browser_allow_all")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+
+    ok(
+        &rpc(
+            &harness.rpc_base,
+            11_004,
+            "openhuman.config_update_analytics_settings",
+            json!({ "enabled": false }),
+        )
+        .await,
+        "update_analytics_settings false",
+    );
+    let analytics = rpc(
+        &harness.rpc_base,
+        11_005,
+        "openhuman.config_get_analytics_settings",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&analytics, "get_analytics_settings")
+            .get("enabled")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+
+    ok(
+        &rpc(
+            &harness.rpc_base,
+            11_006,
+            "openhuman.config_update_meet_settings",
+            json!({ "auto_orchestrator_handoff": true }),
+        )
+        .await,
+        "update_meet_settings true",
+    );
+    let meet = rpc(
+        &harness.rpc_base,
+        11_007,
+        "openhuman.config_get_meet_settings",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&meet, "get_meet_settings")
+            .get("auto_orchestrator_handoff")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let onboarding_before = rpc(
+        &harness.rpc_base,
+        11_008,
+        "openhuman.config_get_onboarding_completed",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&onboarding_before, "get_onboarding_completed before").as_bool(),
+        Some(false)
+    );
+    for (id, value) in [(11_009, true), (11_010, false)] {
+        let updated = rpc(
+            &harness.rpc_base,
+            id,
+            "openhuman.config_set_onboarding_completed",
+            json!({ "value": value }),
+        )
+        .await;
+        assert_eq!(
+            payload(&updated, "set_onboarding_completed").as_bool(),
+            Some(value)
+        );
+    }
+
+    ok(
+        &rpc(
+            &harness.rpc_base,
+            11_011,
+            "openhuman.config_update_dictation_settings",
+            json!({
+                "enabled": true,
+                "hotkey": "Ctrl+Space",
+                "activation_mode": "toggle",
+                "llm_refinement": false,
+                "streaming": true,
+                "streaming_interval_ms": 750
+            }),
+        )
+        .await,
+        "update_dictation_settings valid",
+    );
+    let dictation = rpc(
+        &harness.rpc_base,
+        11_012,
+        "openhuman.config_get_dictation_settings",
+        json!({}),
+    )
+    .await;
+    let dictation_payload = payload(&dictation, "get_dictation_settings");
+    assert_eq!(
+        dictation_payload
+            .get("activation_mode")
+            .and_then(Value::as_str),
+        Some("toggle")
+    );
+    assert_eq!(
+        dictation_payload
+            .get("streaming_interval_ms")
+            .and_then(Value::as_u64),
+        Some(750)
+    );
+
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_013,
+            "openhuman.config_update_dictation_settings",
+            json!({ "activation_mode": "hold" }),
+        )
+        .await,
+        "update_dictation_settings invalid activation",
+        "invalid activation_mode",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_014,
+            "openhuman.config_update_voice_server_settings",
+            json!({ "activation_mode": "hold" }),
+        )
+        .await,
+        "update_voice_server_settings invalid activation",
+        "invalid activation_mode",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_015,
+            "openhuman.config_update_search_settings",
+            json!({ "engine": "bing" }),
+        )
+        .await,
+        "update_search_settings invalid engine",
+        "engine must be one of",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_016,
+            "openhuman.config_update_search_settings",
+            json!({ "max_results": 0 }),
+        )
+        .await,
+        "update_search_settings invalid max_results",
+        "max_results must be between",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_017,
+            "openhuman.config_update_autonomy_settings",
+            json!({ "level": "reckless" }),
+        )
+        .await,
+        "update_autonomy_settings invalid level",
+        "invalid autonomy level",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            11_018,
+            "openhuman.config_update_model_settings",
+            json!({
+                "cloud_providers": [{
+                    "slug": "",
+                    "endpoint": "http://127.0.0.1:19999/v1",
+                    "auth_style": "bearer"
+                }]
+            }),
+        )
+        .await,
+        "update_model_settings empty cloud provider slug",
+        "cloud provider slug must not be empty",
+    );
+
+    ok(
+        &rpc(
+            &harness.rpc_base,
+            11_019,
+            "openhuman.config_update_screen_intelligence_settings",
+            json!({ "baseline_fps": 99.0 }),
+        )
+        .await,
+        "update_screen_intelligence_settings clamps baseline",
+    );
+    ok(
+        &rpc(
+            &harness.rpc_base,
+            11_020,
+            "openhuman.config_update_voice_server_settings",
+            json!({
+                "min_duration_secs": -1.0,
+                "silence_threshold": -0.5
+            }),
+        )
+        .await,
+        "update_voice_server_settings clamps non-negative floats",
+    );
+    let config = rpc(&harness.rpc_base, 11_021, "openhuman.config_get", json!({})).await;
+    let config_payload = payload(&config, "config_get after clamps");
+    assert_eq!(
+        config_payload.pointer("/config/screen_intelligence/baseline_fps"),
+        Some(&json!(30.0))
+    );
+    assert_eq!(
+        config_payload.pointer("/config/voice_server/min_duration_secs"),
+        Some(&json!(0.0))
+    );
+    assert_eq!(
+        config_payload.pointer("/config/voice_server/silence_threshold"),
+        Some(&json!(0.0))
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
 async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -710,6 +982,28 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "auth_store_provider_credentials invalid fields",
         "fields must be a JSON object",
     );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            20_019,
+            "openhuman.auth_store_provider_credentials",
+            json!({ "provider": "worker-a-empty" }),
+        )
+        .await,
+        "auth_store_provider_credentials missing credential material",
+        "provide at least one credential",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            20_020,
+            "openhuman.auth_store_session",
+            json!({ "token": "header.payload.local" }),
+        )
+        .await,
+        "auth_store_session local token without user",
+        "local session requires a user payload",
+    );
 
     let stored_provider = rpc(
         &harness.rpc_base,
@@ -816,6 +1110,113 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
 }
 
 #[tokio::test]
+async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_identity() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let session = rpc(
+        &harness.rpc_base,
+        21_001,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "header.payload.local",
+            "user": {
+                "id": "renderer-supplied-id",
+                "name": "Local Worker",
+                "email": "local-worker@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session local")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let state = rpc(
+        &harness.rpc_base,
+        21_002,
+        "openhuman.auth_get_state",
+        json!({}),
+    )
+    .await;
+    let state_payload = payload(&state, "auth_get_state after local session");
+    assert_eq!(
+        state_payload
+            .get("isAuthenticated")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    let user_id = state_payload
+        .get("userId")
+        .and_then(Value::as_str)
+        .expect("local session should set userId");
+    assert!(
+        user_id.starts_with("local-"),
+        "local session user id should be host-scoped, got {user_id:?}"
+    );
+    assert_eq!(
+        state_payload.pointer("/user/id").and_then(Value::as_str),
+        Some(user_id)
+    );
+    assert_eq!(
+        state_payload.pointer("/user/_id").and_then(Value::as_str),
+        Some(user_id)
+    );
+
+    let token = rpc(
+        &harness.rpc_base,
+        21_003,
+        "openhuman.auth_get_session_token",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&token, "auth_get_session_token after local session")
+            .get("token")
+            .and_then(Value::as_str),
+        Some("header.payload.local")
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        21_004,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    let snapshot_payload = payload(&snapshot, "app_state_snapshot local session");
+    assert_eq!(
+        snapshot_payload.get("sessionToken").and_then(Value::as_str),
+        Some("header.payload.local")
+    );
+    assert_eq!(
+        snapshot_payload
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("local-worker@example.test")
+    );
+
+    let cleared = rpc(
+        &harness.rpc_base,
+        21_005,
+        "openhuman.auth_clear_session",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&cleared, "auth_clear_session after local session")
+            .get("removed")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -878,6 +1279,57 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
             .get("encryptionKey")
             .is_none(),
         "null patch should clear optional encryption key: {cleared}"
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
+async fn app_state_snapshot_quarantines_corrupted_local_state_file() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let config = rpc(&harness.rpc_base, 31_001, "openhuman.config_get", json!({})).await;
+    let workspace_dir = payload(&config, "config_get for app_state corruption")
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .expect("config_get should expose workspace_dir");
+    let state_dir = workspace_dir.join("state");
+    std::fs::create_dir_all(&state_dir).expect("create state dir");
+    let app_state_path = state_dir.join("app-state.json");
+    std::fs::write(&app_state_path, "{ not valid json").expect("write corrupted app state");
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        31_002,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    let local_state = payload(&snapshot, "app_state_snapshot after corrupt state")
+        .get("localState")
+        .expect("snapshot should include localState");
+    assert!(
+        local_state.as_object().is_some_and(|map| map.is_empty()),
+        "corrupted app state should fall back to defaults: {local_state}"
+    );
+    assert!(
+        !app_state_path.exists(),
+        "corrupted app state file should be moved out of the live path"
+    );
+    let quarantined = std::fs::read_dir(&state_dir)
+        .expect("read state dir")
+        .filter_map(Result::ok)
+        .any(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("app-state.json.corrupted.")
+        });
+    assert!(
+        quarantined,
+        "corrupted app state file should be quarantined under {state_dir:?}"
     );
 
     harness.join.abort();

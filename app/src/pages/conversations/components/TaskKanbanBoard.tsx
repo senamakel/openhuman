@@ -118,7 +118,7 @@ export function TaskKanbanBoard({
   };
 
   return (
-    <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-3 shadow-sm">
+    <div className="py-3">
       {!hideHeader && (
         <div className="mb-2 flex items-center justify-between gap-3">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">

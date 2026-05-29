@@ -321,6 +321,7 @@ export default function IntelligenceTasksTab() {
               </span>
             )}
           </div>
+
           <TaskKanbanBoard board={entry.board} hideHeader />
         </section>
       ))}

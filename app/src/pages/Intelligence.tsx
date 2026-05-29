@@ -3,8 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import DiagramViewerTab from '../components/intelligence/DiagramViewerTab';
 import GraphCentralityTab from '../components/intelligence/GraphCentralityTab';
-import IntelligenceCallsTab from '../components/intelligence/IntelligenceCallsTab';
-import IntelligenceDreamsTab from '../components/intelligence/IntelligenceDreamsTab';
 import IntelligenceSubconsciousTab from '../components/intelligence/IntelligenceSubconsciousTab';
 import IntelligenceTasksTab from '../components/intelligence/IntelligenceTasksTab';
 import { MemoryWorkspace } from '../components/intelligence/MemoryWorkspace';
@@ -21,19 +19,12 @@ import type {
   ToastNotification,
 } from '../types/intelligence';
 
-type IntelligenceTab =
-  | 'memory'
-  | 'subconscious'
-  | 'calls'
-  | 'dreams'
-  | 'tasks'
-  | 'diagram'
-  | 'centrality';
+type IntelligenceTab = 'memory' | 'subconscious' | 'tasks' | 'diagram' | 'centrality';
 
 export default function Intelligence() {
   const { t } = useT();
 
-  const [activeTab, setActiveTab] = useState<IntelligenceTab>('memory');
+  const [activeTab, setActiveTab] = useState<IntelligenceTab>('tasks');
 
   // The legacy header pills (system-status + Ingesting/Queued chips) were
   // sourced from `useConsciousItems` + `useMemoryIngestionStatus`. They are
@@ -98,12 +89,10 @@ export default function Intelligence() {
 
   const tabs: { id: IntelligenceTab; label: string; description?: string; comingSoon?: boolean }[] =
     [
+      { id: 'tasks', label: t('memory.tab.tasks'), description: t('memory.tab.tasksDescription') },
       { id: 'memory', label: t('memory.tab.memory') },
       { id: 'subconscious', label: t('memory.tab.subconscious') },
-      { id: 'tasks', label: t('memory.tab.tasks'), description: t('memory.tab.tasksDescription') },
       { id: 'diagram', label: t('memory.tab.diagram') },
-      { id: 'calls', label: t('memory.tab.calls') },
-      { id: 'dreams', label: t('memory.tab.dreams') },
       { id: 'centrality', label: t('memory.tab.centrality') },
     ];
   const activeTabDef = tabs.find(tab => tab.id === activeTab);
@@ -191,10 +180,6 @@ export default function Intelligence() {
             {activeTab === 'tasks' && <IntelligenceTasksTab />}
 
             {activeTab === 'diagram' && <DiagramViewerTab />}
-
-            {activeTab === 'calls' && <IntelligenceCallsTab onToast={addToast} />}
-
-            {activeTab === 'dreams' && <IntelligenceDreamsTab />}
 
             {activeTab === 'centrality' && <GraphCentralityTab />}
           </div>

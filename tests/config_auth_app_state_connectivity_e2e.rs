@@ -4,47 +4,47 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    Arc, Mutex, OnceLock,
     atomic::{AtomicUsize, Ordering},
+    Arc, Mutex, OnceLock,
 };
 use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::{HeaderMap, header::AUTHORIZATION};
+use axum::http::{header::AUTHORIZATION, HeaderMap};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
-use serde_json::{Value, json};
-use tempfile::{TempDir, tempdir};
+use serde_json::{json, Value};
+use tempfile::{tempdir, TempDir};
 
 use openhuman_core::api::config::{
-    APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL, OPENHUMAN_INFERENCE_PATH,
-    VITE_APP_ENV_VAR, api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env,
-    effective_api_url, effective_backend_api_url, effective_inference_url,
-    looks_like_local_ai_endpoint, normalize_api_base_url,
+    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
+    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
+    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
+    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
 };
-use openhuman_core::core::auth::{CORE_TOKEN_ENV_VAR, init_rpc_token};
+use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
-    AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow, OrchestratorModelConfig,
-    ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
-    migrate_legacy_fields,
+    migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
+    OrchestratorModelConfig, ProxyConfig, ProxyScope, VoiceCapability, VoiceProviderCreds,
+    WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::{
-    AgentConfig, ChannelsConfig, Config, DictationActivationMode, LlmBackend, ReflectionSource,
-    TeamModelConfig, UpdateRestartStrategy, clear_active_user, output_language_directive,
-    write_active_user_id,
+    clear_active_user, output_language_directive, write_active_user_id, AgentConfig,
+    ChannelsConfig, Config, DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig,
+    UpdateRestartStrategy,
 };
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
 };
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::openhuman::credentials::{
-    APP_SESSION_PROVIDER, AuthService, COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key,
-    get_composio_api_key, normalize_provider, rpc_store_composio_api_key, store_composio_api_key,
+    clear_composio_api_key, get_composio_api_key, normalize_provider, rpc_store_composio_api_key,
+    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -546,12 +546,10 @@ encrypt = false
     )
     .expect("minimal config should deserialize with defaults");
     assert_eq!(minimal_config.default_temperature, 0.7);
-    assert!(
-        minimal_config
-            .temperature_unsupported_models
-            .iter()
-            .any(|pattern| pattern == "gpt-5*")
-    );
+    assert!(minimal_config
+        .temperature_unsupported_models
+        .iter()
+        .any(|pattern| pattern == "gpt-5*"));
 
     assert_eq!(
         output_language_directive(Some("zh_CN")).as_deref(),
@@ -603,12 +601,10 @@ encrypt = false
     assert!(config.workload_uses_local("subconscious"));
     assert!(!config.workload_uses_local("unknown"));
     config.output_language = Some("fr".into());
-    assert!(
-        config
-            .output_language_directive()
-            .expect("language directive")
-            .contains("French")
-    );
+    assert!(config
+        .output_language_directive()
+        .expect("language directive")
+        .contains("French"));
 
     config.orchestrator = OrchestratorModelConfig {
         model: Some(" orchestrator-model ".into()),
@@ -658,16 +654,12 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     let _all_lower = EnvVarGuard::unset("all_proxy");
     let _no_lower = EnvVarGuard::unset("no_proxy");
 
-    assert!(
-        ProxyConfig::supported_service_keys()
-            .iter()
-            .any(|key| *key == "memory.embeddings")
-    );
-    assert!(
-        ProxyConfig::supported_service_selectors()
-            .iter()
-            .any(|selector| *selector == "tool.*")
-    );
+    assert!(ProxyConfig::supported_service_keys()
+        .iter()
+        .any(|key| *key == "memory.embeddings"));
+    assert!(ProxyConfig::supported_service_selectors()
+        .iter()
+        .any(|selector| *selector == "tool.*"));
 
     let services = ProxyConfig {
         enabled: true,
@@ -756,10 +748,8 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     }
 
     openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
-    assert!(
-        openhuman_core::openhuman::config::runtime_proxy_config()
-            .should_apply_to_service("tool.browser")
-    );
+    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
+        .should_apply_to_service("tool.browser"));
     let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
     let _cached_again =
         openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
@@ -921,6 +911,30 @@ async fn config_loaders_resolve_user_workspace_markers_and_ignore_workspace_when
     }
 
     clear_active_user(&root).expect("clear active user marker");
+    std::fs::write(root.join("active_workspace.toml"), "config_dir = [\n")
+        .expect("write malformed active workspace marker");
+    let malformed_marker_config = Config::load_or_init()
+        .await
+        .expect("malformed active workspace marker should be ignored");
+    assert_eq!(
+        malformed_marker_config.config_path,
+        root.join("users").join("local").join("config.toml")
+    );
+
+    std::fs::remove_file(root.join("active_workspace.toml"))
+        .expect("remove malformed active workspace marker");
+    std::fs::create_dir(root.join("active_workspace.toml"))
+        .expect("create unreadable active workspace marker");
+    let unreadable_marker_config = Config::load_or_init()
+        .await
+        .expect("unreadable active workspace marker should be ignored");
+    assert_eq!(
+        unreadable_marker_config.config_path,
+        root.join("users").join("local").join("config.toml")
+    );
+    std::fs::remove_dir(root.join("active_workspace.toml"))
+        .expect("remove unreadable active workspace marker");
+
     let active_marker_dir = root.join("relative-active");
     write_min_config(&active_marker_dir);
     std::fs::write(
@@ -951,6 +965,59 @@ async fn config_loaders_resolve_user_workspace_markers_and_ignore_workspace_when
     .expect("load explicit config path");
     assert_eq!(explicit.workspace_dir, explicit_workspace);
     assert_eq!(explicit.default_model.as_deref(), Some("scoped-env-model"));
+}
+
+#[tokio::test]
+async fn config_loaders_recover_corrupted_primary_from_backup_or_defaults() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let workspace_dir = tmp.path().join("workspace");
+    let recovered_dir = tmp.path().join("recovered");
+    std::fs::create_dir_all(&recovered_dir).expect("create recovered config dir");
+    let recovered_config_path = recovered_dir.join("config.toml");
+    std::fs::write(&recovered_config_path, "this is not = toml = valid")
+        .expect("write corrupted primary config");
+    std::fs::write(
+        recovered_config_path.with_extension("toml.bak"),
+        r#"
+api_url = "http://127.0.0.1:9"
+default_model = "backup-model"
+default_temperature = 0.33
+
+[secrets]
+encrypt = false
+"#,
+    )
+    .expect("write valid backup config");
+
+    let recovered = Config::load_from_config_path(&recovered_config_path, &workspace_dir)
+        .await
+        .expect("load config recovered from backup");
+    assert_eq!(recovered.config_path, recovered_config_path);
+    assert_eq!(recovered.workspace_dir, workspace_dir);
+    assert_eq!(recovered.default_model.as_deref(), Some("backup-model"));
+    assert_eq!(recovered.default_temperature, 0.33);
+
+    let defaulted_dir = tmp.path().join("defaulted");
+    std::fs::create_dir_all(&defaulted_dir).expect("create defaulted config dir");
+    let defaulted_config_path = defaulted_dir.join("config.toml");
+    std::fs::write(&defaulted_config_path, "this is not = toml = valid")
+        .expect("write corrupted primary config");
+    std::fs::write(
+        defaulted_config_path.with_extension("toml.bak"),
+        "still not = valid = toml",
+    )
+    .expect("write corrupted backup config");
+
+    let defaulted = Config::load_from_config_path(&defaulted_config_path, &workspace_dir)
+        .await
+        .expect("load config defaulted after corrupted backup");
+    assert_eq!(defaulted.config_path, defaulted_config_path);
+    assert_eq!(defaulted.workspace_dir, workspace_dir);
+    assert_eq!(
+        defaulted.default_temperature,
+        Config::default().default_temperature
+    );
 }
 
 #[tokio::test]
@@ -1179,15 +1246,12 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         .set_active_profile("GitHub", "personal")
         .expect("set active by profile name");
     assert_eq!(active_id, stored.id);
-    assert!(
-        auth.remove_profile("GitHub", "personal")
-            .expect("remove stored profile")
-    );
-    assert!(
-        !auth
-            .remove_profile("GitHub", "personal")
-            .expect("remove missing profile")
-    );
+    assert!(auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove stored profile"));
+    assert!(!auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove missing profile"));
 }
 
 #[tokio::test]
@@ -2776,28 +2840,24 @@ fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files(
     let empty = store.load().expect("empty store load");
     assert!(empty.profiles.is_empty());
 
-    assert!(
-        TokenSet {
-            access_token: "soon".to_string(),
-            refresh_token: None,
-            id_token: None,
-            expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
-            token_type: None,
-            scope: None,
-        }
-        .is_expiring_within(Duration::from_secs(5))
-    );
-    assert!(
-        !TokenSet {
-            access_token: "no-expiry".to_string(),
-            refresh_token: None,
-            id_token: None,
-            expires_at: None,
-            token_type: None,
-            scope: None,
-        }
-        .is_expiring_within(Duration::from_secs(5))
-    );
+    assert!(TokenSet {
+        access_token: "soon".to_string(),
+        refresh_token: None,
+        id_token: None,
+        expires_at: Some(chrono::Utc::now() + chrono::Duration::seconds(1)),
+        token_type: None,
+        scope: None,
+    }
+    .is_expiring_within(Duration::from_secs(5)));
+    assert!(!TokenSet {
+        access_token: "no-expiry".to_string(),
+        refresh_token: None,
+        id_token: None,
+        expires_at: None,
+        token_type: None,
+        scope: None,
+    }
+    .is_expiring_within(Duration::from_secs(5)));
 
     let mut token_profile = AuthProfile::new_token("openai", "work", "sk-worker-a".to_string());
     token_profile
@@ -3064,6 +3124,27 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
             .to_string()
             .contains("Invalid RFC3339 timestamp"),
         "unexpected invalid datetime error: {invalid_datetime_err:#}"
+    );
+}
+
+#[test]
+fn credentials_profile_store_reclaims_stale_dead_pid_lock() {
+    let _lock = env_lock();
+    let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let tmp = tempdir().expect("tempdir");
+    let state_dir = tmp.path().join("stale-lock");
+    std::fs::create_dir_all(&state_dir).expect("create stale lock profile dir");
+    let lock_path = state_dir.join("auth-profiles.lock");
+    std::fs::write(&lock_path, "pid=999999999\n").expect("write stale auth profile lock");
+
+    let store = AuthProfilesStore::new(&state_dir, false);
+    let loaded = store
+        .load()
+        .expect("stale dead-pid lock should be reclaimed");
+    assert!(loaded.profiles.is_empty());
+    assert!(
+        !lock_path.exists(),
+        "stale lock should be removed after successful load"
     );
 }
 

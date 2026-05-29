@@ -19,7 +19,14 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::config::schema::{
+    generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
+    migrate_legacy_fields, AuthStyle, CloudProviderCreds, CloudProviderType, MemoryContextWindow,
+    VoiceCapability, VoiceProviderCreds, WhatsAppConfig,
+};
+use openhuman_core::openhuman::config::{AgentConfig, ChannelsConfig, TeamModelConfig};
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::openhuman::credentials::{normalize_provider, AuthService};
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 
@@ -352,6 +359,155 @@ fn schema_method_names(value: &Value, namespace: &str) -> Vec<String> {
         .collect::<Vec<_>>();
     methods.sort();
     methods
+}
+
+#[test]
+fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
+    let mut provider = CloudProviderCreds {
+        id: "provider-legacy".to_string(),
+        legacy_type: Some("anthropic".to_string()),
+        ..CloudProviderCreds::default()
+    };
+    migrate_legacy_fields(&mut provider);
+    assert_eq!(provider.slug, "anthropic");
+    assert_eq!(provider.label, "Anthropic");
+    assert_eq!(provider.endpoint, "https://api.anthropic.com/v1");
+    assert_eq!(provider.auth_style, AuthStyle::Anthropic);
+    assert_eq!(AuthStyle::OpenhumanJwt.as_str(), "openhuman_jwt");
+    assert_eq!(
+        CloudProviderType::Openrouter.default_endpoint(),
+        "https://openrouter.ai/api/v1"
+    );
+    assert_eq!(CloudProviderType::Orcarouter.label(), "OrcaRouter");
+    assert_eq!(CloudProviderType::Openhuman.as_str(), "openhuman");
+    assert_eq!(
+        CloudProviderType::Anthropic.auth_style(),
+        AuthStyle::Anthropic
+    );
+    assert!(is_slug_reserved(" cloud "));
+    assert!(!is_slug_reserved("ollama"));
+
+    let provider_id = generate_provider_id("my provider!");
+    assert!(provider_id.starts_with("p_my_provider__"));
+    assert_eq!(provider_id.rsplit('_').next().unwrap().len(), 5);
+
+    assert!(VoiceCapability::Stt.supports_stt());
+    assert!(!VoiceCapability::Stt.supports_tts());
+    assert_eq!(VoiceCapability::Tts.as_str(), "tts");
+    assert!(VoiceCapability::Both.supports_stt());
+    assert!(VoiceCapability::Both.supports_tts());
+    assert_eq!(VoiceProviderCreds::default().auth_style, AuthStyle::Bearer);
+    assert_eq!(
+        openhuman_core::openhuman::config::schema::voice_providers::builtin_voice_provider(
+            "deepgram"
+        )
+        .expect("deepgram builtin")
+        .default_stt_model,
+        Some("nova-2")
+    );
+    assert!(is_voice_slug_reserved(" whisper "));
+    assert!(!is_voice_slug_reserved("openai"));
+    let voice_id = generate_voice_provider_id("voice provider!");
+    assert!(voice_id.starts_with("vp_voice_provider__"));
+    assert_eq!(voice_id.rsplit('_').next().unwrap().len(), 5);
+
+    let team = TeamModelConfig {
+        lead_model: Some(" lead-model ".to_string()),
+        agent_model: None,
+    };
+    assert_eq!(team.model_for_role(true), Some("lead-model"));
+    assert_eq!(team.model_for_role(false), Some("lead-model"));
+    assert_eq!(
+        MemoryContextWindow::from_str_opt("MAXIMUM"),
+        Some(MemoryContextWindow::Maximum)
+    );
+    assert_eq!(MemoryContextWindow::Extended.as_str(), "extended");
+    let mut agent = AgentConfig {
+        max_memory_context_chars: 20_000,
+        ..AgentConfig::default()
+    };
+    assert_eq!(
+        agent.resolved_memory_limits().max_memory_context_chars,
+        MemoryContextWindow::Maximum
+            .limits()
+            .max_memory_context_chars
+    );
+    agent.memory_window = Some(MemoryContextWindow::Minimal);
+    assert_eq!(
+        agent.resolved_memory_limits(),
+        MemoryContextWindow::Minimal.limits()
+    );
+
+    let default_channels = ChannelsConfig::default();
+    assert!(!default_channels.has_listening_integrations());
+    let mut listening_channels = default_channels.clone();
+    listening_channels.whatsapp = Some(WhatsAppConfig {
+        access_token: Some("token".to_string()),
+        phone_number_id: Some("phone".to_string()),
+        verify_token: Some("verify".to_string()),
+        app_secret: None,
+        session_path: None,
+        pair_phone: None,
+        pair_code: None,
+        allowed_numbers: vec![],
+    });
+    assert!(listening_channels.has_listening_integrations());
+    let whatsapp = listening_channels
+        .whatsapp
+        .as_ref()
+        .expect("whatsapp config");
+    assert_eq!(whatsapp.backend_type(), "cloud");
+    assert!(whatsapp.is_cloud_config());
+    assert!(!whatsapp.is_web_config());
+}
+
+#[test]
+fn auth_service_direct_paths_cover_profile_selection_and_validation() {
+    let tmp = tempdir().expect("tempdir");
+    let auth = AuthService::new(tmp.path(), false);
+
+    assert_eq!(normalize_provider("  GitHub  ").unwrap(), "github");
+    assert!(normalize_provider("   ").is_err());
+    assert!(auth.set_active_profile("github", "missing").is_err());
+    assert_eq!(
+        auth.get_provider_bearer_token("github", None)
+            .expect("missing profile lookup"),
+        None
+    );
+
+    let stored = auth
+        .store_provider_token(
+            "github",
+            "personal",
+            " ghp-token ",
+            [("scope".to_string(), "repo".to_string())]
+                .into_iter()
+                .collect(),
+            false,
+        )
+        .expect("store token profile");
+    assert_eq!(stored.provider, "github");
+    assert_eq!(
+        auth.get_provider_bearer_token("GitHub", Some("personal"))
+            .expect("profile override lookup"),
+        Some(" ghp-token ".to_string())
+    );
+    assert_eq!(
+        auth.get_provider_bearer_token("GitHub", None)
+            .expect("no active/default lookup"),
+        Some(" ghp-token ".to_string())
+    );
+
+    let active_id = auth
+        .set_active_profile("GitHub", "personal")
+        .expect("set active by profile name");
+    assert_eq!(active_id, stored.id);
+    assert!(auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove stored profile"));
+    assert!(!auth
+        .remove_profile("GitHub", "personal")
+        .expect("remove missing profile"));
 }
 
 #[tokio::test]

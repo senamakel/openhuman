@@ -17,10 +17,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::connectivity::all_connectivity_controller_schemas;
 use openhuman_core::openhuman::connectivity::ops::is_port_in_use;
 use openhuman_core::openhuman::connectivity::rpc::{
     diag, pick_listen_port, pick_listen_port_for_host, PickListenPortError,
+};
+use openhuman_core::openhuman::connectivity::{
+    all_connectivity_controller_schemas, all_connectivity_registered_controllers,
 };
 use openhuman_core::openhuman::socket::{set_global_socket_manager, SocketManager};
 
@@ -388,6 +390,23 @@ async fn connectivity_ops_schema_and_socket_snapshot_paths_are_exercised() {
             .and_then(|p| p.get("diag"))
             .and_then(|d| d.get("socket_state")),
         Some(&json!("disconnected"))
+    );
+
+    let registered = all_connectivity_registered_controllers();
+    assert_eq!(registered.len(), 1);
+    assert_eq!(
+        registered[0].rpc_method_name(),
+        "openhuman.connectivity_diag"
+    );
+    let handled = (registered[0].handler)(serde_json::Map::new())
+        .await
+        .expect("registered connectivity handler");
+    assert_eq!(
+        handled
+            .get("result")
+            .and_then(|p| p.get("diag"))
+            .and_then(|d| d.get("listen_port")),
+        Some(&json!(port))
     );
 }
 

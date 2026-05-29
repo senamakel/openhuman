@@ -15,6 +15,9 @@ use axum::routing::post;
 use axum::Router;
 use serde_json::{json, Value};
 
+use openhuman_core::openhuman::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use openhuman_core::openhuman::embeddings::catalog;
 use openhuman_core::openhuman::embeddings::cloud::{
     OpenHumanCloudEmbedding, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
@@ -74,6 +77,7 @@ async fn serve_mock_openai(behavior: OpenAiMockBehavior) -> (String, OpenAiMockS
     let state = OpenAiMockState::new(behavior);
     let app = Router::new()
         .route("/v1/embeddings", post(mock_openai_handler))
+        .route("/openai/v1/embeddings", post(mock_openai_handler))
         .route("/api/v2/embeddings", post(mock_openai_handler))
         .route("/embeddings", post(mock_openai_handler))
         .with_state(state.clone());
@@ -270,6 +274,80 @@ async fn openai_embed_reports_response_validation_and_http_errors() {
         .expect_err("http error")
         .to_string()
         .contains("Embedding API error"));
+}
+
+#[tokio::test]
+async fn cloud_embedding_uses_seeded_session_token_and_reports_missing_auth() {
+    let (base_url, state) = serve_mock_openai(OpenAiMockBehavior::RetryThenSuccess).await;
+    let state_dir = tempfile::tempdir().expect("tempdir");
+    AuthService::new(state_dir.path(), false)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "cloud-session-token",
+            Default::default(),
+            true,
+        )
+        .expect("seed cloud auth");
+
+    let provider = OpenHumanCloudEmbedding::new(
+        Some(format!("{base_url}/")),
+        Some(state_dir.path().to_path_buf()),
+        false,
+        "cloud-model",
+        2,
+    );
+    assert_eq!(provider.name(), "cloud");
+    assert_eq!(provider.model_id(), "cloud-model");
+    assert_eq!(provider.dimensions(), 2);
+
+    let vectors = provider
+        .embed(&["first", "second"])
+        .await
+        .expect("cloud embed");
+    assert_eq!(vectors, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+    assert_eq!(
+        state.auth_headers.lock().expect("auth headers lock").last(),
+        Some(&Some("Bearer cloud-session-token".to_string()))
+    );
+
+    let missing_auth = OpenHumanCloudEmbedding::new(
+        Some(base_url),
+        Some(
+            tempfile::tempdir()
+                .expect("missing auth dir")
+                .path()
+                .to_path_buf(),
+        ),
+        false,
+        "cloud-model",
+        2,
+    );
+    assert!(missing_auth
+        .embed(&["needs-auth"])
+        .await
+        .expect_err("missing backend session")
+        .to_string()
+        .contains("No backend session for cloud embeddings"));
+}
+
+#[tokio::test]
+async fn embedding_rate_limit_public_paths_cover_disabled_loopback_and_malformed_urls() {
+    use openhuman_core::openhuman::embeddings::rate_limit::{
+        acquire_embedding_slot, embedding_rate_limit, set_embedding_rate_limit,
+    };
+
+    let original = embedding_rate_limit();
+    set_embedding_rate_limit(0);
+    assert_eq!(embedding_rate_limit(), 0);
+    acquire_embedding_slot("https://api.example.invalid/openai/v1").await;
+
+    set_embedding_rate_limit(60_000);
+    acquire_embedding_slot("http://localhost:11434").await;
+    acquire_embedding_slot("http://[::1]:11434").await;
+    acquire_embedding_slot("not-a-url").await;
+
+    set_embedding_rate_limit(original);
 }
 
 #[test]

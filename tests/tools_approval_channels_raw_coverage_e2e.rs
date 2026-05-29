@@ -20,6 +20,7 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::openhuman::composio::all_composio_agent_tools;
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
@@ -40,7 +41,7 @@ use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers, default_tools,
     CleaningStrategy, DefaultToolPolicy, PermissionLevel, PolicyDecision, SchemaCleanr,
-    ToolCategory, ToolPolicy, ToolResult, ToolScope,
+    ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
 };
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
@@ -267,6 +268,94 @@ async fn mock_backend(request: Request) -> Response {
                 "threads": [{ "threadId": "thread-1", "active": true }]
             }
         }),
+        (Method::GET, "/agent-integrations/composio/toolkits") => json!({
+            "success": true,
+            "data": { "toolkits": ["gmail", "github", "slack"] }
+        }),
+        (Method::GET, "/agent-integrations/composio/connections") => json!({
+            "success": true,
+            "data": {
+                "connections": [
+                    {
+                        "id": "conn-gmail-1",
+                        "toolkit": " Gmail ",
+                        "status": "ACTIVE",
+                        "createdAt": "2026-05-29T12:00:00Z"
+                    },
+                    {
+                        "id": "conn-slack-pending",
+                        "toolkit": "slack",
+                        "status": "pending",
+                        "createdAt": "2026-05-29T12:05:00Z"
+                    }
+                ]
+            }
+        }),
+        (Method::POST, "/agent-integrations/composio/authorize") => json!({
+            "success": true,
+            "data": {
+                "connectUrl": format!(
+                    "https://connect.example.test/{}",
+                    json_body.get("toolkit").and_then(Value::as_str).unwrap_or("unknown")
+                ),
+                "connectionId": "conn-new-1"
+            }
+        }),
+        (Method::GET, "/agent-integrations/composio/tools") => json!({
+            "success": true,
+            "data": {
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "GMAIL_FETCH_EMAILS",
+                            "description": "Fetch matching Gmail messages for the user.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "query": { "type": "string" },
+                                    "maxResults": { "type": "integer" }
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    },
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "GMAIL_UNCURATED_INTERNAL",
+                            "description": "Backend-only action that should be filtered out.",
+                            "parameters": { "type": "object", "properties": {} }
+                        }
+                    },
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "SLACK_POST_MESSAGE",
+                            "description": "Slack write action for an unconnected toolkit.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": { "text": { "type": "string" } },
+                                "required": ["text"]
+                            }
+                        }
+                    }
+                ]
+            }
+        }),
+        (Method::POST, "/agent-integrations/composio/execute") => json!({
+            "success": true,
+            "data": {
+                "data": {
+                    "tool": json_body.get("tool").cloned().unwrap_or(Value::Null),
+                    "arguments": json_body.get("arguments").cloned().unwrap_or(Value::Null)
+                },
+                "successful": true,
+                "error": null,
+                "costUsd": 0.015,
+                "markdownFormatted": "Fetched 1 matching Gmail message."
+            }
+        }),
         _ => {
             return (
                 StatusCode::NOT_FOUND,
@@ -419,6 +508,130 @@ fn error_message<'a>(value: &'a Value, context: &str) -> &'a str {
         .and_then(|error| error.get("message"))
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("{context}: missing error message: {value}"))
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn composio_agent_tools_cover_backend_discovery_markdown_and_execution_paths() {
+    let _lock = env_lock();
+    let harness = setup().await;
+    let config = Config::load_or_init()
+        .await
+        .expect("load config for composio tools");
+    let tools = all_composio_agent_tools(&config);
+    let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![
+            "composio_list_toolkits",
+            "composio_list_connections",
+            "composio_authorize",
+            "composio_list_tools",
+            "composio_execute",
+        ]
+    );
+    assert!(tools
+        .iter()
+        .all(|tool| tool.category() == ToolCategory::Skill));
+
+    let list_toolkits = tools
+        .iter()
+        .find(|tool| tool.name() == "composio_list_toolkits")
+        .expect("list toolkits tool");
+    let toolkits = list_toolkits
+        .execute(json!({}))
+        .await
+        .expect("list toolkits executes");
+    assert!(!toolkits.is_error, "{}", toolkits.output());
+    assert!(toolkits.output().contains("gmail"));
+
+    let list_connections = tools
+        .iter()
+        .find(|tool| tool.name() == "composio_list_connections")
+        .expect("list connections tool");
+    let connections = list_connections
+        .execute(json!({}))
+        .await
+        .expect("list connections executes");
+    assert!(!connections.is_error, "{}", connections.output());
+    assert!(connections.output().contains("conn-gmail-1"));
+    assert!(
+        !connections.output().contains("conn-slack-pending"),
+        "pending connections should be filtered before reaching the agent"
+    );
+
+    let list_tools = tools
+        .iter()
+        .find(|tool| tool.name() == "composio_list_tools")
+        .expect("list tools tool");
+    assert!(list_tools.supports_markdown());
+    let discovered = list_tools
+        .execute_with_options(
+            json!({
+                "toolkits": [" gmail "],
+                "tags": ["readOnlyHint"],
+                "include_unconnected": false
+            }),
+            ToolCallOptions {
+                prefer_markdown: true,
+            },
+        )
+        .await
+        .expect("list tools executes");
+    assert!(!discovered.is_error, "{}", discovered.output());
+    assert!(discovered.output().contains("GMAIL_FETCH_EMAILS"));
+    assert!(!discovered.output().contains("GMAIL_UNCURATED_INTERNAL"));
+    assert!(!discovered.output().contains("SLACK_POST_MESSAGE"));
+    let markdown = discovered
+        .markdown_formatted
+        .as_deref()
+        .expect("markdown rendering");
+    assert!(markdown.contains("# Composio tools"));
+    assert!(markdown.contains("**req:** query"));
+    assert!(markdown.contains("**opt:** maxResults"));
+
+    let authorize = tools
+        .iter()
+        .find(|tool| tool.name() == "composio_authorize")
+        .expect("authorize tool");
+    let missing_toolkit = authorize
+        .execute(json!({}))
+        .await
+        .expect("authorize validates params");
+    assert!(missing_toolkit.is_error);
+    assert!(missing_toolkit.output().contains("'toolkit' is required"));
+    let handoff = authorize
+        .execute(json!({ "toolkit": "gmail" }))
+        .await
+        .expect("authorize executes");
+    assert!(!handoff.is_error, "{}", handoff.output());
+    assert!(handoff
+        .output()
+        .contains("https://connect.example.test/gmail"));
+    assert!(handoff.output().contains("conn-new-1"));
+
+    let execute = tools
+        .iter()
+        .find(|tool| tool.name() == "composio_execute")
+        .expect("execute tool");
+    let missing_action = execute
+        .execute(json!({ "arguments": {} }))
+        .await
+        .expect("execute validates tool");
+    assert!(missing_action.is_error);
+    assert!(missing_action.output().contains("'tool' is required"));
+    let executed = execute
+        .execute(json!({
+            "tool": "GMAIL_FETCH_EMAILS",
+            "connection_id": "conn-gmail-1",
+            "arguments": { "query": "from:alice@example.test", "maxResults": 1 }
+        }))
+        .await
+        .expect("execute dispatches");
+    assert!(!executed.is_error, "{}", executed.output());
+    assert_eq!(executed.output(), "Fetched 1 matching Gmail message.");
+
+    harness.rpc_join.abort();
+    harness.backend_join.abort();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

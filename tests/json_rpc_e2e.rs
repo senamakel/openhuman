@@ -1322,6 +1322,120 @@ async fn json_rpc_thread_labels_create_and_update() {
 }
 
 #[tokio::test]
+async fn json_rpc_todos_crud_on_personal_board() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // The Tasks-tab create flow targets a reserved, conversation-less board
+    // id. The `todos_*` handlers never require the thread to exist, so a
+    // user can manage a personal task list backed by this sentinel id.
+    let board = "user-tasks";
+
+    // 1. Add a user-created card.
+    let add = post_json_rpc(
+        &rpc_base,
+        9101,
+        "openhuman.todos_add",
+        json!({ "thread_id": board, "content": "Buy milk", "status": "todo" }),
+    )
+    .await;
+    let add_result = assert_no_jsonrpc_error(&add, "todos_add");
+    let cards = add_result
+        .get("cards")
+        .and_then(Value::as_array)
+        .expect("cards array in add response");
+    assert_eq!(cards.len(), 1, "exactly one card after add");
+    assert_eq!(
+        cards[0].get("title").and_then(Value::as_str),
+        Some("Buy milk"),
+        "added card title"
+    );
+    assert_eq!(
+        add_result.get("threadId").and_then(Value::as_str),
+        Some(board),
+        "snapshot echoes the board id"
+    );
+    let card_id = cards[0]
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("card id")
+        .to_string();
+
+    // 2. List reflects the new card.
+    let list = post_json_rpc(
+        &rpc_base,
+        9102,
+        "openhuman.todos_list",
+        json!({ "thread_id": board }),
+    )
+    .await;
+    let list_result = assert_no_jsonrpc_error(&list, "todos_list");
+    assert_eq!(
+        list_result
+            .get("cards")
+            .and_then(Value::as_array)
+            .map(|c| c.len()),
+        Some(1),
+        "list returns the persisted card"
+    );
+
+    // 3. Move it to done.
+    let upd = post_json_rpc(
+        &rpc_base,
+        9103,
+        "openhuman.todos_update_status",
+        json!({ "thread_id": board, "id": card_id, "status": "done" }),
+    )
+    .await;
+    let upd_result = assert_no_jsonrpc_error(&upd, "todos_update_status");
+    let upd_cards = upd_result
+        .get("cards")
+        .and_then(Value::as_array)
+        .expect("cards in update response");
+    assert_eq!(
+        upd_cards[0].get("status").and_then(Value::as_str),
+        Some("done"),
+        "status updated to done"
+    );
+
+    // 4. Remove it — the board is empty again.
+    let rem = post_json_rpc(
+        &rpc_base,
+        9104,
+        "openhuman.todos_remove",
+        json!({ "thread_id": board, "id": card_id }),
+    )
+    .await;
+    let rem_result = assert_no_jsonrpc_error(&rem, "todos_remove");
+    assert!(
+        rem_result
+            .get("cards")
+            .and_then(Value::as_array)
+            .expect("cards in remove response")
+            .is_empty(),
+        "board empty after remove"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_title_create_and_update() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

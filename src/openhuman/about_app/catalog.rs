@@ -215,6 +215,16 @@ const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
+        id: "intelligence.create_task",
+        name: "Create Tasks",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Create and manage your own task cards on a personal board, optionally attaching a task to a conversation.",
+        how_to: "Intelligence > Tasks > New task",
+        status: CapabilityStatus::Stable,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "intelligence.filter_actionable_items",
         name: "Filter Actionable Items",
         domain: "intelligence",

@@ -29,6 +29,7 @@ interface TaskKanbanBoardProps {
   disabled?: boolean;
   onMove?: (card: TaskBoardCard, status: TaskBoardCardStatus) => void;
   onUpdateCard?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
+  onDeleteCard?: (card: TaskBoardCard) => void;
 }
 
 export function TaskKanbanBoard({
@@ -36,6 +37,7 @@ export function TaskKanbanBoard({
   disabled = false,
   onMove,
   onUpdateCard,
+  onDeleteCard,
 }: TaskKanbanBoardProps) {
   const { t } = useT();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -164,6 +166,7 @@ export function TaskKanbanBoard({
                     </p>
                   )}
                   {(onUpdateCard ||
+                    onDeleteCard ||
                     card.plan?.length ||
                     card.allowedTools?.length ||
                     card.acceptanceCriteria?.length ||
@@ -191,6 +194,7 @@ export function TaskKanbanBoard({
           disabled={disabled}
           onClose={() => setSelectedCardId(null)}
           onUpdate={onUpdateCard}
+          onDelete={onDeleteCard}
         />
       )}
     </div>
@@ -202,14 +206,23 @@ function TaskBriefDialog({
   disabled,
   onClose,
   onUpdate,
+  onDelete,
 }: {
   card: TaskBoardCard;
   disabled: boolean;
   onClose: () => void;
   onUpdate?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
+  onDelete?: (card: TaskBoardCard) => void;
 }) {
   const { t } = useT();
   const editable = Boolean(onUpdate) && !disabled;
+  const deletable = Boolean(onDelete) && !disabled;
+
+  const handleDelete = () => {
+    if (!deletable) return;
+    onDelete?.(card);
+    onClose();
+  };
   const [title, setTitle] = useState(card.title);
   const [status, setStatus] = useState<TaskBoardCardStatus>(card.status);
   const [objective, setObjective] = useState(card.objective ?? '');
@@ -351,20 +364,32 @@ function TaskBriefDialog({
               value={blocker}
               onChange={setBlocker}
             />
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={save}
-                disabled={!title.trim()}
-                className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
-                {t('conversations.taskKanban.saveChanges')}
-              </button>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              {deletable ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                  {t('conversations.taskKanban.deleteCard')}
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={!title.trim()}
+                  className="rounded-md bg-ocean-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean-700 disabled:opacity-50">
+                  {t('conversations.taskKanban.saveChanges')}
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -412,6 +437,16 @@ function TaskBriefDialog({
               value={card.blocker}
               tone="danger"
             />
+            {deletable && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-md border border-coral-200 px-3 py-1.5 text-xs font-medium text-coral-600 hover:bg-coral-50 dark:border-coral-500/30 dark:text-coral-300 dark:hover:bg-coral-500/10">
+                  {t('conversations.taskKanban.deleteCard')}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -755,6 +755,7 @@ fn search_cross_thread_messages_finds_polish_substring_without_diacritics() {
             title: "PL".to_string(),
             created_at: "2026-04-10T12:00:00Z".to_string(),
             labels: None,
+            personality_id: None,
         })
         .unwrap();
     store
@@ -793,6 +794,7 @@ fn search_cross_thread_messages_finds_japanese_bigram_match() {
             title: "JP".to_string(),
             created_at: "2026-04-10T12:00:00Z".to_string(),
             labels: None,
+            personality_id: None,
         })
         .unwrap();
     store
@@ -832,6 +834,7 @@ fn search_cross_thread_messages_rebuilds_index_from_jsonl_after_reopen() {
                 title: "X".to_string(),
                 created_at: "2026-04-10T12:00:00Z".to_string(),
                 labels: None,
+                personality_id: None,
             })
             .unwrap();
         store
@@ -880,6 +883,7 @@ fn cold_search_does_not_serialize_on_outer_lock() {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             parent_thread_id: None,
             labels: None,
+            personality_id: None,
         })
         .unwrap();
     store

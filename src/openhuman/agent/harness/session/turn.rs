@@ -33,7 +33,9 @@ use crate::openhuman::agent_experience::{
     prepend_experience_block, render_experience_hits, AgentExperienceStore, ExperienceQuery,
 };
 use crate::openhuman::agent_tool_policy::render_tool_policy_boundary;
-use crate::openhuman::context::prompt::{LearnedContextData, PromptContext, PromptTool};
+use crate::openhuman::context::prompt::{
+    LearnedContextData, NamespaceSummary, PromptContext, PromptTool,
+};
 use crate::openhuman::context::{ReductionOutcome, ARCHIVIST_EXTRACTION_PROMPT};
 use crate::openhuman::inference::model_context::context_window_for_model;
 use crate::openhuman::inference::provider::{
@@ -2571,12 +2573,19 @@ fn collect_tree_root_summaries(
     workspace_dir: &std::path::Path,
     per_namespace_cap: usize,
     total_cap: usize,
-) -> Vec<(String, String)> {
+) -> Vec<NamespaceSummary> {
     crate::openhuman::memory_tree::tree_runtime::store::collect_root_summaries_with_caps(
         workspace_dir,
         per_namespace_cap,
         total_cap,
     )
+    .into_iter()
+    .map(|(namespace, body, updated_at)| NamespaceSummary {
+        namespace,
+        body,
+        updated_at,
+    })
+    .collect()
 }
 
 /// Sanitize a learned memory entry before injecting into the system prompt.

@@ -22,15 +22,17 @@ use openhuman_core::openhuman::embeddings::catalog;
 use openhuman_core::openhuman::embeddings::cloud::{
     OpenHumanCloudEmbedding, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
 };
+use openhuman_core::openhuman::embeddings::cohere::CohereEmbedding;
 use openhuman_core::openhuman::embeddings::noop::NoopEmbedding;
 use openhuman_core::openhuman::embeddings::ollama::DEFAULT_OLLAMA_URL;
 use openhuman_core::openhuman::embeddings::openai::OpenAiEmbedding;
 use openhuman_core::openhuman::embeddings::retry_after::{
     backoff_ms_for_attempt, parse_retry_after_ms, BASE_BACKOFF_MS, MAX_BACKOFF_MS,
 };
+use openhuman_core::openhuman::embeddings::voyage::VoyageEmbedding;
 use openhuman_core::openhuman::embeddings::{
-    create_embedding_provider, EmbeddingProvider, OllamaEmbedding, DEFAULT_OLLAMA_DIMENSIONS,
-    DEFAULT_OLLAMA_MODEL,
+    create_embedding_provider, create_embedding_provider_with_credentials, EmbeddingProvider,
+    OllamaEmbedding, DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL,
 };
 
 async fn serve_mock_ollama(app: Router) -> String {
@@ -49,6 +51,7 @@ enum OpenAiMockBehavior {
     RetryThenSuccess,
     CountMismatch,
     BadEmbeddingItem,
+    MissingEmbedding,
     DimensionMismatch,
     MissingData,
     Non2xx,
@@ -89,6 +92,17 @@ async fn serve_mock_openai(behavior: OpenAiMockBehavior) -> (String, OpenAiMockS
         axum::serve(listener, app).await.expect("mock openai serve");
     });
     (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+async fn serve_mock_cohere(app: Router) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind mock cohere");
+    let addr = listener.local_addr().expect("mock cohere addr");
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("mock cohere serve");
+    });
+    format!("http://127.0.0.1:{}", addr.port())
 }
 
 fn record_openai_request(state: &OpenAiMockState, headers: &HeaderMap, body: Value) -> usize {
@@ -134,6 +148,7 @@ async fn mock_openai_handler(
         OpenAiMockBehavior::BadEmbeddingItem => {
             Json(json!({ "data": [{ "embedding": [1.0, "bad"] }] })).into_response()
         }
+        OpenAiMockBehavior::MissingEmbedding => Json(json!({ "data": [{}] })).into_response(),
         OpenAiMockBehavior::DimensionMismatch => {
             Json(json!({ "data": [{ "embedding": [1.0, 2.0, 3.0] }] })).into_response()
         }
@@ -248,6 +263,15 @@ async fn openai_embed_reports_response_validation_and_http_errors() {
         .to_string()
         .contains("non-numeric"));
 
+    let (missing_item_url, _) = serve_mock_openai(OpenAiMockBehavior::MissingEmbedding).await;
+    let missing_item_provider = OpenAiEmbedding::new(&missing_item_url, "k", "m", 2);
+    assert!(missing_item_provider
+        .embed(&["a"])
+        .await
+        .expect_err("missing embedding")
+        .to_string()
+        .contains("missing 'embedding'"));
+
     let (dim_url, _) = serve_mock_openai(OpenAiMockBehavior::DimensionMismatch).await;
     let dim_provider = OpenAiEmbedding::new(&dim_url, "k", "m", 2);
     assert!(dim_provider
@@ -332,6 +356,126 @@ async fn cloud_embedding_uses_seeded_session_token_and_reports_missing_auth() {
 }
 
 #[tokio::test]
+async fn cohere_and_voyage_embedding_paths_use_local_compatible_mocks() {
+    let cohere_requests = Arc::new(Mutex::new(Vec::<Value>::new()));
+    let cohere_auth = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
+    let cohere_requests_for_route = cohere_requests.clone();
+    let cohere_auth_for_route = cohere_auth.clone();
+    let cohere_url = serve_mock_cohere(Router::new().route(
+        "/v2/embed",
+        post(move |headers: HeaderMap, Json(body): Json<Value>| {
+            let cohere_requests = cohere_requests_for_route.clone();
+            let cohere_auth = cohere_auth_for_route.clone();
+            async move {
+                cohere_requests.lock().expect("cohere requests").push(body);
+                cohere_auth.lock().expect("cohere auth").push(
+                    headers
+                        .get(axum::http::header::AUTHORIZATION)
+                        .and_then(|value| value.to_str().ok())
+                        .map(ToOwned::to_owned),
+                );
+                Json(json!({ "embeddings": { "float": [[0.1, 0.2], [0.3, 0.4]] } }))
+            }
+        }),
+    ))
+    .await;
+
+    let cohere =
+        CohereEmbedding::new("cohere-key", "embed-multilingual-v3.0", 2).with_base_url(cohere_url);
+    assert_eq!(cohere.name(), "cohere");
+    assert_eq!(cohere.model_id(), "embed-multilingual-v3.0");
+    assert_eq!(cohere.dimensions(), 2);
+    assert_eq!(
+        cohere
+            .embed(&["alpha", "beta"])
+            .await
+            .expect("cohere embed"),
+        vec![vec![0.1, 0.2], vec![0.3, 0.4]]
+    );
+    assert_eq!(
+        cohere_auth.lock().expect("cohere auth").as_slice(),
+        [Some("Bearer cohere-key".to_string())]
+    );
+    assert_eq!(
+        cohere_requests.lock().expect("cohere requests")[0].pointer("/texts/0"),
+        Some(&json!("alpha"))
+    );
+
+    let (voyage_url, voyage_state) = serve_mock_openai(OpenAiMockBehavior::RetryThenSuccess).await;
+    let voyage = VoyageEmbedding::new_with_base_url("voyage-key", "", 2, &voyage_url);
+    assert_eq!(voyage.name(), "voyage");
+    assert_eq!(voyage.model_id(), "voyage-3-large");
+    assert_eq!(voyage.dimensions(), 2);
+    assert_eq!(
+        voyage
+            .embed(&["first", "second"])
+            .await
+            .expect("voyage embed"),
+        vec![vec![1.0, 2.0], vec![3.0, 4.0]]
+    );
+    assert!(voyage_state
+        .auth_headers
+        .lock()
+        .expect("voyage auth")
+        .iter()
+        .any(|header| header.as_deref() == Some("Bearer voyage-key")));
+}
+
+#[tokio::test]
+async fn cohere_embedding_reports_parse_count_dimension_and_http_errors() {
+    let count_url = serve_mock_cohere(Router::new().route(
+        "/v2/embed",
+        post(|| async { Json(json!({ "embeddings": { "float": [[1.0, 2.0]] } })) }),
+    ))
+    .await;
+    let count_provider = CohereEmbedding::new("k", "m", 2).with_base_url(count_url);
+    assert!(count_provider
+        .embed(&["a", "b"])
+        .await
+        .expect_err("cohere count mismatch")
+        .to_string()
+        .contains("count mismatch"));
+
+    let dim_url = serve_mock_cohere(Router::new().route(
+        "/v2/embed",
+        post(|| async { Json(json!({ "embeddings": { "float": [[1.0, 2.0, 3.0]] } })) }),
+    ))
+    .await;
+    let dim_provider = CohereEmbedding::new("k", "m", 2).with_base_url(dim_url);
+    assert!(dim_provider
+        .embed(&["a"])
+        .await
+        .expect_err("cohere dimension mismatch")
+        .to_string()
+        .contains("dimension mismatch"));
+
+    let malformed_url = serve_mock_cohere(
+        Router::new().route("/v2/embed", post(|| async { (StatusCode::OK, "not-json") })),
+    )
+    .await;
+    let malformed_provider = CohereEmbedding::new("k", "m", 2).with_base_url(malformed_url);
+    assert!(malformed_provider
+        .embed(&["a"])
+        .await
+        .expect_err("cohere parse")
+        .to_string()
+        .contains("parse failed"));
+
+    let non_2xx_url = serve_mock_cohere(Router::new().route(
+        "/v2/embed",
+        post(|| async { (StatusCode::BAD_REQUEST, "bad cohere request") }),
+    ))
+    .await;
+    let non_2xx_provider = CohereEmbedding::new("k", "m", 2).with_base_url(non_2xx_url);
+    assert!(non_2xx_provider
+        .embed(&["a"])
+        .await
+        .expect_err("cohere http error")
+        .to_string()
+        .contains("Cohere embed API error"));
+}
+
+#[tokio::test]
 async fn embedding_rate_limit_public_paths_cover_disabled_loopback_and_malformed_urls() {
     use openhuman_core::openhuman::embeddings::rate_limit::{
         acquire_embedding_slot, embedding_rate_limit, set_embedding_rate_limit,
@@ -366,6 +510,14 @@ fn ollama_constructor_normalizes_defaults_and_rejects_runtime_misconfiguration()
         "provider=ollama;model=nomic-embed-text;dims=12"
     );
 
+    let explicit = OllamaEmbedding::new("http://127.0.0.1:11434", "mock-model", 3);
+    assert_eq!(explicit.base_url(), "http://127.0.0.1:11434");
+    assert_eq!(explicit.model(), "mock-model");
+
+    let default = OllamaEmbedding::default();
+    assert_eq!(default.base_url(), DEFAULT_OLLAMA_URL);
+    assert_eq!(default.model(), DEFAULT_OLLAMA_MODEL);
+
     for bad_url in [
         "ftp://localhost:11434",
         "http://user:pass@localhost:11434",
@@ -387,6 +539,27 @@ async fn embedding_catalog_factory_retry_noop_and_cloud_empty_paths_are_reachabl
     let providers = catalog::all_providers();
     assert!(providers.iter().any(|provider| provider.slug == "managed"));
     assert!(providers.iter().any(|provider| provider.slug == "cohere"));
+    assert_eq!(
+        catalog::find_provider("openai")
+            .expect("openai provider")
+            .label,
+        "OpenAI"
+    );
+    assert!(catalog::find_provider("missing").is_none());
+    assert_eq!(
+        catalog::find_model("voyage", "voyage-3-large")
+            .expect("voyage model")
+            .default_dimensions,
+        1024
+    );
+    assert!(catalog::find_model("voyage", "missing").is_none());
+    assert_eq!(
+        catalog::default_model_for("openai")
+            .expect("default openai model")
+            .id,
+        "text-embedding-3-small"
+    );
+    assert!(catalog::default_model_for("none").is_none());
 
     assert_eq!(parse_retry_after_ms(Some(" 5 ")), Some(5_000));
     assert_eq!(
@@ -400,10 +573,19 @@ async fn embedding_catalog_factory_retry_noop_and_cloud_empty_paths_are_reachabl
 
     let noop = NoopEmbedding;
     assert_eq!(noop.name(), "none");
+    assert_eq!(noop.model_id(), "none");
+    assert_eq!(noop.dimensions(), 0);
+    assert_eq!(noop.signature(), "provider=none;model=none;dims=0");
     assert_eq!(
         noop.embed(&["ignored"]).await.expect("noop embed"),
         Vec::<Vec<f32>>::new()
     );
+    assert!(noop
+        .embed_one("ignored")
+        .await
+        .expect_err("noop embed_one")
+        .to_string()
+        .contains("Empty embedding result"));
 
     let cloud = OpenHumanCloudEmbedding::new(
         Some("https://api.example.test/".to_string()),
@@ -439,6 +621,74 @@ async fn embedding_catalog_factory_retry_noop_and_cloud_empty_paths_are_reachabl
 
     match create_embedding_provider("unknown", "m", 1) {
         Ok(_) => panic!("unknown provider should fail"),
+        Err(err) => assert!(err.to_string().contains("unknown embedding provider")),
+    }
+
+    let default_cloud = openhuman_core::openhuman::embeddings::default_embedding_provider();
+    assert_eq!(default_cloud.name(), "cloud");
+    let default_local = openhuman_core::openhuman::embeddings::default_local_embedding_provider();
+    assert_eq!(default_local.name(), "ollama");
+
+    for (provider, model, dims, key, endpoint, expected_name) in [
+        (
+            "managed",
+            DEFAULT_CLOUD_EMBEDDING_MODEL,
+            1024,
+            "ignored",
+            None,
+            "cloud",
+        ),
+        (
+            "voyage",
+            "voyage-3-large",
+            1024,
+            "voyage-key",
+            None,
+            "voyage",
+        ),
+        ("ollama", DEFAULT_OLLAMA_MODEL, 1024, "", None, "ollama"),
+        (
+            "openai",
+            "text-embedding-3-small",
+            1536,
+            "openai-key",
+            None,
+            "openai",
+        ),
+        (
+            "cohere",
+            "embed-english-v3.0",
+            1024,
+            "cohere-key",
+            None,
+            "cohere",
+        ),
+        (
+            "custom",
+            "custom-model",
+            768,
+            "custom-key",
+            Some("http://127.0.0.1:9"),
+            "openai",
+        ),
+        (
+            "custom:http://127.0.0.1:8",
+            "custom-model",
+            768,
+            "custom-key",
+            None,
+            "openai",
+        ),
+        ("none", "", 0, "", None, "none"),
+    ] {
+        let embedder =
+            create_embedding_provider_with_credentials(provider, model, dims, key, endpoint)
+                .expect("provider with credentials should construct");
+        assert_eq!(embedder.name(), expected_name);
+    }
+
+    match create_embedding_provider_with_credentials("bogus", "m", 1, "k", None) {
+        Ok(_) => panic!("unknown provider with credentials should fail"),
         Err(err) => assert!(err.to_string().contains("unknown embedding provider")),
     }
 }

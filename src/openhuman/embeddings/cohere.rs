@@ -39,12 +39,11 @@ impl CohereEmbedding {
         }
     }
 
-    /// Test-only base URL override.  OpenAI's base URL is constructor-injected
-    /// since its `new()` already takes one; Cohere historically hardcoded
-    /// `COHERE_API_BASE`, so this builder fills the gap for the 429 backoff
-    /// tests.
-    #[cfg(test)]
-    pub(crate) fn with_base_url(mut self, base: impl Into<String>) -> Self {
+    /// Override the Cohere-compatible API base URL.
+    ///
+    /// This keeps the public provider usable with local mocks and compatible
+    /// deployments while preserving Cohere's hosted endpoint as the default.
+    pub fn with_base_url(mut self, base: impl Into<String>) -> Self {
         self.base_url = base.into();
         self
     }

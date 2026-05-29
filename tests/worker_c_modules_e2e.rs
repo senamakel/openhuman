@@ -8,7 +8,8 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use axum::http::header::AUTHORIZATION;
+use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+use axum::{response::Html, routing::get, Router};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
@@ -954,4 +955,284 @@ async fn memory_memory_tree_and_sources_controller_surfaces_are_reachable() {
         let response = rpc(&harness.rpc_base, 100 + offset as i64, method, json!({})).await;
         assert_rpc_completed(&response, method);
     }
+}
+
+async fn serve_source_fixtures() -> (String, tokio::task::JoinHandle<Result<(), std::io::Error>>) {
+    async fn page() -> Html<&'static str> {
+        Html(
+            r#"<html>
+                <head><title>Worker C page</title></head>
+                <body>
+                    <nav>Navigation text should be ignored</nav>
+                    <article>
+                        <h1>Selected coverage article</h1>
+                        <p>Web page reader extracts only the requested article body.</p>
+                    </article>
+                </body>
+            </html>"#,
+        )
+    }
+
+    async fn feed() -> impl axum::response::IntoResponse {
+        (
+            [(CONTENT_TYPE, "application/rss+xml; charset=utf-8")],
+            r#"<?xml version="1.0"?>
+            <rss version="2.0">
+              <channel>
+                <title>Worker C Feed</title>
+                <item>
+                  <title>RSS first item</title>
+                  <guid>rss-worker-c-1</guid>
+                  <link>https://example.test/rss/1</link>
+                  <description>RSS body &amp; decoded entity for coverage.</description>
+                  <pubDate>Fri, 29 May 2026 12:00:00 GMT</pubDate>
+                </item>
+                <item>
+                  <title>RSS second item</title>
+                  <guid>rss-worker-c-2</guid>
+                  <description><![CDATA[<p>HTML-like RSS content</p>]]></description>
+                </item>
+              </channel>
+            </rss>"#,
+        )
+    }
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind fixture listener");
+    let addr = listener.local_addr().expect("fixture listener addr");
+    let app = Router::new()
+        .route("/page", get(page))
+        .route("/feed", get(feed));
+    let join = tokio::spawn(async move { axum::serve(listener, app).await });
+    (format!("http://{addr}"), join)
+}
+
+#[tokio::test]
+async fn memory_sources_folder_web_and_rss_readers_sync_through_rpc() {
+    let _lock = env_lock();
+    let harness = setup().await;
+    let (fixture_base, fixture_join) = serve_source_fixtures().await;
+
+    let notes_dir = harness._tmp.path().join("source-notes");
+    std::fs::create_dir_all(notes_dir.join("nested")).expect("mkdir source notes");
+    std::fs::write(
+        notes_dir.join("overview.md"),
+        "# Overview\nFolder reader markdown body.",
+    )
+    .expect("write markdown note");
+    std::fs::write(
+        notes_dir.join("nested").join("brief.html"),
+        "<main><p>Folder reader html body.</p></main>",
+    )
+    .expect("write html note");
+    std::fs::write(
+        harness._tmp.path().join("outside-secret.md"),
+        "path traversal must not read this",
+    )
+    .expect("write outside note");
+
+    let folder = rpc(
+        &harness.rpc_base,
+        300,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "folder",
+            "label": "Worker C folder",
+            "path": notes_dir.to_string_lossy(),
+            "glob": "**/*.*"
+        }),
+    )
+    .await;
+    let folder_id = payload(&folder, "memory_sources_add folder")
+        .pointer("/source/id")
+        .and_then(Value::as_str)
+        .expect("folder source id")
+        .to_string();
+
+    let folder_items = rpc(
+        &harness.rpc_base,
+        301,
+        "openhuman.memory_sources_list_items",
+        json!({ "source_id": folder_id }),
+    )
+    .await;
+    let folder_item_ids: Vec<&str> = payload(&folder_items, "memory_sources_list_items folder")
+        .get("items")
+        .and_then(Value::as_array)
+        .expect("folder items")
+        .iter()
+        .filter_map(|item| item.get("id").and_then(Value::as_str))
+        .collect();
+    assert!(folder_item_ids.contains(&"overview.md"));
+    assert!(folder_item_ids.contains(&"nested/brief.html"));
+
+    let html_read = rpc(
+        &harness.rpc_base,
+        302,
+        "openhuman.memory_sources_read_item",
+        json!({ "source_id": folder_id, "item_id": "nested/brief.html" }),
+    )
+    .await;
+    let html_content = payload(&html_read, "memory_sources_read_item folder html")
+        .get("content")
+        .expect("folder html content");
+    assert_eq!(
+        html_content.get("content_type").and_then(Value::as_str),
+        Some("html")
+    );
+    assert!(html_content
+        .get("body")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("Folder reader html body"));
+
+    let traversal = rpc(
+        &harness.rpc_base,
+        303,
+        "openhuman.memory_sources_read_item",
+        json!({ "source_id": folder_id, "item_id": "../outside-secret.md" }),
+    )
+    .await;
+    assert!(
+        error_message(&traversal, "memory_sources_read_item traversal").contains("denied"),
+        "folder reader should reject traversal outside source root: {traversal}"
+    );
+
+    let web = rpc(
+        &harness.rpc_base,
+        304,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "web_page",
+            "label": "Worker C page",
+            "url": format!("{fixture_base}/page"),
+            "selector": "article"
+        }),
+    )
+    .await;
+    let web_id = payload(&web, "memory_sources_add web")
+        .pointer("/source/id")
+        .and_then(Value::as_str)
+        .expect("web source id")
+        .to_string();
+
+    let web_items = rpc(
+        &harness.rpc_base,
+        305,
+        "openhuman.memory_sources_list_items",
+        json!({ "source_id": web_id }),
+    )
+    .await;
+    let web_item_id = payload(&web_items, "memory_sources_list_items web")
+        .pointer("/items/0/id")
+        .and_then(Value::as_str)
+        .expect("web item id")
+        .to_string();
+    assert_eq!(web_item_id, format!("{fixture_base}/page"));
+
+    let web_read = rpc(
+        &harness.rpc_base,
+        306,
+        "openhuman.memory_sources_read_item",
+        json!({ "source_id": web_id, "item_id": web_item_id }),
+    )
+    .await;
+    let web_content = payload(&web_read, "memory_sources_read_item web")
+        .get("content")
+        .expect("web content");
+    assert_eq!(
+        web_content.get("title").and_then(Value::as_str),
+        Some("Worker C page")
+    );
+    let web_body = web_content
+        .get("body")
+        .and_then(Value::as_str)
+        .expect("web body");
+    assert!(web_body.contains("Selected coverage article"));
+    assert!(
+        !web_body.contains("Navigation text"),
+        "selector extraction should not include nav text: {web_body}"
+    );
+
+    let rss = rpc(
+        &harness.rpc_base,
+        307,
+        "openhuman.memory_sources_add",
+        json!({
+            "kind": "rss_feed",
+            "label": "Worker C feed",
+            "url": format!("{fixture_base}/feed"),
+            "max_items": 1
+        }),
+    )
+    .await;
+    let rss_id = payload(&rss, "memory_sources_add rss")
+        .pointer("/source/id")
+        .and_then(Value::as_str)
+        .expect("rss source id")
+        .to_string();
+
+    let rss_items = rpc(
+        &harness.rpc_base,
+        308,
+        "openhuman.memory_sources_list_items",
+        json!({ "source_id": rss_id }),
+    )
+    .await;
+    let rss_items_payload = payload(&rss_items, "memory_sources_list_items rss")
+        .get("items")
+        .and_then(Value::as_array)
+        .expect("rss items");
+    assert_eq!(
+        rss_items_payload.len(),
+        1,
+        "max_items should limit RSS list"
+    );
+    assert_eq!(
+        rss_items_payload[0].get("id").and_then(Value::as_str),
+        Some("rss-worker-c-1")
+    );
+
+    let rss_read = rpc(
+        &harness.rpc_base,
+        309,
+        "openhuman.memory_sources_read_item",
+        json!({ "source_id": rss_id, "item_id": "rss-worker-c-1" }),
+    )
+    .await;
+    let rss_content = payload(&rss_read, "memory_sources_read_item rss")
+        .get("content")
+        .expect("rss content");
+    assert_eq!(
+        rss_content.get("title").and_then(Value::as_str),
+        Some("RSS first item")
+    );
+    assert!(rss_content
+        .get("body")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .contains("RSS body & decoded entity"));
+    assert_eq!(
+        rss_content
+            .pointer("/metadata/link")
+            .and_then(Value::as_str),
+        Some("https://example.test/rss/1")
+    );
+
+    let sync = rpc(
+        &harness.rpc_base,
+        310,
+        "openhuman.memory_sources_sync",
+        json!({ "source_id": rss_id }),
+    )
+    .await;
+    assert_eq!(
+        payload(&sync, "memory_sources_sync rss")
+            .get("requested")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    fixture_join.abort();
 }

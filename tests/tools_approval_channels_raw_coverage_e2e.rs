@@ -678,6 +678,59 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
     .await;
     assert!(error_message(&bad_mode, "bad auth mode").contains("invalid authMode"));
 
+    let unsupported_mode = rpc(
+        &harness.rpc_base,
+        24,
+        "openhuman.channels_connect",
+        json!({ "channel": "web", "authMode": "bot_token", "credentials": {} }),
+    )
+    .await;
+    assert!(error_message(&unsupported_mode, "unsupported auth mode").contains("does not support"));
+
+    let non_object_creds = rpc(
+        &harness.rpc_base,
+        25,
+        "openhuman.channels_test",
+        json!({ "channel": "telegram", "authMode": "bot_token", "credentials": "bad" }),
+    )
+    .await;
+    assert!(error_message(&non_object_creds, "non-object credentials")
+        .contains("credentials must be a JSON object"));
+
+    let telegram_managed = rpc(
+        &harness.rpc_base,
+        26,
+        "openhuman.channels_connect",
+        json!({ "channel": "telegram", "authMode": "managed_dm", "credentials": {} }),
+    )
+    .await;
+    assert_eq!(
+        payload(&telegram_managed, "connect telegram managed dm")
+            .get("status")
+            .and_then(Value::as_str),
+        Some("pending_auth")
+    );
+    assert_eq!(
+        payload(&telegram_managed, "connect telegram managed dm")
+            .get("auth_action")
+            .and_then(Value::as_str),
+        Some("telegram_managed_dm")
+    );
+
+    let discord_oauth = rpc(
+        &harness.rpc_base,
+        27,
+        "openhuman.channels_connect",
+        json!({ "channel": "discord", "authMode": "oauth", "credentials": {} }),
+    )
+    .await;
+    assert_eq!(
+        payload(&discord_oauth, "connect discord oauth")
+            .get("auth_action")
+            .and_then(Value::as_str),
+        Some("discord_oauth")
+    );
+
     let missing_creds = rpc(
         &harness.rpc_base,
         5,
@@ -766,6 +819,74 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
         Some("connected")
     );
 
+    let lark_test = rpc(
+        &harness.rpc_base,
+        28,
+        "openhuman.channels_test",
+        json!({
+            "channel": "lark",
+            "authMode": "api_key",
+            "credentials": {
+                "app_id": "cli_lark",
+                "app_secret": "lark-secret",
+                "use_feishu": "yes",
+                "allowed_users": [" user-a ", "@user-b,user-a"]
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&lark_test, "test lark")
+            .get("success")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let connect_lark = rpc(
+        &harness.rpc_base,
+        29,
+        "openhuman.channels_connect",
+        json!({
+            "channel": "lark",
+            "authMode": "api_key",
+            "credentials": {
+                "app_id": "cli_lark",
+                "app_secret": "lark-secret",
+                "receive_mode": "websocket",
+                "port": "8080"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&connect_lark, "connect lark")
+            .get("status")
+            .and_then(Value::as_str),
+        Some("connected")
+    );
+
+    let connect_dingtalk = rpc(
+        &harness.rpc_base,
+        30,
+        "openhuman.channels_connect",
+        json!({
+            "channel": "dingtalk",
+            "authMode": "api_key",
+            "credentials": {
+                "client_id": "ding-client",
+                "client_secret": "ding-secret",
+                "allowed_users": "u1\n@u2"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&connect_dingtalk, "connect dingtalk")
+            .get("status")
+            .and_then(Value::as_str),
+        Some("connected")
+    );
+
     let status = rpc(
         &harness.rpc_base,
         10,
@@ -782,6 +903,14 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
     }));
     assert!(entries.iter().any(|entry| {
         entry.get("channel_id").and_then(Value::as_str) == Some("imessage")
+            && entry.get("connected").and_then(Value::as_bool) == Some(true)
+    }));
+    assert!(entries.iter().any(|entry| {
+        entry.get("channel_id").and_then(Value::as_str) == Some("lark")
+            && entry.get("connected").and_then(Value::as_bool) == Some(true)
+    }));
+    assert!(entries.iter().any(|entry| {
+        entry.get("channel_id").and_then(Value::as_str) == Some("dingtalk")
             && entry.get("connected").and_then(Value::as_bool) == Some(true)
     }));
 
@@ -951,6 +1080,34 @@ async fn channels_rpc_covers_credentials_managed_backend_and_error_paths() {
             .get("memory_chunks_deleted")
             .and_then(Value::as_u64),
         Some(0)
+    );
+
+    let disconnect_lark = rpc(
+        &harness.rpc_base,
+        31,
+        "openhuman.channels_disconnect",
+        json!({ "channel": "lark", "authMode": "api_key", "clearMemory": false }),
+    )
+    .await;
+    assert_eq!(
+        payload(&disconnect_lark, "disconnect lark")
+            .get("disconnected")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let disconnect_dingtalk = rpc(
+        &harness.rpc_base,
+        32,
+        "openhuman.channels_disconnect",
+        json!({ "channel": "dingtalk", "authMode": "api_key", "clearMemory": false }),
+    )
+    .await;
+    assert_eq!(
+        payload(&disconnect_dingtalk, "disconnect dingtalk")
+            .get("disconnected")
+            .and_then(Value::as_bool),
+        Some(true)
     );
 
     harness.rpc_join.abort();

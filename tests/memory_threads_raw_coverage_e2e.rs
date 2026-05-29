@@ -11,6 +11,9 @@ use axum::routing::get;
 use axum::Router;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
+use serde_json::{Map, Value};
+use std::ffi::OsString;
+use std::path::Path;
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
@@ -18,15 +21,24 @@ use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
     rpc_models::{
-        ApiEnvelope, ApiError, ApiMeta, PaginationMeta, QueryNamespaceRequest,
-        RecallContextRequest, RecallMemoriesRequest,
+        ApiEnvelope, ApiError, ApiMeta, AppendConversationMessageRequest,
+        ConversationMessageRecord, ConversationMessagesRequest, CreateConversationThreadRequest,
+        DeleteConversationThreadRequest, EmptyRequest, GenerateConversationThreadTitleRequest,
+        PaginationMeta, QueryNamespaceRequest, RecallContextRequest, RecallMemoriesRequest,
+        UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
+        UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
     },
     traits::{MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
 };
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
+use openhuman_core::openhuman::memory_sources::registry;
+use openhuman_core::openhuman::memory_sources::rpc as memory_sources_rpc;
 use openhuman_core::openhuman::memory_sources::status::{source_status, FreshnessLabel};
 use openhuman_core::openhuman::memory_sources::types::{
     ContentType, MemorySourceEntry, SourceContent, SourceItem, SourceKind,
+};
+use openhuman_core::openhuman::memory_sources::{
+    all_memory_sources_controller_schemas, all_memory_sources_registered_controllers,
 };
 use openhuman_core::openhuman::memory_store::chunks::store::{upsert_chunks, with_connection};
 use openhuman_core::openhuman::memory_store::chunks::types::{
@@ -74,15 +86,43 @@ use openhuman_core::openhuman::memory_tree::tree_runtime::{
     NodeLevel, TreeNode,
 };
 use openhuman_core::openhuman::memory_tree::{retrieval, score::embed};
+use openhuman_core::openhuman::threads::ops as thread_ops;
 use openhuman_core::openhuman::threads::title::{
     build_title_prompt, collapse_whitespace, is_auto_generated_thread_title,
     sanitize_generated_title, title_from_user_message, title_log_fingerprint,
 };
 use openhuman_core::openhuman::threads::turn_state::{
-    self, GetTurnStateResponse, ListTurnStatesResponse, SubagentActivity, SubagentToolCall,
-    ToolTimelineEntry, ToolTimelineStatus, TurnLifecycle, TurnPhase, TurnState,
+    self, ClearTurnStateRequest, GetTurnStateRequest, GetTurnStateResponse, ListTurnStatesResponse,
+    SubagentActivity, SubagentToolCall, ToolTimelineEntry, ToolTimelineStatus, TurnLifecycle,
+    TurnPhase, TurnState,
 };
 use openhuman_core::openhuman::threads::ThreadsError;
+
+struct EnvVarGuard {
+    key: &'static str,
+    old: Option<OsString>,
+}
+
+impl EnvVarGuard {
+    fn set_to_path(key: &'static str, value: &Path) -> Self {
+        let old = std::env::var_os(key);
+        unsafe {
+            std::env::set_var(key, value.as_os_str());
+        }
+        Self { key, old }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.old {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+}
 
 fn config_in(tmp: &TempDir) -> Config {
     let mut config = Config::default();
@@ -1368,4 +1408,407 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
     let removed = turn_state::store::clear_all(workspace.clone()).expect("clear all");
     assert_eq!(removed, 1);
     assert!(turn_state::store::list(workspace).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn threads_rpc_ops_cover_crud_title_fallback_and_turn_state_cleanup() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let config = Config::load_or_init().await.expect("init isolated config");
+    let workspace_dir = config.workspace_dir.clone();
+
+    let thread = thread_ops::thread_upsert(UpsertConversationThreadRequest {
+        id: "thread/raw-crud".into(),
+        title: "Chat Jan 1 1:00 AM".into(),
+        created_at: "2026-05-29T12:00:00Z".into(),
+        parent_thread_id: Some("parent-thread".into()),
+        labels: Some(vec!["work".into(), "coverage".into()]),
+        personality_id: Some("personality-1".into()),
+    })
+    .await
+    .expect("upsert thread")
+    .value
+    .data
+    .expect("thread summary");
+    assert_eq!(thread.id, "thread/raw-crud");
+    assert_eq!(thread.parent_thread_id.as_deref(), Some("parent-thread"));
+
+    let created = thread_ops::thread_create_new(CreateConversationThreadRequest {
+        labels: Some(vec!["scratch".into()]),
+        personality_id: None,
+    })
+    .await
+    .expect("create new thread")
+    .value
+    .data
+    .expect("created thread");
+    assert!(created.id.starts_with("thread-"));
+    assert_eq!(created.labels, vec!["scratch"]);
+
+    let message = ConversationMessageRecord {
+        id: "msg-1".into(),
+        content: "Please summarize launch blockers. Then inspect follow ups.".into(),
+        message_type: "text".into(),
+        extra_metadata: json!({ "before": true }),
+        sender: "user".into(),
+        created_at: "2026-05-29T12:01:00Z".into(),
+    };
+    let appended = thread_ops::message_append(AppendConversationMessageRequest {
+        thread_id: "thread/raw-crud".into(),
+        message: message.clone(),
+    })
+    .await
+    .expect("append message")
+    .value
+    .data
+    .expect("appended message");
+    assert_eq!(appended.id, "msg-1");
+    assert!(
+        thread_ops::message_append(AppendConversationMessageRequest {
+            thread_id: "missing-thread".into(),
+            message,
+        })
+        .await
+        .is_err()
+    );
+
+    let listed_messages = thread_ops::messages_list(ConversationMessagesRequest {
+        thread_id: "thread/raw-crud".into(),
+    })
+    .await
+    .expect("list messages")
+    .value
+    .data
+    .expect("messages");
+    assert_eq!(listed_messages.count, 1);
+
+    let fallback_title =
+        thread_ops::thread_generate_title(GenerateConversationThreadTitleRequest {
+            thread_id: "thread/raw-crud".into(),
+            assistant_message: Some("   ".into()),
+        })
+        .await
+        .expect("fallback title")
+        .value
+        .data
+        .expect("fallback summary");
+    assert_eq!(fallback_title.title, "Please summarize launch blockers");
+
+    assert!(
+        thread_ops::thread_update_title(UpdateConversationThreadTitleRequest {
+            thread_id: "thread/raw-crud".into(),
+            title: "   ".into(),
+        })
+        .await
+        .unwrap_err()
+        .contains("title must not be empty")
+    );
+    let renamed = thread_ops::thread_update_title(UpdateConversationThreadTitleRequest {
+        thread_id: "thread/raw-crud".into(),
+        title: " Manual coverage title ".into(),
+    })
+    .await
+    .expect("manual title")
+    .value
+    .data
+    .expect("renamed");
+    assert_eq!(renamed.title, "Manual coverage title");
+
+    let relabeled = thread_ops::thread_update_labels(UpdateConversationThreadLabelsRequest {
+        thread_id: "thread/raw-crud".into(),
+        labels: Vec::new(),
+    })
+    .await
+    .expect("clear labels")
+    .value
+    .data
+    .expect("relabeled");
+    assert!(relabeled.labels.is_empty());
+
+    let updated_message = thread_ops::message_update(UpdateConversationMessageRequest {
+        thread_id: "thread/raw-crud".into(),
+        message_id: "msg-1".into(),
+        extra_metadata: Some(json!({ "after": true })),
+    })
+    .await
+    .expect("update message")
+    .value
+    .data
+    .expect("updated message");
+    assert_eq!(updated_message.extra_metadata["after"], true);
+    assert!(
+        thread_ops::message_update(UpdateConversationMessageRequest {
+            thread_id: "thread/raw-crud".into(),
+            message_id: "missing".into(),
+            extra_metadata: None,
+        })
+        .await
+        .unwrap_err()
+        .contains("message missing not found")
+    );
+
+    let all_threads = thread_ops::threads_list(EmptyRequest {})
+        .await
+        .expect("list threads")
+        .value
+        .data
+        .expect("threads");
+    assert!(all_threads.count >= 2);
+    assert!(all_threads
+        .threads
+        .iter()
+        .any(|thread| thread.title == "Manual coverage title"));
+
+    let mut turn = TurnState::started("thread/raw-crud", "request-raw", 3, "2026-05-29T12:02:00Z");
+    turn.lifecycle = TurnLifecycle::Streaming;
+    turn.phase = Some(TurnPhase::Thinking);
+    turn_state::store::put(workspace_dir.clone(), &turn).expect("put turn state");
+    let turn_get = thread_ops::turn_state_get(GetTurnStateRequest {
+        thread_id: "thread/raw-crud".into(),
+    })
+    .await
+    .expect("turn get")
+    .value
+    .data
+    .expect("turn response");
+    assert_eq!(turn_get.turn_state.unwrap().request_id, "request-raw");
+    let turn_list = thread_ops::turn_state_list(EmptyRequest {})
+        .await
+        .expect("turn list")
+        .value
+        .data
+        .expect("turn list response");
+    assert_eq!(turn_list.count, 1);
+    assert!(
+        thread_ops::turn_state_clear(ClearTurnStateRequest {
+            thread_id: "missing".into(),
+        })
+        .await
+        .expect("clear missing")
+        .value
+        .data
+        .expect("clear response")
+        .cleared
+            == false
+    );
+    turn_state::store::put(workspace_dir.clone(), &turn).expect("restore turn state");
+
+    let deleted = thread_ops::thread_delete(DeleteConversationThreadRequest {
+        thread_id: "thread/raw-crud".into(),
+        deleted_at: "2026-05-29T12:03:00Z".into(),
+    })
+    .await
+    .expect("delete thread")
+    .value
+    .data
+    .expect("delete response");
+    assert!(deleted.deleted);
+    assert!(turn_state::store::get(workspace_dir, "thread/raw-crud")
+        .unwrap()
+        .is_none());
+
+    let purged = thread_ops::threads_purge(EmptyRequest {})
+        .await
+        .expect("purge")
+        .value
+        .data
+        .expect("purge response");
+    assert!(purged.agent_threads_deleted >= 1);
+}
+
+#[tokio::test]
+async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    Config::load_or_init().await.expect("init isolated config");
+    std::fs::write(tmp.path().join("reader-note.md"), "# Reader note").expect("write note");
+
+    let schemas = all_memory_sources_controller_schemas();
+    let controllers = all_memory_sources_registered_controllers();
+    assert_eq!(schemas.len(), 9);
+    assert_eq!(schemas.len(), controllers.len());
+    assert_eq!(
+        openhuman_core::openhuman::memory_sources::schemas::schemas("read_item").function,
+        "read_item"
+    );
+
+    let add_controller = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "add")
+        .expect("add controller");
+    let mut bad_params = Map::new();
+    bad_params.insert("kind".into(), Value::String("folder".into()));
+    assert!((add_controller.handler)(bad_params)
+        .await
+        .unwrap_err()
+        .contains("missing field `label`"));
+
+    let invalid_folder = memory_sources_rpc::add_rpc(memory_sources_rpc::AddRequest {
+        kind: SourceKind::Folder,
+        label: "Invalid folder".into(),
+        enabled: true,
+        toolkit: None,
+        connection_id: None,
+        path: None,
+        glob: None,
+        url: None,
+        branch: None,
+        paths: Vec::new(),
+        query: None,
+        since_days: None,
+        max_items: None,
+        selector: None,
+    })
+    .await
+    .unwrap_err();
+    assert!(invalid_folder.contains("path"));
+
+    let added = memory_sources_rpc::add_rpc(memory_sources_rpc::AddRequest {
+        kind: SourceKind::Folder,
+        label: "Folder source".into(),
+        enabled: true,
+        toolkit: None,
+        connection_id: None,
+        path: Some(tmp.path().to_string_lossy().to_string()),
+        glob: Some("*.md".into()),
+        url: None,
+        branch: None,
+        paths: Vec::new(),
+        query: None,
+        since_days: None,
+        max_items: Some(4),
+        selector: None,
+    })
+    .await
+    .expect("add folder")
+    .value
+    .source;
+    assert_eq!(added.kind, SourceKind::Folder);
+    assert!(memory_sources_rpc::add_rpc(memory_sources_rpc::AddRequest {
+        kind: SourceKind::Folder,
+        label: "Duplicate".into(),
+        enabled: true,
+        toolkit: None,
+        connection_id: None,
+        path: Some(tmp.path().to_string_lossy().to_string()),
+        glob: None,
+        url: None,
+        branch: None,
+        paths: Vec::new(),
+        query: None,
+        since_days: None,
+        max_items: None,
+        selector: None,
+    })
+    .await
+    .is_ok());
+
+    let enabled_folders = registry::list_enabled_by_kind(SourceKind::Folder)
+        .await
+        .expect("enabled folders");
+    assert!(enabled_folders.len() >= 2);
+    assert_eq!(
+        memory_sources_rpc::get_rpc(memory_sources_rpc::GetRequest {
+            id: added.id.clone(),
+        })
+        .await
+        .expect("get source")
+        .value
+        .source
+        .unwrap()
+        .label,
+        "Folder source"
+    );
+    assert!(memory_sources_rpc::get_rpc(memory_sources_rpc::GetRequest {
+        id: "missing".into(),
+    })
+    .await
+    .expect("get missing")
+    .value
+    .source
+    .is_none());
+
+    let list_items = memory_sources_rpc::list_items_rpc(memory_sources_rpc::ListItemsRequest {
+        source_id: added.id.clone(),
+    })
+    .await
+    .expect("list items")
+    .value
+    .items;
+    assert!(list_items.iter().any(|item| item.id == "reader-note.md"));
+    let read_item = memory_sources_rpc::read_item_rpc(memory_sources_rpc::ReadItemRequest {
+        source_id: added.id.clone(),
+        item_id: "reader-note.md".into(),
+    })
+    .await
+    .expect("read item")
+    .value
+    .content;
+    assert_eq!(read_item.content_type, ContentType::Markdown);
+
+    let disabled = memory_sources_rpc::update_rpc(memory_sources_rpc::UpdateRequest {
+        id: added.id.clone(),
+        patch: serde_json::from_value(json!({
+            "label": "Disabled folder",
+            "enabled": false,
+            "glob": "**/*.md",
+            "max_items": 2
+        }))
+        .expect("patch"),
+    })
+    .await
+    .expect("update source")
+    .value
+    .source;
+    assert_eq!(disabled.label, "Disabled folder");
+    assert!(!disabled.enabled);
+    assert!(
+        memory_sources_rpc::sync_rpc(memory_sources_rpc::SyncRequest {
+            source_id: added.id.clone(),
+        })
+        .await
+        .unwrap_err()
+        .contains("disabled")
+    );
+    assert!(
+        memory_sources_rpc::update_rpc(memory_sources_rpc::UpdateRequest {
+            id: "missing".into(),
+            patch: Default::default(),
+        })
+        .await
+        .unwrap_err()
+        .contains("not found")
+    );
+    assert!(
+        memory_sources_rpc::list_items_rpc(memory_sources_rpc::ListItemsRequest {
+            source_id: "missing".into(),
+        })
+        .await
+        .unwrap_err()
+        .contains("not found")
+    );
+
+    let statuses = memory_sources_rpc::status_list_rpc()
+        .await
+        .expect("status list")
+        .value
+        .statuses;
+    assert!(statuses.iter().any(|status| status.source_id == added.id));
+
+    assert!(
+        memory_sources_rpc::remove_rpc(memory_sources_rpc::RemoveRequest {
+            id: added.id.clone(),
+        })
+        .await
+        .expect("remove source")
+        .value
+        .removed
+    );
+    assert!(
+        !memory_sources_rpc::remove_rpc(memory_sources_rpc::RemoveRequest { id: added.id })
+            .await
+            .expect("remove missing")
+            .value
+            .removed
+    );
 }

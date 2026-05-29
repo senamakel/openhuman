@@ -1120,6 +1120,33 @@ const Conversations = ({
     }
   };
 
+  const handleUpdateTaskCard = async (
+    card: TaskBoardCard,
+    nextCard: TaskBoardCard
+  ): Promise<void> => {
+    if (!selectedThreadId || !selectedTaskBoard) return;
+    const now = new Date().toISOString();
+    const nextBoard = {
+      ...selectedTaskBoard,
+      cards: selectedTaskBoard.cards.map(existing =>
+        existing.id === card.id ? { ...nextCard, updatedAt: now } : existing
+      ),
+      updatedAt: now,
+    };
+    dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: nextBoard }));
+    try {
+      const saved = await threadApi.putTaskBoard(selectedThreadId, nextBoard.cards);
+      if (!saved) {
+        throw new Error('Task board update returned no board');
+      }
+      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: saved }));
+    } catch (error) {
+      debug('putTaskBoard failed: %o', error);
+      setSendAdvisory('Could not update task; changes were not saved.');
+      dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board: selectedTaskBoard }));
+    }
+  };
+
   const filteredThreads = useMemo(() => {
     // Worker/subagent threads (any thread with `parentThreadId`) are
     // surfaced through two intentional paths (issue #1624):
@@ -1553,6 +1580,9 @@ const Conversations = ({
                   disabled={!selectedThreadId}
                   onMove={(card, status) => {
                     void handleMoveTaskCard(card, status);
+                  }}
+                  onUpdateCard={(card, nextCard) => {
+                    void handleUpdateTaskCard(card, nextCard);
                   }}
                 />
               )}

@@ -292,6 +292,9 @@ const en: TranslationMap = {
   'memory.noResults': 'No memories found',
   'memory.empty': 'No memories yet. Memories are created automatically as you interact.',
   'memory.tab.memory': 'Memory',
+  'memory.tab.tasks': 'Agent Tasks',
+  'memory.tab.tasksDescription':
+    'Create and track tasks — your own to-dos plus the boards your agents build across conversations.',
   'memory.tab.subconscious': 'Subconscious',
   'memory.tab.dreams': 'Dreams',
   'memory.tab.calls': 'Calls',
@@ -2639,7 +2642,7 @@ const en: TranslationMap = {
   'intelligence.tasks.threadPrefix': 'Thread {id}',
   'intelligence.tasks.subtitle': 'Your tasks and agent task boards across the workspace.',
   'intelligence.tasks.newTask': 'New task',
-  'intelligence.tasks.personalBoardTitle': 'My Tasks',
+  'intelligence.tasks.personalBoardTitle': 'Agent Tasks',
   'intelligence.tasks.personalEmpty': 'No personal tasks yet',
   'intelligence.tasks.composer.title': 'New task',
   'intelligence.tasks.composer.titleLabel': 'Title',

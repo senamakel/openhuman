@@ -175,7 +175,7 @@ describe('IntelligenceTasksTab', () => {
     await waitFor(() => {
       expect(screen.getByText('No personal tasks yet')).toBeInTheDocument();
     });
-    expect(screen.getByText('My Tasks')).toBeInTheDocument();
+    expect(screen.getByText('Agent Tasks')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /New task/ }).length).toBeGreaterThan(0);
   });
 
@@ -255,7 +255,7 @@ describe('IntelligenceTasksTab', () => {
     vi.resetModules();
     const Tab = await importTab();
     renderTab(Tab);
-    await waitFor(() => expect(screen.getByText('My Tasks')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Agent Tasks')).toBeInTheDocument());
 
     fireEvent.click(screen.getAllByRole('button', { name: /New task/ })[0]);
     expect(screen.getByTestId('composer')).toBeInTheDocument();

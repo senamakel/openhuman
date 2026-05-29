@@ -154,7 +154,7 @@ const hi4: TranslationMap = {
   'intelligence.tasks.threadPrefix': 'थ्रेड {thread}',
   'intelligence.tasks.subtitle': 'Your tasks and agent task boards across the workspace.',
   'intelligence.tasks.newTask': 'New task',
-  'intelligence.tasks.personalBoardTitle': 'My Tasks',
+  'intelligence.tasks.personalBoardTitle': 'Agent Tasks',
   'intelligence.tasks.personalEmpty': 'No personal tasks yet',
   'intelligence.tasks.composer.title': 'New task',
   'intelligence.tasks.composer.titleLabel': 'Title',

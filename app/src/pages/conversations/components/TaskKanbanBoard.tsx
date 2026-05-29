@@ -70,6 +70,9 @@ function columnFor(status: TaskBoardCardStatus): TaskBoardCardStatus {
 interface TaskKanbanBoardProps {
   board: TaskBoard;
   disabled?: boolean;
+  /** Hide the board's own "Tasks" title row — used where the caller already
+   *  renders a heading for the board, to avoid a doubled-up title. */
+  hideHeader?: boolean;
   onMove?: (card: TaskBoardCard, status: TaskBoardCardStatus) => void;
   onUpdateCard?: (card: TaskBoardCard, nextCard: TaskBoardCard) => void;
   onDeleteCard?: (card: TaskBoardCard) => void;
@@ -80,6 +83,7 @@ interface TaskKanbanBoardProps {
 export function TaskKanbanBoard({
   board,
   disabled = false,
+  hideHeader = false,
   onMove,
   onUpdateCard,
   onDeleteCard,
@@ -115,15 +119,17 @@ export function TaskKanbanBoard({
 
   return (
     <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
-          {t('conversations.taskKanban.title')}
-        </h4>
-        <span className="text-[10px] text-stone-400 dark:text-neutral-500">
-          {board.cards.length}
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+      {!hideHeader && (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+            {t('conversations.taskKanban.title')}
+          </h4>
+          <span className="text-[10px] text-stone-400 dark:text-neutral-500">
+            {board.cards.length}
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {COLUMN_DEFS.map(column => (
           <section
             key={column.status}

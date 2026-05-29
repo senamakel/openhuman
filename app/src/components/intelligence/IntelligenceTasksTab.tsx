@@ -273,6 +273,7 @@ export default function IntelligenceTasksTab() {
         {personalCards.length > 0 ? (
           <TaskKanbanBoard
             board={personalBoard as TaskBoard}
+            hideHeader
             onMove={handleMovePersonal}
             onUpdateCard={handleUpdatePersonal}
             onDeleteCard={handleDeletePersonal}
@@ -320,7 +321,7 @@ export default function IntelligenceTasksTab() {
               </span>
             )}
           </div>
-          <TaskKanbanBoard board={entry.board} />
+          <TaskKanbanBoard board={entry.board} hideHeader />
         </section>
       ))}
 

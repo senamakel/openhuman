@@ -2856,6 +2856,62 @@ async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
 }
 
 #[tokio::test]
+async fn app_state_cached_identity_peek_accepts_camel_case_fallback_fields() {
+    let _lock = env_lock();
+    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
+        "userId": "camel-user-id",
+        "fullName": "Camel Full Name"
+    }))
+    .await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_301,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "camel-field-remote-jwt",
+            "user_id": "stored-camel-user",
+            "user": {
+                "id": "stored-camel-user",
+                "name": "Stored Camel Worker",
+                "email": "stored-camel@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session camel fields")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_302,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "camel-field current-user snapshot")
+            .pointer("/currentUser/userId")
+            .and_then(Value::as_str),
+        Some("camel-user-id")
+    );
+    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+        .expect("camel-case current-user keys should produce a prompt identity");
+    assert_eq!(identity.id.as_deref(), Some("camel-user-id"));
+    assert_eq!(identity.name.as_deref(), Some("Camel Full Name"));
+    assert_eq!(identity.email, None);
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -2918,6 +2974,61 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
             .get("encryptionKey")
             .is_none(),
         "null patch should clear optional encryption key: {cleared}"
+    );
+
+    let blank_cleared = rpc(
+        &harness.rpc_base,
+        30_004,
+        "openhuman.app_state_update_local_state",
+        json!({ "encryptionKey": "   " }),
+    )
+    .await;
+    assert!(
+        payload(&blank_cleared, "app_state_update_local_state blank key")
+            .get("encryptionKey")
+            .is_none(),
+        "blank encryption key should also clear the optional value: {blank_cleared}"
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
+async fn app_state_snapshot_and_update_surface_state_dir_creation_errors() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let config = rpc(&harness.rpc_base, 30_101, "openhuman.config_get", json!({})).await;
+    let workspace_dir = payload(&config, "config_get for app_state state-dir error")
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .expect("config_get should expose workspace_dir");
+    let state_path = workspace_dir.join("state");
+    std::fs::create_dir_all(&workspace_dir).expect("create workspace dir");
+    std::fs::write(&state_path, "not a directory").expect("write state path as file");
+
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            30_102,
+            "openhuman.app_state_snapshot",
+            json!({}),
+        )
+        .await,
+        "app_state_snapshot with file at state path",
+        "failed to create workspace state dir",
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            30_103,
+            "openhuman.app_state_update_local_state",
+            json!({ "encryptionKey": "cannot-save" }),
+        )
+        .await,
+        "app_state_update_local_state with file at state path",
+        "failed to create workspace state dir",
     );
 
     harness.join.abort();

@@ -20,13 +20,26 @@ const DEFAULT_BRANCH: &str = "main";
 pub struct GithubReader;
 
 /// Parse `owner` and `repo` from a GitHub URL.
+///
+/// Accepts only the canonical `https://github.com/<owner>/<repo>[.git][/]`
+/// shape — extra segments like `/tree/main` or `/blob/...` are rejected
+/// so callers can't accidentally derive the wrong owner/repo from a
+/// deep link.
 fn parse_github_url(url: &str) -> Result<(String, String), String> {
-    let cleaned = url.trim_end_matches('/').trim_end_matches(".git");
-    let parts: Vec<&str> = cleaned.rsplitn(3, '/').collect();
-    if parts.len() < 2 {
-        return Err(format!("cannot parse GitHub owner/repo from: {url}"));
+    let trimmed = url.trim();
+    let rest = trimmed
+        .strip_prefix("https://github.com/")
+        .or_else(|| trimmed.strip_prefix("http://github.com/"))
+        .or_else(|| trimmed.strip_prefix("git@github.com:"))
+        .ok_or_else(|| format!("not a GitHub URL: {url}"))?;
+    let cleaned = rest.trim_end_matches('/').trim_end_matches(".git");
+    let parts: Vec<&str> = cleaned.split('/').collect();
+    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return Err(format!(
+            "expected https://github.com/<owner>/<repo>, got: {url}"
+        ));
     }
-    Ok((parts[1].to_string(), parts[0].to_string()))
+    Ok((parts[0].to_string(), parts[1].to_string()))
 }
 
 fn gh_available() -> bool {
@@ -91,7 +104,10 @@ async fn gh_json(args: &[&str]) -> Result<String, String> {
 
 async fn api_get(path: &str) -> Result<String, String> {
     let url = format!("https://api.github.com{path}");
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("failed to build GitHub client: {e}"))?;
     let resp = client
         .get(&url)
         .header("User-Agent", "openhuman")
@@ -647,6 +663,16 @@ mod tests {
         let (owner, repo) = parse_github_url("https://github.com/org/repo.git/").unwrap();
         assert_eq!(owner, "org");
         assert_eq!(repo, "repo");
+    }
+
+    #[test]
+    fn parse_github_url_rejects_non_repo_paths() {
+        // Deep links like /tree/main must not silently extract the wrong
+        // owner/repo. Bare host or non-github URLs also rejected.
+        assert!(parse_github_url("https://github.com/org/repo/tree/main").is_err());
+        assert!(parse_github_url("https://gitlab.com/org/repo").is_err());
+        assert!(parse_github_url("https://github.com/org").is_err());
+        assert!(parse_github_url("not-a-url").is_err());
     }
 
     #[test]

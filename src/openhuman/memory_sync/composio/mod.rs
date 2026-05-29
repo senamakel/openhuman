@@ -58,11 +58,7 @@ pub async fn list_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, Strin
     .unwrap_or_default();
 
     if !registry_sources.is_empty() {
-        tracing::debug!(
-            count = registry_sources.len(),
-            "[composio:sync] using memory_sources registry for sync targets"
-        );
-        return Ok(registry_sources
+        let from_registry: Vec<SyncTarget> = registry_sources
             .into_iter()
             .filter_map(|s| {
                 let toolkit = s.toolkit?;
@@ -72,11 +68,27 @@ pub async fn list_sync_targets(config: &Config) -> Result<Vec<SyncTarget>, Strin
                     connection_id,
                 })
             })
-            .collect());
+            .collect();
+        if !from_registry.is_empty() {
+            tracing::debug!(
+                count = from_registry.len(),
+                "[composio:sync] using memory_sources registry for sync targets"
+            );
+            return Ok(from_registry);
+        }
+        // Registry has entries but none yielded a valid target (missing
+        // fields or unregistered toolkit). Fall through to a fresh scan
+        // rather than reporting an empty target list — otherwise newly
+        // connected integrations stay invisible until reconcile runs.
+        tracing::debug!(
+            "[composio:sync] registry yielded zero valid targets; falling back to connection scan"
+        );
+    } else {
+        tracing::debug!(
+            "[composio:sync] no memory_sources entries; falling back to connection scan"
+        );
     }
 
-    // Fallback: scan all active Composio connections (pre-registry behavior).
-    tracing::debug!("[composio:sync] no memory_sources entries; falling back to connection scan");
     scan_active_sync_targets(config).await
 }
 

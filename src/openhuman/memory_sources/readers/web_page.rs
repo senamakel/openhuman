@@ -50,13 +50,29 @@ impl SourceReader for WebPageReader {
             source.url.clone().ok_or("web_page source requires a url")?
         };
 
+        // SSRF guard: only allow http(s) — reject file://, data://, etc.
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(format!(
+                "web_page source requires an http(s) URL, got: {}",
+                url.chars().take(64).collect::<String>()
+            ));
+        }
+
         tracing::debug!(
-            url = %url,
+            host = %url
+                .trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .split(['/', '?', '#'])
+                .next()
+                .unwrap_or(""),
             selector = ?source.selector,
             "[memory_sources:web_page] reading item"
         );
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            .map_err(|e| format!("failed to build http client: {e}"))?;
         let resp = client
             .get(&url)
             .header("User-Agent", "openhuman")
@@ -68,10 +84,27 @@ impl SourceReader for WebPageReader {
             return Err(format!("page returned {}", resp.status()));
         }
 
-        let body = resp
-            .text()
+        // Cap response body to 10 MiB so a hostile/giant page can't OOM us.
+        const MAX_BODY_BYTES: u64 = 10 * 1024 * 1024;
+        if let Some(len) = resp.content_length() {
+            if len > MAX_BODY_BYTES {
+                return Err(format!(
+                    "page body exceeds {MAX_BODY_BYTES}-byte limit (Content-Length={len})"
+                ));
+            }
+        }
+
+        let bytes = resp
+            .bytes()
             .await
             .map_err(|e| format!("failed to read page body: {e}"))?;
+        if bytes.len() as u64 > MAX_BODY_BYTES {
+            return Err(format!(
+                "page body exceeds {MAX_BODY_BYTES}-byte limit (read {} bytes)",
+                bytes.len()
+            ));
+        }
+        let body = String::from_utf8_lossy(&bytes).into_owned();
 
         let extracted = if let Some(selector) = source.selector.as_deref() {
             extract_by_selector(&body, selector)

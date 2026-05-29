@@ -33,13 +33,13 @@ vi.mock('../../../services/memorySourcesService', () => ({
     web_page: '🌐',
     twitter_query: '🐦',
   },
-  SOURCE_KIND_LABELS: {
-    folder: 'Folder',
-    composio: 'Integration',
-    github_repo: 'GitHub',
-    rss_feed: 'RSS',
-    web_page: 'Web',
-    twitter_query: 'Twitter',
+  SOURCE_KIND_LABEL_KEYS: {
+    folder: 'memorySources.kind.folder',
+    composio: 'memorySources.kind.composio',
+    github_repo: 'memorySources.kind.github_repo',
+    rss_feed: 'memorySources.kind.rss_feed',
+    web_page: 'memorySources.kind.web_page',
+    twitter_query: 'memorySources.kind.twitter_query',
   },
 }));
 

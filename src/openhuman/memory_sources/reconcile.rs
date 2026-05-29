@@ -78,7 +78,37 @@ fn title_case(s: &str) -> String {
 }
 
 fn short_id(id: &str) -> &str {
-    // Show only the last 8 chars to keep labels compact.
-    let take = id.len().saturating_sub(8);
-    &id[take..]
+    // Show only the last 8 Unicode scalar values to keep labels compact.
+    // Byte-slicing would panic if the cut point isn't a UTF-8 boundary.
+    let n = id.chars().count();
+    if n <= 8 {
+        return id;
+    }
+    let skip = n - 8;
+    let start = id.char_indices().nth(skip).map(|(idx, _)| idx).unwrap_or(0);
+    &id[start..]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_id_truncates_ascii() {
+        assert_eq!(short_id("ca_WaktIDFlZwXO"), "IDFlZwXO");
+    }
+
+    #[test]
+    fn short_id_short_input_passthrough() {
+        assert_eq!(short_id("abc"), "abc");
+        assert_eq!(short_id("12345678"), "12345678");
+    }
+
+    #[test]
+    fn short_id_utf8_safe() {
+        // Multi-byte chars would have panicked with byte-slicing.
+        let s = "🦀🐢🐙🦊🐼🐰🐯🐸🦁";
+        let out = short_id(s);
+        assert_eq!(out.chars().count(), 8);
+    }
 }

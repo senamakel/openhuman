@@ -29,6 +29,12 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
     let source_id = source.id.clone();
     let kind_str = source.kind.as_str();
 
+    tracing::debug!(
+        source_id = %source_id,
+        kind = %kind_str,
+        "[memory_sources:sync] queueing sync"
+    );
+
     emit_sync_stage(
         MemorySyncTrigger::Manual,
         MemorySyncStage::Requested,
@@ -38,6 +44,11 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
     );
 
     tokio::spawn(async move {
+        tracing::debug!(
+            source_id = %source.id,
+            kind = %source.kind.as_str(),
+            "[memory_sources:sync] dispatching by kind"
+        );
         let outcome = match source.kind {
             SourceKind::Composio => sync_composio(&source, config).await,
             SourceKind::Folder
@@ -51,6 +62,12 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
 
         match outcome {
             Ok(items) => {
+                tracing::debug!(
+                    source_id = %source.id,
+                    kind = %source.kind.as_str(),
+                    items = items,
+                    "[memory_sources:sync] completed"
+                );
                 emit_sync_stage(
                     MemorySyncTrigger::Manual,
                     MemorySyncStage::Completed,
@@ -114,6 +131,12 @@ async fn sync_via_reader(source: &MemorySourceEntry, config: Config) -> Result<u
 
     let items = reader.list_items(source, &config).await?;
     let total = items.len();
+    tracing::debug!(
+        source_id = %source.id,
+        kind = %source.kind.as_str(),
+        total = total,
+        "[memory_sources:sync] reader.list_items returned items"
+    );
 
     if total == 0 {
         return Ok(0);

@@ -484,9 +484,19 @@ async fn memory_sources_validation_rejects_bad_input() {
 ///
 /// Requires network + `gh` CLI (or unauthenticated GitHub API access).
 /// The test targets a small, stable public repo so API responses are
-/// predictable.
+/// predictable. Gated behind `OPENHUMAN_E2E_NETWORK=1` so CI without
+/// outbound GitHub access doesn't fail on rate limits or transient
+/// network blips. Run locally with:
+///   OPENHUMAN_E2E_NETWORK=1 cargo test --test memory_sources_e2e \
+///     memory_sources_github_repo_activity_flow
 #[tokio::test]
 async fn memory_sources_github_repo_activity_flow() {
+    if std::env::var("OPENHUMAN_E2E_NETWORK").ok().as_deref() != Some("1") {
+        eprintln!(
+            "skipping memory_sources_github_repo_activity_flow — set OPENHUMAN_E2E_NETWORK=1 to enable"
+        );
+        return;
+    }
     let _guard = env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();

@@ -60,24 +60,24 @@ pub async fn source_status(
         with_connection(&cfg, |conn| {
             let prefix = source_id_prefix(&source_clone);
 
-            let (synced, pending, last_ts): (i64, i64, Option<i64>) = conn
-                .query_row(
-                    "SELECT \
+            // Surface real query errors so status telemetry doesn't lie about
+            // a healthy zero-row state when the DB is actually broken.
+            let (synced, pending, last_ts): (i64, i64, Option<i64>) = conn.query_row(
+                "SELECT \
                        COUNT(*), \
                        SUM(CASE WHEN embedding IS NULL THEN 1 ELSE 0 END), \
                        MAX(timestamp_ms) \
                      FROM mem_tree_chunks \
                      WHERE source_id LIKE ?1",
-                    [&prefix],
-                    |r| {
-                        Ok((
-                            r.get(0)?,
-                            r.get::<_, Option<i64>>(1)?.unwrap_or(0),
-                            r.get(2)?,
-                        ))
-                    },
-                )
-                .unwrap_or((0, 0, None));
+                [&prefix],
+                |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get::<_, Option<i64>>(1)?.unwrap_or(0),
+                        r.get(2)?,
+                    ))
+                },
+            )?;
 
             let now_ms = chrono::Utc::now().timestamp_millis();
             Ok(SourceStatus {

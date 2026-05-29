@@ -32,7 +32,7 @@ impl SourceReader for RssReader {
         let max_items = source.max_items.unwrap_or(DEFAULT_MAX_ITEMS) as usize;
 
         tracing::debug!(
-            url = %url,
+            host = %url_host(url),
             max_items = max_items,
             "[memory_sources:rss] listing items"
         );
@@ -54,7 +54,7 @@ impl SourceReader for RssReader {
         let url = source.url.as_deref().ok_or("rss source requires a url")?;
 
         tracing::debug!(
-            url = %url,
+            host = %url_host(url),
             item_id = %item_id,
             "[memory_sources:rss] reading item"
         );
@@ -86,8 +86,24 @@ impl SourceReader for RssReader {
     }
 }
 
+/// Extract just the host portion of a URL for debug-log redaction so we
+/// don't leak query params, paths, or embedded credentials.
+fn url_host(url: &str) -> String {
+    let stripped = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    stripped
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(stripped)
+        .to_string()
+}
+
 async fn fetch_url(url: &str) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("failed to build http client: {e}"))?;
     let resp = client
         .get(url)
         .header("User-Agent", "openhuman")

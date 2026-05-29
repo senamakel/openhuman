@@ -6,7 +6,7 @@ import {
   listMemorySources,
   removeMemorySource,
   SOURCE_KIND_ICONS,
-  SOURCE_KIND_LABELS,
+  SOURCE_KIND_LABEL_KEYS,
   updateMemorySource,
 } from './memorySourcesService';
 
@@ -92,7 +92,7 @@ describe('memorySourcesService', () => {
       'web_page',
     ] as const;
     for (const kind of kinds) {
-      expect(SOURCE_KIND_LABELS[kind]).toBeTruthy();
+      expect(SOURCE_KIND_LABEL_KEYS[kind]).toBeTruthy();
       expect(SOURCE_KIND_ICONS[kind]).toBeTruthy();
     }
   });

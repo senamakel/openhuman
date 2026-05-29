@@ -106,6 +106,18 @@ impl SourceReader for FolderReader {
             return Err("path traversal denied".to_string());
         }
 
+        // Apply the same size cap as list_items so a huge file can't blow up
+        // the renderer or the chunker.
+        let metadata = std::fs::metadata(&canonical_file)
+            .map_err(|e| format!("failed to stat {}: {e}", canonical_file.display()))?;
+        if metadata.len() > MAX_FILE_SIZE {
+            return Err(format!(
+                "file exceeds {}-byte limit: {}",
+                MAX_FILE_SIZE,
+                canonical_file.display()
+            ));
+        }
+
         let body = tokio::fs::read_to_string(&file_path)
             .await
             .map_err(|e| format!("failed to read {}: {e}", file_path.display()))?;

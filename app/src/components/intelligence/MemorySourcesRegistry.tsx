@@ -18,7 +18,7 @@ import {
   memorySourcesStatusList,
   removeMemorySource,
   SOURCE_KIND_ICONS,
-  SOURCE_KIND_LABELS,
+  SOURCE_KIND_LABEL_KEYS,
   type SourceStatus,
   syncMemorySource,
   updateMemorySource,
@@ -119,21 +119,21 @@ export function MemorySourcesRegistry({
         await syncMemorySource(source.id);
         onToast?.({
           type: 'success',
-          title: `Syncing ${source.label}`,
-          message: 'Progress will appear shortly.',
+          title: `${t('memorySources.sync.successTitle')} ${source.label}`,
+          message: t('memorySources.sync.successMessage'),
         });
         void refresh();
       } catch (err) {
         onToast?.({
           type: 'error',
-          title: `Sync failed: ${source.label}`,
+          title: `${t('memorySources.sync.failedTitle')} ${source.label}`,
           message: err instanceof Error ? err.message : String(err),
         });
       } finally {
         setSyncingId(prev => (prev === source.id ? null : prev));
       }
     },
-    [onToast, refresh]
+    [onToast, refresh, t]
   );
 
   const handleAdded = useCallback(
@@ -205,9 +205,9 @@ interface SourceRowProps {
 function SourceRow({ source, status, isSyncing, onToggle, onRemove, onSync }: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
-  const kindLabel = SOURCE_KIND_LABELS[source.kind] ?? source.kind;
+  const kindLabel = t(SOURCE_KIND_LABEL_KEYS[source.kind] ?? source.kind);
   const detail = sourceDetail(source);
-  const lastSync = status ? relativeTimestamp(status.last_chunk_at_ms) : null;
+  const lastSync = status ? relativeTimestamp(status.last_chunk_at_ms, t) : null;
 
   return (
     <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
@@ -307,18 +307,18 @@ function FreshnessPill({ freshness }: { freshness: FreshnessLabel }) {
   return <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>;
 }
 
-function relativeTimestamp(epochMs: number | null): string | null {
+function relativeTimestamp(epochMs: number | null, t: (k: string) => string): string | null {
   if (epochMs === null) return null;
   const delta = Date.now() - epochMs;
-  if (delta < 1000) return 'just now';
+  if (delta < 1000) return t('time.justNow');
   const seconds = Math.floor(delta / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) return `${seconds}${t('time.secondsAgoSuffix')}`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes}${t('time.minutesAgoSuffix')}`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}${t('time.hoursAgoSuffix')}`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days}${t('time.daysAgoSuffix')}`;
 }
 
 function sourceDetail(source: MemorySourceEntry): string | null {

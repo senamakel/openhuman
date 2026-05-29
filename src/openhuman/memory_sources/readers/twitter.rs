@@ -32,7 +32,9 @@ impl SourceReader for TwitterReader {
         let query = source
             .query
             .as_deref()
-            .ok_or("twitter source requires a query")?;
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+            .ok_or("twitter source requires a non-empty query")?;
         let _since_days = source.since_days.unwrap_or(DEFAULT_SINCE_DAYS);
 
         tracing::debug!(

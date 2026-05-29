@@ -17,7 +17,7 @@ import {
   addMemorySource,
   type MemorySourceEntry,
   SOURCE_KIND_ICONS,
-  SOURCE_KIND_LABELS,
+  SOURCE_KIND_LABEL_KEYS,
   type SourceKind,
 } from '../../services/memorySourcesService';
 
@@ -57,21 +57,30 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
   const [connections, setConnections] = useState<ComposioConnection[]>([]);
   const [loadingConnections, setLoadingConnections] = useState(false);
 
-  // Fetch composio connections when user picks the composio kind
+  // Fetch composio connections when user picks the composio kind.
+  // setState calls live inside the spawned async closure (not the
+  // synchronous effect body) to satisfy `react-hooks/set-state-in-effect`.
   useEffect(() => {
-    if (kind !== 'composio') return;
-    setLoadingConnections(true);
+    if (kind !== 'composio') return undefined;
+    let cancelled = false;
     void (async () => {
+      if (cancelled) return;
+      setLoadingConnections(true);
       try {
         const resp = await listConnections();
+        if (cancelled) return;
         setConnections(resp.connections);
       } catch (err) {
+        if (cancelled) return;
         console.warn('[ui-flow][add-memory-source] listConnections failed', err);
         setError(t('memorySources.composioListFailed'));
       } finally {
-        setLoadingConnections(false);
+        if (!cancelled) setLoadingConnections(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [kind, t]);
 
   const reset = useCallback(() => {
@@ -177,7 +186,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
                              dark:border-neutral-700 dark:hover:border-primary-500 dark:hover:bg-primary-500/10">
                   <span className="text-xl">{SOURCE_KIND_ICONS[k]}</span>
                   <span className="text-sm font-medium text-stone-800 dark:text-neutral-200">
-                    {SOURCE_KIND_LABELS[k]}
+                    {t(SOURCE_KIND_LABEL_KEYS[k])}
                   </span>
                 </button>
               ))}
@@ -195,7 +204,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
         ) : (
           <>
             <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
-              {SOURCE_KIND_ICONS[kind]} {SOURCE_KIND_LABELS[kind]}
+              {SOURCE_KIND_ICONS[kind]} {t(SOURCE_KIND_LABEL_KEYS[kind])}
             </p>
 
             <div className="mt-4 space-y-3">
@@ -316,7 +325,7 @@ function FolderField({ label, value, onChange }: FolderFieldProps) {
           type="text"
           value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder="/Users/you/notes"
+          placeholder={t('memorySources.folderPathPlaceholder')}
           className="block w-full rounded-md border border-stone-300 bg-white px-3 py-2
                      text-sm text-stone-900 placeholder-stone-400
                      focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
@@ -417,7 +426,7 @@ function KindFields(props: KindFieldsProps) {
             label={t('memorySources.globPattern')}
             value={props.glob}
             onChange={props.setGlob}
-            placeholder="**/*.md"
+            placeholder={t('memorySources.globPatternPlaceholder')}
           />
         </>
       );
@@ -428,13 +437,13 @@ function KindFields(props: KindFieldsProps) {
             label={t('memorySources.repoUrl')}
             value={props.url}
             onChange={props.setUrl}
-            placeholder="https://github.com/org/repo"
+            placeholder={t('memorySources.repoUrlPlaceholder')}
           />
           <Field
             label={t('memorySources.branch')}
             value={props.branch}
             onChange={props.setBranch}
-            placeholder="main"
+            placeholder={t('memorySources.branchPlaceholder')}
           />
         </>
       );
@@ -444,7 +453,7 @@ function KindFields(props: KindFieldsProps) {
           label={t('memorySources.feedUrl')}
           value={props.url}
           onChange={props.setUrl}
-          placeholder="https://example.com/feed.xml"
+          placeholder={t('memorySources.feedUrlPlaceholder')}
         />
       );
     case 'web_page':
@@ -454,13 +463,13 @@ function KindFields(props: KindFieldsProps) {
             label={t('memorySources.pageUrl')}
             value={props.url}
             onChange={props.setUrl}
-            placeholder="https://example.com/article"
+            placeholder={t('memorySources.pageUrlPlaceholder')}
           />
           <Field
             label={t('memorySources.cssSelector')}
             value={props.selector}
             onChange={props.setSelector}
-            placeholder="article"
+            placeholder={t('memorySources.cssSelectorPlaceholder')}
           />
         </>
       );
@@ -470,7 +479,7 @@ function KindFields(props: KindFieldsProps) {
           label={t('memorySources.searchQuery')}
           value={props.query}
           onChange={props.setQuery}
-          placeholder="from:user AI safety"
+          placeholder={t('memorySources.searchQueryPlaceholder')}
         />
       );
     default:

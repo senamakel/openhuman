@@ -159,13 +159,17 @@ export async function syncMemorySource(sourceId: string): Promise<void> {
   });
 }
 
-export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
-  composio: 'Integration',
-  folder: 'Local Folder',
-  github_repo: 'GitHub Repo',
-  twitter_query: 'Twitter Search',
-  rss_feed: 'RSS Feed',
-  web_page: 'Web Page',
+/// i18n keys for each source kind's user-visible label. Resolve via
+/// `t(SOURCE_KIND_LABEL_KEYS[kind])` in components — keeping the keys
+/// as a constant lets the dialog kind-picker render the same labels
+/// without each call site duplicating the switch.
+export const SOURCE_KIND_LABEL_KEYS: Record<SourceKind, string> = {
+  composio: 'memorySources.kind.composio',
+  folder: 'memorySources.kind.folder',
+  github_repo: 'memorySources.kind.github_repo',
+  twitter_query: 'memorySources.kind.twitter_query',
+  rss_feed: 'memorySources.kind.rss_feed',
+  web_page: 'memorySources.kind.web_page',
 };
 
 export const SOURCE_KIND_ICONS: Record<SourceKind, string> = {

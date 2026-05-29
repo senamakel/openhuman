@@ -18,7 +18,7 @@ use tempfile::{tempdir, TempDir};
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::approval::gate::{
-    ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
+    parse_approval_reply, ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
 };
 use openhuman_core::openhuman::approval::store as approval_store;
 use openhuman_core::openhuman::approval::{
@@ -728,6 +728,21 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
     .expect("record execution after migration"));
 }
 
+#[test]
+fn approval_reply_parser_accepts_explicit_yes_no_only() {
+    assert_eq!(
+        parse_approval_reply(" yes "),
+        Some(ApprovalDecision::ApproveOnce)
+    );
+    assert_eq!(
+        parse_approval_reply("APPROVED"),
+        Some(ApprovalDecision::ApproveOnce)
+    );
+    assert_eq!(parse_approval_reply("n"), Some(ApprovalDecision::Deny));
+    assert_eq!(parse_approval_reply("denied"), Some(ApprovalDecision::Deny));
+    assert_eq!(parse_approval_reply("maybe later"), None);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     let _lock = env_lock();
@@ -867,6 +882,110 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
             .any(|tool| tool == "tools.composio_execute"),
         "approve_always_for_tool should persist an auto-approve entry"
     );
+
+    let no_chat = gate
+        .intercept_audited(
+            "tools.web_search",
+            "tools.web_search(query=coverage)",
+            json!({ "query": "coverage" }),
+        )
+        .await;
+    assert!(matches!(
+        no_chat.0,
+        openhuman_core::openhuman::approval::GateOutcome::Allow
+    ));
+    assert_eq!(
+        no_chat.1, None,
+        "non-chat calls should not create approval rows"
+    );
+
+    let auto_approved = gate
+        .intercept_audited(
+            "tools.composio_execute",
+            "tools.composio_execute(action=execute)",
+            json!({ "action": "execute" }),
+        )
+        .await;
+    assert!(matches!(
+        auto_approved.0,
+        openhuman_core::openhuman::approval::GateOutcome::Allow
+    ));
+    assert_eq!(
+        auto_approved.1, None,
+        "always-allowed tools should bypass persisted approvals"
+    );
+
+    let gate_for_deny_task = gate.clone();
+    let deny_task = tokio::spawn(async move {
+        APPROVAL_CHAT_CONTEXT
+            .scope(
+                ApprovalChatContext {
+                    thread_id: "approval-deny-thread".to_string(),
+                    client_id: "approval-deny-client".to_string(),
+                },
+                async move {
+                    gate_for_deny_task
+                        .intercept_audited(
+                            "tools.web_search",
+                            "tools.web_search(query=deny)",
+                            json!({ "query": "deny" }),
+                        )
+                        .await
+                },
+            )
+            .await
+    });
+
+    let deny_request_id = loop {
+        let pending = rpc(
+            &harness.rpc_base,
+            25,
+            "openhuman.approval_list_pending",
+            json!({}),
+        )
+        .await;
+        let rows = payload(&pending, "approval_list_pending deny")
+            .as_array()
+            .expect("pending rows for deny");
+        if let Some(row) = rows
+            .iter()
+            .find(|row| row.get("tool_name").and_then(Value::as_str) == Some("tools.web_search"))
+        {
+            break row
+                .get("request_id")
+                .and_then(Value::as_str)
+                .expect("deny request id")
+                .to_string();
+        }
+        assert!(
+            Instant::now() < deadline,
+            "pending deny approval did not appear"
+        );
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    };
+
+    let deny = rpc(
+        &harness.rpc_base,
+        26,
+        "openhuman.approval_decide",
+        json!({ "request_id": deny_request_id, "decision": "deny" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&deny, "approval_decide deny")
+            .get("request_id")
+            .and_then(Value::as_str),
+        Some(deny_request_id.as_str())
+    );
+    let (deny_outcome, deny_approved_id) = deny_task.await.expect("deny task");
+    match deny_outcome {
+        openhuman_core::openhuman::approval::GateOutcome::Deny { reason } => {
+            assert!(reason.contains("User denied"));
+        }
+        other => panic!("expected deny outcome, got {other:?}"),
+    }
+    assert_eq!(deny_approved_id, None);
+    assert!(gate.pending_for_thread("approval-deny-thread").is_none());
 
     harness.rpc_join.abort();
 }

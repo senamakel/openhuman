@@ -1,0 +1,378 @@
+//! SQLite persistence for the `task_sources` domain.
+//!
+//! Two tables live in `<workspace>/task_sources/sources.db`:
+//!   * `task_sources` — the configured sources (provider + filter +
+//!     schedule + routing target).
+//!   * `ingested_tasks` — per-(source, external task) dedup ledger with
+//!     an edit-aware `content_hash`, plus the normalized task payload so
+//!     the UI can list recently ingested items.
+//!
+//! Mirrors the `cron` domain's `with_connection` + migrate-on-open
+//! pattern.
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
+use rusqlite::{params, Connection};
+use uuid::Uuid;
+
+use crate::openhuman::config::Config;
+use crate::openhuman::memory_sync::composio::providers::NormalizedTask;
+
+use super::types::{
+    FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch,
+};
+
+/// Compute an edit-aware content hash for a task. Two fetches of the
+/// same `external_id` whose title/body/status/updated_at differ produce
+/// different hashes, so an *edited* upstream item re-ingests.
+pub fn content_hash(task: &NormalizedTask) -> String {
+    let mut hasher = DefaultHasher::new();
+    task.title.hash(&mut hasher);
+    task.body.hash(&mut hasher);
+    task.status.hash(&mut hasher);
+    task.updated_at.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+/// Insert a new task source.
+#[allow(clippy::too_many_arguments)]
+pub fn add_source(
+    config: &Config,
+    provider: ProviderSlug,
+    connection_id: Option<String>,
+    name: Option<String>,
+    filter: FilterSpec,
+    interval_secs: u64,
+    target: SourceTarget,
+    max_tasks_per_fetch: u32,
+) -> Result<TaskSource> {
+    if filter.provider() != provider {
+        anyhow::bail!(
+            "filter provider '{}' does not match source provider '{}'",
+            filter.provider().as_str(),
+            provider.as_str()
+        );
+    }
+    let id = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    let filter_json = serde_json::to_string(&filter).context("serialize task source filter")?;
+    let target_json = serde_json::to_string(&target).context("serialize task source target")?;
+
+    with_connection(config, |conn| {
+        conn.execute(
+            "INSERT INTO task_sources (
+                id, provider, connection_id, name, enabled, filter, interval_secs,
+                target, max_tasks_per_fetch, created_at
+             ) VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                id,
+                provider.as_str(),
+                connection_id,
+                name,
+                filter_json,
+                interval_secs as i64,
+                target_json,
+                max_tasks_per_fetch as i64,
+                now.to_rfc3339(),
+            ],
+        )
+        .context("Failed to insert task source")?;
+        Ok(())
+    })?;
+
+    get_source(config, &id)
+}
+
+pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(&format!("{SELECT_SOURCE_COLUMNS} WHERE id = ?1"))?;
+        let mut rows = stmt.query(params![id])?;
+        if let Some(row) = rows.next()? {
+            map_source_row(row).map_err(Into::into)
+        } else {
+            anyhow::bail!("Task source '{id}' not found")
+        }
+    })
+}
+
+pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
+    with_connection(config, |conn| {
+        let mut stmt =
+            conn.prepare(&format!("{SELECT_SOURCE_COLUMNS} ORDER BY created_at ASC, id ASC"))?;
+        let rows = stmt.query_map([], map_source_row)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    })
+}
+
+pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
+    let mut source = get_source(config, id)?;
+
+    if let Some(name) = patch.name {
+        source.name = Some(name).filter(|s| !s.trim().is_empty());
+    }
+    if let Some(enabled) = patch.enabled {
+        source.enabled = enabled;
+    }
+    if let Some(filter) = patch.filter {
+        if filter.provider() != source.provider {
+            anyhow::bail!(
+                "patch filter provider '{}' does not match source provider '{}'",
+                filter.provider().as_str(),
+                source.provider.as_str()
+            );
+        }
+        source.filter = filter;
+    }
+    if let Some(interval_secs) = patch.interval_secs {
+        source.interval_secs = interval_secs;
+    }
+    if let Some(target) = patch.target {
+        source.target = target;
+    }
+    if let Some(max) = patch.max_tasks_per_fetch {
+        source.max_tasks_per_fetch = max;
+    }
+    if let Some(connection_id) = patch.connection_id {
+        source.connection_id = Some(connection_id).filter(|s| !s.trim().is_empty());
+    }
+
+    let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
+    let target_json = serde_json::to_string(&source.target).context("serialize target")?;
+
+    with_connection(config, |conn| {
+        conn.execute(
+            "UPDATE task_sources
+             SET provider = ?1, connection_id = ?2, name = ?3, enabled = ?4, filter = ?5,
+                 interval_secs = ?6, target = ?7, max_tasks_per_fetch = ?8
+             WHERE id = ?9",
+            params![
+                source.provider.as_str(),
+                source.connection_id,
+                source.name,
+                if source.enabled { 1 } else { 0 },
+                filter_json,
+                source.interval_secs as i64,
+                target_json,
+                source.max_tasks_per_fetch as i64,
+                id,
+            ],
+        )
+        .context("Failed to update task source")?;
+        Ok(())
+    })?;
+
+    get_source(config, id)
+}
+
+pub fn remove_source(config: &Config, id: &str) -> Result<()> {
+    let changed = with_connection(config, |conn| {
+        conn.execute("DELETE FROM task_sources WHERE id = ?1", params![id])
+            .context("Failed to delete task source")
+    })?;
+    if changed == 0 {
+        anyhow::bail!("Task source '{id}' not found");
+    }
+    Ok(())
+}
+
+/// Update a source's `last_fetch_at` / `last_status` after a fetch pass.
+pub fn record_fetch(
+    config: &Config,
+    id: &str,
+    finished_at: DateTime<Utc>,
+    reason: FetchReason,
+    status: &str,
+) -> Result<()> {
+    let line = format!("{}: {status}", reason.as_str());
+    with_connection(config, |conn| {
+        conn.execute(
+            "UPDATE task_sources SET last_fetch_at = ?1, last_status = ?2 WHERE id = ?3",
+            params![finished_at.to_rfc3339(), line, id],
+        )
+        .context("Failed to record task source fetch")?;
+        Ok(())
+    })
+}
+
+/// True when this `(source, external_id)` was already ingested with the
+/// *same* content hash. A differing hash (edited upstream) returns
+/// `false` so the item re-ingests.
+pub fn is_ingested(
+    config: &Config,
+    source_id: &str,
+    external_id: &str,
+    hash: &str,
+) -> Result<bool> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT content_hash FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
+        )?;
+        let mut rows = stmt.query(params![source_id, external_id])?;
+        match rows.next()? {
+            Some(row) => {
+                let existing: String = row.get(0)?;
+                Ok(existing == hash)
+            }
+            None => Ok(false),
+        }
+    })
+}
+
+/// Record a routed task in the dedup ledger (idempotent upsert).
+pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
+    let hash = content_hash(task);
+    let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
+    let now = Utc::now().to_rfc3339();
+    with_connection(config, |conn| {
+        conn.execute(
+            "INSERT INTO ingested_tasks (source_id, external_id, content_hash, title, payload, ingested_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(source_id, external_id) DO UPDATE SET
+                content_hash = excluded.content_hash,
+                title = excluded.title,
+                payload = excluded.payload,
+                ingested_at = excluded.ingested_at",
+            params![source_id, task.external_id, hash, task.title, payload, now],
+        )
+        .context("Failed to mark task ingested")?;
+        Ok(())
+    })
+}
+
+/// List the most recently ingested tasks for a source (newest first).
+pub fn list_ingested(config: &Config, source_id: &str, limit: usize) -> Result<Vec<NormalizedTask>> {
+    let lim = i64::try_from(limit.max(1)).unwrap_or(50);
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT payload FROM ingested_tasks
+             WHERE source_id = ?1 AND payload IS NOT NULL
+             ORDER BY ingested_at DESC LIMIT ?2",
+        )?;
+        let rows = stmt.query_map(params![source_id, lim], |row| row.get::<_, String>(0))?;
+        let mut out = Vec::new();
+        for row in rows {
+            let payload = row?;
+            if let Ok(task) = serde_json::from_str::<NormalizedTask>(&payload) {
+                out.push(task);
+            }
+        }
+        Ok(out)
+    })
+}
+
+/// Delete every task source (+ cascade ingested rows). Used by the E2E
+/// `test_reset` RPC.
+pub fn clear_all(config: &Config) -> Result<usize> {
+    with_connection(config, |conn| {
+        let removed = conn
+            .execute("DELETE FROM task_sources", params![])
+            .context("Failed to clear task sources")?;
+        // ingested_tasks rows cascade via the FK.
+        Ok(removed)
+    })
+}
+
+const SELECT_SOURCE_COLUMNS: &str = "SELECT id, provider, connection_id, name, enabled, filter, \
+     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status \
+     FROM task_sources";
+
+fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
+    let provider_raw: String = row.get(1)?;
+    let provider = ProviderSlug::parse(&provider_raw).map_err(sql_conv)?;
+
+    let filter_raw: String = row.get(5)?;
+    let filter: FilterSpec = serde_json::from_str(&filter_raw)
+        .map_err(|e| sql_conv(format!("invalid filter json: {e}")))?;
+
+    let target_raw: String = row.get(7)?;
+    let target: SourceTarget = serde_json::from_str(&target_raw)
+        .map_err(|e| sql_conv(format!("invalid target json: {e}")))?;
+
+    let created_at_raw: String = row.get(9)?;
+    let last_fetch_raw: Option<String> = row.get(10)?;
+
+    Ok(TaskSource {
+        id: row.get(0)?,
+        provider,
+        connection_id: row.get(2)?,
+        name: row.get(3)?,
+        enabled: row.get::<_, i64>(4)? != 0,
+        filter,
+        interval_secs: row.get::<_, i64>(6)? as u64,
+        target,
+        max_tasks_per_fetch: row.get::<_, i64>(8)? as u32,
+        created_at: parse_rfc3339(&created_at_raw).map_err(sql_conv)?,
+        last_fetch_at: match last_fetch_raw {
+            Some(raw) => Some(parse_rfc3339(&raw).map_err(sql_conv)?),
+            None => None,
+        },
+        last_status: row.get(11)?,
+    })
+}
+
+fn parse_rfc3339(raw: &str) -> Result<DateTime<Utc>> {
+    let parsed = DateTime::parse_from_rfc3339(raw)
+        .with_context(|| format!("Invalid RFC3339 timestamp in task_sources DB: {raw}"))?;
+    Ok(parsed.with_timezone(&Utc))
+}
+
+fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(anyhow::anyhow!("{err}").into())
+}
+
+fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+    let db_path = config
+        .workspace_dir
+        .join("task_sources")
+        .join("sources.db");
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent).with_context(|| {
+            format!("Failed to create task_sources directory: {}", parent.display())
+        })?;
+    }
+    let conn = Connection::open(&db_path)
+        .with_context(|| format!("Failed to open task_sources DB: {}", db_path.display()))?;
+
+    conn.execute_batch(
+        "PRAGMA foreign_keys = ON;
+         CREATE TABLE IF NOT EXISTS task_sources (
+            id                  TEXT PRIMARY KEY,
+            provider            TEXT NOT NULL,
+            connection_id       TEXT,
+            name                TEXT,
+            enabled             INTEGER NOT NULL DEFAULT 1,
+            filter              TEXT NOT NULL,
+            interval_secs       INTEGER NOT NULL,
+            target              TEXT NOT NULL,
+            max_tasks_per_fetch INTEGER NOT NULL,
+            created_at          TEXT NOT NULL,
+            last_fetch_at       TEXT,
+            last_status         TEXT
+         );
+         CREATE TABLE IF NOT EXISTS ingested_tasks (
+            source_id    TEXT NOT NULL,
+            external_id  TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            title        TEXT,
+            payload      TEXT,
+            ingested_at  TEXT NOT NULL,
+            PRIMARY KEY (source_id, external_id),
+            FOREIGN KEY (source_id) REFERENCES task_sources(id) ON DELETE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS idx_ingested_source ON ingested_tasks(source_id, ingested_at);",
+    )
+    .context("Failed to initialize task_sources schema")?;
+
+    f(&conn)
+}
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod tests;

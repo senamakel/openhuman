@@ -86,6 +86,7 @@ pub mod skills;
 pub mod socket;
 pub mod startup;
 pub mod subconscious;
+pub mod task_sources;
 pub mod team;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;

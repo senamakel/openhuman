@@ -45,6 +45,7 @@ describe('TaskKanbanBoard', () => {
     expect(screen.getByText('Draft plan')).toBeInTheDocument();
     expect(screen.getByText('Prepare the implementation handoff')).toBeInTheDocument();
     expect(screen.getByText('planner')).toBeInTheDocument();
+    expect(screen.getByText('approval')).toBeInTheDocument();
     expect(screen.getByText('Scope frontend and backend work')).toBeInTheDocument();
     expect(screen.getByText('Missing credentials')).toBeInTheDocument();
   });
@@ -55,6 +56,7 @@ describe('TaskKanbanBoard', () => {
     fireEvent.click(screen.getByText('Task brief'));
 
     expect(screen.getByRole('heading', { name: 'Draft plan' })).toBeInTheDocument();
+    expect(screen.getByText('Required before execution')).toBeInTheDocument();
     expect(screen.getByText('Read existing board code')).toBeInTheDocument();
     expect(screen.getByText('spawn_subagent')).toBeInTheDocument();
     expect(screen.getByText('Schema round-trips')).toBeInTheDocument();
@@ -87,6 +89,7 @@ describe('TaskKanbanBoard', () => {
       target: { value: 'todo\nfile_read' },
     });
     fireEvent.change(screen.getByLabelText('Approval'), { target: { value: 'not_required' } });
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'in_progress' } });
     fireEvent.click(screen.getByText('Save changes'));
 
     expect(onUpdateCard).toHaveBeenCalledWith(
@@ -97,7 +100,30 @@ describe('TaskKanbanBoard', () => {
         plan: ['Inspect files', 'Patch UI'],
         allowedTools: ['todo', 'file_read'],
         approvalMode: 'not_required',
+        status: 'in_progress',
       })
     );
+  });
+
+  it('shows not-required approval details and danger tone blockers', () => {
+    render(
+      <TaskKanbanBoard
+        board={{
+          ...board,
+          cards: [
+            {
+              ...board.cards[0],
+              approvalMode: 'not_required',
+              blocker: 'External dependency is down',
+            },
+          ],
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Task brief'));
+
+    expect(screen.getByText('Not required')).toBeInTheDocument();
+    expect(screen.getByText('External dependency is down')).toHaveClass('text-coral-600');
   });
 });

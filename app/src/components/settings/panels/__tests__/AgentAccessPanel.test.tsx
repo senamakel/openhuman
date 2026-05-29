@@ -80,6 +80,17 @@ describe('AgentAccessPanel', () => {
     );
   });
 
+  it('toggling task plan approval persists require_task_plan_approval', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    await screen.findByText('Read-only');
+    fireEvent.click(screen.getByRole('checkbox', { name: /require task plan approval/i }));
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ require_task_plan_approval: false })
+      )
+    );
+  });
+
   it('adding then removing a granted folder persists the updated list', async () => {
     renderWithProviders(<AgentAccessPanel />);
     await screen.findByText('Granted folders');

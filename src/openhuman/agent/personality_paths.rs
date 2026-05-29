@@ -67,6 +67,28 @@ pub fn resolve_personality_soul(workspace_dir: &Path, profile: &AgentProfile) ->
                 .cloned();
         }
         let path = workspace_dir.join(rel);
+        // Guard against symlink traversal: a symlink inside the workspace can
+        // point outside it. Canonicalize both sides and reject if the resolved
+        // path escapes the workspace root.
+        // Note: synchronous fs calls here are intentional — soul_md is loaded
+        // during prompt construction on a tokio blocking thread; the workspace
+        // is always local disk (never a remote mount).
+        if let (Ok(canonical_ws), Ok(canonical_p)) =
+            (workspace_dir.canonicalize(), path.canonicalize())
+        {
+            if !canonical_p.starts_with(&canonical_ws) {
+                tracing::warn!(
+                    path = %path.display(),
+                    profile_id = %profile.id,
+                    "[personality] soul_md_path escapes workspace after canonicalization, trying inline"
+                );
+                return profile
+                    .soul_md
+                    .as_ref()
+                    .filter(|s| !s.trim().is_empty())
+                    .cloned();
+            }
+        }
         match std::fs::read_to_string(&path) {
             Ok(content) if !content.trim().is_empty() => {
                 tracing::debug!(

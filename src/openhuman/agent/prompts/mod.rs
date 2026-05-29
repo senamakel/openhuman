@@ -1340,14 +1340,12 @@ fn inject_workspace_file(prompt: &mut String, workspace_dir: &Path, filename: &s
     inject_workspace_file_capped(prompt, workspace_dir, filename, BOOTSTRAP_MAX_CHARS);
 }
 
-/// Inject `content` into `prompt` under a header matching
-/// [`inject_workspace_file_capped`]'s format — so a swap from the
-/// file-based loader to a curated-memory snapshot is byte-compatible
 /// Inject pre-loaded string content into `prompt` under a `### label` heading,
 /// capped at `max_chars`. Mirrors the format of [`inject_snapshot_content`]
 /// and [`inject_workspace_file_capped`] but takes a `&str` instead of a file
-/// path, used for personality-specific overrides (`personality_soul_md`,
-/// `personality_memory_md`) on [`PromptContext`].
+/// path. Used for personality-specific overrides (`personality_soul_md`,
+/// `personality_memory_md`) on [`PromptContext`] so a swap from the file-based
+/// loader to an inline override is byte-compatible with the workspace-file path.
 ///
 /// Empty/whitespace content is silently skipped.
 fn inject_inline_content(prompt: &mut String, label: &str, content: &str, max_chars: usize) {

@@ -131,32 +131,20 @@ impl Tool for DelegateToPersonalityTool {
                 active_profile.id
             )));
         }
-        let _ = state;
 
-        let (_state, profile) = match store.resolve(Some(&personality_id)) {
-            Ok(result) => result,
-            Err(e) => {
+        // Reuse the state already loaded above — no second store.resolve() call needed.
+        let profile = match state.profiles.iter().find(|p| p.id == personality_id) {
+            Some(p) => p.clone(),
+            None => {
                 tracing::debug!(
                     personality_id = %personality_id,
-                    error = %e,
                     "[delegate_to_personality] profile resolve failed"
                 );
                 return Ok(ToolResult::error(format!(
-                    "delegate_to_personality: personality '{personality_id}' not found: {e}"
+                    "delegate_to_personality: personality '{personality_id}' not found."
                 )));
             }
         };
-
-        if profile.id != personality_id {
-            tracing::debug!(
-                requested = %personality_id,
-                resolved = %profile.id,
-                "[delegate_to_personality] personality_id not found, fell back to default"
-            );
-            return Ok(ToolResult::error(format!(
-                "delegate_to_personality: personality '{personality_id}' not found."
-            )));
-        }
 
         let personality_ctx =
             PersonalityContext::from_profile(&parent_ctx.workspace_dir, profile.clone());
@@ -168,13 +156,19 @@ impl Tool for DelegateToPersonalityTool {
             "[delegate_to_personality] personality resolved, delegating"
         );
 
-        // Surface the target personality's identity, soul, and memory summary
-        // to the sub-agent via the `context` blob. Runtime memory-store and
-        // integration-allowlist swapping is a follow-up — `run_subagent`
-        // currently inherits the parent's `ParentExecutionContext` (memory,
-        // tools, integrations) wholesale (see issue tracker). Until that
-        // landing, the sub-agent gets the personality's voice/identity at the
-        // prompt level but still writes to the parent's memory store.
+        // TODO(phase-2): Memory isolation not yet enforced during delegation.
+        // The personality gets its own SQLite DB (plumbing exists in
+        // UnifiedMemory::new_with_memory_dir), but run_subagent currently
+        // receives the parent's memory instance. To fix: construct a new
+        // UnifiedMemory using personality_ctx.memory_suffix and pass it through
+        // SubagentRunOptions (needs an additional field there).
+        // Also: composio_integrations allowlist is not yet filtered during
+        // delegation — personality_ctx.composio_allowlist exists but is not
+        // applied to the SubagentRunOptions toolkit_override.
+        //
+        // Until these are wired, the sub-agent gets the personality's
+        // voice/identity at the prompt level but still writes to the parent's
+        // memory store and has access to all parent integrations.
         let mut personality_preamble = format!(
             "You are acting as the personality `{}` (\"{}\"). {}",
             profile.id, profile.name, profile.description

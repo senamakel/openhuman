@@ -14,7 +14,7 @@ export interface AgentProfile {
   soulMdPath?: string | null;
   composioIntegrations?: string[] | null;
   memoryDirSuffix?: string | null;
-  isMaster?: boolean;
+  isMaster?: boolean | null;
   sortOrder?: number | null;
 }
 

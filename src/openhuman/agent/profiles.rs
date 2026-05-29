@@ -227,6 +227,7 @@ impl AgentProfileStore {
                     || built_in_profiles()
                         .iter()
                         .any(|builtin| builtin.id == profile.id),
+                is_master: false, // only DEFAULT_PROFILE_ID may be master
                 ..profile
             }
         };
@@ -250,16 +251,8 @@ impl AgentProfileStore {
                         .filter_map(|p| p.memory_dir_suffix.clone())
                         .filter(|s| !s.is_empty())
                         .collect();
-                    let mut n = 1u32;
-                    let suffix = loop {
-                        let candidate = format!("-{n}");
-                        if !existing_suffixes.contains(&candidate) {
-                            break candidate;
-                        }
-                        n += 1;
-                    };
                     AgentProfile {
-                        memory_dir_suffix: Some(suffix),
+                        memory_dir_suffix: Some(next_available_suffix(&existing_suffixes)),
                         ..profile
                     }
                 }
@@ -271,16 +264,8 @@ impl AgentProfileStore {
                     .filter_map(|p| p.memory_dir_suffix.clone())
                     .filter(|s| !s.is_empty())
                     .collect();
-                let mut n = 1u32;
-                let suffix = loop {
-                    let candidate = format!("-{n}");
-                    if !existing_suffixes.contains(&candidate) {
-                        break candidate;
-                    }
-                    n += 1;
-                };
                 AgentProfile {
-                    memory_dir_suffix: Some(suffix),
+                    memory_dir_suffix: Some(next_available_suffix(&existing_suffixes)),
                     ..profile
                 }
             }
@@ -604,11 +589,30 @@ fn normalise_profile(mut profile: AgentProfile) -> AgentProfile {
     if matches!(profile.composio_integrations.as_ref(), Some(v) if v.is_empty()) {
         profile.composio_integrations = None;
     }
+    // Note: `Some("")` is the sentinel used exclusively by the default profile
+    // to indicate the legacy `memory/` directory (no suffix). `normalise_state`
+    // re-applies it after the filter below, so any `Some("")` on a non-default
+    // profile is silently dropped to `None` here, causing it to receive the
+    // next available numbered suffix on the following `upsert` path.
     profile.memory_dir_suffix = profile
         .memory_dir_suffix
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
     profile
+}
+
+/// Return the lowest available numbered suffix (`"-1"`, `"-2"`, …) not present
+/// in `existing`. Used during `upsert` to auto-assign a unique memory directory
+/// suffix to a new non-default personality profile.
+fn next_available_suffix(existing: &std::collections::HashSet<String>) -> String {
+    let mut n = 1u32;
+    loop {
+        let candidate = format!("-{n}");
+        if !existing.contains(&candidate) {
+            return candidate;
+        }
+        n += 1;
+    }
 }
 
 fn slugify_profile_id(input: &str) -> String {

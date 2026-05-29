@@ -431,7 +431,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     let mut text = build(&ctx)

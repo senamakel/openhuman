@@ -987,7 +987,7 @@ fn empty_prompt_context_for_static_sections() -> PromptContext<'static> {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     }
 }
 

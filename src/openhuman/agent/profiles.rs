@@ -232,16 +232,23 @@ impl AgentProfileStore {
         };
 
         let profile = if profile.memory_dir_suffix.is_none() && profile.id != DEFAULT_PROFILE_ID {
-            let existing_suffixes: std::collections::HashSet<String> = state.profiles.iter()
+            let existing_suffixes: std::collections::HashSet<String> = state
+                .profiles
+                .iter()
                 .filter_map(|p| p.memory_dir_suffix.clone())
                 .collect();
             let mut n = 1u32;
             let suffix = loop {
                 let candidate = format!("-{n}");
-                if !existing_suffixes.contains(&candidate) { break candidate; }
+                if !existing_suffixes.contains(&candidate) {
+                    break candidate;
+                }
                 n += 1;
             };
-            AgentProfile { memory_dir_suffix: Some(suffix), ..profile }
+            AgentProfile {
+                memory_dir_suffix: Some(suffix),
+                ..profile
+            }
         } else {
             profile
         };
@@ -536,12 +543,28 @@ fn normalise_profile(mut profile: AgentProfile) -> AgentProfile {
     if matches!(profile.allowed_tools.as_ref(), Some(tools) if tools.is_empty()) {
         profile.allowed_tools = None;
     }
-    profile.avatar_url = profile.avatar_url.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    profile.voice_id = profile.voice_id.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    profile.soul_md = profile.soul_md.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    profile.soul_md_path = profile.soul_md_path.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    profile.avatar_url = profile
+        .avatar_url
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    profile.voice_id = profile
+        .voice_id
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    profile.soul_md = profile
+        .soul_md
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    profile.soul_md_path = profile
+        .soul_md_path
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
     profile.composio_integrations = profile.composio_integrations.map(|tools| {
-        tools.into_iter().map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect::<Vec<_>>()
+        tools
+            .into_iter()
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<_>>()
     });
     if matches!(profile.composio_integrations.as_ref(), Some(v) if v.is_empty()) {
         profile.composio_integrations = None;
@@ -845,48 +868,78 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         let store = AgentProfileStore::new(dir.path().to_path_buf());
         // First custom profile gets "-1"
-        let state = store.upsert(AgentProfile {
-            id: "alice".into(),
-            name: "Alice".into(),
-            description: "First personality".into(),
-            agent_id: "orchestrator".into(),
-            model_override: None, temperature: None, system_prompt_suffix: None,
-            allowed_tools: None, built_in: false,
-            avatar_url: None, voice_id: None, soul_md: None, soul_md_path: None,
-            composio_integrations: None, memory_dir_suffix: None,
-            is_master: false, sort_order: None,
-        }).expect("upsert alice");
+        let state = store
+            .upsert(AgentProfile {
+                id: "alice".into(),
+                name: "Alice".into(),
+                description: "First personality".into(),
+                agent_id: "orchestrator".into(),
+                model_override: None,
+                temperature: None,
+                system_prompt_suffix: None,
+                allowed_tools: None,
+                built_in: false,
+                avatar_url: None,
+                voice_id: None,
+                soul_md: None,
+                soul_md_path: None,
+                composio_integrations: None,
+                memory_dir_suffix: None,
+                is_master: false,
+                sort_order: None,
+            })
+            .expect("upsert alice");
         let alice = state.profiles.iter().find(|p| p.id == "alice").unwrap();
         assert_eq!(alice.memory_dir_suffix.as_deref(), Some("-1"));
 
         // Second custom profile gets "-2"
-        let state = store.upsert(AgentProfile {
-            id: "bob".into(),
-            name: "Bob".into(),
-            description: "Second personality".into(),
-            agent_id: "orchestrator".into(),
-            model_override: None, temperature: None, system_prompt_suffix: None,
-            allowed_tools: None, built_in: false,
-            avatar_url: None, voice_id: None, soul_md: None, soul_md_path: None,
-            composio_integrations: None, memory_dir_suffix: None,
-            is_master: false, sort_order: None,
-        }).expect("upsert bob");
+        let state = store
+            .upsert(AgentProfile {
+                id: "bob".into(),
+                name: "Bob".into(),
+                description: "Second personality".into(),
+                agent_id: "orchestrator".into(),
+                model_override: None,
+                temperature: None,
+                system_prompt_suffix: None,
+                allowed_tools: None,
+                built_in: false,
+                avatar_url: None,
+                voice_id: None,
+                soul_md: None,
+                soul_md_path: None,
+                composio_integrations: None,
+                memory_dir_suffix: None,
+                is_master: false,
+                sort_order: None,
+            })
+            .expect("upsert bob");
         let bob = state.profiles.iter().find(|p| p.id == "bob").unwrap();
         assert_eq!(bob.memory_dir_suffix.as_deref(), Some("-2"));
 
         // Delete alice, create charlie — should reuse "-1"
         store.delete("alice").expect("delete alice");
-        let state = store.upsert(AgentProfile {
-            id: "charlie".into(),
-            name: "Charlie".into(),
-            description: "Third personality".into(),
-            agent_id: "orchestrator".into(),
-            model_override: None, temperature: None, system_prompt_suffix: None,
-            allowed_tools: None, built_in: false,
-            avatar_url: None, voice_id: None, soul_md: None, soul_md_path: None,
-            composio_integrations: None, memory_dir_suffix: None,
-            is_master: false, sort_order: None,
-        }).expect("upsert charlie");
+        let state = store
+            .upsert(AgentProfile {
+                id: "charlie".into(),
+                name: "Charlie".into(),
+                description: "Third personality".into(),
+                agent_id: "orchestrator".into(),
+                model_override: None,
+                temperature: None,
+                system_prompt_suffix: None,
+                allowed_tools: None,
+                built_in: false,
+                avatar_url: None,
+                voice_id: None,
+                soul_md: None,
+                soul_md_path: None,
+                composio_integrations: None,
+                memory_dir_suffix: None,
+                is_master: false,
+                sort_order: None,
+            })
+            .expect("upsert charlie");
         let charlie = state.profiles.iter().find(|p| p.id == "charlie").unwrap();
         assert_eq!(charlie.memory_dir_suffix.as_deref(), Some("-1"));
     }

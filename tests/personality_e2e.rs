@@ -26,11 +26,11 @@ use openhuman_core::openhuman::agent::personality_paths::{
 use openhuman_core::openhuman::agent::profiles::{
     built_in_profiles, AgentProfile, AgentProfileStore, DEFAULT_PROFILE_ID,
 };
+use openhuman_core::openhuman::agent::prompts::types::LearnedContextData;
 use openhuman_core::openhuman::agent::prompts::{
     IdentitySection, PersonalityRosterEntry, PersonalityRosterSection, PromptContext,
     PromptSection, ToolCallFormat, UserFilesSection,
 };
-use openhuman_core::openhuman::agent::prompts::types::LearnedContextData;
 use openhuman_core::openhuman::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::{NamespaceDocumentInput, UnifiedMemory};
 use openhuman_core::openhuman::memory_conversations::{
@@ -179,7 +179,10 @@ fn personality_fields_roundtrip_through_upsert() {
 
     let state = store.load().expect("reload");
     let alice = state.profiles.iter().find(|p| p.id == "alice").unwrap();
-    assert_eq!(alice.avatar_url.as_deref(), Some("https://example.com/alice.png"));
+    assert_eq!(
+        alice.avatar_url.as_deref(),
+        Some("https://example.com/alice.png")
+    );
     assert_eq!(alice.voice_id.as_deref(), Some("voice-alice-123"));
     assert_eq!(alice.soul_md.as_deref(), Some("I am Alice."));
     assert_eq!(
@@ -212,7 +215,10 @@ fn default_profile_memory_suffix_cannot_be_overridden() {
         Some(""),
         "default suffix must stay empty regardless of user input"
     );
-    assert_eq!(default.avatar_url.as_deref(), Some("https://example.com/default.png"));
+    assert_eq!(
+        default.avatar_url.as_deref(),
+        Some("https://example.com/default.png")
+    );
     assert!(default.is_master);
 }
 
@@ -299,10 +305,7 @@ async fn two_personalities_have_isolated_sqlite_stores() {
         !default_keys.contains(&"alice-only"),
         "default must NOT see alice's doc"
     );
-    assert!(
-        alice_keys.contains(&"alice-only"),
-        "alice sees her own doc"
-    );
+    assert!(alice_keys.contains(&"alice-only"), "alice sees her own doc");
     assert!(
         !alice_keys.contains(&"default-only"),
         "alice must NOT see default's doc"
@@ -396,7 +399,11 @@ fn resolve_memory_md_reads_personality_dir() {
 
     assert!(resolve_personality_memory_md(tmp.path(), &profile).is_none());
 
-    let mem_path = tmp.path().join("personalities").join("alice").join("MEMORY.md");
+    let mem_path = tmp
+        .path()
+        .join("personalities")
+        .join("alice")
+        .join("MEMORY.md");
     std::fs::create_dir_all(mem_path.parent().unwrap()).unwrap();
     std::fs::write(&mem_path, "Alice's curated memory.").unwrap();
 
@@ -415,7 +422,11 @@ fn personality_context_aggregates_all_overrides() {
     alice.soul_md = Some("I am Alice.".to_string());
     alice.composio_integrations = Some(vec!["slack".to_string()]);
 
-    let mem_path = tmp.path().join("personalities").join("alice").join("MEMORY.md");
+    let mem_path = tmp
+        .path()
+        .join("personalities")
+        .join("alice")
+        .join("MEMORY.md");
     std::fs::create_dir_all(mem_path.parent().unwrap()).unwrap();
     std::fs::write(&mem_path, "Curated.").unwrap();
 
@@ -485,11 +496,7 @@ fn user_files_section_prefers_personality_memory_md() {
 #[test]
 fn user_files_section_falls_back_to_workspace_memory_md() {
     let tmp = tempdir().expect("tempdir");
-    std::fs::write(
-        tmp.path().join("MEMORY.md"),
-        "Workspace fallback memory.",
-    )
-    .expect("write");
+    std::fs::write(tmp.path().join("MEMORY.md"), "Workspace fallback memory.").expect("write");
 
     let mut ctx = empty_prompt_context(tmp.path());
     ctx.include_memory_md = true;
@@ -564,9 +571,15 @@ impl HasToolkit for FakeIntegration {
 #[test]
 fn filter_integrations_none_is_passthrough() {
     let all = vec![
-        FakeIntegration { toolkit: "slack".into() },
-        FakeIntegration { toolkit: "gmail".into() },
-        FakeIntegration { toolkit: "notion".into() },
+        FakeIntegration {
+            toolkit: "slack".into(),
+        },
+        FakeIntegration {
+            toolkit: "gmail".into(),
+        },
+        FakeIntegration {
+            toolkit: "notion".into(),
+        },
     ];
     let filtered = filter_integrations(&all, None);
     assert_eq!(filtered.len(), 3);
@@ -575,9 +588,15 @@ fn filter_integrations_none_is_passthrough() {
 #[test]
 fn filter_integrations_allowlist_is_case_insensitive() {
     let all = vec![
-        FakeIntegration { toolkit: "slack".into() },
-        FakeIntegration { toolkit: "gmail".into() },
-        FakeIntegration { toolkit: "notion".into() },
+        FakeIntegration {
+            toolkit: "slack".into(),
+        },
+        FakeIntegration {
+            toolkit: "gmail".into(),
+        },
+        FakeIntegration {
+            toolkit: "notion".into(),
+        },
     ];
     let allowed = vec!["SLACK".to_string(), "Gmail".to_string()];
     let filtered = filter_integrations(&all, Some(&allowed));
@@ -587,7 +606,9 @@ fn filter_integrations_allowlist_is_case_insensitive() {
 
 #[test]
 fn filter_integrations_empty_allowlist_returns_nothing() {
-    let all = vec![FakeIntegration { toolkit: "slack".into() }];
+    let all = vec![FakeIntegration {
+        toolkit: "slack".into(),
+    }];
     let empty: Vec<String> = vec![];
     let filtered = filter_integrations(&all, Some(&empty));
     assert!(filtered.is_empty());

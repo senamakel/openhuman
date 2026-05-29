@@ -1091,7 +1091,7 @@ async fn run_typed_mode(
         user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     let system_prompt = match &definition.system_prompt {

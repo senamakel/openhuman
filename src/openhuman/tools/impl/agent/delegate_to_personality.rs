@@ -2,9 +2,7 @@
 
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
-use crate::openhuman::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunOptions,
-};
+use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::openhuman::agent::personality_paths::PersonalityContext;
 use crate::openhuman::agent::profiles::AgentProfileStore;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
@@ -134,10 +132,8 @@ impl Tool for DelegateToPersonalityTool {
             )));
         }
 
-        let personality_ctx = PersonalityContext::from_profile(
-            &parent_ctx.workspace_dir,
-            profile.clone(),
-        );
+        let personality_ctx =
+            PersonalityContext::from_profile(&parent_ctx.workspace_dir, profile.clone());
 
         tracing::debug!(
             personality_id = %personality_id,

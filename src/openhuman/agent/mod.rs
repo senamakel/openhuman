@@ -29,8 +29,8 @@ pub mod hooks;
 pub mod host_runtime;
 pub mod memory_loader;
 pub mod multimodal;
-pub mod pformat;
 pub mod personality_paths;
+pub mod pformat;
 pub mod profiles;
 pub mod progress;
 /// Prompt plumbing — types, section builders, and

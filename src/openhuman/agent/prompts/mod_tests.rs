@@ -52,7 +52,7 @@ fn prompt_builder_assembles_sections() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let rendered = SystemPromptBuilder::with_defaults().build(&ctx).unwrap();
     assert!(rendered.contains("## Tools"));
@@ -86,7 +86,7 @@ fn identity_section_creates_missing_workspace_files() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     let section = IdentitySection;
@@ -129,7 +129,7 @@ fn datetime_section_includes_timestamp_and_timezone() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     let rendered = DateTimeSection.build(&ctx).unwrap();
@@ -174,7 +174,7 @@ fn ctx_with_identity(identity: Option<UserIdentity>) -> PromptContext<'static> {
         user_identity: identity,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     }
 }
 
@@ -316,7 +316,7 @@ fn tools_section_pformat_renders_signature_not_schema() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     let rendered = ToolsSection.build(&ctx).unwrap();
@@ -404,7 +404,7 @@ fn user_memory_section_renders_namespaces_with_headings() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let rendered = UserMemorySection.build(&ctx).unwrap();
     assert!(rendered.starts_with("## User Memory\n\n"));
@@ -437,7 +437,7 @@ fn user_memory_section_returns_empty_when_no_summaries() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let rendered = UserMemorySection.build(&ctx).unwrap();
     assert!(rendered.is_empty());
@@ -1085,7 +1085,7 @@ fn for_subagent_builder_injects_user_files_even_when_identity_omitted() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
 
     // Test a narrow-agent runtime path:
@@ -1131,7 +1131,7 @@ fn for_subagent_builder_injects_user_files_even_when_identity_omitted() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let narrow = builder.build(&ctx_narrow).unwrap();
     assert!(
@@ -1214,7 +1214,7 @@ fn prompt_tool_constructors_and_user_memory_skip_empty_bodies() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let rendered = UserMemorySection.build(&ctx).unwrap();
     assert!(rendered.contains("### user"));
@@ -1242,7 +1242,7 @@ fn ctx_with_learned(learned: LearnedContextData) -> PromptContext<'static> {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     }
 }
 
@@ -1381,7 +1381,7 @@ fn tools_section_empty_for_native() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let out = ToolsSection.build(&ctx).unwrap();
     assert!(
@@ -1414,7 +1414,7 @@ fn tools_section_nonempty_for_pformat() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let out = ToolsSection.build(&ctx).unwrap();
     assert!(
@@ -1449,7 +1449,7 @@ fn tools_section_native_with_dispatcher_instructions_returns_instructions() {
         user_identity: None,
         personality_soul_md: None,
         personality_memory_md: None,
-            personality_roster: vec![],
+        personality_roster: vec![],
     };
     let out = ToolsSection.build(&ctx).unwrap();
     assert!(

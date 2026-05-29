@@ -674,7 +674,14 @@ impl ConversationStore {
                         ),
                         None => {
                             let inferred = labels.unwrap_or_else(|| infer_labels(&thread_id));
-                            (created_at, parent_thread_id, inferred, None, None, personality_id)
+                            (
+                                created_at,
+                                parent_thread_id,
+                                inferred,
+                                None,
+                                None,
+                                personality_id,
+                            )
                         }
                     };
                     index.insert(

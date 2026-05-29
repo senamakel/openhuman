@@ -126,10 +126,7 @@ pub struct PersonalityContext {
 impl PersonalityContext {
     /// Build from a resolved `AgentProfile`, reading personality files from the workspace.
     pub fn from_profile(workspace_dir: &Path, profile: AgentProfile) -> Self {
-        let memory_suffix = profile
-            .memory_dir_suffix
-            .clone()
-            .unwrap_or_default();
+        let memory_suffix = profile.memory_dir_suffix.clone().unwrap_or_default();
         let soul_md_override = resolve_personality_soul(workspace_dir, &profile);
         let memory_md_override = resolve_personality_memory_md(workspace_dir, &profile);
         let composio_allowlist = profile.composio_integrations.clone();
@@ -256,7 +253,11 @@ mod tests {
     #[test]
     fn resolve_memory_md_from_personality_dir() {
         let tmp = TempDir::new().unwrap();
-        let mem_path = tmp.path().join("personalities").join("alice").join("MEMORY.md");
+        let mem_path = tmp
+            .path()
+            .join("personalities")
+            .join("alice")
+            .join("MEMORY.md");
         std::fs::create_dir_all(mem_path.parent().unwrap()).unwrap();
         std::fs::write(&mem_path, "Alice remembers things.").unwrap();
 
@@ -302,8 +303,12 @@ mod tests {
     #[test]
     fn filter_integrations_none_passthrough() {
         let all = vec![
-            FakeIntegration { toolkit: "slack".into() },
-            FakeIntegration { toolkit: "gmail".into() },
+            FakeIntegration {
+                toolkit: "slack".into(),
+            },
+            FakeIntegration {
+                toolkit: "gmail".into(),
+            },
         ];
         let filtered = filter_integrations(&all, None);
         assert_eq!(filtered.len(), 2);
@@ -312,9 +317,15 @@ mod tests {
     #[test]
     fn filter_integrations_allowlist() {
         let all = vec![
-            FakeIntegration { toolkit: "slack".into() },
-            FakeIntegration { toolkit: "gmail".into() },
-            FakeIntegration { toolkit: "notion".into() },
+            FakeIntegration {
+                toolkit: "slack".into(),
+            },
+            FakeIntegration {
+                toolkit: "gmail".into(),
+            },
+            FakeIntegration {
+                toolkit: "notion".into(),
+            },
         ];
         let allowed = vec!["slack".to_string(), "notion".to_string()];
         let filtered = filter_integrations(&all, Some(&allowed));
@@ -325,7 +336,9 @@ mod tests {
 
     #[test]
     fn filter_integrations_empty_allowlist() {
-        let all = vec![FakeIntegration { toolkit: "slack".into() }];
+        let all = vec![FakeIntegration {
+            toolkit: "slack".into(),
+        }];
         let allowed: Vec<String> = vec![];
         let filtered = filter_integrations(&all, Some(&allowed));
         assert!(filtered.is_empty());

@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use axum::http::header::AUTHORIZATION;
 use reqwest::StatusCode;
 use rusqlite::{params, Connection};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
@@ -22,7 +22,8 @@ use openhuman_core::openhuman::approval::gate::{
 };
 use openhuman_core::openhuman::approval::store as approval_store;
 use openhuman_core::openhuman::approval::{
-    redact_args, summarize_action, ApprovalDecision, ExecutionOutcome, PendingApproval,
+    all_approval_controller_schemas, all_approval_registered_controllers, redact_args,
+    summarize_action, ApprovalDecision, ExecutionOutcome, GateOutcome, PendingApproval,
 };
 use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState,
@@ -730,6 +731,34 @@ fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches(
 
 #[test]
 fn approval_reply_parser_accepts_explicit_yes_no_only() {
+    for decision in [
+        ApprovalDecision::ApproveOnce,
+        ApprovalDecision::ApproveAlwaysForTool,
+        ApprovalDecision::Deny,
+    ] {
+        assert_eq!(
+            ApprovalDecision::from_str(decision.as_str()),
+            Some(decision)
+        );
+    }
+    assert_eq!(ApprovalDecision::from_str("maybe"), None);
+    assert!(ApprovalDecision::ApproveOnce.is_approve());
+    assert!(ApprovalDecision::ApproveAlwaysForTool.is_approve());
+    assert!(!ApprovalDecision::Deny.is_approve());
+
+    for outcome in [
+        ExecutionOutcome::Success,
+        ExecutionOutcome::Failure,
+        ExecutionOutcome::Aborted,
+    ] {
+        assert_eq!(ExecutionOutcome::from_str(outcome.as_str()), Some(outcome));
+    }
+    assert_eq!(ExecutionOutcome::from_str("partial"), None);
+    assert_eq!(
+        serde_json::to_string(&ExecutionOutcome::Aborted).expect("serialize outcome"),
+        "\"aborted\""
+    );
+
     assert_eq!(
         parse_approval_reply(" yes "),
         Some(ApprovalDecision::ApproveOnce)
@@ -741,6 +770,96 @@ fn approval_reply_parser_accepts_explicit_yes_no_only() {
     assert_eq!(parse_approval_reply("n"), Some(ApprovalDecision::Deny));
     assert_eq!(parse_approval_reply("denied"), Some(ApprovalDecision::Deny));
     assert_eq!(parse_approval_reply("maybe later"), None);
+}
+
+#[tokio::test]
+async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state() {
+    let schemas = all_approval_controller_schemas();
+    assert_eq!(
+        schemas
+            .iter()
+            .map(|schema| schema.function)
+            .collect::<Vec<_>>(),
+        vec!["list_pending", "list_recent_decisions", "decide"]
+    );
+    let unknown = openhuman_core::openhuman::approval::schemas::schemas("missing");
+    assert_eq!(unknown.namespace, "approval");
+    assert_eq!(unknown.function, "unknown");
+    assert_eq!(unknown.outputs[0].name, "error");
+
+    let controllers = all_approval_registered_controllers();
+    assert_eq!(controllers.len(), schemas.len());
+
+    let list_handler = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "list_pending")
+        .expect("list pending controller")
+        .handler;
+    let list_value = list_handler(Map::new()).await.expect("list pending value");
+    assert!(list_value
+        .get("result")
+        .or(Some(&list_value))
+        .and_then(Value::as_array)
+        .is_some());
+
+    let recent_handler = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "list_recent_decisions")
+        .expect("recent decisions controller")
+        .handler;
+    let mut invalid_limit = Map::new();
+    invalid_limit.insert("limit".to_string(), json!("ten"));
+    assert!(recent_handler(invalid_limit)
+        .await
+        .expect_err("string limit")
+        .contains("expected unsigned integer"));
+    let mut negative_limit = Map::new();
+    negative_limit.insert("limit".to_string(), json!(-1));
+    assert!(recent_handler(negative_limit)
+        .await
+        .expect_err("negative limit")
+        .contains("expected unsigned integer"));
+    let mut null_limit = Map::new();
+    null_limit.insert("limit".to_string(), Value::Null);
+    let recent_value = recent_handler(null_limit)
+        .await
+        .expect("null limit should use default");
+    assert!(recent_value
+        .get("result")
+        .or(Some(&recent_value))
+        .and_then(Value::as_array)
+        .is_some());
+
+    let decide_handler = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "decide")
+        .expect("decide controller")
+        .handler;
+    assert!(decide_handler(Map::new())
+        .await
+        .expect_err("missing request id")
+        .contains("missing required param 'request_id'"));
+    let mut numeric_request = Map::new();
+    numeric_request.insert("request_id".to_string(), json!(42));
+    numeric_request.insert("decision".to_string(), json!("deny"));
+    assert!(decide_handler(numeric_request)
+        .await
+        .expect_err("numeric request id")
+        .contains("expected string"));
+    let mut numeric_decision = Map::new();
+    numeric_decision.insert("request_id".to_string(), json!("missing"));
+    numeric_decision.insert("decision".to_string(), json!(42));
+    assert!(decide_handler(numeric_decision)
+        .await
+        .expect_err("numeric decision")
+        .contains("expected string"));
+    let mut invalid_decision = Map::new();
+    invalid_decision.insert("request_id".to_string(), json!("missing"));
+    invalid_decision.insert("decision".to_string(), json!("maybe"));
+    assert!(decide_handler(invalid_decision)
+        .await
+        .expect_err("invalid decision")
+        .contains("approve_once|approve_always_for_tool|deny"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -898,6 +1017,15 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
         no_chat.1, None,
         "non-chat calls should not create approval rows"
     );
+    assert!(matches!(
+        gate.intercept(
+            "tools.web_search",
+            "tools.web_search(query=legacy)",
+            json!({ "query": "legacy" }),
+        )
+        .await,
+        GateOutcome::Allow
+    ));
 
     let auto_approved = gate
         .intercept_audited(
@@ -986,6 +1114,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     }
     assert_eq!(deny_approved_id, None);
     assert!(gate.pending_for_thread("approval-deny-thread").is_none());
+    assert_eq!(gate.session_id(), "approval-raw-e2e-session");
 
     harness.rpc_join.abort();
 }

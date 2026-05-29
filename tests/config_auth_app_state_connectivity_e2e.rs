@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{header::AUTHORIZATION, HeaderMap};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
@@ -152,6 +153,28 @@ async fn serve_mock_backend() -> (
     (format!("http://{addr}"), state, join)
 }
 
+#[derive(Clone, Default)]
+struct SequenceAuthBackendState {
+    auth_me_hits: Arc<AtomicUsize>,
+}
+
+async fn serve_sequence_auth_backend() -> (
+    String,
+    SequenceAuthBackendState,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    let state = SequenceAuthBackendState::default();
+    let app = Router::new()
+        .route("/auth/me", get(sequence_auth_me))
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind sequence auth backend");
+    let addr = listener.local_addr().expect("sequence auth backend addr");
+    let join = tokio::spawn(async move { axum::serve(listener, app).await });
+    (format!("http://{addr}"), state, join)
+}
+
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(AUTHORIZATION)
@@ -171,6 +194,41 @@ async fn mock_auth_me(State(state): State<MockBackendState>, headers: HeaderMap)
             "authHeader": auth
         }
     }))
+}
+
+async fn sequence_auth_me(
+    State(state): State<SequenceAuthBackendState>,
+    headers: HeaderMap,
+) -> Response {
+    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
+    match hit {
+        1 => {
+            let auth = bearer(&headers).unwrap_or_default();
+            Json(json!({
+                "success": true,
+                "data": {
+                    "id": "sequence-user",
+                    "name": "Sequence Worker",
+                    "email": "sequence-worker@example.test",
+                    "authHeader": auth
+                }
+            }))
+            .into_response()
+        }
+        2 => Json(json!({
+            "success": true,
+            "data": {}
+        }))
+        .into_response(),
+        _ => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "error": "forced auth/me failure"
+            })),
+        )
+            .into_response(),
+    }
 }
 
 async fn mock_consume_login_token(AxumPath(token): AxumPath<String>) -> Json<Value> {
@@ -2157,6 +2215,88 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
 }
 
 #[tokio::test]
+async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_stored_user() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_sequence_auth_backend().await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    let session = rpc(
+        &harness.rpc_base,
+        22_101,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "sequence-remote-jwt",
+            "user_id": "stored-sequence-user",
+            "user": {
+                "id": "stored-sequence-user",
+                "name": "Stored Sequence Worker",
+                "email": "stored-sequence@example.test"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&session, "auth_store_session sequence")
+            .get("provider")
+            .and_then(Value::as_str),
+        Some("app-session")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        1,
+        "store_session should validate the sequence JWT once"
+    );
+
+    let empty_user_snapshot = rpc(
+        &harness.rpc_base,
+        22_102,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        2,
+        "first snapshot should refresh and receive the empty user payload"
+    );
+    assert_eq!(
+        payload(&empty_user_snapshot, "empty current-user snapshot")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("stored-sequence@example.test"),
+        "empty backend users should clear the cache and fall back to stored identity"
+    );
+    assert!(
+        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        "empty backend user should clear the process current-user cache"
+    );
+
+    let failed_user_snapshot = rpc(
+        &harness.rpc_base,
+        22_103,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        3,
+        "second snapshot should retry after the empty-user cache clear"
+    );
+    assert_eq!(
+        payload(&failed_user_snapshot, "failed current-user snapshot")
+            .pointer("/currentUser/name")
+            .and_then(Value::as_str),
+        Some("Stored Sequence Worker"),
+        "failed backend user fetches should preserve stored session identity"
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
+
+#[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -2270,6 +2410,58 @@ async fn app_state_snapshot_quarantines_corrupted_local_state_file() {
     assert!(
         quarantined,
         "corrupted app state file should be quarantined under {state_dir:?}"
+    );
+
+    harness.join.abort();
+}
+
+#[tokio::test]
+async fn app_state_snapshot_quarantines_unreadable_local_state_path() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let config = rpc(&harness.rpc_base, 31_101, "openhuman.config_get", json!({})).await;
+    let workspace_dir = payload(&config, "config_get for unreadable app_state path")
+        .get("workspace_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .expect("config_get should expose workspace_dir");
+    let state_dir = workspace_dir.join("state");
+    std::fs::create_dir_all(&state_dir).expect("create state dir");
+    let app_state_path = state_dir.join("app-state.json");
+    std::fs::create_dir(&app_state_path).expect("create unreadable app-state directory");
+
+    let snapshot = rpc(
+        &harness.rpc_base,
+        31_102,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    let local_state = payload(&snapshot, "app_state_snapshot after unreadable state path")
+        .get("localState")
+        .expect("snapshot should include localState");
+    assert!(
+        local_state.as_object().is_some_and(|map| map.is_empty()),
+        "unreadable app state should fall back to defaults: {local_state}"
+    );
+    assert!(
+        !app_state_path.exists(),
+        "unreadable app state path should be moved out of the live path"
+    );
+    let quarantined = std::fs::read_dir(&state_dir)
+        .expect("read state dir")
+        .filter_map(Result::ok)
+        .any(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("app-state.json.corrupted.")
+                && entry.path().is_dir()
+        });
+    assert!(
+        quarantined,
+        "unreadable app state directory should be quarantined under {state_dir:?}"
     );
 
     harness.join.abort();

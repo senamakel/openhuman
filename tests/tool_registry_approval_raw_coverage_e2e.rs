@@ -30,8 +30,8 @@ use openhuman_core::openhuman::config::schema::{
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::tool_registry::{
     capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
-    denials, is_capability_provider_trusted_enabled, list_capability_providers,
-    normalize_capability_provider_id,
+    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
+    list_tools, normalize_capability_provider_id,
 };
 
 const TEST_RPC_TOKEN: &str = "tool-registry-approval-raw-e2e-token";
@@ -359,9 +359,50 @@ enabled = true
         .and_then(Value::as_str)
         .is_some_and(|err| err.contains("duplicate provider id after normalization")));
 
-    let missing = rpc(
+    let list = rpc(
         &harness.rpc_base,
         11,
+        "openhuman.tool_registry_list",
+        json!({}),
+    )
+    .await;
+    let listed_tools = payload(&list, "tool_registry_list")
+        .get("tools")
+        .and_then(Value::as_array)
+        .expect("tool registry list");
+    let first_tool_id = listed_tools
+        .first()
+        .and_then(|tool| tool.get("tool_id"))
+        .and_then(Value::as_str)
+        .expect("first tool id")
+        .to_string();
+
+    let found = rpc(
+        &harness.rpc_base,
+        12,
+        "openhuman.tool_registry_get",
+        json!({ "tool_id": format!("  {first_tool_id}  ") }),
+    )
+    .await;
+    assert_eq!(
+        payload(&found, "tool_registry_get success")
+            .get("tool_id")
+            .and_then(Value::as_str),
+        Some(first_tool_id.as_str())
+    );
+
+    let empty = rpc(
+        &harness.rpc_base,
+        13,
+        "openhuman.tool_registry_get",
+        json!({ "tool_id": "   " }),
+    )
+    .await;
+    assert!(error_message(&empty, "empty tool id").contains("non-empty"));
+
+    let missing = rpc(
+        &harness.rpc_base,
+        14,
         "openhuman.tool_registry_get",
         json!({ "tool_id": "missing.tool" }),
     )
@@ -369,6 +410,37 @@ enabled = true
     assert!(error_message(&missing, "missing tool").contains("missing.tool"));
 
     harness.rpc_join.abort();
+}
+
+#[test]
+fn tool_registry_public_api_lists_gets_and_validates_ids() {
+    let listed = list_tools()
+        .into_cli_compatible_json()
+        .expect("list_tools json");
+    let tools = listed
+        .get("tools")
+        .and_then(Value::as_array)
+        .expect("listed tools");
+    let first_tool_id = tools
+        .first()
+        .and_then(|tool| tool.get("tool_id"))
+        .and_then(Value::as_str)
+        .expect("first tool id");
+
+    let found = get_tool(first_tool_id)
+        .expect("get first tool")
+        .into_cli_compatible_json()
+        .expect("get_tool json");
+    assert_eq!(
+        found.get("tool_id").and_then(Value::as_str),
+        Some(first_tool_id)
+    );
+    assert!(get_tool("   ")
+        .expect_err("blank id should fail")
+        .contains("non-empty"));
+    assert!(get_tool("missing.tool")
+        .expect_err("missing id should fail")
+        .contains("missing.tool"));
 }
 
 #[test]

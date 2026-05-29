@@ -181,12 +181,23 @@ describe('<TaskSourcesPanel />', () => {
     await waitFor(() => expect(screen.getByText('no connection')).toBeInTheDocument());
   });
 
-  it('removes a source', async () => {
+  it('removes a source after confirm', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPanel();
     const card = await screen.findByTestId('task-source-s-1');
     fireEvent.click(within(card).getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(removeMock).toHaveBeenCalledWith('s-1'));
     await waitFor(() => expect(screen.queryByTestId('task-source-s-1')).not.toBeInTheDocument());
+  });
+
+  it('does not remove a source when confirm is cancelled', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPanel();
+    const card = await screen.findByTestId('task-source-s-1');
+    fireEvent.click(within(card).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('task-source-s-1')).toBeInTheDocument();
   });
 
   it('switches the primary field label when the provider changes', async () => {

@@ -18,8 +18,8 @@ import Routines from './pages/Routines';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
-import Workflows from './pages/Workflows';
 import Welcome from './pages/Welcome';
+import Workflows from './pages/Workflows';
 
 const AppRoutes = () => {
   // Mobile target (iOS or Android): pair → Human/Chat/Settings only.
@@ -90,8 +90,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Unified chat = agent + connected web apps. Replaces the old
-          /conversations and /accounts routes. */}
       <Route
         path="/workflows"
         element={
@@ -101,6 +99,8 @@ const AppRoutes = () => {
         }
       />
 
+      {/* Unified chat = agent + connected web apps. Replaces the old
+          /conversations and /accounts routes. */}
       <Route
         path="/chat"
         element={

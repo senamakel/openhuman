@@ -2371,7 +2371,7 @@ pub async fn composio_clear_api_key(config: &Config) -> OpResult<RpcOutcome<serd
 }
 
 #[cfg(test)]
-#[path = "ops_test.rs"]
+#[path = "ops_tests.rs"]
 mod tests;
 
 // ── Helpers re-exported so callers can pull connection/tool types without

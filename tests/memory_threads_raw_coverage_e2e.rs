@@ -16,6 +16,13 @@ use tempfile::TempDir;
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
+use openhuman_core::openhuman::memory::{
+    rpc_models::{
+        ApiEnvelope, ApiError, ApiMeta, PaginationMeta, QueryNamespaceRequest,
+        RecallContextRequest, RecallMemoriesRequest,
+    },
+    traits::{MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
+};
 use openhuman_core::openhuman::memory_sources::readers::reader_for;
 use openhuman_core::openhuman::memory_sources::status::{source_status, FreshnessLabel};
 use openhuman_core::openhuman::memory_sources::types::{
@@ -24,6 +31,10 @@ use openhuman_core::openhuman::memory_sources::types::{
 use openhuman_core::openhuman::memory_store::chunks::store::{upsert_chunks, with_connection};
 use openhuman_core::openhuman::memory_store::chunks::types::{
     approx_token_count, chunk_id, Chunk, DataSource, Metadata, SourceKind as ChunkSourceKind,
+    SourceRef,
+};
+use openhuman_core::openhuman::memory_store::trees::types::{
+    SummaryNode, Tree, TreeKind, TreeStatus as StoredTreeStatus,
 };
 use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
@@ -36,6 +47,10 @@ use openhuman_core::openhuman::memory_sync::canonicalize::email::{
 };
 use openhuman_core::openhuman::memory_sync::canonicalize::email_clean;
 use openhuman_core::openhuman::memory_sync::composio;
+use openhuman_core::openhuman::memory_sync::composio::providers::profile_md::{
+    block_end, block_start, merge_provider_into_profile_md, remove_provider_from_profile_md,
+    replace_managed_block,
+};
 use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
     extract_item_id, DailyBudget, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
 };
@@ -53,6 +68,12 @@ use openhuman_core::openhuman::memory_tree::score::signals::{
     interaction, metadata_weight, source_weight, token_count, unique_words, ScoreSignals,
     SignalWeights,
 };
+use openhuman_core::openhuman::memory_tree::tree_runtime::store as tree_runtime_store;
+use openhuman_core::openhuman::memory_tree::tree_runtime::{
+    derive_node_ids, derive_parent_id, estimate_tokens, level_from_node_id, node_id_to_path,
+    NodeLevel, TreeNode,
+};
+use openhuman_core::openhuman::memory_tree::{retrieval, score::embed};
 use openhuman_core::openhuman::threads::title::{
     build_title_prompt, collapse_whitespace, is_auto_generated_thread_title,
     sanitize_generated_title, title_from_user_message, title_log_fingerprint,
@@ -100,6 +121,22 @@ fn chunk(source_id: &str, seq: u32, timestamp_ms: i64) -> Chunk {
         seq_in_source: seq,
         created_at: ts,
         partial_message: false,
+    }
+}
+
+fn tree_node(namespace: &str, node_id: &str, summary: &str) -> TreeNode {
+    let created_at = Utc.with_ymd_and_hms(2026, 5, 29, 12, 0, 0).unwrap();
+    TreeNode {
+        node_id: node_id.to_string(),
+        namespace: namespace.to_string(),
+        level: level_from_node_id(node_id),
+        parent_id: derive_parent_id(node_id),
+        summary: summary.to_string(),
+        token_count: estimate_tokens(summary),
+        child_count: 0,
+        created_at,
+        updated_at: created_at,
+        metadata: Some(json!({ "kind": "coverage", "node": node_id }).to_string()),
     }
 }
 
@@ -807,6 +844,375 @@ fn memory_tree_scoring_signal_helpers_cover_boundaries_and_serialization() {
         );
     }
     assert!(DataSource::parse("missing").is_err());
+}
+
+#[test]
+fn memory_tree_runtime_store_buffers_and_retrieval_wire_helpers() {
+    let tmp = TempDir::new().expect("tempdir");
+    let config = config_in(&tmp);
+    let namespace = "slack:#eng";
+    let root = tree_node(namespace, "root", "Workspace root summary");
+    let year = tree_node(namespace, "2026", "Year summary");
+    let month = tree_node(namespace, "2026/05", "Month summary");
+    let day = tree_node(namespace, "2026/05/29", "Day summary");
+    let hour = tree_node(namespace, "2026/05/29/12", "Hour leaf body");
+
+    for node in [&root, &year, &month, &day, &hour] {
+        tree_runtime_store::write_node(&config, node).expect("write tree node");
+    }
+
+    assert_eq!(
+        tree_runtime_store::read_node(&config, namespace, "root")
+            .unwrap()
+            .unwrap()
+            .summary,
+        "Workspace root summary"
+    );
+    assert!(tree_runtime_store::read_node(&config, namespace, "missing")
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        tree_runtime_store::read_children(&config, namespace, "root")
+            .unwrap()
+            .into_iter()
+            .map(|node| node.node_id)
+            .collect::<Vec<_>>(),
+        vec!["2026"]
+    );
+    assert_eq!(
+        tree_runtime_store::read_children(&config, namespace, "2026/05/29")
+            .unwrap()
+            .into_iter()
+            .map(|node| node.node_id)
+            .collect::<Vec<_>>(),
+        vec!["2026/05/29/12"]
+    );
+    assert_eq!(
+        tree_runtime_store::read_ancestors(&config, namespace, "2026/05/29/12")
+            .unwrap()
+            .len(),
+        4
+    );
+    assert_eq!(
+        tree_runtime_store::count_nodes(&config, namespace).unwrap(),
+        5
+    );
+    let status = tree_runtime_store::get_tree_status(&config, namespace).unwrap();
+    assert_eq!(status.total_nodes, 5);
+    assert_eq!(status.depth, 5);
+    assert_eq!(
+        status.oldest_entry.unwrap().to_rfc3339(),
+        "2026-05-29T12:00:00+00:00"
+    );
+
+    let summaries = tree_runtime_store::collect_root_summaries_with_caps(tmp.path(), 10, 12);
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].0, "slack_#eng");
+    assert!(summaries[0].1.contains("[... truncated]"));
+    assert_eq!(
+        tree_runtime_store::list_namespaces_with_root(&config).unwrap(),
+        vec!["slack_#eng".to_string()]
+    );
+
+    let ts = Utc.with_ymd_and_hms(2026, 5, 29, 13, 0, 0).unwrap();
+    let first_buffer = tree_runtime_store::buffer_write(
+        &config,
+        namespace,
+        "first buffered body",
+        &ts,
+        Some(&json!({ "source": "test" })),
+    )
+    .expect("buffer write");
+    let second_buffer =
+        tree_runtime_store::buffer_write(&config, namespace, "second buffered body", &ts, None)
+            .expect("buffer write second");
+    let buffered = tree_runtime_store::buffer_read(&config, namespace).expect("buffer read");
+    assert_eq!(buffered.len(), 2);
+    assert!(buffered
+        .iter()
+        .any(|(_, body)| body == "first buffered body"));
+    tree_runtime_store::buffer_delete(
+        &config,
+        namespace,
+        &[first_buffer
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()],
+    )
+    .expect("buffer delete");
+    assert!(!first_buffer.exists());
+    assert!(second_buffer.exists());
+    let drained = tree_runtime_store::buffer_drain(&config, namespace).expect("buffer drain");
+    assert_eq!(drained.len(), 1);
+    assert!(tree_runtime_store::buffer_read(&config, namespace)
+        .unwrap()
+        .is_empty());
+
+    assert_eq!(NodeLevel::Hour.max_tokens(), 1_000);
+    assert_eq!(NodeLevel::Month.parent_level(), Some(NodeLevel::Year));
+    assert_eq!(NodeLevel::from_str_label("DAY"), Some(NodeLevel::Day));
+    assert_eq!(
+        derive_parent_id("2026/05/29/12").as_deref(),
+        Some("2026/05/29")
+    );
+    assert_eq!(
+        derive_node_ids(&ts),
+        (
+            "2026/05/29/13".to_string(),
+            "2026/05/29".to_string(),
+            "2026/05".to_string(),
+            "2026".to_string(),
+            "root".to_string()
+        )
+    );
+    assert_eq!(node_id_to_path("root").to_string_lossy(), "root.md");
+    assert!(tree_runtime_store::validate_namespace("team").is_ok());
+    assert!(tree_runtime_store::validate_namespace("../bad").is_err());
+    assert!(tree_runtime_store::validate_node_id("2026/05/29/23").is_ok());
+    assert!(tree_runtime_store::validate_node_id("2026/13").is_err());
+
+    let legacy = tree_runtime_store::parse_node_markdown_pub("legacy body", namespace, "2026")
+        .expect("parse legacy");
+    assert_eq!(legacy.level, NodeLevel::Year);
+    assert_eq!(legacy.created_at, chrono::DateTime::<Utc>::UNIX_EPOCH);
+    assert_eq!(
+        tree_runtime_store::delete_tree(&config, namespace).unwrap(),
+        5
+    );
+    assert_eq!(
+        tree_runtime_store::delete_tree(&config, namespace).unwrap(),
+        0
+    );
+}
+
+#[test]
+fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
+    assert_eq!(retrieval::types::NodeKind::Leaf.as_str(), "leaf");
+    assert_eq!(retrieval::types::NodeKind::Summary.as_str(), "summary");
+    assert!(retrieval::types::QueryResponse::empty().hits.is_empty());
+
+    let now = Utc.with_ymd_and_hms(2026, 5, 29, 12, 0, 0).unwrap();
+    let summary = SummaryNode {
+        id: "sum-1".into(),
+        tree_id: "tree-1".into(),
+        tree_kind: TreeKind::Topic,
+        level: 2,
+        parent_id: Some("root".into()),
+        child_ids: vec!["child-1".into(), "child-2".into()],
+        content: "Topic summary".into(),
+        token_count: 3,
+        entities: vec!["person:alice".into()],
+        topics: vec!["coverage".into()],
+        time_range_start: now,
+        time_range_end: now,
+        score: 0.8,
+        sealed_at: now,
+        deleted: false,
+        embedding: None,
+    };
+    let tree = Tree {
+        id: "tree-1".into(),
+        kind: TreeKind::Topic,
+        scope: "topic:coverage".into(),
+        root_id: Some("sum-1".into()),
+        max_level: 2,
+        status: StoredTreeStatus::Active,
+        created_at: now,
+        last_sealed_at: Some(now),
+    };
+    let summary_hit = retrieval::types::hit_from_summary_with_tree(&summary, &tree);
+    assert_eq!(summary_hit.node_kind, retrieval::types::NodeKind::Summary);
+    assert_eq!(summary_hit.tree_scope, "topic:coverage");
+    assert_eq!(summary_hit.child_ids, vec!["child-1", "child-2"]);
+
+    let mut leaf_chunk = chunk("gmail:acct:msg-1", 0, now.timestamp_millis());
+    leaf_chunk.metadata.source_ref = Some(SourceRef::new("<msg-1@example.test>"));
+    let leaf_hit = retrieval::types::hit_from_chunk(&leaf_chunk, "tree-2", "gmail:acct", 0.4);
+    assert_eq!(leaf_hit.node_kind, retrieval::types::NodeKind::Leaf);
+    assert_eq!(leaf_hit.tree_kind, TreeKind::Source);
+    assert_eq!(leaf_hit.source_ref.as_deref(), Some("<msg-1@example.test>"));
+    let response = retrieval::types::QueryResponse::new(vec![leaf_hit], 2);
+    assert!(response.truncated);
+    assert_eq!(
+        retrieval::types::leaf_tree_placeholder(ChunkSourceKind::Email),
+        TreeKind::Source
+    );
+
+    assert_eq!(
+        TreeKind::parse(TreeKind::Global.as_str()).unwrap(),
+        TreeKind::Global
+    );
+    assert!(TreeKind::parse("missing").is_err());
+    assert_eq!(
+        StoredTreeStatus::parse(StoredTreeStatus::Archived.as_str()).unwrap(),
+        StoredTreeStatus::Archived
+    );
+    assert!(StoredTreeStatus::parse("missing").is_err());
+
+    let packed = embed::pack_checked(&vec![0.25; embed::EMBEDDING_DIM]).expect("pack checked");
+    let unpacked = embed::unpack_embedding(&packed).expect("unpack");
+    assert_eq!(unpacked.len(), embed::EMBEDDING_DIM);
+    assert!(embed::pack_checked(&[1.0, 2.0]).is_err());
+    assert!(embed::unpack_embedding(&[0, 1, 2]).is_err());
+    assert!(embed::decode_optional_blob(None, "none").unwrap().is_none());
+    assert!(embed::decode_optional_blob(Some(vec![0; 16]), "bad row").is_err());
+    assert_eq!(embed::cosine_similarity(&[1.0, 0.0], &[0.0, 1.0]), 0.0);
+
+    let query = QueryNamespaceRequest {
+        namespace: "default".into(),
+        query: "coverage".into(),
+        include_references: Some(true),
+        document_ids: Some(vec!["doc-1".into()]),
+        limit: Some(4),
+        max_chunks: Some(6),
+    };
+    assert_eq!(query.resolved_limit(), 6);
+    let recall_context = RecallContextRequest {
+        namespace: "default".into(),
+        include_references: None,
+        limit: Some(3),
+        max_chunks: None,
+    };
+    assert_eq!(recall_context.resolved_limit(), 3);
+    let recall_memories = RecallMemoriesRequest {
+        namespace: "default".into(),
+        min_retention: Some(0.2),
+        as_of: Some(1.0),
+        limit: Some(3),
+        max_chunks: Some(7),
+        top_k: Some(9),
+    };
+    assert_eq!(recall_memories.resolved_limit(), 9);
+
+    let envelope = ApiEnvelope {
+        data: Some(json!({ "ok": true })),
+        error: Some(ApiError {
+            code: "coverage".into(),
+            message: "covered".into(),
+            details: Some(json!({ "line": true })),
+        }),
+        meta: ApiMeta {
+            request_id: "req-1".into(),
+            latency_seconds: Some(0.01),
+            cached: Some(false),
+            counts: None,
+            pagination: Some(PaginationMeta {
+                limit: 10,
+                offset: 0,
+                count: 1,
+            }),
+        },
+    };
+    let encoded = serde_json::to_value(envelope).expect("api envelope json");
+    assert_eq!(encoded["meta"]["pagination"]["count"], 1);
+
+    let entry = MemoryEntry {
+        id: "mem-1".into(),
+        key: "preference".into(),
+        content: "Use deterministic tests".into(),
+        namespace: Some("default".into()),
+        category: MemoryCategory::Custom("testing".into()),
+        timestamp: now.to_rfc3339(),
+        session_id: Some("session-1".into()),
+        score: Some(0.9),
+    };
+    assert_eq!(entry.category.to_string(), "testing");
+    let opts = RecallOpts {
+        namespace: Some("default"),
+        category: Some(MemoryCategory::Conversation),
+        session_id: Some("session-2"),
+        min_score: Some(0.5),
+        cross_session: true,
+    };
+    assert!(opts.cross_session);
+    assert_eq!(opts.category.unwrap().to_string(), "conversation");
+    let summary = NamespaceSummary {
+        namespace: "default".into(),
+        count: 1,
+        last_updated: Some(now.to_rfc3339()),
+    };
+    assert_eq!(serde_json::to_value(summary).unwrap()["count"], 1);
+}
+
+#[test]
+fn memory_sync_profile_markdown_and_status_helpers_are_idempotent() {
+    let tmp = TempDir::new().expect("tempdir");
+    let mut profile = ProviderUserProfile {
+        toolkit: "gmail".into(),
+        connection_id: Some("conn-1".into()),
+        display_name: Some("Jane\nDoe".into()),
+        email: Some("jane@example.com".into()),
+        username: Some("jane\tdoe".into()),
+        avatar_url: None,
+        profile_url: Some("https://example.test/jane|profile".into()),
+        extras: json!({ "source": "coverage" }),
+    };
+
+    merge_provider_into_profile_md(tmp.path(), &profile).expect("merge profile");
+    profile.display_name = Some("Jane D.".into());
+    merge_provider_into_profile_md(tmp.path(), &profile).expect("merge profile update");
+    let profile_path = tmp.path().join("PROFILE.md");
+    let body = std::fs::read_to_string(&profile_path).expect("read profile");
+    assert!(body.contains(&block_start("connected-accounts")));
+    assert!(body.contains("Jane D."));
+    assert!(!body.contains("Jane\nDoe"));
+    assert_eq!(body.matches("acct:gmail:conn-1").count(), 1);
+
+    replace_managed_block(
+        tmp.path(),
+        "style",
+        "## Style",
+        "Use plain language.".into(),
+    )
+    .expect("replace style");
+    replace_managed_block(tmp.path(), "goals", "## Goals", String::new()).expect("replace goals");
+    let body = std::fs::read_to_string(&profile_path).expect("read profile after blocks");
+    assert!(body.contains(&block_start("style")));
+    assert!(body.contains("Use plain language."));
+    assert!(body.contains("*(no entries yet)*"));
+    assert!(body.contains(&block_end("goals")));
+
+    remove_provider_from_profile_md(tmp.path(), "gmail", "conn-1").expect("remove provider");
+    let body = std::fs::read_to_string(&profile_path).expect("read profile after remove");
+    assert!(!body.contains("acct:gmail:conn-1"));
+
+    let skipped = TempDir::new().expect("tempdir");
+    let skipped_profile = ProviderUserProfile {
+        toolkit: "gmail".into(),
+        connection_id: None,
+        display_name: Some("Skipped".into()),
+        email: None,
+        username: None,
+        avatar_url: None,
+        profile_url: None,
+        extras: serde_json::Value::Null,
+    };
+    merge_provider_into_profile_md(skipped.path(), &skipped_profile).expect("skip profile");
+    assert!(!skipped.path().join("PROFILE.md").exists());
+    remove_provider_from_profile_md(skipped.path(), "", "").expect("remove missing no-op");
+
+    let now = 1_700_000_000_000_i64;
+    assert_eq!(
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::from_age_ms(
+            Some(now - 30_000),
+            now
+        ),
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::Active
+    );
+    assert_eq!(
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::from_age_ms(
+            Some(now - 30_001),
+            now
+        ),
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::Recent
+    );
+    assert_eq!(
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::from_age_ms(
+            None, now
+        ),
+        openhuman_core::openhuman::memory_sync::sync_status::types::FreshnessLabel::Idle
+    );
 }
 
 #[test]

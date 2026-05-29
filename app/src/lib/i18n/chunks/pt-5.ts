@@ -858,6 +858,9 @@ const pt5: TranslationMap = {
   'settings.modelHealth.modal.apply': 'Apply Replacement',
   'settings.modelHealth.tag.cheaper': 'CHEAPER',
   'settings.modelHealth.tag.better': 'BETTER',
+  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
+  'settings.agentAccess.requireTaskPlanApproval.desc':
+    'Pause before an assigned agent executes an agent-authored task brief.',
 };
 
 export default pt5;

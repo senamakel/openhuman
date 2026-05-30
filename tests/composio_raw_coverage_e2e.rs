@@ -9,10 +9,13 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use openhuman_core::core::all::RegisteredController;
+use openhuman_core::openhuman::composio::client::{create_composio_client, ComposioClientKind};
 use openhuman_core::openhuman::composio::error_mapping::{
     classify_composio_error, format_provider_error, remap_transport_error, ComposioErrorClass,
 };
-use openhuman_core::openhuman::composio::execute_dispatch::execute_composio_action;
+use openhuman_core::openhuman::composio::execute_dispatch::{
+    execute_composio_action, execute_composio_action_kind,
+};
 use openhuman_core::openhuman::composio::execute_prepare::prepare_execute_arguments;
 use openhuman_core::openhuman::composio::oauth_handoff::{
     is_authorize_rate_limited, is_clearable_oauth_status, is_inflight_oauth_status,
@@ -22,8 +25,8 @@ use openhuman_core::openhuman::composio::providers::{
     classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
 };
 use openhuman_core::openhuman::composio::tools::{
-    ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
-    ComposioListToolkitsTool, ComposioListToolsTool,
+    ComposioAction, ComposioAuthorizeTool, ComposioConnectedAccount, ComposioExecuteTool,
+    ComposioListConnectionsTool, ComposioListToolkitsTool, ComposioListToolsTool,
 };
 use openhuman_core::openhuman::composio::trigger_history::ComposioTriggerHistoryStore;
 use openhuman_core::openhuman::composio::types::{
@@ -146,6 +149,23 @@ fn composio_prepare_execute_arguments_validates_gmail_mutations() {
 
 #[test]
 fn composio_error_mapping_classifies_and_formats_provider_failures() {
+    assert_eq!(ComposioErrorClass::Validation.as_str(), "validation");
+    assert_eq!(
+        ComposioErrorClass::InsufficientScope.as_str(),
+        "insufficient_scope"
+    );
+    assert_eq!(ComposioErrorClass::RateLimited.as_str(), "rate_limited");
+    assert_eq!(
+        ComposioErrorClass::UpstreamProvider.as_str(),
+        "upstream_provider"
+    );
+    assert_eq!(
+        ComposioErrorClass::ComposioPlatform.as_str(),
+        "composio_platform"
+    );
+    assert_eq!(ComposioErrorClass::Gateway.as_str(), "gateway");
+    assert_eq!(ComposioErrorClass::Other.as_str(), "other");
+
     assert_eq!(
         classify_composio_error("GMAIL_SEND_EMAIL", "missing required field to"),
         ComposioErrorClass::Validation
@@ -193,6 +213,29 @@ fn composio_error_mapping_classifies_and_formats_provider_failures() {
         gateway.starts_with("[composio:error:insufficient_scope]"),
         "embedded provider errors should not be bucketed as gateway: {gateway}"
     );
+
+    let summarized_gateway = remap_transport_error(
+        "CUSTOM_ACTION",
+        "request failed: Backend returned 504 Gateway Timeout for POST /execute: edge timeout",
+    );
+    assert!(summarized_gateway.starts_with("[composio:error:gateway]"));
+    assert!(summarized_gateway.contains("edge timeout"));
+
+    let raw_gateway = remap_transport_error("CUSTOM_ACTION", "502 Bad Gateway");
+    assert!(raw_gateway.contains("502 Bad Gateway"));
+
+    let rate_limited = format_provider_error("SLACK_FETCH_CONVERSATION_HISTORY", "429");
+    assert!(rate_limited.starts_with("[composio:error:rate_limited]"));
+    assert!(rate_limited.contains("not an OpenHuman gateway outage"));
+
+    let platform = format_provider_error("CUSTOM_ACTION", "token revoked");
+    assert!(platform.starts_with("[composio:error:composio_platform]"));
+
+    let validation_transport = remap_transport_error(
+        "GMAIL_SEND_EMAIL",
+        "Backend returned 502 Bad Gateway: missing required field `to`",
+    );
+    assert!(validation_transport.starts_with("[composio:error:validation]"));
 }
 
 #[test]
@@ -340,6 +383,24 @@ fn composio_action_tool_metadata_is_stable_without_network_execution() {
 }
 
 #[tokio::test]
+async fn composio_action_tool_execute_reports_factory_failures_without_network() {
+    let tool = ComposioActionTool::new(
+        Arc::new(Config::default()),
+        "GMAIL_SEND_EMAIL".into(),
+        "Send an email".into(),
+        None,
+    );
+
+    let result = tool
+        .execute(json!({ "subject": "missing recipient" }))
+        .await
+        .expect("local validation returns a tool result");
+    assert!(result.is_error);
+    let rendered = serde_json::to_string(&result).unwrap();
+    assert!(rendered.contains("no backend session token"));
+}
+
+#[tokio::test]
 async fn composio_client_and_dispatch_reject_invalid_inputs_before_network() {
     let inner = Arc::new(IntegrationClient::new(
         "http://127.0.0.1:0".into(),
@@ -415,6 +476,60 @@ async fn composio_client_and_dispatch_reject_invalid_inputs_before_network() {
     .unwrap_err();
     assert!(dispatch_validation.starts_with("[composio:error:"));
     assert!(dispatch_validation.contains("recipient"));
+
+    let backend_kind = ComposioClientKind::Backend(client.clone());
+    assert_eq!(backend_kind.mode(), "backend");
+    let kind_empty = execute_composio_action_kind(backend_kind, " ", None, "entity")
+        .await
+        .unwrap_err();
+    assert!(kind_empty.contains("tool slug must not be empty"));
+
+    let kind_validation = execute_composio_action_kind(
+        ComposioClientKind::Backend(client),
+        "GMAIL_SEND_EMAIL",
+        Some(json!({ "subject": "missing recipient" })),
+        "entity",
+    )
+    .await
+    .unwrap_err();
+    assert!(kind_validation.starts_with("[composio:error:"));
+    assert!(kind_validation.contains("recipient"));
+}
+
+#[test]
+fn composio_client_factory_modes_are_deterministic_without_network() {
+    let dir = tempdir().expect("tempdir");
+    let mut config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
+
+    config.composio.mode = String::new();
+    let backend_err = match create_composio_client(&config) {
+        Ok(_) => panic!("backend without a session should fail"),
+        Err(error) => error,
+    };
+    assert!(backend_err.to_string().contains("no backend session token"));
+
+    config.composio.mode = "direct".into();
+    let direct_err = match create_composio_client(&config) {
+        Ok(_) => panic!("direct mode without an api key should fail"),
+        Err(error) => error,
+    };
+    assert!(direct_err.to_string().contains("no api key is configured"));
+
+    config.composio.api_key = Some("  cmp_test_key  ".into());
+    let direct = create_composio_client(&config).expect("inline direct key builds a client");
+    assert_eq!(direct.mode(), "direct");
+    assert!(matches!(direct, ComposioClientKind::Direct(_)));
+
+    config.composio.mode = "typo".into();
+    let unknown = match create_composio_client(&config) {
+        Ok(_) => panic!("unknown composio mode should fail"),
+        Err(error) => error,
+    };
+    assert!(unknown.to_string().contains("unknown composio mode"));
 }
 
 #[tokio::test]
@@ -586,6 +701,38 @@ async fn composio_controller_handlers_reject_bad_params_before_network() {
     .await
     .expect_err("set api key requires non-empty key");
     assert!(bad_set_key.contains("'api_key' must not be empty"));
+
+    let bad_github_repos = composio_call(
+        composio_controller(&registered, "list_github_repos"),
+        json!({ "connection_id": 42 }),
+    )
+    .await
+    .expect_err("github repos connection id must be string");
+    assert!(bad_github_repos.contains("invalid params"));
+
+    let bad_history_limit = composio_call(
+        composio_controller(&registered, "list_trigger_history"),
+        json!({ "limit": "many" }),
+    )
+    .await
+    .expect_err("history limit must be numeric");
+    assert!(bad_history_limit.contains("invalid params"));
+
+    let bad_list_triggers = composio_call(
+        composio_controller(&registered, "list_triggers"),
+        json!({ "toolkit": 12 }),
+    )
+    .await
+    .expect_err("list triggers toolkit must be string");
+    assert!(bad_list_triggers.contains("invalid params"));
+
+    let missing_enable_slug = composio_call(
+        composio_controller(&registered, "enable_trigger"),
+        json!({ "connection_id": "conn-1", "slug": " " }),
+    )
+    .await
+    .expect_err("enable trigger rejects blank slug");
+    assert!(missing_enable_slug.contains("'slug' must not be empty"));
 }
 
 fn composio_controller<'a>(
@@ -890,6 +1037,23 @@ fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
         "connectionId": "c"
     }))
     .is_err());
+    for bad_id in [json!(null), json!(true), json!(123)] {
+        assert!(serde_json::from_value::<ComposioActiveTrigger>(json!({
+            "id": bad_id,
+            "slug": "x",
+            "toolkit": "gmail",
+            "connectionId": "c"
+        }))
+        .is_err());
+    }
+    let missing_nested_slug = serde_json::from_value::<ComposioActiveTrigger>(json!({
+        "id": "trigger-3",
+        "slug": { "unexpected": true },
+        "toolkit": "gmail",
+        "connectionId": "c"
+    }))
+    .expect_err("nested slug object needs a known string key");
+    assert!(missing_nested_slug.to_string().contains("slug/id/name/key"));
 
     let enable = ComposioEnableTriggerResponse {
         trigger_id: "trig-2".into(),
@@ -940,6 +1104,56 @@ fn composio_types_roundtrip_connection_tool_trigger_and_history_shapes() {
         payload: json!({ "subject": "coverage" }),
     };
     assert_eq!(serde_json::to_value(entry).unwrap()["received_at_ms"], 42);
+}
+
+#[test]
+fn composio_direct_public_types_deserialize_polymorphic_toolkits() {
+    let action: ComposioAction = serde_json::from_value(json!({
+        "name": "GMAIL_SEND_EMAIL",
+        "appName": "gmail",
+        "description": "Send email"
+    }))
+    .unwrap();
+    assert_eq!(action.name, "GMAIL_SEND_EMAIL");
+    assert_eq!(action.app_name.as_deref(), Some("gmail"));
+    assert!(!action.enabled);
+    assert_eq!(
+        serde_json::to_value(&action).unwrap()["appName"],
+        json!("gmail")
+    );
+
+    let plain: ComposioConnectedAccount = serde_json::from_value(json!({
+        "id": "acct-1",
+        "status": "ACTIVE",
+        "createdAt": "2026-05-29T00:00:00Z",
+        "toolkit": " gmail "
+    }))
+    .unwrap();
+    assert_eq!(plain.toolkit_slug().as_deref(), Some("gmail"));
+    assert_eq!(plain.created_at.as_deref(), Some("2026-05-29T00:00:00Z"));
+
+    let nested: ComposioConnectedAccount = serde_json::from_value(json!({
+        "id": "acct-2",
+        "toolkit": { "key": "slack" }
+    }))
+    .unwrap();
+    assert_eq!(nested.toolkit_slug().as_deref(), Some("slack"));
+
+    let fallback: ComposioConnectedAccount = serde_json::from_value(json!({
+        "id": "acct-3",
+        "toolkit": { "ignored": "value" },
+        "app_name": " notion "
+    }))
+    .unwrap();
+    assert_eq!(fallback.toolkit_slug().as_deref(), Some("notion"));
+
+    let missing: ComposioConnectedAccount = serde_json::from_value(json!({
+        "id": "acct-4",
+        "toolkit": ["bad"],
+        "appName": " "
+    }))
+    .unwrap();
+    assert_eq!(missing.toolkit_slug(), None);
 }
 
 #[test]

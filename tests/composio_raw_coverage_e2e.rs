@@ -12,6 +12,7 @@ use openhuman_core::core::all::RegisteredController;
 use openhuman_core::openhuman::composio::error_mapping::{
     classify_composio_error, format_provider_error, remap_transport_error, ComposioErrorClass,
 };
+use openhuman_core::openhuman::composio::execute_dispatch::execute_composio_action;
 use openhuman_core::openhuman::composio::execute_prepare::prepare_execute_arguments;
 use openhuman_core::openhuman::composio::oauth_handoff::{
     is_authorize_rate_limited, is_clearable_oauth_status, is_inflight_oauth_status,
@@ -39,10 +40,12 @@ use openhuman_core::openhuman::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
     cached_active_integrations, connected_set_hash, connection_identity,
     fetch_connected_integrations, fetch_connected_integrations_status,
-    invalidate_connected_integrations_cache, ComposioActionTool, FetchConnectedIntegrationsStatus,
+    invalidate_connected_integrations_cache, ComposioActionTool, ComposioClient,
+    FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
+use openhuman_core::openhuman::integrations::IntegrationClient;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory};
 
 #[test]
@@ -337,6 +340,84 @@ fn composio_action_tool_metadata_is_stable_without_network_execution() {
 }
 
 #[tokio::test]
+async fn composio_client_and_dispatch_reject_invalid_inputs_before_network() {
+    let inner = Arc::new(IntegrationClient::new(
+        "http://127.0.0.1:0".into(),
+        "test-token".into(),
+    ));
+    let client = ComposioClient::new(inner);
+    let clone = client.clone();
+    assert!(Arc::ptr_eq(client.inner(), clone.inner()));
+
+    let auth_empty = client.authorize("   ", None).await.unwrap_err();
+    assert!(auth_empty.to_string().contains("toolkit must not be empty"));
+    let auth_non_object = client
+        .authorize("whatsapp", Some(json!("waba-123")))
+        .await
+        .unwrap_err();
+    assert!(auth_non_object
+        .to_string()
+        .contains("extra_params must be a JSON object"));
+    let auth_reserved = client
+        .authorize("whatsapp", Some(json!({ "client_id": "bad" })))
+        .await
+        .unwrap_err();
+    assert!(auth_reserved
+        .to_string()
+        .contains("cannot override reserved key"));
+
+    let delete_empty = client.delete_connection(" ").await.unwrap_err();
+    assert!(delete_empty
+        .to_string()
+        .contains("connectionId must not be empty"));
+    let execute_empty = client.execute_tool("\t", None).await.unwrap_err();
+    assert!(execute_empty
+        .to_string()
+        .contains("tool slug must not be empty"));
+    let create_empty = client.create_trigger(" ", None, None).await.unwrap_err();
+    assert!(create_empty.to_string().contains("slug must not be empty"));
+    let available_empty = client
+        .list_available_triggers(" ", Some("conn-1"))
+        .await
+        .unwrap_err();
+    assert!(available_empty
+        .to_string()
+        .contains("toolkit must not be empty"));
+    let enable_missing_connection = client
+        .enable_trigger(" ", "GMAIL_NEW_GMAIL_MESSAGE", None)
+        .await
+        .unwrap_err();
+    assert!(enable_missing_connection
+        .to_string()
+        .contains("connectionId must not be empty"));
+    let enable_missing_slug = client
+        .enable_trigger("conn-1", " ", None)
+        .await
+        .unwrap_err();
+    assert!(enable_missing_slug
+        .to_string()
+        .contains("slug must not be empty"));
+    let disable_empty = client.disable_trigger("").await.unwrap_err();
+    assert!(disable_empty
+        .to_string()
+        .contains("triggerId must not be empty"));
+
+    let dispatch_empty = execute_composio_action(&client, " ", None)
+        .await
+        .unwrap_err();
+    assert!(dispatch_empty.contains("tool slug must not be empty"));
+    let dispatch_validation = execute_composio_action(
+        &client,
+        "GMAIL_SEND_EMAIL",
+        Some(json!({ "subject": "missing recipient" })),
+    )
+    .await
+    .unwrap_err();
+    assert!(dispatch_validation.starts_with("[composio:error:"));
+    assert!(dispatch_validation.contains("recipient"));
+}
+
+#[tokio::test]
 async fn composio_controller_registry_and_scope_handlers_cover_validation_edges() {
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();
@@ -383,6 +464,128 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     .await
     .expect_err("memory client not initialised");
     assert!(memory_missing.contains("memory client not initialised"));
+}
+
+#[test]
+fn composio_controller_schema_catalog_covers_all_declared_functions() {
+    let expected = [
+        ("list_toolkits", 0, "toolkits"),
+        ("list_capabilities", 0, "capabilities"),
+        ("list_agent_ready_toolkits", 0, "toolkits"),
+        ("list_connections", 0, "connections"),
+        ("authorize", 2, "connectUrl"),
+        ("delete_connection", 2, "deleted"),
+        ("list_tools", 2, "tools"),
+        ("execute", 2, "result"),
+        ("list_github_repos", 1, "result"),
+        ("create_trigger", 3, "result"),
+        ("get_user_profile", 1, "profile"),
+        ("refresh_all_identities", 0, "report"),
+        ("sync", 2, "outcome"),
+        ("list_trigger_history", 1, "result"),
+        ("get_user_scopes", 1, "pref"),
+        ("set_user_scopes", 4, "pref"),
+        ("list_available_triggers", 2, "triggers"),
+        ("list_triggers", 1, "triggers"),
+        ("enable_trigger", 3, "result"),
+        ("disable_trigger", 1, "deleted"),
+        ("get_mode", 0, "mode"),
+        ("set_api_key", 2, "result"),
+        ("clear_api_key", 0, "result"),
+    ];
+
+    for (function, input_count, first_output) in expected {
+        let schema = openhuman_core::openhuman::composio::schemas::schemas(function);
+        assert_eq!(schema.namespace, "composio");
+        assert_eq!(schema.function, function);
+        assert_eq!(schema.inputs.len(), input_count, "{function}");
+        assert_eq!(schema.outputs[0].name, first_output, "{function}");
+        assert!(!schema.description.is_empty());
+    }
+}
+
+#[tokio::test]
+async fn composio_controller_handlers_reject_bad_params_before_network() {
+    let registered = all_composio_registered_controllers();
+
+    let missing_authorize = composio_call(composio_controller(&registered, "authorize"), json!({}))
+        .await
+        .expect_err("authorize requires toolkit");
+    assert!(missing_authorize.contains("missing required param 'toolkit'"));
+
+    let blank_delete = composio_call(
+        composio_controller(&registered, "delete_connection"),
+        json!({ "connection_id": " " }),
+    )
+    .await
+    .expect_err("delete requires non-empty connection");
+    assert!(blank_delete.contains("'connection_id' must not be empty"));
+
+    let invalid_list_tools = composio_call(
+        composio_controller(&registered, "list_tools"),
+        json!({ "toolkits": "gmail" }),
+    )
+    .await
+    .expect_err("toolkits must be an array");
+    assert!(invalid_list_tools.contains("invalid 'toolkits'"));
+
+    let missing_execute = composio_call(composio_controller(&registered, "execute"), json!({}))
+        .await
+        .expect_err("execute requires tool");
+    assert!(missing_execute.contains("missing required param 'tool'"));
+
+    let blank_create = composio_call(
+        composio_controller(&registered, "create_trigger"),
+        json!({ "slug": " " }),
+    )
+    .await
+    .expect_err("create trigger rejects blank slug");
+    assert!(blank_create.contains("'slug' must not be empty"));
+
+    let missing_profile = composio_call(
+        composio_controller(&registered, "get_user_profile"),
+        json!({}),
+    )
+    .await
+    .expect_err("profile requires connection id");
+    assert!(missing_profile.contains("missing required param 'connection_id'"));
+
+    let missing_sync = composio_call(composio_controller(&registered, "sync"), json!({}))
+        .await
+        .expect_err("sync requires connection id");
+    assert!(missing_sync.contains("missing required param 'connection_id'"));
+
+    let blank_available = composio_call(
+        composio_controller(&registered, "list_available_triggers"),
+        json!({ "toolkit": " " }),
+    )
+    .await
+    .expect_err("available triggers rejects blank toolkit");
+    assert!(blank_available.contains("'toolkit' must not be empty"));
+
+    let missing_enable_connection = composio_call(
+        composio_controller(&registered, "enable_trigger"),
+        json!({ "connection_id": " ", "slug": "GMAIL_NEW_GMAIL_MESSAGE" }),
+    )
+    .await
+    .expect_err("enable trigger rejects blank connection");
+    assert!(missing_enable_connection.contains("'connection_id' must not be empty"));
+
+    let missing_disable = composio_call(
+        composio_controller(&registered, "disable_trigger"),
+        json!({}),
+    )
+    .await
+    .expect_err("disable trigger requires id");
+    assert!(missing_disable.contains("missing required param 'trigger_id'"));
+
+    let bad_set_key = composio_call(
+        composio_controller(&registered, "set_api_key"),
+        json!({ "api_key": "" }),
+    )
+    .await
+    .expect_err("set api key requires non-empty key");
+    assert!(bad_set_key.contains("'api_key' must not be empty"));
 }
 
 fn composio_controller<'a>(

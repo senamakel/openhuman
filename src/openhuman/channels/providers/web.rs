@@ -207,7 +207,7 @@ static THREAD_SESSIONS: Lazy<Mutex<HashMap<String, SessionEntry>>> =
 
 static IN_FLIGHT: Lazy<Mutex<HashMap<String, InFlightEntry>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-#[cfg(test)]
+#[cfg(any(test, debug_assertions))]
 static TEST_FORCED_RUN_CHAT_TASK_ERROR: Lazy<Mutex<Option<String>>> =
     Lazy::new(|| Mutex::new(None));
 /// Key for the per-thread runtime maps (`THREAD_SESSIONS`, `IN_FLIGHT`).
@@ -282,6 +282,10 @@ pub mod test_support {
     pub fn is_non_retryable_rate_limit_for_test(lower: &str) -> bool {
         super::is_non_retryable_rate_limit_text(lower)
     }
+
+    pub async fn set_forced_run_chat_task_error_for_test(message: Option<&str>) {
+        super::set_test_forced_run_chat_task_error(message).await;
+    }
 }
 
 fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
@@ -296,7 +300,7 @@ fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, debug_assertions))]
 pub(super) async fn set_test_forced_run_chat_task_error(message: Option<&str>) {
     let mut slot = TEST_FORCED_RUN_CHAT_TASK_ERROR.lock().await;
     *slot = message.map(str::to_string);
@@ -704,7 +708,7 @@ async fn run_chat_task(
     profile_id: Option<String>,
     locale: Option<String>,
 ) -> Result<WebChatTaskResult, String> {
-    #[cfg(test)]
+    #[cfg(any(test, debug_assertions))]
     {
         let mut slot = TEST_FORCED_RUN_CHAT_TASK_ERROR.lock().await;
         if let Some(forced) = slot.take() {

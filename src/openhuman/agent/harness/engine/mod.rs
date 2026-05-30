@@ -14,8 +14,12 @@
 //! timeout → scrub/tokenjuice/cap/summarize → audit), which was previously
 //! duplicated verbatim across all three loops.
 
+pub(crate) mod core;
 pub(crate) mod progress;
+pub(crate) mod tool_source;
 pub(crate) mod tools;
 
+pub(crate) use core::run_turn_engine;
 pub(crate) use progress::spawn_delta_forwarder;
+pub(crate) use tool_source::RegistryToolSource;
 pub(crate) use tools::{run_one_tool, ToolRunResult};

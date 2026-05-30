@@ -223,13 +223,17 @@ function AgentRow({
       </div>
 
       <div className="mt-2 flex items-center justify-end gap-1">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
-          <LuPencil className="h-3 w-3" />
-          {t('settings.agents.edit')}
-        </button>
+        {/* Built-in agents can't be edited — only custom agents expose Edit.
+            Built-ins keep the toggle (enable/disable) and Reset (clear override). */}
+        {isCustom && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+            <LuPencil className="h-3 w-3" />
+            {t('settings.agents.edit')}
+          </button>
+        )}
         <button
           type="button"
           disabled={busy}

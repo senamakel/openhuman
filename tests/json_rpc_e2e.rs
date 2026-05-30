@@ -1527,6 +1527,17 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
         first.get("description").and_then(Value::as_str).is_some(),
         "each tool should have a string description: {first}"
     );
+    // The catalog is the full built-in surface (wildcard agent), not the
+    // orchestrator's curated `named` subset — so a core read tool like
+    // `file_read`, which the orchestrator does not list directly, must appear.
+    let names: Vec<&str> = tools
+        .iter()
+        .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+        .collect();
+    assert!(
+        names.contains(&"file_read"),
+        "available_tools should expose the full catalog (file_read missing): {names:?}"
+    );
 
     rpc_join.abort();
 }

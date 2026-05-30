@@ -212,6 +212,20 @@ const AgentEditorPage = () => {
           <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
             {t('settings.agents.loadError')}: {loadError}
           </div>
+        ) : !isCreate && !isCustom ? (
+          // Built-in agents can't be edited; they may only be enabled/disabled
+          // or reset from the agents list.
+          <div className="space-y-3">
+            <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              {t('settings.agents.editor.builtInReadonly')}
+            </div>
+            <button
+              type="button"
+              onClick={backToList}
+              className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+              {t('common.back')}
+            </button>
+          </div>
         ) : (
           <div className="space-y-4 text-sm">
             {/* Name — editable only on create; read-only identity on edit. */}

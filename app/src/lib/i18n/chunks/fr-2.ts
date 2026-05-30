@@ -504,6 +504,8 @@ const fr2: TranslationMap = {
   'settings.agents.editor.toolsLoadError': 'Couldn’t load tools',
   'settings.agents.editor.toolsEmpty': 'No tools match your search.',
   'settings.agents.editor.toolsDone': 'Done',
+  'settings.agents.editor.builtInReadonly':
+    'Built-in agents can’t be edited. You can enable, disable, or reset them from the agents list.',
 };
 
 export default fr2;

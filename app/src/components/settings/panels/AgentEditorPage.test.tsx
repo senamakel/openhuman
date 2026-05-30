@@ -71,9 +71,7 @@ describe('AgentEditorPage', () => {
     renderAt('/settings/agents/new');
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Helper' } });
-    fireEvent.change(screen.getByLabelText('Description'), {
-      target: { value: 'Helps out.' },
-    });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Helps out.' } });
     // Model dropdown offers known tiers/hints.
     expect(screen.getByRole('option', { name: 'reasoning-v1' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hint:coding' } });
@@ -118,10 +116,19 @@ describe('AgentEditorPage', () => {
     expect(screen.getByDisplayValue('Crunches numbers.')).toBeInTheDocument();
     expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('reasoning-v1');
 
-    fireEvent.change(screen.getByLabelText('Description'), {
-      target: { value: 'Updated.' },
-    });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Updated.' } });
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('finance', expect.any(Object)));
+  });
+
+  it('shows a read-only notice for built-in agents instead of the form', async () => {
+    mockGet.mockResolvedValue(agent({ id: 'researcher', name: 'Researcher', source: 'default' }));
+    renderAt('/settings/agents/edit/researcher');
+
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('researcher'));
+    expect(screen.getByText(/Built-in agents can.t be edited/)).toBeInTheDocument();
+    // No editable form fields are rendered.
+    expect(screen.queryByLabelText('Description')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
   });
 });

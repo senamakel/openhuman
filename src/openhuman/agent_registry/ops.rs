@@ -11,6 +11,11 @@ use super::types::{AgentRegistryEntry, AgentRegistryPatch, AgentRegistrySource, 
 
 const ORCHESTRATOR_AGENT_ID: &str = "orchestrator";
 
+/// Wildcard agent whose tool surface is the complete built-in tool catalog.
+/// Used as the source for [`available_tools`] — the orchestrator's curated
+/// `named` list is only a subset, so it can't back a general tool picker.
+const TOOLS_CATALOG_AGENT_ID: &str = "tools_agent";
+
 pub async fn list_agents(include_disabled: bool) -> Result<Vec<AgentRegistryEntry>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
     Ok(merge_entries(
@@ -131,20 +136,23 @@ pub async fn remove_agent(id: &str) -> Result<bool, String> {
     Ok(removed)
 }
 
-/// List every agent tool visible to the orchestrator, with descriptions.
+/// List every assignable agent tool, with descriptions, for the editor's
+/// tool picker.
 ///
-/// Built from the orchestrator agent's `tool_specs()` — the same surface the
-/// MCP `core.list_tools` call uses — so the names returned here are exactly the
-/// identifiers `tool_allowlist` is matched against. Sorted by name for a stable
-/// picker UI.
+/// Built from the wildcard [`TOOLS_CATALOG_AGENT_ID`] agent's `tool_specs()`:
+/// its `ToolScope::Wildcard` definition resolves to the full built-in tool
+/// catalog, so the names returned here are exactly the identifiers a
+/// `tool_allowlist` is matched against. (The orchestrator uses a curated
+/// `named` subset, so it would yield an incomplete catalog.) Connected-
+/// integration / delegation tools are intentionally not fetched — the picker
+/// surfaces the stable built-in surface only. Sorted + deduped by name for a
+/// stable picker UI.
 pub async fn available_tools() -> Result<Vec<AgentToolInfo>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
     AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .map_err(|e| format!("failed to initialise AgentDefinitionRegistry: {e}"))?;
-    let mut agent = Agent::from_config_for_agent(&config, ORCHESTRATOR_AGENT_ID)
-        .map_err(|e| format!("failed to build orchestrator agent: {e}"))?;
-    agent.fetch_connected_integrations().await;
-    let _ = agent.refresh_delegation_tools();
+    let agent = Agent::from_config_for_agent(&config, TOOLS_CATALOG_AGENT_ID)
+        .map_err(|e| format!("failed to build tools-catalog agent: {e}"))?;
 
     let mut tools: Vec<AgentToolInfo> = agent
         .tool_specs()

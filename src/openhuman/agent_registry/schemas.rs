@@ -83,7 +83,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "available_tools" => ControllerSchema {
             namespace: NAMESPACE,
             function: "available_tools",
-            description: "List every agent tool visible to the orchestrator, with descriptions, for the agent editor's tool picker.",
+            description: "List every assignable agent tool (the full built-in tool catalog), with descriptions, for the agent editor's tool picker.",
             inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "tools",

@@ -97,11 +97,15 @@ describe('AgentsPanel', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings/agents/new');
   });
 
-  it('navigates to the edit page for an agent', async () => {
+  it('only offers Edit for custom agents and navigates to the edit page', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText('Finance')).toBeInTheDocument());
-    fireEvent.click(screen.getAllByRole('button', { name: /Edit/ })[0]);
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/agents/edit/orchestrator');
+    // Two built-ins (orchestrator, researcher) + one custom (finance) — only the
+    // custom agent exposes an Edit button.
+    const editButtons = screen.getAllByRole('button', { name: /Edit/ });
+    expect(editButtons).toHaveLength(1);
+    fireEvent.click(editButtons[0]);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/agents/edit/finance');
   });
 
   it('shows an error when loading fails', async () => {

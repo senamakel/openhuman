@@ -266,7 +266,7 @@ mod tests {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         let mut child = backend.spawn(&jail, cmd).expect("spawn");
-        let _status = child.wait().expect("wait");
+        let status = child.wait().expect("wait");
 
         // If the touch succeeded (file exists), seatbelt enforcement is not
         // available in this environment (e.g. the process is already running
@@ -282,6 +282,12 @@ mod tests {
             );
             return;
         }
+        // Enforced path: the write was actually blocked, so `touch` must have
+        // exited non-zero.
+        assert!(
+            !status.success(),
+            "touch outside jail should fail when seatbelt is enforcing"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 }

@@ -13,8 +13,6 @@ permissions:
 
 env:
   NPM_CONFIG_STORE_DIR: .pnpm-store
-  SCCACHE_CACHE_SIZE: 2G
-  SCCACHE_DIR: .sccache
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
@@ -77,7 +75,6 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -92,33 +89,17 @@ jobs:
           workspaces: |
             . -> target
           cache-on-failure: true
-          key: pr-rust-quality-core
-
-      - name: Restore sccache compiler cache
-        id: sccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .sccache
-          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
-            sccache-${{ runner.os }}-${{ github.job }}-
-
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+          # shared-key (not key) so the cache name is stable and not suffixed
+          # with the job id. Swatinem caches the full target/, which is why we
+          # no longer layer sccache on top (it logged 0% hits under a warm
+          # rust-cache and just doubled the cache footprint).
+          shared-key: pr-rust-quality
 
       - name: Check Rust formatting
         run: bash scripts/ci-cancel-aware.sh cargo fmt --all -- --check
 
       - name: Run clippy (core crate)
         run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman
-
-      - name: Save sccache compiler cache
-        if: always()
-        uses: actions/cache/save@v5
-        with:
-          path: .sccache
-          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
 
   build-playwright-e2e-artifact:
     name: Build Playwright E2E Artifact
@@ -128,7 +109,6 @@ jobs:
     timeout-minutes: 45
     env:
       CARGO_INCREMENTAL: "0"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -151,23 +131,10 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Donor for the shared core build cache (pr-rust-core-v2): this lane
-          # compiles the openhuman crate in full, so rust-e2e and core coverage
-          # restore a warm tree instead of each rebuilding it.
-          key: pr-rust-core-v2
-
-      - name: Restore sccache compiler cache
-        id: sccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .sccache
-          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
-            sccache-${{ runner.os }}-${{ github.job }}-
-
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+          # Shared with rust-e2e (same image + env): both compile the openhuman
+          # crate's non-instrumented dependency tree, so one cache entry serves
+          # both instead of two ~1GB copies competing for the repo cache budget.
+          shared-key: pr-rust-core
 
       - name: Restore cached Playwright E2E artifact
         id: playwright-artifact-cache
@@ -222,13 +189,6 @@ jobs:
         with:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
           key: ${{ steps.playwright-artifact-cache.outputs.cache-primary-key }}
-
-      - name: Save sccache compiler cache
-        if: always() && steps.playwright-artifact-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: .sccache
-          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
 
       - name: Upload Playwright E2E artifact
         uses: actions/upload-artifact@v5
@@ -312,11 +272,11 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Shared core build cache: the playwright/core builders compile the
-          # openhuman crate's full dependency tree here; coverage restores it and
-          # only re-instruments the workspace crates (deps are never instrumented),
-          # so the bulk of the compile is reused rather than rebuilt per job.
-          key: pr-rust-core-v2
+          # Coverage uses instrumented builds (-C instrument-coverage), whose
+          # rustflags hash to a different Swatinem key than the plain builds, so
+          # it gets its own cache and cannot reuse pr-rust-core. It still reuses
+          # the (non-instrumented) dependency tree run-over-run.
+          shared-key: pr-rust-core-cov
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -356,10 +316,9 @@ jobs:
             . -> target
             app/src-tauri -> target
           cache-on-failure: true
-          # Tauri build cache: this lane compiles the shell once and reuses its
-          # own warm dependency tree across runs (only re-instrumenting the
-          # workspace crates each time).
-          key: pr-rust-tauri-v2
+          # Tauri shell coverage (instrumented) — its own stable cache; reuses
+          # its warm dependency tree run-over-run.
+          shared-key: pr-rust-tauri-cov
 
       - name: Cache CEF binary distribution
         id: cef-cache
@@ -404,8 +363,6 @@ jobs:
     timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: "0"
-      RUST_BACKTRACE: "1"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -428,22 +385,9 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Shared core build cache (see pr-rust-core-v2): reuse the warm
-          # openhuman dependency/build tree instead of recompiling from scratch.
-          key: pr-rust-core-v2
-
-      - name: Restore sccache compiler cache
-        id: sccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .sccache
-          key: sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            sccache-${{ runner.os }}-${{ github.job }}-${{ hashFiles('Cargo.lock', 'app/src-tauri/Cargo.lock', 'rust-toolchain.toml') }}-
-            sccache-${{ runner.os }}-${{ github.job }}-
-
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+          # Shared with build-playwright (same image + env): one non-instrumented
+          # core cache serves both lanes instead of two competing copies.
+          shared-key: pr-rust-core
 
       - name: Install dependencies
         run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
@@ -462,13 +406,8 @@ jobs:
 
       - name: Run Rust E2E suite
         run: bash scripts/ci-cancel-aware.sh pnpm test:rust:e2e
-
-      - name: Save sccache compiler cache
-        if: always()
-        uses: actions/cache/save@v5
-        with:
-          path: .sccache
-          key: ${{ steps.sccache-cache.outputs.cache-primary-key }}
+        env:
+          RUST_BACKTRACE: "1"
 
   playwright-e2e:
     name: E2E (Playwright / web lane)

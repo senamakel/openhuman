@@ -55,7 +55,10 @@ use openhuman_core::openhuman::composio::{
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::integrations::IntegrationClient;
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory};
+use openhuman_core::openhuman::security::SecurityPolicy;
+use openhuman_core::openhuman::tools::{
+    ComposioTool, PermissionLevel, Tool, ToolCallOptions, ToolCategory,
+};
 
 #[test]
 fn composio_prepare_execute_arguments_normalizes_calendar_and_notion_payloads() {
@@ -1238,6 +1241,16 @@ async fn composio_backend_client_methods_build_requests_and_parse_local_envelope
     assert!(execute.successful);
     assert_eq!(execute.data["id"], "msg-1");
 
+    let dispatched = execute_composio_action(
+        &client,
+        "GMAIL_SEND_EMAIL",
+        Some(json!({ "to": "p@example.test", "subject": "hello" })),
+    )
+    .await
+    .expect("dispatch uses auth-retry wrapper and local backend");
+    assert!(dispatched.successful);
+    assert_eq!(dispatched.data["id"], "msg-1");
+
     let execute_error = client
         .execute_tool(
             "GMAIL_FETCH_EMAILS",
@@ -1247,6 +1260,20 @@ async fn composio_backend_client_methods_build_requests_and_parse_local_envelope
         .expect("execute provider failure envelope");
     assert!(!execute_error.successful);
     assert!(execute_error
+        .error
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("[composio:error:insufficient_scope]"));
+
+    let dispatched_error = execute_composio_action(
+        &client,
+        "GMAIL_FETCH_EMAILS",
+        Some(json!({ "query": "newer_than:1d" })),
+    )
+    .await
+    .expect("provider failures stay in response envelope");
+    assert!(!dispatched_error.successful);
+    assert!(dispatched_error
         .error
         .as_deref()
         .unwrap_or_default()
@@ -1347,6 +1374,64 @@ async fn composio_backend_client_methods_build_requests_and_parse_local_envelope
         .await
         .expect_err("delete success needs data");
     assert!(delete_no_data.to_string().contains("success but no data"));
+}
+
+#[tokio::test]
+async fn composio_direct_tool_public_surface_handles_local_metadata_and_errors() {
+    let tool = ComposioTool::new(
+        "  direct-api-key  ",
+        Some("  entity-123  "),
+        Arc::new(SecurityPolicy::default()),
+    );
+
+    assert_eq!(tool.name(), "composio");
+    assert!(tool.description().contains("1000+ apps"));
+    assert_eq!(tool.category(), ToolCategory::Skill);
+    assert!(tool.external_effect());
+    assert!(!tool.external_effect_with_args(&json!({ "action": "list" })));
+    assert!(!tool.external_effect_with_args(&json!({ "action": "connect" })));
+    assert!(tool.external_effect_with_args(&json!({ "action": "execute" })));
+    assert!(tool.external_effect_with_args(&json!({})));
+    assert_eq!(
+        tool.parameters_schema().pointer("/required/0"),
+        Some(&json!("action"))
+    );
+    assert_eq!(
+        tool.parameters_schema()
+            .pointer("/properties/action/enum/2"),
+        Some(&json!("connect"))
+    );
+
+    let missing_action = tool
+        .execute(json!({}))
+        .await
+        .expect_err("missing action is a local validation error");
+    assert!(missing_action.to_string().contains("Missing 'action'"));
+
+    let unknown = tool
+        .execute(json!({ "action": "inspect" }))
+        .await
+        .expect("unknown action is rendered as a tool error");
+    assert!(unknown.is_error);
+    assert!(serde_json::to_string(&unknown)
+        .unwrap()
+        .contains("Unknown action 'inspect'"));
+
+    let missing_execute_name = tool
+        .execute(json!({ "action": "execute", "params": { "q": "test" } }))
+        .await
+        .expect_err("execute needs action_name or tool_slug before network");
+    assert!(missing_execute_name
+        .to_string()
+        .contains("Missing 'action_name'"));
+
+    let missing_connect_target = tool
+        .execute(json!({ "action": "connect" }))
+        .await
+        .expect_err("connect needs app or auth config before network");
+    assert!(missing_connect_target
+        .to_string()
+        .contains("Missing 'app' or 'auth_config_id'"));
 }
 
 #[test]

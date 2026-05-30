@@ -20,6 +20,7 @@ use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::tree_policy::TreePolicy;
 use openhuman_core::openhuman::memory::tree_source;
 use openhuman_core::openhuman::memory::{
+    read_rpc as memory_read_rpc,
     rpc_models::{
         ApiEnvelope, ApiError, ApiMeta, AppendConversationMessageRequest,
         ConversationMessageRecord, ConversationMessagesRequest, CreateConversationThreadRequest,
@@ -81,12 +82,17 @@ use openhuman_core::openhuman::memory_sync::sync_status::{
 use openhuman_core::openhuman::memory_tree::score::extract::{
     EntityKind, ExtractedEntities, ExtractedEntity, ExtractedTopic,
 };
+use openhuman_core::openhuman::memory_tree::score::resolver::CanonicalEntity;
 use openhuman_core::openhuman::memory_tree::score::signals::{
     combine, combine_cheap_only, compute as compute_score_signals, entity_density_score,
     interaction, metadata_weight, source_weight, token_count, unique_words, ScoreSignals,
     SignalWeights,
 };
+use openhuman_core::openhuman::memory_tree::score::store as score_store;
 use openhuman_core::openhuman::memory_tree::score::{resolver, ScoringConfig};
+use openhuman_core::openhuman::memory_tree::summarise::{
+    fallback_summary, SummaryContext, SummaryInput,
+};
 use openhuman_core::openhuman::memory_tree::tree_runtime::store as tree_runtime_store;
 use openhuman_core::openhuman::memory_tree::tree_runtime::{
     all_tree_summarizer_controller_schemas, all_tree_summarizer_registered_controllers,
@@ -1313,6 +1319,209 @@ fn memory_tree_runtime_store_buffers_and_retrieval_wire_helpers() {
         tree_runtime_store::delete_tree(&config, namespace).unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn memory_read_rpc_score_index_and_summary_helpers_cover_dashboard_paths() {
+    let tmp = TempDir::new().expect("tempdir");
+    let mut config = config_in(&tmp);
+    config.config_path = tmp.path().join("config.toml");
+    config.embeddings_provider = Some("none".into());
+
+    let now = Utc.with_ymd_and_hms(2026, 5, 29, 14, 0, 0).unwrap();
+    let mut gmail = chunk(
+        "gmail:alice@example.com|bob@example.com",
+        0,
+        now.timestamp_millis(),
+    );
+    gmail.id = "read-rpc-gmail-1".into();
+    gmail.content =
+        "Alice and Bob discussed coverage, entity indexing, and dashboard recall.".into();
+    gmail.token_count = approx_token_count(&gmail.content);
+    gmail.metadata.source_kind = ChunkSourceKind::Email;
+    gmail.metadata.tags = vec!["sent".into(), "provider:gmail".into()];
+    let mut slack = chunk("slack:#eng", 1, now.timestamp_millis() - 60_000);
+    slack.id = "read-rpc-slack-1".into();
+    slack.content = "Engineering channel mentioned coverage dashboards.".into();
+    slack.token_count = approx_token_count(&slack.content);
+    slack.metadata.source_kind = ChunkSourceKind::Chat;
+    slack.metadata.tags = vec!["reply".into(), "provider:slack".into()];
+    upsert_chunks(&config, &[gmail.clone(), slack.clone()]).expect("upsert read rpc chunks");
+    with_connection(&config, |conn| {
+        conn.execute(
+            "UPDATE mem_tree_chunks SET embedding = X'00010203', tags_json = ?2 WHERE id = ?1",
+            (&gmail.id, json!(["sent", "provider:gmail"]).to_string()),
+        )?;
+        Ok(())
+    })
+    .expect("mark embedded and tags");
+
+    let entity = CanonicalEntity {
+        canonical_id: "email:bob@example.com".into(),
+        kind: EntityKind::Email,
+        surface: "bob@example.com".into(),
+        span_start: 0,
+        span_end: 15,
+        score: 0.9,
+    };
+    score_store::index_entity(
+        &config,
+        &entity,
+        &gmail.id,
+        "leaf",
+        now.timestamp_millis(),
+        None,
+    )
+    .expect("index entity");
+    assert_eq!(
+        score_store::index_entities(&config, &[], "unused", "leaf", now.timestamp_millis(), None)
+            .expect("empty index"),
+        0
+    );
+    let score_row = score_store::ScoreRow {
+        chunk_id: gmail.id.clone(),
+        total: 0.82,
+        signals: ScoreSignals {
+            token_count: 1.0,
+            unique_words: 0.8,
+            metadata_weight: 0.7,
+            source_weight: 0.75,
+            interaction: 0.5,
+            entity_density: 0.4,
+            llm_importance: 0.6,
+        },
+        dropped: false,
+        reason: Some("kept for coverage".into()),
+        computed_at_ms: now.timestamp_millis(),
+        llm_importance_reason: Some("explicit project signal".into()),
+    };
+    score_store::upsert_score(&config, &score_row).expect("upsert score");
+    assert_eq!(score_store::count_scores(&config).unwrap(), 1);
+    assert_eq!(score_store::count_entity_index(&config).unwrap(), 1);
+    assert_eq!(
+        score_store::list_entity_ids_for_node(&config, &gmail.id).unwrap(),
+        vec!["email:bob@example.com".to_string()]
+    );
+    assert_eq!(
+        score_store::lookup_entity(&config, "email:bob@example.com", Some(10)).unwrap()[0].node_id,
+        gmail.id
+    );
+
+    let listed = memory_read_rpc::list_chunks_rpc(
+        &config,
+        memory_read_rpc::ChunkFilter {
+            source_kinds: Some(vec!["email".into()]),
+            entity_ids: Some(vec!["email:bob@example.com".into()]),
+            query: Some("coverage".into()),
+            limit: Some(10),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("list chunks")
+    .value;
+    assert_eq!(listed.total, 1);
+    assert_eq!(listed.chunks[0].id, gmail.id);
+    assert!(listed.chunks[0].has_embedding);
+    assert_eq!(listed.chunks[0].tags, vec!["sent", "provider:gmail"]);
+
+    let sources = memory_read_rpc::list_sources_rpc(&config, Some("alice@example.com".into()))
+        .await
+        .expect("list sources")
+        .value;
+    let gmail_source = sources
+        .iter()
+        .find(|source| source.source_id == "gmail:alice@example.com|bob@example.com")
+        .expect("gmail source");
+    assert_eq!(gmail_source.display_name, "bob@example.com");
+
+    let search = memory_read_rpc::search_rpc(&config, "dashboards".into(), 5)
+        .await
+        .expect("search")
+        .value;
+    assert_eq!(search.len(), 1);
+    assert_eq!(search[0].source_id, "slack:#eng");
+
+    let indexed = memory_read_rpc::entity_index_for_rpc(&config, gmail.id.clone())
+        .await
+        .expect("entity index")
+        .value;
+    assert_eq!(indexed[0].entity_id, "email:bob@example.com");
+    let chunk_ids = memory_read_rpc::chunks_for_entity_rpc(&config, "email:bob@example.com".into())
+        .await
+        .expect("chunks for entity")
+        .value;
+    assert_eq!(chunk_ids, vec![gmail.id.clone()]);
+    let top_entities = memory_read_rpc::top_entities_rpc(&config, Some("email".into()), 3)
+        .await
+        .expect("top entities")
+        .value;
+    assert_eq!(top_entities[0].surface, "bob@example.com");
+
+    let breakdown = memory_read_rpc::chunk_score_rpc(&config, gmail.id.clone())
+        .await
+        .expect("chunk score")
+        .value
+        .expect("score breakdown");
+    assert!(breakdown.kept);
+    assert!(breakdown.llm_consulted);
+    assert!(breakdown
+        .signals
+        .iter()
+        .any(|signal| signal.name == "llm_importance" && signal.weight == 2.0));
+    assert!(memory_read_rpc::chunk_score_rpc(&config, "missing".into())
+        .await
+        .expect("missing chunk score")
+        .value
+        .is_none());
+
+    let missing_delete = memory_read_rpc::delete_chunk_rpc(&config, "missing".into())
+        .await
+        .expect("delete missing")
+        .value;
+    assert!(!missing_delete.deleted);
+    let deleted = memory_read_rpc::delete_chunk_rpc(&config, gmail.id.clone())
+        .await
+        .expect("delete chunk")
+        .value;
+    assert!(deleted.deleted);
+    assert_eq!(deleted.score_rows_removed, 1);
+    assert_eq!(deleted.entity_index_rows_removed, 1);
+    assert_eq!(score_store::count_scores(&config).unwrap(), 0);
+    assert_eq!(score_store::count_entity_index(&config).unwrap(), 0);
+
+    let summary_input = SummaryInput {
+        id: "input-1".into(),
+        content: "  The team shipped deterministic coverage tests.  ".into(),
+        token_count: 12,
+        entities: vec!["email:bob@example.com".into()],
+        topics: vec!["coverage".into()],
+        time_range_start: now,
+        time_range_end: now,
+        score: 0.9,
+    };
+    let fallback = fallback_summary(&[summary_input.clone()], 4);
+    assert!(fallback.content.starts_with("— The"));
+    assert!(fallback.token_count <= 4);
+    assert!(fallback.entities.is_empty());
+    let empty_ctx = SummaryContext {
+        tree_id: "tree-empty",
+        tree_kind: TreeKind::Global,
+        target_level: 1,
+        token_budget: 100,
+    };
+    let empty =
+        openhuman_core::openhuman::memory_tree::summarise::summarise(&config, &[], &empty_ctx)
+            .await
+            .expect("empty summarise avoids provider");
+    assert_eq!(empty.token_count, 0);
+
+    let embedder =
+        openhuman_core::openhuman::memory_tree::score::embed::factory::build_embedder_from_config(
+            &config,
+        )
+        .expect("inert embedder");
+    assert_eq!(embedder.name(), "inert");
 }
 
 #[test]

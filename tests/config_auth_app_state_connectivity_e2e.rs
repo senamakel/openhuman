@@ -42,10 +42,10 @@ use openhuman_core::openhuman::config::settings_cli::{
     settings_section_json, ConfigSnapshotFields,
 };
 use openhuman_core::openhuman::config::{
-    clear_active_user, output_language_directive, pre_login_user_dir, read_active_user_id,
-    user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig, Config, DaemonConfig,
-    DelegateAgentConfig, DictationActivationMode, LlmBackend, ReflectionSource, TeamModelConfig,
-    UpdateRestartStrategy,
+    clear_active_user, default_projects_dir, output_language_directive, pre_login_user_dir,
+    read_active_user_id, user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig,
+    Config, DaemonConfig, DelegateAgentConfig, DictationActivationMode, LlmBackend,
+    ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
 use openhuman_core::openhuman::connectivity::{
     all_connectivity_controller_schemas, all_connectivity_registered_controllers,
@@ -1776,6 +1776,60 @@ encrypt = false
 }
 
 #[tokio::test]
+async fn config_default_path_loader_ignores_workspace_override_and_projects_dir_trims() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path().join("home");
+    let root = home.join(".openhuman");
+    let user_dir = root.join("users").join("default-loader-user");
+    let workspace_override = tmp.path().join("workspace-override");
+    let _guards = vec![
+        EnvVarGuard::set_to_path("HOME", &home),
+        EnvVarGuard::unset(APP_ENV_VAR),
+        EnvVarGuard::unset(VITE_APP_ENV_VAR),
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace_override),
+        EnvVarGuard::set("OPENHUMAN_MODEL", " default-loader-model "),
+    ];
+
+    let missing = Config::load_from_default_paths()
+        .await
+        .expect("load default paths without an existing config");
+    assert_eq!(
+        missing.config_path,
+        root.join("users").join("local").join("config.toml")
+    );
+    assert_eq!(missing.workspace_dir, workspace_override.join("workspace"));
+    assert_eq!(
+        missing.default_model.as_deref(),
+        Some("default-loader-model")
+    );
+
+    write_active_user_id(&root, "default-loader-user").expect("write active user");
+    write_min_config(&user_dir);
+    write_min_config(&workspace_override);
+    let loaded = Config::load_from_default_paths()
+        .await
+        .expect("load default active-user config while workspace override is set");
+    assert_eq!(loaded.config_path, user_dir.join("config.toml"));
+    assert_eq!(loaded.workspace_dir, workspace_override.join("workspace"));
+    assert_eq!(
+        loaded.default_model.as_deref(),
+        Some("default-loader-model")
+    );
+
+    let custom_projects = tmp.path().join("OpenHuman Projects");
+    {
+        let _projects_guard = EnvVarGuard::set_to_path("OPENHUMAN_PROJECTS_DIR", &custom_projects);
+        assert_eq!(default_projects_dir(), custom_projects);
+    }
+    let _blank_projects_guard = EnvVarGuard::set("OPENHUMAN_PROJECTS_DIR", "   ");
+    assert_eq!(
+        default_projects_dir(),
+        home.join("OpenHuman").join("projects")
+    );
+}
+
+#[tokio::test]
 async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     let _lock = env_lock();
     let tmp = tempdir().expect("tempdir");
@@ -3217,6 +3271,107 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
     assert_error_contains(
         &rpc(
             &harness.rpc_base,
+            11_024,
+            "openhuman.config_update_search_settings",
+            json!({ "timeout_secs": 0 }),
+        )
+        .await,
+        "update_search_settings invalid timeout_secs",
+        "timeout_secs must be between",
+    );
+    let valid_search = rpc(
+        &harness.rpc_base,
+        11_025,
+        "openhuman.config_update_search_settings",
+        json!({
+            "engine": " brave ",
+            "max_results": 12,
+            "timeout_secs": 42,
+            "parallel_api_key": " parallel-rpc-key ",
+            "brave_api_key": " brave-rpc-key ",
+            "querit_api_key": " querit-rpc-key ",
+            "allowed_domains": [" example.com ", "", "example.com", "docs.example.com"],
+            "allow_all": false
+        }),
+    )
+    .await;
+    let valid_search_payload = payload(&valid_search, "update_search_settings valid");
+    assert_eq!(
+        valid_search_payload.pointer("/config/search/engine"),
+        Some(&json!("brave"))
+    );
+    assert_eq!(
+        valid_search_payload.pointer("/config/search/max_results"),
+        Some(&json!(12))
+    );
+    assert_eq!(
+        valid_search_payload.pointer("/config/search/timeout_secs"),
+        Some(&json!(42))
+    );
+    let search_readback = rpc(
+        &harness.rpc_base,
+        11_026,
+        "openhuman.config_get_search_settings",
+        json!({}),
+    )
+    .await;
+    let search_payload = payload(&search_readback, "get_search_settings after valid update");
+    assert_eq!(
+        search_payload.get("engine").and_then(Value::as_str),
+        Some("brave")
+    );
+    assert_eq!(
+        search_payload
+            .get("effective_engine")
+            .and_then(Value::as_str),
+        Some("brave")
+    );
+    assert_eq!(
+        search_payload
+            .get("parallel_configured")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        search_payload
+            .get("brave_configured")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        search_payload
+            .get("querit_configured")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        search_payload.get("allow_all").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        search_payload.get("allowed_domains"),
+        Some(&json!(["docs.example.com", "example.com"]))
+    );
+    let allow_all_search = rpc(
+        &harness.rpc_base,
+        11_027,
+        "openhuman.config_update_search_settings",
+        json!({
+            "parallel_api_key": " ",
+            "brave_api_key": " ",
+            "querit_api_key": " ",
+            "allow_all": true
+        }),
+    )
+    .await;
+    let allow_all_payload = payload(&allow_all_search, "update_search_settings allow_all");
+    assert_eq!(
+        allow_all_payload.pointer("/config/http_request/allowed_domains"),
+        Some(&json!(["*"]))
+    );
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
             11_017,
             "openhuman.config_update_autonomy_settings",
             json!({ "level": "reckless" }),
@@ -3345,6 +3500,39 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
     );
 
     harness.join.abort();
+}
+
+#[tokio::test]
+async fn config_auto_approve_public_helper_persists_once_and_is_idempotent() {
+    let _lock = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path().join("home");
+    let _guards = vec![
+        EnvVarGuard::set_to_path("HOME", &home),
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::unset(APP_ENV_VAR),
+        EnvVarGuard::unset(VITE_APP_ENV_VAR),
+    ];
+
+    openhuman_core::openhuman::config::add_auto_approve_tool("tool.config.round10")
+        .await
+        .expect("add auto approve tool");
+    openhuman_core::openhuman::config::add_auto_approve_tool("tool.config.round10")
+        .await
+        .expect("idempotent auto approve tool");
+
+    let loaded = Config::load_or_init()
+        .await
+        .expect("load config after auto approve helper");
+    assert_eq!(
+        loaded
+            .autonomy
+            .auto_approve
+            .iter()
+            .filter(|tool| tool.as_str() == "tool.config.round10")
+            .count(),
+        1
+    );
 }
 
 #[tokio::test]

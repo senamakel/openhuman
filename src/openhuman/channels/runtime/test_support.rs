@@ -1,6 +1,9 @@
 //! Debug-build harnesses for raw integration coverage of the channel runtime.
 
 use super::dispatch::process_channel_message;
+pub use super::dispatch::test_support::{
+    build_channel_context_block_for_test, select_acknowledgment_reaction_for_test,
+};
 pub use super::startup::test_support::resolve_yuanbao_app_secret_for_test;
 use crate::core::event_bus::{init_global, register_native_global, DEFAULT_CAPACITY};
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};

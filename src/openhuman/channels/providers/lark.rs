@@ -874,9 +874,13 @@ fn strip_at_placeholders(text: &str) -> String {
         if ch == '@' {
             let rest: String = chars.clone().map(|(_, c)| c).collect();
             if let Some(after) = rest.strip_prefix("_user_") {
-                let skip =
-                    "_user_".len() + after.chars().take_while(|c| c.is_ascii_digit()).count();
-                for _ in 0..=skip {
+                let digit_count = after.chars().take_while(|c| c.is_ascii_digit()).count();
+                if digit_count == 0 {
+                    result.push(ch);
+                    continue;
+                }
+                let skip = "_user_".len() + digit_count;
+                for _ in 0..skip {
                     chars.next();
                 }
                 if chars.peek().map(|(_, c)| *c == ' ').unwrap_or(false) {
